@@ -1,0 +1,6 @@
+std = "roblox"
+exclude = ["src/server/Vendor/**", "Packages/**", "build/**"]
+
+[lints]
+# Trove/Signal-style method chains are idiomatic; keep defaults otherwise.
+mixed_table = "allow"

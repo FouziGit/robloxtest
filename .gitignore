@@ -1,35 +1,22 @@
-# Roblox Studio
+# Wally
+Packages/
+ServerPackages/
+DevPackages/
+
+# Build outputs
+build/
 *.rbxl
 *.rbxlx
-*.lock
-.temp/
+*.rbxm
+*.rbxmx
+sourcemap.json
 
-# Node / npm
-node_modules/
-package-lock.json
-yarn.lock
+# luau-lsp Roblox type definitions (downloaded by scripts/setup.sh)
+globalTypes.d.luau
 
-# Outils de dev
+# Editors / OS
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-
-# Local environment
-.env
-.env.local
 *.swp
-
-# Scratchpad / temporaire
-/scratchpad/
-*.backup

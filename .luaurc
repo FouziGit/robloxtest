@@ -1,0 +1,11 @@
+{
+	"languageMode": "strict",
+	"lint": {
+		"*": true
+	},
+	"lintErrors": false,
+	"aliases": {
+		"shared": "src/shared",
+		"pure": "src/shared/Pure"
+	}
+}

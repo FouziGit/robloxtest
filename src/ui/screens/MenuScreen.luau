@@ -158,6 +158,7 @@ function MenuScreen.new(deps: Deps): Screen
 		self.Visible = true
 		refresh()
 		root.Instance.Enabled = true
+		panel:FocusForGamepad(settingsButton.Instance)
 		deps.SoundController.play("UiOpen")
 	end
 
@@ -166,6 +167,7 @@ function MenuScreen.new(deps: Deps): Screen
 			return
 		end
 		self.Visible = false
+		panel:ReleaseGamepadFocus()
 		root.Instance.Enabled = false
 		deps.SoundController.play("UiClose")
 	end

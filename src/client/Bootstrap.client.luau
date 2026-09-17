@@ -1,6 +1,18 @@
 --!strict
--- Client entry point. Requires every controller, then Init(deps) and Start() each one in dependency
--- order (docs/ARCHITECTURE.md). A failing controller is logged and never blocks the others.
+-- Client entry point (docs/ARCHITECTURE.md). A failing controller is logged and never blocks the others.
+--
+-- Bootstrap contract: three separate passes over ORDER, never one interleaved chain.
+--   1. Require every controller module. `deps` is therefore complete, and whatever a module builds at
+--      load time -- its Signals, its default state table -- exists for every controller, before any
+--      Init runs.
+--   2. Init(deps) for each one. Init may reference any controller module whatever its rank in ORDER
+--      (pass 1 guarantees it is there) and store it. It must not depend on another Init having run.
+--   3. Start() for each one. Start may connect to any controller's Signal and call any accessor that
+--      only reads load-time state, for any rank, since pass 1 guarantees both. It may only drive
+--      behaviour that another controller's Start installs -- remote handlers, input bindings, built
+--      widgets -- when that controller is listed earlier in ORDER.
+-- ORDER is thus the order in which Start-installed behaviour becomes available. It does not restrict
+-- which modules an Init may look at, so adding a controller dependency needs no reordering.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -11,7 +23,7 @@ local RemoteClient = require(script.Parent.RemoteClient)
 
 local log = Log.new("ClientBootstrap")
 
--- Init and Start order: each controller only depends on controllers listed before it.
+-- Order in which Start-installed behaviour becomes available (see the contract above).
 local ORDER = {
 	"ClientData",
 	"Localize",

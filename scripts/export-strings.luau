@@ -22,17 +22,14 @@ for _, key in ipairs(Strings.keys()) do
 	local entry = Strings.Table[key]
 	table.insert(
 		lines,
-		table.concat(
-			{
-				csvEscape(key),
-				csvEscape(entry.en),
-				csvEscape("JutsuBattlegrounds"),
-				"",
-				csvEscape(entry.en),
-				csvEscape(entry.fr),
-			},
-			","
-		)
+		table.concat({
+			csvEscape(key),
+			csvEscape(entry.en),
+			csvEscape("JutsuBattlegrounds"),
+			"",
+			csvEscape(entry.en),
+			csvEscape(entry.fr),
+		}, ",")
 	)
 end
 local content = table.concat(lines, "\n") .. "\n"

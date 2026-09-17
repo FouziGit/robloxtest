@@ -30,7 +30,12 @@ Remotes.Definitions = {
 	CastJutsu = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
-		Args = { Guard.array(elementSchema, { maxLength = GameConfig.Combo.MaxLength }) },
+		Args = {
+			Guard.array(
+				elementSchema,
+				{ minLength = GameConfig.Combo.MinLength, maxLength = GameConfig.Combo.MaxLength }
+			),
+		},
 		Rate = { Capacity = 8, Refill = 3 },
 	},
 	UpdateKeybinds = {

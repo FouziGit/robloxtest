@@ -30,7 +30,14 @@ type NotifyApi = {
 }
 type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
 type CombatApi = {
-	ApplyDamage: (source: Player?, targetModel: Model, amount: number, kind: string, tags: { string }) -> DamageResult,
+	ApplyDamage: (
+		source: Player?,
+		targetModel: Model,
+		amount: number,
+		kind: string,
+		tags: { string },
+		element: string?
+	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	trySpendChakra: (player: Player, cost: number) -> boolean,
 	isBlocking: (player: Player) -> boolean,
@@ -46,7 +53,7 @@ type VfxPacket = {
 }
 type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
 type MovementApi = {
-	applySlow: (player: Player, factor: number, seconds: number) -> (),
+	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
 }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }

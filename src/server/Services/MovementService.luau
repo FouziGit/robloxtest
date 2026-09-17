@@ -27,12 +27,16 @@ type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type Deps = { Registry: Registry }
 type TroveType = typeof(Trove.new())
 
+-- One live slow source (guard, a jutsu id). Sources never merge: see recomputeSlow.
+type SlowEntry = { Factor: number, Until: number }
+
 type State = {
 	Trove: TroveType, -- player lifetime
 	CharacterTrove: TroveType?, -- current character
 	Humanoid: Humanoid?, -- nil while dead or without character
-	SlowFactor: number, -- 1 when no slow is active
-	SlowUntil: number, -- os.clock expiry, 0 when inactive
+	Slows: { [string]: SlowEntry }, -- keyed by source, empty when no slow is active
+	SlowFactor: number, -- minimum factor over the live entries, 1 when none
+	SlowUntil: number, -- latest os.clock expiry over the live entries, 0 when none
 	StunUntil: number, -- os.clock expiry, 0 when inactive
 }
 
@@ -49,6 +53,23 @@ local accumulator = 0
 
 local function isFinitePositive(value: number): boolean
 	return value == value and value ~= math.huge and value > 0
+end
+
+-- Recomputes the effective slow from the live keyed entries: strongest factor wins, latest expiry
+-- is kept, expired entries are dropped so the table never grows past the active sources.
+local function recomputeSlow(state: State, now: number)
+	local factor = 1
+	local expiry = 0
+	for key, entry in pairs(state.Slows) do
+		if entry.Until <= now then
+			state.Slows[key] = nil
+		else
+			factor = math.min(factor, entry.Factor)
+			expiry = math.max(expiry, entry.Until)
+		end
+	end
+	state.SlowFactor = factor
+	state.SlowUntil = expiry
 end
 
 -- Writes WalkSpeed / JumpPower from the status state. Stun wins over slow.
@@ -68,6 +89,7 @@ local function applyStats(state: State, now: number)
 end
 
 local function clearStatuses(state: State)
+	state.Slows = {}
 	state.SlowFactor = 1
 	state.SlowUntil = 0
 	state.StunUntil = 0
@@ -128,6 +150,20 @@ local function onCharacterAdded(player: Player, character: Model)
 		clearStatuses(state)
 		state.Humanoid = nil
 	end)
+	-- Same guard as CombatService: a Humanoid the owning client detached from its character must not
+	-- keep receiving WalkSpeed / JumpPower and status writes through the cached reference.
+	local function onHumanoidDetached()
+		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
+			return
+		end
+		if humanoid.Parent == character then
+			return
+		end
+		clearStatuses(state)
+		state.Humanoid = nil
+	end
+	characterTrove:Connect(humanoid.AncestryChanged, onHumanoidDetached)
+	characterTrove:Connect(humanoid.Destroying, onHumanoidDetached)
 end
 
 local function onPlayerAdded(player: Player)
@@ -139,6 +175,7 @@ local function onPlayerAdded(player: Player)
 		Trove = trove,
 		CharacterTrove = nil,
 		Humanoid = nil,
+		Slows = {},
 		SlowFactor = 1,
 		SlowUntil = 0,
 		StunUntil = 0,
@@ -180,11 +217,18 @@ local function onHeartbeat(deltaTime: number)
 			continue
 		end
 		local changed = false
-		if state.SlowUntil > 0 and state.SlowUntil <= now then
-			state.SlowUntil = 0
-			state.SlowFactor = 1
-			humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
-			changed = true
+		if state.SlowUntil > 0 then
+			local previousFactor = state.SlowFactor
+			local previousUntil = state.SlowUntil
+			recomputeSlow(state, now)
+			if state.SlowFactor ~= previousFactor or state.SlowUntil ~= previousUntil then
+				if state.SlowUntil > 0 then
+					humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
+				else
+					humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
+				end
+				changed = true
+			end
 		end
 		if state.StunUntil > 0 and state.StunUntil <= now then
 			state.StunUntil = 0
@@ -197,9 +241,14 @@ local function onHeartbeat(deltaTime: number)
 	end
 end
 
--- Multiplies WalkSpeed by `factor` (0..1) for `seconds`. Slows never stack: the strongest factor
--- is kept and the expiry extended.
-function MovementService.applySlow(player: Player, factor: number, seconds: number)
+-- Multiplies WalkSpeed by `factor` (0..1) for `seconds`, under the source `key` ("Block", a jutsu
+-- id). Re-applying the same key keeps its strongest factor and latest expiry; different keys stay
+-- independent so clearing one (guard release) never cleanses another (a jutsu slow).
+function MovementService.applySlow(player: Player, key: string, factor: number, seconds: number)
+	if type(key) ~= "string" or key == "" then
+		log.warn("applySlow rejected for %s: invalid key %s", player.Name, tostring(key))
+		return
+	end
 	if factor ~= factor or factor < 0 or factor > 1 or not isFinitePositive(seconds) then
 		log.warn("applySlow rejected for %s: factor %s, seconds %s", player.Name, tostring(factor), tostring(seconds))
 		return
@@ -214,30 +263,41 @@ function MovementService.applySlow(player: Player, factor: number, seconds: numb
 	end
 	local now = os.clock()
 	local expiry = now + seconds
-	if state.SlowUntil > now then
-		state.SlowFactor = math.min(state.SlowFactor, factor)
-		state.SlowUntil = math.max(state.SlowUntil, expiry)
+	local existing = state.Slows[key]
+	if existing ~= nil and existing.Until > now then
+		existing.Factor = math.min(existing.Factor, factor)
+		existing.Until = math.max(existing.Until, expiry)
 	else
-		state.SlowFactor = factor
-		state.SlowUntil = expiry
+		state.Slows[key] = { Factor = factor, Until = expiry }
 	end
+	recomputeSlow(state, now)
 	humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
 	applyStats(state, now)
 end
 
--- Ends any active slow immediately (guard release, cleanse effects).
-function MovementService.clearSlow(player: Player)
+-- Ends the slow of one source immediately (guard release), or every slow when `key` is nil
+-- (cleanse effects). Slows from other sources keep running.
+function MovementService.clearSlow(player: Player, key: string?)
 	local state = states[player]
 	if state == nil then
 		return
 	end
-	state.SlowUntil = 0
-	state.SlowFactor = 1
+	if key == nil then
+		state.Slows = {}
+	else
+		state.Slows[key] = nil
+	end
+	local now = os.clock()
+	recomputeSlow(state, now)
 	local humanoid = state.Humanoid
 	if humanoid ~= nil then
-		humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
+		if state.SlowUntil > now then
+			humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
+		else
+			humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
+		end
 	end
-	applyStats(state, os.clock())
+	applyStats(state, now)
 end
 
 -- Freezes the character for `seconds` (capped by CombatConfig.Hit.StunMaxSeconds, never shortened

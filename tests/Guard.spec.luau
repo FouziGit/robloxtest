@@ -32,6 +32,21 @@ describe("Guard", function()
 		expect((Guard.check(schema, "Fire"))).toBe(false)
 	end)
 
+	it("enforces array minLength", function()
+		-- Same options CastJutsu uses: a combo sequence shorter than the shortest recipe is refused.
+		local schema = Guard.array(Guard.oneOf({ "Fire", "Water" }), { minLength = 2, maxLength = 4 })
+		expect((Guard.check(schema, {}))).toBe(false)
+		expect((Guard.check(schema, { "Fire" }))).toBe(false)
+		expect((Guard.check(schema, { "Fire", "Water" }))).toBe(true)
+		expect((Guard.check(schema, { "Fire", "Water", "Fire", "Water" }))).toBe(true)
+		expect((Guard.check(schema, { "Fire", "Water", "Fire", "Water", "Fire" }))).toBe(false)
+		-- No minLength means no lower bound: the previous behaviour is untouched.
+		expect((Guard.check(Guard.array(Guard.string()), {}))).toBe(true)
+		local ok, reason = Guard.check(schema, { "Fire" })
+		expect(ok).toBe(false)
+		expect(reason).toContain("too short")
+	end)
+
 	it("rejects unknown keys in strict tables and allows optional fields", function()
 		local schema =
 			Guard.strict({ Volume = Guard.number({ min = 0, max = 1 }), Name = Guard.optional(Guard.string()) })

@@ -29,7 +29,7 @@ Aucune touche par défaut n'entre en conflit avec WASD (QWERTY), ZQSD (AZERTY), 
 - **Dash** : 22 studs en 0,22 s, 0,25 s d'invulnérabilité, recharge 2,5 s, coûte 10 chakra. Direction = déplacement en cours, sinon regard.
 - **Garde** : -70 % de dégâts, marche à 50 %, 4 s max puis 1,5 s de recharge. Brisée (1 s de stun) par les *Ultimes* et par le 4e coup de M1.
 - **Stun / ragdoll léger** : sur certains impacts (Piques, Séisme, finisher M1) — jamais plus de 2 s cumulées.
-- **Protection de spawn** : 4 s sans donner ni recevoir de dégâts ; zone sûre autour du spawn du hub.
+- **Protection de spawn** : 4 s sans donner ni recevoir de dégâts. La **zone sûre** autour du spawn du hub est symétrique : un joueur à l'intérieur ne peut ni subir ni infliger de dégâts PvP (les mannequins restent frappables).
 
 ## 4. Combos : règles de résolution
 

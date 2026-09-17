@@ -96,6 +96,7 @@ hud.combo.dissipated,The sequence dissipated…,JutsuBattlegrounds,,The sequence
 hud.combo.noMatch,No jutsu matches…,JutsuBattlegrounds,,No jutsu matches…,Aucun jutsu ne correspond…
 hud.currency,{amount} {currency},JutsuBattlegrounds,,{amount} {currency},{amount} {currency}
 hud.health,Health,JutsuBattlegrounds,,Health,Vie
+hud.hint.gamepad,{menu} = Menu,JutsuBattlegrounds,,{menu} = Menu,{menu} = Menu
 hud.hint.keyboard,{menu} = Menu,JutsuBattlegrounds,,{menu} = Menu,{menu} = Menu
 hud.killReward,Enemy defeated! +{xp} XP,JutsuBattlegrounds,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,JutsuBattlegrounds,,Level {level} reached!,Niveau {level} atteint !

@@ -12,6 +12,7 @@ export type Schema = {
 	item: Schema?,
 	fields: { [string]: Schema }?,
 	inner: Schema?,
+	minLength: number?,
 	maxLength: number?,
 }
 
@@ -43,9 +44,11 @@ function Guard.oneOf(values: { any }): Schema
 	return { kind = "oneOf", values = values }
 end
 
-function Guard.array(item: Schema, options: { maxLength: number? }?): Schema
-	local opts: { maxLength: number? } = options or {}
-	return { kind = "array", item = item, maxLength = opts.maxLength or 64 }
+-- `minLength` is unbounded by default; `maxLength` defaults to 64 so an untyped array cannot be used
+-- to flood a handler.
+function Guard.array(item: Schema, options: { minLength: number?, maxLength: number? }?): Schema
+	local opts: { minLength: number?, maxLength: number? } = options or {}
+	return { kind = "array", item = item, minLength = opts.minLength, maxLength = opts.maxLength or 64 }
 end
 
 -- Table with exactly the given fields (unknown keys rejected; optional fields may be nil).
@@ -132,6 +135,9 @@ local function checkValue(schema: Schema, value: any, path: string): (boolean, s
 		end
 		if count ~= #value then
 			return false, path .. ": array has holes"
+		end
+		if schema.minLength ~= nil and count < schema.minLength then
+			return false, path .. ": array too short"
 		end
 		if schema.maxLength ~= nil and count > schema.maxLength then
 			return false, path .. ": array too long"

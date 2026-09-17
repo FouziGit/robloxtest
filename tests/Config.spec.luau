@@ -15,6 +15,7 @@ local RankingConfig = require("../src/shared/Config/RankingConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local Strings = require("../src/shared/Strings")
+local VfxConfig = require("../src/shared/Config/VfxConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -46,6 +47,7 @@ describe("JutsuConfig", function()
 			expect(Strings.has(jutsu.NameKey)).toBe(true)
 			expect(Strings.has(jutsu.DescriptionKey)).toBe(true)
 			expect(SoundConfig.Sfx[jutsu.SfxId]).never.toBeNil()
+			expect(VfxConfig.isId(jutsu.VfxId)).toBe(true)
 			for name, value in pairs(jutsu.Params) do
 				expect(type(name)).toBe("string")
 				expect(type(value)).toBe("number")
@@ -257,5 +259,21 @@ describe("MonetizationConfig", function()
 		expect(#missing).toBeLessThanOrEqual(total)
 		expect((MonetizationConfig.productByAssetId(0))).toBeNil()
 		expect((MonetizationConfig.passByAssetId(0))).toBeNil()
+	end)
+end)
+
+describe("VfxConfig", function()
+	it("has unique ids and covers every jutsu", function()
+		local seen: { [string]: boolean } = {}
+		for _, id in ipairs(VfxConfig.Ids) do
+			expect(seen[id]).toBeNil()
+			seen[id] = true
+			expect(VfxConfig.IdSet[id]).toBe(true)
+		end
+		expect(#VfxConfig.Ids).toBe(#VfxConfig.JutsuIds + #VfxConfig.CombatIds)
+		expect(VfxConfig.isId("NotAnEffect")).toBe(false)
+		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
+			expect(VfxConfig.isId(jutsu.VfxId)).toBe(true)
+		end
 	end)
 end)

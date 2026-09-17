@@ -50,6 +50,7 @@ Strings.Table = {
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
 	["hud.hint.keyboard"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
+	["hud.hint.gamepad"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
 	["hud.chakra"] = { en = "Chakra", fr = "Chakra" },
 	["hud.health"] = { en = "Health", fr = "Vie" },
 	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },

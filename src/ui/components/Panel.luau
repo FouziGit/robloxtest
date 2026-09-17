@@ -3,7 +3,9 @@
 -- scrolling Content area. The frame fills its parent minus a margin and is capped at `Size`
 -- (Theme panel size by default), so it fits 16:9 phones without any per-device code.
 
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
@@ -29,6 +31,11 @@ export type Panel = {
 	SetTitle: (self: Panel, title: string) -> (),
 	SetHeaderHeight: (self: Panel, height: number) -> (),
 	SetFooterHeight: (self: Panel, height: number) -> (),
+	-- Gamepad focus. A screen that never sets GuiService.SelectedObject leaves the D-pad dead until the
+	-- player presses the navigation button a second time, so screens take the selection on Open
+	-- (`target` defaults to the close button) and hand it back on Close.
+	FocusForGamepad: (self: Panel, target: GuiObject?) -> (),
+	ReleaseGamepadFocus: (self: Panel) -> (),
 	Destroy: (self: Panel) -> (),
 }
 
@@ -234,7 +241,34 @@ function Panel.new(props: Props): Panel
 		relayout()
 	end
 
+	-- No-op without a gamepad, so screens can call it unconditionally. The ScreenGui must already be
+	-- enabled: the engine drops a selection pointing inside a disabled ScreenGui.
+	local function focusForGamepad(_self: Panel, target: GuiObject?)
+		if not UserInputService.GamepadEnabled then
+			return
+		end
+		local focus: GuiObject? = target or closeButton
+		if focus == nil then
+			return
+		end
+		GuiService.SelectedObject = focus
+	end
+
+	-- Only releases a selection that belongs to this panel, so a screen closing behind another one
+	-- (menu navigation) never steals the focus the new screen just took.
+	local function releaseFocus()
+		local selected = GuiService.SelectedObject
+		if selected ~= nil and selected:IsDescendantOf(frame) then
+			GuiService.SelectedObject = nil
+		end
+	end
+
+	local function releaseGamepadFocus(_self: Panel)
+		releaseFocus()
+	end
+
 	local function destroy(_self: Panel)
+		releaseFocus()
 		trove:Destroy()
 	end
 
@@ -247,6 +281,8 @@ function Panel.new(props: Props): Panel
 		SetTitle = setTitle,
 		SetHeaderHeight = setHeaderHeight,
 		SetFooterHeight = setFooterHeight,
+		FocusForGamepad = focusForGamepad,
+		ReleaseGamepadFocus = releaseGamepadFocus,
 		Destroy = destroy,
 	}
 	return object

@@ -36,9 +36,11 @@ type Entry = { Name: string, Service: Service }
 -- its own timeout and gets the snapshot immediately once the profile is loaded.
 local PROFILE_REQUEST_TIMEOUT_SECONDS = 25
 
-local registry = RemoteRegistry.create(function(player: Player, remote: string, reason: string)
-	AntiCheatService.strike(player, remote, reason)
-end)
+local registry = RemoteRegistry.create(
+	function(player: Player, remote: string, reason: string, kind: AntiCheatService.StrikeKind?)
+		AntiCheatService.strike(player, remote, reason, kind)
+	end
+)
 
 local deps = {
 	Registry = registry,

@@ -28,6 +28,10 @@ Raison : bibliothèques standard de l'écosystème, maintenues, typées ; Trove 
 Pas de Jest-Lua ni TestEZ. `tests/harness.luau` fournit `describe / it / expect` (toBe, toEqual, toBeCloseTo, toThrow, toBeTruthy…) et `tests/run.luau` découvre `tests/**/*.spec.luau`. Les modules purs (`ComboResolver`, `Elo`, `MatchmakingCore`, `QuestLogic`, `DataMigration`, `ReceiptProcessor`, `Strings`) n'ont aucun `require` ni global Roblox et sont chargés par chemin relatif.
 Raison : les paquets Wally (TestEZ, Jest-Lua, Promise…) utilisent `require(script.Parent…)` et ne se chargent pas sous Lune sans darklua ; un harnais de 150 lignes évite une chaîne de build supplémentaire. Vérifié : `lune run` + `require("../src/…")` fonctionne (probe du 2026-09-16).
 
+**D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
+`scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
+Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.
+
 **D-8 — Le sprint V1 est remplacé par le dash** · Phase 1
 Plus de sprint/endurance côté client : le kit V2 (M1, dash avec i-frames, garde) le remplace ; la vitesse de marche est fixée par le serveur (`MovementService`).
 Raison : le sprint client-autoritaire était l'exploit n°1 de l'audit et n'existe pas dans le genre battlegrounds ; le dash apporte la mobilité attendue sans laisser le client écrire `WalkSpeed`.
@@ -48,6 +52,18 @@ Raison : résout le bug « A = strafe » sans dépendre de la disposition du cla
 `ci.yml` et `publish.yml` installent rokit via `install.sh` puis `rokit install --no-trust-check`.
 Raison : aucune action GitHub officielle maintenue par rojo-rbx ; le script est la voie documentée et reste alignée sur `rokit.toml`.
 
-**D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
-`scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
-Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.
+**D-13 — Les i-frames du dash sont accordées sur la seule décision serveur** · Phase 1
+Le serveur accorde 0,25 s d'invulnérabilité au moment où il valide le dash, sans observer le déplacement (le personnage est simulé par le client propriétaire, D-10). Un client qui ignore `MovementCommand` garde donc les i-frames sans bouger.
+Raison : impossible d'observer le déplacement de façon fiable en Phase 1 ; la Phase 8 enregistre position/direction/durée attendues à l'envoi de la commande et les compare à la position réelle après `Duration + GameConfig.Latency.OriginToleranceStuds`.
+
+**D-14 — Les ralentissements sont indexés par clé** · Phase 1
+`MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque jutsu utilise son `Id`.
+Raison : une seule valeur globale permettait de « nettoyer » le ralentissement d'un jutsu adverse en tapant la garde une fraction de seconde.
+
+**D-15 — La zone sûre du hub est symétrique** · Phase 1
+Un joueur à l'intérieur de la zone sûre ne peut ni subir ni infliger de dégâts PvP (avant : il était seulement protégé).
+Raison : la protection à sens unique faisait de la zone un poste de tir imprenable. Les PNJ (mannequins, boss) restent frappables depuis la zone.
+
+**D-16 — Les rejets de rate limit ne comptent pas comme triche** · Phase 1
+`RemoteRegistry` distingue `"Schema"` (payload malformé → seuil `GameConfig.Server.AbuseKickThreshold`, 25) de `"RateLimit"` (débit trop élevé → seuil `RateLimitKickThreshold`, 600). Le client limite en plus ses propres envois au rythme que le serveur accepte.
+Raison : un joueur qui martèle le clic gauche dépassait le budget de jetons et se faisait éjecter pour triche ; les deux compteurs ne s'additionnent jamais.

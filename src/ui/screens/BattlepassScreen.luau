@@ -409,6 +409,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 		pendingScrollTier = if season ~= nil then season.Tier else 1
 		root.Instance.Enabled = true
 		applyPendingScroll()
+		panel:FocusForGamepad()
 		deps.SoundController.play("UiOpen")
 	end
 
@@ -418,6 +419,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 		end
 		self.Visible = false
 		pendingScrollTier = nil
+		panel:ReleaseGamepadFocus()
 		root.Instance.Enabled = false
 		deps.SoundController.play("UiClose")
 	end

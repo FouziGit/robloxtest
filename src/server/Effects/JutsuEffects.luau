@@ -2,8 +2,9 @@
 -- JutsuEffects: server-side hit detection for every jutsu, keyed by JutsuConfig `Effect` id.
 -- Effects build NO visuals: they detect targets (spatial queries, stepped raycasts, invisible
 -- collision parts for walls), deal damage through CombatService.ApplyDamage only, and broadcast Vfx
--- packets that each client renders. Timed effects step inline in the caller's thread (the remote
--- handler runs in its own thread) and stop early when the caster dies or leaves.
+-- packets that each client renders, under the jutsu's own `VfxId` and carrying its `Element`. Timed
+-- effects step inline in the caller's thread (the remote handler runs in its own thread) and stop
+-- early when the caster dies, leaves, raises guard or is stunned.
 -- Every effect returns the number of distinct models it damaged.
 
 local CollectionService = game:GetService("CollectionService")
@@ -20,8 +21,17 @@ local JutsuConfig = require(Shared.Config.JutsuConfig)
 export type JutsuDef = JutsuConfig.JutsuDef
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
 export type CombatApi = {
-	ApplyDamage: (source: Player?, targetModel: Model, amount: number, kind: string, tags: { string }) -> DamageResult,
+	ApplyDamage: (
+		source: Player?,
+		targetModel: Model,
+		amount: number,
+		kind: string,
+		tags: { string },
+		element: string?
+	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
+	isBlocking: (player: Player) -> boolean,
+	isStunned: (player: Player) -> boolean,
 }
 export type VfxPacket = {
 	Id: string,
@@ -33,7 +43,7 @@ export type VfxPacket = {
 }
 export type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
 export type MovementApi = {
-	applySlow: (player: Player, factor: number, seconds: number) -> (),
+	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
 }
 export type Context = {
@@ -98,9 +108,23 @@ local function liveRoot(player: Player): BasePart?
 	return root
 end
 
--- Timed effects stop when the caster is no longer in the game with a live character.
+-- Root of the caster while the cast may still deal damage: in the game with a live character, not
+-- guarding and not stunned. JutsuService applies the same rule once at cast time; timed effects
+-- re-check it on every step so raising guard, dashing into a stun or being stunned stops waves,
+-- spike lines and zones instead of letting them tick under guard.
+local function casterRoot(ctx: Context): BasePart?
+	local root = liveRoot(ctx.Caster)
+	if root == nil then
+		return nil
+	end
+	if ctx.Combat.isBlocking(ctx.Caster) or ctx.Combat.isStunned(ctx.Caster) then
+		return nil
+	end
+	return root
+end
+
 local function casterAlive(ctx: Context): boolean
-	return liveRoot(ctx.Caster) ~= nil
+	return casterRoot(ctx) ~= nil
 end
 
 -- Closest ancestor Model with a live Humanoid (accessories and tools nest parts under it).
@@ -163,7 +187,7 @@ local function damageArea(ctx: Context, tracker: Tracker, center: Vector3, radiu
 		if tracker.Once and tracker.Seen[model] then
 			continue
 		end
-		local result = ctx.Combat.ApplyDamage(ctx.Caster, model, ctx.Def.Damage, "Jutsu", tags)
+		local result = ctx.Combat.ApplyDamage(ctx.Caster, model, ctx.Def.Damage, "Jutsu", tags, ctx.Def.Element)
 		if result.Applied > 0 then
 			if not tracker.Seen[model] then
 				tracker.Seen[model] = true
@@ -188,7 +212,7 @@ end
 ----------------------------------------------------------------
 
 local function explode(ctx: Context, point: Vector3, radius: number): number
-	ctx.Vfx.emit({ Id = "Explosion", Origin = point, Params = { Radius = radius } })
+	ctx.Vfx.emit({ Id = "Explosion", Origin = point, Params = { Radius = radius, Element = ctx.Def.Element } })
 	local tracker = newTracker(true)
 	for _, model in ipairs(damageArea(ctx, tracker, point, radius)) do
 		local offset = model:GetPivot().Position - point
@@ -207,11 +231,11 @@ function JutsuEffects.Fireball(ctx: Context): number
 	local spawnOffset = params.SpawnOffset
 	local direction = ctx.Direction
 	ctx.Vfx.emit({
-		Id = "Fireball",
+		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Speed = speed, Fuse = fuse, SpawnOffset = spawnOffset },
+		Params = { Speed = speed, Fuse = fuse, SpawnOffset = spawnOffset, Element = ctx.Def.Element },
 	})
 
 	local rayParams = RaycastParams.new()
@@ -254,7 +278,7 @@ function JutsuEffects.WaterWave(ctx: Context): number
 	local origin = ctx.Origin.Position
 	local direction = ctx.Direction
 	ctx.Vfx.emit({
-		Id = "WaterWave",
+		Id = ctx.Def.VfxId,
 		Origin = origin,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
@@ -263,6 +287,7 @@ function JutsuEffects.WaterWave(ctx: Context): number
 			Range = ctx.Def.Range,
 			SpawnOffset = params.SpawnOffset,
 			HitRadius = params.HitRadius,
+			Element = ctx.Def.Element,
 		},
 	}, true)
 
@@ -296,7 +321,7 @@ function JutsuEffects.EarthSpikes(ctx: Context): number
 	local origin = ctx.Origin.Position
 	local direction = ctx.Direction
 	ctx.Vfx.emit({
-		Id = "EarthSpikes",
+		Id = ctx.Def.VfxId,
 		Origin = origin,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
@@ -305,6 +330,7 @@ function JutsuEffects.EarthSpikes(ctx: Context): number
 			Spacing = params.Spacing,
 			StartOffset = params.StartOffset,
 			StepDelay = params.StepDelay,
+			Element = ctx.Def.Element,
 		},
 	}, true)
 
@@ -336,11 +362,11 @@ function JutsuEffects.WindGust(ctx: Context): number
 	local direction = ctx.Direction
 	local center = ctx.Origin.Position + direction * params.Offset
 	ctx.Vfx.emit({
-		Id = "WindGust",
+		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius, Offset = params.Offset },
+		Params = { Radius = params.Radius, Offset = params.Offset, Element = ctx.Def.Element },
 	})
 
 	local tracker = newTracker(true)
@@ -359,11 +385,15 @@ function JutsuEffects.BoilingMist(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	ctx.Vfx.emit({
-		Id = "BoilingMist",
+		Id = ctx.Def.VfxId,
 		Origin = center,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius, Duration = params.Ticks * params.TickInterval },
+		Params = {
+			Radius = params.Radius,
+			Duration = params.Ticks * params.TickInterval,
+			Element = ctx.Def.Element,
+		},
 	}, true)
 
 	local tracker = newTracker(false)
@@ -377,7 +407,7 @@ function JutsuEffects.BoilingMist(ctx: Context): number
 		for _, model in ipairs(damageArea(ctx, tracker, center, params.Radius)) do
 			local player = playerOf(model)
 			if player ~= nil then
-				ctx.Movement.applySlow(player, params.SlowFactor, params.SlowDuration)
+				ctx.Movement.applySlow(player, ctx.Def.Id, params.SlowFactor, params.SlowDuration)
 			end
 		end
 	end
@@ -408,7 +438,7 @@ function JutsuEffects.MudWall(ctx: Context): number
 	Debris:AddItem(wall, params.Duration)
 
 	ctx.Vfx.emit({
-		Id = "MudWall",
+		Id = ctx.Def.VfxId,
 		Origin = wall.Position,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
@@ -417,6 +447,7 @@ function JutsuEffects.MudWall(ctx: Context): number
 			Height = params.Height,
 			Thickness = params.Thickness,
 			Duration = params.Duration,
+			Element = ctx.Def.Element,
 		},
 	}, true)
 	return 0
@@ -429,11 +460,15 @@ end
 function JutsuEffects.EmberStorm(ctx: Context): number
 	local params = ctx.Def.Params
 	ctx.Vfx.emit({
-		Id = "EmberStorm",
+		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius, Duration = params.Ticks * params.TickInterval },
+		Params = {
+			Radius = params.Radius,
+			Duration = params.Ticks * params.TickInterval,
+			Element = ctx.Def.Element,
+		},
 	}, true)
 
 	local tracker = newTracker(false)
@@ -441,7 +476,7 @@ function JutsuEffects.EmberStorm(ctx: Context): number
 		if tick > 1 then
 			task.wait(params.TickInterval)
 		end
-		local root = liveRoot(ctx.Caster)
+		local root = casterRoot(ctx)
 		if root == nil then
 			break
 		end
@@ -458,11 +493,11 @@ function JutsuEffects.Earthquake(ctx: Context): number
 	local params = ctx.Def.Params
 	local origin = ctx.Origin.Position
 	ctx.Vfx.emit({
-		Id = "Earthquake",
+		Id = ctx.Def.VfxId,
 		Origin = origin,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius },
+		Params = { Radius = params.Radius, Element = ctx.Def.Element },
 	})
 
 	local tracker = newTracker(true)

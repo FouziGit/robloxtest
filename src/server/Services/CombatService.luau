@@ -43,8 +43,8 @@ type MovementCommand =
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
 	| { Kind: "Stun", Seconds: number }
 type MovementApi = {
-	applySlow: (player: Player, factor: number, seconds: number) -> (),
-	clearSlow: (player: Player) -> (),
+	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
+	clearSlow: (player: Player, key: string?) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	command: (player: Player, payload: MovementCommand) -> (),
@@ -95,6 +95,7 @@ type State = {
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
 	SpawnProtectedUntil: number,
+	KillCredited: boolean, -- this character's death was already credited (ApplyDamage or onDied)
 	HitMemory: { [string]: { [Model]: number } }, -- tag -> target model -> i-frame expiry
 }
 
@@ -112,6 +113,8 @@ local LAST_ATTACKER_ATTRIBUTE = "LastAttackerUserId"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local HUMANOID_WAIT_SECONDS = 10
 local BLOCK_ATTRIBUTE = CombatConfig.Status.BlockAttribute
+-- Slow source key of the guard, so releasing the guard never cleanses a jutsu slow.
+local BLOCK_SLOW_KEY = "Block"
 
 local brokenBy = (CombatConfig.Block.BrokenBy :: any) :: { [string]: boolean }
 
@@ -244,7 +247,7 @@ end
 -- Guard drop (manual release, auto-release, guard break, death): starts the block cooldown.
 local function releaseBlock(state: State, now: number)
 	state.Blocking = false
-	movement.clearSlow(state.Player)
+	movement.clearSlow(state.Player, BLOCK_SLOW_KEY)
 	state.BlockCooldownUntil = now + CombatConfig.Block.CooldownSeconds
 	local humanoid = state.Humanoid
 	if humanoid ~= nil then
@@ -252,8 +255,14 @@ local function releaseBlock(state: State, now: number)
 	end
 end
 
+local function isInSafeZone(spawn: SpawnLocation, model: Model): boolean
+	return (model:GetPivot().Position - spawn.Position).Magnitude <= SAFE_ZONE_RADIUS_STUDS
+end
+
 -- Default PvP policy: NPCs are always valid targets; players only outside spawn protection and the
--- hub safe zone. Match / boss modes replace it through setPolicy.
+-- hub safe zone. The safe zone is symmetric: standing inside it protects from PvP damage AND
+-- forbids dealing it, so the zone can never be used as a one-way firing position. A source without
+-- a character (NPC, environment) is not zone-tested. Match / boss modes replace it through setPolicy.
 local function defaultPolicy(source: Player?, targetModel: Model): boolean
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	if targetPlayer == nil then
@@ -263,14 +272,18 @@ local function defaultPolicy(source: Player?, targetModel: Model): boolean
 	if isSpawnProtected(states[targetPlayer], targetModel, now) then
 		return false
 	end
-	if source ~= nil and isSpawnProtected(states[source], source.Character, now) then
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
+	if source ~= nil and isSpawnProtected(states[source], sourceCharacter, now) then
 		return false
 	end
 	local spawn = findSpawn()
 	if spawn == nil then
 		return true
 	end
-	return (targetModel:GetPivot().Position - spawn.Position).Magnitude > SAFE_ZONE_RADIUS_STUDS
+	if isInSafeZone(spawn, targetModel) then
+		return false
+	end
+	return sourceCharacter == nil or not isInSafeZone(spawn, sourceCharacter)
 end
 
 policy = defaultPolicy
@@ -278,6 +291,10 @@ policy = defaultPolicy
 ----------------------------------------------------------------
 -- Character lifecycle
 ----------------------------------------------------------------
+
+-- Defined in the damage section below; the Died handler reaches the same crediting path for deaths
+-- that never went through ApplyDamage.
+local onKill: (source: Player?, targetPlayer: Player?, targetModel: Model) -> ()
 
 local function releaseCharacter(state: State, now: number)
 	if state.Blocking then
@@ -305,7 +322,27 @@ local function resetState(state: State, now: number)
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
+	state.KillCredited = false
 	state.HitMemory = {}
+end
+
+-- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
+-- last attacker while the fight is still fresh, so leaving the fight is never a free escape. The
+-- attribute is cleared afterwards so a later unrelated death cannot re-credit the same attacker.
+local function creditDeath(state: State, character: Model, now: number)
+	local attribute = character:GetAttribute(LAST_ATTACKER_ATTRIBUTE)
+	local attackerId: number? = if typeof(attribute) == "number" then attribute :: number else nil
+	local inCombat = state.LastDamageTakenAt > 0 and now - state.LastDamageTakenAt < CombatConfig.Chakra.InCombatSeconds
+	if attackerId == nil and not inCombat then
+		return
+	end
+	local attacker: Player? = nil
+	if attackerId ~= nil then
+		attacker = Players:GetPlayerByUserId(attackerId)
+	end
+	character:SetAttribute(LAST_ATTACKER_ATTRIBUTE, nil)
+	state.KillCredited = true
+	onKill(attacker, state.Player, character)
 end
 
 local function onDied(state: State)
@@ -314,6 +351,10 @@ local function onDied(state: State)
 		releaseBlock(state, now)
 	end
 	state.Humanoid = nil
+	local character = state.Character
+	if character ~= nil and not state.KillCredited then
+		creditDeath(state, character, now)
+	end
 end
 
 local function onCharacterAdded(player: Player, character: Model)
@@ -343,6 +384,26 @@ local function onCharacterAdded(player: Player, character: Model)
 	characterTrove:Connect(humanoid.Died, function()
 		onDied(state)
 	end)
+	-- A client can delete or reparent the Humanoid inside its own character and the deletion
+	-- replicates. Without this, the cached reference would keep authorising melee / dash / block
+	-- while every incoming ApplyDamage and area query skips a model that has no Humanoid. Dropping
+	-- the reference makes liveCharacter reject every action until the next respawn.
+	local function onHumanoidDetached()
+		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
+			return
+		end
+		if humanoid.Parent == character then
+			return
+		end
+		local detachedAt = os.clock()
+		if state.Blocking then
+			releaseBlock(state, detachedAt)
+		end
+		state.Humanoid = nil
+		log.warn("Humanoid left the character of %s: combat actions rejected until respawn", player.Name)
+	end
+	characterTrove:Connect(humanoid.AncestryChanged, onHumanoidDetached)
+	characterTrove:Connect(humanoid.Destroying, onHumanoidDetached)
 end
 
 local function onPlayerAdded(player: Player)
@@ -368,6 +429,7 @@ local function onPlayerAdded(player: Player)
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
 		SpawnProtectedUntil = 0,
+		KillCredited = false,
 		HitMemory = {},
 	}
 	resetState(state, os.clock())
@@ -398,7 +460,7 @@ end
 -- Damage
 ----------------------------------------------------------------
 
-local function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
+function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 	if targetPlayer ~= nil then
 		local victimData = dataService.get(targetPlayer)
 		if victimData ~= nil then
@@ -441,12 +503,14 @@ local function applyGuard(
 	return amount * (1 - CombatConfig.Block.DamageReduction), true
 end
 
+-- `element` (jutsu element, nil for melee / environment) only colours the Hit packet clients render.
 function CombatService.ApplyDamage(
 	source: Player?,
 	targetModel: Model,
 	amount: number,
 	kind: DamageKind,
-	tags: { string }
+	tags: { string },
+	element: string?
 ): DamageResult
 	local result: DamageResult = { Applied = 0, Killed = false, Blocked = false }
 	if not isFiniteNonNegative(amount) then
@@ -502,6 +566,11 @@ function CombatService.ApplyDamage(
 		return result
 	end
 
+	-- Claimed before TakeDamage: Humanoid.Died may run before this call returns and must not credit
+	-- the same kill a second time.
+	if targetState ~= nil then
+		targetState.KillCredited = applied >= humanoid.Health
+	end
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
 	if source ~= nil then
@@ -514,12 +583,19 @@ function CombatService.ApplyDamage(
 		markInCombat(targetState, now)
 		targetState.LastDamageTakenAt = now
 	end
-	vfx.emit({ Id = "Hit", Origin = origin, Params = { Amount = applied, Kind = kind } })
+	local hitParams: { [string]: any } = { Amount = applied, Kind = kind }
+	if element ~= nil then
+		hitParams.Element = element
+	end
+	vfx.emit({ Id = "Hit", Origin = origin, Params = hitParams })
 	if memory ~= nil then
 		memory[targetModel] = now + CombatConfig.Hit.IFrameSeconds
 	end
 	if humanoid.Health <= 0 then
 		result.Killed = true
+		if targetState ~= nil then
+			targetState.KillCredited = true
+		end
 		onKill(source, targetPlayer, targetModel)
 	end
 	return result
@@ -539,11 +615,13 @@ end
 -- Combat actions (M1 / dash / block)
 ----------------------------------------------------------------
 
--- Live humanoid and root of the player's current character, or nil when dead / not spawned.
+-- Live humanoid and root of the player's current character, or nil when dead / not spawned. A
+-- Humanoid detached from its character is not live: ApplyDamage and the area queries ignore a model
+-- without one, so its owner must not act either.
 local function liveCharacter(state: State): (Model?, Humanoid?, BasePart?)
 	local character = state.Character
 	local humanoid = state.Humanoid
-	if character == nil or humanoid == nil or humanoid.Health <= 0 then
+	if character == nil or humanoid == nil or humanoid.Parent ~= character or humanoid.Health <= 0 then
 		return nil, nil, nil
 	end
 	local root = rootOf(character)
@@ -658,6 +736,10 @@ local function onDash(player: Player, state: State, now: number)
 	if not CombatService.trySpendChakra(player, dash.Cost) then
 		return
 	end
+	-- I-frames are granted on the server decision alone, independently of the client actually
+	-- applying the Dash MovementCommand (characters are client-simulated, so the displacement is not
+	-- observable here). Phase 8 adds the displacement check: expected start position / direction /
+	-- duration recorded when the command is sent, compared with the observed root afterwards.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
 	local direction = dashDirection(humanoid, root)
@@ -686,7 +768,7 @@ local function onBlockStart(player: Player, state: State, now: number)
 	end
 	state.Blocking = true
 	state.BlockStartedAt = now
-	movement.applySlow(player, CombatConfig.Block.WalkSpeedFactor, CombatConfig.Block.MaxHoldSeconds)
+	movement.applySlow(player, BLOCK_SLOW_KEY, CombatConfig.Block.WalkSpeedFactor, CombatConfig.Block.MaxHoldSeconds)
 	humanoid:SetAttribute(BLOCK_ATTRIBUTE, true)
 	vfx.emit({ Id = "BlockStart", Origin = root.Position, Caster = player.UserId })
 end

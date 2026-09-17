@@ -17,6 +17,7 @@ local ElementConfig = require(Shared.Config.ElementConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Trove = require(Packages.Trove)
+local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxLibrary = require(script.Parent.VfxLibrary)
 
 local log = Log.new("VfxController")
@@ -217,7 +218,21 @@ function VfxController.Init(deps: Deps)
 	api.Sound = soundController
 end
 
+-- Every declared effect id must have a renderer: a missing one would silently drop its packets.
+local function auditRenderers()
+	local missing: { string } = {}
+	for _, id in ipairs(VfxConfig.Ids) do
+		if VfxLibrary[id] == nil then
+			table.insert(missing, id)
+		end
+	end
+	if #missing > 0 then
+		log.warn("no renderer for %d declared effect id(s): %s", #missing, table.concat(missing, ", "))
+	end
+end
+
 function VfxController.Start()
+	auditRenderers()
 	remoteClient.on("Vfx", onPacket)
 	remoteClient.on("VfxReliable", onPacket)
 	Players.LocalPlayer.CharacterRemoving:Connect(stopShake)

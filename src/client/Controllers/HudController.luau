@@ -1,7 +1,9 @@
 --!strict
 -- HudController: the always-on overlay. Level / XP bar and Ryo counter (top-left), health and chakra
--- bars (bottom-left), combo chips (bottom-center), server and local toasts, and the keyboard menu hint.
--- Every visible text goes through Localize; server Notify payloads carry Strings keys, never text.
+-- bars (bottom-left on mouse/gamepad, bottom-center above the combo row on touch so they never cover
+-- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the menu hint of
+-- the device in use. Every visible text goes through Localize; server Notify payloads carry Strings
+-- keys, never text.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -40,9 +42,13 @@ local COLUMN_WIDTH = 300
 local ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local CHIP_SIZE = 36
 local COMBO_BOTTOM_MARGIN = 110 -- keeps the chips above the touch thumb cluster
+-- On touch the bars sit above the combo row: the bottom-left corner belongs to the engine thumbstick.
+local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.Gap
 local HINT_WIDTH = 220
 local MENU_ACTION: InputConfig.ActionId = "Menu"
+local GAMEPAD_PREFIX = "Gamepad"
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
+local HINT_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
 
 local HudController = {}
 
@@ -63,6 +69,7 @@ local comboRow: Frame
 local hintLabel: TextLabel
 local toast: Toast.Toast
 local notifyWarned = false
+local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
 
 local function makeColumn(name: string, anchor: Vector2, position: UDim2, parent: Instance): Frame
 	local column = Instance.new("Frame")
@@ -108,11 +115,12 @@ local function build()
 	levelBar = ProgressBar.new({ Name = "LevelBar", Color = Theme.Colors.Accent, LayoutOrder = 2, Parent = topLeft })
 	ryoLabel = makeLabel("Ryo", 3, topLeft)
 
-	local bottomLeft = makeColumn("BottomLeft", Vector2.new(0, 1), UDim2.new(0, pad, 1, -pad), content)
-	healthBar =
-		ProgressBar.new({ Name = "HealthBar", Color = Theme.Colors.Health, LayoutOrder = 1, Parent = bottomLeft })
-	chakraBar =
-		ProgressBar.new({ Name = "ChakraBar", Color = Theme.Colors.Chakra, LayoutOrder = 2, Parent = bottomLeft })
+	local touch = UserInputService.TouchEnabled
+	local barsAnchor = if touch then Vector2.new(0.5, 1) else Vector2.new(0, 1)
+	local barsPosition = if touch then UDim2.new(0.5, 0, 1, -BARS_TOUCH_BOTTOM_MARGIN) else UDim2.new(0, pad, 1, -pad)
+	local bars = makeColumn("Bars", barsAnchor, barsPosition, content)
+	healthBar = ProgressBar.new({ Name = "HealthBar", Color = Theme.Colors.Health, LayoutOrder = 1, Parent = bars })
+	chakraBar = ProgressBar.new({ Name = "ChakraBar", Color = Theme.Colors.Chakra, LayoutOrder = 2, Parent = bars })
 
 	comboRow = Instance.new("Frame")
 	comboRow.Name = "Combo"
@@ -143,7 +151,7 @@ local function build()
 	hintLabel.TextXAlignment = Enum.TextXAlignment.Right
 	hintLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	hintLabel.Text = ""
-	hintLabel.Visible = not UserInputService.TouchEnabled
+	hintLabel.Visible = false -- refreshHint shows it for the device in use
 	hintLabel.Parent = content
 
 	toast = Toast.new({ Name = "Toasts", Parent = content })
@@ -204,9 +212,30 @@ local function refreshCurrency(data: Types.ProfileData)
 	})
 end
 
+-- Touch players read the on-screen Menu button, so the hint only targets keyboard and gamepad.
+local function sourceFor(inputType: Enum.UserInputType): string
+	if string.sub(inputType.Name, 1, #GAMEPAD_PREFIX) == GAMEPAD_PREFIX then
+		return "Gamepad"
+	end
+	if inputType == Enum.UserInputType.Touch then
+		return "Touch"
+	end
+	return "Keyboard"
+end
+
 local function refreshHint(data: Types.ProfileData)
-	local key = data.Settings.Keyboard[MENU_ACTION] or InputConfig.DefaultKeyboard[MENU_ACTION]
-	hintLabel.Text = localize.t("hud.hint.keyboard", { menu = key })
+	local source = sourceFor(UserInputService:GetLastInputType())
+	hintSource = source
+	if source == "Touch" then
+		hintLabel.Visible = false
+		return
+	end
+	local gamepad = source == "Gamepad"
+	local saved = if gamepad then data.Settings.Gamepad else data.Settings.Keyboard
+	local defaults = if gamepad then InputConfig.DefaultGamepad else InputConfig.DefaultKeyboard
+	local key = saved[MENU_ACTION] or defaults[MENU_ACTION]
+	hintLabel.Text = localize.t(HINT_KEYS[source], { menu = key })
+	hintLabel.Visible = true
 end
 
 local function refreshBar(bar: ProgressBar.ProgressBar, nameKey: string, current: number, max: number)
@@ -273,6 +302,11 @@ end
 function HudController.Start()
 	clientData.Changed:Connect(refreshProfile)
 	refreshProfile("*")
+	UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInputType)
+		if sourceFor(inputType) ~= hintSource then
+			refreshProfile("Settings")
+		end
+	end)
 	comboController.SequenceChanged:Connect(refreshCombo)
 	combatController.StateChanged:Connect(refreshCombat)
 	refreshCombat(combatController.getState())

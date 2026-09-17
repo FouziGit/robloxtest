@@ -2,6 +2,10 @@
 -- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass) built by the
 -- UI/screens modules. Screens are created lazily with the controller dependencies they need, gameplay
 -- input is suspended while one is open, and the Roblox menu (Escape) closes whatever is open.
+--
+-- Each screen owns its own open/close sound: its Open/Close guard on `Visible`, so they fire exactly
+-- once per real transition, including on a screen-to-screen navigation. The controller plays none, so
+-- a single UiOpen/UiClose is heard per transition whatever the entry point.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,13 +35,10 @@ local MODULE_NAMES: { [string]: string } = {
 	Battlepass = "BattlepassScreen",
 }
 local DEFAULT_SCREEN: ScreenId = "Menu"
-local OPEN_SFX = "UiOpen"
-local CLOSE_SFX = "UiClose"
 
 local MenuController = {}
 
 local inputController: any
-local soundController: any
 local screenDeps: { [string]: any }
 local screens: { [string]: Screen } = {}
 local current: string? = nil
@@ -107,7 +108,6 @@ function MenuController.open(id: string)
 	if previous == nil then
 		inputController.setSuspended(true)
 	end
-	soundController.play(OPEN_SFX)
 end
 
 function MenuController.close()
@@ -121,7 +121,6 @@ function MenuController.close()
 		screen:Close()
 	end
 	inputController.setSuspended(false)
-	soundController.play(CLOSE_SFX)
 end
 
 -- Opens `id` (Menu by default); closes when that screen is already the open one.
@@ -136,7 +135,6 @@ end
 
 function MenuController.Init(deps: Deps)
 	inputController = deps.InputController
-	soundController = deps.SoundController
 	screenDeps = {
 		Localize = deps.Localize,
 		ClientData = deps.ClientData,

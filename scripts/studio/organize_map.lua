@@ -1,14 +1,14 @@
 -- Command Bar — Réorganise les 3 zones autour du spawn (exécuter en mode ÉDITION, pas en Play)
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
-local GROUND_Y = 0        -- hauteur du sol (haut de la Baseplate par défaut)
-local CLEAR_RADIUS = 70   -- rayon gardé libre autour du spawn (les mannequins sont à r=26)
+local GROUND_Y = 0 -- hauteur du sol (haut de la Baseplate par défaut)
+local CLEAR_RADIUS = 70 -- rayon gardé libre autour du spawn (les mannequins sont à r=26)
 -- ExtraShift décale la zone latéralement (en studs) pour éviter tout
 -- chevauchement en coin si les packs sont très larges.
 local ZONES = {
-	{ Folder = "Map_Simulator", Direction = Vector3.new(0, 0, -1), ExtraShift = Vector3.zero },            -- nord
-	{ Folder = "Map_Forest",    Direction = Vector3.new(-1, 0, 0), ExtraShift = Vector3.new(0, 0, 90) },   -- ouest, poussé au sud
-	{ Folder = "Rocks_Pack",    Direction = Vector3.new(1, 0, 0),  ExtraShift = Vector3.new(0, 0, 90) },   -- est, poussé au sud
+	{ Folder = "Map_Simulator", Direction = Vector3.new(0, 0, -1), ExtraShift = Vector3.zero }, -- nord
+	{ Folder = "Map_Forest", Direction = Vector3.new(-1, 0, 0), ExtraShift = Vector3.new(0, 0, 90) }, -- ouest, poussé au sud
+	{ Folder = "Rocks_Pack", Direction = Vector3.new(1, 0, 0), ExtraShift = Vector3.new(0, 0, 90) }, -- est, poussé au sud
 }
 
 ChangeHistoryService:SetWaypoint("AvantReorganisation")
@@ -62,8 +62,17 @@ for _, zone in ipairs(ZONES) do
 		carrier.WorldPivot = cf -- pivot = centre du bounding box
 		carrier:PivotTo(CFrame.new(target) * cf.Rotation)
 
-		print(("[Reorg] ✅ %s → centre (%.0f, %.0f, %.0f) | taille %.0f × %.0f × %.0f")
-			:format(zone.Folder, target.X, target.Y, target.Z, size.X, size.Y, size.Z))
+		print(
+			("[Reorg] ✅ %s → centre (%.0f, %.0f, %.0f) | taille %.0f × %.0f × %.0f"):format(
+				zone.Folder,
+				target.X,
+				target.Y,
+				target.Z,
+				size.X,
+				size.Y,
+				size.Z
+			)
+		)
 	end
 
 	-- Déballe, puis range le dossier sous workspace.Map

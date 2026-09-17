@@ -1,7 +1,13 @@
 --!strict
 -- Server-side remote registry. Creates every remote declared in Shared/Remotes, validates each
--- client→server call with Guard, rate-limits with a per-player token bucket, and reports abuse to
--- AntiCheat. Handlers never see an invalid payload.
+-- client→server call with Guard, rate-limits with a per-player token bucket, and reports every
+-- rejection to AntiCheat. Handlers never see an invalid payload.
+--
+-- Rejections are reported under two kinds, because they mean different things:
+--   "Schema"    wrong direction, wrong arity or a payload Guard refuses — only a tampered or broken
+--               client produces these, so AntiCheat counts them against its low kick threshold;
+--   "RateLimit" token-bucket overflow — a burst of legitimate input (mashing, a laggy re-send) also
+--               produces these, so AntiCheat counts them separately against a much higher threshold.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +20,8 @@ local TokenBucket = require(Shared.Util.TokenBucket)
 
 local log = Log.new("RemoteRegistry")
 
-export type AbuseReporter = (player: Player, remoteName: string, reason: string) -> ()
+export type AbuseKind = "Schema" | "RateLimit"
+export type AbuseReporter = (player: Player, remoteName: string, reason: string, kind: AbuseKind) -> ()
 
 export type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
@@ -65,23 +72,23 @@ function RemoteRegistry.create(reportAbuse: AbuseReporter): Registry
 	local function validate(player: Player, name: string, args: { any }, count: number): boolean
 		local definition = Remotes.Definitions[name]
 		if definition.Direction ~= "ClientToServer" then
-			reportAbuse(player, name, "wrong direction")
+			reportAbuse(player, name, "wrong direction", "Schema")
 			return false
 		end
 		local bucket = bucketFor(player, name)
 		if bucket ~= nil and not TokenBucket.tryTake(bucket, os.clock()) then
-			reportAbuse(player, name, "rate limit")
+			reportAbuse(player, name, "rate limit", "RateLimit")
 			return false
 		end
 		local schemas = definition.Args or {}
 		if count > #schemas then
-			reportAbuse(player, name, "too many arguments")
+			reportAbuse(player, name, "too many arguments", "Schema")
 			return false
 		end
 		for index, schema in ipairs(schemas) do
 			local ok, reason = Guard.check(schema, args[index])
 			if not ok then
-				reportAbuse(player, name, "argument " .. tostring(index) .. " " .. tostring(reason))
+				reportAbuse(player, name, "argument " .. tostring(index) .. " " .. tostring(reason), "Schema")
 				return false
 			end
 		end

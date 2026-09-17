@@ -14,6 +14,7 @@ GameConfig.Currency = {
 }
 
 GameConfig.Combo = {
+	MinLength = 2, -- shortest recipe: a shorter sequence can never resolve
 	MaxLength = 4, -- longest recipe
 	TimeoutSeconds = 1.2, -- inactivity before a pending sequence resolves or resets
 	ExtendWindowSeconds = 0.35, -- shorter wait when the pending sequence is already a recipe (e.g. Fire Fire → Fire Fire Earth)
@@ -22,7 +23,8 @@ GameConfig.Combo = {
 GameConfig.Server = {
 	TickRate = 20, -- Heartbeat accumulator ticks per second for gameplay services
 	ProfileLoadTimeoutSeconds = 30,
-	AbuseKickThreshold = 25, -- rejected remote calls before kick
+	AbuseKickThreshold = 25, -- malformed remote calls before kick
+	RateLimitKickThreshold = 600, -- rate-limit overflows before kick (legitimate fast input must never reach it)
 	AbuseWindowSeconds = 60,
 	CombatStateHz = 5, -- CombatState replication rate per player
 }

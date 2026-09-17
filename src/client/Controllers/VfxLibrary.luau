@@ -373,7 +373,7 @@ end
 -- Expanding sphere and ember burst where a projectile or blast lands.
 VfxLibrary.Explosion = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", numberParam(packet, "BlastRadius", 7))
-	local color = api.ElementColor(stringParam(packet, "Element", "Fire"))
+	local color = api.ElementColor(stringParam(packet, "Element", ""))
 	local sphere = newPart(trove, "Explosion", {
 		Shape = Enum.PartType.Ball,
 		Color = color,

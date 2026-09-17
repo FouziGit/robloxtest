@@ -1,7 +1,8 @@
 --!strict
 -- TouchButton: round on-screen button for touch controls (one per ContextActionService action).
 -- Purely visual: a colored disc with a glyph label. The InputController owns the input handling and
--- calls SetPressed to reflect the touch state.
+-- calls SetPressed to reflect the touch state. The label color is derived from the disc luminance, so
+-- light element discs (Wind, Lightning) keep a readable glyph over the 3D scene.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -33,6 +34,19 @@ local PRESSED_TRANSPARENCY = 0.05
 local PRESSED_SCALE = 0.9
 local STROKE_THICKNESS = 2
 local STROKE_TRANSPARENCY = 0.5
+local LABEL_STROKE_TRANSPARENCY = 0.35
+-- Rec. 709 relative luminance above which a disc counts as light and takes the dark glyph.
+local LIGHT_DISC_LUMINANCE = 0.55
+
+-- Glyph color and its outline for a disc of `color`: the pair is always the light/dark contrast, so a
+-- semi-transparent disc over a bright world stays legible.
+local function labelColors(color: Color3): (Color3, Color3)
+	local luminance = 0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B
+	if luminance > LIGHT_DISC_LUMINANCE then
+		return Theme.Colors.TextInverse, Theme.Colors.Text
+	end
+	return Theme.Colors.Text, Theme.Colors.TextInverse
+end
 
 function TouchButton.new(props: Props): TouchButton
 	local trove = Trove.new()
@@ -64,13 +78,16 @@ function TouchButton.new(props: Props): TouchButton
 	scale.Scale = 1
 	scale.Parent = frame
 
+	local textColor, outlineColor = labelColors(props.Color)
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
 	label.Font = Theme.Fonts.Title
 	label.TextSize = Theme.Sizes.TextTitle
-	label.TextColor3 = Theme.Colors.Text
+	label.TextColor3 = textColor
+	label.TextStrokeColor3 = outlineColor
+	label.TextStrokeTransparency = LABEL_STROKE_TRANSPARENCY
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.Text = props.Label
 	label.Parent = frame

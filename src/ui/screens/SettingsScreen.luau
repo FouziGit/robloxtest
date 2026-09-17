@@ -1,10 +1,12 @@
 --!strict
 -- SettingsScreen: keyboard / gamepad rebinding and audio settings. Keybinds are edited on a local
 -- pending copy per kind and sent with Save; the Settings push that follows confirms them. Audio
--- values are sent automatically after a short debounce. Refreshes from ClientData on Open and on
+-- values are sent automatically after a short debounce, coalesced so a single call is in flight at a
+-- time and consecutive calls stay inside the remote budget. Refreshes from ClientData on Open and on
 -- Settings changes, without overwriting unsaved local edits.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -13,6 +15,7 @@ local Button = require(script.Parent.Parent.components.Button)
 local InputConfig = require(Shared.Config.InputConfig)
 local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
+local Remotes = require(Shared.Remotes)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Slider = require(script.Parent.Parent.components.Slider)
 local Tabs = require(script.Parent.Parent.components.Tabs)
@@ -54,6 +57,12 @@ local SettingsScreen = {}
 local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local AUDIO_DEBOUNCE_SECONDS = 0.5
+local UPDATE_SETTINGS_RATE = Remotes.Definitions.UpdateSettings.Rate
+-- Minimum spacing between two UpdateSettings calls: one per refilled token, so a long tweaking session
+-- never outruns the remote bucket (the registry drops a rate-limited call and the change would be lost).
+local AUDIO_MIN_INTERVAL_SECONDS = if UPDATE_SETTINGS_RATE ~= nil and UPDATE_SETTINGS_RATE.Refill > 0
+	then 1 / UPDATE_SETTINGS_RATE.Refill
+	else AUDIO_DEBOUNCE_SECONDS
 local VOLUME_STEP = 0.05
 local KEY_BUTTON_WIDTH = 150
 local FOOTER_BUTTON_WIDTH = 140
@@ -100,6 +109,17 @@ local function own(owner: typeof(Trove.new()), object: Destroyable)
 	end)
 end
 
+-- Tab shown first: a rebinding page needs the matching hardware to capture a key, so a touch-only
+-- phone (no keyboard, no gamepad) opens on the only page it can use.
+local function initialTab(): TabId
+	if UserInputService.KeyboardEnabled then
+		return "Keyboard"
+	elseif UserInputService.GamepadEnabled then
+		return "Gamepad"
+	end
+	return "Audio"
+end
+
 function SettingsScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
 	local pageTrove = trove:Extend()
@@ -111,13 +131,15 @@ function SettingsScreen.new(deps: Deps): Screen
 	local dirty: { [string]: boolean } = { Keyboard = false, Gamepad = false }
 	local saving = false
 	local capturing: string? = nil
-	local currentTab: TabId = "Keyboard"
+	local currentTab: TabId = initialTab()
 	local keyButtons: { [string]: Button.Button } = {}
 
 	-- Audio state (neutral fallback until the profile is loaded; syncAudio overwrites it)
 	local audio: AudioState = { MusicVolume = 1, SfxVolume = 1, CameraShake = true }
 	local audioTimer: thread? = nil
 	local audioInFlight = false
+	local audioPending = false
+	local audioLastSentAt = 0
 	local musicSlider: Slider.Slider? = nil
 	local sfxSlider: Slider.Slider? = nil
 	local shakeToggle: Toggle.Toggle? = nil
@@ -256,8 +278,33 @@ function SettingsScreen.new(deps: Deps): Screen
 		setStatus(t("settings.bound", { action = actionName(action), key = keyName }))
 	end
 
+	-- Drops a capture in progress (tab switch, close). InputController.cancelCapture does not fire the
+	-- pending callback, so the highlighted button is restored here and rebinding stays usable.
+	local function abortCapture()
+		local action = capturing
+		if action == nil then
+			return
+		end
+		capturing = nil
+		local highlighted: Button.Button? = keyButtons[action]
+		if highlighted ~= nil then
+			highlighted:SetVariant("Secondary")
+		end
+		deps.InputController.cancelCapture()
+	end
+
 	local function beginCapture(kind: BindKind, action: string)
-		if capturing ~= nil or saving then
+		if saving then
+			return
+		end
+		if capturing ~= nil then
+			-- Tapping the highlighted binding again cancels the capture: a touch device has no Escape
+			-- key, and the Roblox menu button closes the whole screen.
+			if capturing == action then
+				abortCapture()
+				deps.SoundController.play("UiClick")
+				setStatus(t("settings.captureCancelled"))
+			end
 			return
 		end
 		capturing = action
@@ -280,6 +327,12 @@ function SettingsScreen.new(deps: Deps): Screen
 		if not isBind or capturing ~= nil or saving then
 			return
 		end
+		-- Without a loaded profile the server rejects the save and pushes nothing back, which would
+		-- leave the screen stuck in `saving` with every button disabled.
+		if deps.ClientData.get() == nil then
+			setStatus(t("settings.saveFailed"))
+			return
+		end
 		saving = true
 		deps.SoundController.play("UiClick")
 		setStatus(t("settings.saving"))
@@ -289,6 +342,11 @@ function SettingsScreen.new(deps: Deps): Screen
 	local function reset()
 		local isBind, kind: BindKind = currentBindKind()
 		if not isBind or capturing ~= nil or saving then
+			return
+		end
+		-- Same guard as save: defaults that cannot be saved would be a lie on screen.
+		if deps.ClientData.get() == nil then
+			setStatus(t("settings.saveFailed"))
 			return
 		end
 		local map = pending[kind]
@@ -328,18 +386,6 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 	end
 
-	local function sendAudio()
-		if deps.ClientData.get() == nil then
-			return
-		end
-		audioInFlight = true
-		deps.RemoteClient.fire("UpdateSettings", {
-			MusicVolume = audio.MusicVolume,
-			SfxVolume = audio.SfxVolume,
-			CameraShake = audio.CameraShake,
-		})
-	end
-
 	local function cancelAudioTimer()
 		local timer = audioTimer
 		if timer ~= nil then
@@ -348,21 +394,33 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- Sends the current audio state. A send whose Settings push has not arrived yet keeps the state
+	-- pending instead of queuing a second call: the push re-arms it, so only one call is ever in flight
+	-- and the last change is never dropped.
+	local function sendAudio()
+		if deps.ClientData.get() == nil or audioInFlight then
+			return
+		end
+		audioPending = false
+		audioInFlight = true
+		audioLastSentAt = os.clock()
+		deps.RemoteClient.fire("UpdateSettings", {
+			MusicVolume = audio.MusicVolume,
+			SfxVolume = audio.SfxVolume,
+			CameraShake = audio.CameraShake,
+		})
+	end
+
+	-- Debounces a burst of drags and keeps two sends at least one remote token apart. The timer outlives
+	-- Close on purpose, so a change made just before closing is still sent.
 	local function scheduleAudio()
+		audioPending = true
 		cancelAudioTimer()
-		audioTimer = task.delay(AUDIO_DEBOUNCE_SECONDS, function()
+		local delay = math.max(AUDIO_DEBOUNCE_SECONDS, AUDIO_MIN_INTERVAL_SECONDS - (os.clock() - audioLastSentAt))
+		audioTimer = task.delay(delay, function()
 			audioTimer = nil
 			sendAudio()
 		end)
-	end
-
-	-- Sends unsent audio changes right away (used when the screen closes).
-	local function flushAudio()
-		if audioTimer == nil then
-			return
-		end
-		cancelAudioTimer()
-		sendAudio()
 	end
 
 	trove:Add(cancelAudioTimer)
@@ -505,6 +563,7 @@ function SettingsScreen.new(deps: Deps): Screen
 	end
 
 	local function showTab(id: TabId)
+		abortCapture()
 		pageTrove:Clean()
 		keyButtons = {}
 		currentTab = id
@@ -560,13 +619,20 @@ function SettingsScreen.new(deps: Deps): Screen
 				refreshKeyLabels("Gamepad")
 			end
 		end
-		-- Do not fight a drag in progress: the debounced send will push the latest values.
-		if audioTimer == nil then
-			syncAudio()
-			if audioInFlight then
-				audioInFlight = false
+		if audioInFlight then
+			audioInFlight = false
+			if not audioPending then
 				setStatus(t("settings.saved"))
 			end
+		end
+		if audioPending then
+			-- A change made while the previous send was in flight: send it now that the push landed.
+			if audioTimer == nil then
+				scheduleAudio()
+			end
+		elseif audioTimer == nil then
+			-- Do not fight a drag in progress: the debounced send will push the latest values.
+			syncAudio()
 		end
 	end)
 
@@ -580,27 +646,27 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 		self.Visible = true
 		saving = false
+		-- A send whose push never arrived (server-side rejection) must not block the next one.
 		audioInFlight = false
-		capturing = nil
+		abortCapture()
 		syncPending("Keyboard")
 		syncPending("Gamepad")
-		syncAudio()
+		if not audioPending then
+			syncAudio()
+		end
 		showTab(currentTab)
 		root.Instance.Enabled = true
+		panel:FocusForGamepad()
 		deps.SoundController.play("UiOpen")
 	end
 
 	local function close(self: Screen)
-		if capturing ~= nil then
-			capturing = nil
-			deps.InputController.cancelCapture()
-		end
+		abortCapture()
 		if not self.Visible then
 			return
 		end
 		self.Visible = false
-		capturing = nil
-		flushAudio()
+		panel:ReleaseGamepadFocus()
 		root.Instance.Enabled = false
 		deps.SoundController.play("UiClose")
 	end

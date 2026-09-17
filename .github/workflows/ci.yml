@@ -49,6 +49,12 @@ jobs:
       - name: Lune tests
         run: lune run tests/run
 
+      - name: Hard-coded strings check
+        run: lune run scripts/check-strings
+
+      - name: localization.csv up to date
+        run: lune run scripts/export-strings -- --check
+
       - name: Rojo build
         run: |
           mkdir -p build

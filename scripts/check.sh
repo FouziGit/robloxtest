@@ -29,6 +29,12 @@ luau-lsp analyze \
 echo "▶ lune tests"
 lune run tests/run
 
+echo "▶ hard-coded strings"
+lune run scripts/check-strings
+
+echo "▶ localization.csv"
+lune run scripts/export-strings -- --check
+
 echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/JutsuBattlegrounds.rbxl

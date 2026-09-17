@@ -1,0 +1,207 @@
+Key,Source,Context,Example,en,fr
+action.block,Block,JutsuBattlegrounds,,Block,Garde
+action.dash,Dash,JutsuBattlegrounds,,Dash,Ruée
+action.melee,Melee,JutsuBattlegrounds,,Melee,Corps à corps
+action.menu,Menu,JutsuBattlegrounds,,Menu,Menu
+battlepass.alreadyClaimed,Already claimed.,JutsuBattlegrounds,,Already claimed.,Déjà récupéré.
+battlepass.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
+battlepass.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupéré
+battlepass.claimedToast,Claimed: {reward},JutsuBattlegrounds,,Claimed: {reward},Récupéré : {reward}
+battlepass.completed,Completed!,JutsuBattlegrounds,,Completed!,Terminé !
+battlepass.free,Free,JutsuBattlegrounds,,Free,Gratuit
+battlepass.notReached,Tier {tier} not reached yet.,JutsuBattlegrounds,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
+battlepass.premium,Premium,JutsuBattlegrounds,,Premium,Premium
+battlepass.premiumRequired,Premium pass required.,JutsuBattlegrounds,,Premium pass required.,Pass premium requis.
+battlepass.reward.cosmetic,Cosmetic: {name},JutsuBattlegrounds,,Cosmetic: {name},Cosmétique : {name}
+battlepass.reward.none,No reward,JutsuBattlegrounds,,No reward,Aucune récompense
+battlepass.reward.ryo,{amount} Ryo,JutsuBattlegrounds,,{amount} Ryo,{amount} Ryo
+battlepass.reward.xpBoost,XP boost ({minutes} min),JutsuBattlegrounds,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
+battlepass.tier,Tier {tier} / {max},JutsuBattlegrounds,,Tier {tier} / {max},Palier {tier} / {max}
+battlepass.title,Battle Pass — Season {season},JutsuBattlegrounds,,Battle Pass — Season {season},Battle Pass — Saison {season}
+battlepass.unlockPremium,Unlock Premium,JutsuBattlegrounds,,Unlock Premium,Débloquer Premium
+battlepass.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
+common.back,Back,JutsuBattlegrounds,,Back,Retour
+common.cancel,Cancel,JutsuBattlegrounds,,Cancel,Annuler
+common.close,Close,JutsuBattlegrounds,,Close,Fermer
+common.level,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
+common.locked,Locked,JutsuBattlegrounds,,Locked,Verrouillé
+common.no,No,JutsuBattlegrounds,,No,Non
+common.ok,OK,JutsuBattlegrounds,,OK,OK
+common.reset,Reset,JutsuBattlegrounds,,Reset,Réinitialiser
+common.save,Save,JutsuBattlegrounds,,Save,Sauvegarder
+common.yes,Yes,JutsuBattlegrounds,,Yes,Oui
+cosmetic.AnbuMask,Anbu Mask,JutsuBattlegrounds,,Anbu Mask,Masque Anbu
+cosmetic.AuraCrimson,Crimson Aura,JutsuBattlegrounds,,Crimson Aura,Aura Pourpre
+cosmetic.AuraEmber,Ember Aura,JutsuBattlegrounds,,Ember Aura,Aura de Braise
+cosmetic.AuraFrost,Frost Aura,JutsuBattlegrounds,,Frost Aura,Aura de Givre
+cosmetic.AuraHokage,Hokage Aura,JutsuBattlegrounds,,Hokage Aura,Aura du Hokage
+cosmetic.AuraStorm,Storm Aura,JutsuBattlegrounds,,Storm Aura,Aura de Tempête
+cosmetic.AuraVoid,Void Aura,JutsuBattlegrounds,,Void Aura,Aura du Néant
+cosmetic.BlueChakraAura,Blue Chakra Aura,JutsuBattlegrounds,,Blue Chakra Aura,Aura de Chakra Bleu
+cosmetic.ClanKimono,Clan Kimono,JutsuBattlegrounds,,Clan Kimono,Kimono du Clan
+cosmetic.GeninHeadband,Genin Headband,JutsuBattlegrounds,,Genin Headband,Bandeau du Genin
+cosmetic.GoldenChakraAura,Golden Chakra Aura,JutsuBattlegrounds,,Golden Chakra Aura,Aura de Chakra Doré
+cosmetic.HokageCloak,Hokage Cloak,JutsuBattlegrounds,,Hokage Cloak,Manteau du Hokage
+cosmetic.KillEffectLightning,Lightning Finisher,JutsuBattlegrounds,,Lightning Finisher,Finisher Foudre
+cosmetic.KillEffectPetals,Petal Finisher,JutsuBattlegrounds,,Petal Finisher,Finisher Pétales
+cosmetic.KillEffectShatter,Shatter Finisher,JutsuBattlegrounds,,Shatter Finisher,Finisher Éclat
+cosmetic.KillEffectSupernova,Supernova Finisher,JutsuBattlegrounds,,Supernova Finisher,Finisher Supernova
+cosmetic.MistCape,Mist Cape,JutsuBattlegrounds,,Mist Cape,Cape de Brume
+cosmetic.SageCloak,Sage Cloak,JutsuBattlegrounds,,Sage Cloak,Manteau de Sage
+cosmetic.SkinEarthSpikesObsidian,Obsidian Earth Spikes Skin,JutsuBattlegrounds,,Obsidian Earth Spikes Skin,Skin Piques de Terre Obsidienne
+cosmetic.SkinEarthquakeCrystal,Crystal Earthquake Skin,JutsuBattlegrounds,,Crystal Earthquake Skin,Skin Séisme Cristal
+cosmetic.SkinEarthquakeMagma,Magma Earthquake Skin,JutsuBattlegrounds,,Magma Earthquake Skin,Skin Séisme Magma
+cosmetic.SkinEmberStormAzure,Azure Ember Storm Skin,JutsuBattlegrounds,,Azure Ember Storm Skin,Skin Tempête de Braises Azur
+cosmetic.SkinFireballAzure,Azure Fireball Skin,JutsuBattlegrounds,,Azure Fireball Skin,Skin Boule de Feu Azur
+cosmetic.SkinFireballEmerald,Emerald Fireball Skin,JutsuBattlegrounds,,Emerald Fireball Skin,Skin Boule de Feu Émeraude
+cosmetic.SkinWaterWaveJade,Jade Water Wave Skin,JutsuBattlegrounds,,Jade Water Wave Skin,Skin Vague Aquatique Jade
+cosmetic.SkinWindGustSilver,Silver Gust Skin,JutsuBattlegrounds,,Silver Gust Skin,Skin Rafale Argent
+cosmetic.SteelKatana,Steel Katana,JutsuBattlegrounds,,Steel Katana,Katana d'Acier
+cosmetic.TitleAnbu,Title: Anbu,JutsuBattlegrounds,,Title: Anbu,Titre : Anbu
+cosmetic.TitleJonin,Title: Jonin,JutsuBattlegrounds,,Title: Jonin,Titre : Jonin
+cosmetic.TitleKage,Title: Kage,JutsuBattlegrounds,,Title: Kage,Titre : Kage
+cosmetic.TitleKageSeason,Title: Season Kage,JutsuBattlegrounds,,Title: Season Kage,Titre : Kage de la saison
+cosmetic.TitleRookie,Title: Rookie,JutsuBattlegrounds,,Title: Rookie,Titre : Recrue
+cosmetic.TitleShadow,Title: Shadow,JutsuBattlegrounds,,Title: Shadow,Titre : Ombre
+cosmetic.TitleWanderer,Title: Wanderer,JutsuBattlegrounds,,Title: Wanderer,Titre : Vagabond
+cosmetic.TrailEmber,Ember Trail,JutsuBattlegrounds,,Ember Trail,Traînée de Braises
+cosmetic.TrailLeaf,Leaf Trail,JutsuBattlegrounds,,Leaf Trail,Traînée de Feuilles
+cosmetic.TrailSand,Sand Trail,JutsuBattlegrounds,,Sand Trail,Traînée de Sable
+cosmetic.TrailStorm,Storm Trail,JutsuBattlegrounds,,Storm Trail,Traînée de Tempête
+cosmetic.TrailViolet,Violet Trail,JutsuBattlegrounds,,Violet Trail,Traînée Violette
+cosmetic.VioletChakraAura,Violet Chakra Aura,JutsuBattlegrounds,,Violet Chakra Aura,Aura de Chakra Violet
+currency.ryo,Ryo,JutsuBattlegrounds,,Ryo,Ryo
+daily.broken,Your streak was reset. Come back tomorrow to keep it going!,JutsuBattlegrounds,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
+daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
+daily.firstWin,"First win of the day! +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"First win of the day! +{xp} XP, +{ryo} Ryo","Première victoire du jour ! +{xp} XP, +{ryo} Ryo"
+daily.premium,"Premium bonus: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Premium bonus: +{xp} XP, +{ryo} Ryo","Bonus Premium : +{xp} XP, +{ryo} Ryo"
+daily.streak,Login streak: day {day},JutsuBattlegrounds,,Login streak: day {day},Série de connexion : jour {day}
+daily.title,Daily reward,JutsuBattlegrounds,,Daily reward,Récompense du jour
+element.earth,Earth,JutsuBattlegrounds,,Earth,Terre
+element.fire,Fire,JutsuBattlegrounds,,Fire,Feu
+element.lightning,Lightning,JutsuBattlegrounds,,Lightning,Foudre
+element.water,Water,JutsuBattlegrounds,,Water,Eau
+element.wind,Wind,JutsuBattlegrounds,,Wind,Vent
+enemy.dummy,Training Dummy,JutsuBattlegrounds,,Training Dummy,Mannequin d'entraînement
+hud.bar,{name}  {current} / {max},JutsuBattlegrounds,,{name}  {current} / {max},{name}  {current} / {max}
+hud.cast.cooldown,{name}: {seconds}s left,JutsuBattlegrounds,,{name}: {seconds}s left,{name} : encore {seconds}s
+hud.cast.failed,{name} failed,JutsuBattlegrounds,,{name} failed,{name} a échoué
+hud.cast.locked,{name} is locked,JutsuBattlegrounds,,{name} is locked,{name} est verrouillé
+hud.cast.notEnoughChakra,Not enough chakra,JutsuBattlegrounds,,Not enough chakra,Pas assez de chakra
+hud.cast.notEquipped,{name} is not in your loadout,JutsuBattlegrounds,,{name} is not in your loadout,{name} n'est pas dans ton équipement
+hud.cast.success,{name}!,JutsuBattlegrounds,,{name}!,{name} !
+hud.cast.tooFast,Too fast! Catch your breath…,JutsuBattlegrounds,,Too fast! Catch your breath…,Trop rapide ! Reprends ton souffle…
+hud.chakra,Chakra,JutsuBattlegrounds,,Chakra,Chakra
+hud.combo.dissipated,The sequence dissipated…,JutsuBattlegrounds,,The sequence dissipated…,La séquence s'est dissipée…
+hud.combo.noMatch,No jutsu matches…,JutsuBattlegrounds,,No jutsu matches…,Aucun jutsu ne correspond…
+hud.currency,{amount} {currency},JutsuBattlegrounds,,{amount} {currency},{amount} {currency}
+hud.health,Health,JutsuBattlegrounds,,Health,Vie
+hud.hint.keyboard,{menu} = Menu,JutsuBattlegrounds,,{menu} = Menu,{menu} = Menu
+hud.killReward,Enemy defeated! +{xp} XP,JutsuBattlegrounds,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
+hud.levelUp,Level {level} reached!,JutsuBattlegrounds,,Level {level} reached!,Niveau {level} atteint !
+hud.playerKill,You defeated {name}! +{xp} XP,JutsuBattlegrounds,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
+hud.tierUp,Battle pass tier {tier} unlocked!,JutsuBattlegrounds,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
+jutsu.BoilingMist.desc,A scalding cloud that burns and slows enemies inside.,JutsuBattlegrounds,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
+jutsu.BoilingMist.name,Boiling Mist,JutsuBattlegrounds,,Boiling Mist,Brume Bouillante
+jutsu.EarthSpikes.desc,Rock spikes burst from the ground in a straight line.,JutsuBattlegrounds,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
+jutsu.EarthSpikes.name,Earth Spikes,JutsuBattlegrounds,,Earth Spikes,Piques de Terre
+jutsu.Earthquake.desc,Slam the ground: a massive shockwave launches enemies.,JutsuBattlegrounds,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
+jutsu.Earthquake.name,Earthquake,JutsuBattlegrounds,,Earthquake,Séisme
+jutsu.EmberStorm.desc,A ring of embers whirls around you and burns everything.,JutsuBattlegrounds,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
+jutsu.EmberStorm.name,Ember Storm,JutsuBattlegrounds,,Ember Storm,Tempête de Braises
+jutsu.Fireball.desc,Hurls a sphere of flames that explodes on impact.,JutsuBattlegrounds,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
+jutsu.Fireball.name,Fireball,JutsuBattlegrounds,,Fireball,Boule de Feu
+jutsu.MudWall.desc,Raises a defensive wall of mud in front of you.,JutsuBattlegrounds,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
+jutsu.MudWall.name,Mud Wall,JutsuBattlegrounds,,Mud Wall,Mur de Boue
+jutsu.WaterWave.desc,A wave surges forward and sweeps enemies away.,JutsuBattlegrounds,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
+jutsu.WaterWave.name,Water Wave,JutsuBattlegrounds,,Water Wave,Vague Aquatique
+jutsu.WindGust.desc,A cone of wind violently pushes nearby enemies back.,JutsuBattlegrounds,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
+jutsu.WindGust.name,Slicing Gust,JutsuBattlegrounds,,Slicing Gust,Rafale Tranchante
+kick.abuse,Disconnected: too many invalid requests.,JutsuBattlegrounds,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
+kick.loadFailed,Could not load your data. Please try again in a minute.,JutsuBattlegrounds,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
+kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,JutsuBattlegrounds,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
+level.max,Max level,JutsuBattlegrounds,,Max level,Niveau max
+level.title,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
+level.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
+menu.battlepass,Battle Pass,JutsuBattlegrounds,,Battle Pass,Battle Pass
+menu.leaderboard,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
+menu.loadout,Loadout,JutsuBattlegrounds,,Loadout,Équipement
+menu.quests,Quests,JutsuBattlegrounds,,Quests,Quêtes
+menu.settings,Settings,JutsuBattlegrounds,,Settings,Options
+menu.shop,Shop,JutsuBattlegrounds,,Shop,Boutique
+menu.title,Menu,JutsuBattlegrounds,,Menu,Menu
+mode.duel1v1,Ranked 1v1,JutsuBattlegrounds,,Ranked 1v1,1v1 classé
+mode.team3v3,Team 3v3,JutsuBattlegrounds,,Team 3v3,3v3 en équipe
+pass.lightning,Lightning Element,JutsuBattlegrounds,,Lightning Element,Élément Foudre
+pass.lightning.desc,Unlock Lightning right away (or reach level {level} for free).,JutsuBattlegrounds,,Unlock Lightning right away (or reach level {level} for free).,Débloque la Foudre tout de suite (ou atteins le niveau {level} gratuitement).
+pass.loadoutSlots,Loadout Slots,JutsuBattlegrounds,,Loadout Slots,Slots d'équipement
+pass.loadoutSlots.desc,+4 loadout slots (10 in total).,JutsuBattlegrounds,,+4 loadout slots (10 in total).,+4 slots d'équipement (10 au total).
+pass.skinPack,Skin Pack,JutsuBattlegrounds,,Skin Pack,Pack de skins
+pass.skinPack.desc,"Four jutsu skins, one per base element.",JutsuBattlegrounds,,"Four jutsu skins, one per base element.","Quatre skins de jutsu, un par élément de base."
+pass.vip,VIP,JutsuBattlegrounds,,VIP,VIP
+pass.vip.desc,"Double XP, +50% Ryo, chat tag and an exclusive aura.",JutsuBattlegrounds,,"Double XP, +50% Ryo, chat tag and an exclusive aura.","XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive."
+product.cosmetic,Cosmetic,JutsuBattlegrounds,,Cosmetic,Cosmétique
+product.cosmetic.desc,Buy the selected cosmetic with Robux.,JutsuBattlegrounds,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
+product.premiumPass,Premium Battle Pass,JutsuBattlegrounds,,Premium Battle Pass,Battle Pass Premium
+product.premiumPass.desc,Unlock the premium track of the current season.,JutsuBattlegrounds,,Unlock the premium track of the current season.,Débloque la piste premium de la saison en cours.
+product.ryo.desc,Ryo to spend in the cosmetic shop.,JutsuBattlegrounds,,Ryo to spend in the cosmetic shop.,Des Ryo à dépenser dans la boutique de cosmétiques.
+product.ryoLarge,"8,000 Ryo",JutsuBattlegrounds,,"8,000 Ryo",8 000 Ryo
+product.ryoMedium,"3,500 Ryo",JutsuBattlegrounds,,"3,500 Ryo",3 500 Ryo
+product.ryoSmall,"1,000 Ryo",JutsuBattlegrounds,,"1,000 Ryo",1 000 Ryo
+product.tierSkip5,+5 Tiers,JutsuBattlegrounds,,+5 Tiers,+5 paliers
+product.tierSkip5.desc,Advance five battle pass tiers.,JutsuBattlegrounds,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
+product.xpBoost1h,XP Boost (1 h),JutsuBattlegrounds,,XP Boost (1 h),Boost d'XP (1 h)
+product.xpBoost1h.desc,Double XP for one hour.,JutsuBattlegrounds,,Double XP for one hour.,XP doublée pendant une heure.
+quest.castJutsus,Cast {target} jutsus,JutsuBattlegrounds,,Cast {target} jutsus,Lance {target} jutsus
+quest.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
+quest.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupérée
+quest.completed,Quest completed: {name},JutsuBattlegrounds,,Quest completed: {name},Quête terminée : {name}
+quest.daily,Daily quests,JutsuBattlegrounds,,Daily quests,Quêtes journalières
+quest.dealDamage,Deal {target} damage,JutsuBattlegrounds,,Deal {target} damage,Inflige {target} dégâts
+quest.defeatDummies,Defeat {target} training dummies,JutsuBattlegrounds,,Defeat {target} training dummies,Détruis {target} mannequins
+quest.defeatPlayers,Defeat {target} players,JutsuBattlegrounds,,Defeat {target} players,Vaincs {target} joueurs
+quest.hitJutsus,Hit enemies with {target} jutsus,JutsuBattlegrounds,,Hit enemies with {target} jutsus,Touche des ennemis avec {target} jutsus
+quest.joinBoss,Take part in {target} World Boss fights,JutsuBattlegrounds,,Take part in {target} World Boss fights,Participe à {target} combats de World Boss
+quest.landMelee,Land {target} melee hits,JutsuBattlegrounds,,Land {target} melee hits,Place {target} coups au corps à corps
+quest.playMatches,Play {target} matches,JutsuBattlegrounds,,Play {target} matches,Joue {target} matchs
+quest.progress,{progress} / {target},JutsuBattlegrounds,,{progress} / {target},{progress} / {target}
+quest.reward,"+{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+quest.useDash,Dash {target} times,JutsuBattlegrounds,,Dash {target} times,Utilise le dash {target} fois
+quest.weekly,Weekly quests,JutsuBattlegrounds,,Weekly quests,Quêtes hebdomadaires
+quest.winMatches,Win {target} matches,JutsuBattlegrounds,,Win {target} matches,Gagne {target} matchs
+rank.anbu,Anbu,JutsuBattlegrounds,,Anbu,Anbu
+rank.chunin,Chunin,JutsuBattlegrounds,,Chunin,Chunin
+rank.genin,Genin,JutsuBattlegrounds,,Genin,Genin
+rank.jonin,Jonin,JutsuBattlegrounds,,Jonin,Jonin
+rank.kage,Kage,JutsuBattlegrounds,,Kage,Kage
+settings.bound,{action} is now {key}. Don't forget to save!,JutsuBattlegrounds,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
+settings.cameraShake,Camera shake,JutsuBattlegrounds,,Camera shake,Secousses de caméra
+settings.captureCancelled,Cancelled.,JutsuBattlegrounds,,Cancelled.,Capture annulée.
+settings.duplicate,{key} is used twice.,JutsuBattlegrounds,,{key} is used twice.,La touche {key} est utilisée deux fois.
+settings.hint,Click a binding to change it.,JutsuBattlegrounds,,Click a binding to change it.,Clique sur une touche pour la changer.
+settings.keyNotAllowed,{key} is not allowed.,JutsuBattlegrounds,,{key} is not allowed.,{key} n'est pas autorisée.
+settings.music,Music volume,JutsuBattlegrounds,,Music volume,Volume musique
+settings.pressKey,Press a key for {action}… (Esc to cancel),JutsuBattlegrounds,,Press a key for {action}… (Esc to cancel),Appuie sur une touche pour {action}… (Échap pour annuler)
+settings.resetPending,Defaults restored. Don't forget to save!,JutsuBattlegrounds,,Defaults restored. Don't forget to save!,Touches par défaut restaurées. N'oublie pas de sauvegarder !
+settings.saveFailed,Could not save settings.,JutsuBattlegrounds,,Could not save settings.,Impossible de sauvegarder les options.
+settings.saved,Settings saved!,JutsuBattlegrounds,,Settings saved!,Options sauvegardées !
+settings.saving,Saving…,JutsuBattlegrounds,,Saving…,Sauvegarde…
+settings.sfx,Effects volume,JutsuBattlegrounds,,Effects volume,Volume effets
+settings.swapped,Swapped {a} and {b}. Don't forget to save!,JutsuBattlegrounds,,Swapped {a} and {b}. Don't forget to save!,{a} et {b} échangés. N'oublie pas de sauvegarder !
+settings.tab.audio,Audio,JutsuBattlegrounds,,Audio,Audio
+settings.tab.gamepad,Gamepad,JutsuBattlegrounds,,Gamepad,Manette
+settings.tab.keyboard,Keyboard,JutsuBattlegrounds,,Keyboard,Clavier
+settings.title,Settings,JutsuBattlegrounds,,Settings,Options
+shop.buyRobux,Buy with Robux,JutsuBattlegrounds,,Buy with Robux,Acheter en Robux
+shop.buyRyo,{price} Ryo,JutsuBattlegrounds,,{price} Ryo,{price} Ryo
+shop.equip,Equip,JutsuBattlegrounds,,Equip,Équiper
+shop.equipped,Equipped,JutsuBattlegrounds,,Equipped,Équipé
+shop.notEnoughRyo,Not enough Ryo.,JutsuBattlegrounds,,Not enough Ryo.,Pas assez de Ryo.
+shop.owned,Owned,JutsuBattlegrounds,,Owned,Possédé
+shop.purchased,Purchased: {name},JutsuBattlegrounds,,Purchased: {name},Acheté : {name}
+shop.rarity.Common,Common,JutsuBattlegrounds,,Common,Commun
+shop.rarity.Epic,Epic,JutsuBattlegrounds,,Epic,Épique
+shop.rarity.Legendary,Legendary,JutsuBattlegrounds,,Legendary,Légendaire
+shop.rarity.Rare,Rare,JutsuBattlegrounds,,Rare,Rare
+shop.rotation,Today's selection,JutsuBattlegrounds,,Today's selection,Sélection du jour
+shop.title,Shop,JutsuBattlegrounds,,Shop,Boutique

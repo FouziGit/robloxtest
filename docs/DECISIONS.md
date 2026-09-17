@@ -28,6 +28,26 @@ Raison : bibliothèques standard de l'écosystème, maintenues, typées ; Trove 
 Pas de Jest-Lua ni TestEZ. `tests/harness.luau` fournit `describe / it / expect` (toBe, toEqual, toBeCloseTo, toThrow, toBeTruthy…) et `tests/run.luau` découvre `tests/**/*.spec.luau`. Les modules purs (`ComboResolver`, `Elo`, `MatchmakingCore`, `QuestLogic`, `DataMigration`, `ReceiptProcessor`, `Strings`) n'ont aucun `require` ni global Roblox et sont chargés par chemin relatif.
 Raison : les paquets Wally (TestEZ, Jest-Lua, Promise…) utilisent `require(script.Parent…)` et ne se chargent pas sous Lune sans darklua ; un harnais de 150 lignes évite une chaîne de build supplémentaire. Vérifié : `lune run` + `require("../src/…")` fonctionne (probe du 2026-09-16).
 
+**D-8 — Le sprint V1 est remplacé par le dash** · Phase 1
+Plus de sprint/endurance côté client : le kit V2 (M1, dash avec i-frames, garde) le remplace ; la vitesse de marche est fixée par le serveur (`MovementService`).
+Raison : le sprint client-autoritaire était l'exploit n°1 de l'audit et n'existe pas dans le genre battlegrounds ; le dash apporte la mobilité attendue sans laisser le client écrire `WalkSpeed`.
+
+**D-9 — Les effets de jutsus sont livrés directement dans l'architecture cible** · Phase 1
+Le serveur ne fait que la détection de coups (overlaps / raycasts pas à pas / parts de collision invisibles) et diffuse des paquets `Vfx` ; chaque client rend via `VfxLibrary`. Le chakra (`CombatConfig`) est introduit en même temps.
+Raison : réécrire les effets deux fois (Parts serveur en Phase 1 puis client en Phase 2) aurait doublé le travail sans valeur intermédiaire ; le plan Phase 1/2 est fusionné sur ce point.
+
+**D-10 — Dash et knockback appliqués par le client propriétaire de la physique** · Phase 1
+Le serveur décide (cooldown, chakra, i-frames, cible) puis envoie `MovementCommand` ; le client applique la vitesse sur son `HumanoidRootPart`.
+Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur ; l'anti-teleport (Phase 8) borne la dérive.
+
+**D-11 — Touches par défaut J / K / L / H / U, menu M, garde F, dash Maj gauche** · Phase 1
+`InputConfig.DefaultKeyboard` évite WASD (QWERTY), ZQSD (AZERTY), Espace, Tab, Échap, I/O (zoom) et les chiffres (backpack) ; la liste blanche de rebind exclut ces mêmes touches.
+Raison : résout le bug « A = strafe » sans dépendre de la disposition du clavier du joueur.
+
+**D-12 — CI : rokit installé par le script officiel, pas par une action tierce** · Phase 1
+`ci.yml` et `publish.yml` installent rokit via `install.sh` puis `rokit install --no-trust-check`.
+Raison : aucune action GitHub officielle maintenue par rojo-rbx ; le script est la voie documentée et reste alignée sur `rokit.toml`.
+
 **D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
 `scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
 Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.

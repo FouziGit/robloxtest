@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality-gates:
+    name: Format, lint, analyze, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install rokit
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Install toolchain (rokit.toml)
+        run: rokit install --no-trust-check
+
+      - name: Install packages (wally.toml)
+        run: wally install
+
+      - name: Download Roblox type definitions
+        run: curl -fsSL https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/main/scripts/globalTypes.d.luau -o globalTypes.d.luau
+
+      - name: StyLua
+        run: stylua --check src tests
+
+      - name: Selene
+        run: selene src tests
+
+      - name: Rojo sourcemap
+        run: rojo sourcemap default.project.json -o sourcemap.json
+
+      - name: luau-lsp analyze (strict gate on src/shared)
+        run: |
+          luau-lsp analyze \
+            --definitions=globalTypes.d.luau \
+            --sourcemap=sourcemap.json \
+            --settings=.luau-lsp.json \
+            --ignore="Packages/**" \
+            src/shared
+
+      - name: Lune tests
+        run: lune run tests/run
+
+      - name: Rojo build
+        run: |
+          mkdir -p build
+          rojo build default.project.json -o build/JutsuBattlegrounds.rbxl
+
+      - name: Upload place artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JutsuBattlegrounds-rbxl
+          path: build/JutsuBattlegrounds.rbxl
+          retention-days: 14

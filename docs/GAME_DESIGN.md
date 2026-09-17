@@ -58,7 +58,7 @@ Légende combos : F Feu · W Eau · E Terre · A Vent · L Foudre.
 | Eau | W W | Vague Aquatique | AoE | 22 | 5 | 18 | ligne, knockback |
 | Eau | W F | Brume Bouillante | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
 | Eau | W A | Prison d'Eau | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
-| Eau | W W E | Mur de Boue | Mur | 30 | 10 | 0 | bloque projectiles et M1, 6 s, 120 PV |
+| Eau | W W E | Mur de Boue | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s |
 | Terre | E E | Piques de Terre | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
 | Terre | E W | Tir de Boue | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
 | Terre | E A | Peau de Pierre | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |

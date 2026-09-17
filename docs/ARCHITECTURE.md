@@ -65,11 +65,11 @@ Serveur → client :
 | `ProgressionService` | `addXp(player, amount, reason)` (niveaux en cascade, XP de pass via Battlepass, leaderstats `Level`/`Ryo`), `getLevel(player)`, signal `LevelUp(player, level)` ; pousse `Progression` |
 | `BattlepassService` | `addXp(player, amount)`, `claim(player, tier, track)`, `isPremium(player)`, `setPremium(player, value)` ; pousse `Battlepass` |
 | `SettingsService` | handlers `UpdateKeybinds` / `UpdateSettings` (whitelists `InputConfig.Allowed*`, `Rebindable`, sans doublon) ; pousse `Settings` ; `Notify settings.saved` |
-| `MovementService` | applique `GameConfig.Movement` au spawn ; `applySlow(player, factor, seconds)`, `applyStun(player, seconds)`, `isStunned(player)` (attributs `CombatConfig.Status.*` sur le Humanoid) ; `command(player, payload)` → `MovementCommand` |
+| `MovementService` | applique `GameConfig.Movement` au spawn ; `applySlow(player, factor, seconds)`, `clearSlow(player)`, `applyStun(player, seconds)`, `isStunned(player)` (attributs `CombatConfig.Status.*` sur le Humanoid) ; `command(player, payload)` → `MovementCommand` |
 | `CombatService` | `ApplyDamage(source: Player?, targetModel: Model, amount, kind: DamageKind, tags: {string}) -> {Applied: number, Killed: boolean, Blocked: boolean}` (UNIQUE chemin de dégâts : PvP policy, protection de spawn, i-frames par tag, garde, stun) ; `getState(player) -> {Chakra, MaxChakra, InCombat, Blocking, Stunned}`, `trySpendChakra(player, cost) -> bool`, `setPolicy(fn(source, targetModel) -> bool)` ; handlers `CombatAction` (M1 combo, dash, block) ; tick `Heartbeat` centralisé (régén chakra/vie, timers, `CombatState` à 5 Hz) ; signal `Killed(sourceUserId, victimModel)` |
 | `JutsuService` | handler `CastJutsu` : profil chargé → vivant, non stun, non en garde → `ComboResolver.resolve` → débloqué + dans le loadout → cooldown → chakra → origine/direction depuis le `HumanoidRootPart` → `JutsuEffects[def.Effect](ctx)` → XP si ≥ 1 touche → stats → `Notify` ; `getCooldowns(player)` |
 | `JutsuEffects` | `[effectId] = function(ctx) -> hitCount` avec `ctx = {Caster: Player, Def: JutsuDef, Origin: CFrame, Direction: Vector3, Combat: CombatService, Vfx: VfxBroadcaster, Movement: MovementService}` ; détection serveur uniquement (`GetPartBoundsInRadius/Box`, raycasts pas à pas pour les projectiles, parts de collision invisibles pour les murs) ; aucun visuel |
-| `VfxBroadcaster` | `emit(packet, reliable?)` (tous les clients dans `GameConfig` distance), `emitTo(player, packet)` |
+| `VfxBroadcaster` | `emit(packet, reliable?)` (tous les clients à moins de `GameConfig.Vfx.BroadcastRadiusStuds`), `emitTo(player, packet, reliable?)` |
 | `EnemyService` | mannequins (`GameConfig.Enemy`), tag `Enemy`, crédit du tueur via l'attribut `LastAttackerUserId` posé par `CombatService`, XP/Ryo `DummyKill`, respawn |
 
 ## Client (`src/client`)
@@ -81,12 +81,12 @@ Serveur → client :
 | `RemoteClient` | `get(name)`, `fire(name, ...)`, `on(name, handler)`, `invoke(name, timeout, ...) -> (ok, ...)` |
 | `Controllers/ClientData` | `get() -> ProfileData?`, `waitForLoad()`, signaux `Loaded`, `Changed(section)` |
 | `Controllers/Localize` | `t(key, params?)` (locale via `LocalizationService.RobloxLocaleId`), `locale()` |
-| `Controllers/InputController` | `ContextActionService` : clavier (+ souris), manette, tactile (boutons positionnés via `InputConfig.Touch`, colorés par élément, haptique) ; signal `Action(actionId, began: boolean)` ; `captureNext(kind, callback)` pour le rebind (suspend les actions) ; `setSuspended(bool)` (menus) ; `rebuild()` après changement de `Settings` |
+| `Controllers/InputController` | `ContextActionService` : clavier (+ souris), manette, tactile (boutons positionnés via `InputConfig.Touch`, colorés par élément, haptique) ; signal `Action(actionId, began: boolean)` ; `captureNext(kind, callback)` / `cancelCapture()` pour le rebind (suspend les actions) ; `setSuspended(bool)`, `isSuspended()`, signal `SuspendedChanged(bool)` (menus) ; `rebuild()` après changement de `Settings` |
 | `Controllers/ComboController` | consomme `Action` des 5 éléments, `ComboResolver`, timeout `GameConfig.Combo.TimeoutSeconds`, `RemoteClient.fire("CastJutsu", seq)` ; signal `SequenceChanged(seq)` pour le HUD |
 | `Controllers/CombatController` | `Melee` / `Dash` / `Block` → `CombatAction` ; état local depuis `CombatState` ; signal `StateChanged(state)` |
 | `Controllers/MovementController` | double saut (front d'appui, `GameConfig.Movement`), applique `MovementCommand` (dash, knockback, stun = verrou d'entrée) |
 | `Controllers/HudController` | barres vie/chakra/niveau, pastilles de combo, toasts (`Notify` localisé + `Sfx`), rappel du menu |
-| `Controllers/VfxController` + `VfxLibrary` | rend `Vfx`/`VfxReliable` par `Id` (particules, beams, tweens, camera shake selon `Settings.CameraShake`, hit-stop) ; `VfxLibrary[id] = function(packet, trove)` |
+| `Controllers/VfxController` + `VfxLibrary` | rend `Vfx`/`VfxReliable` par `Id` (particules, beams, tweens, camera shake selon `Settings.CameraShake`, hit-stop) ; `VfxLibrary[id] = function(packet, trove, api)` avec `api = {Sound, Shake(intensity), HitStop(seconds), ElementColor(element), LocalCharacter()}` ; durée de vie max `GameConfig.Vfx.LifetimeSeconds` |
 | `Controllers/SoundController` | `play(sfxId, position?)`, musique, volumes depuis `Settings` |
 | `Controllers/MenuController` | ouvre/ferme les écrans (`Menu`, `Settings`, `Battlepass`), suspend `InputController`, écrans depuis `UI/screens` |
 
@@ -111,7 +111,8 @@ Serveur → client :
 
 ## Règles transverses
 
-- Chaque changement de profil : muter `DataService.get(player)` puis `DataService.push(player, section)`.
+- Chaque changement de profil : muter `DataService.get(player)` puis `DataService.push(player, section)` (y compris après un rejet, pour que le client sorte de son état « en cours »).
+- Tags de dégâts des jutsus : `{Def.Id, Def.Archetype}` — `tags[1]` sert de clé d'i-frames, l'archétype permet `CombatConfig.Block.BrokenBy`.
 - Aucun texte joueur hors `Strings` ; ajouter une clé = ajouter `en` + `fr` (test `Strings.spec`).
 - Aucune boucle par joueur ; `CombatService` possède l'unique `Heartbeat` de gameplay.
 - Toute erreur attrapée est journalisée avec contexte (`Log`).

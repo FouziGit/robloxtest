@@ -24,6 +24,12 @@ GameConfig.Server = {
 	ProfileLoadTimeoutSeconds = 30,
 	AbuseKickThreshold = 25, -- rejected remote calls before kick
 	AbuseWindowSeconds = 60,
+	CombatStateHz = 5, -- CombatState replication rate per player
+}
+
+GameConfig.Vfx = {
+	BroadcastRadiusStuds = 350, -- players farther than this from a packet origin do not receive it
+	LifetimeSeconds = 6, -- hard cap on any client effect's lifetime (cleanup)
 }
 
 GameConfig.Latency = {
@@ -45,6 +51,7 @@ GameConfig.Movement = {
 
 GameConfig.Spawn = {
 	ProtectionSeconds = 4, -- no damage taken/dealt right after (re)spawn
+	SafeZoneMarginStuds = 10, -- PvP disabled within DummyRingRadius + this margin of the hub spawn
 }
 
 GameConfig.Enemy = {

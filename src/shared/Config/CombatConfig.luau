@@ -21,6 +21,7 @@ CombatConfig.Melee = {
 	Damage = { 8, 8, 8, 14 }, -- per hit; the last entry is the finisher
 	Range = 7, -- studs in front of the attacker
 	Width = 5, -- studs (box half-extent sideways)
+	HitboxHeight = 6, -- studs (vertical extent of the melee box)
 	ComboWindowSeconds = 0.9, -- time to chain the next hit before the combo resets
 	HitIntervalSeconds = 0.22, -- minimum time between two hits
 	FinisherCooldownSeconds = 1.2, -- cooldown after the finisher lands or whiffs

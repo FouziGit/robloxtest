@@ -140,7 +140,7 @@ JutsuConfig.Jutsus = {
 		Unlock = { Kind = "Default" },
 		NameKey = "jutsu.MudWall.name",
 		DescriptionKey = "jutsu.MudWall.desc",
-		Params = { Duration = 6, Width = 14, Height = 9, Thickness = 2.5, Offset = 8, Health = 120 },
+		Params = { Duration = 6, Width = 14, Height = 9, Thickness = 2.5, Offset = 8 },
 	},
 	{
 		Id = "EmberStorm",

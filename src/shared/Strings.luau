@@ -51,6 +51,9 @@ Strings.Table = {
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
 	["hud.hint.keyboard"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
 	["hud.chakra"] = { en = "Chakra", fr = "Chakra" },
+	["hud.health"] = { en = "Health", fr = "Vie" },
+	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
+	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar
 	["level.title"] = { en = "Level {level}", fr = "Niveau {level}" },
@@ -93,6 +96,10 @@ Strings.Table = {
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
 	["settings.sfx"] = { en = "Effects volume", fr = "Volume effets" },
 	["settings.cameraShake"] = { en = "Camera shake", fr = "Secousses de caméra" },
+	["settings.resetPending"] = {
+		en = "Defaults restored. Don't forget to save!",
+		fr = "Touches par défaut restaurées. N'oublie pas de sauvegarder !",
+	},
 
 	-- Battle pass
 	["battlepass.title"] = { en = "Battle Pass — Season {season}", fr = "Battle Pass — Saison {season}" },

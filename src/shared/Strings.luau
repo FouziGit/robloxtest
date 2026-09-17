@@ -184,6 +184,18 @@ Strings.Table = {
 	["cosmetic.TitleKage"] = { en = "Title: Kage", fr = "Titre : Kage" },
 	["cosmetic.AuraHokage"] = { en = "Hokage Aura", fr = "Aura du Hokage" },
 
+	-- Ranks & modes
+	["rank.genin"] = { en = "Genin", fr = "Genin" },
+	["rank.chunin"] = { en = "Chunin", fr = "Chunin" },
+	["rank.jonin"] = { en = "Jonin", fr = "Jonin" },
+	["rank.anbu"] = { en = "Anbu", fr = "Anbu" },
+	["rank.kage"] = { en = "Kage", fr = "Kage" },
+	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
+	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
+	["cosmetic.TitleJonin"] = { en = "Title: Jonin", fr = "Titre : Jonin" },
+	["cosmetic.TitleAnbu"] = { en = "Title: Anbu", fr = "Titre : Anbu" },
+	["cosmetic.TitleKageSeason"] = { en = "Title: Season Kage", fr = "Titre : Kage de la saison" },
+
 	-- Enemies
 	["enemy.dummy"] = { en = "Training Dummy", fr = "Mannequin d'entraînement" },
 

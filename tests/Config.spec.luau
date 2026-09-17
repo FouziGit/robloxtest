@@ -6,7 +6,10 @@ local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local JutsuConfig = require("../src/shared/Config/JutsuConfig")
+local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
+local RankTiers = require("../src/shared/Pure/RankTiers")
+local RankingConfig = require("../src/shared/Config/RankingConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local Strings = require("../src/shared/Strings")
 
@@ -134,5 +137,46 @@ describe("ProgressionConfig", function()
 		expect(ProgressionConfig.xpForLevel(1)).toBe(100)
 		expect(total).toBeGreaterThan(400000)
 		expect(total).toBeLessThan(600000)
+	end)
+end)
+
+describe("RankingConfig", function()
+	it("has valid tiers, K schedule and localized rewards", function()
+		expect((RankTiers.validate(RankingConfig.Tiers))).toBe(true)
+		for _, tier in ipairs(RankingConfig.Tiers) do
+			expect(Strings.has(tier.NameKey)).toBe(true)
+			local reward = RankingConfig.SeasonRewards[tier.Id]
+			expect(reward).never.toBeNil()
+			expect(reward.Ryo).toBeGreaterThan(0)
+			if reward.Cosmetic ~= nil then
+				expect(Strings.has("cosmetic." .. reward.Cosmetic)).toBe(true)
+			end
+		end
+		local schedule = RankingConfig.KFactorSchedule
+		expect(schedule[#schedule].MaxMatches).toBeNil()
+		for index = 2, #schedule do
+			expect(schedule[index].K).toBeLessThan(schedule[index - 1].K)
+		end
+		expect(RankingConfig.RatingFloor).toBeLessThan(RankingConfig.InitialRating)
+		for _, mode in ipairs(RankingConfig.Modes) do
+			expect(MatchConfig.Modes[mode]).never.toBeNil()
+		end
+	end)
+end)
+
+describe("MatchConfig", function()
+	it("defines coherent modes and arenas", function()
+		for _, modeId in ipairs(MatchConfig.ModeOrder) do
+			local mode = MatchConfig.Modes[modeId]
+			expect(mode).never.toBeNil()
+			expect(mode.Id).toBe(modeId)
+			expect(Strings.has(mode.NameKey)).toBe(true)
+			expect(mode.TeamSize * mode.Teams).toBeGreaterThanOrEqual(2)
+			expect(mode.RoundsToWin).toBeGreaterThanOrEqual(1)
+			expect(mode.DurationSeconds).toBeGreaterThan(30)
+			expect(MatchConfig.Arenas[mode.ArenaId]).never.toBeNil()
+			expect(MatchConfig.Rewards[modeId]).never.toBeNil()
+		end
+		expect(MatchConfig.Matchmaking.MaxWindow).toBeGreaterThan(MatchConfig.Matchmaking.BaseWindow)
 	end)
 end)

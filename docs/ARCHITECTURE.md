@@ -43,6 +43,12 @@ Client → serveur (Guard + token bucket, abus → `AntiCheatService.strike`) :
 | `JoinQueue` | `MatchModeId` | `MatchmakingService` |
 | `LeaveQueue` | — | `MatchmakingService` |
 | `RequestLeaderboard` (fonction) | `boardId` | `LeaderboardService` |
+| `ClaimQuest` | `"Daily" \| "Weekly"`, `questId` | `QuestService` |
+| `ClaimDaily` | — | `DailyRewardService` |
+| `SetLoadout` | `{jutsuId}` (≤ 10) | `LoadoutService` |
+| `EquipCosmetic` | `slotKey`, `cosmeticId` (`""` = retirer) | `CosmeticService` |
+| `BuyCosmetic` | `cosmeticId` (achat en Ryo) | `ShopService` |
+| `PromptPurchase` | `"Pass" \| "Product"`, `clé du catalogue` | `MonetizationService` (le client n'envoie jamais d'ID Roblox) |
 
 Serveur → client :
 
@@ -56,6 +62,8 @@ Serveur → client :
 | `QueueChanged` | `Types.QueueSnapshot` — état de file du joueur (`Queued = false` quand il n'est dans aucune) |
 | `MatchChanged` | `Types.MatchSnapshot` (ou `nil` à la fin du match) — poussé quelques fois par seconde aux participants |
 | `MatchEnded` | `Types.MatchOutcome` — résumé unique avant le retour au hub |
+| `BossChanged` | `Types.BossSnapshot` (ou `nil` hors événement) — diffusé à tout le serveur |
+| `ShopChanged` | `Types.ShopSnapshot` — rotation du jour avec la possession résolue pour le destinataire |
 
 ## Serveur (`src/server`)
 

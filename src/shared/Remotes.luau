@@ -88,6 +88,43 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf((RankingConfig.Leaderboard.Boards :: any) :: { any }) },
 		Rate = { Capacity = 3, Refill = 0.5 },
 	},
+	ClaimQuest = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf({ "Daily", "Weekly" }), Guard.string({ min = 1, max = 64 }) },
+		Rate = { Capacity = 6, Refill = 1 },
+	},
+	ClaimDaily = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 3, Refill = 0.5 },
+	},
+	SetLoadout = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.array(Guard.string({ min = 1, max = 64 }), { maxLength = 10 }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	EquipCosmetic = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.string({ min = 1, max = 64 }), Guard.string({ max = 64 }) },
+		Rate = { Capacity = 6, Refill = 1 },
+	},
+	BuyCosmetic = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.string({ min = 1, max = 64 }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	-- The client never sends a Roblox asset id: it names the catalog entry and the server prompts.
+	PromptPurchase = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf({ "Pass", "Product" }), Guard.string({ min = 1, max = 64 }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
 	CombatAction = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
@@ -115,6 +152,10 @@ Remotes.Definitions = {
 	MatchChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- End-of-match summary (Types.MatchOutcome), sent once before the return to the hub.
 	MatchEnded = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- World Boss state for everyone on the server (Types.BossSnapshot), or nil when no event runs.
+	BossChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- Today's shop rotation with ownership resolved for the receiver (Types.ShopSnapshot).
+	ShopChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 } :: { [string]: Definition }
 
 function Remotes.names(): { string }

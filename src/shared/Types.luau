@@ -229,6 +229,36 @@ export type LeaderboardEntry = {
 	RankKey: string, -- Strings key of the rank tier
 }
 
+-- World Boss state replicated to everyone on the server while the event runs (BossChanged).
+export type BossPhaseSnapshot = "Announced" | "Fighting" | "Defeated" | "Expired"
+
+export type BossSnapshot = {
+	Phase: BossPhaseSnapshot,
+	SecondsLeft: number,
+	Health: number,
+	MaxHealth: number,
+	PhaseIndex: number,
+	Participants: number,
+	TelegraphKey: string?, -- Strings key of the attack being telegraphed, nil when none
+	MyShare: number, -- 0..1, the receiving player's damage contribution
+}
+
+-- One purchasable entry of today's rotation (ShopChanged).
+export type ShopEntry = {
+	CosmeticId: string,
+	NameKey: string,
+	Slot: string,
+	Rarity: string,
+	PriceRyo: number,
+	ProductKey: string, -- MonetizationConfig.Products key for the Robux path
+	Owned: boolean,
+}
+
+export type ShopSnapshot = {
+	DayKey: string,
+	Entries: { ShopEntry },
+}
+
 export type LeaderboardSnapshot = {
 	BoardId: string,
 	UpdatedAt: number, -- os.time of the last refresh

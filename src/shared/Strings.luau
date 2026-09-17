@@ -418,6 +418,71 @@ Strings.Table = {
 	["hub.trainingArea"] = { en = "Training", fr = "Entraînement" },
 	["hub.shop"] = { en = "Shop", fr = "Boutique" },
 
+	-- World Boss
+	["boss.name"] = { en = "World Boss", fr = "Boss du monde" },
+	["boss.announced"] = {
+		en = "A World Boss appears in {seconds}s!",
+		fr = "Un boss du monde apparaît dans {seconds}s !",
+	},
+	["boss.started"] = { en = "The World Boss is here!", fr = "Le boss du monde est là !" },
+	["boss.health"] = { en = "{health} / {max}", fr = "{health} / {max}" },
+	["boss.phase"] = { en = "Phase {phase}", fr = "Phase {phase}" },
+	["boss.timeLeft"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
+	["boss.share"] = { en = "Your damage: {percent}%", fr = "Tes dégâts : {percent} %" },
+	["boss.defeated"] = { en = "World Boss defeated!", fr = "Boss du monde vaincu !" },
+	["boss.expired"] = { en = "The World Boss escaped…", fr = "Le boss du monde s'est échappé…" },
+	["boss.reward"] = { en = "Boss reward: +{xp} XP, +{ryo} Ryo", fr = "Récompense du boss : +{xp} XP, +{ryo} Ryo" },
+	["boss.killBonus"] = { en = "Top damage bonus!", fr = "Bonus de meilleur dégât !" },
+	["boss.attack.slam"] = { en = "Slam", fr = "Écrasement" },
+	["boss.attack.sweep"] = { en = "Sweep", fr = "Balayage" },
+	["boss.attack.eruption"] = { en = "Eruption", fr = "Éruption" },
+	["boss.attack.fury"] = { en = "Fury", fr = "Furie" },
+	["boss.incoming"] = { en = "{attack} incoming!", fr = "{attack} en approche !" },
+
+	-- Loadout
+	["loadout.title"] = { en = "Loadout", fr = "Équipement" },
+	["loadout.slots"] = { en = "{used} / {total} slots", fr = "{used} / {total} slots" },
+	["loadout.equip"] = { en = "Equip", fr = "Équiper" },
+	["loadout.unequip"] = { en = "Unequip", fr = "Retirer" },
+	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
+	["loadout.full"] = { en = "Every slot is taken.", fr = "Tous les slots sont pris." },
+	["loadout.locked"] = { en = "Unlocks at level {level}", fr = "Se débloque au niveau {level}" },
+	["loadout.lockedElement"] = { en = "Requires the {element} element", fr = "Nécessite l'élément {element}" },
+	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
+	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
+	["loadout.combo"] = { en = "Combo: {combo}", fr = "Combo : {combo}" },
+	["loadout.stats"] = {
+		en = "{damage} damage · {cost} chakra · {cooldown}s",
+		fr = "{damage} dégâts · {cost} chakra · {cooldown}s",
+	},
+
+	-- Cosmetics
+	["cosmetics.title"] = { en = "Cosmetics", fr = "Cosmétiques" },
+	["cosmetics.slot.Aura"] = { en = "Aura", fr = "Aura" },
+	["cosmetics.slot.Trail"] = { en = "Trail", fr = "Traînée" },
+	["cosmetics.slot.KillEffect"] = { en = "Finisher", fr = "Finisher" },
+	["cosmetics.slot.Title"] = { en = "Title", fr = "Titre" },
+	["cosmetics.slot.Skin"] = { en = "Jutsu skin", fr = "Skin de jutsu" },
+	["cosmetics.none"] = { en = "None", fr = "Aucun" },
+	["cosmetics.equipped"] = { en = "Equipped: {name}", fr = "Équipé : {name}" },
+	["cosmetics.notOwned"] = { en = "You do not own this cosmetic.", fr = "Tu ne possèdes pas ce cosmétique." },
+
+	-- Purchases
+	["purchase.prompt"] = { en = "Opening the Roblox purchase…", fr = "Ouverture de l'achat Roblox…" },
+	["purchase.granted"] = { en = "Purchase complete: {name}", fr = "Achat terminé : {name}" },
+	["purchase.failed"] = { en = "The purchase could not be completed.", fr = "L'achat n'a pas pu aboutir." },
+	["purchase.unavailable"] = {
+		en = "This item is not available yet.",
+		fr = "Cet article n'est pas encore disponible.",
+	},
+	["purchase.alreadyOwned"] = { en = "You already own this.", fr = "Tu possèdes déjà cet article." },
+	["purchase.passGranted"] = { en = "{name} unlocked!", fr = "{name} débloqué !" },
+	["purchase.boostActive"] = {
+		en = "XP boost active for {minutes} min",
+		fr = "Boost d'XP actif pendant {minutes} min",
+	},
+	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+
 	-- Enemies
 	["enemy.dummy"] = { en = "Training Dummy", fr = "Mannequin d'entraînement" },
 

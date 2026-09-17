@@ -20,6 +20,22 @@ battlepass.tier,Tier {tier} / {max},JutsuBattlegrounds,,Tier {tier} / {max},Pali
 battlepass.title,Battle Pass — Season {season},JutsuBattlegrounds,,Battle Pass — Season {season},Battle Pass — Saison {season}
 battlepass.unlockPremium,Unlock Premium,JutsuBattlegrounds,,Unlock Premium,Débloquer Premium
 battlepass.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
+boss.announced,A World Boss appears in {seconds}s!,JutsuBattlegrounds,,A World Boss appears in {seconds}s!,Un boss du monde apparaît dans {seconds}s !
+boss.attack.eruption,Eruption,JutsuBattlegrounds,,Eruption,Éruption
+boss.attack.fury,Fury,JutsuBattlegrounds,,Fury,Furie
+boss.attack.slam,Slam,JutsuBattlegrounds,,Slam,Écrasement
+boss.attack.sweep,Sweep,JutsuBattlegrounds,,Sweep,Balayage
+boss.defeated,World Boss defeated!,JutsuBattlegrounds,,World Boss defeated!,Boss du monde vaincu !
+boss.expired,The World Boss escaped…,JutsuBattlegrounds,,The World Boss escaped…,Le boss du monde s'est échappé…
+boss.health,{health} / {max},JutsuBattlegrounds,,{health} / {max},{health} / {max}
+boss.incoming,{attack} incoming!,JutsuBattlegrounds,,{attack} incoming!,{attack} en approche !
+boss.killBonus,Top damage bonus!,JutsuBattlegrounds,,Top damage bonus!,Bonus de meilleur dégât !
+boss.name,World Boss,JutsuBattlegrounds,,World Boss,Boss du monde
+boss.phase,Phase {phase},JutsuBattlegrounds,,Phase {phase},Phase {phase}
+boss.reward,"Boss reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Boss reward: +{xp} XP, +{ryo} Ryo","Récompense du boss : +{xp} XP, +{ryo} Ryo"
+boss.share,Your damage: {percent}%,JutsuBattlegrounds,,Your damage: {percent}%,Tes dégâts : {percent} %
+boss.started,The World Boss is here!,JutsuBattlegrounds,,The World Boss is here!,Le boss du monde est là !
+boss.timeLeft,{seconds}s left,JutsuBattlegrounds,,{seconds}s left,{seconds}s restantes
 common.back,Back,JutsuBattlegrounds,,Back,Retour
 common.cancel,Cancel,JutsuBattlegrounds,,Cancel,Annuler
 common.close,Close,JutsuBattlegrounds,,Close,Fermer
@@ -70,6 +86,15 @@ cosmetic.TrailSand,Sand Trail,JutsuBattlegrounds,,Sand Trail,Traînée de Sable
 cosmetic.TrailStorm,Storm Trail,JutsuBattlegrounds,,Storm Trail,Traînée de Tempête
 cosmetic.TrailViolet,Violet Trail,JutsuBattlegrounds,,Violet Trail,Traînée Violette
 cosmetic.VioletChakraAura,Violet Chakra Aura,JutsuBattlegrounds,,Violet Chakra Aura,Aura de Chakra Violet
+cosmetics.equipped,Equipped: {name},JutsuBattlegrounds,,Equipped: {name},Équipé : {name}
+cosmetics.none,None,JutsuBattlegrounds,,None,Aucun
+cosmetics.notOwned,You do not own this cosmetic.,JutsuBattlegrounds,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
+cosmetics.slot.Aura,Aura,JutsuBattlegrounds,,Aura,Aura
+cosmetics.slot.KillEffect,Finisher,JutsuBattlegrounds,,Finisher,Finisher
+cosmetics.slot.Skin,Jutsu skin,JutsuBattlegrounds,,Jutsu skin,Skin de jutsu
+cosmetics.slot.Title,Title,JutsuBattlegrounds,,Title,Titre
+cosmetics.slot.Trail,Trail,JutsuBattlegrounds,,Trail,Traînée
+cosmetics.title,Cosmetics,JutsuBattlegrounds,,Cosmetics,Cosmétiques
 currency.ryo,Ryo,JutsuBattlegrounds,,Ryo,Ryo
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,JutsuBattlegrounds,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
 daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
@@ -161,6 +186,18 @@ leaderboard.you,You: #{rank} ({rating}),JutsuBattlegrounds,,You: #{rank} ({ratin
 level.max,Max level,JutsuBattlegrounds,,Max level,Niveau max
 level.title,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
+loadout.combo,Combo: {combo},JutsuBattlegrounds,,Combo: {combo},Combo : {combo}
+loadout.equip,Equip,JutsuBattlegrounds,,Equip,Équiper
+loadout.equipped,Equipped,JutsuBattlegrounds,,Equipped,Équipé
+loadout.full,Every slot is taken.,JutsuBattlegrounds,,Every slot is taken.,Tous les slots sont pris.
+loadout.invalid,Invalid loadout.,JutsuBattlegrounds,,Invalid loadout.,Équipement invalide.
+loadout.locked,Unlocks at level {level},JutsuBattlegrounds,,Unlocks at level {level},Se débloque au niveau {level}
+loadout.lockedElement,Requires the {element} element,JutsuBattlegrounds,,Requires the {element} element,Nécessite l'élément {element}
+loadout.saved,Loadout saved!,JutsuBattlegrounds,,Loadout saved!,Équipement sauvegardé !
+loadout.slots,{used} / {total} slots,JutsuBattlegrounds,,{used} / {total} slots,{used} / {total} slots
+loadout.stats,{damage} damage · {cost} chakra · {cooldown}s,JutsuBattlegrounds,,{damage} damage · {cost} chakra · {cooldown}s,{damage} dégâts · {cost} chakra · {cooldown}s
+loadout.title,Loadout,JutsuBattlegrounds,,Loadout,Équipement
+loadout.unequip,Unequip,JutsuBattlegrounds,,Unequip,Retirer
 match.countdown,{seconds},JutsuBattlegrounds,,{seconds},{seconds}
 match.defeat,Defeat,JutsuBattlegrounds,,Defeat,Défaite
 match.draw,Draw,JutsuBattlegrounds,,Draw,Égalité
@@ -207,6 +244,14 @@ product.tierSkip5,+5 Tiers,JutsuBattlegrounds,,+5 Tiers,+5 paliers
 product.tierSkip5.desc,Advance five battle pass tiers.,JutsuBattlegrounds,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
 product.xpBoost1h,XP Boost (1 h),JutsuBattlegrounds,,XP Boost (1 h),Boost d'XP (1 h)
 product.xpBoost1h.desc,Double XP for one hour.,JutsuBattlegrounds,,Double XP for one hour.,XP doublée pendant une heure.
+purchase.alreadyOwned,You already own this.,JutsuBattlegrounds,,You already own this.,Tu possèdes déjà cet article.
+purchase.boostActive,XP boost active for {minutes} min,JutsuBattlegrounds,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
+purchase.failed,The purchase could not be completed.,JutsuBattlegrounds,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
+purchase.granted,Purchase complete: {name},JutsuBattlegrounds,,Purchase complete: {name},Achat terminé : {name}
+purchase.passGranted,{name} unlocked!,JutsuBattlegrounds,,{name} unlocked!,{name} débloqué !
+purchase.prompt,Opening the Roblox purchase…,JutsuBattlegrounds,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
+purchase.tiersGranted,+{tiers} battle pass tiers,JutsuBattlegrounds,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
+purchase.unavailable,This item is not available yet.,JutsuBattlegrounds,,This item is not available yet.,Cet article n'est pas encore disponible.
 quest.castJutsus,Cast {target} jutsus,JutsuBattlegrounds,,Cast {target} jutsus,Lance {target} jutsus
 quest.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
 quest.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupérée

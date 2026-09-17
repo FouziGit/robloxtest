@@ -18,6 +18,7 @@ local ShopConfig = require("../src/shared/Config/ShopConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local Strings = require("../src/shared/Strings")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
+local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -435,5 +436,60 @@ describe("VfxConfig", function()
 		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
 			expect(VfxConfig.isId(jutsu.VfxId)).toBe(true)
 		end
+	end)
+end)
+
+describe("WorldBossConfig", function()
+	it("scales health with the player count and stays bounded", function()
+		local schedule = WorldBossConfig.Schedule
+		expect(WorldBossConfig.healthFor(schedule.MinPlayers)).toBe(WorldBossConfig.Health.Base)
+		expect(WorldBossConfig.healthFor(schedule.MinPlayers - 5)).toBe(WorldBossConfig.Health.Base)
+		expect(WorldBossConfig.healthFor(schedule.MinPlayers + 1)).toBe(
+			WorldBossConfig.Health.Base + WorldBossConfig.Health.PerExtraPlayer
+		)
+		expect(WorldBossConfig.healthFor(10000)).toBe(WorldBossConfig.Health.Max)
+		expect(schedule.AnnounceSeconds + schedule.FightSeconds + schedule.CleanupSeconds).toBeLessThan(
+			schedule.IntervalSeconds
+		)
+	end)
+
+	it("has ordered phases and reachable attacks", function()
+		local phases = WorldBossConfig.Phases
+		expect(#phases).toBeGreaterThanOrEqual(3)
+		expect(phases[1].Threshold).toBe(1)
+		for index = 2, #phases do
+			expect(phases[index].Threshold).toBeLessThan(phases[index - 1].Threshold)
+			expect(phases[index].AttackSpeed).toBeGreaterThan(phases[index - 1].AttackSpeed)
+		end
+		expect(WorldBossConfig.phaseFor(1)).toBe(1)
+		expect(WorldBossConfig.phaseFor(0.5)).toBe(2)
+		expect(WorldBossConfig.phaseFor(0.1)).toBe(#phases)
+
+		local ids: { [string]: boolean } = {}
+		local byPhase: { [number]: number } = {}
+		for _, attack in ipairs(WorldBossConfig.Attacks) do
+			expect(ids[attack.Id]).toBeNil()
+			ids[attack.Id] = true
+			expect(Strings.has(attack.NameKey)).toBe(true)
+			expect(attack.TelegraphSeconds).toBeGreaterThan(0.5)
+			expect(attack.Damage).toBeGreaterThan(0)
+			expect(attack.Radius).toBeGreaterThan(0)
+			expect(attack.Range).toBeGreaterThanOrEqual(attack.Radius)
+			expect(attack.CooldownSeconds).toBeGreaterThan(attack.TelegraphSeconds)
+			expect(attack.MinPhase).toBeGreaterThanOrEqual(1)
+			expect(attack.MinPhase).toBeLessThanOrEqual(#phases)
+			byPhase[attack.MinPhase] = (byPhase[attack.MinPhase] or 0) + 1
+		end
+		-- phase 1 must have something to cast, and every phase adds at least one attack
+		expect(byPhase[1]).toBeGreaterThanOrEqual(2)
+		for index = 2, #phases do
+			expect(byPhase[index]).toBeGreaterThanOrEqual(1)
+		end
+		expect(Strings.has(WorldBossConfig.Boss.NameKey)).toBe(true)
+		expect(WorldBossConfig.Boss.BodySize).toHaveLength(3)
+		for _, axis in ipairs(WorldBossConfig.Boss.BodySize) do
+			expect(axis).toBeGreaterThan(0)
+		end
+		expect(WorldBossConfig.Rewards.KillBonusShare).toBeGreaterThan(WorldBossConfig.Rewards.MinShareToReward)
 	end)
 end)

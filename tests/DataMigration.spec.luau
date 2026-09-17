@@ -1,0 +1,170 @@
+--!strict
+local DataMigration = require("../src/shared/Pure/DataMigration")
+local Harness = require("./harness")
+
+local describe, it, expect = Harness.describe, Harness.it, Harness.expect
+
+local function template(): { [string]: any }
+	return {
+		DataVersion = 2,
+		Settings = {
+			Keyboard = {
+				Fire = "J",
+				Water = "K",
+				Earth = "L",
+				Wind = "H",
+				Lightning = "U",
+				Melee = "MouseButton1",
+				Dash = "LeftShift",
+				Block = "F",
+				Menu = "M",
+			},
+			Gamepad = {
+				Fire = "DPadUp",
+				Water = "DPadRight",
+				Earth = "DPadDown",
+				Wind = "DPadLeft",
+				Lightning = "ButtonY",
+				Melee = "ButtonX",
+				Dash = "ButtonB",
+				Block = "ButtonL2",
+				Menu = "ButtonSelect",
+			},
+			MusicVolume = 0.5,
+			SfxVolume = 1,
+			CameraShake = true,
+		},
+		Progression = { Level = 1, XP = 0, TotalXP = 0 },
+		Currency = { Ryo = 0 },
+		Battlepass = { _template = { XP = 0, Tier = 1, Premium = false, ClaimedFree = {}, ClaimedPremium = {} } },
+		Cosmetics = { Owned = {}, Equipped = {} },
+		Loadout = { Slots = { "Fireball", "WaterWave" }, ExtraSlots = 0 },
+		Unlocks = { Jutsus = { "Fireball" }, Elements = { "Fire", "Water", "Earth", "Wind" } },
+		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
+		Stats = {
+			Kills = 0,
+			Deaths = 0,
+			JutsusCast = 0,
+			JutsusHit = 0,
+			MatchesPlayed = 0,
+			BossKills = 0,
+			PlayTimeSeconds = 0,
+		},
+		Quests = {
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+		},
+		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Purchases = { Receipts = {}, ProductCounts = {} },
+		Passes = {},
+		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
+	}
+end
+
+local function legacyProfile(): { [string]: any }
+	return {
+		DataVersion = 1,
+		Keybinds = { Feu = "T", Eau = "E", Terre = "Y", Vent = "A" },
+		PlayerLevel = 7,
+		PlayerXP = 123,
+		BattlepassLevel = 12,
+		BattlepassXP = 40,
+		ClaimedRewards = { ["1"] = true, ["5"] = true, ["10"] = true },
+		Currency = 1234,
+		Cosmetics = { "BandeauGenin", "KatanaAcier", "Inconnu", "BandeauGenin" },
+		TotalKills = 31,
+		TotalJutsusCast = 500,
+	}
+end
+
+describe("DataMigration", function()
+	it("returns a fresh template for nil data", function()
+		local data, info = DataMigration.migrate(nil, template(), "S1")
+		expect(info).toEqual({ From = 0, Migrated = false })
+		expect(data.DataVersion).toBe(2)
+		expect(data.Battlepass._template).toBeNil()
+		expect(data.Progression.Level).toBe(1)
+	end)
+
+	it("migrates a V1 profile without losing progress", function()
+		local data, info = DataMigration.migrate(legacyProfile(), template(), "S1")
+		expect(info).toEqual({ From = 1, Migrated = true })
+		expect(data.DataVersion).toBe(2)
+
+		-- custom keys kept when allowed, legacy defaults / movement keys replaced by V2 defaults
+		expect(data.Settings.Keyboard.Fire).toBe("T") -- custom, allowed
+		expect(data.Settings.Keyboard.Water).toBe("K") -- was legacy default "E"
+		expect(data.Settings.Keyboard.Earth).toBe("Y") -- custom, allowed
+		expect(data.Settings.Keyboard.Wind).toBe("H") -- "A" conflicts with movement
+		expect(data.Settings.Keyboard.Menu).toBe("M")
+
+		expect(data.Progression.Level).toBe(7)
+		expect(data.Progression.XP).toBe(123)
+		-- legacy curve floor(80*n^1.3) for n = 1..6 = 80+196+333+485+648+821 = 2563, plus 123
+		expect(data.Progression.TotalXP).toBe(2563 + 123)
+
+		expect(data.Currency.Ryo).toBe(1234)
+
+		local season = data.Battlepass.S1
+		expect(season.Tier).toBe(12)
+		expect(season.XP).toBe(40)
+		expect(season.Premium).toBe(false)
+		expect(season.ClaimedFree).toEqual({ ["1"] = true, ["5"] = true, ["10"] = true })
+		expect(season.ClaimedPremium).toEqual({})
+		expect(data.Battlepass._template).toBeNil()
+
+		expect(data.Cosmetics.Owned).toEqual({ "GeninHeadband", "SteelKatana" })
+		expect(data.Stats.Kills).toBe(31)
+		expect(data.Stats.JutsusCast).toBe(500)
+		expect(data.Stats.Deaths).toBe(0)
+		expect(data.Loadout.Slots).toEqual({ "Fireball", "WaterWave" })
+	end)
+
+	it("tolerates malformed V1 values", function()
+		local raw = legacyProfile()
+		raw.PlayerLevel = -3
+		raw.PlayerXP = "lots"
+		raw.Currency = 0 / 0
+		raw.Keybinds = "nope"
+		raw.Cosmetics = { 42 }
+		raw.ClaimedRewards = { [5] = true, ["x"] = true, ["7"] = false }
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Progression.Level).toBe(1)
+		expect(data.Progression.XP).toBe(0)
+		expect(data.Currency.Ryo).toBe(0)
+		expect(data.Settings.Keyboard.Fire).toBe("J")
+		expect(data.Cosmetics.Owned).toEqual({})
+		expect(data.Battlepass.S1.ClaimedFree).toEqual({})
+	end)
+
+	it("keeps a V2 profile and fills missing fields", function()
+		local raw = {
+			DataVersion = 2,
+			Progression = { Level = 20, XP = 5, TotalXP = 9000 },
+			Currency = { Ryo = 77 },
+			Battlepass = { S1 = { Tier = 3, XP = 10, ClaimedFree = { ["1"] = true } } },
+			Cosmetics = { Owned = { "AnbuMask" }, Equipped = { Aura = "BlueChakraAura" } },
+			Unknown = { junk = true },
+			Stats = { Kills = "many" },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info).toEqual({ From = 2, Migrated = false })
+		expect(data.Progression.Level).toBe(20)
+		expect(data.Currency.Ryo).toBe(77)
+		expect(data.Battlepass.S1.Tier).toBe(3)
+		expect(data.Battlepass.S1.Premium).toBe(false)
+		expect(data.Battlepass.S1.ClaimedPremium).toEqual({})
+		expect(data.Cosmetics.Equipped.Aura).toBe("BlueChakraAura")
+		expect(data.Stats.Kills).toBe(0) -- type mismatch keeps template
+		expect(data.Unknown).toBeNil()
+		expect(data.Settings.Keyboard.Fire).toBe("J")
+	end)
+
+	it("never mutates the template", function()
+		local tpl = template()
+		DataMigration.migrate(legacyProfile(), tpl, "S1")
+		expect(tpl.Progression.Level).toBe(1)
+		expect(tpl.Battlepass._template).never.toBeNil()
+		expect(tpl.Cosmetics.Owned).toEqual({})
+	end)
+end)

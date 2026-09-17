@@ -1,0 +1,166 @@
+--!strict
+-- Shared type definitions. Only types: no runtime code.
+
+export type ElementId = "Fire" | "Water" | "Earth" | "Wind" | "Lightning"
+
+export type Rgb = { number }
+
+export type KeybindMap = { [string]: string } -- ActionId -> key name
+
+export type SettingsData = {
+	Keyboard: KeybindMap,
+	Gamepad: KeybindMap,
+	MusicVolume: number,
+	SfxVolume: number,
+	CameraShake: boolean,
+}
+
+export type ProgressionData = {
+	Level: number,
+	XP: number, -- XP inside the current level
+	TotalXP: number,
+}
+
+export type CurrencyData = {
+	Ryo: number,
+}
+
+export type BattlepassSeasonData = {
+	XP: number,
+	Tier: number,
+	Premium: boolean,
+	ClaimedFree: { [string]: boolean }, -- tier as string key (JSON-safe)
+	ClaimedPremium: { [string]: boolean },
+}
+
+export type CosmeticsData = {
+	Owned: { string },
+	Equipped: { [string]: string }, -- slot -> cosmetic id ("Aura", "Trail", "KillEffect", "Title", "Skin:<jutsuId>")
+}
+
+export type LoadoutData = {
+	Slots: { string }, -- jutsu ids
+	ExtraSlots: number, -- purchased slots (0..PassExtraSlots)
+}
+
+export type UnlocksData = {
+	Jutsus: { string },
+	Elements: { string },
+}
+
+export type RankModeData = {
+	Rating: number,
+	Matches: number,
+	Wins: number,
+	Losses: number,
+	PeakRating: number,
+}
+
+export type RankData = {
+	SeasonId: string,
+	Modes: { [string]: RankModeData }, -- "Duel1v1" / "Team3v3"
+	LastRewardedSeason: string,
+}
+
+export type StatsData = {
+	Kills: number,
+	Deaths: number,
+	JutsusCast: number,
+	JutsusHit: number,
+	MatchesPlayed: number,
+	BossKills: number,
+	PlayTimeSeconds: number,
+}
+
+export type QuestProgress = { [string]: number } -- questId -> progress
+export type QuestSetData = {
+	PeriodKey: string, -- day or week key the set belongs to
+	Progress: QuestProgress,
+	Claimed: { [string]: boolean },
+}
+export type QuestsData = {
+	Daily: QuestSetData,
+	Weekly: QuestSetData,
+}
+
+export type DailyData = {
+	LastClaimDay: number, -- days since epoch
+	Streak: number,
+	FirstWinDay: number,
+	PremiumBonusDay: number,
+}
+
+export type PurchasesData = {
+	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
+	ProductCounts: { [string]: number }, -- productKey -> times purchased
+}
+
+export type PassesData = { [string]: boolean } -- passKey -> owned (cache)
+
+export type MetaData = {
+	FirstJoin: number,
+	LastJoin: number,
+	SessionCount: number,
+	LegacyImported: boolean,
+	FirstSessionPromptGate: boolean, -- true once the first-session no-prompt window has elapsed
+}
+
+export type ProfileData = {
+	DataVersion: number,
+	Settings: SettingsData,
+	Progression: ProgressionData,
+	Currency: CurrencyData,
+	Battlepass: { [string]: BattlepassSeasonData }, -- seasonId -> data
+	Cosmetics: CosmeticsData,
+	Loadout: LoadoutData,
+	Unlocks: UnlocksData,
+	Rank: RankData,
+	Stats: StatsData,
+	Quests: QuestsData,
+	Daily: DailyData,
+	Purchases: PurchasesData,
+	Passes: PassesData,
+	Meta: MetaData,
+}
+
+export type JutsuArchetype = "Projectile" | "Aoe" | "Zone" | "Wall" | "Mobility" | "Counter" | "Ultimate" | "Buff"
+
+export type JutsuDef = {
+	Id: string,
+	Element: ElementId,
+	Combo: { ElementId },
+	Cost: number, -- chakra
+	Cooldown: number, -- seconds
+	Damage: number, -- per hit / per tick
+	Range: number, -- studs (projectile travel, AoE reach, zone radius…)
+	Archetype: JutsuArchetype,
+	Effect: string, -- server effect function id
+	VfxId: string,
+	SfxId: string,
+	Unlock: { Kind: "Default" | "Level" | "Element", Value: number? },
+	NameKey: string,
+	DescriptionKey: string,
+	Params: { [string]: number }, -- effect-specific tuning (radius, ticks, duration…)
+}
+
+export type DamageKind = "Jutsu" | "Melee" | "Boss" | "Environment"
+
+export type HitEvent = {
+	Source: number, -- attacker UserId (0 for boss/environment)
+	Target: number, -- victim UserId (0 for NPC)
+	Amount: number,
+	Kind: DamageKind,
+	Tags: { string },
+	Killed: boolean,
+}
+
+export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss"
+
+export type MatchResult = {
+	ModeId: MatchModeId,
+	WinnerTeam: number?, -- nil = draw
+	Teams: { { number } }, -- team index -> user ids
+	DurationSeconds: number,
+}
+
+return nil

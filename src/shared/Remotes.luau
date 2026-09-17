@@ -6,6 +6,8 @@ local ElementConfig = require(script.Parent.Config.ElementConfig)
 local GameConfig = require(script.Parent.Config.GameConfig)
 local Guard = require(script.Parent.Util.Guard)
 local InputConfig = require(script.Parent.Config.InputConfig)
+local MatchConfig = require(script.Parent.Config.MatchConfig)
+local RankingConfig = require(script.Parent.Config.RankingConfig)
 
 export type Kind = "RemoteEvent" | "RemoteFunction" | "UnreliableRemoteEvent"
 export type Direction = "ClientToServer" | "ServerToClient"
@@ -68,6 +70,24 @@ Remotes.Definitions = {
 		Args = {},
 		Rate = { Capacity = 4, Refill = 0.5 },
 	},
+	JoinQueue = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf((MatchConfig.ModeOrder :: any) :: { any }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	LeaveQueue = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	RequestLeaderboard = {
+		Kind = "RemoteFunction",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf((RankingConfig.Leaderboard.Boards :: any) :: { any }) },
+		Rate = { Capacity = 3, Refill = 0.5 },
+	},
 	CombatAction = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
@@ -89,6 +109,12 @@ Remotes.Definitions = {
 	--  | {Kind = "Knockback", Velocity: Vector3, Duration: number}
 	--  | {Kind = "Stun", Seconds: number})
 	MovementCommand = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- Queue state of the receiving player (Types.QueueSnapshot), pushed on every change.
+	QueueChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- Match snapshot for a participant (Types.MatchSnapshot), or nil when the match is over.
+	MatchChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- End-of-match summary (Types.MatchOutcome), sent once before the return to the hub.
+	MatchEnded = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 } :: { [string]: Definition }
 
 function Remotes.names(): { string }

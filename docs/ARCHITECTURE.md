@@ -40,6 +40,9 @@ Client → serveur (Guard + token bucket, abus → `AntiCheatService.strike`) :
 | `UpdateSettings` | `{MusicVolume, SfxVolume, CameraShake}` | `SettingsService` |
 | `ClaimBattlepassReward` | `tier (1..50)`, `"Free" \| "Premium"` | `BattlepassService` |
 | `RequestProfile` (fonction) | — | `DataService` (snapshot) |
+| `JoinQueue` | `MatchModeId` | `MatchmakingService` |
+| `LeaveQueue` | — | `MatchmakingService` |
+| `RequestLeaderboard` (fonction) | `boardId` | `LeaderboardService` |
 
 Serveur → client :
 
@@ -50,6 +53,9 @@ Serveur → client :
 | `Vfx` (unreliable) / `VfxReliable` | `{Id, Origin: Vector3, Direction: Vector3, Caster: number?, Targets: {Vector3}?, Params: table?}` |
 | `CombatState` (unreliable) | `{Chakra, MaxChakra, Health, MaxHealth, InCombat, Blocking, Cooldowns: {[jutsuId]: secondsLeft}}` |
 | `MovementCommand` | `{Kind="Dash", Direction, Distance, Duration} \| {Kind="Knockback", Velocity, Duration} \| {Kind="Stun", Seconds}` |
+| `QueueChanged` | `Types.QueueSnapshot` — état de file du joueur (`Queued = false` quand il n'est dans aucune) |
+| `MatchChanged` | `Types.MatchSnapshot` (ou `nil` à la fin du match) — poussé quelques fois par seconde aux participants |
+| `MatchEnded` | `Types.MatchOutcome` — résumé unique avant le retour au hub |
 
 ## Serveur (`src/server`)
 
@@ -70,6 +76,13 @@ Serveur → client :
 | `JutsuService` | handler `CastJutsu` : profil chargé → vivant, non stun, non en garde → `ComboResolver.resolve` → débloqué + dans le loadout → cooldown → chakra → origine/direction depuis le `HumanoidRootPart` → `JutsuEffects[def.Effect](ctx)` → XP si ≥ 1 touche → stats → `Notify` ; `getCooldowns(player)` |
 | `JutsuEffects` | `[effectId] = function(ctx) -> hitCount` avec `ctx = {Caster, Def, Origin, Direction, Combat, Vfx, Movement}` ; détection serveur uniquement, aucun visuel ; un effet peut demander un déplacement via `Movement.command` (dash d'EmberStep) ou déplacer le lanceur lui-même après validation par raycast (téléport de LightningStep) ; chaque paquet porte `Id = Def.VfxId` et `Params.Element = Def.Element` |
 | `VfxBroadcaster` | `emit(packet, reliable?)` (tous les clients à moins de `GameConfig.Vfx.BroadcastRadiusStuds`), `emitTo(player, packet, reliable?)` |
+| `HubService` | construit le hub en code (plateforme, `HubSpawn`, zone d'entraînement, `QueueTerminal`, `LeaderboardBoard_<board>`, `ShopKiosk`) ; `getSpawn() -> BasePart`, `teleportToHub(player)` ; ancrages documentés dans `docs/GAME_DESIGN.md` §8 |
+| `ArenaService` | construit les gabarits d'arène dans `ServerStorage` au démarrage ; `acquire(arenaId) -> Arena` (instance + `Spawn_Team<n>` + destruction), `release(arena)` ; les arènes sont empilées verticalement (`MatchConfig.ArenaSpacingStuds`) pour que deux matchs ne se voient jamais |
+| `GameModes/*` | interface `GameMode` : `CanStart(players) -> bool`, `Start(match)`, `OnPlayerLeft(match, player)`, `End(match) -> MatchResult` ; `Duel1v1` (best of 3), `Team3v3` (manche unique) |
+| `MatchmakingService` | files par mode via `Pure/MatchmakingCore` (fenêtre de rating élargie), handlers `JoinQueue` / `LeaveQueue`, tick `MatchConfig.Matchmaking.TickSeconds`, pousse `QueueChanged`, remet en file les joueurs d'un match avorté |
+| `MatchService` | cycle de vie : arène, téléport, compte à rebours, manches, conditions de victoire, abandons, récompenses, retour au hub, cleanup Trove ; `isInMatch(player)`, `getMatch(player)` ; pousse `MatchChanged` / `MatchEnded` ; installe la policy PvP de `CombatService` (seuls les participants se blessent) |
+| `RankingService` | `getRating(player, modeId)`, `applyResult(result)` via `Pure/Elo` + `Pure/RankTiers` (K dégressif, bornes, saison) ; pousse `Rank` ; signal `RatingChanged(player, modeId, before, after)` |
+| `LeaderboardService` | `OrderedDataStore` par saison et par board, rafraîchi toutes les `RankingConfig.Leaderboard.RefreshSeconds` avec budget d'écriture respecté ; `getBoard(boardId) -> LeaderboardSnapshot`, handler `RequestLeaderboard`, affichage sur les `SurfaceGui` du hub |
 | `EnemyService` | mannequins (`GameConfig.Enemy`), tag `Enemy`, crédit du tueur via l'attribut `LastAttackerUserId` posé par `CombatService`, XP/Ryo `DummyKill`, respawn |
 
 ## Client (`src/client`)
@@ -94,6 +107,7 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 | `Controllers/HudController` | barres vie/chakra/niveau, pastilles de combo, toasts (`Notify` localisé + `Sfx`), rappel du menu (clé selon `UserInputService:GetLastInputType()` : manette → `Settings.Gamepad`, clavier/souris → `Settings.Keyboard`, tactile → masqué) ; en tactile les barres vie/chakra passent en bas-centre au-dessus de la rangée de combo pour libérer le stick du moteur |
 | `Controllers/VfxController` + `VfxLibrary` | rend `Vfx`/`VfxReliable` par `Id` (particules, beams, tweens, camera shake selon `Settings.CameraShake`, hit-stop) ; `VfxLibrary[id] = function(packet, trove, api)` avec `api = {Sound, Shake(intensity), HitStop(seconds), ElementColor(element), LocalCharacter()}` ; durée de vie max `GameConfig.Vfx.LifetimeSeconds` |
 | `Controllers/SoundController` | `play(sfxId, position?)`, musique, volumes depuis `Settings` |
+| `Controllers/MatchController` | file (`JoinQueue`/`LeaveQueue`), état depuis `QueueChanged` / `MatchChanged` / `MatchEnded` ; signaux `QueueChanged(snapshot)`, `MatchChanged(snapshot?)`, `MatchEnded(outcome)` ; pilote le HUD de match et l'écran de résultat |
 | `Controllers/MenuController` | ouvre/ferme les écrans (`Menu`, `Settings`, `Battlepass`), suspend `InputController`, écrans depuis `UI/screens` |
 
 ## UI (`src/ui`)

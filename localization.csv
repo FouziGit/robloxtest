@@ -83,6 +83,9 @@ element.lightning,Lightning,JutsuBattlegrounds,,Lightning,Foudre
 element.water,Water,JutsuBattlegrounds,,Water,Eau
 element.wind,Wind,JutsuBattlegrounds,,Wind,Vent
 enemy.dummy,Training Dummy,JutsuBattlegrounds,,Training Dummy,Mannequin d'entraînement
+hub.queueTerminal,Match queue,JutsuBattlegrounds,,Match queue,File de match
+hub.shop,Shop,JutsuBattlegrounds,,Shop,Boutique
+hub.trainingArea,Training,JutsuBattlegrounds,,Training,Entraînement
 hud.bar,{name}  {current} / {max},JutsuBattlegrounds,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.cooldown,{name}: {seconds}s left,JutsuBattlegrounds,,{name}: {seconds}s left,{name} : encore {seconds}s
 hud.cast.failed,{name} failed,JutsuBattlegrounds,,{name} failed,{name} a échoué
@@ -146,9 +149,35 @@ jutsu.WindGust.name,Slicing Gust,JutsuBattlegrounds,,Slicing Gust,Rafale Trancha
 kick.abuse,Disconnected: too many invalid requests.,JutsuBattlegrounds,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
 kick.loadFailed,Could not load your data. Please try again in a minute.,JutsuBattlegrounds,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
 kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,JutsuBattlegrounds,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
+leaderboard.board.Duel1v1,1v1,JutsuBattlegrounds,,1v1,1v1
+leaderboard.board.Global,Global,JutsuBattlegrounds,,Global,Global
+leaderboard.board.Team3v3,3v3,JutsuBattlegrounds,,3v3,3v3
+leaderboard.empty,No ranked player yet.,JutsuBattlegrounds,,No ranked player yet.,Aucun joueur classé pour l'instant.
+leaderboard.rating,{rating},JutsuBattlegrounds,,{rating},{rating}
+leaderboard.row,#{rank}  {name},JutsuBattlegrounds,,#{rank}  {name},#{rank}  {name}
+leaderboard.title,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
+leaderboard.unranked,Unranked — play a ranked match,JutsuBattlegrounds,,Unranked — play a ranked match,Non classé — joue un match classé
+leaderboard.you,You: #{rank} ({rating}),JutsuBattlegrounds,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
 level.max,Max level,JutsuBattlegrounds,,Max level,Niveau max
 level.title,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
+match.countdown,{seconds},JutsuBattlegrounds,,{seconds},{seconds}
+match.defeat,Defeat,JutsuBattlegrounds,,Defeat,Défaite
+match.draw,Draw,JutsuBattlegrounds,,Draw,Égalité
+match.firstWin,First win of the day!,JutsuBattlegrounds,,First win of the day!,Première victoire du jour !
+match.opponentLeft,Your opponent left.,JutsuBattlegrounds,,Your opponent left.,Ton adversaire est parti.
+match.rankUp,New rank: {rank}!,JutsuBattlegrounds,,New rank: {rank}!,Nouveau rang : {rank} !
+match.ratingDown,{rank}  {rating} ({delta}),JutsuBattlegrounds,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
+match.ratingUp,{rank}  {rating} (+{delta}),JutsuBattlegrounds,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
+match.returning,Returning to the hub…,JutsuBattlegrounds,,Returning to the hub…,Retour au hub…
+match.rewards,"+{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+match.round,Round {round} / {total},JutsuBattlegrounds,,Round {round} / {total},Manche {round} / {total}
+match.roundLost,Round lost,JutsuBattlegrounds,,Round lost,Manche perdue
+match.roundWon,Round won!,JutsuBattlegrounds,,Round won!,Manche gagnée !
+match.score,{ours} - {theirs},JutsuBattlegrounds,,{ours} - {theirs},{ours} - {theirs}
+match.starting,Get ready!,JutsuBattlegrounds,,Get ready!,Prépare-toi !
+match.timeLeft,{seconds}s,JutsuBattlegrounds,,{seconds}s,{seconds}s
+match.victory,Victory!,JutsuBattlegrounds,,Victory!,Victoire !
 menu.battlepass,Battle Pass,JutsuBattlegrounds,,Battle Pass,Battle Pass
 menu.leaderboard,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
 menu.loadout,Loadout,JutsuBattlegrounds,,Loadout,Équipement
@@ -195,6 +224,16 @@ quest.reward,"+{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"+{xp} XP, +{ryo} Ryo","
 quest.useDash,Dash {target} times,JutsuBattlegrounds,,Dash {target} times,Utilise le dash {target} fois
 quest.weekly,Weekly quests,JutsuBattlegrounds,,Weekly quests,Quêtes hebdomadaires
 quest.winMatches,Win {target} matches,JutsuBattlegrounds,,Win {target} matches,Gagne {target} matchs
+queue.alreadyQueued,You are already in a queue.,JutsuBattlegrounds,,You are already in a queue.,Tu es déjà dans une file.
+queue.inMatch,You are already in a match.,JutsuBattlegrounds,,You are already in a match.,Tu es déjà en match.
+queue.join,Join queue,JutsuBattlegrounds,,Join queue,Rejoindre la file
+queue.joined,Queued for {mode}.,JutsuBattlegrounds,,Queued for {mode}.,En file pour {mode}.
+queue.leave,Leave queue,JutsuBattlegrounds,,Leave queue,Quitter la file
+queue.left,You left the queue.,JutsuBattlegrounds,,You left the queue.,Tu as quitté la file.
+queue.searching,Searching… {waited}s,JutsuBattlegrounds,,Searching… {waited}s,Recherche… {waited}s
+queue.timedOut,No opponent found. Try again!,JutsuBattlegrounds,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
+queue.title,Play,JutsuBattlegrounds,,Play,Jouer
+queue.waiting,{queued} / {needed} players,JutsuBattlegrounds,,{queued} / {needed} players,{queued} / {needed} joueurs
 rank.anbu,Anbu,JutsuBattlegrounds,,Anbu,Anbu
 rank.chunin,Chunin,JutsuBattlegrounds,,Chunin,Chunin
 rank.genin,Genin,JutsuBattlegrounds,,Genin,Genin

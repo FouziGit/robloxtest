@@ -171,4 +171,68 @@ export type MatchResult = {
 	DurationSeconds: number,
 }
 
+-- Lifecycle of a match, in order. "Countdown" freezes input, "Playing" is the round itself,
+-- "RoundOver" shows the round winner between rounds, "Result" is the end screen before the hub.
+export type MatchPhase = "Countdown" | "Playing" | "RoundOver" | "Result"
+
+export type MatchPlayerSnapshot = {
+	UserId: number,
+	Name: string, -- DisplayName, already resolved server-side (never a Strings key)
+	Team: number,
+	Alive: boolean,
+	Health: number,
+	MaxHealth: number,
+}
+
+-- Replicated to every participant a few times per second (MatchChanged).
+export type MatchSnapshot = {
+	MatchId: string,
+	ModeId: MatchModeId,
+	Phase: MatchPhase,
+	SecondsLeft: number, -- of the current phase
+	Round: number,
+	RoundsToWin: number,
+	Scores: { number }, -- team index -> rounds won
+	Teams: { { MatchPlayerSnapshot } },
+	LocalTeam: number,
+}
+
+-- Sent once when a match ends (MatchEnded), then the player returns to the hub.
+export type MatchOutcome = {
+	ModeId: MatchModeId,
+	Won: boolean,
+	Draw: boolean,
+	Scores: { number },
+	Xp: number,
+	Ryo: number,
+	RatingBefore: number,
+	RatingAfter: number,
+	RankKeyBefore: string, -- Strings key of the rank tier
+	RankKeyAfter: string,
+	FirstWinOfDay: boolean,
+}
+
+-- Queue state of the local player (QueueChanged); Queued = false means "not in any queue".
+export type QueueSnapshot = {
+	Queued: boolean,
+	ModeId: MatchModeId?,
+	WaitedSeconds: number,
+	QueuedCount: number, -- players waiting in that mode on this server
+	NeededCount: number, -- players required to start
+}
+
+export type LeaderboardEntry = {
+	Rank: number,
+	UserId: number,
+	Name: string,
+	Rating: number,
+	RankKey: string, -- Strings key of the rank tier
+}
+
+export type LeaderboardSnapshot = {
+	BoardId: string,
+	UpdatedAt: number, -- os.time of the last refresh
+	Entries: { LeaderboardEntry },
+}
+
 return nil

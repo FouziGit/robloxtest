@@ -7,13 +7,13 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | Phase | Statut | Commit(s) |
 |---|---|---|
 | 0 — Audit, plan, conventions | ✅ fait | `4e14c6f` (poussé) |
-| 1 — Fondations (toolchain, structure, ProfileStore, remotes sûrs, services, client, UI) | 🔶 en cours | 10 commits locaux `a8f943d`…`dff2391` (non poussés) |
+| 1 — Fondations (toolchain, structure, ProfileStore, remotes sûrs, services, client, UI) | ✅ implémentée, poussée (`130db43`), CI verte ; revue adversariale en cours | `a8f943d`…`130db43` |
 | 2 — Cœur du combat | 🔶 fusionnée dans la Phase 1 (D-9) : chakra, M1/dash/garde, effets serveur + VFX client | |
 | 3 — Mobile, manette, UI, localisation | ⏳ à faire (InputController tactile/manette déjà prévu en Phase 1) | |
-| 4 — Hub, arènes, matchmaking, matchs, classement | ⏳ à faire | |
+| 4 — Hub, arènes, matchmaking, matchs, classement | 🔶 modules purs faits (`Elo`, `RankTiers`, `MatchmakingCore`, `RankingConfig`, `MatchConfig`) ; services à faire | `411b7f2` |
 | 5 — World Boss | ⏳ à faire | |
-| 6 — Progression et rétention | ⏳ à faire | |
-| 7 — Monétisation, analytics, économie | ⏳ à faire (`docs/ECONOMY.md` déjà rédigé) | |
+| 6 — Progression et rétention | 🔶 modules purs faits (`QuestLogic`, `DailyStreak`, `QuestConfig`, `DailyConfig`, `CosmeticConfig`, `ShopRotation`) ; services/écrans à faire | `e78ed2c`, suivant |
+| 7 — Monétisation, analytics, économie | 🔶 `MonetizationConfig`, `ReceiptProcessor`, `ShopConfig`, `docs/ECONOMY.md`, `docs/STUDIO_SETUP.md` faits ; services à faire | |
 | 8 — Sécurité, performance, polish, docs, CI finale | ⏳ à faire (`ci.yml` / `publish.yml` déjà écrits) | |
 
 ## Fait (Phase 1)
@@ -29,15 +29,18 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 
 ## En cours
 
-- Workflow d'implémentation des fichiers restants (3 agents) : `Services/{VfxBroadcaster,CombatService,JutsuService}`, `Effects/JutsuEffects` ; contrôleurs client `{VfxLibrary,VfxController,HudController,InputController,ComboController,CombatController,MovementController,MenuController}` ; composants `{Tabs,ListRow,Slider,Toggle,Toast,TouchButton}` et écrans `{MenuScreen,SettingsScreen,BattlepassScreen}`.
+- Revue adversariale multi-agents de la Phase 1 (contrats, exploits, runtime, mobile/UI) ; corrections à commiter en `fix(...)`.
 
 ## Reste (prochaines actions, dans l'ordre)
 
-1. Vérifier que les fichiers ci-dessus existent (`find src -type f`) ; relancer le workflow ciblé sur les manquants si besoin.
-2. Fusionner les `newStringKeys` demandés par les agents dans `src/shared/Strings.luau` (en + fr), puis `scripts/check.sh` (stylua, selene, luau-lsp strict sur `src/shared`, tests, build) et corriger.
-3. Revue adversariale multi-agents (contrats, exploits, bugs) → corrections.
-4. Commits Conventional (`feat(server): …`, `feat(client): …`, `feat(ui): …`) → `git push origin main` → mettre à jour ce fichier.
-5. Phase 2 restante : roster 16+ jutsus + Foudre dans `JutsuConfig` (design dans `GAME_DESIGN.md` §5), effets + VFX correspondants, interactions élémentaires, tests de config.
+1. Appliquer les constats confirmés de la revue → `fix(...)` → push.
+2. Phase 2 : roster 20 jutsus + Foudre dans `JutsuConfig` (design `GAME_DESIGN.md` §5) + `JutsuEffects` + `VfxLibrary` + Strings ; interactions élémentaires (`Éventé`, extinction, conduction) dans `CombatService` ; schéma `Boosts.XpUntil` (Types/DataService/DataMigration) pour le boost d'XP.
+3. Phase 3 : export CSV des Strings (`scripts/export-strings.luau`), test « zéro chaîne en dur », passe mobile/manette sur les écrans.
+4. Phase 4 : `HubService`, `ArenaService`, `GameMode`, `MatchmakingService`, `MatchService`, `RankingService`, `LeaderboardService`, `MatchController`, écrans file/résultat/classement.
+5. Phase 5 : `WorldBossService` + `WorldBossMode`.
+6. Phase 6 : `QuestService`, `DailyRewardService`, `LoadoutService`, `CosmeticService`, écrans quêtes/loadout/boutique.
+7. Phase 7 : `MonetizationService` (passes, produits, `ProcessReceipt`), `ShopService`, `AnalyticsService`, prompts contextuels.
+8. Phase 8 : passe sécurité/perf, `README.md`, docs finales, rapport.
 
 ## Definition of Done (mission §9)
 

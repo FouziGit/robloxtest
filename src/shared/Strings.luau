@@ -196,6 +196,43 @@ Strings.Table = {
 	["cosmetic.TitleAnbu"] = { en = "Title: Anbu", fr = "Titre : Anbu" },
 	["cosmetic.TitleKageSeason"] = { en = "Title: Season Kage", fr = "Titre : Kage de la saison" },
 
+	-- Quests & daily
+	["quest.castJutsus"] = { en = "Cast {target} jutsus", fr = "Lance {target} jutsus" },
+	["quest.hitJutsus"] = { en = "Hit enemies with {target} jutsus", fr = "Touche des ennemis avec {target} jutsus" },
+	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
+	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
+	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
+	["quest.dealDamage"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
+	["quest.useDash"] = { en = "Dash {target} times", fr = "Utilise le dash {target} fois" },
+	["quest.landMelee"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
+	["quest.defeatPlayers"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
+	["quest.joinBoss"] = {
+		en = "Take part in {target} World Boss fights",
+		fr = "Participe à {target} combats de World Boss",
+	},
+	["quest.daily"] = { en = "Daily quests", fr = "Quêtes journalières" },
+	["quest.weekly"] = { en = "Weekly quests", fr = "Quêtes hebdomadaires" },
+	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
+	["quest.claim"] = { en = "Claim", fr = "Récupérer" },
+	["quest.claimed"] = { en = "Claimed", fr = "Récupérée" },
+	["quest.reward"] = { en = "+{xp} XP, +{ryo} Ryo", fr = "+{xp} XP, +{ryo} Ryo" },
+	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
+	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
+	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
+	["daily.claimed"] = {
+		en = "Day {day} reward: +{xp} XP, +{ryo} Ryo",
+		fr = "Récompense du jour {day} : +{xp} XP, +{ryo} Ryo",
+	},
+	["daily.broken"] = {
+		en = "Your streak was reset. Come back tomorrow to keep it going!",
+		fr = "Ta série est repartie de zéro. Reviens demain pour la garder !",
+	},
+	["daily.firstWin"] = {
+		en = "First win of the day! +{xp} XP, +{ryo} Ryo",
+		fr = "Première victoire du jour ! +{xp} XP, +{ryo} Ryo",
+	},
+	["daily.premium"] = { en = "Premium bonus: +{xp} XP, +{ryo} Ryo", fr = "Bonus Premium : +{xp} XP, +{ryo} Ryo" },
+
 	-- Enemies
 	["enemy.dummy"] = { en = "Training Dummy", fr = "Mannequin d'entraînement" },
 

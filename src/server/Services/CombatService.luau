@@ -4,6 +4,9 @@
 -- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ).
 -- Every hit, from melee, jutsus, bosses or the environment, goes through ApplyDamage so PvP policy,
 -- spawn protection, i-frames and guard rules apply everywhere.
+-- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, StoneSkin): they
+-- live as Humanoid attributes named by CombatConfig.Status, carry their own expiry and are read back
+-- inside ApplyDamage / knockback, so no status needs a ticker and clients can render them.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -76,6 +79,16 @@ type Deps = {
 	Jutsu: JutsuApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
 }
 type TroveType = typeof(Trove.new())
+-- One elemental interaction of docs/GAME_DESIGN.md §6, as CombatConfig.Status declares it: damage of
+-- AppliedByElement writes the mark, damage of AmplifiesElement is multiplied while it lasts.
+type ElementalMark = {
+	Attribute: string,
+	AppliedByElement: string,
+	AmplifiesElement: string,
+	DurationSeconds: number,
+	DamageMultiplier: number,
+	NameKey: string,
+}
 
 type State = {
 	Player: Player,
@@ -117,6 +130,21 @@ local BLOCK_ATTRIBUTE = CombatConfig.Status.BlockAttribute
 local BLOCK_SLOW_KEY = "Block"
 
 local brokenBy = (CombatConfig.Block.BrokenBy :: any) :: { [string]: boolean }
+
+local STONE_SKIN = CombatConfig.Status.StoneSkin
+-- Elemental marks indexed by the element that writes them and by the element they amplify, so
+-- ApplyDamage stays two table lookups instead of a chain of element tests.
+local ELEMENTAL_MARKS: { ElementalMark } = { CombatConfig.Status.Fanned, CombatConfig.Status.Conductive }
+local MARK_BY_SOURCE_ELEMENT: { [string]: ElementalMark } = {}
+local MARK_BY_AMPLIFIED_ELEMENT: { [string]: ElementalMark } = {}
+-- Every status attribute this service owns, wiped when a character is bound so nothing survives a
+-- respawn (the guard attribute is not here: releaseBlock owns it).
+local STATUS_ATTRIBUTES: { string } = { STONE_SKIN.Attribute }
+for _, mark in ipairs(ELEMENTAL_MARKS) do
+	MARK_BY_SOURCE_ELEMENT[mark.AppliedByElement] = mark
+	MARK_BY_AMPLIFIED_ELEMENT[mark.AmplifiesElement] = mark
+	table.insert(STATUS_ATTRIBUTES, mark.Attribute)
+end
 
 local CombatService = {}
 
@@ -229,6 +257,31 @@ local function breaksGuard(kind: string, tags: { string }): boolean
 		end
 	end
 	return false
+end
+
+-- A status attribute holds the os.clock timestamp at which it stops applying. Statuses have no
+-- ticker: they are checked lazily here and an expired one is cleared on read, so a client never sees
+-- a stale mark and a refresh only pushes the timestamp (never stacks).
+local function isStatusActive(humanoid: Humanoid, attribute: string, now: number): boolean
+	local value = humanoid:GetAttribute(attribute)
+	if value == nil then
+		return false
+	end
+	if typeof(value) == "number" and now < (value :: number) then
+		return true
+	end
+	humanoid:SetAttribute(attribute, nil)
+	return false
+end
+
+local function setStatus(humanoid: Humanoid, attribute: string, durationSeconds: number, now: number)
+	humanoid:SetAttribute(attribute, now + durationSeconds)
+end
+
+local function clearStatuses(humanoid: Humanoid)
+	for _, attribute in ipairs(STATUS_ATTRIBUTES) do
+		humanoid:SetAttribute(attribute, nil)
+	end
 end
 
 local function markInCombat(state: State, now: number)
@@ -380,6 +433,9 @@ local function onCharacterAdded(player: Player, character: Model)
 	end
 	humanoid.MaxHealth = CombatConfig.Health.Max
 	humanoid.Health = CombatConfig.Health.Max
+	-- Completes the resetState above: the statuses live on the Humanoid, which only exists here (a
+	-- respawned character brings a fresh one, a re-bound character must not keep its old marks).
+	clearStatuses(humanoid)
 	state.Humanoid = humanoid
 	characterTrove:Connect(humanoid.Died, function()
 		onDied(state)
@@ -482,12 +538,43 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 	CombatService.Killed:Fire(if source ~= nil then source.UserId else 0, targetModel)
 end
 
--- Guard rules for a blocking player target. Returns the damage that goes through and whether the
--- guard absorbed part of it.
+-- Elemental interaction (docs/GAME_DESIGN.md §6): a mark left by another element amplifies this hit
+-- once, by the multiplier CombatConfig.Status declares. Returns the damage and the mark that did it,
+-- so the Hit packet can show the bonus (flat and visible, never a hidden multiplier).
+local function amplifyByMark(
+	humanoid: Humanoid,
+	damage: number,
+	element: string?,
+	now: number
+): (number, ElementalMark?)
+	if element == nil then
+		return damage, nil
+	end
+	local mark = MARK_BY_AMPLIFIED_ELEMENT[element]
+	if mark == nil or not isStatusActive(humanoid, mark.Attribute, now) then
+		return damage, nil
+	end
+	return damage * mark.DamageMultiplier, mark
+end
+
+-- Wind marks its targets Fanned, Water marks them Conductive: only a hit that landed marks, and a
+-- second hit of the same element refreshes the expiry instead of stacking.
+local function markTarget(humanoid: Humanoid, element: string?, now: number)
+	if element == nil then
+		return
+	end
+	local mark = MARK_BY_SOURCE_ELEMENT[element]
+	if mark ~= nil then
+		setStatus(humanoid, mark.Attribute, mark.DurationSeconds, now)
+	end
+end
+
+-- Guard rules for a blocking player target. Takes the damage left by the elemental and StoneSkin
+-- steps. Returns the damage that goes through and whether the guard absorbed part of it.
 local function applyGuard(
 	targetPlayer: Player,
 	targetState: State,
-	amount: number,
+	damage: number,
 	kind: string,
 	tags: { string },
 	origin: Vector3,
@@ -497,13 +584,15 @@ local function applyGuard(
 		releaseBlock(targetState, now)
 		movement.applyStun(targetPlayer, CombatConfig.Block.BreakStunSeconds)
 		vfx.emit({ Id = "GuardBreak", Origin = origin })
-		return amount, false
+		return damage, false
 	end
 	vfx.emit({ Id = "BlockHit", Origin = origin })
-	return amount * (1 - CombatConfig.Block.DamageReduction), true
+	return damage * (1 - CombatConfig.Block.DamageReduction), true
 end
 
--- `element` (jutsu element, nil for melee / environment) only colours the Hit packet clients render.
+-- `element` (jutsu element, nil for melee / environment) colours the Hit packet clients render and
+-- drives the elemental interactions: it writes the mark of its own element on the target and reads
+-- the mark that amplifies it (docs/GAME_DESIGN.md §6).
 function CombatService.ApplyDamage(
 	source: Player?,
 	targetModel: Model,
@@ -557,9 +646,14 @@ function CombatService.ApplyDamage(
 	end
 
 	local origin = positionOf(targetModel)
-	local damage = amount
+	-- Elemental mark, then StoneSkin, then the guard: each step scales what the previous one left, so
+	-- a guarded Fanned Fire hit is amplified once and reduced once by each, and rounding happens once.
+	local damage, amplifier = amplifyByMark(humanoid, amount, element, now)
+	if isStatusActive(humanoid, STONE_SKIN.Attribute, now) then
+		damage *= 1 - STONE_SKIN.DamageReduction
+	end
 	if targetPlayer ~= nil and targetState ~= nil and targetState.Blocking then
-		damage, result.Blocked = applyGuard(targetPlayer, targetState, amount, kind, tags, origin, now)
+		damage, result.Blocked = applyGuard(targetPlayer, targetState, damage, kind, tags, origin, now)
 	end
 	local applied = math.floor(damage + 0.5)
 	if applied <= 0 then
@@ -573,6 +667,7 @@ function CombatService.ApplyDamage(
 	end
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
+	markTarget(humanoid, element, now)
 	if source ~= nil then
 		targetModel:SetAttribute(LAST_ATTACKER_ATTRIBUTE, source.UserId)
 	end
@@ -586,6 +681,11 @@ function CombatService.ApplyDamage(
 	local hitParams: { [string]: any } = { Amount = applied, Kind = kind }
 	if element ~= nil then
 		hitParams.Element = element
+	end
+	if amplifier ~= nil then
+		-- Floating text of the interaction (Strings "hud.status.bonus" takes {status} and {percent}).
+		hitParams.StatusKey = amplifier.NameKey
+		hitParams.StatusPercent = math.floor((amplifier.DamageMultiplier - 1) * 100 + 0.5)
 	end
 	vfx.emit({ Id = "Hit", Origin = origin, Params = hitParams })
 	if memory ~= nil then
@@ -602,13 +702,53 @@ function CombatService.ApplyDamage(
 end
 
 -- Server-approved knockback, applied by the owning client (characters are client-simulated).
--- NPCs (anchored dummies, bosses) ignore it.
+-- NPCs (anchored dummies, bosses) ignore it. A StoneSkin target keeps its ground: "la Terre bloque"
+-- of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
 function CombatService.knockback(targetModel: Model, velocity: Vector3, duration: number)
 	local player = Players:GetPlayerFromCharacter(targetModel)
 	if player == nil then
 		return
 	end
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if
+		humanoid ~= nil
+		and STONE_SKIN.KnockbackImmune
+		and isStatusActive(humanoid, STONE_SKIN.Attribute, os.clock())
+	then
+		return
+	end
 	movement.command(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
+end
+
+-- Grants the StoneSkin buff (CombatConfig.Status.StoneSkin) to a live caster for its configured
+-- duration: every incoming hit loses DamageReduction and knockback stops applying until it expires.
+-- Re-casting refreshes the expiry instead of stacking. Returns false when the caster has no live
+-- Humanoid, so the jutsu effect can skip its own rendering.
+-- Grants an invulnerability window (mobility jutsus). Never shortens one already running: two
+-- overlapping sources leave the later expiry in place.
+function CombatService.grantIFrames(player: Player, seconds: number)
+	if seconds ~= seconds or seconds <= 0 or seconds == math.huge then
+		log.warn("grantIFrames rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return
+	end
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	state.IFramesUntil = math.max(state.IFramesUntil, os.clock() + seconds)
+end
+
+function CombatService.applyStoneSkin(player: Player): boolean
+	local state = states[player]
+	if state == nil then
+		return false
+	end
+	local humanoid = state.Humanoid
+	if humanoid == nil or humanoid.Parent ~= state.Character or humanoid.Health <= 0 then
+		return false
+	end
+	setStatus(humanoid, STONE_SKIN.Attribute, STONE_SKIN.DurationSeconds, os.clock())
+	return true
 end
 
 ----------------------------------------------------------------

@@ -28,6 +28,18 @@ Raison : bibliothèques standard de l'écosystème, maintenues, typées ; Trove 
 Pas de Jest-Lua ni TestEZ. `tests/harness.luau` fournit `describe / it / expect` (toBe, toEqual, toBeCloseTo, toThrow, toBeTruthy…) et `tests/run.luau` découvre `tests/**/*.spec.luau`. Les modules purs (`ComboResolver`, `Elo`, `MatchmakingCore`, `QuestLogic`, `DataMigration`, `ReceiptProcessor`, `Strings`) n'ont aucun `require` ni global Roblox et sont chargés par chemin relatif.
 Raison : les paquets Wally (TestEZ, Jest-Lua, Promise…) utilisent `require(script.Parent…)` et ne se chargent pas sous Lune sans darklua ; un harnais de 150 lignes évite une chaîne de build supplémentaire. Vérifié : `lune run` + `require("../src/…")` fonctionne (probe du 2026-09-16).
 
+**D-17 — Les statuts de combat sont des attributs de Humanoid avec leur propre expiration** · Phase 2
+`Fanned`, `Conductive` et `StoneSkin` sont écrits par `CombatService` comme attributs portant un horodatage `os.clock` serveur, relus paresseusement dans `ApplyDamage` (aucun ticker, aucune boucle par joueur) et effacés à la réapparition. L'ordre est : marque élémentaire → réduction StoneSkin → garde, avec un seul arrondi final.
+Raison : une file de timers par statut et par joueur coûterait plus cher que la lecture ponctuelle, et les attributs sont lisibles par le client pour l'affichage. Attention : la valeur est une horloge serveur, jamais comparable à `os.clock()` côté client.
+
+**D-18 — Prison d'Eau immobilise par un ralentissement à 0, pas par un stun** · Phase 2
+`WaterPrison` applique `applySlow(Def.Id, 0, 1.5)` au lieu de `applyStun`.
+Raison : la cible reste capable de lancer un jutsu et de se défendre — c'est un contrôle de position, pas un silence ; un stun de 1,5 s serait au-dessus du budget d'étourdissement du genre.
+
+**D-19 — LightningStep téléporte côté serveur après validation par raycast** · Phase 2
+Le serveur lance un rayon sur `Def.Range`, recule de `WallBackoffStuds`, vérifie `ClearanceRadius` et raccroche au sol sur `GroundSnapStuds`, puis écrit le pivot du personnage. `MovementCommand` n'a pas de type « Teleport ».
+Raison : un déplacement instantané confié au client serait un téléport arbitraire ; la validation serveur garantit qu'on ne traverse ni mur ni vide, et le pivot écrit une seule fois est immédiatement répliqué.
+
 **D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
 `scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
 Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.

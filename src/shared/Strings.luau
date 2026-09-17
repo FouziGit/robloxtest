@@ -162,6 +162,72 @@ Strings.Table = {
 		en = "Slam the ground: a massive shockwave launches enemies.",
 		fr = "Frappe le sol : une onde de choc massive projette les ennemis.",
 	},
+	["jutsu.EmberStep.name"] = { en = "Ember Step", fr = "Pas de Braise" },
+	["jutsu.EmberStep.desc"] = {
+		en = "A short dash that leaves a burning trail behind you.",
+		fr = "Une ruée courte qui laisse une traînée brûlante derrière toi.",
+	},
+	["jutsu.Meteor.name"] = { en = "Meteor", fr = "Météore" },
+	["jutsu.Meteor.desc"] = {
+		en = "Calls down a blazing rock that shatters guards where it lands.",
+		fr = "Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.",
+	},
+	["jutsu.WaterPrison.name"] = { en = "Water Prison", fr = "Prison d'Eau" },
+	["jutsu.WaterPrison.desc"] = {
+		en = "Traps the closest enemy in a sphere of water and roots them in place.",
+		fr = "Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.",
+	},
+	["jutsu.MudShot.name"] = { en = "Mud Shot", fr = "Tir de Boue" },
+	["jutsu.MudShot.desc"] = {
+		en = "Spits a fast bullet of mud that slows whoever it hits.",
+		fr = "Crache une balle de boue rapide qui ralentit sa cible.",
+	},
+	["jutsu.StoneSkin.name"] = { en = "Stone Skin", fr = "Peau de Pierre" },
+	["jutsu.StoneSkin.desc"] = {
+		en = "Hardens your skin: less damage taken and no knockback for a few seconds.",
+		fr = "Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.",
+	},
+	["jutsu.WindBlade.name"] = { en = "Wind Blade", fr = "Lame de Vent" },
+	["jutsu.WindBlade.desc"] = {
+		en = "Throws a blade of wind that fans its target for your next fire jutsu.",
+		fr = "Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.",
+	},
+	["jutsu.Cyclone.name"] = { en = "Cyclone", fr = "Cyclone" },
+	["jutsu.Cyclone.desc"] = {
+		en = "A whirlwind that drags everyone caught in it toward its centre.",
+		fr = "Une tornade qui attire vers son centre tout ce qu'elle happe.",
+	},
+	["jutsu.Sandstorm.name"] = { en = "Sandstorm", fr = "Tempête de Sable" },
+	["jutsu.Sandstorm.desc"] = {
+		en = "A storm of sand that blinds and slows everyone inside it.",
+		fr = "Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.",
+	},
+	["jutsu.LightningBolt.name"] = { en = "Lightning Bolt", fr = "Éclair" },
+	["jutsu.LightningBolt.desc"] = {
+		en = "An instant bolt that strikes the first enemy in your line of sight.",
+		fr = "Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.",
+	},
+	["jutsu.LightningStep.name"] = { en = "Lightning Step", fr = "Pas de l'Éclair" },
+	["jutsu.LightningStep.desc"] = {
+		en = "Blink forward in a flash, untouchable for an instant.",
+		fr = "Disparais vers l'avant dans un éclair, intouchable un instant.",
+	},
+	["jutsu.StaticField.name"] = { en = "Static Field", fr = "Champ Statique" },
+	["jutsu.StaticField.desc"] = {
+		en = "A crackling field that shocks and locks up anyone standing in it.",
+		fr = "Un champ crépitant qui électrise et bloque ceux qui s'y attardent.",
+	},
+	["jutsu.Raijin.name"] = { en = "Raijin", fr = "Raijin" },
+	["jutsu.Raijin.desc"] = {
+		en = "The thunder god's wrath arcs from enemy to enemy.",
+		fr = "La colère du dieu du tonnerre bondit d'ennemi en ennemi.",
+	},
+
+	-- Elemental statuses (CombatConfig.Status): shown as floating text on the marked target
+	["status.fanned"] = { en = "Fanned", fr = "Éventé" },
+	["status.conductive"] = { en = "Conductive", fr = "Conducteur" },
+	["status.stoneSkin"] = { en = "Stone Skin", fr = "Peau de Pierre" },
+	["hud.status.bonus"] = { en = "{status}: +{percent}% damage", fr = "{status} : +{percent} % de dégâts" },
 
 	-- Cosmetics
 	["cosmetic.GeninHeadband"] = { en = "Genin Headband", fr = "Bandeau du Genin" },

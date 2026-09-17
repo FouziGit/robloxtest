@@ -1,6 +1,8 @@
 --!strict
 -- Invariants of the pure config modules.
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
+local CombatConfig = require("../src/shared/Config/CombatConfig")
+local ComboResolver = require("../src/shared/Pure/ComboResolver")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local ElementConfig = require("../src/shared/Config/ElementConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
@@ -18,6 +20,23 @@ local Strings = require("../src/shared/Strings")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
+
+-- Balance targets of docs/GAME_DESIGN.md §3 and §5.
+local ROSTER_SIZE = 20
+local COST_MIN, COST_MAX = 15, 55 -- §5 table: Slicing Gust 15 … Raijin 55
+local COOLDOWN_MIN, COOLDOWN_MAX = 3, 25
+local SUSTAINED_DPS_MAX = 7 -- a two-key basic, cast once per cooldown
+local ULTIMATE_HIT_MAX = 50 -- an ultimate never removes more than half of CombatConfig.Health.Max
+
+local function isFinite(value: number): boolean
+	return value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- Damage one target takes from a single full cast: zones and trails tick, everything else hits once.
+local function castDamage(jutsu: JutsuConfig.JutsuDef): number
+	local hits = jutsu.Params.MaxHitsPerTarget or jutsu.Params.Ticks or 1
+	return jutsu.Damage * hits
+end
 
 describe("JutsuConfig", function()
 	it("has unique ids and combos within the length limit", function()
@@ -40,10 +59,14 @@ describe("JutsuConfig", function()
 
 	it("has sane numbers and localized keys", function()
 		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-			expect(jutsu.Cost).toBeGreaterThan(0)
-			expect(jutsu.Cooldown).toBeGreaterThan(0)
+			expect(jutsu.Cost).toBeGreaterThanOrEqual(COST_MIN)
+			expect(jutsu.Cost).toBeLessThanOrEqual(COST_MAX)
+			expect(jutsu.Cooldown).toBeGreaterThanOrEqual(COOLDOWN_MIN)
+			expect(jutsu.Cooldown).toBeLessThanOrEqual(COOLDOWN_MAX)
 			expect(jutsu.Damage).toBeGreaterThanOrEqual(0)
+			expect(jutsu.Damage).toBeLessThanOrEqual(ULTIMATE_HIT_MAX)
 			expect(jutsu.Range).toBeGreaterThan(0)
+			expect(jutsu.Effect).toBe(jutsu.Id)
 			expect(Strings.has(jutsu.NameKey)).toBe(true)
 			expect(Strings.has(jutsu.DescriptionKey)).toBe(true)
 			expect(SoundConfig.Sfx[jutsu.SfxId]).never.toBeNil()
@@ -51,13 +74,150 @@ describe("JutsuConfig", function()
 			for name, value in pairs(jutsu.Params) do
 				expect(type(name)).toBe("string")
 				expect(type(value)).toBe("number")
+				expect(isFinite(value)).toBe(true)
+				expect(value).toBeGreaterThanOrEqual(0)
 			end
 			if jutsu.Unlock.Kind == "Level" then
 				expect(jutsu.Unlock.Value).toBeGreaterThan(1)
+				expect(jutsu.Unlock.Value).toBeLessThanOrEqual(ProgressionConfig.MaxLevel)
+			elseif jutsu.Unlock.Kind == "Element" then
+				-- gated by its own element (Lightning): never part of a fresh profile
+				expect(table.find(ElementConfig.Unlockable, jutsu.Element)).never.toBeNil()
+				expect(table.find(JutsuConfig.defaultUnlocks(), jutsu.Id)).toBeNil()
+			else
+				expect(table.find(ElementConfig.Base, jutsu.Element)).never.toBeNil()
+			end
+			if table.find(ElementConfig.Unlockable, jutsu.Element) ~= nil then
+				expect(jutsu.Unlock.Kind).toBe("Element")
 			end
 		end
 		expect(#JutsuConfig.defaultUnlocks()).toBeGreaterThan(0)
 		expect(JutsuConfig.ById.Fireball).never.toBeNil()
+	end)
+
+	it("makes every jutsu reachable through a level or its element", function()
+		expect(#JutsuConfig.Jutsus).toBe(ROSTER_SIZE)
+		local reachable: { [string]: boolean } = {}
+		for _, id in ipairs(JutsuConfig.defaultUnlocks()) do
+			reachable[id] = true
+		end
+		for level = 2, ProgressionConfig.MaxLevel do
+			for _, id in ipairs(JutsuConfig.unlocksForLevel(level)) do
+				reachable[id] = true
+			end
+		end
+		for _, element in ipairs(ElementConfig.Unlockable) do
+			for _, id in ipairs(JutsuConfig.unlocksForElement(element)) do
+				reachable[id] = true
+			end
+		end
+		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
+			expect(reachable[jutsu.Id]).toBe(true)
+		end
+		local levelFive = JutsuConfig.unlocksForLevel(5)
+		expect(#levelFive).toBe(2)
+		expect(levelFive).toContain("WindBlade")
+		expect(levelFive).toContain("MudShot")
+		expect(#JutsuConfig.unlocksForElement("Lightning")).toBe(4)
+		expect(#JutsuConfig.unlocksForElement("Fire")).toBe(0)
+	end)
+
+	it("builds a combo tree where every recipe still casts", function()
+		local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLength)
+		expect(#resolver.duplicates).toBe(0)
+		expect(GameConfig.Combo.ExtendWindowSeconds).toBeLessThan(GameConfig.Combo.TimeoutSeconds)
+		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
+			expect(ComboResolver.resolve(resolver, jutsu.Combo)).toBe(jutsu.Id)
+			local sequence: { string } = {}
+			local decision: ComboResolver.Decision = { Action = "Reset", Reason = "Empty" }
+			for _, element in ipairs(jutsu.Combo) do
+				sequence, decision = ComboResolver.push(resolver, sequence, element)
+			end
+			-- Typing the last element of a recipe either fires it or leaves it pending as a castable
+			-- prefix, in which case the client only waits ExtendWindowSeconds: no recipe is shadowed.
+			if decision.Action == "Wait" then
+				expect(decision.Castable).toBe(true)
+				expect(ComboResolver.timeout(resolver, jutsu.Combo)).toEqual({ Action = "Cast", JutsuId = jutsu.Id })
+			else
+				expect(decision.Action).toBe("Cast")
+				expect(ComboResolver.resolve(resolver, jutsu.Combo)).toBe(jutsu.Id)
+			end
+		end
+		-- Raijin's third press is the only intermediate that is not itself a recipe: it waits the
+		-- full timeout instead of casting (docs/GAME_DESIGN.md §4 rule 5).
+		local pending, third = ComboResolver.push(resolver, { "Lightning", "Lightning" }, "Lightning")
+		expect(#pending).toBe(3)
+		expect(third.Action).toBe("Wait")
+		if third.Action == "Wait" then
+			expect(third.Castable).toBe(false)
+		end
+	end)
+
+	it("keeps the sustained damage, burst and stun budgets of GAME_DESIGN §5", function()
+		local basicBestHit = 0
+		local basicBestCast: { [string]: number } = {}
+		local longWorstCast: { [string]: number } = {}
+		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
+			local cast = castDamage(jutsu)
+			if #jutsu.Combo == 2 then
+				expect(cast / jutsu.Cooldown).toBeLessThanOrEqual(SUSTAINED_DPS_MAX)
+				basicBestHit = math.max(basicBestHit, jutsu.Damage)
+				basicBestCast[jutsu.Element] = math.max(basicBestCast[jutsu.Element] or 0, cast)
+			elseif cast > 0 then
+				local current = longWorstCast[jutsu.Element]
+				longWorstCast[jutsu.Element] = if current == nil then cast else math.min(current, cast)
+			end
+			local stun = jutsu.Params.StunSeconds or jutsu.Params.Stun
+			if stun ~= nil then
+				expect(stun * (jutsu.Params.Ticks or 1)).toBeLessThanOrEqual(CombatConfig.Hit.StunMaxSeconds)
+			end
+		end
+		for _, jutsu in ipairs(JutsuConfig.Jutsus) do
+			if jutsu.Archetype == "Ultimate" then
+				-- long combo, big cost, big impact — and it always out-bursts every basic
+				expect(jutsu.Damage).toBeLessThanOrEqual(ULTIMATE_HIT_MAX)
+				expect(jutsu.Damage).toBeGreaterThan(basicBestHit)
+				expect(CombatConfig.Block.BrokenBy[jutsu.Archetype]).toBe(true)
+			end
+		end
+		-- Every damaging longer combo of an element pays more per cast than that element's basics.
+		for element, best in pairs(basicBestCast) do
+			local worstLong = longWorstCast[element]
+			if worstLong ~= nil then
+				expect(worstLong).toBeGreaterThanOrEqual(best)
+			end
+		end
+	end)
+end)
+
+describe("CombatConfig", function()
+	it("defines the elemental interaction marks and the StoneSkin buff", function()
+		local attributes: { [string]: boolean } = {
+			[CombatConfig.Status.SlowAttribute] = true,
+			[CombatConfig.Status.StunAttribute] = true,
+			[CombatConfig.Status.BlockAttribute] = true,
+		}
+		for _, mark in ipairs({ CombatConfig.Status.Fanned, CombatConfig.Status.Conductive }) do
+			expect(attributes[mark.Attribute]).toBeNil()
+			attributes[mark.Attribute] = true
+			expect(ElementConfig.isElement(mark.AppliedByElement)).toBe(true)
+			expect(ElementConfig.isElement(mark.AmplifiesElement)).toBe(true)
+			expect(mark.AppliedByElement).never.toBe(mark.AmplifiesElement)
+			expect(mark.DurationSeconds).toBeGreaterThan(0)
+			expect(mark.DamageMultiplier).toBeGreaterThan(1)
+			expect(mark.DamageMultiplier).toBeLessThanOrEqual(1.5)
+			expect(Strings.has(mark.NameKey)).toBe(true)
+		end
+		local buff = CombatConfig.Status.StoneSkin
+		expect(attributes[buff.Attribute]).toBeNil()
+		expect(buff.KnockbackImmune).toBe(true)
+		expect(buff.DamageReduction).toBeGreaterThan(0)
+		-- a buff you keep is weaker than holding guard, and never covers its own cooldown
+		expect(buff.DamageReduction).toBeLessThan(CombatConfig.Block.DamageReduction)
+		expect(buff.DurationSeconds).toBeGreaterThan(0)
+		expect(buff.DurationSeconds).toBeLessThan(JutsuConfig.ById.StoneSkin.Cooldown)
+		expect(Strings.has(buff.NameKey)).toBe(true)
+		expect(Strings.has("hud.status.bonus")).toBe(true)
 	end)
 end)
 

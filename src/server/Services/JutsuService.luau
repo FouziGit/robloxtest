@@ -42,6 +42,8 @@ type CombatApi = {
 	trySpendChakra: (player: Player, cost: number) -> boolean,
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
+	grantIFrames: (player: Player, seconds: number) -> (),
+	applyStoneSkin: (player: Player) -> boolean,
 }
 type VfxPacket = {
 	Id: string,
@@ -52,9 +54,14 @@ type VfxPacket = {
 	Params: { [string]: any }?,
 }
 type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
+type MovementCommand =
+	{ Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
+	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
+	| { Kind: "Stun", Seconds: number }
 type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
+	command: (player: Player, payload: MovementCommand) -> (),
 }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
 type EffectContext = {

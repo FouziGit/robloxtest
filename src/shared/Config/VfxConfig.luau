@@ -7,7 +7,8 @@
 
 local VfxConfig = {}
 
--- Emitted by JutsuEffects (one per jutsu, plus the shared detonation).
+-- Emitted by JutsuEffects: one per jutsu, plus the shared detonation ("Explosion", reused by
+-- Fireball and Meteor when they blow up).
 VfxConfig.JutsuIds = {
 	"Fireball",
 	"Explosion",
@@ -18,6 +19,19 @@ VfxConfig.JutsuIds = {
 	"MudWall",
 	"EmberStorm",
 	"Earthquake",
+	-- Phase 2 roster (docs/GAME_DESIGN.md §5)
+	"EmberStep",
+	"Meteor",
+	"WaterPrison",
+	"MudShot",
+	"StoneSkin",
+	"WindBlade",
+	"Cyclone",
+	"Sandstorm",
+	"LightningBolt",
+	"LightningStep",
+	"StaticField",
+	"Raijin",
 } :: { string }
 
 -- Emitted by JutsuService and CombatService (casting, hits, melee kit, guard).

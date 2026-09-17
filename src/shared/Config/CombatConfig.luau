@@ -65,6 +65,37 @@ CombatConfig.Status = {
 	SlowAttribute = "CombatSlow", -- Humanoid attribute set by the server while slowed
 	StunAttribute = "CombatStun",
 	BlockAttribute = "CombatBlock",
+
+	-- Elemental interactions (docs/GAME_DESIGN.md §6). A mark is a Humanoid attribute holding its
+	-- own expiry: CombatService.ApplyDamage writes it when the damage element is AppliedByElement
+	-- and multiplies the damage by DamageMultiplier when the element is AmplifiesElement and the
+	-- mark is still live. Flat, visible bonuses (vfx + floating text), never hidden stacking.
+	Fanned = {
+		Attribute = "CombatFanned",
+		AppliedByElement = "Wind", -- any Wind jutsu marks the targets it damages
+		AmplifiesElement = "Fire",
+		DurationSeconds = 3,
+		DamageMultiplier = 1.25,
+		NameKey = "status.fanned",
+	},
+	Conductive = {
+		Attribute = "CombatConductive",
+		AppliedByElement = "Water", -- water on the target conducts: refreshed by every water tick
+		AmplifiesElement = "Lightning",
+		DurationSeconds = 1.5, -- shorter than a zone tick interval + travel: "still soaked"
+		DamageMultiplier = 1.25,
+		NameKey = "status.conductive",
+	},
+
+	-- StoneSkin buff (jutsu StoneSkin). The effect grants it for DurationSeconds; CombatService
+	-- removes DamageReduction of every incoming hit and skips knockback while it is live.
+	StoneSkin = {
+		Attribute = "CombatStoneSkin",
+		DamageReduction = 0.4,
+		DurationSeconds = 4,
+		KnockbackImmune = true,
+		NameKey = "status.stoneSkin",
+	},
 }
 
 return CombatConfig

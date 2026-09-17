@@ -33,6 +33,8 @@ type Deps = { DataService: DataApi, Notify: NotifyApi, Battlepass: BattlepassApi
 local LEADERSTATS_FOLDER = "leaderstats"
 local LEADERSTAT_LEVEL = "Level"
 local LEADERSTAT_RYO = "Ryo"
+-- Pass key in ProfileData.Passes granting the XP multiplier (see MonetizationConfig.Passes).
+local VIP_PASS_KEY = "Vip"
 
 local ProgressionService = {}
 
@@ -41,6 +43,20 @@ ProgressionService.LevelUp = Signal.new() -- (player: Player, level: number)
 local dataService: DataApi
 local notify: NotifyApi
 local battlepass: BattlepassApi
+
+-- Multiplier applied to earned XP: VIP pass and any live timed boost, rounded down at the end so a
+-- reward is never silently lost to floating point.
+local function xpMultiplier(data: ProfileData): number
+	local multiplier = 1
+	if data.Passes[VIP_PASS_KEY] == true then
+		multiplier *= ProgressionConfig.VipXpMultiplier
+	end
+	local boosts = data.Boosts
+	if boosts.XpUntil > os.time() and boosts.XpMultiplier > 1 then
+		multiplier *= boosts.XpMultiplier
+	end
+	return multiplier
+end
 
 local function isPositiveInteger(value: number): boolean
 	return value == value and value ~= math.huge and value == math.floor(value) and value > 0
@@ -116,6 +132,9 @@ function ProgressionService.addXp(player: Player, amount: number, reason: string
 		log.warn("addXp skipped for %s (%s): profile not loaded", player.Name, reason)
 		return
 	end
+
+	local granted = math.max(1, math.floor(amount * xpMultiplier(data)))
+	amount = granted
 
 	local progression = data.Progression
 	local previousLevel = progression.Level

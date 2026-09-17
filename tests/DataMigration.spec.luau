@@ -57,6 +57,7 @@ local function template(): { [string]: any }
 		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
+		Boosts = { XpUntil = 0, XpMultiplier = 1 },
 		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
 	}
 end
@@ -166,5 +167,30 @@ describe("DataMigration", function()
 		expect(tpl.Progression.Level).toBe(1)
 		expect(tpl.Battlepass._template).never.toBeNil()
 		expect(tpl.Cosmetics.Owned).toEqual({})
+	end)
+end)
+
+describe("DataMigration boosts", function()
+	it("gives new and legacy profiles an inactive boost", function()
+		local fresh = DataMigration.migrate(nil, template(), "S1")
+		expect(fresh.Boosts).toEqual({ XpUntil = 0, XpMultiplier = 1 })
+
+		local fromV1 = DataMigration.migrate(legacyProfile(), template(), "S1")
+		expect(fromV1.Boosts).toEqual({ XpUntil = 0, XpMultiplier = 1 })
+	end)
+
+	it("keeps a live boost across a V2 reload and drops malformed ones", function()
+		local kept = DataMigration.migrate(
+			{ DataVersion = 2, Boosts = { XpUntil = 1893456000, XpMultiplier = 2 } },
+			template(),
+			"S1"
+		)
+		expect(kept.Boosts.XpUntil).toBe(1893456000)
+		expect(kept.Boosts.XpMultiplier).toBe(2)
+
+		local malformed =
+			DataMigration.migrate({ DataVersion = 2, Boosts = { XpMultiplier = "lots" } }, template(), "S1")
+		expect(malformed.Boosts.XpMultiplier).toBe(1)
+		expect(malformed.Boosts.XpUntil).toBe(0)
 	end)
 end)

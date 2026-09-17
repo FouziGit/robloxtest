@@ -7,9 +7,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared.Util.Log)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("CurrencyService")
+
+-- Pass key in ProfileData.Passes granting the Ryo multiplier (see MonetizationConfig.Passes).
+local VIP_PASS_KEY = "Vip"
 
 type ProfileData = Types.ProfileData
 type DataApi = {
@@ -58,6 +62,9 @@ function CurrencyService.add(player: Player, amount: number, reason: string)
 	if data == nil then
 		log.warn("add skipped for %s (%s): profile not loaded", player.Name, reason)
 		return
+	end
+	if data.Passes[VIP_PASS_KEY] == true then
+		amount = math.max(1, math.floor(amount * ProgressionConfig.VipRyoMultiplier))
 	end
 	data.Currency.Ryo += amount
 	syncLeaderstat(player, data.Currency.Ryo)

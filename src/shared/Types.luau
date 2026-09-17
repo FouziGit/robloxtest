@@ -97,6 +97,13 @@ export type PurchasesData = {
 
 export type PassesData = { [string]: boolean } -- passKey -> owned (cache)
 
+-- Timed multipliers. Expiries are os.time() stamps so they survive a rejoin; a multiplier of 1 or an
+-- expiry in the past means "no boost". Granted by developer products and battle pass rewards.
+export type BoostsData = {
+	XpUntil: number,
+	XpMultiplier: number,
+}
+
 export type MetaData = {
 	FirstJoin: number,
 	LastJoin: number,
@@ -120,6 +127,7 @@ export type ProfileData = {
 	Daily: DailyData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
+	Boosts: BoostsData,
 	Meta: MetaData,
 }
 

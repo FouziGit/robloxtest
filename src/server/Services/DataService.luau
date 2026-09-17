@@ -95,6 +95,7 @@ function DataService.template(): { [string]: any }
 		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
+		Boosts = { XpUntil = 0, XpMultiplier = 1 },
 		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
 	}
 end

@@ -1,0 +1,398 @@
+--!strict
+-- DataService: the single owner of player profiles (ProfileStore). Loads, migrates, replicates and
+-- releases profiles. Other services mutate `DataService.get(player)` in place and call `push`.
+
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+
+local DataMigration = require(Shared.Pure.DataMigration)
+local ElementConfig = require(Shared.Config.ElementConfig)
+local GameConfig = require(Shared.Config.GameConfig)
+local InputConfig = require(Shared.Config.InputConfig)
+local JutsuConfig = require(Shared.Config.JutsuConfig)
+local Log = require(Shared.Util.Log)
+local ProfileStore = require(script.Parent.Parent.Vendor.ProfileStore)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local Signal = require(Packages.Signal)
+local Strings = require(Shared.Strings)
+local Types = require(Shared.Types)
+
+type ProfileData = Types.ProfileData
+
+local log = Log.new("DataService")
+
+local STORE_NAME = "JutsuBattlegrounds_v2"
+local KEY_PREFIX = "Player_"
+local LEGACY_STORE_NAME = "JutsuGame_PlayerData_v1"
+local LEGACY_KEY_PREFIX = "Player_"
+local MAX_RECEIPTS = 100
+
+local DataService = {}
+
+DataService.ProfileLoaded = Signal.new() -- (player: Player, data: ProfileData)
+DataService.ProfileReleased = Signal.new() -- (player: Player)
+
+local registry -- RemoteRegistry
+local store
+local profiles: { [Player]: any } = {} -- ProfileStore Profile objects
+local loadedSignals: { [Player]: { any } } = {}
+
+----------------------------------------------------------------
+-- Template
+----------------------------------------------------------------
+
+local function defaultLoadout(): { string }
+	local slots = {}
+	for _, id in ipairs(JutsuConfig.defaultUnlocks()) do
+		if #slots >= ProgressionConfig.Loadout.BaseSlots then
+			break
+		end
+		table.insert(slots, id)
+	end
+	return slots
+end
+
+local function seasonTemplate(): Types.BattlepassSeasonData
+	return { XP = 0, Tier = 1, Premium = false, ClaimedFree = {}, ClaimedPremium = {} }
+end
+
+-- Full V2 template. `Battlepass._template` is consumed by DataMigration and stripped from results.
+function DataService.template(): { [string]: any }
+	return {
+		DataVersion = DataMigration.CurrentVersion,
+		Settings = {
+			Keyboard = table.clone(InputConfig.DefaultKeyboard :: any),
+			Gamepad = table.clone(InputConfig.DefaultGamepad :: any),
+			MusicVolume = 0.5,
+			SfxVolume = 1,
+			CameraShake = true,
+		},
+		Progression = { Level = 1, XP = 0, TotalXP = 0 },
+		Currency = { Ryo = 0 },
+		Battlepass = { _template = seasonTemplate() },
+		Cosmetics = { Owned = {}, Equipped = {} },
+		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0 },
+		Unlocks = { Jutsus = JutsuConfig.defaultUnlocks(), Elements = table.clone(ElementConfig.Base) },
+		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
+		Stats = {
+			Kills = 0,
+			Deaths = 0,
+			JutsusCast = 0,
+			JutsusHit = 0,
+			MatchesPlayed = 0,
+			BossKills = 0,
+			PlayTimeSeconds = 0,
+		},
+		Quests = {
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+		},
+		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Purchases = { Receipts = {}, ProductCounts = {} },
+		Passes = {},
+		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
+	}
+end
+
+-- Template handed to ProfileStore (no migration marker).
+local function storeTemplate(): { [string]: any }
+	local template = DataService.template()
+	template.Battlepass = {}
+	return template
+end
+
+----------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------
+
+local function deepCopy<T>(value: T): T
+	if type(value) ~= "table" then
+		return value
+	end
+	local copy = {}
+	for key, item in pairs(value :: any) do
+		copy[key] = deepCopy(item)
+	end
+	return (copy :: any) :: T
+end
+
+local function replaceContents(target: { [string]: any }, source: { [string]: any })
+	for key in pairs(target) do
+		target[key] = nil
+	end
+	for key, value in pairs(source) do
+		target[key] = value
+	end
+end
+
+local function kick(player: Player, key: string)
+	if player.Parent == Players then
+		player:Kick(Strings.t(key, nil, Strings.localeFromId(player.LocaleId)))
+	end
+end
+
+-- Reads the V1 (ProfileService) record, if any. Returns the legacy Data table or nil.
+local function readLegacy(userId: number): { [string]: any }?
+	local ok, result = pcall(function()
+		local legacyStore = DataStoreService:GetDataStore(LEGACY_STORE_NAME)
+		return legacyStore:GetAsync(LEGACY_KEY_PREFIX .. tostring(userId))
+	end)
+	if not ok then
+		log.warn("legacy read failed for %d: %s", userId, tostring(result))
+		return nil
+	end
+	if type(result) == "table" and type(result.Data) == "table" then
+		return result.Data
+	end
+	return nil
+end
+
+----------------------------------------------------------------
+-- Session lifecycle
+----------------------------------------------------------------
+
+local function ensureSeason(data: { [string]: any })
+	if data.Battlepass[GameConfig.SeasonId] == nil then
+		data.Battlepass[GameConfig.SeasonId] = seasonTemplate()
+	end
+	if data.Rank.SeasonId ~= GameConfig.SeasonId then
+		data.Rank.SeasonId = GameConfig.SeasonId
+		data.Rank.Modes = {}
+	end
+end
+
+local function onSessionEnd(player: Player)
+	profiles[player] = nil
+	loadedSignals[player] = nil
+	DataService.ProfileReleased:Fire(player)
+	kick(player, "kick.sessionElsewhere")
+end
+
+local function loadProfile(player: Player)
+	local key = KEY_PREFIX .. tostring(player.UserId)
+	local profile = store:StartSessionAsync(key, {
+		Cancel = function()
+			return player.Parent ~= Players
+		end,
+	})
+
+	if profile == nil then
+		if player.Parent == Players then
+			log.warn("session could not start for %s", player.Name)
+			kick(player, "kick.loadFailed")
+		end
+		return
+	end
+
+	profile:AddUserId(player.UserId)
+
+	-- Migration (V1 → V2, or fills a V2 profile that predates new fields).
+	local template = DataService.template()
+	local migrated, info = DataMigration.migrate(profile.Data, template, GameConfig.SeasonId)
+
+	-- Brand-new profile: try to import the V1 record once.
+	if info.From == 0 or (profile.SessionLoadCount == 1 and migrated.Meta.FirstJoin == 0) then
+		if not migrated.Meta.LegacyImported then
+			local legacy = readLegacy(player.UserId)
+			if legacy ~= nil then
+				local imported, legacyInfo = DataMigration.migrate(legacy, DataService.template(), GameConfig.SeasonId)
+				if legacyInfo.Migrated then
+					migrated = imported
+					log.info("imported V1 profile for %s", player.Name)
+				end
+			end
+			migrated.Meta.LegacyImported = true
+		end
+	end
+
+	replaceContents(profile.Data, migrated)
+	profile:Reconcile()
+	ensureSeason(profile.Data)
+
+	local now = os.time()
+	if profile.Data.Meta.FirstJoin == 0 then
+		profile.Data.Meta.FirstJoin = now
+	end
+	profile.Data.Meta.LastJoin = now
+	profile.Data.Meta.SessionCount += 1
+
+	if player.Parent ~= Players then
+		profile:EndSession()
+		return
+	end
+
+	profiles[player] = profile
+	profile.OnSessionEnd:Connect(function()
+		onSessionEnd(player)
+	end)
+
+	log.info(
+		"profile ready for %s (v%d, session #%d)",
+		player.Name,
+		profile.Data.DataVersion,
+		profile.Data.Meta.SessionCount
+	)
+	DataService.ProfileLoaded:Fire(player, profile.Data)
+	DataService.push(player, "*")
+
+	local waiters = loadedSignals[player]
+	loadedSignals[player] = nil
+	if waiters ~= nil then
+		for _, thread in ipairs(waiters) do
+			task.spawn(thread, profile.Data)
+		end
+	end
+end
+
+local function onPlayerAdded(player: Player)
+	task.spawn(function()
+		xpcall(loadProfile, function(err)
+			log.error("load failed for %s: %s", player.Name, tostring(err))
+			kick(player, "kick.loadFailed")
+		end, player)
+	end)
+end
+
+local function onPlayerRemoving(player: Player)
+	local profile = profiles[player]
+	profiles[player] = nil
+	local waiters = loadedSignals[player]
+	loadedSignals[player] = nil
+	if waiters ~= nil then
+		for _, thread in ipairs(waiters) do
+			task.spawn(thread, nil)
+		end
+	end
+	if profile ~= nil then
+		profile:EndSession()
+		DataService.ProfileReleased:Fire(player)
+	end
+end
+
+----------------------------------------------------------------
+-- Public API
+----------------------------------------------------------------
+
+function DataService.Init(deps: { Registry: any })
+	registry = deps.Registry
+	store = ProfileStore.New(STORE_NAME, storeTemplate())
+	if RunService:IsStudio() and ProfileStore.DataStoreState ~= "Access" then
+		log.info("DataStore state: %s (Studio without API access saves nothing)", ProfileStore.DataStoreState)
+	end
+end
+
+function DataService.Start()
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	Players.PlayerRemoving:Connect(onPlayerRemoving)
+	for _, player in ipairs(Players:GetPlayers()) do
+		onPlayerAdded(player)
+	end
+	log.info("started")
+end
+
+-- Live profile data (mutate in place, then push the changed section).
+function DataService.get(player: Player): ProfileData?
+	local profile = profiles[player]
+	if profile == nil then
+		return nil
+	end
+	return profile.Data :: ProfileData
+end
+
+function DataService.isLoaded(player: Player): boolean
+	return profiles[player] ~= nil
+end
+
+-- Yields until the profile is loaded, the player leaves, or `timeout` seconds elapse.
+function DataService.waitFor(player: Player, timeout: number?): ProfileData?
+	local existing = DataService.get(player)
+	if existing ~= nil then
+		return existing
+	end
+	if player.Parent ~= Players then
+		return nil
+	end
+	local thread = coroutine.running()
+	local waiters = loadedSignals[player]
+	if waiters == nil then
+		waiters = {}
+		loadedSignals[player] = waiters
+	end
+	table.insert(waiters, thread)
+	local timer = task.delay(timeout or GameConfig.Server.ProfileLoadTimeoutSeconds, function()
+		local list = loadedSignals[player]
+		if list ~= nil then
+			local index = table.find(list, thread)
+			if index ~= nil then
+				table.remove(list, index)
+			end
+		end
+		task.spawn(thread, nil)
+	end)
+	local data = coroutine.yield()
+	task.cancel(timer)
+	return data
+end
+
+-- Deep copy safe to hand to the client.
+function DataService.snapshot(player: Player): ProfileData?
+	local data = DataService.get(player)
+	if data == nil then
+		return nil
+	end
+	return deepCopy(data)
+end
+
+-- Replicates one top-level section ("Progression", "Currency", …) or the whole profile ("*").
+function DataService.push(player: Player, section: string)
+	local data = DataService.get(player)
+	if data == nil or player.Parent ~= Players then
+		return
+	end
+	if section == "*" then
+		registry.fire("ProfileChanged", player, "*", deepCopy(data))
+	else
+		local value = (data :: any)[section]
+		if value == nil then
+			log.warn("push: unknown section %s", section)
+			return
+		end
+		registry.fire("ProfileChanged", player, section, deepCopy(value))
+	end
+end
+
+-- Records a processed receipt id (bounded ring buffer). Returns false if already recorded.
+function DataService.recordReceipt(player: Player, purchaseId: string): boolean
+	local data = DataService.get(player)
+	if data == nil then
+		return false
+	end
+	if table.find(data.Purchases.Receipts, purchaseId) ~= nil then
+		return false
+	end
+	table.insert(data.Purchases.Receipts, purchaseId)
+	while #data.Purchases.Receipts > MAX_RECEIPTS do
+		table.remove(data.Purchases.Receipts, 1)
+	end
+	return true
+end
+
+-- Forces an immediate save (used right after purchases). Yields.
+function DataService.saveNow(player: Player)
+	local profile = profiles[player]
+	if profile ~= nil and profile:IsActive() then
+		profile:Save()
+	end
+end
+
+function DataService.isActive(player: Player): boolean
+	local profile = profiles[player]
+	return profile ~= nil and profile:IsActive()
+end
+
+return DataService

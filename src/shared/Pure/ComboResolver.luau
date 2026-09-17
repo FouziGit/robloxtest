@@ -5,7 +5,9 @@
 --
 -- Rules (preserved from V1):
 --   * sequence is a recipe AND no longer recipe starts with it → Cast immediately
---   * sequence is a prefix of at least one recipe → Wait (next press or timeout)
+--   * sequence is a prefix of at least one recipe → Wait (next press or timeout); Castable = true when
+--     the sequence is already a recipe, so the client may use the short extend window instead of the
+--     full timeout (docs/GAME_DESIGN.md §4)
 --   * otherwise → Reset (NoMatch)
 --   * on timeout: Cast if the pending sequence is a recipe, else Reset (Dissipated)
 
@@ -20,7 +22,7 @@ export type Resolver = {
 
 export type Decision =
 	{ Action: "Cast", JutsuId: string }
-	| { Action: "Wait" }
+	| { Action: "Wait", Castable: boolean }
 	| { Action: "Reset", Reason: "NoMatch" | "TooLong" | "Dissipated" | "Empty" }
 
 local ComboResolver = {}
@@ -64,7 +66,7 @@ function ComboResolver.push(resolver: Resolver, sequence: { string }, element: s
 	if jutsuId == nil and not isPrefix then
 		return {}, { Action = "Reset", Reason = "NoMatch" }
 	end
-	return next, { Action = "Wait" }
+	return next, { Action = "Wait", Castable = jutsuId ~= nil }
 end
 
 -- Called when the inactivity timeout elapses with `sequence` still pending.

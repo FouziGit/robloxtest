@@ -16,6 +16,7 @@ GameConfig.Currency = {
 GameConfig.Combo = {
 	MaxLength = 4, -- longest recipe
 	TimeoutSeconds = 1.2, -- inactivity before a pending sequence resolves or resets
+	ExtendWindowSeconds = 0.35, -- shorter wait when the pending sequence is already a recipe (e.g. Fire Fire → Fire Fire Earth)
 }
 
 GameConfig.Server = {

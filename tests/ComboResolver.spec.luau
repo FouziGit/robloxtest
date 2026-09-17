@@ -18,7 +18,7 @@ describe("ComboResolver", function()
 
 	it("casts immediately when no longer recipe can follow", function()
 		local sequence, decision = ComboResolver.push(resolver, {}, "Wind")
-		expect(decision.Action).toBe("Wait")
+		expect(decision).toEqual({ Action = "Wait", Castable = false })
 		sequence, decision = ComboResolver.push(resolver, sequence, "Wind")
 		expect(decision).toEqual({ Action = "Cast", JutsuId = "WindGust" })
 		expect(sequence).toHaveLength(0)
@@ -26,7 +26,7 @@ describe("ComboResolver", function()
 
 	it("waits when the sequence is both a recipe and a prefix", function()
 		local sequence, decision = ComboResolver.push(resolver, { "Fire" }, "Fire")
-		expect(decision.Action).toBe("Wait")
+		expect(decision).toEqual({ Action = "Wait", Castable = true })
 		expect(sequence).toEqual({ "Fire", "Fire" })
 	end)
 

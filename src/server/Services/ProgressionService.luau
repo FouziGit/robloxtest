@@ -122,15 +122,17 @@ local function cascade(progression: Types.ProgressionData): number
 	return gained
 end
 
-function ProgressionService.addXp(player: Player, amount: number, reason: string)
+-- Returns the XP actually credited (base amount times the VIP and boost multipliers), or 0 when
+-- nothing was granted, so callers can report the real figure to the player.
+function ProgressionService.addXp(player: Player, amount: number, reason: string): number
 	if not isPositiveInteger(amount) then
 		log.warn("addXp rejected for %s (%s): invalid amount %s", player.Name, reason, tostring(amount))
-		return
+		return 0
 	end
 	local data = dataService.get(player)
 	if data == nil then
 		log.warn("addXp skipped for %s (%s): profile not loaded", player.Name, reason)
-		return
+		return 0
 	end
 
 	local granted = math.max(1, math.floor(amount * xpMultiplier(data)))
@@ -158,6 +160,7 @@ function ProgressionService.addXp(player: Player, amount: number, reason: string
 	if passXp > 0 then
 		battlepass.addXp(player, passXp)
 	end
+	return granted
 end
 
 -- Current level, 0 while the profile is not loaded (so level gates stay closed).

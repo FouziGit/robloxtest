@@ -1,11 +1,15 @@
 --!strict
--- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass) built by the
--- UI/screens modules. Screens are created lazily with the controller dependencies they need, gameplay
--- input is suspended while one is open, and the Roblox menu (Escape) closes whatever is open.
+-- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass, Play, Result,
+-- Leaderboard) built by the UI/screens modules. Screens are created lazily with the controller
+-- dependencies they need, gameplay input is suspended while one is open, and the Roblox menu (Escape)
+-- closes whatever is open.
 --
 -- Each screen owns its own open/close sound: its Open/Close guard on `Visible`, so they fire exactly
 -- once per real transition, including on a screen-to-screen navigation. The controller plays none, so
 -- a single UiOpen/UiClose is heard per transition whatever the entry point.
+--
+-- Matches drive two transitions: the screen in front is closed when a match starts (a suspended input
+-- would make the countdown unplayable) and the result screen is opened when one ends.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +21,7 @@ local Log = require(Shared.Util.Log)
 
 local log = Log.new("MenuController")
 
-export type ScreenId = "Menu" | "Settings" | "Battlepass"
+export type ScreenId = "Menu" | "Settings" | "Battlepass" | "Play" | "Result" | "Leaderboard"
 
 type Screen = {
 	Instance: Instance,
@@ -26,22 +30,35 @@ type Screen = {
 	Destroy: (self: Screen) -> (),
 	Visible: boolean,
 }
-type Deps = { Localize: any, ClientData: any, RemoteClient: any, InputController: any, SoundController: any }
+type Deps = {
+	Localize: any,
+	ClientData: any,
+	RemoteClient: any,
+	InputController: any,
+	SoundController: any,
+	MatchController: any,
+}
 
 local SCREENS_FOLDER = "screens"
 local MODULE_NAMES: { [string]: string } = {
 	Menu = "MenuScreen",
 	Settings = "SettingsScreen",
 	Battlepass = "BattlepassScreen",
+	Play = "PlayScreen",
+	Result = "ResultScreen",
+	Leaderboard = "LeaderboardScreen",
 }
 local DEFAULT_SCREEN: ScreenId = "Menu"
+local RESULT_SCREEN: ScreenId = "Result"
 
 local MenuController = {}
 
 local inputController: any
+local matchController: any
 local screenDeps: { [string]: any }
 local screens: { [string]: Screen } = {}
 local current: string? = nil
+local inMatch = false
 
 local function findModule(id: string): ModuleScript?
 	local moduleName = MODULE_NAMES[id]
@@ -133,14 +150,34 @@ function MenuController.toggle(id: string?)
 	end
 end
 
+-- A match starting takes the screen away (only on the nil -> snapshot transition, so the player can
+-- still open the menu mid-match); a match ending brings the result screen in front of it.
+local function onMatchChanged(snapshot: any)
+	local active = snapshot ~= nil
+	if active and not inMatch then
+		MenuController.close()
+	end
+	inMatch = active
+end
+
+local function onMatchEnded(outcome: any)
+	if outcome == nil then
+		return
+	end
+	MenuController.open(RESULT_SCREEN)
+end
+
 function MenuController.Init(deps: Deps)
 	inputController = deps.InputController
+	matchController = deps.MatchController
 	screenDeps = {
 		Localize = deps.Localize,
 		ClientData = deps.ClientData,
 		RemoteClient = deps.RemoteClient,
 		InputController = deps.InputController,
 		SoundController = deps.SoundController,
+		-- Queue and match state for the Play and Result screens; they never touch those remotes directly.
+		MatchController = deps.MatchController,
 		OnClose = MenuController.close,
 		OnNavigate = MenuController.open,
 	}
@@ -148,6 +185,8 @@ end
 
 function MenuController.Start()
 	GuiService.MenuOpened:Connect(MenuController.close)
+	matchController.MatchChanged:Connect(onMatchChanged)
+	matchController.MatchEnded:Connect(onMatchEnded)
 	log.info("started")
 end
 

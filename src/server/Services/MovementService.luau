@@ -323,6 +323,29 @@ function MovementService.applyStun(player: Player, seconds: number)
 	MovementService.command(player, { Kind = "Stun", Seconds = state.StunUntil - now })
 end
 
+-- Freezes the character for `seconds` without the CombatConfig.Hit.StunMaxSeconds cap that protects
+-- combat stuns. Reserved for scripted pauses the server fully controls (match countdown, round reset,
+-- boss intro): a combat effect must always go through applyStun.
+function MovementService.applyFreeze(player: Player, seconds: number)
+	if not isFinitePositive(seconds) then
+		log.warn("applyFreeze rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return
+	end
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	local humanoid = state.Humanoid
+	if humanoid == nil then
+		return
+	end
+	local now = os.clock()
+	state.StunUntil = math.max(state.StunUntil, now + seconds)
+	humanoid:SetAttribute(STUN_ATTRIBUTE, state.StunUntil)
+	applyStats(state, now)
+	MovementService.command(player, { Kind = "Stun", Seconds = state.StunUntil - now })
+end
+
 function MovementService.isStunned(player: Player): boolean
 	local state = states[player]
 	return state ~= nil and state.StunUntil > os.clock()

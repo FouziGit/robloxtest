@@ -183,6 +183,7 @@ leaderboard.row,#{rank}  {name},JutsuBattlegrounds,,#{rank}  {name},#{rank}  {na
 leaderboard.title,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
 leaderboard.unranked,Unranked — play a ranked match,JutsuBattlegrounds,,Unranked — play a ranked match,Non classé — joue un match classé
 leaderboard.you,You: #{rank} ({rating}),JutsuBattlegrounds,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
+leaderboard.youUnlisted,You: outside the top {count},JutsuBattlegrounds,,You: outside the top {count},Toi : hors du top {count}
 level.max,Max level,JutsuBattlegrounds,,Max level,Niveau max
 level.title,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
@@ -276,6 +277,7 @@ queue.joined,Queued for {mode}.,JutsuBattlegrounds,,Queued for {mode}.,En file p
 queue.leave,Leave queue,JutsuBattlegrounds,,Leave queue,Quitter la file
 queue.left,You left the queue.,JutsuBattlegrounds,,You left the queue.,Tu as quitté la file.
 queue.searching,Searching… {waited}s,JutsuBattlegrounds,,Searching… {waited}s,Recherche… {waited}s
+queue.teamSize,{size}v{size},JutsuBattlegrounds,,{size}v{size},{size}v{size}
 queue.timedOut,No opponent found. Try again!,JutsuBattlegrounds,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
 queue.title,Play,JutsuBattlegrounds,,Play,Jouer
 queue.waiting,{queued} / {needed} players,JutsuBattlegrounds,,{queued} / {needed} players,{queued} / {needed} joueurs
@@ -284,6 +286,7 @@ rank.chunin,Chunin,JutsuBattlegrounds,,Chunin,Chunin
 rank.genin,Genin,JutsuBattlegrounds,,Genin,Genin
 rank.jonin,Jonin,JutsuBattlegrounds,,Jonin,Jonin
 rank.kage,Kage,JutsuBattlegrounds,,Kage,Kage
+season.rewardGranted,Season reward ({rank}): +{amount} Ryo,JutsuBattlegrounds,,Season reward ({rank}): +{amount} Ryo,Récompense de saison ({rank}) : +{amount} Ryo
 settings.bound,{action} is now {key}. Don't forget to save!,JutsuBattlegrounds,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Camera shake,JutsuBattlegrounds,,Camera shake,Secousses de caméra
 settings.captureCancelled,Cancelled.,JutsuBattlegrounds,,Cancelled.,Capture annulée.

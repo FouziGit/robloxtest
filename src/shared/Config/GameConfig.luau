@@ -8,6 +8,10 @@ GameConfig.Version = "2.0.0"
 -- Season identifier used by battlepass, ranking and leaderboards. Bump to start a new season.
 GameConfig.SeasonId = "S1"
 
+-- Season that just ended, set when SeasonId is bumped ("" on the very first season). RankingService
+-- pays the end-of-season rewards of this season once per player, then records it in the profile.
+GameConfig.PreviousSeasonId = ""
+
 GameConfig.Currency = {
 	Id = "Ryo",
 	NameKey = "currency.ryo",

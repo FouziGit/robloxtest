@@ -40,6 +40,22 @@ Raison : la cible reste capable de lancer un jutsu et de se défendre — c'est 
 Le serveur lance un rayon sur `Def.Range`, recule de `WallBackoffStuds`, vérifie `ClearanceRadius` et raccroche au sol sur `GroundSnapStuds`, puis écrit le pivot du personnage. `MovementCommand` n'a pas de type « Teleport ».
 Raison : un déplacement instantané confié au client serait un téléport arbitraire ; la validation serveur garantit qu'on ne traverse ni mur ni vide, et le pivot écrit une seule fois est immédiatement répliqué.
 
+**D-20 — Une manche redémarre sur un personnage neuf** · Phase 4
+`MatchService` fait `LoadCharacterAsync` entre les manches plutôt que de réinitialiser l'état de combat en place.
+Raison : `CombatService` n'expose pas de remise à zéro complète (chakra, statuts, mémoire d'i-frames, protection de spawn) ; recharger le personnage réutilise le chemin `CharacterAdded` déjà testé et garantit qu'aucun statut ne fuit d'une manche à l'autre.
+
+**D-21 — Le PvP du hub est désactivé dès qu'un match existe** · Phase 4
+`MatchService.setPolicy` remplace la policy par défaut : seuls les participants d'un même match se blessent. Les joueurs du hub ne peuvent donc plus se frapper entre eux (les mannequins restent frappables).
+Raison : le hub est une zone sociale et d'entraînement ; le PvP libre y ouvrait le harcèlement au spawn, et le combat classé se joue en arène.
+
+**D-22 — Pas de spectateur : un joueur éliminé attend au hub** · Phase 4
+Un participant éliminé en cours de manche est renvoyé au hub et re-téléporté à la manche suivante ; il n'y a ni caméra spectateur ni fantôme.
+Raison : un système de spectateur demande sa propre caméra, sa propre UI et ses propres règles anti-triche ; hors périmètre de la V2, et les manches durent moins d'une minute.
+
+**D-23 — `applyFreeze` est distinct de `applyStun`** · Phase 4
+`applyStun` reste plafonné par `CombatConfig.Hit.StunMaxSeconds` (2 s) pour le combat ; `applyFreeze` n'est pas plafonné et sert aux pauses scriptées décidées par le serveur (compte à rebours, fin de match).
+Raison : avec le seul `applyStun`, un compte à rebours de 5 s devait être ré-appliqué à chaque tick, ce qui envoyait un `MovementCommand` par tick et par joueur.
+
 **D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
 `scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
 Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.

@@ -10,18 +10,24 @@ local Services = script.Parent.Services
 local Effects = script.Parent.Effects
 
 local AntiCheatService = require(Services.AntiCheatService)
+local ArenaService = require(Services.ArenaService)
 local BattlepassService = require(Services.BattlepassService)
 local CombatService = require(Services.CombatService)
 local CurrencyService = require(Services.CurrencyService)
 local DataService = require(Services.DataService)
 local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
+local HubService = require(Services.HubService)
 local JutsuEffects = require(Effects.JutsuEffects)
 local JutsuService = require(Services.JutsuService)
+local LeaderboardService = require(Services.LeaderboardService)
 local Log = require(Shared.Util.Log)
+local MatchService = require(Services.MatchService)
+local MatchmakingService = require(Services.MatchmakingService)
 local MovementService = require(Services.MovementService)
 local NotifyService = require(Services.NotifyService)
 local ProgressionService = require(Services.ProgressionService)
+local RankingService = require(Services.RankingService)
 local RemoteRegistry = require(script.Parent.RemoteRegistry)
 local SettingsService = require(Services.SettingsService)
 local Types = require(Shared.Types)
@@ -57,10 +63,20 @@ local deps = {
 	Effects = JutsuEffects,
 	Vfx = VfxBroadcaster,
 	Enemy = EnemyService,
+	Hub = HubService,
+	Arena = ArenaService,
+	Ranking = RankingService,
+	Leaderboard = LeaderboardService,
+	Match = MatchService,
+	Matchmaking = MatchmakingService,
 }
 
 -- Dependency order: each service only reads services listed before it.
 local ordered: { Entry } = {
+	-- HubService builds HubSpawn first: CombatService resolves its safe zone and EnemyService its
+	-- dummy ring from the first SpawnLocation in the Workspace.
+	{ Name = "HubService", Service = HubService },
+	{ Name = "ArenaService", Service = ArenaService },
 	{ Name = "DataService", Service = DataService },
 	{ Name = "AntiCheatService", Service = AntiCheatService },
 	{ Name = "NotifyService", Service = NotifyService },
@@ -73,6 +89,10 @@ local ordered: { Entry } = {
 	{ Name = "CombatService", Service = CombatService },
 	{ Name = "JutsuService", Service = JutsuService },
 	{ Name = "EnemyService", Service = EnemyService },
+	{ Name = "RankingService", Service = RankingService },
+	{ Name = "LeaderboardService", Service = LeaderboardService },
+	{ Name = "MatchService", Service = MatchService },
+	{ Name = "MatchmakingService", Service = MatchmakingService },
 }
 
 for _, entry in ipairs(ordered) do

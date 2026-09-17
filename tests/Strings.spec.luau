@@ -11,19 +11,26 @@ describe("Strings", function()
 			expect(type(entry.fr)).toBe("string")
 			expect(#entry.en).toBeGreaterThan(0)
 			expect(#entry.fr).toBeGreaterThan(0)
-			-- both locales must use the same placeholders
-			local enParams: { [string]: boolean } = {}
-			for name in string.gmatch(entry.en, "{(%w+)}") do
-				enParams[name] = true
+			-- Both locales must use the same SET of placeholders. A placeholder may legitimately repeat
+			-- inside one locale ("{size}v{size}"), so compare sets, never occurrence counts.
+			local function placeholders(text: string): { [string]: boolean }
+				local found: { [string]: boolean } = {}
+				for name in string.gmatch(text, "{(%w+)}") do
+					found[name] = true
+				end
+				return found
 			end
-			for name in string.gmatch(entry.fr, "{(%w+)}") do
+			local enParams = placeholders(entry.en)
+			local frParams = placeholders(entry.fr)
+			for name in pairs(frParams) do
 				if not enParams[name] then
 					error(("key %s: placeholder {%s} only in fr"):format(key, name))
 				end
-				enParams[name] = nil
 			end
-			if next(enParams) ~= nil then
-				error(("key %s: placeholder only in en"):format(key))
+			for name in pairs(enParams) do
+				if not frParams[name] then
+					error(("key %s: placeholder {%s} only in en"):format(key, name))
+				end
 			end
 		end
 	end)

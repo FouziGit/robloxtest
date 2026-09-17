@@ -4,6 +4,10 @@
 -- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the menu hint of
 -- the device in use. Every visible text goes through Localize; server Notify payloads carry Strings
 -- keys, never text.
+--
+-- While MatchController holds a match snapshot, a compact band is shown at the top-center: round, phase
+-- timer (the countdown number while the round has not started), score and both team rosters with a
+-- dead / alive marker. It disappears as soon as the snapshot is nil.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -35,6 +39,7 @@ type Deps = {
 	SoundController: any,
 	ComboController: any,
 	CombatController: any,
+	MatchController: any,
 }
 
 local DISPLAY_ORDER = 10
@@ -49,6 +54,16 @@ local MENU_ACTION: InputConfig.ActionId = "Menu"
 local GAMEPAD_PREFIX = "Gamepad"
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
 local HINT_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
+-- Match band (top-center, hidden outside a match).
+local BAND_WIDTH = 360
+local BAND_ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
+local BAND_HERO_HEIGHT = Theme.Sizes.TextHero + Theme.Sizes.PaddingSmall
+local ROSTER_COLUMN_WIDTH = (BAND_WIDTH - Theme.Sizes.Gap) / 2
+local ROSTER_ROW_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
+local COUNTDOWN_PHASE = "Countdown"
+-- Icon glyphs, locale independent (same convention as the panel close button).
+local ALIVE_GLYPH = "●"
+local DEAD_GLYPH = "✕"
 
 local HudController = {}
 
@@ -58,6 +73,7 @@ local remoteClient: any
 local soundController: any
 local comboController: any
 local combatController: any
+local matchController: any
 
 local root: ScreenRoot.ScreenRoot
 local levelTitle: TextLabel
@@ -68,6 +84,13 @@ local chakraBar: ProgressBar.ProgressBar
 local comboRow: Frame
 local hintLabel: TextLabel
 local toast: Toast.Toast
+local matchBand: Frame
+local matchRoundLabel: TextLabel
+local matchScoreLabel: TextLabel
+local matchTimerLabel: TextLabel
+local matchRoster: Frame
+local rosterColumns: { Frame } = {}
+local rosterLabels: { { TextLabel } } = {}
 local notifyWarned = false
 local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
 
@@ -103,6 +126,64 @@ local function makeLabel(name: string, order: number, parent: Instance): TextLab
 	label.Text = ""
 	label.Parent = parent
 	return label
+end
+
+-- Centered line of the match band.
+local function makeBandLabel(name: string, order: number, height: number, textSize: number, parent: Instance): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, height)
+	label.LayoutOrder = order
+	label.Font = Theme.Fonts.Bold
+	label.TextSize = textSize
+	label.TextColor3 = Theme.Colors.Text
+	label.TextStrokeTransparency = 0.6
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Text = ""
+	label.Parent = parent
+	return label
+end
+
+local function buildMatchBand(parent: Instance)
+	matchBand = Instance.new("Frame")
+	matchBand.Name = "Match"
+	matchBand.BackgroundTransparency = 1
+	matchBand.AnchorPoint = Vector2.new(0.5, 0)
+	matchBand.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	matchBand.Size = UDim2.fromOffset(BAND_WIDTH, 0)
+	matchBand.AutomaticSize = Enum.AutomaticSize.Y
+	matchBand.Visible = false -- refreshMatch shows it while a snapshot is held
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
+	layout.Parent = matchBand
+
+	matchRoundLabel = makeBandLabel("Round", 1, ROSTER_ROW_HEIGHT, Theme.Sizes.TextSmall, matchBand)
+	matchRoundLabel.TextColor3 = Theme.Colors.TextMuted
+	matchScoreLabel = makeBandLabel("Score", 2, BAND_ROW_HEIGHT, Theme.Sizes.TextTitle, matchBand)
+	matchScoreLabel.TextColor3 = Theme.Colors.Accent
+	matchTimerLabel = makeBandLabel("Timer", 3, BAND_ROW_HEIGHT, Theme.Sizes.TextLarge, matchBand)
+
+	matchRoster = Instance.new("Frame")
+	matchRoster.Name = "Roster"
+	matchRoster.BackgroundTransparency = 1
+	matchRoster.Size = UDim2.fromScale(1, 0)
+	matchRoster.AutomaticSize = Enum.AutomaticSize.Y
+	matchRoster.LayoutOrder = 4
+	local rosterLayout = Instance.new("UIListLayout")
+	rosterLayout.FillDirection = Enum.FillDirection.Horizontal
+	rosterLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	rosterLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	rosterLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rosterLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	rosterLayout.Parent = matchRoster
+	matchRoster.Parent = matchBand
+
+	matchBand.Parent = parent
 end
 
 local function build()
@@ -153,6 +234,8 @@ local function build()
 	hintLabel.Text = ""
 	hintLabel.Visible = false -- refreshHint shows it for the device in use
 	hintLabel.Parent = content
+
+	buildMatchBand(content)
 
 	toast = Toast.new({ Name = "Toasts", Parent = content })
 end
@@ -252,6 +335,114 @@ local function refreshCombat(state: CombatState)
 	refreshBar(chakraBar, "hud.chakra", state.Chakra, state.MaxChakra)
 end
 
+-- Roster instances are pooled: a match snapshot lands a few times per second, so nothing is rebuilt.
+-- Visibility is the caller's business (an empty team hides its whole column).
+local function rosterColumn(index: number): Frame
+	local existing: Frame? = rosterColumns[index]
+	if existing ~= nil then
+		return existing
+	end
+	local column = Instance.new("Frame")
+	column.Name = "Team" .. index
+	column.BackgroundTransparency = 1
+	column.Size = UDim2.fromOffset(ROSTER_COLUMN_WIDTH, 0)
+	column.AutomaticSize = Enum.AutomaticSize.Y
+	column.LayoutOrder = index
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = column
+	column.Parent = matchRoster
+	rosterColumns[index] = column
+	rosterLabels[index] = {}
+	return column
+end
+
+local function rosterLabel(teamIndex: number, slot: number): TextLabel
+	local column = rosterColumn(teamIndex)
+	local labels = rosterLabels[teamIndex]
+	local existing: TextLabel? = labels[slot]
+	if existing ~= nil then
+		existing.Visible = true
+		return existing
+	end
+	local label = Instance.new("TextLabel")
+	label.Name = "Member" .. slot
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, ROSTER_ROW_HEIGHT)
+	label.LayoutOrder = slot
+	label.Font = Theme.Fonts.Body
+	label.TextSize = Theme.Sizes.TextSmall
+	label.TextStrokeTransparency = 0.6
+	-- Teams read outwards from the middle of the band: odd teams on the left, even teams on the right.
+	label.TextXAlignment = if teamIndex % 2 == 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Text = ""
+	label.Parent = column
+	labels[slot] = label
+	return label
+end
+
+local function refreshRoster(snapshot: Types.MatchSnapshot)
+	for teamIndex, members in ipairs(snapshot.Teams) do
+		local column = rosterColumn(teamIndex)
+		column.Visible = #members > 0
+		for slot, member in ipairs(members) do
+			local label = rosterLabel(teamIndex, slot)
+			label.Text = (if member.Alive then ALIVE_GLYPH else DEAD_GLYPH) .. " " .. member.Name
+			if not member.Alive then
+				label.TextColor3 = Theme.Colors.TextMuted
+			elseif teamIndex == snapshot.LocalTeam then
+				label.TextColor3 = Theme.Colors.Success
+			else
+				label.TextColor3 = Theme.Colors.Danger
+			end
+		end
+		local labels = rosterLabels[teamIndex]
+		for slot = #members + 1, #labels do
+			labels[slot].Visible = false
+		end
+	end
+	for index = #snapshot.Teams + 1, #rosterColumns do
+		rosterColumns[index].Visible = false
+	end
+end
+
+local function refreshMatch(snapshot: Types.MatchSnapshot?)
+	if snapshot == nil then
+		matchBand.Visible = false
+		return
+	end
+	-- Best-of series: winning RoundsToWin rounds takes at most 2 * RoundsToWin - 1 rounds.
+	local total = math.max(snapshot.Round, snapshot.RoundsToWin * 2 - 1)
+	matchRoundLabel.Text = localize.t("match.round", { round = snapshot.Round, total = total })
+
+	local ours = 0
+	local theirs = 0
+	for index, score in ipairs(snapshot.Scores) do
+		if index == snapshot.LocalTeam then
+			ours = score
+		else
+			theirs = math.max(theirs, score)
+		end
+	end
+	matchScoreLabel.Text = localize.t("match.score", { ours = ours, theirs = theirs })
+
+	local seconds = math.max(0, math.ceil(snapshot.SecondsLeft))
+	if snapshot.Phase == COUNTDOWN_PHASE then
+		matchTimerLabel.Size = UDim2.new(1, 0, 0, BAND_HERO_HEIGHT)
+		matchTimerLabel.TextSize = Theme.Sizes.TextHero
+		matchTimerLabel.Text = localize.t("match.countdown", { seconds = seconds })
+	else
+		matchTimerLabel.Size = UDim2.new(1, 0, 0, BAND_ROW_HEIGHT)
+		matchTimerLabel.TextSize = Theme.Sizes.TextLarge
+		matchTimerLabel.Text = localize.t("match.timeLeft", { seconds = seconds })
+	end
+
+	refreshRoster(snapshot)
+	matchBand.Visible = true
+end
+
 local function refreshProfile(section: string)
 	local data: Types.ProfileData? = clientData.get()
 	if data == nil then
@@ -296,6 +487,7 @@ function HudController.Init(deps: Deps)
 	soundController = deps.SoundController
 	comboController = deps.ComboController
 	combatController = deps.CombatController
+	matchController = deps.MatchController
 	build()
 end
 
@@ -310,6 +502,8 @@ function HudController.Start()
 	comboController.SequenceChanged:Connect(refreshCombo)
 	combatController.StateChanged:Connect(refreshCombat)
 	refreshCombat(combatController.getState())
+	matchController.MatchChanged:Connect(refreshMatch)
+	refreshMatch(matchController.getMatch())
 	remoteClient.on("Notify", onNotify)
 	log.info("started")
 end

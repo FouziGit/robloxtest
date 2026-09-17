@@ -45,6 +45,11 @@ MatchConfig.Modes = {
 
 MatchConfig.ModeOrder = { "Duel1v1", "Team3v3" } :: { string }
 
+-- Pause shown between two rounds of a multi-round mode, before the next countdown.
+MatchConfig.RoundOverSeconds = 3
+-- MatchChanged pushes per second to each participant.
+MatchConfig.SnapshotHz = 4
+
 MatchConfig.Matchmaking = {
 	BaseWindow = 100, -- rating difference accepted immediately
 	WindowGrowthPerSecond = 15, -- window widens while waiting

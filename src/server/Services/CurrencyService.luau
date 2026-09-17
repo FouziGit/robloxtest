@@ -53,15 +53,17 @@ function CurrencyService.get(player: Player): number
 	return data.Currency.Ryo
 end
 
-function CurrencyService.add(player: Player, amount: number, reason: string)
+-- Returns the Ryo actually credited (base amount times the VIP multiplier), or 0 when nothing was
+-- granted, so callers can report the real figure to the player.
+function CurrencyService.add(player: Player, amount: number, reason: string): number
 	if not isPositiveInteger(amount) then
 		log.warn("add rejected for %s (%s): invalid amount %s", player.Name, reason, tostring(amount))
-		return
+		return 0
 	end
 	local data = dataService.get(player)
 	if data == nil then
 		log.warn("add skipped for %s (%s): profile not loaded", player.Name, reason)
-		return
+		return 0
 	end
 	if data.Passes[VIP_PASS_KEY] == true then
 		amount = math.max(1, math.floor(amount * ProgressionConfig.VipRyoMultiplier))
@@ -70,6 +72,7 @@ function CurrencyService.add(player: Player, amount: number, reason: string)
 	syncLeaderstat(player, data.Currency.Ryo)
 	dataService.push(player, "Currency")
 	log.info("%s +%d Ryo (%s) -> %d", player.Name, amount, reason, data.Currency.Ryo)
+	return amount
 end
 
 -- Debits `amount` when the balance covers it. Returns false (and changes nothing) otherwise.

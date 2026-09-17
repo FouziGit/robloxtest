@@ -29,6 +29,7 @@ local ORDER = {
 	"Localize",
 	"SoundController",
 	"VfxController",
+	"MatchController",
 	"HudController",
 	"MenuController",
 	"InputController",

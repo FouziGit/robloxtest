@@ -103,10 +103,32 @@ function MenuScreen.new(deps: Deps): Screen
 		deps.OnNavigate(id)
 	end
 
-	local settingsButton = Button.new({
-		Text = t("menu.settings"),
+	local playButton = Button.new({
+		Text = t("queue.title"),
 		Variant = "Primary",
 		LayoutOrder = 3,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Play")
+		end,
+	})
+	own(trove, playButton)
+
+	local leaderboardButton = Button.new({
+		Text = t("leaderboard.title"),
+		Variant = "Secondary",
+		LayoutOrder = 4,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Leaderboard")
+		end,
+	})
+	own(trove, leaderboardButton)
+
+	local settingsButton = Button.new({
+		Text = t("menu.settings"),
+		Variant = "Secondary",
+		LayoutOrder = 5,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Settings")
@@ -117,7 +139,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local battlepassButton = Button.new({
 		Text = t("menu.battlepass"),
 		Variant = "Secondary",
-		LayoutOrder = 4,
+		LayoutOrder = 6,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Battlepass")

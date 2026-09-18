@@ -57,7 +57,8 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | 0 — Audit du game feel, bible d'art, plan | ✅ | `266bbf3`, `573a3d7` |
 | 1 — Le lexique et le lore | ✅ | `4fc31f6`…`fddeb8b` |
 | 2 — `Feel` et `FeelConfig` | ✅ | `14ef09b`, `be45b2f` |
-| 3 à 9 — pipeline VFX, sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
+| 3 — Le pipeline VFX | ✅ | `3a7f5ec`…`b8820f7` |
+| 4 à 9 — sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
 
 ### Phase 1 — fait
 
@@ -85,3 +86,20 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 
 - La porte d'analyse ne couvrait que `src/shared`, soit un quart du code et aucun fichier touchant le moteur. Élargie (D-51), elle a immédiatement révélé deux erreurs de type réelles.
 - Selene a refusé un helper devenu mort après le passage de la secousse dans `Feel`.
+
+### Phase 3 — fait
+
+- **Textures générées.** `tools/textures/` : générateurs en Python pur (bibliothèque standard seule, y compris l'écriture PNG), douze textures dans `assets/textures/`, toutes blanches à canal alpha pour être teintées par pigment. Déterministes, vérifié en régénérant deux fois et en comparant les octets. Aucune ne vient de la boîte à outils.
+- **Palette.** Les cinq pigments prennent les valeurs exactes de l'`ART_BIBLE`, et un test tient chaque paire à distance perceptuelle (D-52).
+- **Éclairage.** `LightingConfig` + `WorldLighting` : le monde était sur le ciel et la lumière par défaut de Roblox. Les cinq effets de post-traitement sont déclarés en **décalages depuis le repos**, jamais en valeurs cibles, ce qui rend « jamais permanent » structurel.
+- **Pooling.** `Pure/PoolPolicy` (comptabilité testable sans moteur) + `VfxPool` (les instances). Réinitialisation à l'emprunt, jamais au retour.
+- **Timelines.** `VfxTimelineConfig` décrit un effet en cinq phases ; `VfxTimeline` les joue sur une seule connexion `Heartbeat`. Trois effets convertis en preuve : le lancement, l'impact et l'esquive.
+- **`AssetIds`** centralisé, identifiant vide = pas encore téléversé, avertissement nommant le fichier, jamais de plantage.
+
+### Phase 3 — ce que les portes et la relecture ont attrapé
+
+- Le générateur de trait de pinceau produisait un losange chromé lisible dans n'importe quel autre jeu Roblox. Réécrit : directionnel, quinze pour un, poils discrets, queue qui se casse par seuil et non par fondu. C'est la règle de jugement de la mission appliquée à sa propre sortie.
+- Le pool ne connaissait ni `Decal` ni `Beam`, que la timeline emprunte : chaque sceau et chaque brûlure au sol serait sorti sans texture, et aucun trait n'aurait été tracé.
+- `VfxPool.acquire` peut refuser au plafond et renvoyer `nil` ; le runtime l'assumait non-nul. Une couche qui n'obtient pas ses instances n'est simplement pas dessinée, ce qui est la dégradation que demande la règle 8.
+- `WorldLighting.pulse` ne renvoie rien ; mon runtime testait sa valeur de retour et aurait averti à chaque impact.
+- `Trail` et `Light` ne s'unifient pas en Luau : `Trail | Light` n'a aucun membre, donc la branche combinée est une erreur de type et non un raccourci.

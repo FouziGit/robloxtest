@@ -66,8 +66,12 @@ function ScreenRoot.new(props: Props): ScreenRoot
 		padding.PaddingRight = UDim.new(0, bottomRight.X / currentScale)
 	end
 
+	-- Theme.bindScale is the only trigger, on purpose. GuiService.SafeZoneOffsetsChanged is reserved for
+	-- engine scripts: connecting to it from a LocalScript raises "lacking capability RobloxScript", which
+	-- killed ScreenRoot.new and with it the HUD and every screen. The offsets change when the device
+	-- rotates or the topbar resizes, and both of those change the viewport, so bindScale already covers
+	-- them. GuiService:GetGuiInset() below is a plain method and stays.
 	trove:Add(Theme.bindScale(apply))
-	trove:Connect(GuiService.SafeZoneOffsetsChanged, apply)
 
 	gui.Parent = props.Parent or Players.LocalPlayer:WaitForChild("PlayerGui")
 

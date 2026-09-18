@@ -529,6 +529,11 @@ local function onNotify(payload: any)
 	end
 	local params = if type(payload.Params) == "table" then payload.Params else nil
 	local kind: ToastKind = if TOAST_KINDS[payload.Kind] then payload.Kind else "Info"
+	if toast == nil then
+		-- Same reason as showLocalToast: a HUD that never built must not turn every server message into
+		-- an error on the remote handler.
+		return
+	end
 	toast:Show(localize.t(payload.Key, localize.resolveParams(params)), kind)
 	if type(payload.Sfx) == "string" then
 		soundController.play(payload.Sfx)
@@ -536,7 +541,14 @@ local function onNotify(payload: any)
 end
 
 -- Client-originated feedback (combo resets, capture hints…): `key` is a Strings key.
+--
+-- Tolerates a HUD that never built. A message is worth losing; raising here is not, because the callers
+-- are input handlers that fire several times a second, so one failed build turned into a wall of errors
+-- that buried the one line naming the real cause.
 function HudController.showLocalToast(key: string, params: { [string]: any }?, kind: ToastKind?)
+	if toast == nil then
+		return
+	end
 	toast:Show(localize.t(key, params), kind or "Info")
 end
 

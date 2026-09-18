@@ -151,5 +151,20 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 - Chaque changement de profil : muter `DataService.get(player)` puis `DataService.push(player, section)` (y compris après un rejet, pour que le client sorte de son état « en cours »).
 - Tags de dégâts des jutsus : `{Def.Id, Def.Archetype}` — `tags[1]` sert de clé d'i-frames, l'archétype permet `CombatConfig.Block.BrokenBy`.
 - Aucun texte joueur hors `Strings` ; ajouter une clé = ajouter `en` + `fr` (test `Strings.spec`).
-- Aucune boucle par joueur ; `CombatService` possède l'unique `Heartbeat` de gameplay.
+- Aucune boucle par joueur. Chaque service qui a besoin d'un tick ouvre **un seul** `Heartbeat` avec un accumulateur, jamais un par joueur : `CombatService`, `MovementService`, `MatchService`, `MatchmakingService`, `QuestService`, `ShopService`, `LeaderboardService` et `WorldBossService`, soit huit au total. Côté client, `VfxController` n'ouvre un `RenderStepped` que pendant une secousse d'écran et le déconnecte ensuite.
 - Toute erreur attrapée est journalisée avec contexte (`Log`).
+
+## Budgets mesurés (12 joueurs, le maximum documenté)
+
+Les limites Roblox sont par serveur : `60 + 10 × joueurs` requêtes/minute pour la famille écriture et lecture d'un DataStore, `5 + 2 × joueurs` pour `GetSortedAsync`.
+
+| Opération | Pire cas | Budget | Occupation |
+|---|---|---|---|
+| Sauvegarde automatique ProfileStore | 2,4 /min | 180 | 1 % |
+| Classement `SetAsync` (12 joueurs × 3 tableaux, 1 écriture / 30 s par clé) | 72 /min | 180 | 40 % |
+| `GetSortedAsync` (3 tableaux, 1 / 60 s) | 3 /min | 29 | 10 % |
+| `GetAsync` récompense de saison + import V1 (à la connexion) | 24 en rafale | 180 | — |
+
+Le pire cas du classement suppose que les douze joueurs changent de score toutes les trente secondes sur les trois tableaux, ce qu'un match de plusieurs minutes ne produit jamais. La pression réelle est très inférieure. `RankingConfig.Leaderboard.MinWriteIntervalSeconds` (30 s) est le paramètre qui borne cette ligne : le diviser par deux doublerait l'occupation.
+
+Le tick serveur le plus chargé est celui de `CombatService` : une requête spatiale par joueur en combat et par tick, pas par frame. `MatchmakingService` scanne ses files toutes les `MatchConfig.Matchmaking.TickSeconds`, et se met en pause pendant un World Boss (D-25).

@@ -86,7 +86,7 @@ Raison : réécrire les effets deux fois (Parts serveur en Phase 1 puis client e
 
 **D-10 — Dash et knockback appliqués par le client propriétaire de la physique** · Phase 1
 Le serveur décide (cooldown, chakra, i-frames, cible) puis envoie `MovementCommand` ; le client applique la vitesse sur son `HumanoidRootPart`.
-Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur : il valide, débite le chakra, arme la recharge et envoie l'ordre. Ce qui borne un client malhonnête est donc le coût et la recharge, pas une vérification de position (D-13) ; la comparaison de position est écartée et listée comme suite possible dans `docs/PROGRESS.md`.
+Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur : il valide, débite le chakra, arme la recharge et envoie l'ordre. Le déplacement qu'il demande est ajouté à la provision de trajet du joueur (D-32), donc un dash légitime ne ressemble jamais à une téléportation.
 
 **D-11 — Touches par défaut J / K / L / H / U, menu M, garde F, dash Maj gauche** · Phase 1
 `InputConfig.DefaultKeyboard` évite WASD (QWERTY), ZQSD (AZERTY), Espace, Tab, Échap, I/O (zoom) et les chiffres (backpack) ; la liste blanche de rebind exclut ces mêmes touches.
@@ -98,7 +98,7 @@ Raison : aucune action GitHub officielle maintenue par rojo-rbx ; le script est 
 
 **D-13 — Les i-frames du dash sont accordées sur la seule décision serveur** · Phase 1
 Le serveur accorde 0,25 s d'invulnérabilité au moment où il valide le dash, sans observer le déplacement (le personnage est simulé par le client propriétaire, D-10). Un client qui ignore `MovementCommand` garde donc les i-frames sans bouger.
-Raison : le déplacement n'est pas observable côté serveur sans casser la simulation client (D-10). Ce qui borne l'esquive est donc son coût en chakra et son temps de recharge, pas une vérification de position. Décision tenue jusqu'au bout : la comparaison position attendue / position observée est écartée, elle produirait des faux positifs sur une mauvaise connexion et punirait des joueurs honnêtes. Elle est listée comme suite possible dans `docs/PROGRESS.md`.
+Raison : le déplacement du dash lui-même n'est pas observable (D-10), donc ce qui borne l'esquive est son coût en chakra et sa recharge. En revanche l'**origine** de chaque attaque est désormais validée (D-32) : un client qui ignore `MovementCommand` garde ses i-frames sans bouger, mais il ne peut plus frapper depuis une position que le serveur n'a pas crue.
 
 **D-14 — Les ralentissements sont indexés par clé** · Phase 1
 `MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque jutsu utilise son `Id`.
@@ -127,3 +127,23 @@ Raison : deux sources de vérité pour le même chiffre. Changer l'une faisait s
 **D-31 — Les sections `Rank`, `Stats`, `Loadout` et `Meta` gardent deux écrivains, sur des champs disjoints** · Phase 8
 `DataService` écrit la remise à zéro de saison (`Rank.SeasonId`, `Rank.Modes`) et les champs de session de `Meta` ; `RankingService` écrit les classements, `MonetizationService` écrit `Loadout.ExtraSlots` (droit lié au pass) et `Meta.FirstSessionPromptGate`, et chaque service de jeu incrémente son propre compteur dans `Stats`.
 Raison : D-26 existe pour les sections qui portent un effet de bord (un signal, une validation, une règle métier). Ces quatre-là sont des sacs de champs indépendants, sans signal ni invariant croisé : un accesseur par champ ajouterait de l'indirection sans supprimer un seul risque. `Stats` n'est lu par aucun système de récompense, donc frapper un mannequin et tuer un joueur peuvent partager le compteur `Kills` sans ouvrir d'exploit.
+
+**D-32 — L'origine d'une attaque est mesurée, jamais crue ; on la recale au lieu d'éjecter** · Phase 8
+`CombatService.trustedCFrame` compare la position répliquée par le client à la dernière que le serveur a acceptée. Si l'écart dépasse `GameConfig.Latency.MaxSpeedStudsPerSecond × temps écoulé + OriginToleranceStuds`, l'action a lieu quand même mais ancrée sur la dernière position crue : l'attaquant frappe dans le vide. Les déplacements décidés par le serveur (dash, knockback) ajoutent leur distance à la provision pendant leur durée plus `AllowanceGraceSeconds` ; les téléportations serveur (spawn de match, retour au hub, placement boss, LightningStep) appellent `resyncPosition`. L'échantillonnage par tick ne frappe jamais l'anti-triche ; seule une action choisie le fait, après `ViolationsBeforeStrike` origines invraisemblables d'affilée.
+Raison : le personnage est simulé par le client propriétaire, donc `root.CFrame` valait ce que le client voulait : il suffisait de se placer sur l'adversaire, d'envoyer `CombatAction("Melee")` et de revenir pour poser tout le combo depuis n'importe où dans l'arène. La config qui devait borner cela existait depuis la Phase 1 et n'était lue par personne. Le recalage plutôt que le rejet est délibéré : il annule entièrement le gain de la triche sans punir une mauvaise connexion. Et l'éjection est réservée aux actions, parce qu'une longue chute dépasse le plafond de vitesse et aurait éjecté des joueurs honnêtes.
+
+**D-33 — Un abandon en classé est débité à la sortie, via `DataService.BeforeRelease`** · Phase 8
+`DataService` émet `BeforeRelease` pendant que le profil du partant est encore chargé ; `MatchService` y débite le forfait avec le même calcul Elo qu'une défaite réelle, et `applyResult` saute ensuite ce joueur. `RankingService` mémorise par session la dernière note vue pour chaque identifiant, donc l'équipe adverse est notée contre l'adversaire réel et non contre un débutant.
+Raison : `applyResult` sautait tout participant sans `Player` vivant, et un partant est exactement ce cas. Quitter ne coûtait donc rien : pas de note perdue, pas de défaite comptée. Quitter était strictement meilleur que perdre, une note ne pouvait que monter, et deux comptes qui se relayaient pour partir se hissaient mutuellement dans le classement.
+
+**D-34 — Un forfait ne renverse pas une série déjà gagnée** · Phase 8
+`Pure/SeriesOutcome` décide : une équipe qui a déjà atteint `RoundsToWin` garde sa victoire quoi qu'il arrive ensuite, sinon le forfait donne la série à l'équipe encore debout, et le score de celle-ci est relevé juste au-dessus du meilleur autre score.
+Raison : le code relevait le survivant à `RoundsToWin` sans condition, ce qui transformait un 2-0 abandonné entre deux manches en 2-2 : `scoreWinner` y voyait une égalité et payait un match nul aux deux camps, y compris à celui qui avait gagné toutes les manches. Le relèvement conditionnel garde l'écran de résultat cohérent, car il suppose que le vainqueur détient le score le plus élevé.
+
+**D-35 — Les trois bandeaux du haut de l'écran sont une seule colonne** · Phase 8
+`HudController` possède une colonne centrée en haut avec un `UIListLayout` ; le bandeau de match, celui du World Boss et la file de toasts en sont les enfants, ordonnés état persistant d'abord, messages éphémères ensuite. Le bandeau du boss abandonne son propre `ScreenGui`.
+Raison : les trois déclaraient le même ancrage et la même position. Le toast de manche gagnée masquait la manche, le score et le compte à rebours dans chaque match classé, et pendant un événement le bandeau du boss (420 px) recouvrait celui du match (360 px). Deux `ScreenGui` de même `DisplayOrder` n'ont pas d'ordre de dessin défini.
+
+**D-36 — La régénération intègre le temps réel écoulé** · Phase 8
+Chakra et vie multipliaient leur taux par la durée nominale du tick. Elles multiplient maintenant par l'intervalle réellement écoulé depuis le tick précédent.
+Raison : l'accumulateur ne déclenche qu'un tick par image et jette le reste, donc sous la fréquence configurée le jeu versait silencieusement moins que ce que la config promet. Les taux sont par seconde : intégrer sur l'intervalle réel les rend indépendants du nombre d'images par seconde.

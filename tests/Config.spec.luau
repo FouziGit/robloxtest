@@ -397,6 +397,15 @@ describe("RankingConfig", function()
 			expect(MatchConfig.Modes[mode]).never.toBeNil()
 		end
 	end)
+
+	it("keeps the ladder key cooldown at or under the periodic write interval", function()
+		-- LeaderboardService waits a key's OrderedDataStore cooldown out only on the forced flush when a
+		-- player leaves. The periodic scan skips that wait, which is sound only while the cooldown is the
+		-- shorter of the two.
+		local board = RankingConfig.Leaderboard
+		expect(board.KeyCooldownSeconds).toBeGreaterThan(0)
+		expect(board.KeyCooldownSeconds <= board.MinWriteIntervalSeconds).toBe(true)
+	end)
 end)
 
 describe("MatchConfig", function()

@@ -36,6 +36,10 @@ RankingConfig.Leaderboard = {
 	Boards = { "Global", "Duel1v1", "Team3v3" },
 	-- DataStore write budget guard: a player's rating is written at most this often.
 	MinWriteIntervalSeconds = 30,
+	-- Roblox refuses a second SetAsync on the same OrderedDataStore key inside this window. The periodic
+	-- scan never meets it because MinWriteIntervalSeconds is longer; the forced flush when a player leaves
+	-- does, and waits it out rather than burning its retries on a throttled call.
+	KeyCooldownSeconds = 6,
 }
 
 -- End-of-season rewards by tier reached (Ryo + cosmetic title id).

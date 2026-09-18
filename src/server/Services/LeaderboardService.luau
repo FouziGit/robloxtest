@@ -5,9 +5,10 @@
 -- Writes are driven by RankingService.RatingChanged and coalesced: only the latest value of a key is
 -- kept and a key is written at most once every RankingConfig.Leaderboard.MinWriteIntervalSeconds, with
 -- a forced flush when the player leaves so a session never ends on a stale ladder — that flush waits
--- out the key's OrderedDataStore cooldown rather than writing through it. Every board is
--- re-read every RankingConfig.Leaderboard.RefreshSeconds with GetSortedAsync, names resolved through a
--- cache, and the rows are rendered onto the hub's LeaderboardBoard_<boardId> SurfaceGuis. Every
+-- out the key's OrderedDataStore cooldown rather than writing through it, and a game:BindToClose waits
+-- for the passes still in flight so a shutdown a second later does not take a rating with it. Every
+-- board is re-read every RankingConfig.Leaderboard.RefreshSeconds with GetSortedAsync, names resolved
+-- through a cache, and the rows are rendered onto the hub's LeaderboardBoard_<boardId> SurfaceGuis. Every
 -- DataStore call goes through a retry with backoff and stays silent on failure, so a server without
 -- DataStore access (Studio) keeps a working hub, RequestLeaderboard handler and match flow.
 
@@ -61,10 +62,15 @@ local ROWS_FRAME_NAME = "LeaderboardRows"
 local WRITE_SCAN_SECONDS = 1
 local RETRY_ATTEMPTS = 3
 local RETRY_BACKOFF_SECONDS = 2 -- doubles after each failed attempt
--- Roblox rejects a second SetAsync on the same OrderedDataStore key inside this window. The periodic
--- scan is far slower than that, but the forced flush on leave is not, so it waits the remainder out:
--- writing through the cooldown spends every retry on a rejection and can still end up losing the value.
-local KEY_COOLDOWN_SECONDS = 6
+-- Roblox rejects a second SetAsync on the same OrderedDataStore key inside this window, counted from the
+-- last write that actually landed. The periodic scan is far slower than that (tests/Config.spec.luau pins
+-- the relation), but the forced flush on leave is not, so it waits the remainder out: writing through the
+-- cooldown spends every retry on a rejection and can still end up losing the value.
+-- Budget the shutdown handler gives the write passes still in flight. Roblox kills the server 30s after
+-- it starts closing, and a single key can legitimately need ~12s (cooldown wait plus the whole backoff
+-- chain), so this covers one full retry chain and still leaves half the budget to the profile saves
+-- running in their own BindToClose: a stuck ladder write can never be what times the shutdown out.
+local CLOSE_WAIT_SECONDS = 15
 
 local LeaderboardService = {}
 
@@ -76,7 +82,8 @@ local stores: { [string]: OrderedDataStore? } = {}
 local snapshots: { [string]: LeaderboardSnapshot } = {}
 -- boardId -> userId -> value waiting to be written (latest value wins).
 local pending: { [string]: { [number]: number } } = {}
--- boardId -> userId -> os.clock() of the last completed write attempt.
+-- boardId -> userId -> os.clock() of the last write that landed. A failed write leaves no stamp: it earned
+-- no OrderedDataStore cooldown, and stamping it would make the retry wait one out for nothing.
 local lastWrite: { [string]: { [number]: number } } = {}
 local names: { [number]: string } = {}
 local parts: { [string]: BasePart? } = {}
@@ -86,6 +93,9 @@ local writeAccumulator = 0
 local refreshAccumulator = 0
 local flushing = false
 local refreshing = false
+-- Write passes still running. Every value one carries is already out of `pending`, so a pass that dies
+-- with the server is a lost rating: the shutdown handler waits on this count.
+local outstandingWrites = 0
 -- os.clock() until which DataStore calls are skipped: set when a call exhausts its retries, so a
 -- server without DataStore access reports the problem once per cooldown instead of on every call.
 local offlineUntil = 0
@@ -205,8 +215,11 @@ local function takeDue(onlyUserId: number?): { Write }
 			end
 			if include then
 				-- Only the forced path can reach a key still inside its cooldown: the periodic scan
-				-- already waited a whole MinWriteIntervalSeconds, which is the longer of the two.
-				local notBefore = if last == nil then now else math.max(now, last + KEY_COOLDOWN_SECONDS)
+				-- already waited a whole MinWriteIntervalSeconds, which is the longer of the two, and
+				-- a stamp exists only where a write landed.
+				local notBefore = if last == nil
+					then now
+					else math.max(now, last + RankingConfig.Leaderboard.KeyCooldownSeconds)
 				queue[userId] = nil
 				table.insert(due, { BoardId = boardId, UserId = userId, Value = value, NotBefore = notBefore })
 			end
@@ -215,9 +228,9 @@ local function takeDue(onlyUserId: number?): { Write }
 	return due
 end
 
--- Writes taken values one by one, each once its key is out of cooldown. A failed write goes back to the
--- queue unless a newer value arrived meanwhile, so nothing is lost and nothing overwrites a fresher
--- rating. Yields.
+-- Writes taken values one by one, each once its key is out of cooldown. A write that lands stamps its key
+-- and starts that cooldown; one that fails goes back to the queue unless a newer value arrived meanwhile,
+-- so nothing is lost, nothing overwrites a fresher rating, and the retry is not held off. Yields.
 local function writeDue(due: { Write })
 	for _, item in ipairs(due) do
 		local cooldown = item.NotBefore - os.clock()
@@ -232,8 +245,9 @@ local function writeDue(due: { Write })
 				target:SetAsync(tostring(item.UserId), item.Value)
 			end)
 		end
-		lastWrite[item.BoardId][item.UserId] = os.clock()
-		if not ok then
+		if ok then
+			lastWrite[item.BoardId][item.UserId] = os.clock()
+		else
 			local queue = pending[item.BoardId]
 			if queue[item.UserId] == nil then
 				queue[item.UserId] = item.Value
@@ -242,8 +256,15 @@ local function writeDue(due: { Write })
 	end
 end
 
-local function flushDue()
-	writeDue(takeDue(nil))
+-- Runs one write pass on its own thread, counted so the shutdown handler waits for it, and reports back
+-- through `finished` once the pass is over whether it threw or not.
+local function spawnWrite(context: string, due: { Write }, finished: () -> ())
+	outstandingWrites += 1
+	task.spawn(function()
+		log.try(context, writeDue, due)
+		outstandingWrites -= 1
+		finished()
+	end)
 end
 
 -- Drops the per-key write stamps of a user id once nothing is queued for them. Without it the stamp maps
@@ -268,10 +289,9 @@ local function onPlayerRemoving(player: Player)
 		forgetStamps(userId)
 		return
 	end
-	task.spawn(function()
-		log.try("flush on leave", writeDue, due)
-		-- After the flush, so a write that failed and went back to `pending` keeps its stamp and its
-		-- cooldown when the due scan picks it up again.
+	-- Stamps are forgotten after the pass, so a write that just landed loses its stamp while a value that
+	-- went back to `pending` keeps the stamp of its last successful write.
+	spawnWrite("flush on leave", due, function()
 		forgetStamps(userId)
 	end)
 end
@@ -464,6 +484,19 @@ end
 -- Lifecycle
 ----------------------------------------------------------------
 
+-- Write passes run on their own threads, so without this the server can close between taking a rating out
+-- of `pending` and writing it, and that rating is gone for good. Waits for the passes in flight, never
+-- past CLOSE_WAIT_SECONDS. Yields.
+local function onClose()
+	local deadline = os.clock() + CLOSE_WAIT_SECONDS
+	while outstandingWrites > 0 and os.clock() < deadline do
+		task.wait()
+	end
+	if outstandingWrites > 0 then
+		log.warn("closed with %d ladder write(s) unfinished after %ds", outstandingWrites, CLOSE_WAIT_SECONDS)
+	end
+end
+
 local function onHeartbeat(deltaTime: number)
 	writeAccumulator += deltaTime
 	refreshAccumulator += deltaTime
@@ -471,8 +504,7 @@ local function onHeartbeat(deltaTime: number)
 		writeAccumulator = 0
 		if not flushing then
 			flushing = true
-			task.spawn(function()
-				log.try("flush", flushDue)
+			spawnWrite("flush", takeDue(nil), function()
 				flushing = false
 			end)
 		end
@@ -519,6 +551,7 @@ function LeaderboardService.Start()
 	trove:Add(Workspace.DescendantAdded:Connect(registerPart))
 
 	trove:Add(RunService.Heartbeat:Connect(onHeartbeat))
+	game:BindToClose(onClose)
 	task.spawn(function()
 		log.try("initial refresh", refreshBoards)
 	end)

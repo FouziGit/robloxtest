@@ -3,8 +3,9 @@
 -- per packet Id, called by VfxController with a fresh trove that is destroyed after the packet lifetime.
 -- Every part, tween, connection and delayed thread is tracked by that trove, particle rates are capped,
 -- and nothing yields on the caller thread: timed steps run in task.delay threads owned by the trove.
--- Effects that need a frame step share one Heartbeat (see `animate`) and are skipped while they play
--- farther than GameConfig.Vfx.AnimateRadiusStuds from the local character.
+-- Effects that need a frame step share one Heartbeat (see `animate`), which lays them out once at
+-- registration and then skips frames while they play farther than GameConfig.Vfx.AnimateRadiusStuds
+-- from the local character.
 -- The server never builds visuals; it only sends {Id, Origin, Direction, Caster, Targets, Params}.
 
 local Players = game:GetService("Players")
@@ -401,6 +402,14 @@ type Animation = {
 local animations: { Animation } = {}
 local animationConnection: RBXScriptConnection? = nil
 
+-- Where a frame plays the effect: an effect that rides a root follows it while that root is in the world.
+local function centerOf(center: Vector3, follow: BasePart?): Vector3
+	if follow ~= nil and follow.Parent ~= nil then
+		return follow.Position
+	end
+	return center
+end
+
 local function stepAnimations(deltaTime: number)
 	-- The ticker is shared, so it has no packet `api`; it reads the same character api.LocalCharacter
 	-- returns, once for every effect instead of once per effect.
@@ -415,10 +424,7 @@ local function stepAnimations(deltaTime: number)
 			table.remove(animations)
 		else
 			animation.Elapsed += deltaTime
-			local follow = animation.Follow
-			if follow ~= nil and follow.Parent ~= nil then
-				animation.Center = follow.Position
-			end
+			animation.Center = centerOf(animation.Center, animation.Follow)
 			local offset = if viewerPosition ~= nil then animation.Center - viewerPosition else nil
 			-- Elapsed keeps running while gated, so an effect that comes back into range resumes at the
 			-- phase it should be at rather than replaying from where it froze.
@@ -435,8 +441,8 @@ local function stepAnimations(deltaTime: number)
 	end
 end
 
--- Steps `step` every frame until `trove` is cleaned, so an effect keeps exactly the lifetime it had
--- when it owned its own connection.
+-- Steps `step` at elapsed 0 and then every frame until `trove` is cleaned, so an effect keeps exactly
+-- the lifetime it had when it owned its own connection.
 local function animate(
 	trove: TroveType,
 	center: Vector3,
@@ -444,12 +450,16 @@ local function animate(
 	step: (elapsed: number, center: Vector3, viewer: BasePart?) -> ()
 )
 	local animation: Animation = {
-		Center = center,
+		Center = centerOf(center, follow),
 		Follow = follow,
 		Elapsed = 0,
 		Live = true,
 		Step = step,
 	}
+	-- Most renderers place their moving parts from the step alone, so an effect registered outside the
+	-- gate would leave them at the world origin for its whole lifetime: the server still broadcasts out
+	-- to BroadcastRadiusStuds, which is farther than AnimateRadiusStuds. This layout always runs.
+	step(0, animation.Center, rootOf(Players.LocalPlayer.Character))
 	table.insert(animations, animation)
 	trove:Add(function()
 		animation.Live = false

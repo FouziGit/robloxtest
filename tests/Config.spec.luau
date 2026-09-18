@@ -317,6 +317,25 @@ describe("BattlepassConfig", function()
 	end)
 end)
 
+describe("GameConfig.Developers", function()
+	it("is a well-formed allowlist", function()
+		local dev = GameConfig.Developers
+		expect(type(dev.Names)).toBe("table")
+		expect(type(dev.UserIds)).toBe("table")
+		for _, name in ipairs(dev.Names) do
+			expect(type(name)).toBe("string")
+			-- Roblox usernames are 3 to 20 characters. A blank or padded entry would silently match nobody,
+			-- or worse, match a name that a typo made up.
+			expect(#name >= 3 and #name <= 20).toBe(true)
+			expect(string.match(name, "^%s") == nil and string.match(name, "%s$") == nil).toBe(true)
+		end
+		for _, userId in ipairs(dev.UserIds) do
+			expect(type(userId)).toBe("number")
+			expect(userId > 0 and userId == math.floor(userId)).toBe(true)
+		end
+	end)
+end)
+
 describe("cosmetic references", function()
 	it("every cosmetic id named anywhere in config exists in CosmeticConfig", function()
 		local function check(source: string, cosmeticId: string)

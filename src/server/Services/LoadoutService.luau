@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local ElementConfig = require(Shared.Config.ElementConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local JutsuConfig = require(Shared.Config.JutsuConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -55,7 +56,7 @@ local progression: ProgressionApi
 
 -- Adds `jutsuId` to the unlocks when it is missing and tells the player. Returns true when it was just
 -- granted (the caller pushes "Unlocks" once for the whole batch).
-local function grantJutsu(player: Player, data: ProfileData, jutsuId: string): boolean
+local function grantJutsu(player: Player, data: ProfileData, jutsuId: string, quiet: boolean?): boolean
 	if table.find(data.Unlocks.Jutsus, jutsuId) ~= nil then
 		return false
 	end
@@ -65,7 +66,10 @@ local function grantJutsu(player: Player, data: ProfileData, jutsuId: string): b
 		return false
 	end
 	table.insert(data.Unlocks.Jutsus, jutsuId)
-	notify.send(player, UNLOCKED_KEY, { name = def.NameKey }, "Success", "LevelUp")
+	if not quiet then
+		-- `quiet` is for a bulk grant: twenty toasts at once would bury everything else on screen.
+		notify.send(player, UNLOCKED_KEY, { name = def.NameKey }, "Success", "LevelUp")
+	end
 	return true
 end
 
@@ -88,6 +92,50 @@ local function grantEarned(player: Player, data: ProfileData): number
 		end
 	end
 	return granted
+end
+
+-- True when this account is on GameConfig.Developers. Matched on the user id first, which never changes,
+-- then on the exact name, which is what you know before the account has ever joined.
+local function isDeveloper(player: Player): boolean
+	for _, userId in ipairs(GameConfig.Developers.UserIds) do
+		if userId == player.UserId then
+			return true
+		end
+	end
+	for _, name in ipairs(GameConfig.Developers.Names) do
+		if name == player.Name then
+			return true
+		end
+	end
+	return false
+end
+
+-- Hands a developer account the whole roster: every element, every jutsu, every loadout slot. Runs on
+-- each join because in Studio the profile is a fresh template every session.
+local function grantEverything(player: Player, data: ProfileData)
+	for _, elementId in ipairs(ElementConfig.Unlockable) do
+		LoadoutService.grantElement(player, elementId)
+	end
+	local granted = 0
+	for _, def in ipairs(JutsuConfig.Jutsus) do
+		if grantJutsu(player, data, def.Id, true) then
+			granted += 1
+		end
+	end
+	local extra = LOADOUT.MaxSlots - LOADOUT.BaseSlots
+	if data.Loadout.ExtraSlots < extra then
+		LoadoutService.setExtraSlots(player, extra)
+	end
+	if granted > 0 then
+		dataService.push(player, "Unlocks")
+	end
+	log.info(
+		"%s (id %d) is a developer: %d jutsu(s) granted, %d slots",
+		player.Name,
+		player.UserId,
+		granted,
+		LOADOUT.BaseSlots + extra
+	)
 end
 
 -- Grants `elementId` and every jutsu it gates (the Lightning game pass, the level gate). Idempotent:
@@ -201,6 +249,10 @@ local function onLevelUp(player: Player, level: number)
 end
 
 local function onProfileLoaded(player: Player, data: ProfileData)
+	if isDeveloper(player) then
+		grantEverything(player, data)
+		return
+	end
 	if data.Progression.Level >= LIGHTNING_LEVEL then
 		LoadoutService.grantElement(player, LIGHTNING_ELEMENT)
 	end

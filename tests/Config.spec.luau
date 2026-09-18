@@ -5,6 +5,7 @@ local CombatConfig = require("../src/shared/Config/CombatConfig")
 local ComboResolver = require("../src/shared/Pure/ComboResolver")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
+local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
@@ -17,6 +18,7 @@ local RankTiers = require("../src/shared/Pure/RankTiers")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
+local Spring = require("../src/shared/Pure/Spring")
 local Strings = require("../src/shared/Strings")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
@@ -616,5 +618,113 @@ describe("WorldBossConfig", function()
 			expect(axis).toBeGreaterThan(0)
 		end
 		expect(WorldBossConfig.Rewards.KillBonusShare).toBeGreaterThan(WorldBossConfig.Rewards.MinShareToReward)
+	end)
+end)
+
+-- FeelConfig is tuning, not balance, so it is free to move -- but docs/JUICE_PLAN.md fixed a few of its
+-- numbers, and a value that drifts outside them stops being polish and becomes a bug the player feels
+-- as input lag or motion sickness.
+describe("FeelConfig", function()
+	it("keeps hit-stop inside the 40 to 90 millisecond window", function()
+		expect(FeelConfig.HitStop.MinSeconds).toBeGreaterThanOrEqual(0.04)
+		expect(FeelConfig.HitStop.MaxSeconds).toBeLessThanOrEqual(0.09)
+		expect(FeelConfig.HitStop.MinSeconds).toBeLessThan(FeelConfig.HitStop.MaxSeconds)
+		expect(FeelConfig.HitStop.MinDamage).toBeLessThan(FeelConfig.HitStop.MaxDamage)
+	end)
+
+	it("spans the damage the roster can actually deal", function()
+		-- If MaxDamage sat above every glyph in the game, no hit would ever reach the top of the window
+		-- and the heaviest ultimate would feel the same as a mid-tier spell.
+		local heaviest = 0
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			heaviest = math.max(heaviest, def.Damage)
+		end
+		expect(FeelConfig.HitStop.MaxDamage).toBeLessThanOrEqual(heaviest)
+		expect(FeelConfig.HitStop.MinDamage).toBeLessThanOrEqual(CombatConfig.Melee.Damage[1])
+	end)
+
+	it("gives every shake profile a duration and a survivable rotation", function()
+		local count = 0
+		for name, profile in pairs(FeelConfig.Shake.Profiles) do
+			count += 1
+			local total = profile.FadeInSeconds + profile.SustainSeconds + profile.FadeOutSeconds
+			if total <= 0 then
+				error(("shake profile %s lasts no time at all"):format(name))
+			end
+			expect(profile.Amplitude).toBeGreaterThan(0)
+			expect(profile.Frequency).toBeGreaterThan(0)
+			-- Past about 0.05 radians of camera roll, mobile players report motion sickness.
+			for _, axis in ipairs(profile.RotationInfluence) do
+				if axis > 0.05 then
+					error(("shake profile %s rolls the camera by %.3f rad"):format(name, axis))
+				end
+			end
+			expect(#profile.PositionInfluence).toBe(3)
+			expect(#profile.RotationInfluence).toBe(3)
+		end
+		expect(count).toBeGreaterThanOrEqual(5)
+	end)
+
+	it("orders the shake profiles by the weight they stand for", function()
+		local profiles = FeelConfig.Shake.Profiles
+		expect(profiles.Heavy.Amplitude).toBeGreaterThan(profiles.Light.Amplitude)
+		expect(profiles.Light.Amplitude).toBeGreaterThan(profiles.Cast.Amplitude)
+		-- A heavy hit lets go slowly; a light one is over before it is read.
+		expect(profiles.Heavy.FadeOutSeconds).toBeGreaterThan(profiles.Light.FadeOutSeconds)
+	end)
+
+	it("cannot leave the field of view permanently wrong", function()
+		expect(FeelConfig.Fov.MaxOffsetDegrees).toBeGreaterThan(0)
+		expect(FeelConfig.Fov.MaxOffsetDegrees).toBeLessThanOrEqual(15)
+		expect(FeelConfig.Fov.Tension).toBeGreaterThan(0)
+		expect(FeelConfig.Fov.Friction).toBeGreaterThan(0)
+		expect(FeelConfig.Fov.SettleEpsilon).toBeGreaterThan(0)
+	end)
+
+	it("caps everything that can be spawned more than once at a time", function()
+		-- Six players in one arena is the design target; every one of these is a per-frame cost.
+		expect(FeelConfig.Shake.MaxConcurrent).toBeGreaterThan(0)
+		expect(FeelConfig.Flash.MaxConcurrent).toBeGreaterThan(0)
+		expect(FeelConfig.DamageNumbers.MaxConcurrent).toBeGreaterThan(0)
+		expect(FeelConfig.Shake.MaxConcurrent).toBeLessThanOrEqual(8)
+		expect(FeelConfig.DamageNumbers.MaxConcurrent).toBeLessThanOrEqual(30)
+	end)
+
+	it("holds a damage number long enough to read before it fades", function()
+		expect(FeelConfig.DamageNumbers.HoldFraction).toBeGreaterThan(0.2)
+		expect(FeelConfig.DamageNumbers.HoldFraction).toBeLessThan(1)
+		expect(FeelConfig.DamageNumbers.Seconds).toBeGreaterThan(0.4)
+		expect(FeelConfig.DamageNumbers.PopScale).toBeGreaterThan(1)
+	end)
+
+	it("keeps every haptic motor inside the range the engine accepts", function()
+		local count = 0
+		for name, pulse in pairs(FeelConfig.Haptics) do
+			if type(pulse) == "table" then
+				count += 1
+				for _, key in ipairs({ "Small", "Large" }) do
+					local value = pulse[key]
+					if type(value) ~= "number" or value < 0 or value > 1 then
+						error(("haptic %s.%s is %s, and the motors take 0 to 1"):format(name, key, tostring(value)))
+					end
+				end
+				expect(pulse.Seconds).toBeGreaterThan(0)
+				expect(pulse.Seconds).toBeLessThanOrEqual(0.3)
+			end
+		end
+		expect(count).toBeGreaterThanOrEqual(4)
+	end)
+
+	it("gives every named spring a friction that settles", function()
+		for name, spring in pairs(FeelConfig.Springs) do
+			expect(spring.Tension).toBeGreaterThan(0)
+			if spring.Friction <= 0 then
+				error(("spring %s has no friction and would oscillate forever"):format(name))
+			end
+			-- Far under critical damping the value rings like a bell instead of arriving.
+			if spring.Friction < Spring.criticalFriction(spring.Tension) * 0.4 then
+				error(("spring %s is so underdamped it would visibly ring"):format(name))
+			end
+		end
 	end)
 end)

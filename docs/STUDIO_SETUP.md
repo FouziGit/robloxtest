@@ -110,11 +110,33 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 Lancer ensuite le workflow « Publish to Roblox » depuis l'onglet Actions (`Saved` pour un brouillon, `Published` pour mettre en ligne).
 
-## 7. Assets à remplacer plus tard
+## 7. Téléverser les douze textures (10 minutes, une seule fois)
+
+C'est la seule étape manuelle que le code ne peut pas faire à ta place, et tant qu'elle n'est pas faite
+les effets se dessinent **sans texture** : ils fonctionnent, mais ils sont plats.
+
+Les PNG sont dans `assets/textures/`. Ils sont générés par les scripts de `tools/textures/` — aucun ne
+vient de la boîte à outils, et ils se régénèrent à l'identique avec `python3 tools/textures/generate_all.py`.
+
+1. Creator Dashboard → **Creations** → **Development Items** → **Images** → **Add Image**.
+2. Téléverse les douze fichiers de `assets/textures/`. Roblox les passe en modération ; compte quelques
+   minutes par image.
+3. Pour chacune, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
+   `src/shared/Config/AssetIds.luau`. Chaque entrée nomme déjà son fichier source dans son champ
+   `Source`, donc l'appariement est mécanique.
+4. Relance `./scripts/check.sh` : `tests/AssetIds.spec.luau` refuse un identifiant qui n'est pas de la
+   forme `rbxassetid://<nombre>`, et refuse une entrée dont le PNG n'existe pas ou n'a pas les
+   dimensions déclarées.
+
+Tant qu'un identifiant est vide, le client l'annonce **une fois** au démarrage en nommant le fichier à
+téléverser, puis l'effet se joue quand même. Une couche qui ne sert qu'à porter une texture — un sceau,
+une brûlure au sol — n'est simplement pas dessinée plutôt que de laisser un rectangle de couleur en l'air.
+
+## 8. Assets à remplacer plus tard
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).
 
-## 8. Dépannage
+## 9. Dépannage
 
 ### Je lance Play, les mannequins apparaissent mais il n'y a aucune interface
 

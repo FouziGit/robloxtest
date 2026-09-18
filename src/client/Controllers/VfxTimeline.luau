@@ -216,7 +216,19 @@ local function host(entry: Live, place: CFrame, size: Vector3): BasePart?
 	return part
 end
 
+-- A sprite and a mark are flat planes whose entire purpose is to carry a texture. Drawn without one
+-- they are coloured rectangles hanging in the air, which is worse than drawing nothing: a missing
+-- upload would make the game look broken rather than plain. So a layer that NAMES a texture and cannot
+-- get one is skipped, exactly like a layer the pool refused. A layer that names none was authored that
+-- way and still draws.
+local function textureMissing(layer: Layer): boolean
+	return layer.Texture ~= nil and textureOf(layer) == ""
+end
+
 local function buildSprite(entry: Live, layer: Layer, place: CFrame, scale: number)
+	if textureMissing(layer) then
+		return
+	end
 	local size = (layer.Size or 1) * scale
 	local part = host(entry, place, Vector3.new(size, size, 0.05))
 	if part == nil then
@@ -243,6 +255,9 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame, scale: numb
 end
 
 local function buildMark(entry: Live, layer: Layer, place: CFrame, scale: number)
+	if textureMissing(layer) then
+		return
+	end
 	local position, normal = groundAt(place.Position)
 	local size = (layer.Size or 1) * scale
 	-- Lifted a hair off the floor: a decal coplanar with the ground z-fights, which reads as flicker.

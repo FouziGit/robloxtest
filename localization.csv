@@ -1,8 +1,12 @@
 Key,Source,Context,Example,en,fr
 action.block,Block,JutsuBattlegrounds,,Block,Garde
+action.block.short,Block,JutsuBattlegrounds,,Block,Garde
 action.dash,Dash,JutsuBattlegrounds,,Dash,Ruée
+action.dash.short,Dash,JutsuBattlegrounds,,Dash,Ruée
 action.melee,Melee,JutsuBattlegrounds,,Melee,Corps à corps
+action.melee.short,Melee,JutsuBattlegrounds,,Melee,CAC
 action.menu,Menu,JutsuBattlegrounds,,Menu,Menu
+action.menu.short,Menu,JutsuBattlegrounds,,Menu,Menu
 battlepass.alreadyClaimed,Already claimed.,JutsuBattlegrounds,,Already claimed.,Déjà récupéré.
 battlepass.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
 battlepass.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupéré

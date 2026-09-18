@@ -25,13 +25,15 @@ ElementConfig.Colors = {
 	Lightning = { 240, 220, 80 },
 } :: { [ElementId]: Rgb }
 
--- Single-letter glyph shown on combo chips / touch buttons (locale independent).
+-- Glyph shown on combo chips / touch buttons. Pictographs, not initials: letters would have to be the
+-- initials of one language ("W" for Water reads as Eau in French), and these labels never go through
+-- Strings.t. One distinct shape per element so colour is not the only cue.
 ElementConfig.Glyphs = {
-	Fire = "F",
-	Water = "W",
-	Earth = "E",
-	Wind = "A",
-	Lightning = "L",
+	Fire = "▲",
+	Water = "≈",
+	Earth = "■",
+	Wind = "»",
+	Lightning = "✦",
 } :: { [ElementId]: string }
 
 -- Strings keys for localized names.

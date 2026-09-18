@@ -248,6 +248,29 @@ describe("InputConfig", function()
 		expect(InputConfig.AllowedGamepad.ButtonA).toBeNil()
 		expect(InputConfig.AllowedGamepad.ButtonStart).toBeNil()
 	end)
+	it("keeps the capture cancel keys out of both rebind whitelists", function()
+		-- A cancel key that is also assignable can never be assigned: pressing it aborts the capture
+		-- instead of being recorded. ButtonB shipped in both roles and was silently unassignable.
+		expect(#InputConfig.CaptureCancelKeys).toBeGreaterThan(0)
+		for _, name in ipairs(InputConfig.CaptureCancelKeys) do
+			expect(type(name)).toBe("string")
+			expect(InputConfig.AllowedKeyboard[name]).toBeNil()
+			expect(InputConfig.AllowedGamepad[name]).toBeNil()
+		end
+	end)
+
+	it("makes every whitelisted key assignable", function()
+		local cancels: { [string]: boolean } = {}
+		for _, name in ipairs(InputConfig.CaptureCancelKeys) do
+			cancels[name] = true
+		end
+		for name in pairs(InputConfig.AllowedKeyboard) do
+			expect(cancels[name]).toBeNil()
+		end
+		for name in pairs(InputConfig.AllowedGamepad) do
+			expect(cancels[name]).toBeNil()
+		end
+	end)
 end)
 
 describe("ElementConfig", function()

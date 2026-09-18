@@ -24,6 +24,11 @@ Strings.Table = {
 	["element.wind"] = { en = "Wind", fr = "Vent" },
 	["element.lightning"] = { en = "Lightning", fr = "Foudre" },
 	["action.melee"] = { en = "Melee", fr = "Corps à corps" },
+	-- Touch disc labels: short enough to fit a 44 px disc in every locale (InputConfig.ActionShortKeys).
+	["action.melee.short"] = { en = "Melee", fr = "CAC" },
+	["action.dash.short"] = { en = "Dash", fr = "Ruée" },
+	["action.block.short"] = { en = "Block", fr = "Garde" },
+	["action.menu.short"] = { en = "Menu", fr = "Menu" },
 	["action.dash"] = { en = "Dash", fr = "Ruée" },
 	["action.block"] = { en = "Block", fr = "Garde" },
 	["action.menu"] = { en = "Menu", fr = "Menu" },

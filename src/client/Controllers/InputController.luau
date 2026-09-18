@@ -2,16 +2,17 @@
 -- InputController: binds every InputConfig action through ContextActionService for keyboard (+ mouse),
 -- gamepad and touch, from the player's saved keybinds. Emits `Action(actionId, began)`; ComboController,
 -- CombatController and MenuController consume it. `captureNext` suspends the actions and resolves the
--- next raw key of the requested kind for the rebind screen (Escape, ButtonB on gamepad and the Roblox
--- menu cancel it); `setSuspended` unbinds everything (touch buttons disappear with the bindings) while
--- a menu is open. Touch buttons are laid out in absolute screen space from `InputConfig.Touch`, clear
--- of the engine jump button and of each other (see `touchLayout`).
+-- next raw key of the requested kind for the rebind screen (Escape and the Roblox menu cancel it);
+-- `setSuspended` unbinds everything (touch buttons disappear with the bindings) while a menu is open.
+-- Touch buttons are laid out in absolute screen space from `InputConfig.Touch`, clear of the engine
+-- jump button and of each other (see `touchLayout`).
 
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
 local HapticService = game:GetService("HapticService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -44,8 +45,19 @@ local GAMEPAD_PREFIX = "Gamepad"
 local MENU_ACTION = "Menu"
 local HAPTIC_STRENGTH = 0.5
 local HAPTIC_SECONDS = 0.06
--- Capture cancel on a gamepad: ButtonStart would close the whole screen through GuiService.MenuOpened.
-local GAMEPAD_CANCEL = Enum.KeyCode.ButtonB
+-- Rebind capture cancel. Keyboard only: every gamepad button a player may bind is whitelisted in
+-- InputConfig.AllowedGamepad, and a button that cancels the capture could never be bound. The rebind
+-- screen cancels in-UI instead, by re-activating the highlighted row.
+-- Built from InputConfig.CaptureCancelKeys, which a test keeps disjoint from the rebind whitelists.
+local CAPTURE_CANCEL: { [Enum.KeyCode]: boolean } = {}
+for _, name in ipairs(InputConfig.CaptureCancelKeys) do
+	local keyCode = (Enum.KeyCode :: any)[name]
+	if keyCode ~= nil then
+		CAPTURE_CANCEL[keyCode] = true
+	else
+		log.error("CaptureCancelKeys names the unknown key %s", name)
+	end
+end
 local TOUCH_GUI_NAME = "TouchGui"
 local JUMP_BUTTON_NAME = "JumpButton"
 local CLUSTER_ANCHOR: InputConfig.TouchAnchor = "Cluster"
@@ -203,6 +215,12 @@ local function touchScale(): number
 	return Theme.scaleFor(viewportSize())
 end
 
+-- Diameter of a touch disc in real screen px. The discs are the primary combat controls and sit under
+-- no UIScale, so the scaled size is floored at the smallest reliable touch target.
+local function touchButtonSize(scale: number): number
+	return math.max(InputConfig.Touch.ButtonSize * scale, InputConfig.Touch.MinButtonSize)
+end
+
 local function shrink(rect: Rect, amount: Vector2): Rect
 	local min = rect.Min + amount
 	local max = rect.Max - amount
@@ -312,7 +330,7 @@ end
 -- inside the safe area, at least (diameter + gap) from its neighbours and clear of the jump button.
 local function touchLayout(scale: number): { [string]: Vector2 }
 	local config = InputConfig.Touch
-	local diameter = config.ButtonSize * scale
+	local diameter = touchButtonSize(scale)
 	local radius = diameter * 0.5
 	local gap = config.Gap * scale
 	local step = diameter + gap
@@ -370,9 +388,13 @@ local function applyTouchButton(action: string, button: ImageButton, style: Touc
 
 	local isElement = ElementConfig.isElement(action)
 	local visual = TouchButton.new({
+		-- The short label, not the full name: a disc is Touch.MinButtonSize wide and "Corps à corps"
+		-- clips at that width whatever the text size.
 		Label = if isElement
 			then ElementConfig.Glyphs[action :: any]
-			else localize.t(InputConfig.ActionNameKeys[action :: any]),
+			else localize.t(
+				InputConfig.ActionShortKeys[action :: any] or InputConfig.ActionNameKeys[action :: any]
+			),
 		Color = if isElement then Theme.elementColor(action) else Theme.Colors.PanelRaised,
 		Size = style.Size,
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -425,7 +447,7 @@ local function styleTouchButtons(generation: number)
 	local scale = touchScale()
 	local style: TouchStyle = {
 		Layout = touchLayout(scale),
-		Size = InputConfig.Touch.ButtonSize * scale,
+		Size = touchButtonSize(scale),
 		Origin = frame.AbsolutePosition,
 	}
 	for _, action in ipairs(boundActions) do
@@ -556,26 +578,28 @@ local function finishCapture(keyName: string?)
 	pending.Callback(keyName)
 end
 
-local function isCaptureCancel(kind: CaptureKind, input: InputObject): boolean
-	if input.KeyCode == Enum.KeyCode.Escape then
-		return true
-	end
-	return kind == "Gamepad" and input.KeyCode == GAMEPAD_CANCEL
-end
-
--- Resolves the next raw key of `kind`, or nil when cancelled (Escape, ButtonB on a gamepad, or the
--- Roblox menu). Actions stay unbound until the capture resolves; a new capture cancels the pending one.
+-- Resolves the next raw key of `kind`, or nil when cancelled (Escape or the Roblox menu). Actions stay
+-- unbound until the capture resolves; a new capture cancels the pending one.
 function InputController.captureNext(kind: CaptureKind, callback: (keyName: string?) -> ())
 	finishCapture(nil)
 	local captureTrove = Trove.new()
 	capture = { Kind = kind, Callback = callback, Trove = captureTrove }
 	applyBindings()
+	-- The press that opened this capture reaches InputBegan flagged as game-processed, and so does
+	-- every later press: the rebind screen covers the viewport with an Active frame. Processed input is
+	-- therefore ignored only until the end of the activating frame (Heartbeat runs after the input of
+	-- that frame) — long enough that the press cannot bind itself, short enough that the whitelisted
+	-- mouse buttons stay assignable.
+	local activating = true
+	captureTrove:Add(RunService.Heartbeat:Once(function()
+		activating = false
+	end))
 	captureTrove:Connect(UserInputService.InputBegan, function(input: InputObject, processed: boolean)
-		if isCaptureCancel(kind, input) then
-			finishCapture(nil)
+		if processed and activating then
 			return
 		end
-		if processed and kind == "Keyboard" then
+		if CAPTURE_CANCEL[input.KeyCode] then
+			finishCapture(nil)
 			return
 		end
 		local name = keyNameFor(kind, input)

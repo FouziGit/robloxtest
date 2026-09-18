@@ -42,6 +42,10 @@ function Log.new(prefix: string): Logger
 	end
 
 	-- Runs fn in a pcall; on failure warns with context and returns false.
+	--
+	-- The boolean is "it did not throw", NOT "it succeeded", and it DISCARDS whatever fn returned. A
+	-- caller that needs fn's own result must use pcall directly: returning this value as if it were the
+	-- result is how a failed profile save once read as a successful one.
 	function logger.try<T...>(context: string, fn: (T...) -> ...any, ...: T...): boolean
 		local ok, err = pcall(fn, ...)
 		if not ok then

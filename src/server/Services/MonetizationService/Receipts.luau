@@ -211,7 +211,15 @@ local function processorFor(player: Player): ReceiptProcessor.Deps
 			if not deps.DataService.isActive(player) then
 				return false
 			end
-			return log.try("saveNow " .. player.Name, deps.DataService.saveNow, player)
+			-- Not log.try: that returns pcall's ok, i.e. "the call did not throw", which is precisely the
+			-- thing this path must not confuse with "the write landed". A plain pcall keeps the boolean
+			-- saveNow returns, and a thrown error is reported and counts as unconfirmed.
+			local ok, confirmed = pcall(deps.DataService.saveNow, player)
+			if not ok then
+				log.warn("saveNow %s failed: %s", player.Name, tostring(confirmed))
+				return false
+			end
+			return confirmed == true
 		end,
 		log = function(message: string)
 			log.warn("receipt: %s", message)

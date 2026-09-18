@@ -22,7 +22,9 @@ export type DataApi = {
 	waitFor: (player: Player, timeout: number?) -> ProfileData?,
 	push: (player: Player, section: string) -> (),
 	recordReceipt: (player: Player, purchaseId: string) -> boolean,
-	saveNow: (player: Player) -> (),
+	-- Yields, and returns whether ProfileStore CONFIRMED the write. Never tell Roblox PurchaseGranted on
+	-- a false: the Robux are already taken and the receipt would never be delivered again.
+	saveNow: (player: Player) -> boolean,
 	isActive: (player: Player) -> boolean,
 	ProfileLoaded: ProfileSignal,
 	ProfileReleased: ReleaseSignal,

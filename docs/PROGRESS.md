@@ -1,57 +1,49 @@
 # Progression
 
-Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (phases), `docs/DECISIONS.md` (choix actés), `docs/ARCHITECTURE.md` (contrats d'API).
+Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (phases), `docs/DECISIONS.md` (D-1 à D-27), `docs/ARCHITECTURE.md` (contrats d'API), `CLAUDE.md` (conventions).
 
 ## État global
 
-| Phase | Statut | Commit(s) |
+| Phase | Statut | Commit |
 |---|---|---|
-| 0 — Audit, plan, conventions | ✅ fait | `4e14c6f` (poussé) |
-| 1 — Fondations (toolchain, structure, ProfileStore, remotes sûrs, services, client, UI) | ✅ implémentée, poussée (`130db43`), CI verte ; revue adversariale en cours | `a8f943d`…`130db43` |
-| 2 — Cœur du combat | 🔶 fusionnée dans la Phase 1 (D-9) : chakra, M1/dash/garde, effets serveur + VFX client | |
-| 3 — Mobile, manette, UI, localisation | ⏳ à faire (InputController tactile/manette déjà prévu en Phase 1) | |
-| 4 — Hub, arènes, matchmaking, matchs, classement | 🔶 modules purs faits (`Elo`, `RankTiers`, `MatchmakingCore`, `RankingConfig`, `MatchConfig`) ; services à faire | `411b7f2` |
-| 5 — World Boss | ⏳ à faire | |
-| 6 — Progression et rétention | 🔶 modules purs faits (`QuestLogic`, `DailyStreak`, `QuestConfig`, `DailyConfig`, `CosmeticConfig`, `ShopRotation`) ; services/écrans à faire | `e78ed2c`, suivant |
-| 7 — Monétisation, analytics, économie | 🔶 `MonetizationConfig`, `ReceiptProcessor`, `ShopConfig`, `docs/ECONOMY.md`, `docs/STUDIO_SETUP.md` faits ; services à faire | |
-| 8 — Sécurité, performance, polish, docs, CI finale | ⏳ à faire (`ci.yml` / `publish.yml` déjà écrits) | |
+| 0 — Audit, plan, conventions | ✅ | `4e14c6f` |
+| 1 — Fondations (toolchain, `src/`, ProfileStore, remotes sûrs, services, client, UI) | ✅ | `a8f943d`…`130db43`, correctifs `d72a551` |
+| 2 — Cœur du combat + roster 20 jutsus + Foudre | ✅ | `ca3883a` |
+| 3 — Mobile, manette, UI responsive, localisation EN/FR | ✅ | intégrée aux phases 1-2 + `c022f71` (export CSV, garde anti-chaîne en dur) |
+| 4 — Hub, arènes, matchmaking, matchs classés, Elo, leaderboards | ✅ | `84d91c7` |
+| 5 — World Boss | ✅ | `831a789` |
+| 6 — Quêtes, daily, loadout, cosmétiques | ✅ | `831a789` |
+| 7 — Monétisation, boutique, analytics | ✅ | `831a789` |
+| 8 — Sécurité, performance, polish, docs finales | 🔶 revue adversariale en cours | |
 
-## Fait (Phase 1)
+## Chiffres
 
-- Toolchain : `rokit.toml`, `wally.toml` (+ `wally.lock`), `.luaurc` strict, `selene.toml`, `stylua.toml`, `.luau-lsp.json`, `scripts/setup.sh`, `scripts/check.sh`, `.github/workflows/{ci,publish}.yml`. Tout est installé localement (`~/.rokit/bin`, exporter le PATH).
-- Structure `src/{shared,server,client,ui}` + `default.project.json` ; arbre V1 supprimé ; outil Studio dans `scripts/studio/`.
-- Harnais Lune (`tests/harness.luau`, `tests/run.luau`) et 6 specs (32 tests verts) : Guard, TokenBucket, ComboResolver, DataMigration, Strings, Config.
-- Contrats partagés : `Types`, `Remotes` (Guard + rate), `Strings` (EN/FR, ~120 clés), `Config/*` (Element, Input, Game, Progression, Jutsu 8 entrées, Combat, Battlepass 50×2 pistes, Sound), `Util/{Guard,TokenBucket,Log}`, `Pure/{ComboResolver (fenêtre d'extension), DataMigration}`.
-- Serveur : `Vendor/ProfileStore.luau` (épinglé), `RemoteRegistry`, `Services/DataService` (migration V1→V2 + import legacy), `Bootstrap.server.luau`, `Services/{AntiCheat,Notify,Currency,Progression,Battlepass,Settings,Movement,Enemy}Service` (écrits, conformes aux contrats, **non commités**).
-- Client : `RemoteClient`, `Controllers/ClientData`, `Bootstrap.client.luau`, `Controllers/{Localize,SoundController}` (**non commités**).
-- UI : `Theme`, `components/{ScreenRoot,Panel,Button,ProgressBar}` (**non commités**).
-- Docs : `ARCHITECTURE.md`, `GAME_DESIGN.md`, `ECONOMY.md`, `DECISIONS.md` D-1…D-12.
+126 fichiers `.luau` (hors lib vendorée), 28 200 lignes, 8 documents, 323 clés de localisation EN/FR, 80 tests Lune, 7 portes de qualité en CI.
 
-## En cours
+## Ce qui reste à faire par le propriétaire
 
-- Revue adversariale multi-agents de la Phase 1 (contrats, exploits, runtime, mobile/UI) ; corrections à commiter en `fix(...)`.
+1. **Créer les game passes et developer products** dans le Creator Dashboard et coller les IDs dans `src/shared/Config/MonetizationConfig.luau` — noms, prix conseillés et emplacements exacts dans `docs/STUDIO_SETUP.md`. Le serveur affiche un `warn` par ID manquant au démarrage et refuse proprement ces achats en attendant.
+2. **Publier la place** et cocher *Game Settings → Security → Enable Studio Access to API Services*, sinon rien n'est sauvegardé (ProfileStore le signale dans l'Output).
+3. **Aucune `SpawnLocation` ni baseplate ne doit être créée à la main** : `HubService` construit le hub et `HubSpawn` doit rester le seul point de spawn (le service avertit s'il en trouve un autre).
+4. Optionnel : secrets `ROBLOX_API_KEY`, `UNIVERSE_ID`, `PLACE_ID` pour la publication automatisée (`.github/workflows/publish.yml`).
 
-## Reste (prochaines actions, dans l'ordre)
+## Reste (suite technique possible)
 
-1. Appliquer les constats confirmés de la revue → `fix(...)` → push.
-2. Phase 2 : roster 20 jutsus + Foudre dans `JutsuConfig` (design `GAME_DESIGN.md` §5) + `JutsuEffects` + `VfxLibrary` + Strings ; interactions élémentaires (`Éventé`, extinction, conduction) dans `CombatService` ; schéma `Boosts.XpUntil` (Types/DataService/DataMigration) pour le boost d'XP.
-3. Phase 3 : export CSV des Strings (`scripts/export-strings.luau`), test « zéro chaîne en dur », passe mobile/manette sur les écrans.
-4. Phase 4 : `HubService`, `ArenaService`, `GameMode`, `MatchmakingService`, `MatchService`, `RankingService`, `LeaderboardService`, `MatchController`, écrans file/résultat/classement.
-5. Phase 5 : `WorldBossService` + `WorldBossMode`.
-6. Phase 6 : `QuestService`, `DailyRewardService`, `LoadoutService`, `CosmeticService`, écrans quêtes/loadout/boutique.
-7. Phase 7 : `MonetizationService` (passes, produits, `ProcessReceipt`), `ShopService`, `AnalyticsService`, prompts contextuels.
-8. Phase 8 : passe sécurité/perf, `README.md`, docs finales, rapport.
+- File d'attente inter-serveurs via `MemoryStoreService` (l'interface de `MatchmakingService` est prête ; aujourd'hui la file est intra-serveur).
+- Anti-téléport / anti-speed par comparaison du déplacement attendu et observé (D-13 : les i-frames du dash sont accordées sur la seule décision serveur).
+- Caisses ou aléatoire payant : volontairement absents (boutique directe, voir `docs/ECONOMY.md`) ; nécessiteraient `PolicyService` et l'affichage des probabilités.
+- Système de spectateur (D-22 : un joueur éliminé attend au hub).
 
 ## Definition of Done (mission §9)
 
-- [ ] Tous les fichiers de §5 existent et sont à jour ; `CLAUDE.md` à la racine
-- [ ] `rojo build` OK, lint/format/analyze/tests verts, CI verte sur GitHub
-- [ ] 1v1 classé et 3v3 jouables de bout en bout
-- [ ] World Boss fonctionnel
-- [ ] ≥ 16 jutsus + Foudre, chakra, M1/dash/block, VFX client
-- [ ] Mobile et manette jouables ; QWERTY/AZERTY sans conflit
-- [ ] EN par défaut + FR, zéro chaîne en dur
-- [ ] Game passes, developer products, `ProcessReceipt` idempotent, battle pass premium, boutique, bonus Premium, analytics
-- [ ] Aucun TODO/placeholder ; seuls les IDs Roblox restent à renseigner, avec warnings au démarrage
-- [ ] Historique git propre en Conventional Commits, tout poussé sur `origin main`
-- [ ] Rapport final dans le chat
+- [x] Tous les documents de §5 existent et sont à jour ; `CLAUDE.md` à la racine
+- [x] `rojo build` OK, format/lint/analyse/tests verts, CI verte sur GitHub
+- [x] 1v1 classé et 3v3 jouables de bout en bout (file → match → résultat → Elo → classement → hub)
+- [x] World Boss fonctionnel
+- [x] 20 jutsus + élément Foudre, chakra, M1/dash/garde, VFX rendus par le client
+- [x] Mobile et manette jouables ; touches par défaut sans conflit QWERTY/AZERTY
+- [x] EN par défaut + FR, zéro chaîne en dur (vérifié en CI)
+- [x] Game passes, developer products, `ProcessReceipt` idempotent, pass premium, boutique, bonus Premium, analytics
+- [x] Aucun TODO/placeholder ; seuls les IDs Roblox restent à renseigner, avec avertissements au démarrage
+- [x] Historique git propre en Conventional Commits, tout poussé sur `origin main`
+- [ ] Rapport final dans le chat (après la passe de durcissement)

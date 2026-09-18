@@ -32,6 +32,8 @@ local Spring = require(Shared.Pure.Spring)
 
 local log = Log.new("WorldLighting")
 
+type Deps = { ClientData: any }
+
 type SpringType = typeof(Spring.new(0, 1, 1))
 
 -- One live envelope. Phase is where it is in attack -> hold -> release; the weight is a spring whose
@@ -61,6 +63,22 @@ type Plan = {
 local CREATED_PREFIX = "Vellum"
 
 local WorldLighting = {}
+
+local clientData: any
+
+-- False only when the player has asked for less motion on screen. Absent data means yes: a pulse
+-- suppressed because a profile had not loaded yet would make the first impact of a session feel
+-- different from every one after it.
+local function motionAllowed(): boolean
+	if clientData == nil then
+		return true
+	end
+	local data = clientData.get()
+	if data == nil then
+		return true
+	end
+	return data.Settings.CameraShake ~= false
+end
 
 local plan: { Plan } = {}
 local buckets: { [string]: { [string]: number } } = {}
@@ -213,6 +231,9 @@ end
 -- impacts in a second read as one sustained bleach rather than as a white screen. The re-armed spring
 -- keeps its position and its velocity, so it accelerates back up from wherever it had got to.
 function WorldLighting.pulse(name: string)
+	if not motionAllowed() then
+		return
+	end
 	local profile = LightingConfig.Pulses[name]
 	if profile == nil then
 		log.warn("unknown lighting pulse %s", name)
@@ -309,12 +330,19 @@ end
 -- Lifecycle
 --------------------------------------------------------------------------------------------------
 
--- Init converts, Start writes. Nothing is taken from deps: the profile has no graphics or
--- post-processing setting to respect -- SettingsData in src/shared/Types.luau is two keybind maps, two
--- volumes and the camera shake toggle -- and the graphics tiers arrive in phase 9 of docs/JUICE_PLAN.md
--- through SettingsService, where every other setting lives. A setting invented here would be one no
--- screen can change and no profile can save.
-function WorldLighting.Init()
+-- Init converts, Start writes.
+--
+-- ClientData is taken for one reason: Settings.CameraShake. A pulse is a full-screen brightness and
+-- saturation change, and it is driven by the same events Feel shakes the camera for. A player who turns
+-- camera shake off is almost always turning it off because motion on screen makes them ill, and bleaching
+-- their whole screen on every nearby impact is a worse version of the thing they asked to stop.
+--
+-- It is that toggle rather than a new one because it is the only motion-reduction control the profile
+-- has (SettingsData in src/shared/Types.luau is two keybind maps, two volumes and this), and a setting
+-- invented here would be one no screen exposes and nothing persists. Phase 6 of docs/JUICE_PLAN.md
+-- reworks the settings screen and can widen its label to what it now governs.
+function WorldLighting.Init(deps: Deps)
+	clientData = deps.ClientData
 	for property, rgb in pairs(LightingConfig.Lighting.Colors) do
 		lightingColors[property] = toColor(rgb)
 	end

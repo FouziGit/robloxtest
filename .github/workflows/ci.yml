@@ -47,6 +47,15 @@ jobs:
             --ignore="**/Vendor/**" \
             src
 
+      - name: Textures reproduce from their generators
+        run: |
+          python3 tools/textures/generate_all.py > /dev/null
+          if ! git diff --quiet -- assets/textures; then
+            echo "assets/textures does not match what tools/textures/ generates:"
+            git --no-pager diff --stat -- assets/textures
+            exit 1
+          fi
+
       - name: Lune tests
         run: lune run tests/run
 

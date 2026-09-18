@@ -33,6 +33,7 @@ type Deps = {
 	Localize: any,
 	HudController: HudApi,
 	RemoteClient: any,
+	WorldLighting: any,
 }
 
 type Announcement = { Key: string, Kind: string }
@@ -71,6 +72,7 @@ local warningLabel: TextLabel
 
 local snapshot: Types.BossSnapshot? = nil
 local lastPhase: string? = nil
+local worldLighting: any
 local malformedWarned = false
 
 local function makeLabel(
@@ -267,6 +269,14 @@ local function announce(current: Types.BossSnapshot)
 	if hud ~= nil then
 		hud.showLocalToast(announcement.Key, params, announcement.Kind)
 	end
+
+	-- The Erasure arriving is the one moment in the game the whole page is supposed to be affected, and
+	-- LightingConfig has a pulse named for it. A toast alone is a line of text for an event the world is
+	-- meant to feel; without this the three heaviest post-processing effects exist and are driven by
+	-- nothing at all.
+	if current.Phase == "Announced" and worldLighting ~= nil then
+		worldLighting.pulse("Erasure")
+	end
 end
 
 local function onBossChanged(payload: any)
@@ -293,6 +303,7 @@ function BossController.Init(deps: Deps)
 	localize = deps.Localize
 	hudController = deps.HudController
 	remoteClient = deps.RemoteClient
+	worldLighting = deps.WorldLighting
 	build()
 end
 

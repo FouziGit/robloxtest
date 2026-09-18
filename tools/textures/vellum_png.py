@@ -218,7 +218,21 @@ class Canvas:
 
     def blit(self, other: Canvas, origin_x: int, origin_y: int) -> None:
         """Copies `other` in. Used to lay flipbook frames into their cells; a copy rather than a
-        blend because two frames must never overlap."""
+        blend because two frames must never overlap.
+
+        Bounds are asserted rather than clamped. A flat list plus a computed offset fails silently in
+        both directions -- a row that runs past the right edge wraps onto the next row's left edge, and
+        a negative origin writes from the end of the list -- and the only symptom is a flipbook whose
+        frames bleed into each other, which reads as a flicker at the exact moment the explosion is
+        loudest. This is a build-time script with no user, so raising is the right answer.
+        """
+        if origin_x < 0 or origin_y < 0:
+            raise ValueError(f"blit origin ({origin_x}, {origin_y}) is negative")
+        if origin_x + other.width > self.width or origin_y + other.height > self.height:
+            raise ValueError(
+                f"blit of {other.width}x{other.height} at ({origin_x}, {origin_y}) "
+                f"does not fit in {self.width}x{self.height}"
+            )
         for y in range(other.height):
             source = y * other.width
             target = (origin_y + y) * self.width + origin_x

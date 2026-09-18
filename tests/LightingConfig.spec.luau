@@ -41,10 +41,6 @@ local function average(rgb: LightingConfig.Rgb): number
 	return (rgb[1] + rgb[2] + rgb[3]) / 3
 end
 
-local function midpoint(band: LightingConfig.Band): number
-	return (band[1] + band[2]) / 2
-end
-
 -- Every colour the world sits at when nothing is happening, labelled so a failure names the property.
 local function restingColors(): { { Label: string, Rgb: LightingConfig.Rgb } }
 	local out: { { Label: string, Rgb: LightingConfig.Rgb } } = {}
@@ -100,19 +96,77 @@ describe("LightingConfig", function()
 
 	it("keeps the world light, not dark", function()
 		local numbers = LightingConfig.Lighting.Numbers
-		-- Upper half of the stated band, which is the whole inversion: bright world, dark magic. A value
-		-- in the lower half is the genre's default look and the reason the audit was written.
-		expect(numbers.Brightness).toBeGreaterThan(midpoint(LightingConfig.Bands.Brightness))
+		-- These thresholds are written here, not read from LightingConfig.Bands, and that is the whole
+		-- point of them. A gate whose threshold lives in the file it guards is not a gate: the darkening
+		-- edit it advertises stopping can widen the band on its way past, and the test still passes.
+		--
+		-- 2.0 of Roblox's own 0-to-5 Brightness, and 128 of 255 on an ambient channel, are the midpoints
+		-- of the ENGINE's ranges. Below either one this is a dark world with bright magic, which is the
+		-- genre's default look and the reason docs/JUICE_AUDIT.md was written.
+		local BRIGHTNESS_FLOOR = 2.0
+		local AMBIENT_FLOOR = 128
+		expect(numbers.Brightness).toBeGreaterThan(BRIGHTNESS_FLOOR)
 		expect(numbers.Brightness).toBeLessThanOrEqual(LightingConfig.Bands.Brightness[2])
-		local channelMid = midpoint(LightingConfig.Bands.AmbientChannel)
 		-- Ambient is what fills a shadow, so it, not the brightness, is what decides between a page and a
 		-- dungeon.
-		expect(average(LightingConfig.Lighting.Colors.Ambient)).toBeGreaterThan(channelMid)
-		expect(average(LightingConfig.Lighting.Colors.OutdoorAmbient)).toBeGreaterThan(channelMid)
+		expect(average(LightingConfig.Lighting.Colors.Ambient)).toBeGreaterThan(AMBIENT_FLOOR)
+		expect(average(LightingConfig.Lighting.Colors.OutdoorAmbient)).toBeGreaterThan(AMBIENT_FLOOR)
+		-- And the band the config declares for itself has to contain the floor, or it is describing a
+		-- different world than the one this test is checking for.
+		expect(LightingConfig.Bands.Brightness[2]).toBeGreaterThan(BRIGHTNESS_FLOOR)
 		-- And the sun is up. A high-key world at four in the morning is a contradiction the numbers above
 		-- cannot catch on their own.
 		expect(numbers.ClockTime).toBeGreaterThan(7)
 		expect(numbers.ClockTime).toBeLessThan(17)
+	end)
+
+	it("keeps two pulses at once inside the bands the config declares", function()
+		-- Every pulse alone fits its bands; the clamp in WorldLighting is documented as a safety net
+		-- rather than a look. But pulses COMPOSE -- the applied value is rest plus the sum of everything
+		-- live -- and an impact landing while the Erasure is arriving is not a rare case, it is the
+		-- World Boss fight. Two profiles whose deltas sum past a band spend their overlap pinned at the
+		-- clamp, which is a look nobody chose: at -1 saturation the screen is fully grey.
+		local order = LightingConfig.EffectOrder
+		local names: { string } = {}
+		for name in pairs(LightingConfig.Pulses) do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		expect(#names).toBeGreaterThanOrEqual(2)
+
+		for _, effectName in ipairs(order) do
+			local def = LightingConfig.Effects[effectName]
+			for property, rest in pairs(def.Rest) do
+				local band = def.Limits[property]
+				if band ~= nil then
+					-- Worst case: every pulse at full weight at the same instant.
+					local low, high = rest, rest
+					for _, pulseName in ipairs(names) do
+						local deltas = LightingConfig.Pulses[pulseName].Deltas[effectName]
+						local delta = if deltas ~= nil then deltas[property] else nil
+						if delta ~= nil then
+							if delta < 0 then
+								low += delta
+							else
+								high += delta
+							end
+						end
+					end
+					if low < band[1] - 1e-6 or high > band[2] + 1e-6 then
+						error(
+							("%s.%s reaches %.3f..%.3f when every pulse is live, outside its band %.3f..%.3f"):format(
+								effectName,
+								property,
+								low,
+								high,
+								band[1],
+								band[2]
+							)
+						)
+					end
+				end
+			end
+		end
 	end)
 
 	it("keeps the scenery matte", function()

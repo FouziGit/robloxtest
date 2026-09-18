@@ -39,6 +39,22 @@ lune run scripts/check-strings
 echo "▶ localization.csv"
 lune run scripts/export-strings -- --check
 
+# The generators and the PNGs they wrote are two artefacts that have to agree, and nothing else in this
+# repository notices when they stop agreeing. An edit to a generator with no regeneration, or a PNG
+# edited by hand, both pass every other gate here and only show up as art that does not match its own
+# source. Eight seconds to close that.
+#
+# This is the one gate that needs Python. The PNGs stay committed, so a contributor without Python can
+# still build and run the game; they just cannot prove the art is reproducible.
+echo "▶ textures reproduce from their generators"
+python3 tools/textures/generate_all.py >/dev/null
+if ! git diff --quiet -- assets/textures; then
+	echo "✖ assets/textures does not match what tools/textures/ generates:"
+	git --no-pager diff --stat -- assets/textures
+	echo "  Run python3 tools/textures/generate_all.py and commit the result."
+	exit 1
+fi
+
 echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/Vellum.rbxl

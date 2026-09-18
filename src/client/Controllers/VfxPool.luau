@@ -19,31 +19,22 @@
 -- The reset lists are the union of what this layer writes, not every property of every class: a property
 -- nothing ever writes cannot be dirty. A renderer that starts writing a new one adds it here.
 --
--- An effect borrows through a lease, so the trove it already has hands everything back:
---   local lease = VfxPool.lease(trove)
---   local part = lease.acquire("Part") :: Part?
+-- Borrowed with acquire and handed back with release. There was a lease wrapper here that tied a borrow
+-- to an effect's Trove; it was removed because nothing used it. VfxTimeline schedules its layers on one
+-- Heartbeat and releases each layer's instances when that layer ends, which is a lifetime a Trove does
+-- not describe, so the wrapper was an API with no caller.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Log = require(Shared.Util.Log)
 local PoolPolicy = require(Shared.Pure.PoolPolicy)
-local Trove = require(Packages.Trove)
 
 local log = Log.new("VfxPool")
 
-type TroveType = typeof(Trove.new())
 type PolicyType = typeof(PoolPolicy.new({}))
-
--- What an effect holds. Dot-called, like the rest of the client's small APIs.
-export type Lease = {
-	acquire: (className: string) -> Instance?,
-	release: (instance: Instance) -> boolean,
-	releaseAll: () -> (),
-}
 
 local VfxPool = {}
 
@@ -481,44 +472,6 @@ function VfxPool.release(instance: Instance): boolean
 	return true
 end
 
--- A lease for one effect: it borrows through this, and the effect's own trove hands everything back when
--- the effect ends, whether it ended by finishing or by throwing.
-function VfxPool.lease(trove: TroveType): Lease
-	local held: { Instance } = {}
-	local lease = {}
-
-	function lease.acquire(className: string): Instance?
-		local instance = VfxPool.acquire(className)
-		if instance ~= nil then
-			table.insert(held, instance)
-		end
-		return instance
-	end
-
-	function lease.release(instance: Instance): boolean
-		local index = table.find(held, instance)
-		if index ~= nil then
-			table.remove(held, index)
-		end
-		return VfxPool.release(instance)
-	end
-
-	-- Newest first, so an instance parented to another goes back before the one it hangs from and no part
-	-- is ever parked with a live child.
-	function lease.releaseAll()
-		for index = #held, 1, -1 do
-			local instance = held[index]
-			held[index] = nil
-			VfxPool.release(instance)
-		end
-	end
-
-	trove:Add(lease.releaseAll)
-	return lease :: Lease
-end
-
--- The accounting, per class: live, parked, created, discarded, refused and the high-water marks. This is
--- what a performance pass reads to size the ceilings against a real fight instead of against an estimate.
 function VfxPool.stats(): { [string]: PoolPolicy.ClassState }
 	return getPolicy():report()
 end

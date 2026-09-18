@@ -250,7 +250,11 @@ local pulses: { [string]: PulseProfile } = {
 		HoldSeconds = 0.8,
 		ReleaseSeconds = 2.4,
 		Deltas = {
-			ColorCorrection = { Brightness = 0.1, Contrast = -0.18, Saturation = -0.45 },
+			-- Saturation is -0.36, not the -0.45 this first carried, because pulses COMPOSE: rest is
+			-- -0.08 and PageFlash takes another -0.55, so -0.45 here summed to -1.08 and spent the
+			-- overlap pinned at the -1 clamp, which is a fully grey screen nobody chose. An impact
+			-- landing while the Erasure arrives is not a rare case, it IS the World Boss fight.
+			ColorCorrection = { Brightness = 0.1, Contrast = -0.18, Saturation = -0.36 },
 			Bloom = { Intensity = 0.8, Threshold = -0.5 },
 			SunRays = { Intensity = 0.18, Spread = 0.2 },
 			DepthOfField = { FarIntensity = 0.25 },

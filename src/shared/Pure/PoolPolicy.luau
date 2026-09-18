@@ -48,12 +48,22 @@ export type Policy = {
 
 type PolicyImpl = typeof(setmetatable({} :: Policy, PoolPolicy))
 
--- Shipped ceilings, one row per class the VFX layer builds. Every number is read off what the renderers
--- actually do rather than picked to look generous: a ceiling nobody can reach protects nothing.
+-- Shipped ceilings, one row per class the VFX layer builds.
 --
--- The scene these are sized for is the one VfxLibrary's own frame ticker is sized for -- about two dozen
--- effects alive at once on a full server, the heaviest of them ten parts (a spiral is four rings plus six
--- wisps, a stone shell six plates, a boss eruption eight pillars).
+-- These are NOT what enforces art bible rule 8. VfxTimelineConfig.MaxLiveLayers is: ninety layers alive
+-- at once across every effect on screen, past which the runtime retires the oldest early. A layer borrows
+-- between one and five instances, so the timeline runs out of layer budget long before it runs out of any
+-- row below, and most of these ceilings are deliberately out of reach of it.
+--
+-- What they are is the backstop, and it has two jobs a layer budget cannot do. The thirty renderers phase
+-- 4 has not converted yet still call Instance.new directly and will come through here one at a time as
+-- they are rewritten, each arriving without a budget of its own. And a leak -- a release that never
+-- happens because an effect threw halfway through -- shows up here as a live count that climbs and never
+-- falls, which is what PeakLive exists to make visible.
+--
+-- The scene they are sized for is about two dozen effects alive at once on a full server, the heaviest of
+-- them ten parts (a spiral is four rings plus six wisps, a stone shell six plates, a boss eruption eight
+-- pillars).
 PoolPolicy.Limits = {
 	-- 24 effects times the heaviest effect's ten parts. Parked at 64 covers the working set of a duel --
 	-- casts, hits, melee arcs and dashes overlapping -- without holding a 3v3's peak for the rest of the

@@ -23,7 +23,7 @@ local VfxLibrary = require(script.Parent:WaitForChild("VfxLibrary"))
 
 local log = Log.new("VfxController")
 
-type Deps = { RemoteClient: any, ClientData: any, SoundController: any, Feel: any }
+type Deps = { RemoteClient: any, ClientData: any, SoundController: any, Feel: any, VfxTimeline: any }
 
 -- Every packet trove is destroyed after this delay (VfxLibrary effects fit inside it).
 local TROVE_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
@@ -37,6 +37,7 @@ local VfxController = {}
 local remoteClient: any
 local soundController: any
 local feel: any
+local timeline: any
 
 local unknownIds: { [string]: boolean } = {}
 local malformedWarned = false
@@ -88,6 +89,7 @@ local api: VfxLibrary.Api = {
 	PigmentColor = pigmentColor,
 	LocalCharacter = localCharacter,
 	Feel = nil :: any,
+	Timeline = nil :: any,
 	LocalUserId = Players.LocalPlayer.UserId,
 	CharacterOf = characterOf,
 }
@@ -159,8 +161,10 @@ function VfxController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
 	soundController = deps.SoundController
 	feel = deps.Feel
+	timeline = deps.VfxTimeline
 	api.Sound = soundController
 	api.Feel = feel
+	api.Timeline = timeline
 end
 
 -- Every declared effect id must have a renderer: a missing one would silently drop its packets.

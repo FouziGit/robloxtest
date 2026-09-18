@@ -41,6 +41,9 @@ export type Api = {
 	-- concrete type would make ReplicatedStorage depend on a controller in StarterPlayerScripts.
 	-- Phase 3 replaces Shake and HitStop above with calls through this (docs/JUICE_PLAN.md).
 	Feel: any,
+	-- The timeline runtime. A reworked effect declares its layers in Config/VfxTimelineConfig and
+	-- plays them through this instead of building instances by hand.
+	Timeline: any,
 	LocalUserId: number,
 	-- The model of a player by user id, for effects that have to adorn the person who was hit rather
 	-- than draw at a point in space. nil for a training dummy or an enemy, which has no player.
@@ -614,26 +617,28 @@ local function playPacketSound(packet: Packet, api: Api)
 end
 
 -- Casting flash at the caster, colored by the glyph pigment, with its cast sound.
-VfxLibrary.Cast = function(packet: Packet, trove: TroveType, api: Api)
-	local color = api.PigmentColor(stringParam(packet, "Pigment", ""))
-	local flash = newPart(trove, "CastFlash", {
-		Shape = Enum.PartType.Ball,
-		Color = color,
-		Size = Vector3.one * 1.5,
-		Transparency = 0.15,
-		CFrame = CFrame.new(packet.Origin),
+VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
+	-- What this replaced was one ball that grew and one spark burst, played identically by all twenty
+	-- glyphs: two layers, no wind-up, nothing left behind, and no way to tell a Cinnabar cast from an
+	-- Orpiment one except the tint. docs/JUICE_AUDIT.md lists it as the single worst offender in the game.
+	--
+	-- It is now the Cast timeline: a seal drawn in the air, held, and folded into a point that releases.
+	-- The renderer's whole job is to say who cast it, where, and in what pigment.
+	api.Timeline.play("Cast", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = api.PigmentColor(stringParam(packet, "Pigment", "")),
+		Follow = casterRoot(packet),
 	})
-	play(trove, flash, 0.35, { Size = Vector3.one * 6, Transparency = 1 })
-	local sparks = newEmitter(flash, {
-		Color = color,
-		Lifetime = NumberRange.new(0.3, 0.6),
-		Speed = NumberRange.new(6, 12),
-		Size = NumberSequence.new(0.8, 0),
-	})
-	burst(sparks, 16)
 	local sfxId = stringParam(packet, "SfxId", "")
 	if sfxId ~= "" then
 		api.Sound.play(sfxId, packet.Origin)
+	end
+	-- The field of view and the pad belong to the person who cast it, and to nobody else. The timeline's
+	-- own shake layer is distance-attenuated, so bystanders feel the cast without being punched by it.
+	if packet.Caster == api.LocalUserId then
+		api.Feel.fovPunch(FeelConfig.Fov.CastImpulse)
+		api.Feel.haptic("Cast")
 	end
 end
 
@@ -1558,47 +1563,37 @@ VfxLibrary.Colophon = function(packet: Packet, trove: TroveType, api: Api)
 	playPacketSound(packet, api)
 end
 
--- Impact. Everything the player learns about a hit in the first tenth of a second happens here: how
--- hard it was, who took it, from which side, and whether it was their own.
+-- Impact. Everything a player learns about a hit in the first tenth of a second happens here: how hard it
+-- was, who took it, from which side, and whether it was their own.
 --
--- The previous version keyed all of that off one distance test: anyone standing within a few studs of
--- the impact got the hit-stop and the shake, whoever they were. In a six-player arena that meant the
--- camera jolted for fights the player was not in and stayed calm for the one they were. The packet now
--- names the attacker and the target, so the three cases are told apart properly.
-VfxLibrary.Hit = function(packet: Packet, trove: TroveType, api: Api)
+-- The visible half is the Hit timeline -- the ring, the sparks along the blow, the light, the page flash,
+-- and the ink burn the ground keeps for a couple of seconds. The half that stays here is the half that
+-- depends on WHO is watching, which no timeline can know: the same hit is a different event for the
+-- person who landed it, the person who took it, and the four people who did not.
+--
+-- The previous version keyed all of that off one four-stud radius test, so in a six-player arena the
+-- camera jolted for fights the player was not in and stayed calm for the one they were.
+VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local pigment = stringParam(packet, "Pigment", "")
 	local color = api.PigmentColor(pigment)
 	local amount = numberParam(packet, "Amount", 0)
-	local direction = directionOf(packet)
 	local targetUserId = numberParam(packet, "Target", 0)
 	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
+	local heavy = amount >= HEAVY_HIT_DAMAGE
 
-	local flash = newPart(trove, "HitFlash", {
-		Shape = Enum.PartType.Ball,
+	api.Timeline.play("Hit", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
 		Color = color,
-		Size = Vector3.one,
-		Transparency = 0.1,
-		CFrame = CFrame.new(packet.Origin),
+		-- A heavier hit is the same effect, larger. One timeline serves a jab and an ultimate, which is
+		-- what keeps the roster's visual language consistent as it grows.
+		Scale = if heavy then 1.35 else 1,
 	})
-	play(trove, flash, 0.2, { Size = Vector3.one * 3.5, Transparency = 1 })
-	-- Sparks leave along the blow rather than symmetrically, which is what makes an impact read as
-	-- having come FROM somewhere.
-	local sparks = newEmitter(flash, {
-		Color = color,
-		Lifetime = NumberRange.new(0.2, 0.4),
-		Speed = NumberRange.new(8, 14),
-		Size = NumberSequence.new(0.5, 0),
-	})
-	sparks.EmissionDirection = Enum.NormalId.Front
-	sparks.SpreadAngle = Vector2.new(35, 35)
-	flash.CFrame = CFrame.lookAt(packet.Origin, packet.Origin + direction)
-	burst(sparks, 10)
 	api.Sound.play("ImpactHit", packet.Origin)
 
 	local feel = api.Feel
 	local dealtByMe = packet.Caster == api.LocalUserId
 	local takenByMe = targetUserId == api.LocalUserId and targetUserId ~= 0
-	local heavy = amount >= HEAVY_HIT_DAMAGE
 
 	if takenByMe then
 		feel.hitStopForDamage(amount, "Taken")
@@ -1611,7 +1606,7 @@ VfxLibrary.Hit = function(packet: Packet, trove: TroveType, api: Api)
 		feel.shake(if heavy then "Heavy" else "Melee")
 		feel.haptic("HitDealt")
 	else
-		-- Somebody else's exchange: the camera still acknowledges it, faded by how far away it was.
+		-- Somebody else's exchange: the camera acknowledges it, faded by how far away it was.
 		feel.shakeAt(if heavy then "Heavy" else "Light", packet.Origin, DISTANT_HIT_SCALE)
 	end
 
@@ -1665,29 +1660,18 @@ VfxLibrary.Melee = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Streak left behind by a dash.
-VfxLibrary.Dash = function(packet: Packet, trove: TroveType, api: Api)
-	local direction = directionOf(packet)
-	local distance = numberParam(packet, "Distance", CombatConfig.Dash.Distance)
-	local duration = math.clamp(numberParam(packet, "Duration", CombatConfig.Dash.DurationSeconds), 0.05, 1)
-	local color = api.PigmentColor("Verdigris")
-
-	local streak = newPart(trove, "DashTrail", {
-		Transparency = 1,
-		Size = Vector3.one * 0.5,
-		CFrame = CFrame.new(packet.Origin),
+VfxLibrary.Dash = function(packet: Packet, _trove: TroveType, api: Api)
+	-- The dodge is the third most repeated action in a match, and the plan sequences the pass by exactly
+	-- that. What it replaced slid a trail along at a constant speed beside a body that was decelerating,
+	-- which is the most visible way there is to make a dash look fake; the trail now rides the real root
+	-- and the body follows FeelMath.impulseSpeed, so the two agree.
+	local root = casterRoot(packet)
+	api.Timeline.play("Dash", {
+		Origin = if root ~= nil then root.Position else packet.Origin,
+		Direction = directionOf(packet),
+		Color = api.PigmentColor("Verdigris"),
+		Follow = root,
 	})
-	addTrail(streak, color, 1.5, 0.3)
-	local puff = newEmitter(streak, {
-		Color = color,
-		Lifetime = NumberRange.new(0.2, 0.4),
-		Speed = NumberRange.new(2, 5),
-		Size = NumberSequence.new(1.2, 0),
-	})
-	burst(puff, 12)
-	-- Quad-out, not linear: the body itself now decelerates along FeelMath.impulseSpeed
-	-- (MovementController), and a streak sliding at a constant speed beside a character that is slowing
-	-- down is the single most visible way to make a dash look fake.
-	play(trove, streak, duration, { CFrame = CFrame.new(packet.Origin + direction * distance) })
 	api.Sound.play("Dash", packet.Origin)
 end
 

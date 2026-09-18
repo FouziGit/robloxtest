@@ -53,8 +53,13 @@ local ANNOUNCEMENTS: { [string]: Announcement } = {
 local BossController = {}
 
 local localize: any
-local hudController: HudApi
+local hudController: HudApi?
 local remoteClient: any
+
+-- False until build() has the HUD column and every label exists. The band is a child of the HUD's own
+-- column, so a HUD that failed to build leaves this controller with nothing to draw into, and each
+-- BossChanged would dereference a nil label.
+local built = false
 
 local band: Frame
 local titleLabel: TextLabel
@@ -129,11 +134,19 @@ end
 -- ScreenGuis at the same DisplayOrder have no defined draw order, and this 420-wide band simply covered
 -- the 360-wide match band: boss title over the round line, boss health bar over the score.
 local function build()
-	local stack, layoutOrder = hudController.topStack()
+	-- The HUD may be absent entirely: the client bootstrap wraps each controller's Init in a pcall, so a
+	-- HudController that failed to load simply does not appear in the dependency table.
+	local hud = hudController
+	if hud == nil then
+		log.warn("HudController is missing: the World Boss band cannot be shown")
+		return
+	end
+	local stack, layoutOrder = hud.topStack()
 	if stack == nil then
 		log.warn("the HUD has no top stack: the World Boss band cannot be shown")
 		return
 	end
+	built = true
 
 	band = Instance.new("Frame")
 	band.Name = "Boss"
@@ -207,6 +220,9 @@ local function read(payload: any): Types.BossSnapshot?
 end
 
 local function refresh()
+	if not built then
+		return
+	end
 	local current = snapshot
 	if current == nil then
 		band.Visible = false
@@ -247,7 +263,10 @@ local function announce(current: Types.BossSnapshot)
 	if current.Phase == "Announced" then
 		params = { seconds = math.ceil(current.SecondsLeft) }
 	end
-	hudController.showLocalToast(announcement.Key, params, announcement.Kind)
+	local hud = hudController
+	if hud ~= nil then
+		hud.showLocalToast(announcement.Key, params, announcement.Kind)
+	end
 end
 
 local function onBossChanged(payload: any)
@@ -278,6 +297,13 @@ function BossController.Init(deps: Deps)
 end
 
 function BossController.Start()
+	if not built then
+		-- Without the band there is nothing to drive, and every label is nil: registering the handler would
+		-- turn each snapshot the server pushes into an error. The phase toasts go through the HUD, which is
+		-- the very thing that is missing, so there is nothing worth keeping either.
+		log.warn("not started: the band was never built")
+		return
+	end
 	remoteClient.on("BossChanged", onBossChanged)
 	log.info("started")
 end

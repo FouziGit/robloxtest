@@ -49,6 +49,10 @@ local CHIP_SIZE = 36
 local COMBO_BOTTOM_MARGIN = 110 -- keeps the chips above the touch thumb cluster
 -- On touch the bars sit above the combo row: the bottom-left corner belongs to the engine thumbstick.
 local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.Gap
+-- Ceiling on the top-centre column (see buildTopStack). Measured from the phone the layout targets: a
+-- 375-unit viewport leaves 498.5 padded units at scale 0.68, and the bars start BARS_TOUCH_BOTTOM_MARGIN
+-- above the bottom, so this is what is left above them with a gap to spare.
+local TOP_STACK_MAX_HEIGHT = 240
 local HINT_WIDTH = 220
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local GAMEPAD_PREFIX = "Gamepad"
@@ -60,7 +64,6 @@ local BAND_WIDTH = 360
 -- BossController reads through HudController.topStack.
 local MATCH_BAND_ORDER = 1
 local BOSS_BAND_ORDER = 2
-local TOAST_ORDER = 3
 local BAND_ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local BAND_HERO_HEIGHT = Theme.Sizes.TextHero + Theme.Sizes.PaddingSmall
 local ROSTER_COLUMN_WIDTH = (BAND_WIDTH - Theme.Sizes.Gap) / 2
@@ -89,6 +92,7 @@ local chakraBar: ProgressBar.ProgressBar
 local comboRow: Frame
 local hintLabel: TextLabel
 local toast: Toast.Toast
+local toastRoot: ScreenRoot.ScreenRoot
 local topStack: Frame
 local matchBand: Frame
 local matchRoundLabel: TextLabel
@@ -175,6 +179,14 @@ local function buildTopStack(parent: Instance)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
 	layout.Parent = topStack
+	-- Bounded and clipped. The column is as tall as its visible children, and a player can legitimately
+	-- hold a match snapshot and a World Boss snapshot at once: the server pushes BossChanged to everyone
+	-- on the server, not only to the participants. Without a ceiling the two bands could reach down into
+	-- the health and chakra bars, which on touch sit bottom-centre in the same column of screen.
+	local ceiling = Instance.new("UISizeConstraint")
+	ceiling.MaxSize = Vector2.new(math.huge, TOP_STACK_MAX_HEIGHT)
+	ceiling.Parent = topStack
+	topStack.ClipsDescendants = true
 	topStack.Parent = parent
 end
 
@@ -269,7 +281,16 @@ local function build()
 	buildTopStack(content)
 	buildMatchBand(topStack)
 
-	toast = Toast.new({ Name = "Toasts", Parent = topStack, LayoutOrder = TOAST_ORDER })
+	-- The toast queue gets its own ScreenGui on Theme.Layers.Toast, ABOVE every menu screen. It is the
+	-- only surface a server message has, and screens now sit deterministically above the HUD, so leaving
+	-- it inside the HUD made every server message unreadable while a panel was open: the panel covered it
+	-- and the panel's dim overlay covered the rest. A player refused a purchase saw nothing at all.
+	--
+	-- It also stops the column from growing down over the bars: the column holds the two bands only, so
+	-- their combined height is bounded by the match and boss layouts rather than by how many messages
+	-- happen to be on screen.
+	toastRoot = ScreenRoot.new({ Name = "Toasts", DisplayOrder = Theme.Layers.Toast })
+	toast = Toast.new({ Name = "Toasts", Parent = toastRoot.Content })
 end
 
 -- The top-centre column the match band, the boss band and the toasts share, plus the LayoutOrder the

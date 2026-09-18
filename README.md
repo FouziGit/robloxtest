@@ -20,11 +20,14 @@ cd jutsu-battlegrounds
 # 3. Vérifier que tout est vert
 ./scripts/check.sh
 
-# 4. Synchroniser avec Studio
-rojo serve default.project.json
+# 4. Construire la place et l'ouvrir dans Studio
+rojo build default.project.json -o build/JutsuBattlegrounds.rbxl
+open build/JutsuBattlegrounds.rbxl
 ```
 
-Dans Roblox Studio : installer le plugin Rojo (`rojo plugin install`), ouvrir une place vide, onglet **Plugins → Rojo → Connect**, accepter la synchronisation. Appuyer sur **Play**.
+Puis **Play**. C'est tout. Le fichier construit contient déjà le serveur, le client, l'interface et les paquets : aucun plugin, aucune connexion, rien qui puisse échouer. À reconstruire après chaque modification du code.
+
+Pour développer avec la synchronisation en direct : `rojo serve default.project.json`, plugin Rojo (`rojo plugin install`), onglet **Plugins → Rojo → Connect**. Attention, la synchronisation n'atteint que la place ouverte **et** connectée. Si Play affiche des mannequins sans aucune interface, c'est ça : voir le dépannage dans [docs/STUDIO_SETUP.md](docs/STUDIO_SETUP.md#8-dépannage).
 
 Pour que les sauvegardes fonctionnent : publier la place et cocher *Game Settings → Security → Enable Studio Access to API Services*. Détails et checklist complète (game passes, developer products, secrets CI) : **[docs/STUDIO_SETUP.md](docs/STUDIO_SETUP.md)**.
 

@@ -2,6 +2,22 @@
 
 Tout ce que le code ne peut pas faire à ta place. À faire une fois, dans l'ordre. Les identifiants obtenus se collent **uniquement** dans `src/shared/Config/MonetizationConfig.luau` ; au démarrage, le serveur affiche un `warn` par identifiant encore à `0`.
 
+## Le plus rapide : ouvrir le fichier construit
+
+Deux façons d'avoir le jeu dans Studio. La première ne peut pas échouer et ne demande aucun plugin.
+
+**A. Fichier construit (recommandé pour juste jouer).**
+
+```bash
+./scripts/check.sh && open build/JutsuBattlegrounds.rbxl
+```
+
+`rojo build` écrit un fichier de place complet : serveur, client, interface et paquets sont déjà dedans. Studio l'ouvre comme n'importe quelle place, et **Play** fonctionne immédiatement. Rien à connecter. À refaire après chaque modification du code, car ce fichier est une copie figée.
+
+**B. Synchronisation vive (pour développer).** `rojo serve` plus **Connect** dans le plugin Rojo. Le code suit les fichiers en direct, mais la synchronisation n'atteint que la place ouverte **et connectée** : c'est la source d'erreur numéro un, voir §8.
+
+La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y trouver la V2 : les deux n'ont aucun script en commun.
+
 ## 1. Outillage local (10 minutes)
 
 1. Installer rokit : `curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash` puis rouvrir le terminal.
@@ -72,3 +88,48 @@ Lancer ensuite le workflow « Publish to Roblox » depuis l'onglet Actions (`Sav
 ## 7. Assets à remplacer plus tard
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).
+
+## 8. Dépannage
+
+### Je lance Play, les mannequins apparaissent mais il n'y a aucune interface
+
+Le serveur tourne (les mannequins sont construits par `HubService`) et le client n'existe pas dans cette place. Autrement dit la place ouverte n'a pas reçu la synchronisation. Coller ceci dans la **Command Bar** de Studio (View → Command Bar) :
+
+```lua
+local SPS = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+local RS = game:GetService("ReplicatedStorage")
+print("StarterPlayerScripts:", SPS and #SPS:GetChildren() or "ABSENT")
+if SPS then for _, c in ipairs(SPS:GetChildren()) do print("   ", c.ClassName, c.Name) end end
+for _, n in ipairs({ "Shared", "UI", "Packages" }) do
+	print("ReplicatedStorage." .. n .. ":", RS:FindFirstChild(n) and "OK" or "ABSENT")
+end
+```
+
+Attendu, exactement :
+
+```
+StarterPlayerScripts: 3
+    LocalScript Bootstrap
+    Folder Controllers
+    ModuleScript RemoteClient
+ReplicatedStorage.Shared: OK
+ReplicatedStorage.UI: OK
+ReplicatedStorage.Packages: OK
+```
+
+| Sortie obtenue | Cause | Correction |
+|---|---|---|
+| `StarterPlayerScripts: 0` ou `ABSENT` | la place n'est pas synchronisée | ouvrir `build/JutsuBattlegrounds.rbxl` (méthode A ci-dessus) |
+| `Shared`, `UI` ou `Packages` `ABSENT` | synchronisation partielle, ou `wally install` jamais lancé | `./scripts/setup.sh` puis reconstruire |
+| des scripts aux noms inconnus (`ServerCore`, `DataManager`, `Client`…) | c'est une autre place, d'un autre projet | fermer sans enregistrer, ouvrir `build/JutsuBattlegrounds.rbxl` |
+| l'attendu s'affiche mais toujours aucune interface | erreur client à l'exécution | Output, onglet **Client** : la première ligne rouge nomme le contrôleur fautif |
+
+Un détail qui trompe : l'Output de Studio mélange serveur et client. Le HUD est construit par `HudController`, donc une erreur client passe inaperçue si le filtre est resté sur *Server*.
+
+### `ProfileStore` se plaint de l'accès aux données
+
+Game Settings → Security → *Enable Studio Access to API Services*, et la place doit être publiée au moins une fois. Sans cela rien n'est sauvegardé et l'avertissement est normal.
+
+### Deux points d'apparition
+
+`HubService` avertit s'il trouve une `SpawnLocation` autre que `HubSpawn`. Supprimer celle ajoutée à la main : le hub est entièrement construit par le code.

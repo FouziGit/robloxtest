@@ -99,7 +99,7 @@ local function grantCosmetic(player: Player, rarity: string?): boolean
 		log.error("resolveReceiptItem returned the unknown cosmetic %s", cosmeticId)
 		return false
 	end
-	if not log.try("cosmetic grant " .. cosmeticId, deps.Cosmetic.grant, player, cosmeticId) then
+	if not log.succeeded("cosmetic grant " .. cosmeticId, deps.Cosmetic.grant, player, cosmeticId) then
 		return false
 	end
 	deps.Shop.clearPurchaseIntent(player, cosmeticId)
@@ -211,15 +211,9 @@ local function processorFor(player: Player): ReceiptProcessor.Deps
 			if not deps.DataService.isActive(player) then
 				return false
 			end
-			-- Not log.try: that returns pcall's ok, i.e. "the call did not throw", which is precisely the
-			-- thing this path must not confuse with "the write landed". A plain pcall keeps the boolean
-			-- saveNow returns, and a thrown error is reported and counts as unconfirmed.
-			local ok, confirmed = pcall(deps.DataService.saveNow, player)
-			if not ok then
-				log.warn("saveNow %s failed: %s", player.Name, tostring(confirmed))
-				return false
-			end
-			return confirmed == true
+			-- succeeded, not try: try returns pcall's ok, i.e. "the call did not throw", which is exactly
+			-- the thing this path must never confuse with "the write landed".
+			return log.succeeded("saveNow " .. player.Name, deps.DataService.saveNow, player)
 		end,
 		log = function(message: string)
 			log.warn("receipt: %s", message)

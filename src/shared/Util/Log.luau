@@ -6,6 +6,7 @@ export type Logger = {
 	warn: (message: string, ...any) -> (),
 	error: (message: string, ...any) -> (),
 	try: <T...>(context: string, fn: (T...) -> ...any, T...) -> boolean,
+	succeeded: <T...>(context: string, fn: (T...) -> ...any, T...) -> boolean,
 }
 
 local Log = {}
@@ -43,15 +44,32 @@ function Log.new(prefix: string): Logger
 
 	-- Runs fn in a pcall; on failure warns with context and returns false.
 	--
-	-- The boolean is "it did not throw", NOT "it succeeded", and it DISCARDS whatever fn returned. A
-	-- caller that needs fn's own result must use pcall directly: returning this value as if it were the
-	-- result is how a failed profile save once read as a successful one.
+	-- The boolean is "it did not throw", NOT "it succeeded", and it DISCARDS whatever fn returned. Use it
+	-- for a fn that returns nothing. For a fn whose result says whether it did the thing, use `succeeded`:
+	-- reading this value as that result is how a refused grant and a failed profile save both once read
+	-- as having worked.
 	function logger.try<T...>(context: string, fn: (T...) -> ...any, ...: T...): boolean
 		local ok, err = pcall(fn, ...)
 		if not ok then
 			warn(render(prefix, "%s failed: %s", context, tostring(err)))
 		end
 		return ok
+	end
+
+	-- True only when fn neither threw NOR returned a falsy first value, warning with context in either
+	-- case. This is the question a caller has about a function that reports whether it did the thing:
+	-- granting a cosmetic, persisting a profile, spending currency.
+	function logger.succeeded<T...>(context: string, fn: (T...) -> ...any, ...: T...): boolean
+		local ok, result = pcall(fn, ...)
+		if not ok then
+			warn(render(prefix, "%s failed: %s", context, tostring(result)))
+			return false
+		end
+		if not result then
+			warn(render(prefix, "%s refused", context))
+			return false
+		end
+		return true
 	end
 
 	return logger :: Logger

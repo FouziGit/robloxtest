@@ -307,7 +307,7 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 
 	-- Debit first, then deliver: the balance is authoritative and a failed grant is a bug in
 	-- CosmeticService, reported here with its context rather than paid back at the VIP rate.
-	if not log.try("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId) then
+	if not log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId) then
 		notify.send(player, "purchase.failed", nil, "Error", SFX_ERROR)
 		ShopService.refresh(player)
 		return

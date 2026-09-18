@@ -55,8 +55,9 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | Phase | Statut | Commit |
 |---|---|---|
 | 0 — Audit du game feel, bible d'art, plan | ✅ | `266bbf3`, `573a3d7` |
-| 1 — Le lexique et le lore | ✅ | `4fc31f6` + celui-ci |
-| 2 à 9 — Feel, pipeline VFX, sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
+| 1 — Le lexique et le lore | ✅ | `4fc31f6`…`fddeb8b` |
+| 2 — `Feel` et `FeelConfig` | ✅ | `14ef09b`, `be45b2f` |
+| 3 à 9 — pipeline VFX, sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
 
 ### Phase 1 — fait
 
@@ -71,3 +72,16 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 - `Instance.new("Fire")` réécrit en `Instance.new("Cinnabar")` : `Fire` est une classe Roblox, pas un pigment. Selene l'a refusé, pour la deuxième fois.
 - Le document de design listait toujours les cinq rangs empruntés et l'économie vendait encore une aura nommée d'après un personnage de la licence, longtemps après que le code fût propre. D'où l'extension du test aux documents. (Ce journal est scanné comme le reste : il décrit les mots refusés sans les écrire, ce qui est la bonne discipline de toute façon.)
 - Deux balayages ont réécrit des fichiers qui doivent garder les anciens noms : la colonne « Avant » de l'`ART_BIBLE` et les fixtures de migration. D'où les assertions qui vérifient que les fichiers exemptés contiennent encore ce pour quoi ils sont exemptés.
+
+### Phase 2 — fait
+
+- `Pure/Spring.luau` (Euler semi-implicite à pas fixe, sous-échantillonné pour survivre à une image longue), `Pure/FeelMath.luau` (hit-stop selon les dégâts, atténuation par la distance, courbe d'impulsion normalisée, maintien puis fondu), `Config/FeelConfig.luau` : tous les chiffres, aucun ne touche à l'équilibrage.
+- `Controllers/Feel.luau` : hit-stop, secousse par bruit de Perlin, impulsions de champ de vision, contour d'impact, nombres de dégâts, haptique manette, ressorts partagés. Une seule liaison de rendu pour tout.
+- Câblé d'abord sur le M1 et l'esquive, puis sur l'impact. Le paquet `Hit` porte maintenant l'attaquant, la victime et la direction du coup.
+- Recul et esquive suivent une courbe décroissante à distance totale inchangée.
+- `Pure/Spring.luau` remplace `littensy/ripple` (D-47).
+
+### Phase 2 — ce que les portes ont attrapé
+
+- La porte d'analyse ne couvrait que `src/shared`, soit un quart du code et aucun fichier touchant le moteur. Élargie (D-51), elle a immédiatement révélé deux erreurs de type réelles.
+- Selene a refusé un helper devenu mort après le passage de la secousse dans `Feel`.

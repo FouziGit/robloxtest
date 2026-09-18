@@ -205,3 +205,15 @@ Raison : la consigne était de ne pas réécrire ce qui existe et est maintenu. 
 
 **D-48 — Le paquet Wally s'appelle `fouzigit/vellum`** · Passe Identité
 Raison : suite du renommage (D-43). Le nom du paquet n'est publié nulle part et ne casse rien.
+
+**D-49 — Pas d'haptique mobile : Roblox ne l'expose pas** · Passe Identité
+`HapticService` ne sert que les manettes (`IsVibrationSupported` prend un `UserInputType` de gamepad). Il n'existe aucune API Luau pour faire vibrer un téléphone. `Feel.haptic` est donc manette uniquement.
+Raison : la ligne « haptique, mobile et manette » du plan demande quelque chose que la plateforme n'a pas. Le noter vaut mieux que livrer un appel qui ne fait rien et laisser croire que c'est fait.
+
+**D-50 — Un seul propriétaire de la caméra, vérifié par un test de source** · Passe Identité
+`Feel` est le seul module autorisé à écrire `CurrentCamera.CFrame`, `FieldOfView` ou `Humanoid.CameraOffset`. `tests/FeelOwnership.spec.luau` échoue si un autre fichier de `src/client` ou `src/ui` le fait, et échoue aussi si `Feel` arrête de le faire, pour qu'il ne puisse pas passer en ne trouvant rien.
+Raison : deux systèmes qui écrivent la caméra dans la même image donnent un résultat qui dépend de l'ordre des liaisons de rendu. C'est ce qui permettait à l'ancienne version de laisser le champ de vision définitivement faux : deux impacts dans la même image, et la valeur finale du second interpolateur devenait le repos. Le défaut ne se voit que sur une machine qui fait tourner le jeu, donc la seule porte possible est au niveau du source.
+
+**D-51 — La porte d'analyse couvre tout `src`, plus seulement `src/shared`** · Passe Identité
+`scripts/check.sh` et la CI analysent désormais `src` entier, en excluant `Vendor/`.
+Raison : la porte étroite laissait sans vérification tous les contrôleurs client, tous les composants d'interface et tous les services serveur — trois quarts du code, et tout le code qui touche le moteur. Deux erreurs de type s'y cachaient : un `Vector3?` lu comme `Vector3` une ligne après son affectation dans `CombatService`, et un signal du World Boss dont le type de handler volontairement précis était refusé par le `Connect` variadique de Trove. Les deux sont corrigées ; le coût de la porte élargie est de quelques secondes.

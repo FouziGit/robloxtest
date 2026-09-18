@@ -56,7 +56,6 @@ local ENTRY_ROW_HEIGHT = NAME_HEIGHT + LINE_HEIGHT * 3 + Theme.Sizes.Padding
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT * 2
 local BASE_SLOTS = ProgressionConfig.Loadout.BaseSlots
-local MAX_SLOTS = ProgressionConfig.Loadout.MaxSlots
 -- Layout bands: the equipped section first, then one band per element.
 local EQUIPPED_BASE = 1
 local ELEMENT_BASE = 100
@@ -199,10 +198,15 @@ function LoadoutScreen.new(deps: Deps): Screen
 	-- Profile reads
 	----------------------------------------------------------------
 
+	-- The number the server decided, not a second copy of the rule. Recomputing it here could not express
+	-- an account that holds the whole roster, and would drift the day the rule changes.
 	local function totalSlots(): number
 		local data = deps.ClientData.get()
-		local extra = if data ~= nil then data.Loadout.ExtraSlots else 0
-		return math.clamp(BASE_SLOTS + math.max(0, extra), BASE_SLOTS, MAX_SLOTS)
+		local limit = if data ~= nil then data.Loadout.SlotLimit else nil
+		if type(limit) ~= "number" or limit < 1 then
+			return BASE_SLOTS
+		end
+		return math.floor(limit)
 	end
 
 	local function isUnlocked(data: Types.ProfileData?, def: JutsuDef): boolean

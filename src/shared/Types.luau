@@ -41,6 +41,10 @@ export type CosmeticsData = {
 export type LoadoutData = {
 	Slots: { string }, -- jutsu ids
 	ExtraSlots: number, -- purchased slots (0..PassExtraSlots)
+	-- How many slots this player may fill, decided by LoadoutService and replicated. The client used to
+	-- recompute it from ExtraSlots, which duplicated the rule and could not express an exception such as a
+	-- developer account holding the whole roster.
+	SlotLimit: number,
 }
 
 export type UnlocksData = {

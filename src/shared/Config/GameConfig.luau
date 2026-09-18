@@ -24,7 +24,29 @@ GameConfig.PreviousSeasonId = ""
 GameConfig.Developers = {
 	Names = { "BakuyaraTZ" } :: { string },
 	UserIds = {} :: { number },
+	-- Every jutsu equipped at once instead of the purchased slot budget, so the whole roster is one key
+	-- sequence away.
+	UnlimitedSlots = true,
+	-- No chakra cost and no cooldown, so a jutsu can be cast again immediately. Off means a developer
+	-- plays under the real economy, which is what you want when judging balance rather than behaviour.
+	FreeCasting = true,
 }
+
+-- True when this account is on the list above. Matched on the user id first, which never changes, then on
+-- the exact name, which is what you know before the account has ever joined.
+function GameConfig.isDeveloper(userId: number, name: string): boolean
+	for _, id in ipairs(GameConfig.Developers.UserIds) do
+		if id == userId then
+			return true
+		end
+	end
+	for _, allowed in ipairs(GameConfig.Developers.Names) do
+		if allowed == name then
+			return true
+		end
+	end
+	return false
+end
 
 GameConfig.Currency = {
 	Id = "Ryo",

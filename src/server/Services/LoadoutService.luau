@@ -94,20 +94,27 @@ local function grantEarned(player: Player, data: ProfileData): number
 	return granted
 end
 
--- True when this account is on GameConfig.Developers. Matched on the user id first, which never changes,
--- then on the exact name, which is what you know before the account has ever joined.
 local function isDeveloper(player: Player): boolean
-	for _, userId in ipairs(GameConfig.Developers.UserIds) do
-		if userId == player.UserId then
-			return true
-		end
+	return GameConfig.isDeveloper(player.UserId, player.Name)
+end
+
+-- Slots this player may fill, written into the profile so the client reads the number instead of
+-- recomputing the rule. A developer with UnlimitedSlots holds the whole roster; everybody else gets the
+-- base slots plus what the pass bought, capped.
+local function refreshSlotLimit(player: Player, data: ProfileData): boolean
+	local limit =
+		math.clamp(LOADOUT.BaseSlots + math.max(0, data.Loadout.ExtraSlots), LOADOUT.BaseSlots, LOADOUT.MaxSlots)
+	if isDeveloper(player) and GameConfig.Developers.UnlimitedSlots then
+		limit = #JutsuConfig.Jutsus
 	end
-	for _, name in ipairs(GameConfig.Developers.Names) do
-		if name == player.Name then
-			return true
-		end
+	if data.Loadout.SlotLimit == limit then
+		return false
 	end
-	return false
+	data.Loadout.SlotLimit = limit
+	-- Refresh before the push, so the client receives the new budget and the new count together.
+	refreshSlotLimit(player, data)
+	dataService.push(player, "Loadout")
+	return true
 end
 
 -- Hands a developer account the whole roster: every element, every jutsu, every loadout slot. Runs on
@@ -122,19 +129,17 @@ local function grantEverything(player: Player, data: ProfileData)
 			granted += 1
 		end
 	end
-	local extra = LOADOUT.MaxSlots - LOADOUT.BaseSlots
-	if data.Loadout.ExtraSlots < extra then
-		LoadoutService.setExtraSlots(player, extra)
-	end
 	if granted > 0 then
 		dataService.push(player, "Unlocks")
 	end
+	refreshSlotLimit(player, data)
 	log.info(
-		"%s (id %d) is a developer: %d jutsu(s) granted, %d slots",
+		"%s (id %d) is a developer: %d jutsu(s) granted, %d slots, free casting %s",
 		player.Name,
 		player.UserId,
 		granted,
-		LOADOUT.BaseSlots + extra
+		data.Loadout.SlotLimit,
+		tostring(GameConfig.Developers.FreeCasting)
 	)
 end
 
@@ -195,7 +200,10 @@ function LoadoutService.setLoadout(player: Player, slots: { string }): boolean
 		log.warn("setLoadout skipped for %s: profile not loaded", player.Name)
 		return false
 	end
-	local limit = math.min(LOADOUT.MaxSlots, LOADOUT.BaseSlots + data.Loadout.ExtraSlots)
+	-- The limit the profile carries, refreshed whenever anything that decides it changes. Recomputing it
+	-- here would be a second copy of the rule and would miss the developer exception.
+	refreshSlotLimit(player, data)
+	local limit = data.Loadout.SlotLimit
 
 	local function reject(reason: string): boolean
 		log.warn("setLoadout rejected for %s: %s", player.Name, reason)
@@ -259,6 +267,7 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	if grantEarned(player, data) > 0 then
 		dataService.push(player, "Unlocks")
 	end
+	refreshSlotLimit(player, data)
 end
 
 function LoadoutService.Init(deps: Deps)

@@ -113,6 +113,11 @@ local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLe
 -- Per player: jutsu id -> os.clock timestamp at which it can be cast again.
 local cooldowns: { [Player]: { [string]: number } } = {}
 
+-- A developer account casting under GameConfig.Developers.FreeCasting: no chakra, no cooldown.
+local function freeCasting(player: Player): boolean
+	return GameConfig.Developers.FreeCasting and GameConfig.isDeveloper(player.UserId, player.Name)
+end
+
 local function cooldownsOf(player: Player): { [string]: number }
 	local map = cooldowns[player]
 	if map == nil then
@@ -158,6 +163,11 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 	if table.find(data.Loadout.Slots, jutsuId) == nil then
 		notify.send(player, "hud.cast.notEquipped", { name = def.NameKey }, "Error")
 		return nil
+	end
+	if freeCasting(player) then
+		-- No cooldown gate and, below, no chakra debit: a developer can chain the whole roster without
+		-- waiting. Turn GameConfig.Developers.FreeCasting off to play under the real economy.
+		return def
 	end
 	local readyAt = cooldownsOf(player)[jutsuId]
 	if readyAt ~= nil and readyAt > now then
@@ -239,12 +249,14 @@ local function onCastJutsu(player: Player, sequence: { string })
 	if origin == nil then
 		return
 	end
-	if not combat.trySpendChakra(player, def.Cost) then
+	if not freeCasting(player) and not combat.trySpendChakra(player, def.Cost) then
 		notify.send(player, "hud.cast.notEnoughChakra", nil, "Error", "Error")
 		return
 	end
 	local direction = origin.LookVector
-	cooldownsOf(player)[def.Id] = now + def.Cooldown
+	if not freeCasting(player) then
+		cooldownsOf(player)[def.Id] = now + def.Cooldown
+	end
 	vfx.emit({
 		Id = "Cast",
 		Origin = origin.Position,

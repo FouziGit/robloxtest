@@ -333,6 +333,31 @@ describe("GameConfig.Developers", function()
 			expect(type(userId)).toBe("number")
 			expect(userId > 0 and userId == math.floor(userId)).toBe(true)
 		end
+		expect(type(dev.UnlimitedSlots)).toBe("boolean")
+		expect(type(dev.FreeCasting)).toBe("boolean")
+	end)
+
+	it("matches only the listed accounts", function()
+		local dev = GameConfig.Developers
+		for _, name in ipairs(dev.Names) do
+			expect(GameConfig.isDeveloper(0, name)).toBe(true)
+			-- Exact match only: no case folding, no trimming, no prefix.
+			expect(GameConfig.isDeveloper(0, string.lower(name) .. "x")).toBe(false)
+			expect(GameConfig.isDeveloper(0, " " .. name)).toBe(false)
+		end
+		for _, userId in ipairs(dev.UserIds) do
+			expect(GameConfig.isDeveloper(userId, "")).toBe(true)
+		end
+		expect(GameConfig.isDeveloper(0, "")).toBe(false)
+		expect(GameConfig.isDeveloper(-1, "SomeoneElse")).toBe(false)
+		expect(GameConfig.isDeveloper(123456789, "AnotherPlayer")).toBe(false)
+	end)
+
+	it("stays a short, explicit list", function()
+		-- A list that grows is a list nobody reads. Every entry hands out the whole roster and free
+		-- casting, so it must stay something a human checks at a glance before publishing.
+		local dev = GameConfig.Developers
+		expect(#dev.Names + #dev.UserIds <= 5).toBe(true)
 	end)
 end)
 

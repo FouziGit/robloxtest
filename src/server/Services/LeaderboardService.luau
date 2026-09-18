@@ -246,13 +246,33 @@ local function flushDue()
 	writeDue(takeDue(nil))
 end
 
+-- Drops the per-key write stamps of a user id once nothing is queued for them. Without it the stamp maps
+-- grow by one entry per distinct player per board and never shrink, so a server running for hours ends up
+-- holding them for everyone who ever passed through.
+local function forgetStamps(userId: number)
+	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
+		local queue = pending[boardId]
+		if queue == nil or queue[userId] == nil then
+			local stamps = lastWrite[boardId]
+			if stamps ~= nil then
+				stamps[userId] = nil
+			end
+		end
+	end
+end
+
 local function onPlayerRemoving(player: Player)
-	local due = takeDue(player.UserId)
+	local userId = player.UserId
+	local due = takeDue(userId)
 	if #due == 0 then
+		forgetStamps(userId)
 		return
 	end
 	task.spawn(function()
 		log.try("flush on leave", writeDue, due)
+		-- After the flush, so a write that failed and went back to `pending` keeps its stamp and its
+		-- cooldown when the due scan picks it up again.
+		forgetStamps(userId)
 	end)
 end
 

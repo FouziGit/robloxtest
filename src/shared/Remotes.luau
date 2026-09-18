@@ -6,6 +6,7 @@ local ElementConfig = require(script.Parent.Config.ElementConfig)
 local GameConfig = require(script.Parent.Config.GameConfig)
 local Guard = require(script.Parent.Util.Guard)
 local InputConfig = require(script.Parent.Config.InputConfig)
+local JutsuConfig = require(script.Parent.Config.JutsuConfig)
 local MatchConfig = require(script.Parent.Config.MatchConfig)
 local RankingConfig = require(script.Parent.Config.RankingConfig)
 
@@ -103,7 +104,11 @@ Remotes.Definitions = {
 	SetLoadout = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
-		Args = { Guard.array(Guard.string({ min = 1, max = 64 }), { maxLength = 10 }) },
+		-- The whole roster, not the normal slot budget: LoadoutService decides the real limit per player
+		-- and refuses a longer list with a toast. A wire cap below that limit refused the payload BEFORE
+		-- the handler ran, so the player got no explanation and each attempt counted as a schema strike
+		-- against their own account.
+		Args = { Guard.array(Guard.string({ min = 1, max = 64 }), { maxLength = #JutsuConfig.Jutsus }) },
 		Rate = { Capacity = 4, Refill = 0.5 },
 	},
 	EquipCosmetic = {

@@ -595,6 +595,40 @@ end
 -- MudWall: invisible collision wall in front of the caster (clients render the visual)
 ----------------------------------------------------------------
 
+-- Live walls per caster. Their only bound used to be arithmetic: the wall lasts Params.Duration (6 s) and
+-- the jutsu recharges in Cooldown (10 s), so one could exist at a time. Nothing stated that, and anything
+-- that shortens the cooldown turns an invisible, solid, 14 by 9 stud slab into something the caster can
+-- stack until the hub is a maze. The cap makes the invariant explicit and independent of the cooldown.
+local MAX_WALLS_PER_CASTER = 2
+local wallsByCaster: { [Player]: { BasePart } } = {}
+
+local function retireOldestWall(caster: Player, wall: BasePart)
+	local live = wallsByCaster[caster]
+	if live == nil then
+		live = {}
+		wallsByCaster[caster] = live
+	end
+	-- Drop the ones Debris already collected before counting.
+	for index = #live, 1, -1 do
+		if live[index].Parent == nil then
+			table.remove(live, index)
+		end
+	end
+	while #live >= MAX_WALLS_PER_CASTER do
+		local oldest = table.remove(live, 1)
+		if oldest ~= nil then
+			oldest:Destroy()
+		end
+	end
+	table.insert(live, wall)
+end
+
+-- The table is released here rather than by a service, so nothing has to remember to call it. The walls
+-- themselves belong to Debris and expire on their own.
+Players.PlayerRemoving:Connect(function(player: Player)
+	wallsByCaster[player] = nil
+end)
+
 function JutsuEffects.MudWall(ctx: Context): number
 	local params = ctx.Def.Params
 	local base = ctx.Origin * CFrame.new(0, 0, -params.Offset)
@@ -613,6 +647,7 @@ function JutsuEffects.MudWall(ctx: Context): number
 	CollectionService:AddTag(wall, COLLISION_TAG)
 	wall.Parent = Workspace
 	Debris:AddItem(wall, params.Duration)
+	retireOldestWall(ctx.Caster, wall)
 
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,

@@ -4,6 +4,7 @@ local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local ComboResolver = require("../src/shared/Pure/ComboResolver")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
+local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
 local ElementConfig = require("../src/shared/Config/ElementConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -317,9 +318,9 @@ describe("BattlepassConfig", function()
 	end)
 end)
 
-describe("GameConfig.Developers", function()
+describe("DeveloperConfig", function()
 	it("is a well-formed allowlist", function()
-		local dev = GameConfig.Developers
+		local dev = DeveloperConfig
 		expect(type(dev.Names)).toBe("table")
 		expect(type(dev.UserIds)).toBe("table")
 		for _, name in ipairs(dev.Names) do
@@ -335,28 +336,30 @@ describe("GameConfig.Developers", function()
 		end
 		expect(type(dev.UnlimitedSlots)).toBe("boolean")
 		expect(type(dev.FreeCasting)).toBe("boolean")
+		-- A floor, never zero: zero lets a jutsu overlap itself and every cap in JutsuEffects is per cast.
+		expect(dev.MinRecastSeconds > 0).toBe(true)
 	end)
 
 	it("matches only the listed accounts", function()
-		local dev = GameConfig.Developers
+		local dev = DeveloperConfig
 		for _, name in ipairs(dev.Names) do
-			expect(GameConfig.isDeveloper(0, name)).toBe(true)
+			expect(DeveloperConfig.isDeveloper(0, name)).toBe(true)
 			-- Exact match only: no case folding, no trimming, no prefix.
-			expect(GameConfig.isDeveloper(0, string.lower(name) .. "x")).toBe(false)
-			expect(GameConfig.isDeveloper(0, " " .. name)).toBe(false)
+			expect(DeveloperConfig.isDeveloper(0, string.lower(name) .. "x")).toBe(false)
+			expect(DeveloperConfig.isDeveloper(0, " " .. name)).toBe(false)
 		end
 		for _, userId in ipairs(dev.UserIds) do
-			expect(GameConfig.isDeveloper(userId, "")).toBe(true)
+			expect(DeveloperConfig.isDeveloper(userId, "")).toBe(true)
 		end
-		expect(GameConfig.isDeveloper(0, "")).toBe(false)
-		expect(GameConfig.isDeveloper(-1, "SomeoneElse")).toBe(false)
-		expect(GameConfig.isDeveloper(123456789, "AnotherPlayer")).toBe(false)
+		expect(DeveloperConfig.isDeveloper(0, "")).toBe(false)
+		expect(DeveloperConfig.isDeveloper(-1, "SomeoneElse")).toBe(false)
+		expect(DeveloperConfig.isDeveloper(123456789, "AnotherPlayer")).toBe(false)
 	end)
 
 	it("stays a short, explicit list", function()
 		-- A list that grows is a list nobody reads. Every entry hands out the whole roster and free
 		-- casting, so it must stay something a human checks at a glance before publishing.
-		local dev = GameConfig.Developers
+		local dev = DeveloperConfig
 		expect(#dev.Names + #dev.UserIds <= 5).toBe(true)
 	end)
 end)

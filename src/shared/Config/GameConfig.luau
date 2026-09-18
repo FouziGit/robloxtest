@@ -12,44 +12,6 @@ GameConfig.SeasonId = "S1"
 -- pays the end-of-season rewards of this season once per player, then records it in the profile.
 GameConfig.PreviousSeasonId = ""
 
--- Accounts that get every jutsu, every element and every loadout slot the moment they join, whatever
--- their level. For testing the roster without grinding to level 40.
---
--- UserIds is the real list: a Roblox username can be changed by its owner, a user id never changes, so a
--- name that frees up could later be taken by somebody else. Names exist because they are what you know
--- before the account has ever joined, and they are matched exactly, case included. Fill UserIds and empty
--- Names once the account has connected: the server logs the id it saw.
---
--- This is server-side only. The client never learns who is on the list and cannot ask to be added.
-GameConfig.Developers = {
-	-- Empty on purpose: the id below is what matches. A name is only useful before an account has ever
-	-- joined, and it can be changed by its owner and then taken by somebody else.
-	Names = {} :: { string },
-	UserIds = { 3721321390 } :: { number }, -- BakuyaraTZ
-	-- Every jutsu equipped at once instead of the purchased slot budget, so the whole roster is one key
-	-- sequence away.
-	UnlimitedSlots = true,
-	-- No chakra cost and no cooldown, so a jutsu can be cast again immediately. Off means a developer
-	-- plays under the real economy, which is what you want when judging balance rather than behaviour.
-	FreeCasting = true,
-}
-
--- True when this account is on the list above. Matched on the user id first, which never changes, then on
--- the exact name, which is what you know before the account has ever joined.
-function GameConfig.isDeveloper(userId: number, name: string): boolean
-	for _, id in ipairs(GameConfig.Developers.UserIds) do
-		if id == userId then
-			return true
-		end
-	end
-	for _, allowed in ipairs(GameConfig.Developers.Names) do
-		if allowed == name then
-			return true
-		end
-	end
-	return false
-end
-
 GameConfig.Currency = {
 	Id = "Ryo",
 	NameKey = "currency.ryo",

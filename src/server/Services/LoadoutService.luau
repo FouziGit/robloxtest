@@ -10,8 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
 local ElementConfig = require(Shared.Config.ElementConfig)
-local GameConfig = require(Shared.Config.GameConfig)
 local JutsuConfig = require(Shared.Config.JutsuConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -95,7 +95,7 @@ local function grantEarned(player: Player, data: ProfileData): number
 end
 
 local function isDeveloper(player: Player): boolean
-	return GameConfig.isDeveloper(player.UserId, player.Name)
+	return DeveloperConfig.isDeveloper(player.UserId, player.Name)
 end
 
 -- Slots this player may fill, written into the profile so the client reads the number instead of
@@ -104,15 +104,21 @@ end
 local function refreshSlotLimit(player: Player, data: ProfileData): boolean
 	local limit =
 		math.clamp(LOADOUT.BaseSlots + math.max(0, data.Loadout.ExtraSlots), LOADOUT.BaseSlots, LOADOUT.MaxSlots)
-	if isDeveloper(player) and GameConfig.Developers.UnlimitedSlots then
+	if isDeveloper(player) and DeveloperConfig.UnlimitedSlots then
 		limit = #JutsuConfig.Jutsus
 	end
-	if data.Loadout.SlotLimit == limit then
+	-- Anything already equipped beyond the new budget is dropped here. A limit that shrinks below the
+	-- equipped count (an account leaving the developer list, a refunded pass) would otherwise leave a
+	-- profile whose own loadout every future setLoadout refuses, while the extra jutsus stayed castable.
+	local trimmed = false
+	while #data.Loadout.Slots > limit do
+		table.remove(data.Loadout.Slots)
+		trimmed = true
+	end
+	if data.Loadout.SlotLimit == limit and not trimmed then
 		return false
 	end
 	data.Loadout.SlotLimit = limit
-	-- Refresh before the push, so the client receives the new budget and the new count together.
-	refreshSlotLimit(player, data)
 	dataService.push(player, "Loadout")
 	return true
 end
@@ -132,6 +138,11 @@ local function grantEverything(player: Player, data: ProfileData)
 	if granted > 0 then
 		dataService.push(player, "Unlocks")
 	end
+	if not data.Meta.DevGranted then
+		-- Recorded so the grant can be undone if the account ever leaves the list.
+		data.Meta.DevGranted = true
+		dataService.push(player, "Meta")
+	end
 	refreshSlotLimit(player, data)
 	log.info(
 		"%s (id %d) is a developer: %d jutsu(s) granted, %d slots, free casting %s",
@@ -139,7 +150,7 @@ local function grantEverything(player: Player, data: ProfileData)
 		player.UserId,
 		granted,
 		data.Loadout.SlotLimit,
-		tostring(GameConfig.Developers.FreeCasting)
+		tostring(DeveloperConfig.FreeCasting)
 	)
 end
 
@@ -188,7 +199,11 @@ function LoadoutService.setExtraSlots(player: Player, count: number): boolean
 		return false
 	end
 	data.Loadout.ExtraSlots = count
-	dataService.push(player, "Loadout")
+	-- Refreshes and pushes: without it the purchased slots stayed inert for the whole session, because
+	-- the budget the client reads and the one setLoadout validates against both live in SlotLimit.
+	if not refreshSlotLimit(player, data) then
+		dataService.push(player, "Loadout")
+	end
 	log.info("%s now owns %d extra loadout slot(s)", player.Name, count)
 	return true
 end
@@ -256,10 +271,28 @@ local function onLevelUp(player: Player, level: number)
 	end
 end
 
+-- Puts back what the developer list handed out, for an account that is no longer on it. Without this the
+-- grant was irrevocable: removing the id left the profile holding all twenty jutsus and the Lightning
+-- element that other players pay for, with the whole set still castable.
+--
+-- The unlocks are rebuilt rather than subtracted, because there is no record of which ones were earned.
+-- grantEarned below puts the level gates back, the Lightning level check and the game pass sync put the
+-- element back if it is genuinely owned, and refreshSlotLimit trims the loadout to the real budget.
+local function revokeDeveloperGrants(player: Player, data: ProfileData)
+	table.clear(data.Unlocks.Elements)
+	data.Unlocks.Jutsus = JutsuConfig.defaultUnlocks()
+	data.Meta.DevGranted = false
+	dataService.push(player, "Unlocks")
+	log.info("%s is no longer a developer: unlocks rebuilt from what the profile earned", player.Name)
+end
+
 local function onProfileLoaded(player: Player, data: ProfileData)
 	if isDeveloper(player) then
 		grantEverything(player, data)
 		return
+	end
+	if data.Meta.DevGranted then
+		revokeDeveloperGrants(player, data)
 	end
 	if data.Progression.Level >= LIGHTNING_LEVEL then
 		LoadoutService.grantElement(player, LIGHTNING_ELEMENT)

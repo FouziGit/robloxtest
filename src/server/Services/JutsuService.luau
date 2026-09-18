@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local ComboResolver = require(Shared.Pure.ComboResolver)
+local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local JutsuConfig = require(Shared.Config.JutsuConfig)
 local Log = require(Shared.Util.Log)
@@ -81,6 +82,11 @@ type EffectContext = {
 type Effect = (ctx: EffectContext) -> number
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
+-- Read only to decide whether free casting applies. A developer testing the roster must not carry
+-- no-cost casting into a ranked match or a World Boss, where it takes real rating and real rewards from
+-- other players.
+type MatchApi = { isInMatch: (player: Player) -> boolean }
+type WorldBossApi = { isLive: () -> boolean }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -91,6 +97,8 @@ type Deps = {
 	Movement: MovementApi,
 	Progression: ProgressionApi,
 	Quest: QuestApi,
+	Match: MatchApi,
+	WorldBoss: WorldBossApi,
 }
 
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
@@ -108,14 +116,32 @@ local vfx: VfxApi
 local movement: MovementApi
 local progression: ProgressionApi
 local quest: QuestApi
+local match: MatchApi
+local worldBoss: WorldBossApi
 
 local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLength)
 -- Per player: jutsu id -> os.clock timestamp at which it can be cast again.
 local cooldowns: { [Player]: { [string]: number } } = {}
 
--- A developer account casting under GameConfig.Developers.FreeCasting: no chakra, no cooldown.
+-- A developer account testing the roster in the hub: no chakra, and cooldowns collapsed to
+-- DeveloperConfig.MinRecastSeconds.
+--
+-- Deliberately refused inside a ranked match and during a World Boss event. Both pay out to other
+-- players: a free-casting account would take real Elo from a real opponent and write it to the live
+-- seasonal ladder, and would swallow a share of a boss payout that is divided between participants. The
+-- hub is where the roster is meant to be tried, and the hub pays nobody.
+--
+-- The CastJutsu token bucket still applies: it is flood protection against an untrusted client, not an
+-- economy rule, so a developer is throttled to its refill rate like everybody else. That bounds the real
+-- pace at a few casts a second, well below anything the effects were written against.
 local function freeCasting(player: Player): boolean
-	return GameConfig.Developers.FreeCasting and GameConfig.isDeveloper(player.UserId, player.Name)
+	if not DeveloperConfig.FreeCasting then
+		return false
+	end
+	if not DeveloperConfig.isDeveloper(player.UserId, player.Name) then
+		return false
+	end
+	return not match.isInMatch(player) and not worldBoss.isLive()
 end
 
 local function cooldownsOf(player: Player): { [string]: number }
@@ -163,11 +189,6 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 	if table.find(data.Loadout.Slots, jutsuId) == nil then
 		notify.send(player, "hud.cast.notEquipped", { name = def.NameKey }, "Error")
 		return nil
-	end
-	if freeCasting(player) then
-		-- No cooldown gate and, below, no chakra debit: a developer can chain the whole roster without
-		-- waiting. Turn GameConfig.Developers.FreeCasting off to play under the real economy.
-		return def
 	end
 	local readyAt = cooldownsOf(player)[jutsuId]
 	if readyAt ~= nil and readyAt > now then
@@ -254,9 +275,12 @@ local function onCastJutsu(player: Player, sequence: { string })
 		return
 	end
 	local direction = origin.LookVector
-	if not freeCasting(player) then
-		cooldownsOf(player)[def.Id] = now + def.Cooldown
-	end
+	-- A floor, not zero, under free casting. Every damage cap, hit tracker and duration in JutsuEffects is
+	-- per cast, so two live casts of the same jutsu double their damage, stack their stuns and pile up
+	-- their world geometry. The floor is longer than the longest zone tick, so a cast always ends before
+	-- its successor starts.
+	local cooldown = if freeCasting(player) then DeveloperConfig.MinRecastSeconds else def.Cooldown
+	cooldownsOf(player)[def.Id] = now + cooldown
 	vfx.emit({
 		Id = "Cast",
 		Origin = origin.Position,
@@ -300,6 +324,8 @@ function JutsuService.Init(deps: Deps)
 	movement = deps.Movement
 	progression = deps.Progression
 	quest = deps.Quest
+	match = deps.Match
+	worldBoss = deps.WorldBoss
 end
 
 function JutsuService.Start()

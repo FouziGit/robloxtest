@@ -38,7 +38,7 @@ local function template(): { [string]: any }
 		Currency = { Ryo = 0 },
 		Battlepass = { _template = { XP = 0, Tier = 1, Premium = false, ClaimedFree = {}, ClaimedPremium = {} } },
 		Cosmetics = { Owned = {}, Equipped = {} },
-		Loadout = { Slots = { "Fireball", "WaterWave" }, ExtraSlots = 0 },
+		Loadout = { Slots = { "Fireball", "WaterWave" }, ExtraSlots = 0, SlotLimit = 6 },
 		Unlocks = { Jutsus = { "Fireball" }, Elements = { "Fire", "Water", "Earth", "Wind" } },
 		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
 		Stats = {
@@ -58,7 +58,15 @@ local function template(): { [string]: any }
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
-		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
+		Meta = {
+			FirstJoin = 0,
+			LastJoin = 0,
+			SessionCount = 0,
+			LegacyImported = false,
+			FirstSessionPromptGate = false,
+			SaveToken = 0,
+			DevGranted = false,
+		},
 	}
 end
 
@@ -136,6 +144,22 @@ describe("DataMigration", function()
 		expect(data.Settings.Keyboard.Fire).toBe("J")
 		expect(data.Cosmetics.Owned).toEqual({})
 		expect(data.Battlepass.S1.ClaimedFree).toEqual({})
+	end)
+
+	it("fills a field a saved profile predates", function()
+		-- Every field added after a profile was written arrives through the template, so a partial section
+		-- must come back complete. SlotLimit, SaveToken and DevGranted were all added to live profiles.
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Loadout = { Slots = { "Fireball" }, ExtraSlots = 2 },
+			Meta = { SessionCount = 4 },
+		}
+		local result = DataMigration.migrate(raw, template(), "S1")
+		expect(result.Loadout.SlotLimit).toBe(6)
+		expect(result.Loadout.ExtraSlots).toBe(2)
+		expect(result.Meta.SessionCount).toBe(4)
+		expect(result.Meta.SaveToken).toBe(0)
+		expect(result.Meta.DevGranted).toBe(false)
 	end)
 
 	it("keeps a V2 profile and fills missing fields", function()

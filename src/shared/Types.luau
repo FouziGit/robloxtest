@@ -119,6 +119,9 @@ export type MetaData = {
 	-- that was already in flight when the mutation happened, which matters because a purchase is only
 	-- acknowledged to Roblox on a confirmed write.
 	SaveToken: number,
+	-- True while this profile holds unlocks handed out by the developer list rather than earned. Lets
+	-- LoadoutService put them back if the account ever leaves that list.
+	DevGranted: boolean,
 }
 
 export type ProfileData = {

@@ -108,6 +108,7 @@ function DataService.template(): { [string]: any }
 			LegacyImported = false,
 			FirstSessionPromptGate = false,
 			SaveToken = 0,
+			DevGranted = false,
 		},
 	}
 end

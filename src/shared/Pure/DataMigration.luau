@@ -12,7 +12,11 @@
 
 local DataMigration = {}
 
-DataMigration.CurrentVersion = 2
+-- 3: the lexicon rename. Element and jutsu ids became pigment and glyph ids, and the two profile keys
+-- that held them were renamed with their values (docs/ART_BIBLE.md). A version 2 profile still holds the
+-- old strings under the old keys, so upgradeToV3 below rewrites both rather than letting the generic
+-- overlay drop them silently.
+DataMigration.CurrentVersion = 3
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {
@@ -29,7 +33,7 @@ local LEGACY_COSMETICS: { [string]: string } = {
 }
 
 -- V1 element names -> V2 action ids, and the V1 default keys that must be replaced by V2 defaults.
-local LEGACY_ELEMENTS: { [string]: string } = { Feu = "Fire", Eau = "Water", Terre = "Earth", Vent = "Wind" }
+local LEGACY_ELEMENTS: { [string]: string } = { Feu = "Cinnabar", Eau = "Indigo", Terre = "Umber", Vent = "Verdigris" }
 local LEGACY_DEFAULT_KEYS: { [string]: string } = { Feu = "A", Eau = "E", Terre = "R", Vent = "T" }
 
 -- Keys that conflict with movement (QWERTY/AZERTY) or Roblox defaults: never carried over.
@@ -160,15 +164,67 @@ export type MigrationInfo = { From: number, Migrated: boolean }
 
 -- `template` must be a complete V2 profile (see DataService). `template.Battlepass._template` holds
 -- the per-season default that new seasons are cloned from; it is removed from the result.
+-- `legacy` carries the old-to-new identifier maps (src/shared/Pure/LegacyNames.luau). It is a parameter
+-- rather than a require because this module may not require anything: passing it in keeps the rule and
+-- lets a test drive the rename with its own fixtures.
+export type LegacyMaps = {
+	Pigments: { [string]: string },
+	Glyphs: { [string]: string },
+}
+
+-- Rewrites a version 2 profile's identifiers and moves the two keys that held them. The old keys are
+-- read from `raw`, not from `result`: the generic overlay never copied them, because the template no
+-- longer declares them.
+local function upgradeToV3(raw: { [string]: any }, result: { [string]: any }, legacy: LegacyMaps)
+	local unlocks = result.Unlocks
+	if type(unlocks) ~= "table" then
+		return
+	end
+	local oldUnlocks = if type(raw.Unlocks) == "table" then raw.Unlocks else {}
+
+	if type(oldUnlocks.Jutsus) == "table" then
+		local glyphs = {}
+		for _, id in ipairs(oldUnlocks.Jutsus) do
+			if type(id) == "string" then
+				table.insert(glyphs, legacy.Glyphs[id] or id)
+			end
+		end
+		unlocks.Glyphs = glyphs
+	end
+	if type(oldUnlocks.Elements) == "table" then
+		local pigments = {}
+		for _, id in ipairs(oldUnlocks.Elements) do
+			if type(id) == "string" then
+				table.insert(pigments, legacy.Pigments[id] or id)
+			end
+		end
+		unlocks.Pigments = pigments
+	end
+
+	local loadout = result.Loadout
+	if type(loadout) == "table" and type(loadout.Slots) == "table" then
+		for index, id in ipairs(loadout.Slots) do
+			if type(id) == "string" then
+				loadout.Slots[index] = legacy.Glyphs[id] or id
+			end
+		end
+	end
+end
+
 function DataMigration.migrate(
 	raw: any,
 	template: { [string]: any },
-	seasonId: string
+	seasonId: string,
+	legacy: LegacyMaps?
 ): ({ [string]: any }, MigrationInfo)
 	local result = deepCopy(template)
 	local info: MigrationInfo = { From = 0, Migrated = false }
 
 	if type(raw) ~= "table" then
+		-- A fresh profile is stamped current too. Leaving the template's own version here meant a brand new
+		-- profile claimed to be whatever version the template literal happened to say, and would be
+		-- migrated again on its next load.
+		result.DataVersion = DataMigration.CurrentVersion
 		result.Battlepass._template = nil
 		return result, info
 	end
@@ -194,6 +250,11 @@ function DataMigration.migrate(
 			end
 		end
 		info.Migrated = version < DataMigration.CurrentVersion
+	end
+
+	if version < 3 and legacy ~= nil then
+		upgradeToV3(raw, result, legacy)
+		info.Migrated = true
 	end
 
 	result.DataVersion = DataMigration.CurrentVersion

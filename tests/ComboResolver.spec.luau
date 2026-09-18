@@ -5,45 +5,48 @@ local Harness = require("./harness")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local recipes = {
-	{ Id = "Fireball", Combo = { "Fire", "Fire" } },
-	{ Id = "EmberStorm", Combo = { "Fire", "Fire", "Wind" } },
-	{ Id = "WindGust", Combo = { "Wind", "Wind" } },
-	{ Id = "BoilingMist", Combo = { "Water", "Fire" } },
-	{ Id = "MudWall", Combo = { "Water", "Water", "Earth" } },
-	{ Id = "Meteor", Combo = { "Fire", "Earth", "Fire", "Fire" } },
+	{ Id = "Brand", Combo = { "Cinnabar", "Cinnabar" } },
+	{ Id = "Scorch", Combo = { "Cinnabar", "Cinnabar", "Verdigris" } },
+	{ Id = "Sweep", Combo = { "Verdigris", "Verdigris" } },
+	{ Id = "Bleed", Combo = { "Indigo", "Cinnabar" } },
+	{ Id = "Margin", Combo = { "Indigo", "Indigo", "Umber" } },
+	{ Id = "Blot", Combo = { "Cinnabar", "Umber", "Cinnabar", "Cinnabar" } },
 }
 
 describe("ComboResolver", function()
 	local resolver = ComboResolver.new(recipes, 4)
 
 	it("casts immediately when no longer recipe can follow", function()
-		local sequence, decision = ComboResolver.push(resolver, {}, "Wind")
+		local sequence, decision = ComboResolver.push(resolver, {}, "Verdigris")
 		expect(decision).toEqual({ Action = "Wait", Castable = false })
-		sequence, decision = ComboResolver.push(resolver, sequence, "Wind")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "WindGust" })
+		sequence, decision = ComboResolver.push(resolver, sequence, "Verdigris")
+		expect(decision).toEqual({ Action = "Cast", JutsuId = "Sweep" })
 		expect(sequence).toHaveLength(0)
 	end)
 
 	it("waits when the sequence is both a recipe and a prefix", function()
-		local sequence, decision = ComboResolver.push(resolver, { "Fire" }, "Fire")
+		local sequence, decision = ComboResolver.push(resolver, { "Cinnabar" }, "Cinnabar")
 		expect(decision).toEqual({ Action = "Wait", Castable = true })
-		expect(sequence).toEqual({ "Fire", "Fire" })
+		expect(sequence).toEqual({ "Cinnabar", "Cinnabar" })
 	end)
 
 	it("resolves the pending recipe on timeout, dissipates otherwise", function()
-		expect(ComboResolver.timeout(resolver, { "Fire", "Fire" })).toEqual({ Action = "Cast", JutsuId = "Fireball" })
-		expect(ComboResolver.timeout(resolver, { "Fire" })).toEqual({ Action = "Reset", Reason = "Dissipated" })
+		expect(ComboResolver.timeout(resolver, { "Cinnabar", "Cinnabar" })).toEqual({
+			Action = "Cast",
+			JutsuId = "Brand",
+		})
+		expect(ComboResolver.timeout(resolver, { "Cinnabar" })).toEqual({ Action = "Reset", Reason = "Dissipated" })
 		expect(ComboResolver.timeout(resolver, {})).toEqual({ Action = "Reset", Reason = "Empty" })
 	end)
 
 	it("extends a pending recipe into a longer one", function()
-		local sequence, decision = ComboResolver.push(resolver, { "Fire", "Fire" }, "Wind")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "EmberStorm" })
+		local sequence, decision = ComboResolver.push(resolver, { "Cinnabar", "Cinnabar" }, "Verdigris")
+		expect(decision).toEqual({ Action = "Cast", JutsuId = "Scorch" })
 		expect(sequence).toHaveLength(0)
 	end)
 
 	it("resets dead sequences immediately", function()
-		local sequence, decision = ComboResolver.push(resolver, { "Wind" }, "Fire")
+		local sequence, decision = ComboResolver.push(resolver, { "Verdigris" }, "Cinnabar")
 		expect(decision).toEqual({ Action = "Reset", Reason = "NoMatch" })
 		expect(sequence).toHaveLength(0)
 	end)
@@ -51,32 +54,35 @@ describe("ComboResolver", function()
 	it("handles four-press recipes and the max length", function()
 		local sequence = {}
 		local decision
-		for _, element in ipairs({ "Fire", "Earth", "Fire" }) do
+		for _, element in ipairs({ "Cinnabar", "Umber", "Cinnabar" }) do
 			sequence, decision = ComboResolver.push(resolver, sequence, element)
 			expect(decision.Action).toBe("Wait")
 		end
-		sequence, decision = ComboResolver.push(resolver, sequence, "Fire")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "Meteor" })
+		sequence, decision = ComboResolver.push(resolver, sequence, "Cinnabar")
+		expect(decision).toEqual({ Action = "Cast", JutsuId = "Blot" })
 
-		local short = ComboResolver.new({ { Id = "Long", Combo = { "Fire", "Fire", "Fire", "Fire", "Fire" } } }, 4)
-		local pending = { "Fire", "Fire", "Fire", "Fire" }
-		local _, tooLong = ComboResolver.push(short, pending, "Fire")
+		local short = ComboResolver.new(
+			{ { Id = "Long", Combo = { "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar" } } },
+			4
+		)
+		local pending = { "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar" }
+		local _, tooLong = ComboResolver.push(short, pending, "Cinnabar")
 		expect(tooLong).toEqual({ Action = "Reset", Reason = "TooLong" })
 	end)
 
 	it("reports duplicate recipes and keeps the first", function()
 		local dup = ComboResolver.new({
-			{ Id = "A", Combo = { "Fire", "Fire" } },
-			{ Id = "B", Combo = { "Fire", "Fire" } },
+			{ Id = "A", Combo = { "Cinnabar", "Cinnabar" } },
+			{ Id = "B", Combo = { "Cinnabar", "Cinnabar" } },
 		}, 4)
-		expect(dup.duplicates).toEqual({ "Fire-Fire" })
-		expect(ComboResolver.resolve(dup, { "Fire", "Fire" })).toBe("A")
+		expect(dup.duplicates).toEqual({ "Cinnabar-Cinnabar" })
+		expect(ComboResolver.resolve(dup, { "Cinnabar", "Cinnabar" })).toBe("A")
 	end)
 
 	it("resolves exact sequences for server validation", function()
-		expect(ComboResolver.resolve(resolver, { "Water", "Water", "Earth" })).toBe("MudWall")
-		expect(ComboResolver.resolve(resolver, { "Water", "Water" })).toBeNil()
+		expect(ComboResolver.resolve(resolver, { "Indigo", "Indigo", "Umber" })).toBe("Margin")
+		expect(ComboResolver.resolve(resolver, { "Indigo", "Indigo" })).toBeNil()
 		expect(ComboResolver.resolve(resolver, {})).toBeNil()
-		expect(ComboResolver.resolve(resolver, { "Fire", "Fire", "Fire", "Fire", "Fire" })).toBeNil()
+		expect(ComboResolver.resolve(resolver, { "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar" })).toBeNil()
 	end)
 end)

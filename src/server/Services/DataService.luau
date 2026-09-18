@@ -82,7 +82,7 @@ function DataService.template(): { [string]: any }
 		Battlepass = { _template = seasonTemplate() },
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
-		Unlocks = { Jutsus = JutsuConfig.defaultUnlocks(), Elements = table.clone(ElementConfig.Base) },
+		Unlocks = { Glyphs = JutsuConfig.defaultUnlocks(), Pigments = table.clone(ElementConfig.Base) },
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
 		Stats = {
 			Kills = 0,

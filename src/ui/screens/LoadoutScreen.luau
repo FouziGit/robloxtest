@@ -213,7 +213,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 		if data == nil then
 			return false
 		end
-		return table.find(data.Unlocks.Jutsus, def.Id) ~= nil
+		return table.find(data.Unlocks.Glyphs, def.Id) ~= nil
 	end
 
 	local function lockReason(def: JutsuDef): string

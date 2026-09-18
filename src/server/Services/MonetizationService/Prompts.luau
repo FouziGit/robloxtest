@@ -42,7 +42,7 @@ local OFFERS: { [string]: Offer } = {
 	-- Killed by a Lightning user, once per session and never to a beginner.
 	LightningDeath = {
 		Kind = "Pass",
-		Key = "Lightning",
+		Key = "Orpiment",
 		MinLevel = Rules.LightningDeathMinLevel,
 		PerSession = Rules.LightningDeathPerSession,
 	},

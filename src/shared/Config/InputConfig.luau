@@ -3,23 +3,24 @@
 -- Keyboard defaults avoid movement keys on QWERTY (W A S D) and AZERTY (Z Q S D), Space (jump),
 -- and Roblox-reserved keys (I/O zoom, Tab leaderboard, Esc menu, digits = backpack).
 
-export type ActionId = "Fire" | "Water" | "Earth" | "Wind" | "Lightning" | "Melee" | "Dash" | "Block" | "Menu"
+export type ActionId = "Cinnabar" | "Indigo" | "Umber" | "Verdigris" | "Orpiment" | "Melee" | "Dash" | "Block" | "Menu"
 
 local InputConfig = {}
 
 InputConfig.Actions =
-	{ "Fire", "Water", "Earth", "Wind", "Lightning", "Melee", "Dash", "Block", "Menu" } :: { ActionId }
+	{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block", "Menu" } :: { ActionId }
 
 -- Actions the player may rebind (Menu stays fixed so the settings screen is always reachable).
-InputConfig.Rebindable = { "Fire", "Water", "Earth", "Wind", "Lightning", "Melee", "Dash", "Block" } :: { ActionId }
+InputConfig.Rebindable =
+	{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block" } :: { ActionId }
 
 -- Enum.KeyCode names, or "MouseButton1" / "MouseButton2" (Enum.UserInputType) for mouse.
 InputConfig.DefaultKeyboard = {
-	Fire = "J",
-	Water = "K",
-	Earth = "L",
-	Wind = "H",
-	Lightning = "U",
+	Cinnabar = "J",
+	Indigo = "K",
+	Umber = "L",
+	Verdigris = "H",
+	Orpiment = "U",
 	Melee = "MouseButton1",
 	Dash = "LeftShift",
 	Block = "F",
@@ -28,11 +29,11 @@ InputConfig.DefaultKeyboard = {
 
 -- Enum.KeyCode names for gamepad buttons. ButtonA (jump) and ButtonStart (Roblox menu) are reserved.
 InputConfig.DefaultGamepad = {
-	Fire = "DPadUp",
-	Water = "DPadRight",
-	Earth = "DPadDown",
-	Wind = "DPadLeft",
-	Lightning = "ButtonY",
+	Cinnabar = "DPadUp",
+	Indigo = "DPadRight",
+	Umber = "DPadDown",
+	Verdigris = "DPadLeft",
+	Orpiment = "ButtonY",
 	Melee = "ButtonX",
 	Dash = "ButtonB",
 	Block = "ButtonL2",
@@ -120,11 +121,11 @@ export type TouchAnchor = "TopRight" | "JumpRow" | "Cluster"
 export type TouchPlacement = { Anchor: TouchAnchor, Angle: number?, Step: number? }
 
 local touchPositions: { [ActionId]: TouchPlacement } = {
-	Fire = { Anchor = "Cluster", Angle = 135 },
-	Water = { Anchor = "Cluster", Angle = 45 },
-	Earth = { Anchor = "Cluster", Angle = -45 },
-	Wind = { Anchor = "Cluster", Angle = -135 },
-	Lightning = { Anchor = "Cluster" },
+	Cinnabar = { Anchor = "Cluster", Angle = 135 },
+	Indigo = { Anchor = "Cluster", Angle = 45 },
+	Umber = { Anchor = "Cluster", Angle = -45 },
+	Verdigris = { Anchor = "Cluster", Angle = -135 },
+	Orpiment = { Anchor = "Cluster" },
 	Melee = { Anchor = "JumpRow", Step = 1 },
 	Block = { Anchor = "JumpRow", Step = 2 },
 	Dash = { Anchor = "JumpRow", Step = 3 },
@@ -142,11 +143,11 @@ InputConfig.Touch = {
 
 -- Names of Strings keys for action labels.
 InputConfig.ActionNameKeys = {
-	Fire = "element.fire",
-	Water = "element.water",
-	Earth = "element.earth",
-	Wind = "element.wind",
-	Lightning = "element.lightning",
+	Cinnabar = "pigment.cinnabar",
+	Indigo = "pigment.indigo",
+	Umber = "pigment.umber",
+	Verdigris = "pigment.verdigris",
+	Orpiment = "pigment.orpiment",
 	Melee = "action.melee",
 	Dash = "action.dash",
 	Block = "action.block",

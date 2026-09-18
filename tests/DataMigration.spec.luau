@@ -9,22 +9,22 @@ local function template(): { [string]: any }
 		DataVersion = 2,
 		Settings = {
 			Keyboard = {
-				Fire = "J",
-				Water = "K",
-				Earth = "L",
-				Wind = "H",
-				Lightning = "U",
+				Cinnabar = "J",
+				Indigo = "K",
+				Umber = "L",
+				Verdigris = "H",
+				Orpiment = "U",
 				Melee = "MouseButton1",
 				Dash = "LeftShift",
 				Block = "F",
 				Menu = "M",
 			},
 			Gamepad = {
-				Fire = "DPadUp",
-				Water = "DPadRight",
-				Earth = "DPadDown",
-				Wind = "DPadLeft",
-				Lightning = "ButtonY",
+				Cinnabar = "DPadUp",
+				Indigo = "DPadRight",
+				Umber = "DPadDown",
+				Verdigris = "DPadLeft",
+				Orpiment = "ButtonY",
 				Melee = "ButtonX",
 				Dash = "ButtonB",
 				Block = "ButtonL2",
@@ -38,8 +38,8 @@ local function template(): { [string]: any }
 		Currency = { Ryo = 0 },
 		Battlepass = { _template = { XP = 0, Tier = 1, Premium = false, ClaimedFree = {}, ClaimedPremium = {} } },
 		Cosmetics = { Owned = {}, Equipped = {} },
-		Loadout = { Slots = { "Fireball", "WaterWave" }, ExtraSlots = 0, SlotLimit = 6 },
-		Unlocks = { Jutsus = { "Fireball" }, Elements = { "Fire", "Water", "Earth", "Wind" } },
+		Loadout = { Slots = { "Brand", "Wash" }, ExtraSlots = 0, SlotLimit = 6 },
+		Unlocks = { Glyphs = { "Brand" }, Pigments = { "Cinnabar", "Indigo", "Umber", "Verdigris" } },
 		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
 		Stats = {
 			Kills = 0,
@@ -90,7 +90,7 @@ describe("DataMigration", function()
 	it("returns a fresh template for nil data", function()
 		local data, info = DataMigration.migrate(nil, template(), "S1")
 		expect(info).toEqual({ From = 0, Migrated = false })
-		expect(data.DataVersion).toBe(2)
+		expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
 		expect(data.Battlepass._template).toBeNil()
 		expect(data.Progression.Level).toBe(1)
 	end)
@@ -98,13 +98,13 @@ describe("DataMigration", function()
 	it("migrates a V1 profile without losing progress", function()
 		local data, info = DataMigration.migrate(legacyProfile(), template(), "S1")
 		expect(info).toEqual({ From = 1, Migrated = true })
-		expect(data.DataVersion).toBe(2)
+		expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
 
 		-- custom keys kept when allowed, legacy defaults / movement keys replaced by V2 defaults
-		expect(data.Settings.Keyboard.Fire).toBe("T") -- custom, allowed
-		expect(data.Settings.Keyboard.Water).toBe("K") -- was legacy default "E"
-		expect(data.Settings.Keyboard.Earth).toBe("Y") -- custom, allowed
-		expect(data.Settings.Keyboard.Wind).toBe("H") -- "A" conflicts with movement
+		expect(data.Settings.Keyboard.Cinnabar).toBe("T") -- custom, allowed
+		expect(data.Settings.Keyboard.Indigo).toBe("K") -- was legacy default "E"
+		expect(data.Settings.Keyboard.Umber).toBe("Y") -- custom, allowed
+		expect(data.Settings.Keyboard.Verdigris).toBe("H") -- "A" conflicts with movement
 		expect(data.Settings.Keyboard.Menu).toBe("M")
 
 		expect(data.Progression.Level).toBe(7)
@@ -126,7 +126,7 @@ describe("DataMigration", function()
 		expect(data.Stats.Kills).toBe(31)
 		expect(data.Stats.JutsusCast).toBe(500)
 		expect(data.Stats.Deaths).toBe(0)
-		expect(data.Loadout.Slots).toEqual({ "Fireball", "WaterWave" })
+		expect(data.Loadout.Slots).toEqual({ "Brand", "Wash" })
 	end)
 
 	it("tolerates malformed V1 values", function()
@@ -141,7 +141,7 @@ describe("DataMigration", function()
 		expect(data.Progression.Level).toBe(1)
 		expect(data.Progression.XP).toBe(0)
 		expect(data.Currency.Ryo).toBe(0)
-		expect(data.Settings.Keyboard.Fire).toBe("J")
+		expect(data.Settings.Keyboard.Cinnabar).toBe("J")
 		expect(data.Cosmetics.Owned).toEqual({})
 		expect(data.Battlepass.S1.ClaimedFree).toEqual({})
 	end)
@@ -151,7 +151,7 @@ describe("DataMigration", function()
 		-- must come back complete. SlotLimit, SaveToken and DevGranted were all added to live profiles.
 		local raw = {
 			DataVersion = DataMigration.CurrentVersion,
-			Loadout = { Slots = { "Fireball" }, ExtraSlots = 2 },
+			Loadout = { Slots = { "Brand" }, ExtraSlots = 2 },
 			Meta = { SessionCount = 4 },
 		}
 		local result = DataMigration.migrate(raw, template(), "S1")
@@ -172,8 +172,10 @@ describe("DataMigration", function()
 			Unknown = { junk = true },
 			Stats = { Kills = "many" },
 		}
+		-- Migrated is true now: a version 2 profile still holds the borrowed lexicon, so every load
+		-- upgrades it to version 3 (see the rename test below).
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(info).toEqual({ From = 2, Migrated = false })
+		expect(info).toEqual({ From = 2, Migrated = true })
 		expect(data.Progression.Level).toBe(20)
 		expect(data.Currency.Ryo).toBe(77)
 		expect(data.Battlepass.S1.Tier).toBe(3)
@@ -182,7 +184,7 @@ describe("DataMigration", function()
 		expect(data.Cosmetics.Equipped.Aura).toBe("BlueChakraAura")
 		expect(data.Stats.Kills).toBe(0) -- type mismatch keeps template
 		expect(data.Unknown).toBeNil()
-		expect(data.Settings.Keyboard.Fire).toBe("J")
+		expect(data.Settings.Keyboard.Cinnabar).toBe("J")
 	end)
 
 	it("never mutates the template", function()

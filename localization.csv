@@ -92,11 +92,46 @@ daily.firstWin,"First win of the day! +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,
 daily.premium,"Premium bonus: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Premium bonus: +{xp} XP, +{ryo} Ryo","Bonus Premium : +{xp} XP, +{ryo} Ryo"
 daily.streak,Login streak: day {day},JutsuBattlegrounds,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,JutsuBattlegrounds,,Daily reward,Récompense du jour
-element.earth,Earth,JutsuBattlegrounds,,Earth,Terre
-element.fire,Fire,JutsuBattlegrounds,,Fire,Feu
-element.lightning,Lightning,JutsuBattlegrounds,,Lightning,Foudre
-element.water,Water,JutsuBattlegrounds,,Water,Eau
-element.wind,Wind,JutsuBattlegrounds,,Wind,Vent
+glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,JutsuBattlegrounds,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
+glyph.Binding.name,Binding,JutsuBattlegrounds,,Binding,Reliure
+glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,JutsuBattlegrounds,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
+glyph.Bleed.name,Bleed,JutsuBattlegrounds,,Bleed,Bavure
+glyph.Blot.desc,Calls down a blazing rock that shatters guards where it lands.,JutsuBattlegrounds,,Calls down a blazing rock that shatters guards where it lands.,Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.
+glyph.Blot.name,Blot,JutsuBattlegrounds,,Blot,Pâté
+glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,JutsuBattlegrounds,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
+glyph.Brand.name,Brand,JutsuBattlegrounds,,Brand,Marque
+glyph.Caret.desc,"Blink forward in a flash, untouchable for an instant.",JutsuBattlegrounds,,"Blink forward in a flash, untouchable for an instant.","Disparais vers l'avant dans un éclair, intouchable un instant."
+glyph.Caret.name,Caret,JutsuBattlegrounds,,Caret,Insertion
+glyph.Colophon.desc,The thunder god's wrath arcs from enemy to enemy.,JutsuBattlegrounds,,The thunder god's wrath arcs from enemy to enemy.,La colère du dieu du tonnerre bondit d'ennemi en ennemi.
+glyph.Colophon.name,Colophon,JutsuBattlegrounds,,Colophon,Colophon
+glyph.Gilding.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,JutsuBattlegrounds,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
+glyph.Gilding.name,Gilding,JutsuBattlegrounds,,Gilding,Dorure
+glyph.Hairline.desc,Throws a blade of wind that fans its target for your next fire jutsu.,JutsuBattlegrounds,,Throws a blade of wind that fans its target for your next fire jutsu.,Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.
+glyph.Hairline.name,Hairline,JutsuBattlegrounds,,Hairline,Délié
+glyph.Ligature.desc,A short dash that leaves a burning trail behind you.,JutsuBattlegrounds,,A short dash that leaves a burning trail behind you.,Une ruée courte qui laisse une traînée brûlante derrière toi.
+glyph.Ligature.name,Ligature,JutsuBattlegrounds,,Ligature,Ligature
+glyph.Margin.desc,Raises a defensive wall of mud in front of you.,JutsuBattlegrounds,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
+glyph.Margin.name,Margin,JutsuBattlegrounds,,Margin,Marge
+glyph.Pounce.desc,A storm of sand that blinds and slows everyone inside it.,JutsuBattlegrounds,,A storm of sand that blinds and slows everyone inside it.,Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.
+glyph.Pounce.name,Pounce,JutsuBattlegrounds,,Pounce,Poncif
+glyph.Rupture.desc,Slam the ground: a massive shockwave launches enemies.,JutsuBattlegrounds,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
+glyph.Rupture.name,Rupture,JutsuBattlegrounds,,Rupture,Rupture
+glyph.Scorch.desc,A ring of embers whirls around you and burns everything.,JutsuBattlegrounds,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
+glyph.Scorch.name,Scorch,JutsuBattlegrounds,,Scorch,Roussi
+glyph.Serif.desc,Rock spikes burst from the ground in a straight line.,JutsuBattlegrounds,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
+glyph.Serif.name,Serif,JutsuBattlegrounds,,Serif,Empattement
+glyph.Spiral.desc,A whirlwind that drags everyone caught in it toward its centre.,JutsuBattlegrounds,,A whirlwind that drags everyone caught in it toward its centre.,Une tornade qui attire vers son centre tout ce qu'elle happe.
+glyph.Spiral.name,Spiral,JutsuBattlegrounds,,Spiral,Spirale
+glyph.Stipple.desc,Spits a fast bullet of mud that slows whoever it hits.,JutsuBattlegrounds,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
+glyph.Stipple.name,Stipple,JutsuBattlegrounds,,Stipple,Pointillé
+glyph.Strike.desc,An instant bolt that strikes the first enemy in your line of sight.,JutsuBattlegrounds,,An instant bolt that strikes the first enemy in your line of sight.,Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.
+glyph.Strike.name,Strike,JutsuBattlegrounds,,Strike,Rature
+glyph.Sweep.desc,A cone of wind violently pushes nearby enemies back.,JutsuBattlegrounds,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
+glyph.Sweep.name,Sweep,JutsuBattlegrounds,,Sweep,Balayage
+glyph.Wash.desc,A wave surges forward and sweeps enemies away.,JutsuBattlegrounds,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
+glyph.Wash.name,Wash,JutsuBattlegrounds,,Wash,Lavis
+glyph.Watermark.desc,A crackling field that shocks and locks up anyone standing in it.,JutsuBattlegrounds,,A crackling field that shocks and locks up anyone standing in it.,Un champ crépitant qui électrise et bloque ceux qui s'y attardent.
+glyph.Watermark.name,Watermark,JutsuBattlegrounds,,Watermark,Filigrane
 hud.bar,{name}  {current} / {max},JutsuBattlegrounds,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.cooldown,{name}: {seconds}s left,JutsuBattlegrounds,,{name}: {seconds}s left,{name} : encore {seconds}s
 hud.cast.failed,{name} failed,JutsuBattlegrounds,,{name} failed,{name} a échoué
@@ -116,46 +151,6 @@ hud.levelUp,Level {level} reached!,JutsuBattlegrounds,,Level {level} reached!,Ni
 hud.playerKill,You defeated {name}! +{xp} XP,JutsuBattlegrounds,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
 hud.status.bonus,{status}: +{percent}% damage,JutsuBattlegrounds,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
 hud.tierUp,Battle pass tier {tier} unlocked!,JutsuBattlegrounds,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
-jutsu.BoilingMist.desc,A scalding cloud that burns and slows enemies inside.,JutsuBattlegrounds,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
-jutsu.BoilingMist.name,Boiling Mist,JutsuBattlegrounds,,Boiling Mist,Brume Bouillante
-jutsu.Cyclone.desc,A whirlwind that drags everyone caught in it toward its centre.,JutsuBattlegrounds,,A whirlwind that drags everyone caught in it toward its centre.,Une tornade qui attire vers son centre tout ce qu'elle happe.
-jutsu.Cyclone.name,Cyclone,JutsuBattlegrounds,,Cyclone,Cyclone
-jutsu.EarthSpikes.desc,Rock spikes burst from the ground in a straight line.,JutsuBattlegrounds,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
-jutsu.EarthSpikes.name,Earth Spikes,JutsuBattlegrounds,,Earth Spikes,Piques de Terre
-jutsu.Earthquake.desc,Slam the ground: a massive shockwave launches enemies.,JutsuBattlegrounds,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
-jutsu.Earthquake.name,Earthquake,JutsuBattlegrounds,,Earthquake,Séisme
-jutsu.EmberStep.desc,A short dash that leaves a burning trail behind you.,JutsuBattlegrounds,,A short dash that leaves a burning trail behind you.,Une ruée courte qui laisse une traînée brûlante derrière toi.
-jutsu.EmberStep.name,Ember Step,JutsuBattlegrounds,,Ember Step,Pas de Braise
-jutsu.EmberStorm.desc,A ring of embers whirls around you and burns everything.,JutsuBattlegrounds,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
-jutsu.EmberStorm.name,Ember Storm,JutsuBattlegrounds,,Ember Storm,Tempête de Braises
-jutsu.Fireball.desc,Hurls a sphere of flames that explodes on impact.,JutsuBattlegrounds,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
-jutsu.Fireball.name,Fireball,JutsuBattlegrounds,,Fireball,Boule de Feu
-jutsu.LightningBolt.desc,An instant bolt that strikes the first enemy in your line of sight.,JutsuBattlegrounds,,An instant bolt that strikes the first enemy in your line of sight.,Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.
-jutsu.LightningBolt.name,Lightning Bolt,JutsuBattlegrounds,,Lightning Bolt,Éclair
-jutsu.LightningStep.desc,"Blink forward in a flash, untouchable for an instant.",JutsuBattlegrounds,,"Blink forward in a flash, untouchable for an instant.","Disparais vers l'avant dans un éclair, intouchable un instant."
-jutsu.LightningStep.name,Lightning Step,JutsuBattlegrounds,,Lightning Step,Pas de l'Éclair
-jutsu.Meteor.desc,Calls down a blazing rock that shatters guards where it lands.,JutsuBattlegrounds,,Calls down a blazing rock that shatters guards where it lands.,Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.
-jutsu.Meteor.name,Meteor,JutsuBattlegrounds,,Meteor,Météore
-jutsu.MudShot.desc,Spits a fast bullet of mud that slows whoever it hits.,JutsuBattlegrounds,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
-jutsu.MudShot.name,Mud Shot,JutsuBattlegrounds,,Mud Shot,Tir de Boue
-jutsu.MudWall.desc,Raises a defensive wall of mud in front of you.,JutsuBattlegrounds,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
-jutsu.MudWall.name,Mud Wall,JutsuBattlegrounds,,Mud Wall,Mur de Boue
-jutsu.Raijin.desc,The thunder god's wrath arcs from enemy to enemy.,JutsuBattlegrounds,,The thunder god's wrath arcs from enemy to enemy.,La colère du dieu du tonnerre bondit d'ennemi en ennemi.
-jutsu.Raijin.name,Raijin,JutsuBattlegrounds,,Raijin,Raijin
-jutsu.Sandstorm.desc,A storm of sand that blinds and slows everyone inside it.,JutsuBattlegrounds,,A storm of sand that blinds and slows everyone inside it.,Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.
-jutsu.Sandstorm.name,Sandstorm,JutsuBattlegrounds,,Sandstorm,Tempête de Sable
-jutsu.StaticField.desc,A crackling field that shocks and locks up anyone standing in it.,JutsuBattlegrounds,,A crackling field that shocks and locks up anyone standing in it.,Un champ crépitant qui électrise et bloque ceux qui s'y attardent.
-jutsu.StaticField.name,Static Field,JutsuBattlegrounds,,Static Field,Champ Statique
-jutsu.StoneSkin.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,JutsuBattlegrounds,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
-jutsu.StoneSkin.name,Stone Skin,JutsuBattlegrounds,,Stone Skin,Peau de Pierre
-jutsu.WaterPrison.desc,Traps the closest enemy in a sphere of water and roots them in place.,JutsuBattlegrounds,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
-jutsu.WaterPrison.name,Water Prison,JutsuBattlegrounds,,Water Prison,Prison d'Eau
-jutsu.WaterWave.desc,A wave surges forward and sweeps enemies away.,JutsuBattlegrounds,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
-jutsu.WaterWave.name,Water Wave,JutsuBattlegrounds,,Water Wave,Vague Aquatique
-jutsu.WindBlade.desc,Throws a blade of wind that fans its target for your next fire jutsu.,JutsuBattlegrounds,,Throws a blade of wind that fans its target for your next fire jutsu.,Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.
-jutsu.WindBlade.name,Wind Blade,JutsuBattlegrounds,,Wind Blade,Lame de Vent
-jutsu.WindGust.desc,A cone of wind violently pushes nearby enemies back.,JutsuBattlegrounds,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
-jutsu.WindGust.name,Slicing Gust,JutsuBattlegrounds,,Slicing Gust,Rafale Tranchante
 kick.abuse,Disconnected: too many invalid requests.,JutsuBattlegrounds,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
 kick.loadFailed,Could not load your data. Please try again in a minute.,JutsuBattlegrounds,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
 kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,JutsuBattlegrounds,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
@@ -216,6 +211,11 @@ pass.skinPack,Skin Pack,JutsuBattlegrounds,,Skin Pack,Pack de skins
 pass.skinPack.desc,"Four jutsu skins, one per base element.",JutsuBattlegrounds,,"Four jutsu skins, one per base element.","Quatre skins de jutsu, un par élément de base."
 pass.vip,VIP,JutsuBattlegrounds,,VIP,VIP
 pass.vip.desc,"Double XP, +50% Ryo, chat tag and an exclusive aura.",JutsuBattlegrounds,,"Double XP, +50% Ryo, chat tag and an exclusive aura.","XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive."
+pigment.cinnabar,Cinnabar,JutsuBattlegrounds,,Cinnabar,Cinabre
+pigment.indigo,Indigo,JutsuBattlegrounds,,Indigo,Indigo
+pigment.orpiment,Orpiment,JutsuBattlegrounds,,Orpiment,Orpiment
+pigment.umber,Umber,JutsuBattlegrounds,,Umber,Terre d'Ombre
+pigment.verdigris,Verdigris,JutsuBattlegrounds,,Verdigris,Vert-de-gris
 product.cosmetic,Cosmetic,JutsuBattlegrounds,,Cosmetic,Cosmétique
 product.cosmetic.desc,Buy the selected cosmetic with Robux.,JutsuBattlegrounds,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
 product.premiumPass,Premium Battle Pass,JutsuBattlegrounds,,Premium Battle Pass,Battle Pass Premium
@@ -265,11 +265,11 @@ queue.teamSize,{size}v{size},JutsuBattlegrounds,,{size}v{size},{size}v{size}
 queue.timedOut,No opponent found. Try again!,JutsuBattlegrounds,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
 queue.title,Play,JutsuBattlegrounds,,Play,Jouer
 queue.waiting,{queued} / {needed} players,JutsuBattlegrounds,,{queued} / {needed} players,{queued} / {needed} joueurs
-rank.anbu,Anbu,JutsuBattlegrounds,,Anbu,Anbu
-rank.chunin,Chunin,JutsuBattlegrounds,,Chunin,Chunin
-rank.genin,Genin,JutsuBattlegrounds,,Genin,Genin
-rank.jonin,Jonin,JutsuBattlegrounds,,Jonin,Jonin
-rank.kage,Kage,JutsuBattlegrounds,,Kage,Kage
+rank.blank,Blank,JutsuBattlegrounds,,Blank,Vierge
+rank.codex,Codex,JutsuBattlegrounds,,Codex,Codex
+rank.illumination,Illumination,JutsuBattlegrounds,,Illumination,Enluminure
+rank.script,Script,JutsuBattlegrounds,,Script,Écriture
+rank.sketch,Sketch,JutsuBattlegrounds,,Sketch,Esquisse
 season.rewardGranted,Season reward ({rank}): +{amount} Ryo,JutsuBattlegrounds,,Season reward ({rank}): +{amount} Ryo,Récompense de saison ({rank}) : +{amount} Ryo
 settings.bound,{action} is now {key}. Don't forget to save!,JutsuBattlegrounds,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Camera shake,JutsuBattlegrounds,,Camera shake,Secousses de caméra

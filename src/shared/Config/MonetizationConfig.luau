@@ -21,7 +21,7 @@ local MonetizationConfig = {}
 MonetizationConfig.Passes = {
 	Vip = { Id = 0, PriceRobux = 399, NameKey = "pass.vip", DescKey = "pass.vip.desc" },
 	LoadoutSlots = { Id = 0, PriceRobux = 199, NameKey = "pass.loadoutSlots", DescKey = "pass.loadoutSlots.desc" },
-	Lightning = { Id = 0, PriceRobux = 299, NameKey = "pass.lightning", DescKey = "pass.lightning.desc" },
+	Orpiment = { Id = 0, PriceRobux = 299, NameKey = "pass.lightning", DescKey = "pass.lightning.desc" },
 	SkinPack = { Id = 0, PriceRobux = 249, NameKey = "pass.skinPack", DescKey = "pass.skinPack.desc" },
 } :: { [string]: PassDef }
 

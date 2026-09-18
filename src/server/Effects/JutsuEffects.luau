@@ -92,7 +92,7 @@ type ProjectileStop = { Point: Vector3, Model: Model? }
 -- Invisible server collision geometry (walls) carries this tag so spatial queries skip it.
 local COLLISION_TAG = "JutsuCollision"
 local ROOT_PART_NAME = "HumanoidRootPart"
-local WALL_NAME = "MudWall"
+local WALL_NAME = "Margin"
 -- A projectile fuse is clamped so a synchronous effect never pins the remote handler for long.
 local MAX_PROJECTILE_SECONDS = 1.5
 -- Longest simulated step: a frame hitch must not teleport a projectile through targets.
@@ -109,7 +109,7 @@ local WAVE_LIFT = 10
 local ROOT_FLOOR_OFFSET = 3
 local KNOCKBACK_DURATION = CombatConfig.Hit.KnockbackDurationSeconds
 -- Self buff of the StoneSkin jutsu: CombatService reads the attribute in ApplyDamage.
-local STONE_SKIN = CombatConfig.Status.StoneSkin
+local STONE_SKIN = CombatConfig.Status.Gilding
 local EPSILON = 1e-3
 
 local JutsuEffects = {}

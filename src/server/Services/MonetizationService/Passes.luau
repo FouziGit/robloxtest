@@ -22,11 +22,11 @@ type Deps = Context.Deps
 
 -- Pass keys of MonetizationConfig.Passes whose effect is applied here. Vip needs nothing: CurrencyService
 -- and ProgressionService read Passes.Vip themselves.
-local PASS_LIGHTNING = "Lightning"
+local PASS_LIGHTNING = "Orpiment"
 local PASS_LOADOUT_SLOTS = "LoadoutSlots"
 local PASS_SKIN_PACK = "SkinPack"
 -- The Lightning pass grants the Lightning element (ElementConfig.Unlockable).
-local LIGHTNING_ELEMENT = "Lightning"
+local LIGHTNING_ELEMENT = "Orpiment"
 -- UserOwnsGamePassAsync is a web call: retried with a growing backoff before giving up.
 local OWNERSHIP_ATTEMPTS = 3
 local OWNERSHIP_BACKOFF_SECONDS = 2

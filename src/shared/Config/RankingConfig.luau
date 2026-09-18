@@ -19,11 +19,11 @@ RankingConfig.KFactorSchedule = {
 
 -- Named tiers by rating (ascending Min). NameKey resolves through Strings.
 RankingConfig.Tiers = {
-	{ Id = "Genin", NameKey = "rank.genin", Min = 0 },
-	{ Id = "Chunin", NameKey = "rank.chunin", Min = 1100 },
-	{ Id = "Jonin", NameKey = "rank.jonin", Min = 1300 },
-	{ Id = "Anbu", NameKey = "rank.anbu", Min = 1500 },
-	{ Id = "Kage", NameKey = "rank.kage", Min = 1700 },
+	{ Id = "Blank", NameKey = "rank.blank", Min = 0 },
+	{ Id = "Sketch", NameKey = "rank.sketch", Min = 1100 },
+	{ Id = "Script", NameKey = "rank.script", Min = 1300 },
+	{ Id = "Illumination", NameKey = "rank.illumination", Min = 1500 },
+	{ Id = "Codex", NameKey = "rank.codex", Min = 1700 },
 } :: { Tier }
 
 -- Ranked modes (keys of ProfileData.Rank.Modes).
@@ -44,11 +44,11 @@ RankingConfig.Leaderboard = {
 
 -- End-of-season rewards by tier reached (Ryo + cosmetic title id).
 RankingConfig.SeasonRewards = {
-	Genin = { Ryo = 200 },
-	Chunin = { Ryo = 500 },
-	Jonin = { Ryo = 1000, Cosmetic = "TitleJonin" },
-	Anbu = { Ryo = 2000, Cosmetic = "TitleAnbu" },
-	Kage = { Ryo = 4000, Cosmetic = "TitleKageSeason" },
+	Blank = { Ryo = 200 },
+	Sketch = { Ryo = 500 },
+	Script = { Ryo = 1000, Cosmetic = "TitleJonin" },
+	Illumination = { Ryo = 2000, Cosmetic = "TitleAnbu" },
+	Codex = { Ryo = 4000, Cosmetic = "TitleKageSeason" },
 } :: { [string]: { Ryo: number, Cosmetic: string? } }
 
 return RankingConfig

@@ -22,7 +22,7 @@ function Localize.locale(): string
 	return currentLocale
 end
 
--- The server sends Strings keys as params (e.g. {name = "jutsu.Fireball.name"}); any string param that is
+-- The server sends Strings keys as params (e.g. {name = "glyph.Brand.name"}); any string param that is
 -- a known key is translated before substitution. Other values pass through untouched.
 function Localize.resolveParams(params: Params?): Params?
 	if params == nil then

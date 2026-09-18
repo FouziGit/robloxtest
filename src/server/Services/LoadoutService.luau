@@ -41,7 +41,7 @@ type Deps = {
 }
 
 local LOADOUT = ProgressionConfig.Loadout
-local LIGHTNING_ELEMENT = "Lightning"
+local LIGHTNING_ELEMENT = "Orpiment"
 local LIGHTNING_LEVEL = ProgressionConfig.LightningUnlockLevel
 local ELEMENT_NAME_KEYS = (ElementConfig.NameKeys :: any) :: { [string]: string? }
 -- Strings has no dedicated unlock key; "{name} unlocked!" is the closest fit (see notes).
@@ -57,7 +57,7 @@ local progression: ProgressionApi
 -- Adds `jutsuId` to the unlocks when it is missing and tells the player. Returns true when it was just
 -- granted (the caller pushes "Unlocks" once for the whole batch).
 local function grantJutsu(player: Player, data: ProfileData, jutsuId: string, quiet: boolean?): boolean
-	if table.find(data.Unlocks.Jutsus, jutsuId) ~= nil then
+	if table.find(data.Unlocks.Glyphs, jutsuId) ~= nil then
 		return false
 	end
 	local def = JutsuConfig.ById[jutsuId]
@@ -65,7 +65,7 @@ local function grantJutsu(player: Player, data: ProfileData, jutsuId: string, qu
 		log.error("unknown jutsu %s for %s", jutsuId, player.Name)
 		return false
 	end
-	table.insert(data.Unlocks.Jutsus, jutsuId)
+	table.insert(data.Unlocks.Glyphs, jutsuId)
 	if not quiet then
 		-- `quiet` is for a bulk grant: twenty toasts at once would bury everything else on screen.
 		notify.send(player, UNLOCKED_KEY, { name = def.NameKey }, "Success", "LevelUp")
@@ -84,7 +84,7 @@ local function grantEarned(player: Player, data: ProfileData): number
 			end
 		end
 	end
-	for _, element in ipairs(data.Unlocks.Elements) do
+	for _, element in ipairs(data.Unlocks.Pigments) do
 		for _, jutsuId in ipairs(JutsuConfig.unlocksForElement(element)) do
 			if grantJutsu(player, data, jutsuId) then
 				granted += 1
@@ -166,10 +166,10 @@ function LoadoutService.grantElement(player: Player, elementId: string): boolean
 		log.error("unknown element %s for %s", elementId, player.Name)
 		return false
 	end
-	if table.find(data.Unlocks.Elements, elementId) ~= nil then
+	if table.find(data.Unlocks.Pigments, elementId) ~= nil then
 		return false
 	end
-	table.insert(data.Unlocks.Elements, elementId)
+	table.insert(data.Unlocks.Pigments, elementId)
 	local nameKey = ELEMENT_NAME_KEYS[elementId]
 	if nameKey ~= nil then
 		notify.send(player, UNLOCKED_KEY, { name = nameKey }, "Success", "LevelUp")
@@ -239,7 +239,7 @@ function LoadoutService.setLoadout(player: Player, slots: { string }): boolean
 		if JutsuConfig.ById[jutsuId] == nil then
 			return reject("unknown jutsu " .. jutsuId)
 		end
-		if table.find(data.Unlocks.Jutsus, jutsuId) == nil then
+		if table.find(data.Unlocks.Glyphs, jutsuId) == nil then
 			return reject(jutsuId .. " is not unlocked")
 		end
 	end
@@ -279,8 +279,8 @@ end
 -- grantEarned below puts the level gates back, the Lightning level check and the game pass sync put the
 -- element back if it is genuinely owned, and refreshSlotLimit trims the loadout to the real budget.
 local function revokeDeveloperGrants(player: Player, data: ProfileData)
-	table.clear(data.Unlocks.Elements)
-	data.Unlocks.Jutsus = JutsuConfig.defaultUnlocks()
+	table.clear(data.Unlocks.Pigments)
+	data.Unlocks.Glyphs = JutsuConfig.defaultUnlocks()
 	data.Meta.DevGranted = false
 	dataService.push(player, "Unlocks")
 	log.info("%s is no longer a developer: unlocks rebuilt from what the profile earned", player.Name)

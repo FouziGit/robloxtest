@@ -134,7 +134,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.SkinFireballAzure",
 		Sellable = false,
-		Target = "Fireball",
+		Target = "Brand",
 		Visual = rgb("Color", 60, 140, 255),
 	},
 	{
@@ -151,7 +151,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.SkinEarthquakeMagma",
 		Sellable = false,
-		Target = "Earthquake",
+		Target = "Rupture",
 		Visual = rgb("Color", 255, 90, 20),
 	},
 	{
@@ -210,7 +210,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.SkinWaterWaveJade",
 		Sellable = false,
-		Target = "WaterWave",
+		Target = "Wash",
 		Visual = rgb("Color", 60, 220, 160),
 	},
 	{
@@ -219,7 +219,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.SkinEarthSpikesObsidian",
 		Sellable = false,
-		Target = "EarthSpikes",
+		Target = "Serif",
 		Visual = rgb("Color", 40, 30, 50),
 	},
 	{
@@ -228,7 +228,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.SkinWindGustSilver",
 		Sellable = false,
-		Target = "WindGust",
+		Target = "Sweep",
 		Visual = rgb("Color", 220, 225, 235),
 	},
 	-- Shop catalog (Ryo or Robux)
@@ -294,7 +294,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.SkinFireballEmerald",
 		Sellable = true,
-		Target = "Fireball",
+		Target = "Brand",
 		Visual = rgb("Color", 60, 200, 120),
 	},
 	{
@@ -319,7 +319,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.SkinEmberStormAzure",
 		Sellable = true,
-		Target = "EmberStorm",
+		Target = "Scorch",
 		Visual = rgb("Color", 60, 140, 255),
 	},
 	{
@@ -344,7 +344,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.SkinEarthquakeCrystal",
 		Sellable = true,
-		Target = "Earthquake",
+		Target = "Rupture",
 		Visual = rgb("Color", 150, 230, 255),
 	},
 } :: { CosmeticDef }

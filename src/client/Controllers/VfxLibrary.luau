@@ -626,15 +626,15 @@ VfxLibrary.Cast = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Neon ball with fire and a trail, flying along Direction for the fuse duration.
-VfxLibrary.Fireball = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Brand = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = directionOf(packet)
 	local speed = numberParam(packet, "Speed", 90)
 	local fuse = clampLifetime(numberParam(packet, "Fuse", 1), 0.5)
 	local spawnOffset = numberParam(packet, "SpawnOffset", 4)
-	local color = api.ElementColor("Fire")
+	local color = api.ElementColor("Cinnabar")
 	local start = packet.Origin + direction * spawnOffset
 
-	local ball = newPart(trove, "Fireball", {
+	local ball = newPart(trove, "Brand", {
 		Shape = Enum.PartType.Ball,
 		Color = color,
 		Size = Vector3.one * 3,
@@ -681,17 +681,17 @@ VfxLibrary.Explosion = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Translucent glass wave sweeping from the caster to the end of its range.
-VfxLibrary.WaterWave = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Wash = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
 	local range = numberParam(packet, "Range", 40)
 	local spawnOffset = numberParam(packet, "SpawnOffset", 6)
 	local travelTime = clampLifetime(numberParam(packet, "TravelTime", 0.8), 0.5)
 	local width = numberParam(packet, "HitRadius", 8) * 2
-	local color = api.ElementColor("Water")
+	local color = api.ElementColor("Indigo")
 	local startPosition = packet.Origin + direction * spawnOffset
 	local endPosition = packet.Origin + direction * range
 
-	local wave = newPart(trove, "WaterWave", {
+	local wave = newPart(trove, "Wash", {
 		Material = Enum.Material.Glass,
 		Color = color,
 		Size = Vector3.new(width, 6, 3),
@@ -721,13 +721,13 @@ VfxLibrary.WaterWave = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Slate spikes rising one after another along Direction, then sinking back into the ground.
-VfxLibrary.EarthSpikes = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Serif = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
 	local count = math.clamp(math.floor(numberParam(packet, "Count", 5)), 1, 12)
 	local spacing = numberParam(packet, "Spacing", 5)
 	local startOffset = numberParam(packet, "StartOffset", 6)
 	local stepDelay = math.max(numberParam(packet, "StepDelay", 0.08), 0)
-	local color = api.ElementColor("Earth")
+	local color = api.ElementColor("Umber")
 
 	for index = 1, count do
 		local center = packet.Origin + direction * (startOffset + (index - 1) * spacing)
@@ -766,16 +766,16 @@ VfxLibrary.EarthSpikes = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Force-field sphere bursting outward in front of the caster with wind streaks along Direction.
-VfxLibrary.WindGust = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Sweep = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = directionOf(packet)
 	local radius = numberParam(packet, "Radius", 12)
 	local offset = numberParam(packet, "Offset", 10)
 	local center = packet.Origin + direction * offset
-	local color = api.ElementColor("Wind")
+	local color = api.ElementColor("Verdigris")
 	-- Top face oriented along Direction so the emitter streaks fly with the gust.
 	local orientation = CFrame.lookAt(center, center + direction) * CFrame.Angles(math.rad(-90), 0, 0)
 
-	local gust = newPart(trove, "WindGust", {
+	local gust = newPart(trove, "Sweep", {
 		Shape = Enum.PartType.Ball,
 		Material = Enum.Material.ForceField,
 		Color = color,
@@ -795,13 +795,13 @@ VfxLibrary.WindGust = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Steaming cloud that lingers at Origin for the zone duration.
-VfxLibrary.BoilingMist = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Bleed = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", 9)
 	local defaultDuration = numberParam(packet, "Ticks", 3) * numberParam(packet, "TickInterval", 1)
 	local duration = clampLifetime(numberParam(packet, "Duration", defaultDuration), 0.5)
-	local color = api.ElementColor("Water")
+	local color = api.ElementColor("Indigo")
 
-	local mist = newPart(trove, "BoilingMist", {
+	local mist = newPart(trove, "Bleed", {
 		Shape = Enum.PartType.Ball,
 		Material = Enum.Material.SmoothPlastic,
 		Color = color,
@@ -826,19 +826,19 @@ VfxLibrary.BoilingMist = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Mud wall rising out of the ground at Origin (the wall center chosen by the server), then sinking.
-VfxLibrary.MudWall = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Margin = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
 	local width = numberParam(packet, "Width", 14)
 	local height = numberParam(packet, "Height", 9)
 	local thickness = numberParam(packet, "Thickness", 2.5)
 	local duration = clampLifetime(numberParam(packet, "Duration", 6), 0)
-	local color = api.ElementColor("Earth")
+	local color = api.ElementColor("Umber")
 	local ground = groundAt(packet.Origin)
 	local rotation = CFrame.lookAt(ground, ground + direction).Rotation
 	local buried = CFrame.new(ground - Vector3.new(0, height / 2, 0)) * rotation
 	local raised = CFrame.new(ground + Vector3.new(0, height / 2, 0)) * rotation
 
-	local wall = newPart(trove, "MudWall", {
+	local wall = newPart(trove, "Margin", {
 		Material = Enum.Material.Mud,
 		Color = color,
 		Size = Vector3.new(width, height, thickness),
@@ -858,11 +858,11 @@ VfxLibrary.MudWall = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Ring of spinning embers around the caster (follows the caster's root while it exists).
-VfxLibrary.EmberStorm = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Scorch = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", 13)
 	local defaultDuration = numberParam(packet, "Ticks", 3) * numberParam(packet, "TickInterval", 0.8)
 	local duration = clampLifetime(numberParam(packet, "Duration", defaultDuration), 0.5)
-	local color = api.ElementColor("Fire")
+	local color = api.ElementColor("Cinnabar")
 	local follow = casterRoot(packet)
 	local ringTrove = trove:Extend()
 
@@ -908,9 +908,9 @@ VfxLibrary.EmberStorm = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Three staggered shockwave rings expanding on the ground, with a large camera shake nearby.
-VfxLibrary.Earthquake = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Rupture = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", 18)
-	local color = api.ElementColor("Earth")
+	local color = api.ElementColor("Umber")
 	local ground = groundAt(packet.Origin)
 	local lying = CFrame.Angles(0, 0, math.rad(90)) -- cylinder axis is X: stand it upright
 
@@ -947,13 +947,13 @@ end
 
 -- EmberStep: fire streak carried along the short dash, then the burning pools it leaves behind.
 -- The pool centres are the very points the server damages (Targets), so the trail never lies.
-VfxLibrary.EmberStep = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Ligature = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
 	local distance = numberParam(packet, "Distance", 20)
 	local dashDuration = math.clamp(numberParam(packet, "DashDuration", 0.25), 0.05, 1)
 	local poolRadius = math.max(numberParam(packet, "TrailRadius", 5), 1)
 	local duration = clampLifetime(numberParam(packet, "Duration", 2), 0.5)
-	local color = api.ElementColor(stringParam(packet, "Element", "Fire"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Cinnabar"))
 	local pools = targetsOf(packet)
 	if #pools == 0 then
 		for index = 1, EMBER_TRAIL_SEGMENTS do
@@ -1022,7 +1022,7 @@ end
 -- Meteor: burning rock arcing toward its target behind a smoke tail, breaking apart on impact. It
 -- re-simulates the server ballistic (Rise, Gravity); the blast ring is the shared "Explosion" packet
 -- the server emits at the real detonation point.
-VfxLibrary.Meteor = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Blot = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
 	local speed = math.max(numberParam(packet, "Speed", 55), 1)
 	local arcHeight = numberParam(packet, "ArcHeight", 20)
@@ -1033,10 +1033,10 @@ VfxLibrary.Meteor = function(packet: Packet, trove: TroveType, api: Api)
 	local blastRadius = numberParam(packet, "BlastRadius", 10)
 	-- The server also stops the projectile at Range: the rock must not fly past its blast.
 	local flight = clampLifetime(math.min(fuse, numberParam(packet, "Range", 75) / speed), METEOR_BREAK_SECONDS + 0.2)
-	local color = api.ElementColor(stringParam(packet, "Element", "Fire"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Cinnabar"))
 	local start = packet.Origin + direction * spawnOffset
 
-	local rock = newPart(trove, "Meteor", {
+	local rock = newPart(trove, "Blot", {
 		Shape = Enum.PartType.Ball,
 		Material = Enum.Material.CrackedLava,
 		Color = color,
@@ -1095,17 +1095,17 @@ end
 
 -- WaterPrison: glass sphere of water closing around every rooted target for the root duration.
 -- Origin is already the grab centre; Targets holds the roots the server actually pinned.
-VfxLibrary.WaterPrison = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Binding = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = math.max(numberParam(packet, "Radius", PRISON_RADIUS_STUDS), 1)
 	local duration = clampLifetime(numberParam(packet, "Duration", 1.5), 0.5)
-	local color = api.ElementColor(stringParam(packet, "Element", "Water"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Indigo"))
 	local points = targetsOf(packet)
 	if #points == 0 then
 		points = { packet.Origin }
 	end
 
 	for _, point in ipairs(points) do
-		local sphere = newPart(trove, "WaterPrison", {
+		local sphere = newPart(trove, "Binding", {
 			Shape = Enum.PartType.Ball,
 			Material = Enum.Material.Glass,
 			Color = color,
@@ -1132,18 +1132,18 @@ VfxLibrary.WaterPrison = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- MudShot: mud ball flying flat, then a splat facing the way it travelled.
-VfxLibrary.MudShot = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Stipple = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = directionOf(packet)
 	local speed = math.max(numberParam(packet, "Speed", 110), 1)
 	local spawnOffset = numberParam(packet, "SpawnOffset", 4)
 	local splatRadius = math.max(numberParam(packet, "HitRadius", 4), 1)
-	local color = api.ElementColor(stringParam(packet, "Element", "Earth"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Umber"))
 	local distance = travelDistance(packet, speed, numberParam(packet, "Fuse", 0.9), 70)
 	local travelTime = clampLifetime(distance / speed, MUD_SPLAT_SECONDS + 0.2)
 	local start = packet.Origin + direction * spawnOffset
 	local finish = start + direction * distance
 
-	local ball = newPart(trove, "MudShot", {
+	local ball = newPart(trove, "Stipple", {
 		Shape = Enum.PartType.Ball,
 		Material = Enum.Material.Mud,
 		Color = color,
@@ -1192,13 +1192,13 @@ end
 
 -- StoneSkin: ring of slate plates orbiting the caster for the buff duration, then crumbling. The
 -- plates keep slits and stay see-through: an opaque shell would blind the caster it protects.
-VfxLibrary.StoneSkin = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Gilding = function(packet: Packet, trove: TroveType, api: Api)
 	local duration = clampLifetime(
-		numberParam(packet, "Duration", CombatConfig.Status.StoneSkin.DurationSeconds),
+		numberParam(packet, "Duration", CombatConfig.Status.Gilding.DurationSeconds),
 		STONE_CRUMBLE_SECONDS
 	)
 	local radius = math.max(numberParam(packet, "Radius", 6), 1.5)
-	local color = api.ElementColor(stringParam(packet, "Element", "Earth"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Umber"))
 	local follow = casterRoot(packet)
 	local shellTrove = trove:Extend()
 	local plateWidth = (2 * math.pi * radius / STONE_PLATE_COUNT) * STONE_PLATE_GAP_FACTOR
@@ -1241,17 +1241,17 @@ VfxLibrary.StoneSkin = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- WindBlade: thin blade flying flat along Direction, rolling as it goes, behind a tight trail.
-VfxLibrary.WindBlade = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Hairline = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = directionOf(packet)
 	local speed = math.max(numberParam(packet, "Speed", 130), 1)
 	local spawnOffset = numberParam(packet, "SpawnOffset", 4)
-	local color = api.ElementColor(stringParam(packet, "Element", "Wind"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Verdigris"))
 	local distance = travelDistance(packet, speed, numberParam(packet, "Fuse", 0.6), 60)
 	local travelTime = clampLifetime(distance / speed, 0.3)
 	local start = packet.Origin + direction * spawnOffset
 	local finish = start + direction * distance
 
-	local blade = newPart(trove, "WindBlade", {
+	local blade = newPart(trove, "Hairline", {
 		Color = color,
 		Size = Vector3.new(0.35, 5, 1.6),
 		Transparency = 0.1,
@@ -1282,11 +1282,11 @@ end
 
 -- Cyclone: funnel of widening rings wobbling over the zone centre, debris spiralling inward once
 -- per server tick so the pull the player feels has a visible rhythm.
-VfxLibrary.Cyclone = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Spiral = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = math.max(numberParam(packet, "Radius", 11), 1)
 	local duration = clampLifetime(numberParam(packet, "Duration", 2.4), 0.5)
 	local spirals = 1 / math.max(numberParam(packet, "TickInterval", CYCLONE_TICK_SECONDS), 0.1)
-	local color = api.ElementColor(stringParam(packet, "Element", "Wind"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Verdigris"))
 	local ground = groundAt(packet.Origin)
 	local funnelTrove = trove:Extend()
 
@@ -1356,14 +1356,14 @@ VfxLibrary.Cyclone = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Sandstorm: dusty dome over the zone, with grit blowing around the local player while inside it.
-VfxLibrary.Sandstorm = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Pounce = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = math.max(numberParam(packet, "Radius", 13), 1)
 	local duration = clampLifetime(numberParam(packet, "Duration", 2.7), 0.5)
-	local color = api.ElementColor(stringParam(packet, "Element", "Wind"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Verdigris"))
 	local ground = groundAt(packet.Origin)
 	local domeTrove = trove:Extend()
 
-	local dome = newPart(domeTrove, "Sandstorm", {
+	local dome = newPart(domeTrove, "Pounce", {
 		Shape = Enum.PartType.Ball,
 		Material = Enum.Material.Sand,
 		Color = color,
@@ -1416,9 +1416,9 @@ end
 
 -- LightningBolt: instant jagged beam along the hitscan ray, flashing on whatever it struck. Origin
 -- already carries the spawn offset the server fired from.
-VfxLibrary.LightningBolt = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Strike = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
-	local color = api.ElementColor(stringParam(packet, "Element", "Lightning"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Orpiment"))
 	local points = targetsOf(packet)
 	local impact = if #points > 0 then points[1] else packet.Origin + direction * numberParam(packet, "Length", 70)
 
@@ -1433,9 +1433,9 @@ end
 
 -- LightningStep: flash at both ends of the teleport, plus a shimmer marking the i-frame window.
 -- Targets carries the landing the server validated against walls and ground.
-VfxLibrary.LightningStep = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Caret = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
-	local color = api.ElementColor(stringParam(packet, "Element", "Lightning"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Orpiment"))
 	local destination = endPointOf(packet, packet.Origin, direction, numberParam(packet, "Distance", 18))
 	local iFrames = clampLifetime(numberParam(packet, "IFrameSeconds", 0.4), 0.5)
 
@@ -1459,15 +1459,15 @@ VfxLibrary.LightningStep = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- StaticField: crackling disc on the ground that throws arcs out to its rim on every tick.
-VfxLibrary.StaticField = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Watermark = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = math.max(numberParam(packet, "Radius", 12), 1)
 	local interval = math.max(numberParam(packet, "TickInterval", STATIC_TICK_SECONDS), 0.1)
 	local duration = clampLifetime(numberParam(packet, "Duration", 4 * interval), 0.5)
 	local ticks = math.clamp(math.floor(duration / interval + 0.5), 1, 8)
-	local color = api.ElementColor(stringParam(packet, "Element", "Lightning"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Orpiment"))
 	local ground = groundAt(packet.Origin) + Vector3.new(0, 0.3, 0)
 
-	local disc = newPart(trove, "StaticField", {
+	local disc = newPart(trove, "Watermark", {
 		Shape = Enum.PartType.Cylinder,
 		Color = color,
 		Size = Vector3.new(0.4, 2, 2),
@@ -1505,9 +1505,9 @@ end
 
 -- Raijin: bolt out of the sky onto the first target, then arcs chaining to every position the server
 -- struck (Targets, in chain order), each link flashing and shaking the cameras nearby.
-VfxLibrary.Raijin = function(packet: Packet, trove: TroveType, api: Api)
+VfxLibrary.Colophon = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = flatDirectionOf(packet)
-	local color = api.ElementColor(stringParam(packet, "Element", "Lightning"))
+	local color = api.ElementColor(stringParam(packet, "Element", "Orpiment"))
 	local points = targetsOf(packet)
 	if #points == 0 then
 		points = { packet.Origin + direction * numberParam(packet, "Length", 60) }
@@ -1602,7 +1602,7 @@ VfxLibrary.Dash = function(packet: Packet, trove: TroveType, api: Api)
 	local direction = directionOf(packet)
 	local distance = numberParam(packet, "Distance", CombatConfig.Dash.Distance)
 	local duration = math.clamp(numberParam(packet, "Duration", CombatConfig.Dash.DurationSeconds), 0.05, 1)
-	local color = api.ElementColor("Wind")
+	local color = api.ElementColor("Verdigris")
 
 	local streak = newPart(trove, "DashTrail", {
 		Transparency = 1,

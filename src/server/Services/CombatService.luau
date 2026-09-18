@@ -151,7 +151,7 @@ local BLOCK_SLOW_KEY = "Block"
 
 local brokenBy = (CombatConfig.Block.BrokenBy :: any) :: { [string]: boolean }
 
-local STONE_SKIN = CombatConfig.Status.StoneSkin
+local STONE_SKIN = CombatConfig.Status.Gilding
 -- Elemental marks indexed by the element that writes them and by the element they amplify, so
 -- ApplyDamage stays two table lookups instead of a chain of element tests.
 local ELEMENTAL_MARKS: { ElementalMark } = { CombatConfig.Status.Fanned, CombatConfig.Status.Conductive }
@@ -947,7 +947,7 @@ function CombatService.knockback(targetModel: Model, velocity: Vector3, duration
 	CombatService.grantMovement(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
 end
 
--- Grants the StoneSkin buff (CombatConfig.Status.StoneSkin) to a live caster for its configured
+-- Grants the StoneSkin buff (CombatConfig.Status.Gilding) to a live caster for its configured
 -- duration: every incoming hit loses DamageReduction and knockback stops applying until it expires.
 -- Re-casting refreshes the expiry instead of stacking. Returns false when the caster has no live
 -- Humanoid, so the jutsu effect can skip its own rendering.

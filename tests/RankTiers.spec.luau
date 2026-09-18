@@ -5,24 +5,24 @@ local RankTiers = require("../src/shared/Pure/RankTiers")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local tiers = {
-	{ Id = "Genin", NameKey = "rank.genin", Min = 0 },
-	{ Id = "Chunin", NameKey = "rank.chunin", Min = 1100 },
-	{ Id = "Jonin", NameKey = "rank.jonin", Min = 1300 },
-	{ Id = "Kage", NameKey = "rank.kage", Min = 1700 },
+	{ Id = "Blank", NameKey = "rank.blank", Min = 0 },
+	{ Id = "Sketch", NameKey = "rank.sketch", Min = 1100 },
+	{ Id = "Script", NameKey = "rank.script", Min = 1300 },
+	{ Id = "Codex", NameKey = "rank.codex", Min = 1700 },
 }
 
 describe("RankTiers", function()
 	it("maps ratings to tiers", function()
-		expect(RankTiers.tierFor(0, tiers).Id).toBe("Genin")
-		expect(RankTiers.tierFor(1099, tiers).Id).toBe("Genin")
-		expect(RankTiers.tierFor(1100, tiers).Id).toBe("Chunin")
-		expect(RankTiers.tierFor(1650, tiers).Id).toBe("Jonin")
-		expect(RankTiers.tierFor(5000, tiers).Id).toBe("Kage")
-		expect(RankTiers.tierFor(-50, tiers).Id).toBe("Genin")
+		expect(RankTiers.tierFor(0, tiers).Id).toBe("Blank")
+		expect(RankTiers.tierFor(1099, tiers).Id).toBe("Blank")
+		expect(RankTiers.tierFor(1100, tiers).Id).toBe("Sketch")
+		expect(RankTiers.tierFor(1650, tiers).Id).toBe("Script")
+		expect(RankTiers.tierFor(5000, tiers).Id).toBe("Codex")
+		expect(RankTiers.tierFor(-50, tiers).Id).toBe("Blank")
 	end)
 
 	it("finds the next tier and progress", function()
-		expect((RankTiers.nextTier(1000, tiers) :: any).Id).toBe("Chunin")
+		expect((RankTiers.nextTier(1000, tiers) :: any).Id).toBe("Sketch")
 		expect(RankTiers.nextTier(1700, tiers)).toBeNil()
 		expect(RankTiers.progress(1200, tiers)).toBeCloseTo(0.5, 6)
 		expect(RankTiers.progress(1700, tiers)).toBe(1)

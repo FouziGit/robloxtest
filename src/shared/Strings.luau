@@ -18,11 +18,11 @@ Strings.Table = {
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
 
 	-- Elements & actions
-	["element.fire"] = { en = "Fire", fr = "Feu" },
-	["element.water"] = { en = "Water", fr = "Eau" },
-	["element.earth"] = { en = "Earth", fr = "Terre" },
-	["element.wind"] = { en = "Wind", fr = "Vent" },
-	["element.lightning"] = { en = "Lightning", fr = "Foudre" },
+	["pigment.cinnabar"] = { en = "Cinnabar", fr = "Cinabre" },
+	["pigment.indigo"] = { en = "Indigo", fr = "Indigo" },
+	["pigment.umber"] = { en = "Umber", fr = "Terre d'Ombre" },
+	["pigment.verdigris"] = { en = "Verdigris", fr = "Vert-de-gris" },
+	["pigment.orpiment"] = { en = "Orpiment", fr = "Orpiment" },
 	["action.melee"] = { en = "Melee", fr = "Corps à corps" },
 	-- Touch disc labels: short enough to fit a 44 px disc in every locale (InputConfig.ActionShortKeys).
 	["action.melee.short"] = { en = "Melee", fr = "CAC" },
@@ -117,103 +117,103 @@ Strings.Table = {
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
 
 	-- Jutsus
-	["jutsu.Fireball.name"] = { en = "Fireball", fr = "Boule de Feu" },
-	["jutsu.Fireball.desc"] = {
+	["glyph.Brand.name"] = { en = "Brand", fr = "Marque" },
+	["glyph.Brand.desc"] = {
 		en = "Hurls a sphere of flames that explodes on impact.",
 		fr = "Projette une sphère de flammes qui explose à l'impact.",
 	},
-	["jutsu.WaterWave.name"] = { en = "Water Wave", fr = "Vague Aquatique" },
-	["jutsu.WaterWave.desc"] = {
+	["glyph.Wash.name"] = { en = "Wash", fr = "Lavis" },
+	["glyph.Wash.desc"] = {
 		en = "A wave surges forward and sweeps enemies away.",
 		fr = "Une vague déferle et balaie les ennemis.",
 	},
-	["jutsu.EarthSpikes.name"] = { en = "Earth Spikes", fr = "Piques de Terre" },
-	["jutsu.EarthSpikes.desc"] = {
+	["glyph.Serif.name"] = { en = "Serif", fr = "Empattement" },
+	["glyph.Serif.desc"] = {
 		en = "Rock spikes burst from the ground in a straight line.",
 		fr = "Des piques rocheuses jaillissent du sol en ligne droite.",
 	},
-	["jutsu.WindGust.name"] = { en = "Slicing Gust", fr = "Rafale Tranchante" },
-	["jutsu.WindGust.desc"] = {
+	["glyph.Sweep.name"] = { en = "Sweep", fr = "Balayage" },
+	["glyph.Sweep.desc"] = {
 		en = "A cone of wind violently pushes nearby enemies back.",
 		fr = "Un cône de vent repousse violemment les ennemis proches.",
 	},
-	["jutsu.BoilingMist.name"] = { en = "Boiling Mist", fr = "Brume Bouillante" },
-	["jutsu.BoilingMist.desc"] = {
+	["glyph.Bleed.name"] = { en = "Bleed", fr = "Bavure" },
+	["glyph.Bleed.desc"] = {
 		en = "A scalding cloud that burns and slows enemies inside.",
 		fr = "Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.",
 	},
-	["jutsu.MudWall.name"] = { en = "Mud Wall", fr = "Mur de Boue" },
-	["jutsu.MudWall.desc"] = {
+	["glyph.Margin.name"] = { en = "Margin", fr = "Marge" },
+	["glyph.Margin.desc"] = {
 		en = "Raises a defensive wall of mud in front of you.",
 		fr = "Érige un mur de boue défensif devant toi.",
 	},
-	["jutsu.EmberStorm.name"] = { en = "Ember Storm", fr = "Tempête de Braises" },
-	["jutsu.EmberStorm.desc"] = {
+	["glyph.Scorch.name"] = { en = "Scorch", fr = "Roussi" },
+	["glyph.Scorch.desc"] = {
 		en = "A ring of embers whirls around you and burns everything.",
 		fr = "Un anneau de braises tourbillonne autour de toi et brûle tout.",
 	},
-	["jutsu.Earthquake.name"] = { en = "Earthquake", fr = "Séisme" },
-	["jutsu.Earthquake.desc"] = {
+	["glyph.Rupture.name"] = { en = "Rupture", fr = "Rupture" },
+	["glyph.Rupture.desc"] = {
 		en = "Slam the ground: a massive shockwave launches enemies.",
 		fr = "Frappe le sol : une onde de choc massive projette les ennemis.",
 	},
-	["jutsu.EmberStep.name"] = { en = "Ember Step", fr = "Pas de Braise" },
-	["jutsu.EmberStep.desc"] = {
+	["glyph.Ligature.name"] = { en = "Ligature", fr = "Ligature" },
+	["glyph.Ligature.desc"] = {
 		en = "A short dash that leaves a burning trail behind you.",
 		fr = "Une ruée courte qui laisse une traînée brûlante derrière toi.",
 	},
-	["jutsu.Meteor.name"] = { en = "Meteor", fr = "Météore" },
-	["jutsu.Meteor.desc"] = {
+	["glyph.Blot.name"] = { en = "Blot", fr = "Pâté" },
+	["glyph.Blot.desc"] = {
 		en = "Calls down a blazing rock that shatters guards where it lands.",
 		fr = "Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.",
 	},
-	["jutsu.WaterPrison.name"] = { en = "Water Prison", fr = "Prison d'Eau" },
-	["jutsu.WaterPrison.desc"] = {
+	["glyph.Binding.name"] = { en = "Binding", fr = "Reliure" },
+	["glyph.Binding.desc"] = {
 		en = "Traps the closest enemy in a sphere of water and roots them in place.",
 		fr = "Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.",
 	},
-	["jutsu.MudShot.name"] = { en = "Mud Shot", fr = "Tir de Boue" },
-	["jutsu.MudShot.desc"] = {
+	["glyph.Stipple.name"] = { en = "Stipple", fr = "Pointillé" },
+	["glyph.Stipple.desc"] = {
 		en = "Spits a fast bullet of mud that slows whoever it hits.",
 		fr = "Crache une balle de boue rapide qui ralentit sa cible.",
 	},
-	["jutsu.StoneSkin.name"] = { en = "Stone Skin", fr = "Peau de Pierre" },
-	["jutsu.StoneSkin.desc"] = {
+	["glyph.Gilding.name"] = { en = "Gilding", fr = "Dorure" },
+	["glyph.Gilding.desc"] = {
 		en = "Hardens your skin: less damage taken and no knockback for a few seconds.",
 		fr = "Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.",
 	},
-	["jutsu.WindBlade.name"] = { en = "Wind Blade", fr = "Lame de Vent" },
-	["jutsu.WindBlade.desc"] = {
+	["glyph.Hairline.name"] = { en = "Hairline", fr = "Délié" },
+	["glyph.Hairline.desc"] = {
 		en = "Throws a blade of wind that fans its target for your next fire jutsu.",
 		fr = "Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.",
 	},
-	["jutsu.Cyclone.name"] = { en = "Cyclone", fr = "Cyclone" },
-	["jutsu.Cyclone.desc"] = {
+	["glyph.Spiral.name"] = { en = "Spiral", fr = "Spirale" },
+	["glyph.Spiral.desc"] = {
 		en = "A whirlwind that drags everyone caught in it toward its centre.",
 		fr = "Une tornade qui attire vers son centre tout ce qu'elle happe.",
 	},
-	["jutsu.Sandstorm.name"] = { en = "Sandstorm", fr = "Tempête de Sable" },
-	["jutsu.Sandstorm.desc"] = {
+	["glyph.Pounce.name"] = { en = "Pounce", fr = "Poncif" },
+	["glyph.Pounce.desc"] = {
 		en = "A storm of sand that blinds and slows everyone inside it.",
 		fr = "Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.",
 	},
-	["jutsu.LightningBolt.name"] = { en = "Lightning Bolt", fr = "Éclair" },
-	["jutsu.LightningBolt.desc"] = {
+	["glyph.Strike.name"] = { en = "Strike", fr = "Rature" },
+	["glyph.Strike.desc"] = {
 		en = "An instant bolt that strikes the first enemy in your line of sight.",
 		fr = "Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.",
 	},
-	["jutsu.LightningStep.name"] = { en = "Lightning Step", fr = "Pas de l'Éclair" },
-	["jutsu.LightningStep.desc"] = {
+	["glyph.Caret.name"] = { en = "Caret", fr = "Insertion" },
+	["glyph.Caret.desc"] = {
 		en = "Blink forward in a flash, untouchable for an instant.",
 		fr = "Disparais vers l'avant dans un éclair, intouchable un instant.",
 	},
-	["jutsu.StaticField.name"] = { en = "Static Field", fr = "Champ Statique" },
-	["jutsu.StaticField.desc"] = {
+	["glyph.Watermark.name"] = { en = "Watermark", fr = "Filigrane" },
+	["glyph.Watermark.desc"] = {
 		en = "A crackling field that shocks and locks up anyone standing in it.",
 		fr = "Un champ crépitant qui électrise et bloque ceux qui s'y attardent.",
 	},
-	["jutsu.Raijin.name"] = { en = "Raijin", fr = "Raijin" },
-	["jutsu.Raijin.desc"] = {
+	["glyph.Colophon.name"] = { en = "Colophon", fr = "Colophon" },
+	["glyph.Colophon.desc"] = {
 		en = "The thunder god's wrath arcs from enemy to enemy.",
 		fr = "La colère du dieu du tonnerre bondit d'ennemi en ennemi.",
 	},
@@ -247,11 +247,11 @@ Strings.Table = {
 	["cosmetic.AuraHokage"] = { en = "Hokage Aura", fr = "Aura du Hokage" },
 
 	-- Ranks & modes
-	["rank.genin"] = { en = "Genin", fr = "Genin" },
-	["rank.chunin"] = { en = "Chunin", fr = "Chunin" },
-	["rank.jonin"] = { en = "Jonin", fr = "Jonin" },
-	["rank.anbu"] = { en = "Anbu", fr = "Anbu" },
-	["rank.kage"] = { en = "Kage", fr = "Kage" },
+	["rank.blank"] = { en = "Blank", fr = "Vierge" },
+	["rank.sketch"] = { en = "Sketch", fr = "Esquisse" },
+	["rank.script"] = { en = "Script", fr = "Écriture" },
+	["rank.illumination"] = { en = "Illumination", fr = "Enluminure" },
+	["rank.codex"] = { en = "Codex", fr = "Codex" },
 	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
 	["cosmetic.TitleJonin"] = { en = "Title: Jonin", fr = "Titre : Jonin" },

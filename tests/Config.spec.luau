@@ -94,7 +94,7 @@ describe("JutsuConfig", function()
 			end
 		end
 		expect(#JutsuConfig.defaultUnlocks()).toBeGreaterThan(0)
-		expect(JutsuConfig.ById.Fireball).never.toBeNil()
+		expect(JutsuConfig.ById.Brand).never.toBeNil()
 	end)
 
 	it("makes every jutsu reachable through a level or its element", function()
@@ -118,10 +118,10 @@ describe("JutsuConfig", function()
 		end
 		local levelFive = JutsuConfig.unlocksForLevel(5)
 		expect(#levelFive).toBe(2)
-		expect(levelFive).toContain("WindBlade")
-		expect(levelFive).toContain("MudShot")
-		expect(#JutsuConfig.unlocksForElement("Lightning")).toBe(4)
-		expect(#JutsuConfig.unlocksForElement("Fire")).toBe(0)
+		expect(levelFive).toContain("Hairline")
+		expect(levelFive).toContain("Stipple")
+		expect(#JutsuConfig.unlocksForElement("Orpiment")).toBe(4)
+		expect(#JutsuConfig.unlocksForElement("Cinnabar")).toBe(0)
 	end)
 
 	it("builds a combo tree where every recipe still casts", function()
@@ -147,7 +147,7 @@ describe("JutsuConfig", function()
 		end
 		-- Raijin's third press is the only intermediate that is not itself a recipe: it waits the
 		-- full timeout instead of casting (docs/GAME_DESIGN.md §4 rule 5).
-		local pending, third = ComboResolver.push(resolver, { "Lightning", "Lightning" }, "Lightning")
+		local pending, third = ComboResolver.push(resolver, { "Orpiment", "Orpiment" }, "Orpiment")
 		expect(#pending).toBe(3)
 		expect(third.Action).toBe("Wait")
 		if third.Action == "Wait" then
@@ -210,14 +210,14 @@ describe("CombatConfig", function()
 			expect(mark.DamageMultiplier).toBeLessThanOrEqual(1.5)
 			expect(Strings.has(mark.NameKey)).toBe(true)
 		end
-		local buff = CombatConfig.Status.StoneSkin
+		local buff = CombatConfig.Status.Gilding
 		expect(attributes[buff.Attribute]).toBeNil()
 		expect(buff.KnockbackImmune).toBe(true)
 		expect(buff.DamageReduction).toBeGreaterThan(0)
 		-- a buff you keep is weaker than holding guard, and never covers its own cooldown
 		expect(buff.DamageReduction).toBeLessThan(CombatConfig.Block.DamageReduction)
 		expect(buff.DurationSeconds).toBeGreaterThan(0)
-		expect(buff.DurationSeconds).toBeLessThan(JutsuConfig.ById.StoneSkin.Cooldown)
+		expect(buff.DurationSeconds).toBeLessThan(JutsuConfig.ById.Gilding.Cooldown)
 		expect(Strings.has(buff.NameKey)).toBe(true)
 		expect(Strings.has("hud.status.bonus")).toBe(true)
 	end)

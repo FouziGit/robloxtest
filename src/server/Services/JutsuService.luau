@@ -182,7 +182,7 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 		log.error("recipe %s resolves to unknown jutsu %s", table.concat(sequence, "-"), jutsuId)
 		return nil
 	end
-	if table.find(data.Unlocks.Jutsus, jutsuId) == nil then
+	if table.find(data.Unlocks.Glyphs, jutsuId) == nil then
 		notify.send(player, "hud.cast.locked", { name = def.NameKey }, "Error")
 		return nil
 	end

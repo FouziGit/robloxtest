@@ -1,7 +1,7 @@
 --!strict
 -- Shared type definitions. Only types: no runtime code.
 
-export type ElementId = "Fire" | "Water" | "Earth" | "Wind" | "Lightning"
+export type ElementId = "Cinnabar" | "Indigo" | "Umber" | "Verdigris" | "Orpiment"
 
 export type Rgb = { number }
 

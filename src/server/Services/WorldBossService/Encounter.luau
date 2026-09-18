@@ -277,20 +277,23 @@ function Encounter.step(
 	return "Fighting", dirty
 end
 
--- Damage the boss took, attributed to the player CombatService recorded on the model it damaged.
--- Healing is ignored, and the overkill of the killing blow never counts: the Humanoid clamps at zero,
--- so the shares always add up to the health the boss lost.
-function Encounter.recordDamage(boss: Boss, state: WorldBossMode.State, health: number)
-	local lost = boss.LastHealth - health
-	boss.LastHealth = health
-	if lost <= 0 then
+-- One damage application against the boss, attributed to the player CombatService says dealt it.
+--
+-- Driven by CombatService.Damaged rather than by Humanoid.HealthChanged plus a last-attacker
+-- attribute: several players land a hit inside one resumption cycle, and a shared attribute slot
+-- credits every one of those hits to whoever wrote it last, so a player timing cheap fast casts to
+-- land last absorbed the whole frame's damage from everybody else.
+--
+-- The overkill of the killing blow never counts: the credit is clamped to the health still left, so
+-- the shares always add up to exactly the health the boss lost and WorldBossMode.shareOf stays a
+-- fraction of the real total.
+function Encounter.recordDamage(boss: Boss, state: WorldBossMode.State, sourceUserId: number, applied: number)
+	local credited = math.min(applied, boss.LastHealth)
+	if credited <= 0 then
 		return
 	end
-	local attacker = boss.Model:GetAttribute(Context.LastAttackerAttribute)
-	if type(attacker) ~= "number" then
-		return
-	end
-	WorldBossMode.recordDamage(state, attacker, lost)
+	boss.LastHealth -= credited
+	WorldBossMode.recordDamage(state, sourceUserId, credited)
 end
 
 function Encounter.Init(injected: Deps)

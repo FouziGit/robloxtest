@@ -51,6 +51,14 @@ export type CombatApi = {
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	-- Returns the policy it replaced, so a temporary owner can hand the slot back (see init.takePolicy).
 	setPolicy: (fn: Policy) -> Policy?,
+	-- One damage application, with who dealt it and to what. Boss contribution is attributed from this
+	-- and never by reading an attribute back from a Humanoid event (see Encounter.recordDamage).
+	Damaged: {
+		Connect: (
+			self: any,
+			fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+		) -> any,
+	},
 }
 export type MovementApi = { applyStun: (player: Player, seconds: number) -> () }
 export type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> number }
@@ -108,8 +116,6 @@ Context.ArenaId = "Boss" -- the MatchConfig.Arenas entry ArenaService builds the
 Context.FloorName = "Floor"
 Context.BossSpawnName = "BossSpawn"
 Context.RootPartName = "HumanoidRootPart"
--- Written by CombatService on every hit it applies: the boss reads it to attribute its own damage.
-Context.LastAttackerAttribute = "LastAttackerUserId"
 -- Participants are dropped this far above their pad so they never start clipped into it.
 Context.SpawnClearanceStuds = 4
 -- How far from the arena centre a participant still counts as fighting: the arena is that wide, and a

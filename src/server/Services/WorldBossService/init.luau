@@ -67,20 +67,36 @@ local ticks = 0
 -- PvP policy
 ----------------------------------------------------------------
 
--- PvP is off for the whole event (docs/GAME_DESIGN.md §7): server-authored damage carries no source, so
--- the boss, its attacks and the environment still land, players still hit the boss and the training
--- dummies, and no player can damage another one until the arena is released.
+-- Damage rule while the event is live. It NARROWS the rule it borrowed, it does not replace it: any
+-- pair where either side is in a match is decided by the borrowed rule, so a duel or a 3v3 that was
+-- already running when the boss spawned keeps its participant PvP. Everything else follows the event
+-- rule of docs/GAME_DESIGN.md §7 — server-authored damage carries no source so the boss, its attacks
+-- and the environment still land, players still hit the boss and the training dummies, and no player
+-- can damage another one.
+--
+-- Replacing the rule outright made every live match undamageable for the whole event: nobody could be
+-- eliminated, so each round ran to its timer and resolved as a draw, and a ranked series was scored on
+-- a fight that was physically impossible to play. Roughly a third of every event cycle was exposed.
 local function bossPolicy(source: Player?, targetModel: Model): boolean
 	if source == nil then
 		return true
 	end
-	return Players:GetPlayerFromCharacter(targetModel) == nil
+	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+	local borrowed = restorePolicy
+	if
+		borrowed ~= nil
+		and (deps.Match.isInMatch(source) or (targetPlayer ~= nil and deps.Match.isInMatch(targetPlayer)))
+	then
+		return borrowed(source, targetModel)
+	end
+	return targetPlayer == nil
 end
 
 -- CombatService keeps a single policy slot and MatchService owns it from its Start, so the event borrows
--- the slot instead of stacking on it: setPolicy hands back the policy it replaced and the cleanup puts
--- that one back. A build where nothing comes back is logged rather than guessed — the event would
--- otherwise restore a rule it never read.
+-- the slot instead of stacking on it: setPolicy hands back the policy it replaced, bossPolicy defers to
+-- it for anything a live match governs, and the cleanup puts it back. A build where nothing comes back
+-- is logged rather than guessed — the event would otherwise restore a rule it never read, and
+-- bossPolicy would have nothing to defer to.
 local function takePolicy()
 	local replaced = deps.Combat.setPolicy(bossPolicy)
 	restorePolicy = replaced
@@ -273,10 +289,10 @@ local function spawnBoss(now: number)
 
 	local live = Encounter.build(arena, fresh.MaxHealth)
 	trove:Add(live.Model)
-	trove:Connect(live.Humanoid.HealthChanged, function(health: number)
+	trove:Connect(deps.Combat.Damaged, function(sourceUserId: number, targetModel: Model, applied: number)
 		local current = state
-		if current ~= nil and boss == live then
-			Encounter.recordDamage(live, current, health)
+		if current ~= nil and boss == live and targetModel == live.Model then
+			Encounter.recordDamage(live, current, sourceUserId, applied)
 		end
 	end)
 	boss = live

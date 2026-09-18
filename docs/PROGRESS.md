@@ -58,7 +58,8 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | 1 — Le lexique et le lore | ✅ | `4fc31f6`…`fddeb8b` |
 | 2 — `Feel` et `FeelConfig` | ✅ | `14ef09b`, `be45b2f` |
 | 3 — Le pipeline VFX | ✅ | `3a7f5ec`…`85a1ef5` |
-| 4 à 9 — sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
+| 4 — Refonte sort par sort | 🟡 | `2ed31d8`…`0d4db15` — les vingt glyphes sont faits, L'Effacement reste |
+| 5 à 9 — audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
 
 ### Phase 1 — fait
 
@@ -117,3 +118,20 @@ Six agents ont relu les trois chantiers bâtis en parallèle : 26 constats confi
 - `VfxPool.lease` était une API sans appelant. `resetEmitter` oubliait `WindAffectsDrag`, que le constructeur de couches écrit. Le test des plafonds recopiait à la main la liste des classes, donc il ne pouvait pas échouer quand le pool en gagnait une — ce qui était déjà arrivé, en silence, avec `Decal` et `Beam`.
 
 Et deux constats qui me visaient : un changement de code emporté dans un commit étiqueté `docs:`, et un message de commit décrivant un trait de pinceau qui n'a pas été livré. Les deux sont corrigés au registre (D-58, D-59), pas dans l'artefact : la version livrée est meilleure pour son usage réel.
+
+### Phase 4 — fait
+
+- Le format a gagné la phase Voyage qu'il promettait : un **porteur** invisible qui vole, et toute couche qui déclare `Ride` est construite dessus. Il parcourt sa distance en courbe et monte et redescend d'un arc.
+- Une couche peut être ancrée au **corps du lanceur** (`Follow`). Plusieurs zones sont recentrées sur lui par le serveur à chaque tick ; un visuel épinglé au point de lancement dessinait une frontière brûlante autour d'un sol vide.
+- **Les vingt glyphes** sont des timelines : 26 timelines, 312 couches. L'audit en comptait 72 au total, sans un seul `Beam` ni décalque. Le recensement actuel : 101 émetteurs, 65 traces au sol, 47 lumières, 27 secousses, 26 sprites, 22 traînées, 13 `Beam`, 8 porteurs.
+- `VfxLibrary` passe de 1912 à 890 lignes. Tout l'étage impératif — les piques, les plaques de pierre, les barreaux, la gigue des éclairs, quarante-cinq constantes et neuf helpers — est supprimé.
+- `docs/VFX_SPECS.md` porte une fiche par effet, par école, en français.
+- Six nouvelles portes : ce qui atterrit laisse une trace, chaque glyphe a une lumière, un porteur ne dépasse jamais la portée du sort, tout passager a une monture, toute traînée déclare ce qui la déplace, et aucune couche ne chevauche et ne suit à la fois.
+
+### Phase 4 — ce qui reste, et pourquoi
+
+**L'Effacement n'est pas converti.** Ses quatre attaques peignent une télégraphie au sol qui se remplit à mesure que le coup approche, dimensionnée sur le rayon de dégâts réel, et dont la durée vient du paquet (1,0 à 2,0 s selon l'attaque). Une timeline statique ne sait pas encore exprimer une phase d'anticipation à durée variable. Cette télégraphie est ce qui dit à six joueurs où ne pas se tenir : la convertir à moitié coûterait plus cher que la laisser en impératif jusqu'à ce que le format sache la porter.
+
+### Phase 4 — ce qui n'est pas vérifié au runtime
+
+Les neuf types de couches ont tous tourné en jeu — sprite, émetteur, `Beam`, traînée, lumière, trace, secousse, éclair d'écran et porteur — via les six timelines de la phase 3. Les **dix-neuf nouvelles données** n'ont pas été éprouvées dans un client vivant : Studio restaure obstinément sa session et rouvre un place périmé, et je n'ai pas trouvé de chemin fiable pour lui faire charger le fichier construit. Les portes statiques couvrent les clés de texture, les noms de profils, les comptes de couches, les durées, la portée des porteurs et l'ancrage des traînées ; ce qu'elles ne couvrent pas, c'est une combinaison de valeurs que le runtime traiterait mal. C'est une lacune réelle, pas un oubli.

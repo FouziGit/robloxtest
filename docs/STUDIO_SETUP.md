@@ -45,7 +45,7 @@ Créer chaque pass avec ce nom et ce prix, puis coller l'ID dans `MonetizationCo
 |---|---|---|---|
 | `Vip` | VIP | 399 R$ | XP ×2, Ryo ×1,5, tag dans le chat, aura exclusive |
 | `LoadoutSlots` | Loadout Slots | 199 R$ | +4 slots d'équipement (10 au total) |
-| `Orpiment` | Orpiment Pigment | 299 R$ | Débloque l'pigment Orpiment immédiatement (sinon niveau 40) |
+| `Orpiment` | Orpiment Pigment | 299 R$ | Débloque le pigment Orpiment immédiatement (sinon niveau 40) |
 | `SkinPack` | Skin Pack | 249 R$ | 4 skins de glyphe (Marque, Lavis, Empattement, Balayage) |
 
 ## 4. Developer products (Creator Dashboard → Monetization → Developer Products)
@@ -73,7 +73,7 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 2. Frapper un mannequin (`J J` = Marque) → XP, Ryo, barre de niveau.
 3. `M` → Options : réassigner une touche, sauvegarder, relancer Play : la touche est conservée (DataStore actif).
 4. Test tactile : Test → Device → téléphone (812x375, paysage). Vérifier trois choses :
-   - les cinq disques d'pigments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/PigmentConfig.luau` (champ `Glyphs`) — le HUD et l'écran d'équipement suivent automatiquement ;
+   - les cinq disques de pigments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/PigmentConfig.luau` (champ `Sigils`) — le HUD et l'écran d'équipement suivent automatiquement ;
    - les disques Melee / Dash / Block / Menu affichent leur libellé court en entier (`CAC`, `Ruée`, `Garde`, `Menu` en français) ;
    - aucun bouton ne mesure moins de 44 px à l'écran, et rien ne chevauche le bouton de saut du moteur.
 5. Test manette : brancher une manette, D-pad = pigments. Dans le classement, le D-pad fait défiler la liste (les lignes ne sont pas sélectionnables, le panneau déplace le canevas lui-même).
@@ -82,7 +82,7 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Ryo.
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
-8. `M` → **Équipement** : retirer un glyph, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
+8. `M` → **Équipement** : retirer un glyphe, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
 9. `M` → **Boutique** : quatre articles du jour. Acheter en Ryo si le solde suffit, équiper, vérifier que l'article passe en « possédé ». L'achat en Robux ne fonctionne qu'une fois les IDs de §4 saisis et la place publiée.
 10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
 

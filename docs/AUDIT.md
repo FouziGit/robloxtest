@@ -13,12 +13,12 @@ Bilan : **68 constats** — 16 hauts, 34 moyens, 18 bas — et 7 points forts à
 
 | # | Pigment | Où | Pourquoi le garder |
 |---|---|---|---|
-| K1 | Pipeline de cast serveur-autoritaire | `GlyphService.lua:82-164` | Validation stricte du payload (type / longueur / whitelist d'pigments), anti-spam qui ne consomme pas la fenêtre sur un refus, cooldown armé seulement après succès de l'effet. Référence pour `CombatService`. |
+| K1 | Pipeline de cast serveur-autoritaire | `GlyphService.lua:82-164` | Validation stricte du payload (type / longueur / whitelist de pigments), anti-spam qui ne consomme pas la fenêtre sur un refus, cooldown armé seulement après succès de l'effet. Référence pour `CombatService`. |
 | K2 | Résolveur de combo par préfixe | `GlyphConfig.lua:126-143`, `GlyphController.client.lua:196-225` | `ByCombo` / `PrefixSet` construits à la charge avec détection de doublons ; décision client « combo & non-préfixe → tir immédiat / préfixe → attente / mort → reset », timers protégés par compteur de génération. Devient le module pur `ComboResolver`. |
 | K3 | Injection de dépendances, point d'entrée unique | `MainServer.server.lua:60-71` | `Init(deps)` sans `require` circulaire, noms de remotes centralisés dans la config. Modèle du futur `Bootstrap`. |
 | K4 | Source unique d'XP et claims validés serveur | `BattlepassService.lua:108-161, 170-230` | `AddXP(player, amount, reason)` est le seul chemin de progression ; `HandleClaimReward` vérifie palier / doublon / type côté serveur. |
 | K5 | Chargement de profil robuste | `DataManager.lua:120-159` | Session lock, `AddUserId` (RGPD), `Reconcile`, kick si le verrou est repris ailleurs, snapshots copiés avant envoi. |
-| K6 | Config data-driven | `GlyphConfig.lua:5-10`, `GameConfig.lua:93-115` | Ajouter un glyph = une entrée + une fonction d'effet ; whitelist de touches unique. |
+| K6 | Config data-driven | `GlyphConfig.lua:5-10`, `GameConfig.lua:93-115` | Ajouter un glyphe = une entrée + une fonction d'effet ; whitelist de touches unique. |
 | K7 | UI 100 % générée en code | tous les `*.client.lua` | Rien à reconstruire dans Studio ; base pour une couche composants/thème. |
 
 ---
@@ -28,7 +28,7 @@ Bilan : **68 constats** — 16 hauts, 34 moyens, 18 bas — et 7 points forts à
 | Sév. | Fichier:ligne | Constat | Conséquence |
 |---|---|---|---|
 | Haut | `GameConfig.lua:21` | Touche par défaut Cinabre = `A`, qui est le strafe gauche QWERTY ; la whitelist retire W/S/D/Z/Q mais garde A | Sur QWERTY (majorité des joueurs) chaque pas à gauche empile un mantra ; deux pas rapides lancent une Marque ; toast d'erreur 1,5 s plus tard. Le jeu est injouable avant rebind. |
-| Moyen | `GlyphEffects.lua:180` | La Marque ignore le Marge (`Touched` retourne sur tout `EFFECT_TAG`, mur `CanQuery=false`) | Aucun glyph n'est bloqué par le mur ; il ne bloque que la marche. |
+| Moyen | `GlyphEffects.lua:180` | La Marque ignore le Marge (`Touched` retourne sur tout `EFFECT_TAG`, mur `CanQuery=false`) | Aucun glyphe n'est bloqué par le mur ; il ne bloque que la marche. |
 | Moyen | `GlyphEffects.lua:319, 506-510` | Knockback écrit `AssemblyLinearVelocity` côté serveur | No-op sur les mannequins (ancrés) ; écrasé en une frame sur les joueurs (network ownership client). Les descriptions « projette / repousse » sont fausses. |
 | Moyen | `MovementController.client.lua:179` | `JumpRequest` se répète tant que la touche est tenue ; debounce temporel de 0,18 s | Maintenir Espace consomme automatiquement le double saut ; impossible de le temporiser. |
 | Moyen | `OptionsMenu.client.lua:241` | `stopCapture()` efface l'attribut `RebindCapture` de façon synchrone dans le même dispatch `InputBegan` | Ordre des connexions indéfini → la touche capturée peut aussi entrer comme mantra dans `GlyphController`. |
@@ -110,6 +110,6 @@ Bilan : **68 constats** — 16 hauts, 34 moyens, 18 bas — et 7 points forts à
 ## 6. Conclusion pour le plan
 
 1. **Rien n'est à jeter dans les idées** : cast serveur-autoritaire, résolveur préfixe, DI, config data-driven, session lock → conservés et promus en modules typés.
-2. **Tout le code doit être réécrit dans la nouvelle structure** (`src/`, `.luau`, `--!strict`, EN) : la dette de localisation (80 chaînes), le couplage des noms d'pigments et l'absence de frontières de services rendent une traduction mécanique plus coûteuse qu'une réécriture guidée par les points forts.
+2. **Tout le code doit être réécrit dans la nouvelle structure** (`src/`, `.luau`, `--!strict`, EN) : la dette de localisation (80 chaînes), le couplage des noms de pigments et l'absence de frontières de services rendent une traduction mécanique plus coûteuse qu'une réécriture guidée par les points forts.
 3. **Ordre imposé par les dépendances** : toolchain + données + remotes sûrs (Phase 1) avant le combat (Phase 2), qui précède les modes (Phase 4) et la monétisation (Phase 7). Le mobile (Phase 3) précède les modes pour que chaque mode soit testé mentalement en tactile dès sa création.
 4. **Les 4 bugs « haut » et les exploits de mouvement se résolvent par conception** : touches par défaut hors WASD/ZQSD, `CombatService` unique, mouvement décidé côté serveur, XP conditionnée à un hit ou à un résultat de match, encre comme ressource.

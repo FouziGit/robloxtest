@@ -34,7 +34,7 @@ Raison : une file de timers par statut et par joueur coûterait plus cher que la
 
 **D-18 — Reliure immobilise par un ralentissement à 0, pas par un stun** · Phase 2
 `Binding` applique `applySlow(Def.Id, 0, 1.5)` au lieu de `applyStun`.
-Raison : la cible reste capable de lancer un glyph et de se défendre — c'est un contrôle de position, pas un silence ; un stun de 1,5 s serait au-dessus du budget d'étourdissement du genre.
+Raison : la cible reste capable de lancer un glyphe et de se défendre — c'est un contrôle de position, pas un silence ; un stun de 1,5 s serait au-dessus du budget d'étourdissement du genre.
 
 **D-19 — Caret téléporte côté serveur après validation par raycast** · Phase 2
 Le serveur lance un rayon sur `Def.Range`, recule de `WallBackoffStuds`, vérifie `ClearanceRadius` et raccroche au sol sur `GroundSnapStuds`, puis écrit le pivot du personnage. `MovementCommand` n'a pas de type « Teleport ».
@@ -102,7 +102,7 @@ Raison : le déplacement du dash lui-même n'est pas observable (D-10), donc ce 
 
 **D-14 — Les ralentissements sont indexés par clé** · Phase 1
 `MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque glyph utilise son `Id`.
-Raison : une seule valeur globale permettait de « nettoyer » le ralentissement d'un glyph adverse en tapant la garde une fraction de seconde.
+Raison : une seule valeur globale permettait de « nettoyer » le ralentissement d'un glyphe adverse en tapant la garde une fraction de seconde.
 
 **D-15 — La zone sûre du hub est symétrique** · Phase 1
 Un joueur à l'intérieur de la zone sûre ne peut ni subir ni infliger de dégâts PvP (avant : il était seulement protégé).

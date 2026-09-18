@@ -89,7 +89,7 @@ Le **encre** (100, régénération plus lente en combat) est la vraie limite au 
 
 Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)) :
 
-- **Serveur autoritaire.** Le client n'envoie que des *intentions* (séquence d'pigments, Melee/Dash/Block). Origine, direction, dégâts, ressources, récompenses : serveur.
+- **Serveur autoritaire.** Le client n'envoie que des *intentions* (séquence de pigments, Melee/Dash/Block). Origine, direction, dégâts, ressources, récompenses : serveur.
 - **Un seul chemin de dégâts** : `CombatService.ApplyDamage`.
 - **Le serveur ne construit aucun VFX** : il diffuse `{Id, Origin, Direction, Params}` et chaque client rend localement.
 - **Zéro chaîne joueur en dur** : tout passe par `Strings` (test bloquant en CI).

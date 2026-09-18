@@ -37,7 +37,7 @@ Le résolveur (`ComboResolver`, module pur testé) applique :
 
 1. La séquence tapée **est une recette et n'est le début d'aucune autre** → cast immédiat.
 2. La séquence **est le début d'une recette plus longue** → attente de la touche suivante.
-3. Sinon → reset (« aucun glyph ne correspond »).
+3. Sinon → reset (« aucun glyphe ne correspond »).
 4. **Fenêtre d'extension** : si la séquence est *déjà* une recette **et** le début d'une plus longue (`Cinabre Cinabre` → `Cinabre Cinabre Terre d'Ombre`), le client n'attend que `ExtendWindowSeconds` (0,35 s) au lieu du timeout complet (1,2 s). Un joueur rapide enchaîne `Cinabre Cinabre Terre d'Ombre` en moins de 350 ms ; un joueur qui voulait `Cinabre Cinabre` ne perd que 350 ms. C'est le cœur du « fun par la vitesse d'exécution ».
 5. Timeout complet (1,2 s) uniquement pour les séquences qui ne sont pas encore une recette.
 
@@ -85,7 +85,7 @@ Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 
 
 | Interaction | Règle serveur (`CombatService` tags) |
 |---|---|
-| **Le Vert-de-gris attise le Cinabre** | une cible touchée par un glyph Vert-de-gris porte *Éventé* 3 s : +25 % de dégâts de Cinabre |
+| **Le Vert-de-gris attise le Cinabre** | une cible touchée par un glyphe Vert-de-gris porte *Éventé* 3 s : +25 % de dégâts de Cinabre |
 | **L'Indigo éteint le Cinabre** | une AoE/Zone d'Indigo lancée dans une zone de Cinabre active (Roussi, traînée de Ligature) la termine |
 | **La Terre d'Ombre bloque** | Marge et Dorure arrêtent projectiles et knockback |
 | **L'Orpiment conduit dans l'Indigo** | une cible dans une Bavure ou un Lavis en cours subit +25 % de dégâts d'Orpiment |

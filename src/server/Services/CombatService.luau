@@ -150,9 +150,14 @@ local CombatService = {}
 
 CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model)
 -- Fired once per damage application that actually removed health, after every guard, i-frame and
--- policy check. QuestService turns it into the DamageDealt and MeleeHit quest events; nothing else
--- may count damage, so a single application can never be credited twice.
-CombatService.Damaged = Signal.new() -- (sourceUserId: number, applied: number, kind: DamageKind)
+-- policy check, carrying who dealt it and to what. QuestService turns it into the DamageDealt and
+-- MeleeHit quest events and WorldBossService attributes boss contribution from it; nothing else may
+-- count damage, so a single application can never be credited twice.
+--
+-- Consumers must attribute from this payload and not by reading an attribute back from a Humanoid
+-- event: several players hit the boss in one resumption cycle, so a shared "last attacker" slot
+-- credits them all to whoever wrote it last.
+CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind)
 -- Fired once per dash the server actually granted (chakra spent, cooldown armed).
 CombatService.Dashed = Signal.new() -- (player: Player)
 
@@ -170,6 +175,9 @@ local states: { [Player]: State } = {}
 local policy: Policy
 local accumulator = 0
 local ticksSinceReplication = 0
+-- os.clock of the previous tick, so regeneration integrates over the time that really passed. 0 until
+-- the first tick, which then regenerates nothing.
+local lastTickAt = 0
 local cachedSpawn: SpawnLocation? = nil
 
 ----------------------------------------------------------------
@@ -671,15 +679,19 @@ function CombatService.ApplyDamage(
 	if targetState ~= nil then
 		targetState.KillCredited = applied >= humanoid.Health
 	end
-	humanoid:TakeDamage(applied)
-	result.Applied = applied
-	if source ~= nil then
-		CombatService.Damaged:Fire(source.UserId, applied, kind)
-	end
-	markTarget(humanoid, element, now)
+	-- Before TakeDamage, never after: Humanoid.Died and HealthChanged can run inside that call, and
+	-- every consumer of this attribute reads it from one of those events. Written late, EnemyService
+	-- credited a dummy kill to the previous attacker (or to nobody on a one-shot) and CombatService's
+	-- own last-attacker fallback named the wrong player.
 	if source ~= nil then
 		targetModel:SetAttribute(LAST_ATTACKER_ATTRIBUTE, source.UserId)
 	end
+	humanoid:TakeDamage(applied)
+	result.Applied = applied
+	if source ~= nil then
+		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)
+	end
+	markTarget(humanoid, element, now)
 	if sourceState ~= nil then
 		markInCombat(sourceState, now)
 	end
@@ -969,12 +981,23 @@ local function replicateState(player: Player, state: State, inCombat: boolean)
 	})
 end
 
-local function tickPlayer(player: Player, state: State, now: number, replicate: boolean)
+-- `elapsed` is the wall-clock time since the previous tick, never the nominal tick length: the
+-- accumulator fires at most once per frame and drops the remainder, so below TickRate frames per second
+-- a fixed step silently paid out less chakra and health per second than the config promises. Rates are
+-- per second and integrating over the real interval makes them frame-rate independent.
+local function tickPlayer(player: Player, state: State, now: number, elapsed: number, replicate: boolean)
 	local chakra = CombatConfig.Chakra
 	local inCombat = now < state.InCombatUntil
 	if state.Chakra < chakra.Max then
 		local rate = if inCombat then chakra.RegenInCombat else chakra.RegenOutOfCombat
-		state.Chakra = math.min(chakra.Max, state.Chakra + rate * TICK_SECONDS)
+		state.Chakra = math.min(chakra.Max, state.Chakra + rate * elapsed)
+	end
+
+	-- Entries expire after CombatConfig.Hit.IFrameSeconds but were only ever swept when the same jutsu
+	-- tag damaged something again, so a tag nobody casts twice kept strong references to the character
+	-- Models it hit, and through them their parts, long after they were destroyed.
+	for _, memory in pairs(state.HitMemory) do
+		pruneHitMemory(memory, now)
 	end
 
 	local humanoid = state.Humanoid
@@ -983,7 +1006,7 @@ local function tickPlayer(player: Player, state: State, now: number, replicate: 
 		alive = true
 		local health = CombatConfig.Health
 		if humanoid.Health < humanoid.MaxHealth and now - state.LastDamageTakenAt >= health.RegenDelaySeconds then
-			humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + health.RegenPerSecond * TICK_SECONDS)
+			humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + health.RegenPerSecond * elapsed)
 		end
 	end
 
@@ -1010,8 +1033,10 @@ local function onHeartbeat(deltaTime: number)
 		ticksSinceReplication = 0
 	end
 	local now = os.clock()
+	local elapsed = if lastTickAt > 0 then now - lastTickAt else 0
+	lastTickAt = now
 	for player, state in pairs(states) do
-		tickPlayer(player, state, now, replicate)
+		tickPlayer(player, state, now, elapsed, replicate)
 	end
 end
 

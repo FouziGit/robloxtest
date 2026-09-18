@@ -48,7 +48,10 @@ type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) 
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> number }
 type KilledSignal = { Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any }
 type DamagedSignal = {
-	Connect: (self: DamagedSignal, fn: (sourceUserId: number, applied: number, kind: string) -> ()) -> any,
+	Connect: (
+		self: DamagedSignal,
+		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+	) -> any,
 }
 type DashedSignal = { Connect: (self: DashedSignal, fn: (player: Player) -> ()) -> any }
 type CombatApi = { Killed: KilledSignal, Damaged: DamagedSignal, Dashed: DashedSignal }
@@ -272,7 +275,7 @@ end
 
 -- One event per damage application that removed health, whatever the victim: the damage quests count
 -- what the player dealt, and MeleeHit counts landed melee hits rather than swings.
-local function onDamaged(sourceUserId: number, applied: number, kind: string)
+local function onDamaged(sourceUserId: number, _targetModel: Model, applied: number, kind: string)
 	if sourceUserId == 0 or applied <= 0 then
 		return
 	end

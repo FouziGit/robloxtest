@@ -14,6 +14,11 @@ sourcemap.json
 # luau-lsp Roblox type definitions (downloaded by scripts/setup.sh)
 globalTypes.d.luau
 
+# Texture generators (tools/textures). The PNGs in assets/ ARE committed -- they are the art, and
+# committing them is what keeps CI from needing Python at all -- but the interpreter's cache is not.
+__pycache__/
+*.pyc
+
 # Editors / OS
 .vscode/
 .idea/

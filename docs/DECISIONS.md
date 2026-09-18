@@ -86,7 +86,7 @@ Raison : réécrire les effets deux fois (Parts serveur en Phase 1 puis client e
 
 **D-10 — Dash et knockback appliqués par le client propriétaire de la physique** · Phase 1
 Le serveur décide (cooldown, chakra, i-frames, cible) puis envoie `MovementCommand` ; le client applique la vitesse sur son `HumanoidRootPart`.
-Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur ; l'anti-teleport (Phase 8) borne la dérive.
+Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur : il valide, débite le chakra, arme la recharge et envoie l'ordre. Ce qui borne un client malhonnête est donc le coût et la recharge, pas une vérification de position (D-13) ; la comparaison de position est écartée et listée comme suite possible dans `docs/PROGRESS.md`.
 
 **D-11 — Touches par défaut J / K / L / H / U, menu M, garde F, dash Maj gauche** · Phase 1
 `InputConfig.DefaultKeyboard` évite WASD (QWERTY), ZQSD (AZERTY), Espace, Tab, Échap, I/O (zoom) et les chiffres (backpack) ; la liste blanche de rebind exclut ces mêmes touches.
@@ -98,7 +98,7 @@ Raison : aucune action GitHub officielle maintenue par rojo-rbx ; le script est 
 
 **D-13 — Les i-frames du dash sont accordées sur la seule décision serveur** · Phase 1
 Le serveur accorde 0,25 s d'invulnérabilité au moment où il valide le dash, sans observer le déplacement (le personnage est simulé par le client propriétaire, D-10). Un client qui ignore `MovementCommand` garde donc les i-frames sans bouger.
-Raison : impossible d'observer le déplacement de façon fiable en Phase 1 ; la Phase 8 enregistre position/direction/durée attendues à l'envoi de la commande et les compare à la position réelle après `Duration + GameConfig.Latency.OriginToleranceStuds`.
+Raison : le déplacement n'est pas observable côté serveur sans casser la simulation client (D-10). Ce qui borne l'esquive est donc son coût en chakra et son temps de recharge, pas une vérification de position. Décision tenue jusqu'au bout : la comparaison position attendue / position observée est écartée, elle produirait des faux positifs sur une mauvaise connexion et punirait des joueurs honnêtes. Elle est listée comme suite possible dans `docs/PROGRESS.md`.
 
 **D-14 — Les ralentissements sont indexés par clé** · Phase 1
 `MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque jutsu utilise son `Id`.
@@ -111,3 +111,19 @@ Raison : la protection à sens unique faisait de la zone un poste de tir imprena
 **D-16 — Les rejets de rate limit ne comptent pas comme triche** · Phase 1
 `RemoteRegistry` distingue `"Schema"` (payload malformé → seuil `GameConfig.Server.AbuseKickThreshold`, 25) de `"RateLimit"` (débit trop élevé → seuil `RateLimitKickThreshold`, 600). Le client limite en plus ses propres envois au rythme que le serveur accepte.
 Raison : un joueur qui martèle le clic gauche dépassait le budget de jetons et se faisait éjecter pour triche ; les deux compteurs ne s'additionnent jamais.
+
+**D-28 — Chaque événement de quête a exactement un producteur, vérifié par un test** · Phase 8
+`QuestConfig.Pool` nommait onze événements ; trois n'étaient émis par personne (`DamageDealt`, `MeleeHit`, `Dash`). `CombatService` expose désormais `Damaged` et `Dashed` à côté de `Killed`, et `QuestService` s'y abonne. `tests/QuestEvents.spec.luau` exige un appel `report…("Event")` dans `src/server` pour chaque événement du pool.
+Raison : quatre quêtes sur treize restaient bloquées à zéro pour toujours. `QuestLogic.select` tire trois quêtes quotidiennes parmi huit, donc la plupart des journées contenaient une quête impossible et le joueur perdait la récompense sans explication. Le test empêche qu'une quête ajoutée plus tard reparte avec le même défaut.
+
+**D-29 — `RankingService` accorde le cosmétique de fin de saison via `CosmeticService`** · Phase 8
+La récompense de saison faisait un `table.insert` direct dans `Cosmetics.Owned`. Elle passe maintenant par `CosmeticService.grant`, comme le battle pass et le pack de skins.
+Raison : c'était le dernier contournement de D-26. Il sautait la validation de l'identifiant contre `CosmeticConfig` (un identifiant erroné dans `RankingConfig` était écrit dans le profil pour toujours) et le signal `Granted` que la boutique écoute, donc l'article restait affiché comme achetable jusqu'au prochain rafraîchissement.
+
+**D-30 — Le multiplicateur de boost d'XP est dans la config, et `Boosts` n'a qu'un écrivain** · Phase 8
+`ProgressionConfig.XpBoostMultiplier` remplace les deux constantes `2` qui vivaient dans `BattlepassService` et dans `Receipts`. Le produit Robux « XpBoost » appelle `BattlepassService.grantXpBoost` au lieu de réécrire la section lui-même.
+Raison : deux sources de vérité pour le même chiffre. Changer l'une faisait silencieusement diverger le boost payé du boost offert par le pass, et la logique « prolonger sans raccourcir » était dupliquée à l'identique aux deux endroits.
+
+**D-31 — Les sections `Rank`, `Stats`, `Loadout` et `Meta` gardent deux écrivains, sur des champs disjoints** · Phase 8
+`DataService` écrit la remise à zéro de saison (`Rank.SeasonId`, `Rank.Modes`) et les champs de session de `Meta` ; `RankingService` écrit les classements, `MonetizationService` écrit `Loadout.ExtraSlots` (droit lié au pass) et `Meta.FirstSessionPromptGate`, et chaque service de jeu incrémente son propre compteur dans `Stats`.
+Raison : D-26 existe pour les sections qui portent un effet de bord (un signal, une validation, une règle métier). Ces quatre-là sont des sacs de champs indépendants, sans signal ni invariant croisé : un accesseur par champ ajouterait de l'indirection sans supprimer un seul risque. `Stats` n'est lu par aucun système de récompense, donc frapper un mannequin et tuer un joueur peuvent partager le compteur `Kills` sans ouvrir d'exploit.

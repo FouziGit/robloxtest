@@ -94,6 +94,9 @@ local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
 -- Magnitude at or above which a renderer that still asks for a bare shake intensity gets the heavy
 -- profile rather than the light one. The old scale ran 0 to 1, with 0.9 meaning "an ultimate landed".
 local HEAVY_SHAKE_INTENSITY = 0.7
+-- Brand's blast radius (GlyphConfig), which the Explosion timeline is authored at. A packet carrying
+-- a different radius scales the whole timeline by the ratio.
+local DEFAULT_BLAST_RADIUS = 7
 local DEFAULT_DIRECTION = Vector3.new(0, 0, -1)
 local WHITE = Color3.fromRGB(255, 245, 220)
 local SHIELD_COLOR = Color3.fromRGB(120, 190, 255)
@@ -643,59 +646,31 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 end
 
 -- Neon ball with fire and a trail, flying along Direction for the fuse duration.
-VfxLibrary.Brand = function(packet: Packet, trove: TroveType, api: Api)
-	local direction = directionOf(packet)
-	local speed = numberParam(packet, "Speed", 90)
-	local fuse = clampLifetime(numberParam(packet, "Fuse", 1), 0.5)
-	local spawnOffset = numberParam(packet, "SpawnOffset", 4)
-	local color = api.PigmentColor("Cinnabar")
-	local start = packet.Origin + direction * spawnOffset
-
-	local ball = newPart(trove, "Brand", {
-		Shape = Enum.PartType.Ball,
-		Color = color,
-		Size = Vector3.one * 3,
-		CFrame = CFrame.new(start),
+-- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most.
+--
+-- What it replaced was a ball wearing Roblox's own Fire class, flying a straight line at a constant speed
+-- for a full second. Its detonation is a separate packet -- the server emits Explosion when it lands --
+-- and that split is correct rather than accidental: the projectile does not know where it will end.
+VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
+	api.Timeline.play("Brand", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = api.PigmentColor("Cinnabar"),
 	})
-	-- Roblox's own Fire class. This string is API, not a pigment id: renaming it makes Instance.new
-	-- throw at runtime, which no test and no type check would see.
-	local flame = Instance.new("Fire")
-	flame.Size = 6
-	flame.Heat = 12
-	flame.Color = color
-	flame.SecondaryColor = FLAME_SECONDARY_COLOR
-	flame.Parent = ball
-	local light = Instance.new("PointLight")
-	light.Color = color
-	light.Brightness = 2
-	light.Range = 14
-	light.Parent = ball
-	addTrail(ball, color, 1.2, 0.35)
-
-	play(trove, ball, fuse, { CFrame = CFrame.new(start + direction * speed * fuse) }, Enum.EasingStyle.Linear)
 end
 
 -- Expanding sphere and ember burst where a projectile or blast lands.
-VfxLibrary.Explosion = function(packet: Packet, trove: TroveType, api: Api)
-	local radius = numberParam(packet, "Radius", numberParam(packet, "BlastRadius", 7))
-	local color = api.PigmentColor(stringParam(packet, "Pigment", ""))
-	local sphere = newPart(trove, "Explosion", {
-		Shape = Enum.PartType.Ball,
-		Color = color,
-		Size = Vector3.one * 2,
-		Transparency = 0.2,
-		CFrame = CFrame.new(packet.Origin),
+-- The detonation every exploding projectile shares. The server sends the blast radius it actually used,
+-- so the visual is the size of the damage rather than a constant that happens to look right for one
+-- glyph: a blast drawn smaller than it hurts is the most expensive lie a fighting game can tell.
+VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
+	local radius = numberParam(packet, "Radius", numberParam(packet, "BlastRadius", DEFAULT_BLAST_RADIUS))
+	api.Timeline.play("Explosion", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = api.PigmentColor(stringParam(packet, "Pigment", "")),
+		Scale = radius / DEFAULT_BLAST_RADIUS,
 	})
-	play(trove, sphere, 0.45, { Size = Vector3.one * radius * 2, Transparency = 1 })
-	local embers = newEmitter(sphere, {
-		Color = color,
-		Lifetime = NumberRange.new(0.4, 0.9),
-		Speed = NumberRange.new(radius * 1.5, radius * 3),
-		Size = NumberSequence.new(2, 0),
-		Acceleration = Vector3.new(0, -10, 0),
-	})
-	burst(embers, 32)
-	shakeNear(api, packet.Origin, CombatConfig.Hit.CameraShakeLarge)
 	api.Sound.play("ImpactExplosion", packet.Origin)
 end
 
@@ -1621,41 +1596,40 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	end
 end
 
--- Slash arc swiped in front of the attacker; the sound follows the combo index.
-VfxLibrary.Melee = function(packet: Packet, trove: TroveType, api: Api)
-	local direction = directionOf(packet)
+-- The punch. The most repeated action in the game, which is why docs/JUICE_PLAN.md rebuilt it before any
+-- ultimate: a player throws hundreds of these a match and one Colophon.
+--
+-- What it replaced was a flat white rectangle rotated seventy degrees and tweened back, with no wind-up,
+-- nothing left behind, and the same shape whichever hand threw it. The swing is the Melee timeline now;
+-- what stays here is the sound, which follows the combo index, and the caster's own field of view.
+VfxLibrary.Melee = function(packet: Packet, _trove: TroveType, api: Api)
 	local index = math.max(1, math.floor(numberParam(packet, "Index", 1)))
 	local finisherIndex = #CombatConfig.Melee.Damage
-	local center = packet.Origin + direction * (CombatConfig.Melee.Range * 0.45)
-	local base = CFrame.lookAt(center, center + direction)
-	local swing = math.rad(70) * (if index % 2 == 0 then -1 else 1)
+	local finisher = index >= finisherIndex
 
-	local arc = newPart(trove, "MeleeArc", {
+	api.Timeline.play("Melee", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		-- The melee kit belongs to no school, so it is drawn in the world's own colour rather than in a
+		-- pigment: art bible rule 2 says a colour on screen names a school, and this one names none.
 		Color = WHITE,
-		Size = Vector3.new(CombatConfig.Melee.Width * 1.2, 0.25, 1.4),
-		Transparency = 0.15,
-		CFrame = base * CFrame.Angles(0, 0, swing),
+		-- The finisher is the same stroke, heavier. One timeline, two weights.
+		Scale = if finisher then 1.4 else 1,
+		Follow = casterRoot(packet),
 	})
-	play(trove, arc, 0.12, { CFrame = base * CFrame.Angles(0, 0, -swing) })
-	after(trove, 0.12, function()
-		play(trove, arc, 0.12, { Transparency = 1 })
-	end)
 
-	if index >= finisherIndex then
+	if finisher then
 		api.Sound.play("MeleeFinisher", packet.Origin)
 	else
 		api.Sound.play("Melee" .. math.clamp(index, 1, MELEE_SFX_VARIANTS), packet.Origin)
 	end
 
-	-- The swing itself, felt by whoever threw it, whether or not it connects. A whiff that feels like
-	-- nothing is why melee reads as weightless, and this is the action a player repeats more than any
-	-- other in a match (docs/JUICE_PLAN.md sequences the pass by exactly that).
+	-- Felt by whoever threw it, whether or not it connects. A whiff that feels like nothing is most of
+	-- why melee read as weightless.
 	if packet.Caster == api.LocalUserId then
-		local feel = api.Feel
-		local finisher = index >= finisherIndex
-		feel.fovPunch(if finisher then FeelConfig.Fov.HeavyCastImpulse else FeelConfig.Fov.CastImpulse)
-		feel.shake(if finisher then "Melee" else "Cast")
-		feel.haptic("Cast")
+		api.Feel.fovPunch(if finisher then FeelConfig.Fov.HeavyCastImpulse else FeelConfig.Fov.CastImpulse)
+		api.Feel.shake(if finisher then "Melee" else "Cast")
+		api.Feel.haptic("Cast")
 	end
 end
 

@@ -9,6 +9,7 @@
 local AssetIds = require("../src/shared/Config/AssetIds")
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local LightingConfig = require("../src/shared/Config/LightingConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
@@ -198,6 +199,97 @@ describe("vfx timelines", function()
 				need(layer.Profile ~= nil, "names no profile")
 			end
 		end)
+	end)
+
+	it("leaves a mark wherever something lands", function()
+		-- Art bible rule 5 sharpened by the data: it is impacts that mark the world, not spells. A
+		-- projectile in flight has touched nothing and must leave nothing; the detonation it becomes is
+		-- what burns the ground. So the rule is attached to the Impact phase rather than to the timeline.
+		for id, timeline in pairs(TIMELINES) do
+			if phaseNames(timeline).Impact then
+				local marks = 0
+				for _, phase in ipairs(timeline.Phases) do
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Mark" then
+							marks += 1
+						end
+					end
+				end
+				if marks == 0 then
+					error(("timeline %s lands and leaves nothing behind"):format(id))
+				end
+			end
+		end
+	end)
+
+	it("lights every glyph", function()
+		-- docs/JUICE_PLAN.md phase 4: "Aucun sort ne sort de cette phase avec moins de 4 couches, une
+		-- lumière dynamique, une trace au sol et un son en couches." docs/JUICE_AUDIT.md counted three
+		-- PointLights in the entire game, which is why a spell landing at night lit nothing.
+		local glyphs: { [string]: boolean } = {}
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			glyphs[def.Id] = true
+		end
+		for id, timeline in pairs(TIMELINES) do
+			if glyphs[id] then
+				local lit = false
+				for _, phase in ipairs(timeline.Phases) do
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Light" then
+							lit = true
+						end
+					end
+				end
+				if not lit then
+					error(("glyph timeline %s has no dynamic light"):format(id))
+				end
+			end
+		end
+	end)
+
+	it("never flies a glyph further than the glyph reaches", function()
+		-- A projectile whose visual outruns its own Range tells the player they are in danger when they
+		-- are not, and the reverse when they are. The old Brand did exactly this: it flew its full ninety
+		-- studs whatever happened, with nothing cancelling it.
+		local ranges: { [string]: number } = {}
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			ranges[def.Id] = def.Range
+		end
+		eachLayer(function(id, phase, layer)
+			if layer.Kind ~= "Carrier" then
+				return
+			end
+			local travel = layer.Travel
+			if travel == nil or travel <= 0 then
+				error(("timeline %s / %s has a carrier that travels nowhere"):format(id, phase.Name))
+			end
+			local range = ranges[id]
+			if range ~= nil and travel > range * 1.05 then
+				error(("timeline %s flies %d studs, past its own %d-stud range"):format(id, travel, range))
+			end
+		end)
+	end)
+
+	it("gives every rider something to ride", function()
+		for id, timeline in pairs(TIMELINES) do
+			local hasCarrier = false
+			local riders = 0
+			for _, phase in ipairs(timeline.Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Carrier" then
+						hasCarrier = true
+					elseif layer.Ride == true then
+						riders += 1
+					end
+				end
+			end
+			if riders > 0 and not hasCarrier then
+				error(("timeline %s has %d layer(s) riding a carrier it never creates"):format(id, riders))
+			end
+			if hasCarrier and riders == 0 then
+				error(("timeline %s carries a body nothing is drawn on"):format(id))
+			end
+		end
 	end)
 
 	it("schedules every layer inside a window that can be cleaned up", function()

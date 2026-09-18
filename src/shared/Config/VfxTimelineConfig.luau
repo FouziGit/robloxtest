@@ -31,6 +31,9 @@ export type Ease = "Quad" | "Cubic" | "Quart" | "Quint" | "Sine" | "Back" | "Exp
 export type Direction = "In" | "Out" | "InOut"
 
 -- What a layer is made of. One kind, one Roblox concept, so the runtime never has to guess.
+--   Carrier  an invisible part that travels, for the phase a projectile is in flight. Layers in the
+--            same phase that declare Ride are built on it instead of on a fixed point, so a trail, a
+--            light and a spark stream all ride the same body without any of them knowing how it moves.
 --   Sprite   a flat textured plane: seals, rings, shockwaves
 --   Emitter  a ParticleEmitter
 --   Beam     a Beam between two points, drawn rather than revealed
@@ -39,7 +42,7 @@ export type Direction = "In" | "Out" | "InOut"
 --   Mark     a ground decal that fades (the trace rule 5 demands)
 --   Shake    a camera profile, through Feel
 --   Flash    a screen pulse, through the world lighting's post-processing
-export type LayerKind = "Sprite" | "Emitter" | "Beam" | "Trail" | "Light" | "Mark" | "Shake" | "Flash"
+export type LayerKind = "Carrier" | "Sprite" | "Emitter" | "Beam" | "Trail" | "Light" | "Mark" | "Shake" | "Flash"
 
 export type Layer = {
 	Kind: LayerKind,
@@ -61,6 +64,15 @@ export type Layer = {
 	EndSize: number?,
 	-- Studs from the effect's own frame, as {right, up, forward}.
 	Offset: { number }?,
+	-- Built on the phase's Carrier rather than at a fixed point. Ignored when the timeline has no
+	-- carrier, so a layer that rides is still drawn, standing still, rather than not drawn at all.
+	Ride: boolean?,
+	-- Carrier only: studs travelled over the layer's duration. The distance is scaled by Context.Scale
+	-- like everything else, so one timeline serves a short poke and a long-range projectile.
+	Travel: number?,
+	-- Carrier only: studs the flight rises and falls again over its length, which is what separates a
+	-- thrown thing from a beam that happens to move.
+	Arc: number?,
 	-- Radians per second about the layer's own facing axis.
 	Spin: number?,
 
@@ -436,10 +448,381 @@ local DASH: Timeline = {
 	},
 }
 
+-- The punch. Thrown hundreds of times a match and the single most repeated ACTION in the game, which is
+-- why docs/JUICE_PLAN.md puts it before every ultimate. It has no Impact phase: the swing is this, and
+-- whether it lands is the Hit timeline's business.
+local MELEE: Timeline = {
+	Intent = "A short gather, one stroke swept across the front, and the dust it knocked loose",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 0.06,
+			Layers = {
+				-- Two frames of gather. It is the whole difference between a punch and a hand appearing
+				-- somewhere else, and it is short enough that it never delays the input.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.06,
+					Texture = "DustMote",
+					Offset = { 0, 0.2, 1.8 },
+					Rate = 40,
+					Speed = { -6, -2 },
+					Lifetime = { 0.1, 0.18 },
+					Spread = 150,
+					Drag = 3,
+					Size = 0.3,
+					EndSize = 0,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.1,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Offset = { 0, 0.2, 1.8 },
+					Range = 3,
+					Brightness = 0.8,
+				},
+			},
+		},
+		{
+			Name = "Cast",
+			Duration = 0.1,
+			Layers = {
+				-- The stroke itself, swept across the front on a brush texture rather than drawn as a
+				-- hard arc. A melee swing that reads as a shape is a weapon; one that reads as a mark is
+				-- a hand.
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.16,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Offset = { 0, 0.1, 3.2 },
+					Size = 1.2,
+					EndSize = 6.4,
+					Spin = 7,
+					Transparency = 0.15,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.05,
+					Texture = "SparkStreak",
+					Offset = { 0, 0.1, 3.2 },
+					Burst = 9,
+					Speed = { 10, 20 },
+					Lifetime = { 0.12, 0.24 },
+					Spread = 55,
+					Drag = 5,
+					Squash = 0.35,
+					Size = 0.4,
+					EndSize = 0,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 0.3,
+			Layers = {
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.25,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "DustMote",
+					Offset = { 0, 0, 2.6 },
+					Rate = 10,
+					Speed = { 0.5, 2 },
+					Lifetime = { 0.3, 0.6 },
+					Spread = 130,
+					Drag = 1.5,
+					Size = 0.3,
+					EndSize = 0,
+				},
+			},
+		},
+	},
+}
+
+-- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most, so it
+-- is the first of the twenty to be rebuilt.
+--
+-- What it replaced was a ball with Roblox's own Fire class on it, flying in a straight line at a constant
+-- speed for a full second. Three of those four words are a rule broken: nothing travels linearly (rule
+-- 4), nothing in this game is a stock engine effect, and a thing thrown by a hand arcs.
+--
+-- It has no Impact phase, because its impact is a separate packet: the server detonates it and emits
+-- Explosion, which has its own timeline below. That split is not an accident of the old code, it is
+-- correct -- the projectile does not know where it will end, and the blast does not know where it began.
+local BRAND: Timeline = {
+	Intent = "An ember is gathered, thrown, and arcs away trailing ink",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 0.14,
+			Layers = {
+				-- Drawn in, not thrown out. The cast's seal has already closed by now; this is the glyph
+				-- itself taking shape in the hand.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.14,
+					Texture = "SparkStreak",
+					Offset = { 0, 0.4, 3 },
+					Rate = 46,
+					Speed = { -12, -6 },
+					Lifetime = { 0.12, 0.2 },
+					Spread = 180,
+					Drag = 3,
+					Squash = 0.4,
+					Size = 0.45,
+					EndSize = 0.05,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.18,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Offset = { 0, 0.4, 3 },
+					Range = 6,
+					Brightness = 1.4,
+				},
+			},
+		},
+		{
+			Name = "Cast",
+			Duration = 0.06,
+			Layers = {
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.05,
+					Texture = "SparkStreak",
+					Offset = { 0, 0.4, 3 },
+					Burst = 16,
+					Speed = { 14, 26 },
+					Lifetime = { 0.2, 0.38 },
+					Spread = 30,
+					Drag = 3,
+					Squash = 0.3,
+					Size = 0.6,
+					EndSize = 0,
+				},
+			},
+		},
+		{
+			Name = "Travel",
+			-- One second at ninety studs a second, which is exactly GlyphConfig's Speed and Fuse for this
+			-- glyph. tests/VfxTimeline.spec.luau holds the carrier's distance to the glyph's declared
+			-- Range: a visual that outflies the spell lies to the player about where they are safe.
+			Duration = 1,
+			Layers = {
+				{
+					Kind = "Carrier",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Travel = 90,
+					-- Three studs of rise and fall over ninety. Barely visible, and the whole reason it
+					-- reads as thrown rather than fired.
+					Arc = 3,
+				},
+				{
+					Kind = "Trail",
+					At = 0,
+					For = 1,
+					Ride = true,
+					Texture = "BrushStroke",
+					Size = 2.2,
+					EndSize = 0.4,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1,
+					Ride = true,
+					Texture = "SmokeSoft",
+					Rate = 22,
+					Speed = { -3, 1 },
+					Lifetime = { 0.35, 0.7 },
+					Spread = 60,
+					Drag = 2,
+					Size = 0.9,
+					EndSize = 2.6,
+					Transparency = 0.5,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 1,
+					Ride = true,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Range = 14,
+					Brightness = 2.4,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 0.6,
+			Layers = {
+				-- What hangs in the air along the path after the body has gone. Not a mark on the ground:
+				-- the projectile never touched it.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "DustMote",
+					Rate = 6,
+					Speed = { 0.3, 1.4 },
+					Lifetime = { 0.5, 0.9 },
+					Spread = 160,
+					Drag = 1.2,
+					Size = 0.3,
+					EndSize = 0,
+				},
+			},
+		},
+	},
+}
+
+-- The detonation every exploding projectile shares (GlyphEffects.explode). Scaled by the blast radius
+-- the server sends, so one timeline serves a Brand at seven studs and a Blot at ten.
+local EXPLOSION: Timeline = {
+	Intent = "The page is struck through: a ring, a bloom of ink, and a burn that stays",
+	Phases = {
+		{
+			Name = "Impact",
+			Duration = 0.22,
+			Layers = {
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.4,
+					Ease = "Quint",
+					EaseDirection = "Out",
+					Texture = "ShockwaveRing",
+					Size = 1,
+					EndSize = 16,
+					Transparency = 0.05,
+					EndTransparency = 1,
+				},
+				-- The flipbook: an ink bloom opening and dispersing, which is the one place in the game a
+				-- 64-frame texture earns its size.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.08,
+					Texture = "ExplosionBloom",
+					Burst = 5,
+					Speed = { 2, 6 },
+					Lifetime = { 0.45, 0.6 },
+					Spread = 180,
+					Drag = 3,
+					Size = 7,
+					EndSize = 13,
+					Transparency = 0.1,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.06,
+					Texture = "SparkStreak",
+					Burst = 26,
+					Speed = { 18, 40 },
+					Lifetime = { 0.25, 0.5 },
+					Spread = 180,
+					Drag = 4,
+					Squash = 0.28,
+					Size = 0.7,
+					EndSize = 0,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.3,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Range = 26,
+					Brightness = 5,
+				},
+				{ Kind = "Shake", At = 0, For = 0.12, Profile = "Heavy" },
+				{ Kind = "Flash", At = 0, For = 0.16, Profile = "PageFlash" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 3,
+			Layers = {
+				-- The burn. Larger and longer than a plain hit's, because a detonation is the loudest
+				-- thing that happens to a patch of ground in this game.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 3,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 9,
+					EndSize = 11,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.6,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "InkBlot",
+					Size = 5.5,
+					EndSize = 7,
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.05,
+					For = 0.7,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "SmokeSoft",
+					Rate = 18,
+					Speed = { 2, 5 },
+					Lifetime = { 0.9, 1.6 },
+					Spread = 50,
+					Drag = 2.2,
+					Size = 2,
+					EndSize = 6,
+					Transparency = 0.5,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
 VfxTimelineConfig.Timelines = {
 	Cast = CAST,
 	Hit = HIT,
 	Dash = DASH,
+	Melee = MELEE,
+	Brand = BRAND,
+	Explosion = EXPLOSION,
 } :: { [string]: Timeline }
 
 -- Phases always play in this order, whichever subset a timeline declares. The runtime reads it rather

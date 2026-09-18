@@ -55,12 +55,16 @@ type Live = {
 	EndsAt: number,
 	Instances: { Instance },
 	Primary: Instance?,
+	-- Which call to play() this layer came from. Layers of one play share a carrier, and two casts in
+	-- flight at once must not ride each other's.
+	PlayId: number,
 }
 
 type Pending = {
 	Layer: Layer,
 	Context: Context,
 	At: number,
+	PlayId: number,
 }
 
 local VfxTimeline = {}
@@ -73,6 +77,11 @@ local player = Players.LocalPlayer
 local pending: { Pending } = {}
 local live: { Live } = {}
 local warnedTextures: { [string]: boolean } = {}
+-- The travelling body of each play that has one, while it has one. Cleared when its Carrier layer
+-- ends, so a layer that outlives the flight falls back to standing still rather than following a
+-- part that has gone back to the pool.
+local carriers: { [number]: BasePart } = {}
+local nextPlayId = 0
 local overBudgetWarned = false
 
 local FORWARD_FALLBACK = Vector3.new(0, 0, -1)
@@ -393,6 +402,19 @@ local function buildBeam(entry: Live, layer: Layer, place: CFrame, scale: number
 	entry.Primary = beam
 end
 
+-- An invisible part that flies. Everything visible about a projectile is some other layer riding it,
+-- which is what keeps the motion in one place: a trail, a light and a spark stream cannot disagree about
+-- where the thing is, because there is only one thing.
+local function buildCarrier(entry: Live, place: CFrame)
+	local part = host(entry, place, Vector3.one * 0.2)
+	if part == nil then
+		return
+	end
+	part.Transparency = 1
+	carriers[entry.PlayId] = part
+	entry.Primary = part
+end
+
 local function buildTrail(entry: Live, layer: Layer, place: CFrame, scale: number)
 	local anchor: BasePart? = entry.Context.Follow or host(entry, place, Vector3.one * 0.2)
 	local a0Instance = borrow(entry, "Attachment")
@@ -500,6 +522,55 @@ local function stepBeam(entry: Live, alpha: number)
 		NumberSequence.new(math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0.2), 0, 1))
 end
 
+-- Flight. The body travels its declared distance over its own duration, eased, and rises and falls by
+-- Arc along the way: a thrown thing does not travel a straight line at a constant speed, and art bible
+-- rule 4 forbids the linear version outright.
+local function stepCarrier(entry: Live, alpha: number)
+	local primary = entry.Primary
+	if primary == nil or primary.Parent == nil then
+		return
+	end
+	local part = primary :: BasePart
+	local layer = entry.Layer
+	local scale = entry.Context.Scale or 1
+	local distance = (layer.Travel or 0) * scale * alpha
+	-- A half sine: zero at both ends, highest in the middle. Multiplied by the arc rather than added to
+	-- it, so a timeline with no Arc travels flat and pays nothing for the option.
+	local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(alpha, 0, 1) * math.pi)
+	part.CFrame = entry.Frame * CFrame.new(0, 0, -distance) + Vector3.new(0, rise, 0)
+	local spin = layer.Spin
+	if spin ~= nil then
+		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * (1 / 60))
+	end
+end
+
+-- A layer riding the carrier is moved with it every frame rather than being parented to it: the pool
+-- hands out parts, not a hierarchy, and reparenting a pooled instance into another pooled instance is
+-- how a release ends up destroying something it does not own.
+local function followCarrier(entry: Live)
+	-- Typed optional explicitly: Luau reads a table index as non-optional, so without this the nil
+	-- guard below is dead to the analyser and a play whose carrier has already ended would index it.
+	local carrier: BasePart? = carriers[entry.PlayId]
+	if carrier == nil or carrier.Parent == nil then
+		return
+	end
+	local primary = entry.Primary
+	if primary == nil then
+		return
+	end
+	local anchor = if primary:IsA("BasePart") then primary :: BasePart else primary.Parent
+	if anchor ~= nil and anchor:IsA("BasePart") then
+		local layer = entry.Layer
+		local scale = entry.Context.Scale or 1
+		local offset = layer.Offset
+		if offset == nil then
+			anchor.CFrame = carrier.CFrame
+		else
+			anchor.CFrame = carrier.CFrame * CFrame.new(offset[1] * scale, offset[2] * scale, -offset[3] * scale)
+		end
+	end
+end
+
 local function stepEmitter(entry: Live, alpha: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
@@ -518,6 +589,10 @@ end
 --------------------------------------------------------------------------------------------------
 
 local function releaseLive(entry: Live)
+	local carrier: BasePart? = carriers[entry.PlayId]
+	if entry.Layer.Kind == "Carrier" and carrier == entry.Primary then
+		carriers[entry.PlayId] = nil
+	end
 	-- Each instance is released on its own. A Trail rides a part the effect does not own -- the caster's
 	-- root -- and that part can be destroyed mid-effect by a respawn, taking the attachments parented to
 	-- it with it. One dead instance must not strand the dozen live ones behind it in the same layer, and
@@ -584,6 +659,12 @@ local function activate(item: Pending, now: number)
 	end
 
 	local base = frameOf(context)
+	local rider = if layer.Ride == true then carriers[item.PlayId] else nil
+	if rider ~= nil then
+		-- The carrier's own frame, not the origin: a layer that rides is placed where the body IS at the
+		-- moment it starts, which for a layer scheduled mid-flight is not where the cast began.
+		base = rider.CFrame
+	end
 	local place = placeOf(base, layer, scale)
 	local entry: Live = {
 		Layer = layer,
@@ -593,9 +674,12 @@ local function activate(item: Pending, now: number)
 		EndsAt = now + math.min(layer.For, VfxTimelineConfig.MaxLayerSeconds),
 		Instances = {},
 		Primary = nil,
+		PlayId = item.PlayId,
 	}
 
-	if layer.Kind == "Sprite" then
+	if layer.Kind == "Carrier" then
+		buildCarrier(entry, place)
+	elseif layer.Kind == "Sprite" then
 		buildSprite(entry, layer, place, scale)
 	elseif layer.Kind == "Mark" then
 		buildMark(entry, layer, place, scale)
@@ -622,6 +706,13 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	local span = entry.EndsAt - entry.StartedAt
 	local alpha = if span > 0 then eased(entry.Layer, (now - entry.StartedAt) / span) else 1
 	local kind = entry.Layer.Kind
+	if kind == "Carrier" then
+		stepCarrier(entry, alpha)
+		return
+	end
+	if entry.Layer.Ride == true then
+		followCarrier(entry)
+	end
 	if kind == "Sprite" then
 		stepSprite(entry, alpha, deltaTime)
 	elseif kind == "Mark" then
@@ -674,12 +765,17 @@ function VfxTimeline.play(id: string, context: Context): boolean
 		return false
 	end
 	local now = os.clock()
+	nextPlayId += 1
+	local playId = nextPlayId
 	local phaseStart = 0
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
 				for _, layer in ipairs(phase.Layers) do
-					table.insert(pending, { Layer = layer, Context = context, At = now + phaseStart + layer.At })
+					table.insert(
+						pending,
+						{ Layer = layer, Context = context, At = now + phaseStart + layer.At, PlayId = playId }
+					)
 				end
 				phaseStart += phase.Duration
 			end
@@ -696,6 +792,7 @@ function VfxTimeline.clear()
 		releaseLive(live[index])
 	end
 	table.clear(live)
+	table.clear(carriers)
 end
 
 -- What the runtime is carrying right now. docs/PERFORMANCE.md reads it, and so does anyone wondering

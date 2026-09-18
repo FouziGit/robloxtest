@@ -4,8 +4,10 @@
 -- values are sent automatically after a short debounce, coalesced so a single call is in flight at a
 -- time and consecutive calls stay inside the remote budget. Refreshes from ClientData on Open and on
 -- Settings changes, without overwriting unsaved local edits. A rebinding tab only exists when the
--- matching hardware is attached, so a capture is never started where no key can end it.
+-- matching hardware is attached, so a capture is never started where no key can end it, and the tab strip
+-- is rebuilt whenever that hardware set changes.
 
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
@@ -142,14 +144,17 @@ function SettingsScreen.new(deps: Deps): Screen
 	local sfxSlider: Slider.Slider? = nil
 	local shakeToggle: Toggle.Toggle? = nil
 
-	-- The tab strip and the footer buttons carry the touch minimum, so both bands reserve their real height.
-	local headerHeight = Theme.Sizes.PaddingSmall * 2
-		+ Theme.touchTargetHeight(Theme.Sizes.RowHeight)
-		+ Theme.Sizes.Gap
-		+ STATUS_HEIGHT
-	local footerHeight = Theme.Sizes.PaddingSmall
-		+ Theme.Sizes.Padding
-		+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	-- The tab strip and the footer buttons carry the touch minimum, which follows the viewport, so both
+	-- bands are measured by the panel on every scale change instead of once here.
+	local function headerHeight(): number
+		return Theme.Sizes.PaddingSmall * 2
+			+ Theme.touchTargetHeight(Theme.Sizes.RowHeight)
+			+ Theme.Sizes.Gap
+			+ STATUS_HEIGHT
+	end
+	local function footerHeight(): number
+		return Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	end
 
 	local root = ScreenRoot.new({ Name = "SettingsScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
@@ -585,27 +590,69 @@ function SettingsScreen.new(deps: Deps): Screen
 	-- A rebinding page can only be finished with the matching hardware: a capture unbinds every on-screen
 	-- touch control and waits for a key no touch-only device can send, which would leave the player with
 	-- no HUD and a half-finished capture. The page is therefore not offered at all without the hardware,
-	-- which also matches what initialTab already opens on.
-	local tabItems: { Tabs.Item } = {}
-	if UserInputService.KeyboardEnabled then
-		table.insert(tabItems, { Id = "Keyboard", Text = t("settings.tab.keyboard") })
-	end
-	if UserInputService.GamepadEnabled then
-		table.insert(tabItems, { Id = "Gamepad", Text = t("settings.tab.gamepad") })
-	end
-	table.insert(tabItems, { Id = "Audio", Text = t("settings.tab.audio") })
+	-- which also matches what initialTab already opens on. The screen is built once and kept for the whole
+	-- session, so a pad plugged in later must still get its page: the strip is rebuilt on every change.
+	local tabsTrove = trove:Extend()
+	local hasKeyboard = false
+	local hasGamepad = false
 
-	local tabs = Tabs.new({
-		Items = tabItems,
-		Selected = currentTab,
-		OnSelect = function(id: string)
-			deps.SoundController.play("UiClick")
-			showTab(id :: TabId)
-		end,
-		LayoutOrder = 1,
-		Parent = panel.Header,
-	})
-	own(trove, tabs)
+	local function tabExists(id: TabId): boolean
+		if id == "Keyboard" then
+			return hasKeyboard
+		elseif id == "Gamepad" then
+			return hasGamepad
+		end
+		return true
+	end
+
+	local function buildTabs()
+		hasKeyboard = UserInputService.KeyboardEnabled
+		hasGamepad = UserInputService.GamepadEnabled
+		local items: { Tabs.Item } = {}
+		if hasKeyboard then
+			table.insert(items, { Id = "Keyboard", Text = t("settings.tab.keyboard") })
+		end
+		if hasGamepad then
+			table.insert(items, { Id = "Gamepad", Text = t("settings.tab.gamepad") })
+		end
+		table.insert(items, { Id = "Audio", Text = t("settings.tab.audio") })
+
+		-- The open page may be the one that just disappeared: fall back to the default for the new hardware.
+		if not tabExists(currentTab) then
+			showTab(initialTab())
+		end
+
+		tabsTrove:Clean()
+		local tabs = Tabs.new({
+			Items = items,
+			Selected = currentTab,
+			OnSelect = function(id: string)
+				deps.SoundController.play("UiClick")
+				showTab(id :: TabId)
+			end,
+			LayoutOrder = 1,
+			Parent = panel.Header,
+		})
+		own(tabsTrove, tabs)
+	end
+
+	-- Neither KeyboardEnabled nor GamepadEnabled has a change signal of its own: a pad raises
+	-- GamepadConnected / GamepadDisconnected, and a keyboard that appears later shows up as an input type.
+	local function syncTabsToHardware()
+		if UserInputService.KeyboardEnabled == hasKeyboard and UserInputService.GamepadEnabled == hasGamepad then
+			return
+		end
+		buildTabs()
+		-- The strip that was just destroyed may have held the gamepad selection, leaving the D-pad dead.
+		if screen.Visible and GuiService.SelectedObject == nil then
+			panel:FocusForGamepad()
+		end
+	end
+
+	buildTabs()
+	trove:Connect(UserInputService.GamepadConnected, syncTabsToHardware)
+	trove:Connect(UserInputService.GamepadDisconnected, syncTabsToHardware)
+	trove:Connect(UserInputService.LastInputTypeChanged, syncTabsToHardware)
 
 	----------------------------------------------------------------
 	-- Profile sync

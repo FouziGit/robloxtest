@@ -179,10 +179,14 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		Parent = overlay,
 	})
 	own(trove, panel)
-	-- The tab strip carries the touch minimum, so the header band is measured from the same height.
-	panel:SetHeaderHeight(
-		Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Gap + STATUS_HEIGHT
-	)
+	-- The tab strip carries the touch minimum, which follows the viewport, so the panel measures the band
+	-- from the same live height on every scale change.
+	panel:SetHeaderHeight(function()
+		return Theme.Sizes.PaddingSmall * 2
+			+ Theme.touchTargetHeight(Theme.Sizes.RowHeight)
+			+ Theme.Sizes.Gap
+			+ STATUS_HEIGHT
+	end)
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical

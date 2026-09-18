@@ -144,10 +144,11 @@ function ResultScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	panel:SetHeaderHeight(HEADER_HEIGHT)
-	-- The footer buttons carry the touch minimum, so the band reserves the height they really take.
-	panel:SetFooterHeight(
-		Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-	)
+	-- The footer buttons carry the touch minimum, which follows the viewport, so the panel measures the band
+	-- from the same live height on every scale change.
+	panel:SetFooterHeight(function()
+		return Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	end)
 
 	local status = Instance.new("TextLabel")
 	status.Name = "Status"

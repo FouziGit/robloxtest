@@ -41,7 +41,7 @@ type Track = "Free" | "Premium"
 type Reward = BattlepassConfig.Reward
 type SeasonData = Types.BattlepassSeasonData
 type Cell = { Track: Track, HasReward: boolean, Button: Button.Button }
-type Row = { Highlight: UIStroke, Free: Cell, Premium: Cell }
+type Row = { Instance: Frame, Highlight: UIStroke, Free: Cell, Premium: Cell }
 type Destroyable = { Destroy: (self: any) -> () }
 
 local BattlepassScreen = {}
@@ -139,13 +139,19 @@ function BattlepassScreen.new(deps: Deps): Screen
 	local rows: { Row } = {}
 	local pendingScrollTier: number? = nil
 
-	-- Each cell stacks a reward label over a claim button, and the button carries the touch minimum, so
-	-- the row reserves the height that button really takes.
-	local rowHeight = Theme.Sizes.PaddingSmall * 2
-		+ REWARD_LABEL_HEIGHT
-		+ Theme.Sizes.PaddingSmall
-		+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-	local rowPitch = rowHeight + Theme.Sizes.Gap
+	-- Each cell stacks a reward label over a claim button, and the button carries the touch minimum, which
+	-- follows the viewport: the row is re-measured with it (see the scale binding below) instead of keeping
+	-- the height it had on the first Open.
+	local rowHeight = 0
+	local rowPitch = 0
+
+	local function measureRow()
+		rowHeight = Theme.Sizes.PaddingSmall * 2
+			+ REWARD_LABEL_HEIGHT
+			+ Theme.Sizes.PaddingSmall
+			+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+		rowPitch = rowHeight + Theme.Sizes.Gap
+	end
 
 	local root = ScreenRoot.new({ Name = "BattlepassScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
@@ -304,7 +310,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 			local premium = buildCell(row, tier, "Premium", premiumReward, 3)
 
 			row.Parent = panel.Content
-			rows[tier] = { Highlight = highlight, Free = free, Premium = premium }
+			rows[tier] = { Instance = row, Highlight = highlight, Free = free, Premium = premium }
 		end
 	end
 
@@ -385,6 +391,26 @@ function BattlepassScreen.new(deps: Deps): Screen
 	end
 
 	trove:Connect(panel.Content:GetPropertyChangedSignal("AbsoluteCanvasSize"), applyPendingScroll)
+
+	-- The claim buttons grow when the UIScale shrinks, so the rows grow with them; a row left at its old
+	-- height would hide the bottom of its buttons under the next one. The scroll target is only re-requested
+	-- here: the canvas is measured a frame later, and the AbsoluteCanvasSize change above applies it against
+	-- the new pitch.
+	trove:Add(Theme.bindScale(function()
+		local previous = rowHeight
+		measureRow()
+		if rowHeight == previous then
+			return
+		end
+		for _, row in ipairs(rows) do
+			row.Instance.Size = UDim2.new(1, 0, 0, rowHeight)
+		end
+		if not root.Instance.Enabled then
+			return
+		end
+		local season = currentSeason()
+		pendingScrollTier = if season ~= nil then season.Tier else 1
+	end))
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Battlepass" then

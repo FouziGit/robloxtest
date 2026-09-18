@@ -1,17 +1,23 @@
 --!strict
 -- Panel: centered card with a title bar, optional close button, fixed Header / Footer slots and a
 -- scrolling Content area. The frame fills its parent minus a margin and is capped at `Size`
--- (Theme panel size by default), so it fits 16:9 phones without any per-device code. When the content
--- holds nothing selectable, the panel also scrolls it on D-pad up / down (see contentIsReachable).
+-- (Theme panel size by default), so it fits 16:9 phones without any per-device code. When a D-pad press
+-- leaves the gamepad selection where it was, the panel scrolls the content itself (see scrollRows).
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
+
+-- Height of a fixed band. A band whose controls carry the touch minimum passes a callback instead of a
+-- number: the minimum follows the viewport, and only the callback is re-read by the relayout below, which
+-- already runs on every scale change. A plain number stays as given (0 hides the band).
+export type Height = number | (() -> number)
 
 export type Props = {
 	Title: string,
@@ -30,8 +36,8 @@ export type Panel = {
 	Footer: Frame,
 	CloseButton: TextButton?,
 	SetTitle: (self: Panel, title: string) -> (),
-	SetHeaderHeight: (self: Panel, height: number) -> (),
-	SetFooterHeight: (self: Panel, height: number) -> (),
+	SetHeaderHeight: (self: Panel, height: Height) -> (),
+	SetFooterHeight: (self: Panel, height: Height) -> (),
 	-- Gamepad focus. A screen that never sets GuiService.SelectedObject leaves the D-pad dead until the
 	-- player presses the navigation button a second time, so screens take the selection on Open
 	-- (`target` defaults to the close button) and hand it back on Close.
@@ -44,6 +50,9 @@ local Panel = {}
 
 local CLOSE_GLYPH = "✕" -- icon glyph, locale independent
 local DPAD_SCROLL_ROWS = 1 -- canvas step per D-pad press, in list rows
+-- Absorbs the rounding between a band height computed here and the UISizeConstraint the engine applies to
+-- the control inside it, so one pixel of disagreement cannot push that control out of its band.
+local BAND_SLACK = 1
 
 local function horizontalPadding(parent: Instance, top: number, bottom: number): UIPadding
 	local padding = Instance.new("UIPadding")
@@ -212,36 +221,39 @@ function Panel.new(props: Props): Panel
 	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	layout.Parent = content
 
-	local headerHeight = 0
-	local footerHeight = 0
+	local headerHeight: Height = 0
+	local footerHeight: Height = 0
+
+	local function bandHeight(height: Height): number
+		local value: number
+		if type(height) == "function" then
+			value = height()
+		else
+			value = height
+		end
+		if value <= 0 then
+			return 0
+		end
+		return value + BAND_SLACK
+	end
 
 	-- The title bar holds the close button, so it follows the same minimum: on a phone the unscaled
 	-- touch row is taller than Theme.Sizes.RowHeight and the cross would otherwise overflow the bar.
 	local function relayout()
 		local titleHeight = Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.PaddingSmall * 2
+		local headerSize = bandHeight(headerHeight)
+		local footerSize = bandHeight(footerHeight)
 		-- The cross is square, so the width it needs is the height of the bar around it.
 		local titleRightMargin = if closeButton ~= nil then titleHeight else Theme.Sizes.Padding
 		titleBar.Size = UDim2.new(1, 0, 0, titleHeight)
 		title.Size = UDim2.new(1, -(Theme.Sizes.Padding + titleRightMargin), 1, 0)
 		header.Position = UDim2.fromOffset(0, titleHeight)
-		header.Size = UDim2.new(1, 0, 0, headerHeight)
-		footer.Size = UDim2.new(1, 0, 0, footerHeight)
-		content.Position = UDim2.fromOffset(0, titleHeight + headerHeight)
-		content.Size = UDim2.new(1, 0, 1, -(titleHeight + headerHeight + footerHeight))
+		header.Size = UDim2.new(1, 0, 0, headerSize)
+		footer.Size = UDim2.new(1, 0, 0, footerSize)
+		content.Position = UDim2.fromOffset(0, titleHeight + headerSize)
+		content.Size = UDim2.new(1, 0, 1, -(titleHeight + headerSize + footerSize))
 	end
 	trove:Add(Theme.bindScale(relayout))
-
-	-- Roblox only scrolls a ScrollingFrame when GuiService.SelectedObject travels inside it, so a content
-	-- area holding nothing selectable (a read-only list) is frozen for a gamepad player: the rest of the
-	-- canvas is unreachable. The panel then steps the canvas itself while it holds the selection.
-	local function contentIsReachable(): boolean
-		for _, descendant in ipairs(content:GetDescendants()) do
-			if descendant:IsA("GuiObject") and descendant.Selectable then
-				return true
-			end
-		end
-		return false
-	end
 
 	local function scrollRows(rows: number)
 		local maximum = math.max(0, content.AbsoluteCanvasSize.Y - content.AbsoluteWindowSize.Y)
@@ -249,6 +261,32 @@ function Panel.new(props: Props): Panel
 		local step = (Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Gap) * Theme.activeScale()
 		local position = content.CanvasPosition
 		content.CanvasPosition = Vector2.new(position.X, math.clamp(position.Y + rows * step, 0, maximum))
+	end
+
+	-- Roblox only scrolls a ScrollingFrame when GuiService.SelectedObject travels inside it, so a canvas the
+	-- engine has nowhere left to walk to is frozen for a gamepad player: a read-only list has nothing to
+	-- select, and a long list whose few selectable cells all sit behind the selection is just as stuck. The
+	-- panel then steps the canvas itself, but only once it has seen the press move the selection nowhere --
+	-- stepping while the engine is auto-scrolling towards a new selection would fight it.
+	-- The step is decided a frame after the press, by which time the panel may already be destroyed.
+	local alive = true
+	trove:Add(function()
+		alive = false
+	end)
+	local stepPending = false
+
+	local function stepUnlessSelectionMoves(rows: number, before: GuiObject)
+		if stepPending then
+			return
+		end
+		stepPending = true
+		RunService.Heartbeat:Once(function()
+			stepPending = false
+			if not alive or GuiService.SelectedObject ~= before then
+				return
+			end
+			scrollRows(rows)
+		end)
 	end
 
 	trove:Connect(UserInputService.InputBegan, function(input: InputObject)
@@ -259,11 +297,12 @@ function Panel.new(props: Props): Panel
 		if rows == 0 then
 			return
 		end
+		-- Scoped to the panel holding the selection: another open panel must not scroll with it.
 		local selected = GuiService.SelectedObject
-		if selected == nil or not selected:IsDescendantOf(frame) or contentIsReachable() then
+		if selected == nil or not selected:IsDescendantOf(frame) then
 			return
 		end
-		scrollRows(rows)
+		stepUnlessSelectionMoves(rows, selected)
 	end)
 
 	frame.Parent = props.Parent
@@ -272,13 +311,13 @@ function Panel.new(props: Props): Panel
 		title.Text = text
 	end
 
-	local function setHeaderHeight(_self: Panel, height: number)
-		headerHeight = math.max(0, height)
+	local function setHeaderHeight(_self: Panel, height: Height)
+		headerHeight = height
 		relayout()
 	end
 
-	local function setFooterHeight(_self: Panel, height: number)
-		footerHeight = math.max(0, height)
+	local function setFooterHeight(_self: Panel, height: Height)
+		footerHeight = height
 		relayout()
 	end
 

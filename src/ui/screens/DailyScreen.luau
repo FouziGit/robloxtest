@@ -100,10 +100,11 @@ function DailyScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	panel:SetHeaderHeight(HEADER_HEIGHT)
-	-- The Claim button carries the touch minimum, so the footer reserves the height it really takes.
-	panel:SetFooterHeight(
-		Theme.Sizes.PaddingSmall + Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Padding
-	)
+	-- The Claim button carries the touch minimum, which follows the viewport, so the panel measures the
+	-- footer from the same live height on every scale change.
+	panel:SetFooterHeight(function()
+		return Theme.Sizes.PaddingSmall + Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Padding
+	end)
 
 	local streakLabel = Instance.new("TextLabel")
 	streakLabel.Name = "Streak"

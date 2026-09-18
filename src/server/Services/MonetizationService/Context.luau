@@ -39,6 +39,8 @@ export type BattlepassApi = {
 	addXp: (player: Player, amount: number) -> (),
 	isPremium: (player: Player) -> boolean,
 	setPremium: (player: Player, value: boolean) -> (),
+	-- The single writer of ProfileData.Boosts: it extends a live boost instead of shortening it.
+	grantXpBoost: (player: Player, minutes: number) -> boolean,
 }
 export type ProgressionApi = { getLevel: (player: Player) -> number }
 export type LoadoutApi = { grantElement: (player: Player, elementId: string) -> boolean }

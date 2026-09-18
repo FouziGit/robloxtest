@@ -24,10 +24,6 @@ local log = Log.new("MonetizationService")
 type Deps = Context.Deps
 type ProfileData = Context.ProfileData
 
--- XpBoost products double XP for their duration (docs/ECONOMY.md §4).
-local XP_BOOST_MULTIPLIER = 2
-local SECONDS_PER_MINUTE = 60
-
 local Receipts = {}
 
 local deps: Deps
@@ -140,11 +136,12 @@ local function grantProduct(
 			log.error("product %s has no boost duration", productKey)
 			return false
 		end
-		-- Stacks by extending a live boost instead of shortening it.
-		local from = math.max(os.time(), data.Boosts.XpUntil)
-		data.Boosts.XpUntil = from + minutes * SECONDS_PER_MINUTE
-		data.Boosts.XpMultiplier = XP_BOOST_MULTIPLIER
-		deps.DataService.push(player, "Boosts")
+		-- BattlepassService is the single writer of Boosts (docs/DECISIONS.md D-26): it extends a live
+		-- boost instead of shortening it, and applies ProgressionConfig.XpBoostMultiplier.
+		if not deps.Battlepass.grantXpBoost(player, minutes) then
+			log.error("grantXpBoost refused %d minute(s) for %s", minutes, player.Name)
+			return false
+		end
 		deps.Notify.send(player, "purchase.boostActive", { minutes = minutes }, "Success", Context.SfxSuccess)
 		granted = true
 	elseif product.Kind == "Cosmetic" then

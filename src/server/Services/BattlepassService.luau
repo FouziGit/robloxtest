@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BattlepassConfig = require(Shared.Config.BattlepassConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("BattlepassService")
@@ -38,8 +39,9 @@ type Deps = {
 }
 
 local SEASON = GameConfig.SeasonId
--- Multiplier a timed XP boost applies (see ProfileData.Boosts and ProgressionService).
-local BOOST_MULTIPLIER = 2
+-- Multiplier a timed XP boost applies (see ProfileData.Boosts and ProgressionService). Single source
+-- of truth: the XpBoost product goes through grantXpBoost below rather than writing Boosts itself.
+local BOOST_MULTIPLIER = ProgressionConfig.XpBoostMultiplier
 
 local BattlepassService = {}
 

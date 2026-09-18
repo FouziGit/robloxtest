@@ -35,11 +35,14 @@ type DataApi = {
 	ProfileLoaded: ProfileSignal,
 }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
+-- CosmeticService owns Cosmetics.Owned (docs/DECISIONS.md D-26): it validates the id against
+-- CosmeticConfig, dedupes, pushes the section and fires the signal the shop listens to.
+type CosmeticApi = { grant: (player: Player, cosmeticId: string) -> boolean }
 -- LeaderboardService owns the seasonal OrderedDataStores; `false` means the store could not be read.
 type LeaderboardApi = {
 	getArchivedValue: (seasonId: string, boardId: string, userId: number) -> (boolean, number?),
 }
-type Deps = { DataService: DataApi, Currency: CurrencyApi, Leaderboard: LeaderboardApi? }
+type Deps = { DataService: DataApi, Currency: CurrencyApi, Cosmetic: CosmeticApi, Leaderboard: LeaderboardApi? }
 
 -- Rating move of one participant, keyed by user id in the map applyResult returns.
 export type RatingDelta = {
@@ -54,7 +57,6 @@ export type RatingDelta = {
 type Participant = { UserId: number, Player: Player?, Entry: RankModeData? }
 
 local RANK_SECTION = "Rank"
-local COSMETICS_SECTION = "Cosmetics"
 -- Currency reason strings feed logs and telemetry only; they are never shown to a player.
 local SEASON_REWARD_REASON = "SeasonReward"
 -- Elo needs exactly two sides to score a result.
@@ -68,6 +70,7 @@ RankingService.RatingChanged = Signal.new() -- (player: Player, modeId: string, 
 
 local dataService: DataApi
 local currency: CurrencyApi
+local cosmeticService: CosmeticApi
 local leaderboard: LeaderboardApi?
 -- Players whose end-of-season pass is reading the ladder: one attempt in flight at a time.
 local rewarding: { [Player]: boolean } = {}
@@ -271,9 +274,8 @@ local function grantSeasonRewards(player: Player, data: ProfileData)
 			currency.add(player, reward.Ryo, SEASON_REWARD_REASON)
 		end
 		local cosmetic = reward.Cosmetic
-		if cosmetic ~= nil and table.find(live.Cosmetics.Owned, cosmetic) == nil then
-			table.insert(live.Cosmetics.Owned, cosmetic)
-			dataService.push(player, COSMETICS_SECTION)
+		if cosmetic ~= nil then
+			log.try("cosmetic grant " .. cosmetic, cosmeticService.grant, player, cosmetic)
 		end
 		log.info("%s rewarded for season %s: tier %s, %d Ryo", player.Name, season, tier.Id, reward.Ryo)
 	end)
@@ -286,6 +288,7 @@ end
 function RankingService.Init(deps: Deps)
 	dataService = deps.DataService
 	currency = deps.Currency
+	cosmeticService = deps.Cosmetic
 	leaderboard = deps.Leaderboard
 end
 

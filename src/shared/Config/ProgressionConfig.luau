@@ -47,6 +47,9 @@ ProgressionConfig.BattlepassXpMultiplier = 1
 ProgressionConfig.VipXpMultiplier = 2
 ProgressionConfig.VipRyoMultiplier = 1.5
 
+-- Timed XP boost (battlepass reward and the XpBoost product, docs/ECONOMY.md §4). It stacks with VIP.
+ProgressionConfig.XpBoostMultiplier = 2
+
 -- Level required to unlock each jutsu id not unlocked by default (see JutsuConfig.Unlock).
 -- Lightning element: free unlock at this level, or instantly via the Lightning game pass.
 ProgressionConfig.LightningUnlockLevel = 40

@@ -157,7 +157,8 @@ Composants dans `src/ui/components`, chacun `new(props) -> {Instance, Destroy(),
 - Chaque changement de profil : muter `DataService.get(player)` puis `DataService.push(player, section)` (y compris après un rejet, pour que le client sorte de son état « en cours »).
 - Tags de dégâts des jutsus : `{Def.Id, Def.Archetype}` — `tags[1]` sert de clé d'i-frames, l'archétype permet `CombatConfig.Block.BrokenBy`.
 - Aucun texte joueur hors `Strings` ; ajouter une clé = ajouter `en` + `fr` (test `Strings.spec`).
-- Aucune boucle par joueur. Chaque service qui a besoin d'un tick ouvre **un seul** `Heartbeat` avec un accumulateur, jamais un par joueur : `CombatService`, `MovementService`, `MatchService`, `MatchmakingService`, `QuestService`, `ShopService`, `LeaderboardService` et `WorldBossService`, soit huit au total. Côté client, `VfxController` n'ouvre un `RenderStepped` que pendant une secousse d'écran et le déconnecte ensuite.
+- Aucune boucle par joueur. Chaque service qui a besoin d'un tick ouvre **un seul** `Heartbeat`, jamais un par joueur : `CombatService`, `MovementService`, `MatchService`, `MatchmakingService`, `QuestService`, `ShopService`, `LeaderboardService`, `WorldBossService` (avec accumulateur) et `VfxBroadcaster` (qui s'en sert seulement pour invalider son instantané de destinataires une fois par image), soit neuf au total. Côté client il y en a deux, ouvertes à la demande et refermées ensuite : la secousse d'écran de `VfxController` et le ticker unique de `VfxLibrary`.
+- La régénération n'utilise jamais la durée nominale du tick : l'accumulateur ne déclenche qu'une fois par image et jette le reste, donc les taux par seconde s'intègrent sur l'intervalle réellement écoulé (D-36).
 - Toute erreur attrapée est journalisée avec contexte (`Log`).
 
 ## Budgets mesurés (12 joueurs, le maximum documenté)

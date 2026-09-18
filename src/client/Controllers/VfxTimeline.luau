@@ -418,7 +418,12 @@ local function buildCarrier(entry: Live, place: CFrame)
 end
 
 local function buildTrail(entry: Live, layer: Layer, place: CFrame, scale: number)
-	local anchor: BasePart? = entry.Context.Follow or host(entry, place, Vector3.one * 0.2)
+	-- The caster's body only when the layer said Follow. A riding trail gets its own host, which
+	-- followCarrier then moves with the projectile: preferring Context.Follow unconditionally is how
+	-- a trail meant to ride a fireball ended up drawn from the caster's chest instead.
+	local anchor: BasePart? = if layer.Follow == true
+		then entry.Context.Follow
+		else host(entry, place, Vector3.one * 0.2)
 	local a0Instance = borrow(entry, "Attachment")
 	local a1Instance = borrow(entry, "Attachment")
 	local trailInstance = borrow(entry, "Trail")

@@ -38,7 +38,15 @@ GameConfig.Server = {
 }
 
 GameConfig.Vfx = {
-	BroadcastRadiusStuds = 350, -- players farther than this from a packet origin do not receive it
+	-- Players farther than this from a packet origin do not receive it. Sized on the scene scale: the
+	-- largest arena (MatchConfig.Arenas.Boss, a 160x160 floor behind 30-stud walls) spans about 230
+	-- studs corner to corner, and live arenas sit MatchConfig.ArenaSpacingStuds (400) apart in altitude,
+	-- so this covers everyone in the scene a packet fires in and nobody in the scene above or below.
+	BroadcastRadiusStuds = 250,
+	-- Client-side gate: an effect whose centre is farther than this from the local character is not
+	-- stepped per frame (its tweens still play). Covers both PvP arenas whole (Duel 113 studs corner to
+	-- corner, Team 170), so ranked play never freezes an effect a player could be watching.
+	AnimateRadiusStuds = 180,
 	LifetimeSeconds = 6, -- hard cap on any client effect's lifetime (cleanup)
 }
 
@@ -48,8 +56,15 @@ GameConfig.Latency = {
 	OriginToleranceStuds = 12,
 	-- Anti-teleport: max studs per second a character may travel (dash included) before flagging.
 	MaxSpeedStudsPerSecond = 120,
-	-- Consecutive violations before a rubber-band + strike.
+	-- Consecutive implausible origins on an ACTION (melee, cast) before AntiCheatService is struck. The
+	-- per-tick sampling never strikes: a long fall is faster than MaxSpeedStudsPerSecond and would
+	-- otherwise kick an honest player. Clamping the origin already removes the exploit on its own, so the
+	-- strike is only there for a client that keeps attacking from positions the server never believed.
 	ViolationsBeforeStrike = 3,
+	-- Server-granted movement (dash, knockback) is added to the travel budget for its duration plus this
+	-- grace, which covers the client round trip. A dash is 22 studs in 0.22 s, i.e. 100 studs per second,
+	-- and a client that replicates it in a single frame must not look like a teleport.
+	AllowanceGraceSeconds = 0.5,
 }
 
 GameConfig.Movement = {

@@ -39,6 +39,9 @@ export type CombatApi = {
 	grantIFrames: (player: Player, seconds: number) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
+	-- Called after an effect teleports its caster (LightningStep), so the position CombatService trusts
+	-- follows the move and the caster can attack from where they landed.
+	resyncPosition: (player: Player) -> (),
 }
 export type VfxPacket = {
 	Id: string,
@@ -1087,6 +1090,9 @@ function JutsuEffects.LightningStep(ctx: Context): number
 	}, true)
 	character:PivotTo(CFrame.new(landing) * root.CFrame.Rotation)
 	root.AssemblyLinearVelocity = Vector3.zero
+	-- A server-authored teleport, so the position CombatService trusts follows it: the caster must be
+	-- able to attack from where they landed (CombatService.trustedCFrame).
+	ctx.Combat.resyncPosition(ctx.Caster)
 	return 0
 end
 

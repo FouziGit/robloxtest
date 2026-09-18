@@ -55,7 +55,10 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
-type CombatApi = { setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> () }
+type CombatApi = {
+	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
+	resyncPosition: (player: Player) -> (),
+}
 type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
 	applyFreeze: (player: Player, seconds: number) -> (),
@@ -166,14 +169,17 @@ local function spawnFor(arena: Arena, team: number, slot: number): BasePart?
 	return teamSpawns[((slot - 1) % #teamSpawns) + 1]
 end
 
--- Drops the character on its pad, facing the middle of the arena.
-local function placeCharacter(character: Model, spawn: BasePart, center: Vector3)
+-- Drops the character on its pad, facing the middle of the arena. `player` is the owner, so the position
+-- the server trusts follows the teleport: without it the player's next hitbox would be built at the hub
+-- and hit nothing (CombatService.trustedCFrame).
+local function placeCharacter(player: Player, character: Model, spawn: BasePart, center: Vector3)
 	local position = spawn.Position + Vector3.new(0, SPAWN_CLEARANCE_STUDS, 0)
 	if position.X == center.X and position.Z == center.Z then
 		character:PivotTo(CFrame.new(position))
-		return
+	else
+		character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
 	end
-	character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+	combat.resyncPosition(player)
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns
@@ -384,7 +390,7 @@ local function prepareRound(active: Active)
 			if loaded and character ~= nil and not active.Finished and active.Generation == generation then
 				local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
 				if pad ~= nil then
-					placeCharacter(character, pad, center)
+					placeCharacter(player, character, pad, center)
 				else
 					log.warn("arena %s has no spawn for team %d", active.Arena.Id, participant.Team)
 				end

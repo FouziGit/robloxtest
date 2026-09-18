@@ -40,6 +40,11 @@ type CombatApi = {
 	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	trySpendChakra: (player: Player, cost: number) -> boolean,
+	-- Cast origin the server is willing to believe, corrected back to the last plausible position when
+	-- the client claims an implausible one.
+	trustedOrigin: (player: Player) -> CFrame?,
+	-- Called after an effect teleports its caster (LightningStep), so the trusted position follows.
+	resyncPosition: (player: Player) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
 	grantIFrames: (player: Player, seconds: number) -> (),
@@ -227,7 +232,9 @@ local function onCastJutsu(player: Player, sequence: { string })
 		return
 	end
 
-	local origin = root.CFrame
+	-- CombatService validates the origin against the position the server last believed: the character is
+	-- simulated by the owning client, so root.CFrame alone let a cast be placed anywhere on the map.
+	local origin = combat.trustedOrigin(player) or root.CFrame
 	local direction = origin.LookVector
 	cooldownsOf(player)[def.Id] = now + def.Cooldown
 	vfx.emit({

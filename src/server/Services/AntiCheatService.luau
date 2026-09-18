@@ -24,7 +24,10 @@ local log = Log.new("AntiCheatService")
 
 type Deps = { [string]: any }
 
-export type StrikeKind = "Schema" | "RateLimit"
+-- "Origin" is a character position the server could not believe (CombatService.trustedCFrame). It uses
+-- the strict schema threshold, and CombatService only strikes after GameConfig.Latency
+-- .ViolationsBeforeStrike consecutive implausible origins, so a kick needs a sustained stream of them.
+export type StrikeKind = "Schema" | "RateLimit" | "Origin"
 
 -- Rate-limit overflows tolerated inside `GameConfig.Server.AbuseWindowSeconds`. 600 over 60 s is a
 -- sustained 10 rejected calls per second: an order of magnitude above what any human input can

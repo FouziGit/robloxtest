@@ -45,6 +45,9 @@ type MovementCommand =
 	{ Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
 	| { Kind: "Stun", Seconds: number }
+type AntiCheatApi = {
+	strike: (player: Player, source: string, reason: string, kind: string?) -> (),
+}
 type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	clearSlow: (player: Player, key: string?) -> (),
@@ -76,6 +79,7 @@ type Deps = {
 	Vfx: VfxApi,
 	Progression: ProgressionApi,
 	Currency: CurrencyApi,
+	AntiCheat: AntiCheatApi,
 	Jutsu: JutsuApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
 }
 type TroveType = typeof(Trove.new())
@@ -110,6 +114,16 @@ type State = {
 	SpawnProtectedUntil: number,
 	KillCredited: boolean, -- this character's death was already credited (ApplyDamage or onDied)
 	HitMemory: { [string]: { [Model]: number } }, -- tag -> target model -> i-frame expiry
+	-- Last root position the server was willing to believe, and when. Characters are simulated by the
+	-- owning client, so the replicated CFrame is whatever that client last sent: every hitbox and every
+	-- cast origin is measured against this instead of trusting it outright (see trustedCFrame).
+	TrustedPosition: Vector3?,
+	TrustedAt: number,
+	OriginViolations: number, -- consecutive implausible origins on an action, reset by any plausible one
+	-- Extra studs the travel budget allows because the SERVER moved this character (dash, knockback),
+	-- until TravelAllowanceUntil. Without it every legitimate dash looked like a teleport.
+	TravelAllowanceStuds: number,
+	TravelAllowanceUntil: number,
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -165,6 +179,7 @@ local registry: Registry
 local dataService: DataApi
 local notify: NotifyApi
 local movement: MovementApi
+local antiCheat: AntiCheatApi
 local vfx: VfxApi
 local progression: ProgressionApi
 local currency: CurrencyApi
@@ -311,6 +326,104 @@ local function pruneHitMemory(memory: { [Model]: number }, now: number)
 	end
 end
 
+local LATENCY = GameConfig.Latency
+
+-- The CFrame a hitbox or a cast origin is built from.
+--
+-- Roblox simulates a player's character on the owning client, so `root.CFrame` is whatever that client
+-- last replicated: read straight, it let a tampered client set its root to the opponent's position, fire
+-- a melee, and teleport back, landing a full combo from anywhere in the arena with no travel and no
+-- counterplay. The same trick placed a cast origin wherever the client liked.
+--
+-- So the position is measured, not trusted: it is accepted when the character could plausibly have
+-- travelled there from the last accepted position at GameConfig.Latency.MaxSpeedStudsPerSecond, plus
+-- OriginToleranceStuds of slack for the round trip. An implausible one is not rejected outright, which
+-- would punish a bad connection: the action still happens, anchored at the last position the server did
+-- believe, so a teleported attacker swings at empty air. Only a sustained stream of them strikes.
+--
+-- The envelope widens with the time since the last accepted sample, so a stale sample always catches up
+-- and nobody can be stuck. Server-authored teleports go through resyncPosition instead.
+-- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
+-- Called by every server-authored displacement that the client applies (dash, knockback): the character
+-- is simulated by the owning client, so the move arrives as one jump in the replicated position.
+local function allowTravel(state: State, studs: number, seconds: number, now: number)
+	local until_ = now + seconds + LATENCY.AllowanceGraceSeconds
+	if until_ > state.TravelAllowanceUntil then
+		state.TravelAllowanceUntil = until_
+		state.TravelAllowanceStuds = studs
+	else
+		state.TravelAllowanceStuds += studs
+	end
+end
+
+-- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
+-- passes false: a long fall is faster than MaxSpeedStudsPerSecond, and striking on it would kick honest
+-- players. The clamp applies either way, and the clamp alone is what removes the exploit.
+local function trustedCFrame(state: State, root: BasePart, now: number, strikeOnFailure: boolean): CFrame
+	local observed = root.CFrame
+	local trusted = state.TrustedPosition
+	if trusted == nil then
+		state.TrustedPosition = observed.Position
+		state.TrustedAt = now
+		return observed
+	end
+	local elapsed = math.max(0, now - state.TrustedAt)
+	local budget = LATENCY.MaxSpeedStudsPerSecond * elapsed + LATENCY.OriginToleranceStuds
+	if now < state.TravelAllowanceUntil then
+		budget += state.TravelAllowanceStuds
+	end
+	local travelled = (observed.Position - trusted).Magnitude
+	if travelled <= budget then
+		state.TrustedPosition = observed.Position
+		state.TrustedAt = now
+		state.OriginViolations = 0
+		return observed
+	end
+	if strikeOnFailure then
+		state.OriginViolations += 1
+		if state.OriginViolations >= LATENCY.ViolationsBeforeStrike then
+			state.OriginViolations = 0
+			antiCheat.strike(
+				state.Player,
+				"Origin",
+				string.format("%.0f studs in %.2fs (budget %.0f)", travelled, elapsed, budget),
+				"Origin"
+			)
+		end
+	end
+	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected.
+	return CFrame.new(trusted) * (observed - observed.Position)
+end
+
+-- Re-anchors the trust sample on the character's current position. Every server-authored reposition
+-- (match spawn, hub return, boss arena placement, LightningStep) must call this, or the player's next
+-- hitbox would be built where the server last believed them to be and miss.
+function CombatService.resyncPosition(player: Player)
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	local character = state.Character
+	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+	state.TrustedAt = os.clock()
+	state.OriginViolations = 0
+	state.TrustedPosition = if root ~= nil and root:IsA("BasePart") then root.Position else nil
+end
+
+-- The origin JutsuService builds a cast from, validated. nil when the caster has no live character.
+function CombatService.trustedOrigin(player: Player): CFrame?
+	local state = states[player]
+	if state == nil then
+		return nil
+	end
+	local character = state.Character
+	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+	if root == nil or not root:IsA("BasePart") then
+		return nil
+	end
+	return trustedCFrame(state, root, os.clock(), true)
+end
+
 -- Guard drop (manual release, auto-release, guard break, death): starts the block cooldown.
 local function releaseBlock(state: State, now: number)
 	state.Blocking = false
@@ -391,6 +504,11 @@ local function resetState(state: State, now: number)
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
 	state.KillCredited = false
 	state.HitMemory = {}
+	state.TrustedPosition = nil
+	state.TrustedAt = now
+	state.OriginViolations = 0
+	state.TravelAllowanceStuds = 0
+	state.TravelAllowanceUntil = 0
 end
 
 -- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
@@ -501,6 +619,11 @@ local function onPlayerAdded(player: Player)
 		SpawnProtectedUntil = 0,
 		KillCredited = false,
 		HitMemory = {},
+		TrustedPosition = nil,
+		TrustedAt = 0,
+		OriginViolations = 0,
+		TravelAllowanceStuds = 0,
+		TravelAllowanceUntil = 0,
 	}
 	resetState(state, os.clock())
 	states[player] = state
@@ -739,6 +862,12 @@ function CombatService.knockback(targetModel: Model, velocity: Vector3, duration
 		return
 	end
 	movement.command(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
+	-- The server sent this player flying, so the distance it can carry them is added to their travel
+	-- budget: a knockback the client replicates in one jump must not read as a teleport.
+	local state = states[player]
+	if state ~= nil then
+		allowTravel(state, velocity.Magnitude * duration, duration, os.clock())
+	end
 end
 
 -- Grants the StoneSkin buff (CombatConfig.Status.StoneSkin) to a live caster for its configured
@@ -835,7 +964,8 @@ local function onMelee(player: Player, state: State, now: number)
 	local damage = melee.Damage[index]
 	local isFinisher = index >= #melee.Damage
 	local tags = if isFinisher then { "MeleeFinisher" } else { "Melee" .. tostring(index) }
-	local rootCFrame = root.CFrame
+	-- Validated, never the raw client CFrame: a tampered client set its root on the opponent and swung.
+	local rootCFrame = trustedCFrame(state, root, now, true)
 
 	for _, model in ipairs(meleeTargets(character, rootCFrame)) do
 		local result = CombatService.ApplyDamage(player, model, damage, "Melee", tags)
@@ -909,6 +1039,7 @@ local function onDash(player: Player, state: State, now: number)
 		Distance = dash.Distance,
 		Duration = dash.DurationSeconds,
 	})
+	allowTravel(state, dash.Distance, dash.DurationSeconds, now)
 	vfx.emit({
 		Id = "Dash",
 		Origin = root.Position,
@@ -991,6 +1122,13 @@ local function tickPlayer(player: Player, state: State, now: number, elapsed: nu
 	if state.Chakra < chakra.Max then
 		local rate = if inCombat then chakra.RegenInCombat else chakra.RegenOutOfCombat
 		state.Chakra = math.min(chakra.Max, state.Chakra + rate * elapsed)
+	end
+
+	-- Sampled every tick, so the plausibility envelope an action is measured against stays tight
+	-- (TickRate studs of travel, not a whole idle period's worth).
+	local sampleRoot = if state.Character ~= nil then state.Character:FindFirstChild("HumanoidRootPart") else nil
+	if sampleRoot ~= nil and sampleRoot:IsA("BasePart") then
+		trustedCFrame(state, sampleRoot, now, false)
 	end
 
 	-- Entries expire after CombatConfig.Hit.IFrameSeconds but were only ever swept when the same jutsu
@@ -1104,6 +1242,7 @@ function CombatService.Init(injected: Deps)
 	dataService = injected.DataService
 	notify = injected.Notify
 	movement = injected.Movement
+	antiCheat = injected.AntiCheat
 	vfx = injected.Vfx
 	progression = injected.Progression
 	currency = injected.Currency

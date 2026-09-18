@@ -27,7 +27,10 @@ local Theme = require(Ui.Theme)
 local log = Log.new("HubService")
 
 -- No service is needed to build geometry; Init keeps the signature every service shares.
-type Deps = { [string]: any }
+-- CombatService is read for resyncPosition only, which runs long after every Init: HubService is the
+-- first service the bootstrap starts, so it must never CALL into Combat during Init.
+type CombatApi = { resyncPosition: (player: Player) -> () }
+type Deps = { Combat: CombatApi }
 
 type BoardLayout = { BoardId: string, PanelCFrame: CFrame }
 type Layout = { Boards: { BoardLayout }, QueueCFrame: CFrame, ShopCFrame: CFrame }
@@ -79,6 +82,7 @@ local CHARACTER_PIVOT_STUDS = 3.5
 local HubService = {}
 
 local layout: Layout
+local combat: CombatApi
 local hubSpawn: SpawnLocation?
 -- boardId -> the row container LeaderboardService fills (UIListLayout already installed).
 local boardEntries: { [string]: Frame? } = {}
@@ -368,7 +372,8 @@ local function warnOnForeignSpawns(folder: Folder)
 	end
 end
 
-function HubService.Init(_deps: Deps)
+function HubService.Init(deps: Deps)
+	combat = deps.Combat
 	layout = computeLayout()
 end
 
@@ -437,6 +442,9 @@ function HubService.teleportToHub(player: Player)
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
 	end
+	-- The server moved this character, so the position CombatService trusts must follow it: otherwise the
+	-- player's next hitbox is built back in the arena they just left (CombatService.trustedCFrame).
+	combat.resyncPosition(player)
 end
 
 return HubService

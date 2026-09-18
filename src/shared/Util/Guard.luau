@@ -126,11 +126,18 @@ local function checkValue(schema: Schema, value: any, path: string): (boolean, s
 		if type(value) ~= "table" then
 			return false, path .. ": expected array"
 		end
+		-- The bound is enforced while counting, not after: a tampered client can send a hundred
+		-- thousand entries against a maxLength of four, and the declared bound is what caps the work
+		-- a rejected payload costs.
+		local maxLength = schema.maxLength
 		local count = 0
 		for key in pairs(value) do
 			count += 1
 			if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
 				return false, path .. ": non-array key"
+			end
+			if maxLength ~= nil and count > maxLength then
+				return false, path .. ": array too long"
 			end
 		end
 		if count ~= #value then
@@ -138,9 +145,6 @@ local function checkValue(schema: Schema, value: any, path: string): (boolean, s
 		end
 		if schema.minLength ~= nil and count < schema.minLength then
 			return false, path .. ": array too short"
-		end
-		if schema.maxLength ~= nil and count > schema.maxLength then
-			return false, path .. ": array too long"
 		end
 		for index, item in ipairs(value) do
 			local ok, err = checkValue(schema.item :: Schema, item, path .. "[" .. tostring(index) .. "]")
@@ -154,6 +158,9 @@ local function checkValue(schema: Schema, value: any, path: string): (boolean, s
 			return false, path .. ": expected table"
 		end
 		local fields = schema.fields :: { [string]: Schema }
+		-- Needs no explicit bound like the array branch above: keys are unique, so only the declared
+		-- fields can pass and the very first key outside them ends the scan. A flooded payload
+		-- therefore costs the schema's field count, whatever its own size.
 		for key in pairs(value) do
 			if type(key) ~= "string" or fields[key] == nil then
 				return false, path .. ": unexpected key " .. tostring(key)

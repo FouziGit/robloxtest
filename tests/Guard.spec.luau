@@ -47,6 +47,34 @@ describe("Guard", function()
 		expect(reason).toContain("too short")
 	end)
 
+	it("rejects an over-long array before walking the rest of it", function()
+		-- A tampered client can send far more entries than the schema declares, so the bound has to be
+		-- hit while counting. The hole past the bound is the witness: a scan that counted every key
+		-- first would report the hole instead of the length.
+		local schema = Guard.array(Guard.string(), { maxLength = 4 })
+		local flood: { [number]: string } = {}
+		for index = 1, 10 do
+			flood[index] = "x"
+		end
+		flood[20] = "x"
+		local ok, reason = Guard.check(schema, flood)
+		expect(ok).toBe(false)
+		expect(reason).toContain("too long")
+	end)
+
+	it("rejects a flooded strict table on the first key outside the schema", function()
+		-- Same bound, held by the schema itself: only the declared fields can pass, so the scan ends on
+		-- the first key that is not one of them however many the payload carries.
+		local schema = Guard.strict({ Volume = Guard.number() })
+		local flood: { [string]: number } = { Volume = 0.5 }
+		for index = 1, 500 do
+			flood["k" .. index] = index
+		end
+		local ok, reason = Guard.check(schema, flood)
+		expect(ok).toBe(false)
+		expect(reason).toContain("unexpected key")
+	end)
+
 	it("rejects unknown keys in strict tables and allows optional fields", function()
 		local schema =
 			Guard.strict({ Volume = Guard.number({ min = 0, max = 1 }), Name = Guard.optional(Guard.string()) })

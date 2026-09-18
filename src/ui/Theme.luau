@@ -67,6 +67,9 @@ Theme.Layers = {
 	Hud = 10,
 	Screen = 30,
 	Result = 40, -- above the menus: the match is over, the result is the only thing left to read
+	-- Notification layer. A server message explains what just happened (a refused purchase, a failed
+	-- claim) and is worthless once something covers it, so nothing may be layered above this.
+	Toast = 50,
 }
 
 -- Reference resolution used to compute UIScale. Phones typically land around 0.7-0.85.

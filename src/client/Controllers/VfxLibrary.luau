@@ -230,8 +230,11 @@ local function refreshGroundExclude()
 end
 
 -- A respawn swaps the character model, so both edges have to invalidate or the filter would keep
--- excluding a destroyed rig and stop excluding the live one.
+-- excluding a destroyed rig and stop excluding the live one. A join invalidates as well: the joiner's
+-- first CharacterAdded can land before PlayerAdded reaches this client, and the filter would then miss
+-- that character until its next respawn.
 local function watchCharacters(player: Player)
+	markGroundExcludeStale()
 	player.CharacterAdded:Connect(markGroundExcludeStale)
 	player.CharacterRemoving:Connect(markGroundExcludeStale)
 end

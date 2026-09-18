@@ -83,21 +83,27 @@ PoolPolicy.Limits = {
 	-- emitter anchors.
 	Attachment = { Live = 160, Parked = 48 },
 	-- Textures on flat surfaces: a sprite carries two (front and back, so it reads from either side) and
-	-- a ground mark carries one. Sized above Part because the timelines that use them are the frequent
-	-- ones -- every cast draws a seal, every hit leaves a burn.
+	-- a ground mark carries one. Close to Part rather than far below it, because the timelines that use
+	-- them are the frequent ones -- every cast draws a seal, every hit leaves a burn -- and most parts a
+	-- timeline borrows exist only to host one of these.
 	Decal = { Live = 200, Parked = 48 },
 	-- The drawn stroke. Rarer than a trail: a beam is a deliberate line between two points, not something
 	-- a moving body leaves behind on its own.
 	Beam = { Live = 40, Parked = 12 },
 } :: { [string]: Limits }
 
+-- No ceiling may exceed this. A row of math.huge is not a generous ceiling, it is the absence of one, and
+-- the whole reason this module exists is that the VFX layer must not be able to grow without bound.
+local MAX_CEILING = 4096
+
 local function count(value: number): number
 	-- A malformed row must not become a negative ceiling, which would read as "refuse everything" in one
-	-- place and "park forever" in another.
+	-- place and "park forever" in another, nor an infinite one, which reads as no ceiling at all while
+	-- looking like a number.
 	if value ~= value then
 		return 0
 	end
-	return math.max(0, math.floor(value))
+	return math.clamp(math.floor(value), 0, MAX_CEILING)
 end
 
 local function newState(): ClassState

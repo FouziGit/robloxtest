@@ -73,6 +73,9 @@ class Rng:
 
 
 def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    """Every call site in the pipeline uses the one-argument form: these canvases are 0..1 alpha and
+    nothing here clamps into another range. The bounds are kept because a clamp without them is not a
+    clamp, but a generator that passes them is doing something this module was not written for."""
     if value < low:
         return low
     if value > high:
@@ -170,10 +173,10 @@ class Canvas:
 
     __slots__ = ("width", "height", "data")
 
-    def __init__(self, width: int, height: int, value: float = 0.0) -> None:
+    def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-        self.data = [value] * (width * height)
+        self.data = [0.0] * (width * height)
 
     def max_at(self, x: int, y: int, value: float) -> None:
         """Strokes composite by maximum, never by sum: added strokes turn every junction of a crack

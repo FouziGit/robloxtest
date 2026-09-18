@@ -22,7 +22,8 @@ SIZE = 512
 SEED = 0x50_0C
 
 # Radius, plus the wobble, plus the outer falloff, has to stay inside the half-width with room for the
-# border fade: 0.40 + 0.005 + 0.020 of 512 is 218 against a 256 half-width.
+# border fade. In pixels of a 512 sprite: 0.40 x 512 = 204.8, the wobble adds 0.005 x 512 = 2.6, and
+# OUTER_FALLOFF is 7.0 px outright rather than a fraction -- about 215 px against a 256 px half-width.
 RADIUS = SIZE * 0.40
 WOBBLE = RADIUS * 0.012
 

@@ -8,6 +8,7 @@
 -- it: borrow, release, reuse, overflow, double release, and the bound that says the thing cannot grow.
 local Harness = require("./harness")
 local PoolPolicy = require("../src/shared/Pure/PoolPolicy")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -207,12 +208,28 @@ end)
 
 describe("PoolPolicy shipped ceilings", function()
 	it("cover every class the VFX layer builds per effect", function()
-		-- A class VfxPool can build but this table has no row for would refuse every borrow of it, and the
-		-- only symptom in game would be effects quietly missing a layer. VfxPool cannot be loaded here --
-		-- it is a controller full of Roblox globals -- so the list is named.
-		local built = { "Part", "ParticleEmitter", "Trail", "PointLight", "Attachment", "Decal", "Beam" }
+		-- A class VfxPool can build but this table has no row for refuses every borrow of it, and the only
+		-- symptom in game is effects quietly missing a layer.
+		--
+		-- The list is READ from VfxPool's source rather than copied here. A copied list cannot fail when
+		-- VfxPool gains a class, which is the only failure this test exists to catch -- and it already
+		-- happened once: Decal and Beam were added to the pool for the timeline runtime and the ceilings
+		-- had to be noticed by hand. VfxPool itself cannot be required here, it is a controller full of
+		-- Roblox globals, so the source is parsed the way tests/EffectCoverage.spec.luau parses its own.
+		local source = fs.readFile("src/client/Controllers/VfxPool.luau")
+		local table_ = string.match(source, "local CLASSES: { %[string%]: ClassOps } = (%b{})")
+		if table_ == nil then
+			error("could not find the CLASSES table in VfxPool.luau; this test is checking nothing")
+		end
+		local built: { string } = {}
+		for className in string.gmatch(table_, "\n\t([%a][%w]*) = {") do
+			table.insert(built, className)
+		end
+		expect(#built).toBeGreaterThanOrEqual(7)
 		for _, className in ipairs(built) do
-			expect(PoolPolicy.Limits[className]).never.toBeNil()
+			if PoolPolicy.Limits[className] == nil then
+				error(("VfxPool builds %s and PoolPolicy.Limits has no row for it"):format(className))
+			end
 		end
 	end)
 
@@ -225,6 +242,10 @@ describe("PoolPolicy shipped ceilings", function()
 			expect(limit.Parked <= limit.Live).toBe(true)
 			expect(limit.Live).toBe(math.floor(limit.Live))
 			expect(limit.Parked).toBe(math.floor(limit.Parked))
+			-- An infinite ceiling is not a generous ceiling, it is the absence of one, and it looks like a
+			-- number in a table full of numbers.
+			expect(limit.Live < math.huge).toBe(true)
+			expect(limit.Parked < math.huge).toBe(true)
 			expect(#className > 0).toBe(true)
 		end
 	end)

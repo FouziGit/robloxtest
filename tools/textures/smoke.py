@@ -14,10 +14,10 @@ The mote is the exception and stays clean: at sixty-four pixels, noise is just d
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from vellum_png import Canvas, box_blur, fbm, output_dir, report, smootherstep01, write_white_alpha
-import math
 
 SMOKE_SIZE = 256
 DUST_SIZE = 64
@@ -30,8 +30,15 @@ DUST_MARGIN = 5.0
 SILHOUETTE_CELLS = 4.0
 INTERIOR_CELLS = 10.0
 
-# The lobed radius reaches 1.24x this, so 0.38 puts the widest lobe at 121px of a 128px half-width and
-# the border fade covers the rest.
+# The lobed radius is radius * (0.62 + 0.76 * lobe), so its ALGEBRAIC bound is 1.38x -- 134 px of a
+# 128 px half-width, which would clip. It does not clip, because the fbm field never reaches 1: measured
+# over the whole 256x256 sprite its maximum is 0.855, the widest lobe multiplier is 1.27x, and the
+# silhouette stops at 123.5 px with zero samples past 128.
+#
+# That distinction is load-bearing, so it is written down rather than rounded away: the margin here is
+# empirical, not proven, and the border fade below is what makes it safe rather than merely lucky. A
+# change to SILHOUETTE_CELLS or SMOKE_SEED moves that measured maximum and can clip the puff against the
+# canvas edge.
 SMOKE_RADIUS = 0.38
 SMOKE_MARGIN = 9.0
 

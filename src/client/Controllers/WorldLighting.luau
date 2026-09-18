@@ -230,7 +230,14 @@ end
 -- while the first is still fading re-arms that one envelope instead of stacking a second, so twenty
 -- impacts in a second read as one sustained bleach rather than as a white screen. The re-armed spring
 -- keeps its position and its velocity, so it accelerates back up from wherever it had got to.
-function WorldLighting.pulse(name: string)
+-- `strength` is how much of the profile to apply, 0 to 1, and it defaults to all of it. Without it the
+-- only thing a caller could do about distance was fire or not fire, so an impact at the edge of the
+-- falloff radius bleached the page exactly as hard as one in the player's face -- which is the same
+-- defect the four-stud radius test used to cause for camera shake, in the other direction.
+--
+-- A stronger pulse re-arming a weaker one wins; a weaker one arriving mid-pulse does not pull it down,
+-- because a far explosion must not soften the near one that is already playing.
+function WorldLighting.pulse(name: string, strength: number?)
 	if not motionAllowed() then
 		return
 	end
@@ -242,11 +249,15 @@ function WorldLighting.pulse(name: string)
 	if #plan == 0 then
 		return
 	end
+	local goal = math.clamp(strength or 1, 0, 1)
+	if goal <= 0 then
+		return
+	end
 
 	local existing = live[name]
 	if existing ~= nil then
 		shape(existing.Weight, profile.AttackSeconds)
-		existing.Weight:setGoal(1)
+		existing.Weight:setGoal(math.max(goal, existing.Weight.Goal))
 		existing.Phase = "Attack"
 		existing.HoldRemaining = profile.HoldSeconds
 		offset = true
@@ -255,7 +266,7 @@ function WorldLighting.pulse(name: string)
 
 	local weight = Spring.new(0, 1, 1)
 	shape(weight, profile.AttackSeconds)
-	weight:setGoal(1)
+	weight:setGoal(goal)
 	live[name] = { Profile = profile, Weight = weight, Phase = "Attack", HoldRemaining = profile.HoldSeconds }
 	liveCount += 1
 	offset = true

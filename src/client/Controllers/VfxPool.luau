@@ -40,6 +40,8 @@ local VfxPool = {}
 
 -- Parked instances live here rather than under a nil parent: a folder can be opened in the explorer and
 -- counted, which is what the phase 9 promise of "a duel leaves no instance behind" is checked against.
+-- It is planted at Init on every client, empty, whether or not that client ever renders an effect: the
+-- alternative is a first borrow that has to check, and a folder is cheaper than a branch on a hot path.
 -- Out of Workspace, so a parked emitter cannot emit and a parked part cannot render whatever its
 -- properties say -- nothing under ReplicatedStorage is drawn or simulated.
 local FOLDER_NAME = "VellumVfxPool"
@@ -141,6 +143,10 @@ local function resetEmitter(emitter: ParticleEmitter)
 	emitter.ZOffset = 0
 	emitter.LockedToPart = false
 	emitter.TimeScale = 1
+	-- Written by VfxTimeline's emitter builder, so it belongs here by the rule at the top of this
+	-- file: the reset list is the union of what this layer writes. It was missed, which is how every
+	-- reset list is eventually wrong -- a renderer starts writing a property and nobody comes back.
+	emitter.WindAffectsDrag = false
 end
 
 local function resetTrail(trail: Trail)

@@ -12,7 +12,7 @@ numbers cause it, and neither of them is the symmetry:
   * THICKNESS. Fifteen to one, not seven. A mark any wider is a shape with a stroke's silhouette
     rather than a stroke, and it is the fat profile that makes a tapered mark read as a lens.
   * A SOLID BODY. A brush is a bundle of hairs, so discrete bristle lanes run the length of this one,
-    each with its own weight and its own gaps, over a noise field stretched forty to one. Where a real
+    each with its own weight and its own gaps, over a noise field stretched fifty-three to one. Where a real
     brush is at its fullest the hairs still show, and the eye reads a gap between hairs faster than it
     reads any amount of noise.
 

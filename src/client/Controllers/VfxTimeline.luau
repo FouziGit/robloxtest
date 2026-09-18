@@ -560,10 +560,13 @@ local function activate(item: Pending, now: number)
 		if reach <= FeelConfig.Shake.MinScale then
 			return
 		end
+		-- The same falloff that decided whether to flash at all decides how hard, so a hit across the
+		-- arena is a hint of a bleach and one in your face is the full page.
+		--
 		-- WorldLighting owns the warning for an unknown pulse, and tests/VfxTimeline.spec.luau already
 		-- fails the build for a timeline naming one that LightingConfig does not declare, so there is
 		-- nothing left for this call to check.
-		worldLighting.pulse(profile)
+		worldLighting.pulse(profile, reach)
 		return
 	end
 

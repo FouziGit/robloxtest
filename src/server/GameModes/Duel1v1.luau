@@ -51,7 +51,7 @@ function Duel1v1.OnPlayerLeft(match: GameModes.Match, player: Player)
 end
 
 function Duel1v1.End(match: GameModes.Match): GameModes.Result
-	return GameModes.result(match, GameModes.scoreWinner(match))
+	return GameModes.result(match, GameModes.outcome(match))
 end
 
 -- Conformance: the registry hands this table out as a GameModes.GameMode.

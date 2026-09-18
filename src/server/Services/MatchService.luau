@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Elo = require(Shared.Pure.Elo)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
 local Log = require(Shared.Util.Log)
@@ -41,9 +42,13 @@ export type Arena = {
 export type RatingChange = { Before: number, After: number, RankKeyBefore: string, RankKeyAfter: string }
 
 type ProfileData = Types.ProfileData
+type BeforeReleaseSignal = {
+	Connect: (self: BeforeReleaseSignal, fn: (player: Player, data: ProfileData) -> ()) -> any,
+}
 type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	push: (player: Player, section: string) -> (),
+	BeforeRelease: BeforeReleaseSignal,
 }
 type NotifyKind = "Info" | "Success" | "Error"
 type NotifyApi = {
@@ -62,7 +67,9 @@ type HubApi = { teleportToHub: (player: Player) -> () }
 type ArenaApi = { acquire: (arenaId: string) -> Arena?, release: (arena: Arena) -> () }
 type RankingApi = {
 	getRating: (player: Player, modeId: string) -> number,
+	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
+	applyAbandon: (player: Player, modeId: string, opponentRating: number) -> RatingChange?,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
@@ -421,8 +428,18 @@ local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: num
 		end
 		local winner = verdict.WinnerTeam
 		if winner ~= nil then
-			-- The team still standing takes the series, so the result reads as a clean win.
-			match.Scores[winner] = math.max(match.Scores[winner], active.Def.RoundsToWin)
+			-- Two cases, and the old code collapsed them into one. Raising the survivor to RoundsToWin
+			-- unconditionally turned a 2-0 series abandoned during RoundOver into 2-2, which
+			-- GameModes.scoreWinner reads as a tie: the player who had already won every round got a draw,
+			-- and so did the one who walked out.
+			--
+			-- A series already decided on the field keeps its real winner, whoever then left. An
+			-- undecided series goes to the team still standing, and its score is raised just past the
+			-- best other score so the number the result screen prints agrees with the verdict it prints.
+			if GameModes.decidedWinner(match) == nil then
+				match.ForfeitWinner = winner
+				match.Scores[winner] = math.max(match.Scores[winner], GameModes.bestOtherScore(match, winner) + 1)
+			end
 			for _, participant in ipairs(match.Participants) do
 				if isLive(participant) then
 					notify.send(participant.Player, "match.opponentLeft", nil, "Info")
@@ -561,6 +578,55 @@ local function allowDamage(source: Player?, targetModel: Model): boolean
 		return false
 	end
 	return not sourceActive.Finished and sourceActive.Match.Phase == "Playing"
+end
+
+-- Average rating of the teams `player` is NOT on, for the forfeit debit below. Read from RankingService
+-- so an opponent who also left still counts at the rating this server last saw for them.
+local function opposingRating(active: Active, player: Player): number
+	local ownTeam: number? = nil
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.UserId == player.UserId then
+			ownTeam = participant.Team
+			break
+		end
+	end
+	if ownTeam == nil then
+		return RankingConfig.InitialRating
+	end
+	local ratings: { number } = {}
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.Team ~= ownTeam then
+			-- lastKnownRating, not getRating: an opponent who also disconnected has no live Player, and
+			-- their real rating must still count or the debit would be scored against a beginner.
+			table.insert(ratings, ranking.lastKnownRating(active.Def.Id, participant.UserId))
+		end
+	end
+	if #ratings == 0 then
+		return RankingConfig.InitialRating
+	end
+	return Elo.teamRating(ratings)
+end
+
+-- Walking out of a live ranked match costs exactly what losing it costs. Settled here, on
+-- DataService.BeforeRelease, because this is the last instant the leaver's profile is still loaded: the
+-- match resolves seconds later in their absence, and nothing could be written for them by then. Without
+-- it, quitting was strictly better than losing and a rating could only ever go up.
+local function onBeforeRelease(player: Player)
+	local active = activeByUserId[player.UserId]
+	if active == nil or active.Finished or not active.Def.Ranked then
+		return
+	end
+	if active.Match.Phase == "Result" then
+		-- The result is already being applied; applyResult owns this player's rating move.
+		return
+	end
+	log.try(
+		"applyAbandon " .. active.Def.Id,
+		ranking.applyAbandon,
+		player,
+		active.Def.Id,
+		opposingRating(active, player)
+	)
 end
 
 local function onPlayerRemoving(player: Player)
@@ -709,6 +775,9 @@ end
 
 function MatchService.Start()
 	combat.setPolicy(allowDamage)
+	-- Before PlayerRemoving: DataService fires BeforeRelease from inside its own PlayerRemoving handler,
+	-- which runs first, so the forfeit is debited while activeByUserId still holds the match.
+	dataService.BeforeRelease:Connect(onBeforeRelease)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (tick %d Hz, snapshots %d Hz)", GameConfig.Server.TickRate, SNAPSHOT_HZ)

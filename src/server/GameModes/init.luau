@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local MatchConfig = require(Shared.Config.MatchConfig)
+local SeriesOutcome = require(Shared.Pure.SeriesOutcome)
 local Types = require(Shared.Types)
 
 local GameModes = {}
@@ -55,6 +56,10 @@ export type Match = {
 	StartedAt: number, -- os.clock stamps
 	RoundEndsAt: number,
 	EndedAt: number, -- 0 until MatchService enters the Result phase
+	-- Set by MatchService when a team wins because the other one walked out. It decides the outcome on
+	-- its own: the rounds already played do not, because a forfeit can arrive on a series the LEAVER was
+	-- winning and comparing scores would then read as a tie.
+	ForfeitWinner: number?,
 }
 
 export type GameMode = {
@@ -189,22 +194,25 @@ function GameModes.timeoutVerdict(match: Match): Verdict
 	return { WinnerTeam = if tied then nil else best, Reason = "Timeout" }
 end
 
+-- The outcome of a finished match. Pure/SeriesOutcome owns the rule; every mode's End goes through this
+-- so no mode can forget the forfeit case.
+function GameModes.outcome(match: Match): number?
+	return SeriesOutcome.resolve(match.Scores, match.Def.Teams, match.Def.RoundsToWin, match.ForfeitWinner)
+end
+
+-- The single team that has already won the series on rounds, nil while it is still open.
+function GameModes.decidedWinner(match: Match): number?
+	return SeriesOutcome.decided(match.Scores, match.Def.Teams, match.Def.RoundsToWin)
+end
+
+-- The highest score held by a team other than `team`, for raising a forfeit winner just past it.
+function GameModes.bestOtherScore(match: Match, team: number): number
+	return SeriesOutcome.bestOther(match.Scores, match.Def.Teams, team)
+end
+
 -- The team with the single highest score, nil on a tie.
 function GameModes.scoreWinner(match: Match): number?
-	local best: number? = nil
-	local bestScore = -1
-	local tied = false
-	for team = 1, match.Def.Teams do
-		local score = match.Scores[team] or 0
-		if score > bestScore then
-			best = team
-			bestScore = score
-			tied = false
-		elseif score == bestScore then
-			tied = true
-		end
-	end
-	return if tied then nil else best
+	return SeriesOutcome.leader(match.Scores, match.Def.Teams)
 end
 
 -- Marks a leaver: out of the match, and dead for the current round.

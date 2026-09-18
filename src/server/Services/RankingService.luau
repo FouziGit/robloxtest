@@ -96,6 +96,32 @@ local function isRankedMode(modeId: string): boolean
 end
 
 -- The player's entry for `modeId`, created at RankingConfig.InitialRating the first time it is needed.
+-- Last rating this server saw for a user id, per mode. A player who left mid-match is gone from
+-- Players and their profile is released, so applyResult can no longer read their rating: without this
+-- the opposing team was averaged against RankingConfig.InitialRating and the remaining player gained
+-- almost nothing for beating a high-rated opponent who quit.
+local lastRating: { [string]: { [number]: number } } = {}
+
+-- User ids whose penalty for this match was already settled by applyAbandon. applyResult skips them so
+-- a player who abandons and reconnects to the same server before the match resolves is not debited
+-- twice. Cleared as soon as the result passes over them.
+local settled: { [number]: boolean } = {}
+
+local function remember(modeId: string, userId: number, rating: number)
+	local byUser = lastRating[modeId]
+	if byUser == nil then
+		byUser = {}
+		lastRating[modeId] = byUser
+	end
+	byUser[userId] = rating
+end
+
+local function knownRating(modeId: string, userId: number): number
+	local byUser = lastRating[modeId]
+	local remembered = if byUser ~= nil then byUser[userId] else nil
+	return remembered or RankingConfig.InitialRating
+end
+
 local function modeEntry(data: ProfileData, modeId: string): RankModeData
 	local existing = data.Rank.Modes[modeId]
 	if existing ~= nil then
@@ -110,6 +136,13 @@ local function modeEntry(data: ProfileData, modeId: string): RankModeData
 	}
 	data.Rank.Modes[modeId] = created
 	return created
+end
+
+-- The rating this server last saw for `userId` in `modeId`, RankingConfig.InitialRating when it never
+-- saw one. Unlike getRating this needs no live Player, so a roster average stays right after somebody
+-- disconnects.
+function RankingService.lastKnownRating(modeId: string, userId: number): number
+	return knownRating(modeId, userId)
 end
 
 -- Strings key of the tier a rating sits in (single source of tier naming for every service).
@@ -128,6 +161,7 @@ function RankingService.getRating(player: Player, modeId: string): number
 	if mode == nil then
 		return RankingConfig.InitialRating
 	end
+	remember(modeId, player.UserId, mode.Rating)
 	return mode.Rating
 end
 
@@ -136,9 +170,10 @@ end
 ----------------------------------------------------------------
 
 -- Applies a finished ranked match and returns the rating move of every participant still on the
--- server with a loaded profile, keyed by user id. A participant who already left counts at
--- RankingConfig.InitialRating in their team's average (so an abandon cannot distort the opposing
--- team's Elo) but is absent from the result: callers treat a missing entry as "rating unchanged".
+-- server with a loaded profile, keyed by user id. A participant who already left counts at the last
+-- rating this server saw for them, so the opposing team is scored against the opponent they actually
+-- faced, and is absent from the result: callers treat a missing entry as "rating unchanged". Their own
+-- loss was already written by applyAbandon at the moment they left.
 -- An unranked mode (World Boss) and a match that did not report two teams return an empty map.
 function RankingService.applyResult(result: Types.MatchResult): { [number]: RatingDelta }
 	local deltas: { [number]: RatingDelta } = {}
@@ -160,7 +195,10 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 			local data = if player ~= nil then dataService.get(player) else nil
 			local entry = if data ~= nil then modeEntry(data, result.ModeId) else nil
 			table.insert(participants, { UserId = userId, Player = player, Entry = entry })
-			table.insert(ratings, if entry ~= nil then entry.Rating else RankingConfig.InitialRating)
+			if entry ~= nil then
+				remember(result.ModeId, userId, entry.Rating)
+			end
+			table.insert(ratings, if entry ~= nil then entry.Rating else knownRating(result.ModeId, userId))
 		end
 		teams[teamIndex] = participants
 		teamRatings[teamIndex] = Elo.teamRating(ratings)
@@ -174,6 +212,11 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		for _, participant in ipairs(participants) do
 			local entry = participant.Entry
 			local player = participant.Player
+			if settled[participant.UserId] then
+				-- applyAbandon already debited this match for them when they left.
+				settled[participant.UserId] = nil
+				continue
+			end
 			if entry == nil or player == nil then
 				continue
 			end
@@ -197,6 +240,7 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 				RankKeyBefore = RankingService.rankKeyFor(before),
 				RankKeyAfter = RankingService.rankKeyFor(after),
 			}
+			remember(result.ModeId, participant.UserId, after)
 			RankingService.RatingChanged:Fire(player, result.ModeId, before, after)
 			log.info(
 				"%s %s %d -> %d (k %d, opponent %.0f)",
@@ -210,6 +254,54 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		end
 	end
 	return deltas
+end
+
+-- Debits the forfeit of a ranked match the player is walking out of, while their profile is still
+-- loaded. Returns the rating move, or nil when there is nothing to write.
+--
+-- Called from DataService.BeforeRelease: after the release the profile is gone and nothing can ever be
+-- written for them on this server again, which is exactly how quitting used to be free. The match then
+-- resolves in their absence, applyResult skips them, and the opposing team is still scored against the
+-- rating they actually had.
+--
+-- The loss is scored against `opponentRating` with the same Elo call a real defeat uses, so abandoning
+-- costs the same as losing, never less: there is no cheaper exit than playing the match out.
+function RankingService.applyAbandon(player: Player, modeId: string, opponentRating: number): RatingDelta?
+	if not isRankedMode(modeId) then
+		return nil
+	end
+	local data = dataService.get(player)
+	if data == nil then
+		log.warn("applyAbandon for %s (%s) came too late: the profile is already released", player.Name, modeId)
+		return nil
+	end
+	local entry = modeEntry(data, modeId)
+	local before = entry.Rating
+	local kFactor = Elo.kFactor(entry.Matches, RankingConfig.KFactorSchedule)
+	local after = Elo.update(before, opponentRating, 0, kFactor, kFactor, BOUNDS)
+	entry.Rating = after
+	entry.Matches += 1
+	entry.Losses += 1
+	entry.PeakRating = math.max(entry.PeakRating, after)
+	dataService.push(player, RANK_SECTION)
+	remember(modeId, player.UserId, after)
+	settled[player.UserId] = true
+	RankingService.RatingChanged:Fire(player, modeId, before, after)
+	log.info(
+		"%s abandoned %s: %d -> %d (k %d, opponent %.0f)",
+		player.Name,
+		modeId,
+		before,
+		after,
+		kFactor,
+		opponentRating
+	)
+	return {
+		Before = before,
+		After = after,
+		RankKeyBefore = RankingService.rankKeyFor(before),
+		RankKeyAfter = RankingService.rankKeyFor(after),
+	}
 end
 
 ----------------------------------------------------------------

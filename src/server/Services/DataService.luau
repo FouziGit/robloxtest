@@ -36,6 +36,11 @@ local DataService = {}
 
 DataService.ProfileLoaded = Signal.new() -- (player: Player, data: ProfileData)
 DataService.ProfileReleased = Signal.new() -- (player: Player)
+-- Fired while a leaving player's profile is STILL loaded, immediately before it is released. The last
+-- moment anything can be persisted for them: once the session ends, DataService.get returns nil and
+-- nothing can be written for that player on this server again. MatchService debits the forfeit of an
+-- abandoned ranked match here, which is what used to make quitting free.
+DataService.BeforeRelease = Signal.new() -- (player: Player, data: ProfileData)
 
 local registry -- RemoteRegistry
 local store
@@ -261,6 +266,13 @@ end
 
 local function onPlayerRemoving(player: Player)
 	local profile = profiles[player]
+	if profile ~= nil then
+		-- Before the profile leaves the table, and inside log.try: a listener that throws must never
+		-- cost the session its release, which would leave the key locked until ProfileStore times out.
+		log.try("BeforeRelease " .. player.Name, function()
+			DataService.BeforeRelease:Fire(player, profile.Data)
+		end)
+	end
 	profiles[player] = nil
 	local waiters = loadedSignals[player]
 	loadedSignals[player] = nil

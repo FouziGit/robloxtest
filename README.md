@@ -93,7 +93,7 @@ Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/A
 - **Un seul chemin de dégâts** : `CombatService.ApplyDamage`.
 - **Le serveur ne construit aucun VFX** : il diffuse `{Id, Origin, Direction, Params}` et chaque client rend localement.
 - **Zéro chaîne joueur en dur** : tout passe par `Strings` (test bloquant en CI).
-- **Modules purs testables** : `ComboResolver`, `Elo`, `RankTiers`, `MatchmakingCore`, `SeriesOutcome`, `QuestLogic`, `DailyStreak`, `ReceiptProcessor`, `ReceiptItem`, `ShopRotation`, `DataMigration` — aucun `require`, aucun global Roblox, testés sous Lune. Toute décision qui touche au classement ou à un paiement vit là et a ses tests.
+- **Modules purs testables** : `ComboResolver`, `Elo`, `RankTiers`, `MatchmakingCore`, `SeriesOutcome`, `OriginGuard`, `QuestLogic`, `DailyStreak`, `ReceiptProcessor`, `ReceiptItem`, `ShopRotation`, `DataMigration` — aucun `require`, aucun global Roblox, testés sous Lune. Toute décision qui touche au classement, à un paiement ou à la validation d'une position vit là et a ses tests.
 
 ---
 
@@ -136,7 +136,7 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 | Localisation à jour | `lune run scripts/export-strings -- --check` |
 | Build | `rojo build default.project.json -o build/JutsuBattlegrounds.rbxl` |
 
-105 tests sur 18 fichiers de spécification. Cinq d'entre eux ne testent pas du code mais des invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de localisation morte ni manquante, un producteur serveur pour chaque événement de quête, aucune touche d'annulation qui soit aussi assignable, et le coût borné d'une charge utile rejetée.
+126 tests sur 20 fichiers de spécification. Cinq d'entre eux ne testent pas du code mais des invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de localisation morte ni manquante, un producteur serveur pour chaque événement de quête, aucune touche d'annulation qui soit aussi assignable, et le coût borné d'une charge utile rejetée.
 
 ---
 

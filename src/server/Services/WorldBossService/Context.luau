@@ -50,7 +50,7 @@ export type CombatApi = {
 	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	-- Called after the encounter teleports a participant, so the position CombatService trusts follows.
-	resyncPosition: (player: Player) -> (),
+	resyncPosition: (player: Player, position: Vector3?) -> (),
 	-- Returns the policy it replaced, so a temporary owner can hand the slot back (see init.takePolicy).
 	setPolicy: (fn: Policy) -> Policy?,
 	-- One damage application, with who dealt it and to what. Boss contribution is attributed from this

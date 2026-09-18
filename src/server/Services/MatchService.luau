@@ -57,7 +57,7 @@ type NotifyApi = {
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type CombatApi = {
 	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
-	resyncPosition: (player: Player) -> (),
+	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
 type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
@@ -179,7 +179,9 @@ local function placeCharacter(player: Player, character: Model, spawn: BasePart,
 	else
 		character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
 	end
-	combat.resyncPosition(player)
+	-- The destination, passed explicitly: re-reading the character would anchor trust on whatever the
+	-- client replicates next rather than on the pad the server just put them on.
+	combat.resyncPosition(player, position)
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns

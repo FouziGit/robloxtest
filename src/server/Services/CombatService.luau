@@ -119,9 +119,14 @@ type State = {
 	-- cast origin is measured against this instead of trusting it outright (see trustedCFrame).
 	TrustedPosition: Vector3?,
 	TrustedAt: number,
-	OriginViolations: number, -- consecutive implausible origins on an action, reset by any plausible one
-	-- Extra studs the travel budget allows because the SERVER moved this character (dash, knockback),
-	-- until TravelAllowanceUntil. Without it every legitimate dash looked like a teleport.
+	-- os.clock of each implausible origin on an ACTION, pruned to GameConfig.Latency
+	-- .ViolationWindowSeconds. A list rather than a counter: a client that returns to a legal position
+	-- between two swings would reset a counter every time and never be struck.
+	OriginViolations: { number },
+	-- Studs the travel budget still allows because the SERVER moved this character (dash, knockback, a
+	-- jutsu dash), until TravelAllowanceUntil. Consumed as it is spent, never re-granted per sample:
+	-- without it every legitimate dash looked like a teleport, and re-granting it turned the ceiling into
+	-- a multiple of itself.
 	TravelAllowanceStuds: number,
 	TravelAllowanceUntil: number,
 }
@@ -344,21 +349,58 @@ local LATENCY = GameConfig.Latency
 -- The envelope widens with the time since the last accepted sample, so a stale sample always catches up
 -- and nobody can be stuck. Server-authored teleports go through resyncPosition instead.
 -- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
--- Called by every server-authored displacement that the client applies (dash, knockback): the character
--- is simulated by the owning client, so the move arrives as one jump in the replicated position.
+-- Called by every server-authored displacement the client applies (dash, knockback, a jutsu dash): the
+-- character is simulated by the owning client, so the move arrives as one jump in the replicated
+-- position. Overlapping grants add up and share the later deadline.
 local function allowTravel(state: State, studs: number, seconds: number, now: number)
-	local until_ = now + seconds + LATENCY.AllowanceGraceSeconds
-	if until_ > state.TravelAllowanceUntil then
-		state.TravelAllowanceUntil = until_
-		state.TravelAllowanceStuds = studs
-	else
-		state.TravelAllowanceStuds += studs
+	local deadline = now + seconds + LATENCY.AllowanceGraceSeconds
+	if now >= state.TravelAllowanceUntil then
+		state.TravelAllowanceStuds = 0
 	end
+	state.TravelAllowanceStuds += math.max(0, studs)
+	state.TravelAllowanceUntil = math.max(state.TravelAllowanceUntil, deadline)
+end
+
+-- Studs of server-granted travel still unspent, 0 once the window has closed.
+local function liveAllowance(state: State, now: number): number
+	return if now < state.TravelAllowanceUntil then state.TravelAllowanceStuds else 0
+end
+
+-- Records an implausible ACTION origin and strikes once the window holds enough of them.
+local function countViolation(state: State, now: number, travelled: number, budget: number)
+	local times = state.OriginViolations
+	local cutoff = now - LATENCY.ViolationWindowSeconds
+	while #times > 0 and times[1] < cutoff do
+		table.remove(times, 1)
+	end
+	table.insert(times, now)
+	if #times < LATENCY.ViolationsBeforeStrike then
+		return
+	end
+	table.clear(times)
+	antiCheat.strike(
+		state.Player,
+		"Origin",
+		string.format("%.0f horizontal studs against a budget of %.0f", travelled, budget),
+		"Origin"
+	)
 end
 
 -- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
--- passes false: a long fall is faster than MaxSpeedStudsPerSecond, and striking on it would kick honest
--- players. The clamp applies either way, and the clamp alone is what removes the exploit.
+-- passes false: it only ever moves the anchor, and must neither strike nor absolve.
+--
+-- Three outcomes, and the middle one is what keeps the tolerance from being farmed:
+--  * within the speed ceiling plus any unspent server-granted allowance -> honest movement: the anchor
+--    follows, and the allowance is reduced by the part of the travel that needed it;
+--  * beyond that but within OriginToleranceStuds -> the action is resolved where the client says it is,
+--    to absorb the round trip, but the anchor does NOT move. So the tolerance is worth one action, never
+--    a fresh helping every 50 ms, and the displacement keeps accumulating against a stationary anchor
+--    until it is refused;
+--  * beyond that -> the action is resolved from the anchor instead, and it counts as a violation.
+--
+-- Only HORIZONTAL travel is measured. Vertical speed is gravity-driven and unbounded, so a fall would
+-- fail every check, while the exploit being bounded is repositioning onto a target. The anchor's height
+-- always follows the observation, so a clamped origin still sits at the player's real altitude.
 local function trustedCFrame(state: State, root: BasePart, now: number, strikeOnFailure: boolean): CFrame
 	local observed = root.CFrame
 	local trusted = state.TrustedPosition
@@ -368,57 +410,86 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 		return observed
 	end
 	local elapsed = math.max(0, now - state.TrustedAt)
-	local budget = LATENCY.MaxSpeedStudsPerSecond * elapsed + LATENCY.OriginToleranceStuds
-	if now < state.TravelAllowanceUntil then
-		budget += state.TravelAllowanceStuds
-	end
-	local travelled = (observed.Position - trusted).Magnitude
+	local allowance = liveAllowance(state, now)
+	local bySpeed = LATENCY.MaxSpeedStudsPerSecond * elapsed
+	local budget = bySpeed + allowance
+	local delta = observed.Position - trusted
+	local travelled = Vector3.new(delta.X, 0, delta.Z).Magnitude
+
 	if travelled <= budget then
+		state.TravelAllowanceStuds = math.max(0, allowance - math.max(0, travelled - bySpeed))
 		state.TrustedPosition = observed.Position
 		state.TrustedAt = now
-		state.OriginViolations = 0
+		return observed
+	end
+	-- The anchor stays put horizontally but tracks the altitude, so a falling player is not measured
+	-- against where they jumped from and a clamped origin is never underground.
+	state.TrustedPosition = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
+	if travelled <= budget + LATENCY.OriginToleranceStuds then
 		return observed
 	end
 	if strikeOnFailure then
-		state.OriginViolations += 1
-		if state.OriginViolations >= LATENCY.ViolationsBeforeStrike then
-			state.OriginViolations = 0
-			antiCheat.strike(
-				state.Player,
-				"Origin",
-				string.format("%.0f studs in %.2fs (budget %.0f)", travelled, elapsed, budget),
-				"Origin"
-			)
-		end
+		countViolation(state, now, travelled, budget)
 	end
 	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected.
-	return CFrame.new(trusted) * (observed - observed.Position)
+	return CFrame.new(state.TrustedPosition) * (observed - observed.Position)
 end
 
--- Re-anchors the trust sample on the character's current position. Every server-authored reposition
--- (match spawn, hub return, boss arena placement, LightningStep) must call this, or the player's next
--- hitbox would be built where the server last believed them to be and miss.
-function CombatService.resyncPosition(player: Player)
+-- The live root of `player`, resolved through Players rather than the state's cached Character: with
+-- deferred signals the cached one can lag a respawn by a resumption cycle, and a caller that then read
+-- "no state" would fall back to the unvalidated client position.
+local function playerRoot(player: Player): BasePart?
+	local character = player.Character
+	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+	return if root ~= nil and root:IsA("BasePart") then root else nil
+end
+
+-- Re-anchors the trust sample on a position the SERVER chose. Every server-authored reposition (match
+-- spawn, hub return, boss arena placement, a teleporting jutsu) must call this, or the player's next
+-- hitbox would be built where they used to stand and miss.
+--
+-- A teleport MUST pass `position`. Re-reading the character would anchor trust on whatever the client
+-- last replicated, which is the one value this path exists not to believe: a jutsu that moves the caster
+-- relative to a spoofed root would otherwise have the server bless the spoof. Callers that only want the
+-- sample re-armed on the current character, such as a respawn, pass nil.
+function CombatService.resyncPosition(player: Player, position: Vector3?)
 	local state = states[player]
 	if state == nil then
 		return
 	end
-	local character = state.Character
-	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+	local anchor = position
+	if anchor == nil then
+		local root = playerRoot(player)
+		anchor = if root ~= nil then root.Position else nil
+	end
+	state.TrustedPosition = anchor
 	state.TrustedAt = os.clock()
-	state.OriginViolations = 0
-	state.TrustedPosition = if root ~= nil and root:IsA("BasePart") then root.Position else nil
+	state.TravelAllowanceStuds = 0
+	state.TravelAllowanceUntil = 0
+	table.clear(state.OriginViolations)
 end
 
--- The origin JutsuService builds a cast from, validated. nil when the caster has no live character.
+-- Issues a server-authored movement command AND grants the travel it covers. The single door for every
+-- displacement the client applies, so no caller can set a character moving without the travel budget
+-- being told: a jutsu dash that forgot to would make an honest player's follow-up melee whiff.
+function CombatService.grantMovement(player: Player, command: MovementCommand)
+	local state = states[player]
+	if state ~= nil then
+		if command.Kind == "Dash" then
+			allowTravel(state, command.Distance, command.Duration, os.clock())
+		elseif command.Kind == "Knockback" then
+			allowTravel(state, command.Velocity.Magnitude * command.Duration, command.Duration, os.clock())
+		end
+	end
+	movement.command(player, command)
+end
+
+-- The origin an attack is built from, validated. nil when the caster has no live character: a caller must
+-- then refuse the action, never fall back to the client's own value.
 function CombatService.trustedOrigin(player: Player): CFrame?
 	local state = states[player]
-	if state == nil then
-		return nil
-	end
-	local character = state.Character
-	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
-	if root == nil or not root:IsA("BasePart") then
+	local root = playerRoot(player)
+	if state == nil or root == nil then
 		return nil
 	end
 	return trustedCFrame(state, root, os.clock(), true)
@@ -506,7 +577,7 @@ local function resetState(state: State, now: number)
 	state.HitMemory = {}
 	state.TrustedPosition = nil
 	state.TrustedAt = now
-	state.OriginViolations = 0
+	state.OriginViolations = {}
 	state.TravelAllowanceStuds = 0
 	state.TravelAllowanceUntil = 0
 end
@@ -621,7 +692,7 @@ local function onPlayerAdded(player: Player)
 		HitMemory = {},
 		TrustedPosition = nil,
 		TrustedAt = 0,
-		OriginViolations = 0,
+		OriginViolations = {},
 		TravelAllowanceStuds = 0,
 		TravelAllowanceUntil = 0,
 	}
@@ -861,13 +932,9 @@ function CombatService.knockback(targetModel: Model, velocity: Vector3, duration
 	then
 		return
 	end
-	movement.command(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
-	-- The server sent this player flying, so the distance it can carry them is added to their travel
-	-- budget: a knockback the client replicates in one jump must not read as a teleport.
-	local state = states[player]
-	if state ~= nil then
-		allowTravel(state, velocity.Magnitude * duration, duration, os.clock())
-	end
+	-- Through grantMovement so the distance it can carry them joins their travel budget: a knockback the
+	-- client replicates in one jump must not read as a teleport.
+	CombatService.grantMovement(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
 end
 
 -- Grants the StoneSkin buff (CombatConfig.Status.StoneSkin) to a live caster for its configured
@@ -995,7 +1062,9 @@ local function onMelee(player: Player, state: State, now: number)
 	markInCombat(state, now)
 	vfx.emit({
 		Id = "Melee",
-		Origin = root.Position,
+		-- The validated position, not the raw root: emitting the raw one drew the swing where the client
+		-- claimed to be and chose the packet's recipients around that point instead of the real one.
+		Origin = rootCFrame.Position,
 		Direction = rootCFrame.LookVector,
 		Caster = player.UserId,
 		Params = { Index = index },
@@ -1033,13 +1102,12 @@ local function onDash(player: Player, state: State, now: number)
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
 	local direction = dashDirection(humanoid, root)
-	movement.command(player, {
+	CombatService.grantMovement(player, {
 		Kind = "Dash",
 		Direction = direction,
 		Distance = dash.Distance,
 		Duration = dash.DurationSeconds,
 	})
-	allowTravel(state, dash.Distance, dash.DurationSeconds, now)
 	vfx.emit({
 		Id = "Dash",
 		Origin = root.Position,

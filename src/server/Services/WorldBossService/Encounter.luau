@@ -142,9 +142,10 @@ function Encounter.place(arena: Arena, userIds: { number }, center: Vector3)
 				root.AssemblyLinearVelocity = Vector3.zero
 				root.AssemblyAngularVelocity = Vector3.zero
 			end
-			-- The position CombatService trusts must follow a server-authored teleport, or the first hit
-			-- this player lands on the boss is built back where they stood (CombatService.trustedCFrame).
-			deps.Combat.resyncPosition(player)
+			-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on
+			-- the pad the server chose, or the first hit this player lands on the boss is built back where
+			-- they stood.
+			deps.Combat.resyncPosition(player, position)
 		end
 	end
 end

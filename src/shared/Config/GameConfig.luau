@@ -51,16 +51,24 @@ GameConfig.Vfx = {
 }
 
 GameConfig.Latency = {
-	-- Maximum distance (studs) between the server-known root position and the one implied by
-	-- the client's last replicated position when validating cast origins.
-	OriginToleranceStuds = 12,
-	-- Anti-teleport: max studs per second a character may travel (dash included) before flagging.
+	-- Extra studs an ACTION may be resolved from beyond what the speed ceiling allows, to absorb the
+	-- client round trip. It is never banked: an origin that needs it is honoured once and does not move
+	-- the trusted anchor, so a client cannot collect it sample after sample. Kept just under
+	-- CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
+	OriginToleranceStuds = 6,
+	-- Anti-teleport ceiling, applied to HORIZONTAL travel only: vertical speed is gravity-driven and
+	-- unbounded (a fall from an arena at altitude 900 reaches ~600 studs per second), while the exploit
+	-- this bounds is repositioning onto a target. 120 is 7.5x the walk speed, and every burst the server
+	-- itself grants (dash, knockback, jutsu dashes) adds its own distance on top.
 	MaxSpeedStudsPerSecond = 120,
-	-- Consecutive implausible origins on an ACTION (melee, cast) before AntiCheatService is struck. The
-	-- per-tick sampling never strikes: a long fall is faster than MaxSpeedStudsPerSecond and would
-	-- otherwise kick an honest player. Clamping the origin already removes the exploit on its own, so the
-	-- strike is only there for a client that keeps attacking from positions the server never believed.
+	-- Implausible origins on an ACTION (melee, cast) inside ViolationWindowSeconds before
+	-- AntiCheatService is struck. Counted over a window rather than consecutively, because a client that
+	-- returns to a legal position between two swings would otherwise reset the count every time and never
+	-- be struck. The per-tick sampling never strikes and never absolves: it only moves the anchor.
+	-- Clamping the origin already removes the exploit on its own, so the strike is only there for a
+	-- client that keeps attacking from positions the server never believed.
 	ViolationsBeforeStrike = 3,
+	ViolationWindowSeconds = 10,
 	-- Server-granted movement (dash, knockback) is added to the travel budget for its duration plus this
 	-- grace, which covers the client round trip. A dash is 22 studs in 0.22 s, i.e. 100 studs per second,
 	-- and a client that replicates it in a single frame must not look like a teleport.

@@ -222,10 +222,6 @@ local function onCastJutsu(player: Player, sequence: { string })
 	if def == nil then
 		return
 	end
-	if not combat.trySpendChakra(player, def.Cost) then
-		notify.send(player, "hud.cast.notEnoughChakra", nil, "Error", "Error")
-		return
-	end
 	local effect = effects[def.Effect]
 	if effect == nil then
 		log.error("no effect %s for jutsu %s", def.Effect, def.Id)
@@ -234,7 +230,19 @@ local function onCastJutsu(player: Player, sequence: { string })
 
 	-- CombatService validates the origin against the position the server last believed: the character is
 	-- simulated by the owning client, so root.CFrame alone let a cast be placed anywhere on the map.
-	local origin = combat.trustedOrigin(player) or root.CFrame
+	--
+	-- Resolved and failed closed BEFORE the chakra is spent. Falling back to root.CFrame would restore
+	-- exactly the hole this closes whenever the validator declines to answer, and refusing after the debit
+	-- would take the chakra for a cast that never happened. It declines only when there is no live
+	-- character, in which case there is nothing to cast from anyway.
+	local origin = combat.trustedOrigin(player)
+	if origin == nil then
+		return
+	end
+	if not combat.trySpendChakra(player, def.Cost) then
+		notify.send(player, "hud.cast.notEnoughChakra", nil, "Error", "Error")
+		return
+	end
 	local direction = origin.LookVector
 	cooldownsOf(player)[def.Id] = now + def.Cooldown
 	vfx.emit({

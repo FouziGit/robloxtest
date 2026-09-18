@@ -39,9 +39,18 @@ export type CombatApi = {
 	grantIFrames: (player: Player, seconds: number) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
-	-- Called after an effect teleports its caster (LightningStep), so the position CombatService trusts
-	-- follows the move and the caster can attack from where they landed.
-	resyncPosition: (player: Player) -> (),
+	-- Called after an effect teleports its caster, with the position the SERVER chose. Passing nothing
+	-- would re-anchor trust on whatever the client replicated, which is the value none of this believes.
+	resyncPosition: (player: Player, position: Vector3?) -> (),
+	-- Issues a movement command and grants the travel it covers in one call. Every displacement an effect
+	-- asks for goes through this, never through Movement.command, or the travel budget is not told.
+	grantMovement: (
+		player: Player,
+		command: { Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
+	) -> (),
+	-- The caster origin the server is willing to believe, re-validated at call time. An effect that keeps
+	-- damaging around the caster must follow this, not the raw root.
+	trustedOrigin: (player: Player) -> CFrame?,
 }
 export type VfxPacket = {
 	Id: string,
@@ -52,13 +61,12 @@ export type VfxPacket = {
 	Params: { [string]: any }?,
 }
 export type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
+-- No `command` here on purpose: an effect that displaces its caster goes through
+-- CombatApi.grantMovement, which issues the command AND grants the travel it covers. Exposing the raw
+-- command again would let a future effect forget the second half.
 export type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
-	command: (
-		player: Player,
-		payload: { Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
-	) -> (),
 }
 export type Context = {
 	Caster: Player,
@@ -645,11 +653,13 @@ function JutsuEffects.EmberStorm(ctx: Context): number
 		if tick > 1 then
 			task.wait(params.TickInterval)
 		end
-		local root = casterRoot(ctx)
-		if root == nil then
+		-- Re-validated every tick. Reading the raw root here made the validated origin decorative: a
+		-- client could move itself onto a different victim between ticks and the zone followed.
+		local centre = ctx.Combat.trustedOrigin(ctx.Caster)
+		if centre == nil then
 			break
 		end
-		damageArea(ctx, tracker, root.Position, params.Radius)
+		damageArea(ctx, tracker, centre.Position, params.Radius)
 	end
 	return tracker.Count
 end
@@ -710,8 +720,11 @@ function JutsuEffects.EmberStep(ctx: Context): number
 			Element = ctx.Def.Element,
 		},
 	}, true)
-	-- The character is client-simulated: the dash itself is a server-approved movement command.
-	ctx.Movement.command(ctx.Caster, {
+	-- The character is client-simulated: the dash itself is a server-approved movement command, issued
+	-- through grantMovement so its distance joins the caster's travel budget. Going straight to
+	-- Movement.command made this jutsu's own gap-close look like a teleport, and the melee it exists to
+	-- set up was clamped back to where the dash started.
+	ctx.Combat.grantMovement(ctx.Caster, {
 		Kind = "Dash",
 		Direction = direction,
 		Distance = ctx.Def.Range,
@@ -1056,7 +1069,10 @@ function JutsuEffects.LightningStep(ctx: Context): number
 		return 0
 	end
 	local direction = horizontal(ctx.Direction)
-	local start = root.Position
+	-- The VALIDATED origin, never root.Position: the step is computed from it and then re-anchors trust on
+	-- where it landed, so reading the raw root here would have let a client teleport itself anywhere and
+	-- have the server certify the result.
+	local start = ctx.Origin.Position
 	-- Never through a wall: the reach stops WallBackoffStuds short of the first obstruction.
 	local blocker = Workspace:Raycast(start, direction * ctx.Def.Range, excludeParams(character))
 	local reach = if blocker ~= nil
@@ -1090,9 +1106,9 @@ function JutsuEffects.LightningStep(ctx: Context): number
 	}, true)
 	character:PivotTo(CFrame.new(landing) * root.CFrame.Rotation)
 	root.AssemblyLinearVelocity = Vector3.zero
-	-- A server-authored teleport, so the position CombatService trusts follows it: the caster must be
-	-- able to attack from where they landed (CombatService.trustedCFrame).
-	ctx.Combat.resyncPosition(ctx.Caster)
+	-- The destination the server chose, passed explicitly: the caster must be able to attack from where
+	-- they landed, and trust must anchor on that point rather than on whatever the client now reports.
+	ctx.Combat.resyncPosition(ctx.Caster, landing)
 	return 0
 end
 

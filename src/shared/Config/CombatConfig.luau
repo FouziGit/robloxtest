@@ -1,5 +1,5 @@
 --!strict
--- Combat tuning: chakra, health, melee, dash, block, hit rules. Pure data.
+-- Combat tuning: ink, health, melee, dash, block, hit rules. Pure data.
 
 local CombatConfig = {}
 
@@ -9,12 +9,12 @@ CombatConfig.Health = {
 	RegenDelaySeconds = 8, -- after last damage taken
 }
 
-CombatConfig.Chakra = {
+CombatConfig.Ink = {
 	Max = 100,
 	RegenOutOfCombat = 12, -- per second
 	RegenInCombat = 4, -- per second
 	InCombatSeconds = 6, -- time after dealing/taking damage during which "in combat" applies
-	StartFraction = 1, -- chakra at spawn (1 = full)
+	StartFraction = 1, -- ink at spawn (1 = full)
 }
 
 CombatConfig.Melee = {
@@ -36,7 +36,7 @@ CombatConfig.Dash = {
 	DurationSeconds = 0.22,
 	CooldownSeconds = 2.5,
 	IFrameSeconds = 0.25,
-	Cost = 10, -- chakra
+	Cost = 10, -- ink
 }
 
 CombatConfig.Block = {
@@ -50,7 +50,7 @@ CombatConfig.Block = {
 }
 
 CombatConfig.Hit = {
-	-- The same jutsu instance cannot damage the same target twice within this window.
+	-- The same glyph instance cannot damage the same target twice within this window.
 	IFrameSeconds = 0.3,
 	KnockbackDurationSeconds = 0.25,
 	StunMaxSeconds = 2,
@@ -66,28 +66,28 @@ CombatConfig.Status = {
 	StunAttribute = "CombatStun",
 	BlockAttribute = "CombatBlock",
 
-	-- Elemental interactions (docs/GAME_DESIGN.md §6). A mark is a Humanoid attribute holding its
-	-- own expiry: CombatService.ApplyDamage writes it when the damage element is AppliedByElement
-	-- and multiplies the damage by DamageMultiplier when the element is AmplifiesElement and the
+	-- Pigment interactions (docs/GAME_DESIGN.md §6). A mark is a Humanoid attribute holding its
+	-- own expiry: CombatService.ApplyDamage writes it when the damage pigment is AppliedByPigment
+	-- and multiplies the damage by DamageMultiplier when the pigment is AmplifiesPigment and the
 	-- mark is still live. Flat, visible bonuses (vfx + floating text), never hidden stacking.
 	Fanned = {
 		Attribute = "CombatFanned",
-		AppliedByElement = "Verdigris", -- any Wind jutsu marks the targets it damages
-		AmplifiesElement = "Cinnabar",
+		AppliedByPigment = "Verdigris", -- any Verdigris glyph marks the targets it damages
+		AmplifiesPigment = "Cinnabar",
 		DurationSeconds = 3,
 		DamageMultiplier = 1.25,
 		NameKey = "status.fanned",
 	},
 	Conductive = {
 		Attribute = "CombatConductive",
-		AppliedByElement = "Indigo", -- water on the target conducts: refreshed by every water tick
-		AmplifiesElement = "Orpiment",
+		AppliedByPigment = "Indigo", -- water on the target conducts: refreshed by every water tick
+		AmplifiesPigment = "Orpiment",
 		DurationSeconds = 1.5, -- shorter than a zone tick interval + travel: "still soaked"
 		DamageMultiplier = 1.25,
 		NameKey = "status.conductive",
 	},
 
-	-- StoneSkin buff (jutsu StoneSkin). The effect grants it for DurationSeconds; CombatService
+	-- Gilding buff (glyph Gilding). The effect grants it for DurationSeconds; CombatService
 	-- removes DamageReduction of every incoming hit and skips knockback while it is live.
 	Gilding = {
 		Attribute = "CombatStoneSkin",

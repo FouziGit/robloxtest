@@ -20,9 +20,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
-local ElementConfig = require(Shared.Config.ElementConfig)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Signal = require(Packages.Signal)
 local Theme = require(UI.Theme)
 local TouchButton = require(UI.components.TouchButton)
@@ -258,7 +258,7 @@ local function ringOffset(placement: InputConfig.TouchPlacement, step: number): 
 	return Vector2.new(math.cos(radians), -math.sin(radians)) * step
 end
 
--- Half extent of the element ring: centre to the outermost ring centre, per axis.
+-- Half extent of the pigment ring: centre to the outermost ring centre, per axis.
 local function clusterExtent(step: number): Vector2
 	local extent = Vector2.zero
 	for _, action in ipairs(InputConfig.Actions) do
@@ -325,7 +325,7 @@ local function clearJump(point: Vector2, jump: Rect, clearance: number, bounds: 
 	return clampPoint(Vector2.new(point.X, jump.Min.Y - clearance), bounds)
 end
 
--- Resolves InputConfig.Touch to absolute screen centres: the element ring above and left of the engine
+-- Resolves InputConfig.Touch to absolute screen centres: the pigment ring above and left of the engine
 -- jump button, Melee/Block/Dash in a row left of it, Menu in the top-right corner. Every centre stays
 -- inside the safe area, at least (diameter + gap) from its neighbours and clear of the jump button.
 local function touchLayout(scale: number): { [string]: Vector2 }
@@ -386,16 +386,16 @@ local function applyTouchButton(action: string, button: ImageButton, style: Touc
 		button.Position = UDim2.fromOffset(centre.X - style.Origin.X, centre.Y - style.Origin.Y)
 	end
 
-	local isElement = ElementConfig.isElement(action)
+	local isPigment = PigmentConfig.isPigment(action)
 	local visual = TouchButton.new({
 		-- The short label, not the full name: a disc is Touch.MinButtonSize wide and "Corps à corps"
 		-- clips at that width whatever the text size.
-		Label = if isElement
-			then ElementConfig.Glyphs[action :: any]
+		Label = if isPigment
+			then PigmentConfig.Sigils[action :: any]
 			else localize.t(
 				InputConfig.ActionShortKeys[action :: any] or InputConfig.ActionNameKeys[action :: any]
 			),
-		Color = if isElement then Theme.elementColor(action) else Theme.Colors.PanelRaised,
+		Color = if isPigment then Theme.pigmentColor(action) else Theme.Colors.PanelRaised,
 		Size = style.Size,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Parent = button,

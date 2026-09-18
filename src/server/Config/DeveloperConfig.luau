@@ -13,16 +13,16 @@ local DeveloperConfig = {}
 DeveloperConfig.UserIds = { 3721321390 } :: { number } -- BakuyaraTZ
 DeveloperConfig.Names = {} :: { string }
 
--- Every jutsu equipped at once instead of the purchased slot budget.
+-- Every glyph equipped at once instead of the purchased slot budget.
 DeveloperConfig.UnlimitedSlots = true
 
--- No chakra cost, and cooldowns collapsed to MinRecastSeconds. Deliberately NOT a free-for-all: see
--- MinRecastSeconds below, and note that LoadoutService and JutsuService only honour this in the hub.
+-- No ink cost, and cooldowns collapsed to MinRecastSeconds. Deliberately NOT a free-for-all: see
+-- MinRecastSeconds below, and note that LoadoutService and GlyphService only honour this in the hub.
 DeveloperConfig.FreeCasting = true
 
--- The floor a cooldown collapses to under FreeCasting. It is not zero because zero lets a jutsu overlap
--- itself: every damage cap, hit tracker and duration in JutsuEffects is per cast, so two live casts of
--- the same jutsu double their damage, stack their stuns and pile up their world geometry. 0.35 s is
+-- The floor a cooldown collapses to under FreeCasting. It is not zero because zero lets a glyph overlap
+-- itself: every damage cap, hit tracker and duration in GlyphEffects is per cast, so two live casts of
+-- the same glyph double their damage, stack their stuns and pile up their world geometry. 0.35 s is
 -- longer than the longest zone tick interval, so a cast always ends before its successor begins.
 DeveloperConfig.MinRecastSeconds = 0.35
 

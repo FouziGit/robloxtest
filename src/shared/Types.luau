@@ -1,7 +1,7 @@
 --!strict
 -- Shared type definitions. Only types: no runtime code.
 
-export type ElementId = "Cinnabar" | "Indigo" | "Umber" | "Verdigris" | "Orpiment"
+export type PigmentId = "Cinnabar" | "Indigo" | "Umber" | "Verdigris" | "Orpiment"
 
 export type Rgb = { number }
 
@@ -35,11 +35,11 @@ export type BattlepassSeasonData = {
 
 export type CosmeticsData = {
 	Owned: { string },
-	Equipped: { [string]: string }, -- slot -> cosmetic id ("Aura", "Trail", "KillEffect", "Title", "Skin:<jutsuId>")
+	Equipped: { [string]: string }, -- slot -> cosmetic id ("Aura", "Trail", "KillEffect", "Title", "Skin:<glyphId>")
 }
 
 export type LoadoutData = {
-	Slots: { string }, -- jutsu ids
+	Slots: { string }, -- glyph ids
 	ExtraSlots: number, -- purchased slots (0..PassExtraSlots)
 	-- How many slots this player may fill, decided by LoadoutService and replicated. The client used to
 	-- recompute it from ExtraSlots, which duplicated the rule and could not express an exception such as a
@@ -48,8 +48,8 @@ export type LoadoutData = {
 }
 
 export type UnlocksData = {
-	Jutsus: { string },
-	Elements: { string },
+	Glyphs: { string },
+	Pigments: { string },
 }
 
 export type RankModeData = {
@@ -69,8 +69,8 @@ export type RankData = {
 export type StatsData = {
 	Kills: number,
 	Deaths: number,
-	JutsusCast: number,
-	JutsusHit: number,
+	GlyphsCast: number,
+	GlyphsHit: number,
 	MatchesPlayed: number,
 	BossKills: number,
 	PlayTimeSeconds: number,
@@ -143,27 +143,27 @@ export type ProfileData = {
 	Meta: MetaData,
 }
 
-export type JutsuArchetype = "Projectile" | "Aoe" | "Zone" | "Wall" | "Mobility" | "Counter" | "Ultimate" | "Buff"
+export type GlyphArchetype = "Projectile" | "Aoe" | "Zone" | "Wall" | "Mobility" | "Counter" | "Ultimate" | "Buff"
 
-export type JutsuDef = {
+export type GlyphDef = {
 	Id: string,
-	Element: ElementId,
-	Combo: { ElementId },
-	Cost: number, -- chakra
+	Pigment: PigmentId,
+	Combo: { PigmentId },
+	Cost: number, -- ink
 	Cooldown: number, -- seconds
 	Damage: number, -- per hit / per tick
 	Range: number, -- studs (projectile travel, AoE reach, zone radius…)
-	Archetype: JutsuArchetype,
+	Archetype: GlyphArchetype,
 	Effect: string, -- server effect function id
 	VfxId: string,
 	SfxId: string,
-	Unlock: { Kind: "Default" | "Level" | "Element", Value: number? },
+	Unlock: { Kind: "Default" | "Level" | "Pigment", Value: number? },
 	NameKey: string,
 	DescriptionKey: string,
 	Params: { [string]: number }, -- effect-specific tuning (radius, ticks, duration…)
 }
 
-export type DamageKind = "Jutsu" | "Melee" | "Boss" | "Environment"
+export type DamageKind = "Glyph" | "Melee" | "Boss" | "Environment"
 
 export type HitEvent = {
 	Source: number, -- attacker UserId (0 for boss/environment)

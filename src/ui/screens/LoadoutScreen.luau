@@ -1,8 +1,8 @@
 --!strict
--- LoadoutScreen: which jutsus the player takes into a fight. The header counts the used slots against
+-- LoadoutScreen: which glyphs the player takes into a fight. The header counts the used slots against
 -- the ones the profile owns (ProgressionConfig base + purchased extras) and warns when every slot is
--- taken; the content lists the equipped jutsus, then the whole JutsuConfig roster grouped by element
--- with each entry's combo, stats and state (equipped, equippable or locked by level / by element).
+-- taken; the content lists the equipped glyphs, then the whole GlyphConfig roster grouped by pigment
+-- with each entry's combo, stats and state (equipped, equippable or locked by level / by pigment).
 --
 -- A click toggles the entry in a local mirror of the list and sends the complete new list through
 -- SetLoadout. The server validates it (unlocks, slot count) and pushes the Loadout section back, which
@@ -14,10 +14,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
-local ElementConfig = require(Shared.Config.ElementConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Theme = require(script.Parent.Parent.Theme)
@@ -43,8 +43,8 @@ export type Screen = {
 }
 
 type Destroyable = { Destroy: (self: any) -> () }
-type JutsuDef = JutsuConfig.JutsuDef
-type Entry = { Def: JutsuDef, Lock: TextLabel, Button: Button.Button }
+type GlyphDef = GlyphConfig.GlyphDef
+type Entry = { Def: GlyphDef, Lock: TextLabel, Button: Button.Button }
 
 local LoadoutScreen = {}
 
@@ -56,10 +56,10 @@ local ENTRY_ROW_HEIGHT = NAME_HEIGHT + LINE_HEIGHT * 3 + Theme.Sizes.Padding
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT * 2
 local BASE_SLOTS = ProgressionConfig.Loadout.BaseSlots
--- Layout bands: the equipped section first, then one band per element.
+-- Layout bands: the equipped section first, then one band per pigment.
 local EQUIPPED_BASE = 1
-local ELEMENT_BASE = 100
-local ELEMENT_STRIDE = 100
+local PIGMENT_BASE = 100
+local PIGMENT_STRIDE = 100
 -- Locale independent separator between combo glyphs (same convention as the HUD combo chips).
 local GLYPH_SEPARATOR = " "
 
@@ -82,10 +82,10 @@ local function own(owner: typeof(Trove.new()), object: Destroyable)
 	end)
 end
 
-local function comboGlyphs(def: JutsuDef): string
+local function comboSigils(def: GlyphDef): string
 	local parts: { string } = {}
-	for _, element in ipairs(def.Combo) do
-		table.insert(parts, ElementConfig.Glyphs[element :: any] or element)
+	for _, pigment in ipairs(def.Combo) do
+		table.insert(parts, PigmentConfig.Sigils[pigment :: any] or pigment)
 	end
 	return table.concat(parts, GLYPH_SEPARATOR)
 end
@@ -133,7 +133,7 @@ end
 -- Left slot of a roster row: name, combo, stats and the lock reason (empty while unlocked).
 local function makeEntryLabel(): (Frame, TextLabel, TextLabel, TextLabel, TextLabel)
 	local frame = Instance.new("Frame")
-	frame.Name = "Jutsu"
+	frame.Name = "Glyph"
 	frame.BackgroundTransparency = 1
 	frame.BorderSizePixel = 0
 	frame.Size = UDim2.fromScale(1, 1)
@@ -209,18 +209,18 @@ function LoadoutScreen.new(deps: Deps): Screen
 		return math.floor(limit)
 	end
 
-	local function isUnlocked(data: Types.ProfileData?, def: JutsuDef): boolean
+	local function isUnlocked(data: Types.ProfileData?, def: GlyphDef): boolean
 		if data == nil then
 			return false
 		end
 		return table.find(data.Unlocks.Glyphs, def.Id) ~= nil
 	end
 
-	local function lockReason(def: JutsuDef): string
+	local function lockReason(def: GlyphDef): string
 		if def.Unlock.Kind == "Level" then
 			return t("loadout.locked", { level = def.Unlock.Value or 0 })
-		elseif def.Unlock.Kind == "Element" then
-			return t("loadout.lockedElement", { element = t(ElementConfig.NameKeys[def.Element :: any]) })
+		elseif def.Unlock.Kind == "Pigment" then
+			return t("loadout.lockedPigment", { pigment = t(PigmentConfig.NameKeys[def.Pigment :: any]) })
 		end
 		return t("common.locked")
 	end
@@ -232,7 +232,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 			return
 		end
 		for _, id in ipairs(data.Loadout.Slots) do
-			if JutsuConfig.ById[id] ~= nil then
+			if GlyphConfig.ById[id] ~= nil then
 				table.insert(equipped, id)
 			end
 		end
@@ -245,13 +245,13 @@ function LoadoutScreen.new(deps: Deps): Screen
 	local function renderEquipped()
 		equippedTrove:Clean()
 		for index, id in ipairs(equipped) do
-			local def = JutsuConfig.ById[id]
+			local def = GlyphConfig.ById[id]
 			if def == nil then
 				continue
 			end
 			local row = ListRow.new({
 				Left = t(def.NameKey),
-				Right = t("loadout.combo", { combo = comboGlyphs(def) }),
+				Right = t("loadout.combo", { combo = comboSigils(def) }),
 				LayoutOrder = EQUIPPED_BASE + index,
 				Name = "Equipped" .. tostring(index),
 				Parent = panel.Content,
@@ -303,7 +303,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	-- Toggles the entry in the local mirror and sends the whole list; the server has the last word.
-	local function toggle(def: JutsuDef)
+	local function toggle(def: GlyphDef)
 		deps.SoundController.play("UiClick")
 		local updated: { string } = {}
 		local removed = false
@@ -330,25 +330,25 @@ function LoadoutScreen.new(deps: Deps): Screen
 	-- Roster
 	----------------------------------------------------------------
 
-	for elementIndex, elementId in ipairs(ElementConfig.Order) do
-		local base = ELEMENT_BASE + (elementIndex - 1) * ELEMENT_STRIDE
+	for pigmentIndex, pigmentId in ipairs(PigmentConfig.Order) do
+		local base = PIGMENT_BASE + (pigmentIndex - 1) * PIGMENT_STRIDE
 		local header = ListRow.new({
-			Left = t(ElementConfig.NameKeys[elementId :: any]),
+			Left = t(PigmentConfig.NameKeys[pigmentId :: any]),
 			LayoutOrder = base,
-			Name = elementId .. "Header",
+			Name = pigmentId .. "Header",
 			Parent = panel.Content,
 		})
 		own(trove, header)
 
 		local offset = 0
-		for _, def in ipairs(JutsuConfig.Jutsus) do
-			if def.Element ~= elementId then
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if def.Pigment ~= pigmentId then
 				continue
 			end
 			offset += 1
 			local frame, name, combo, stats, lock = makeEntryLabel()
 			name.Text = t(def.NameKey)
-			combo.Text = t("loadout.combo", { combo = comboGlyphs(def) })
+			combo.Text = t("loadout.combo", { combo = comboSigils(def) })
 			stats.Text = t("loadout.stats", { damage = def.Damage, cost = def.Cost, cooldown = def.Cooldown })
 			local button = Button.new({
 				Text = t("loadout.equip"),

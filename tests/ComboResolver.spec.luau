@@ -20,7 +20,7 @@ describe("ComboResolver", function()
 		local sequence, decision = ComboResolver.push(resolver, {}, "Verdigris")
 		expect(decision).toEqual({ Action = "Wait", Castable = false })
 		sequence, decision = ComboResolver.push(resolver, sequence, "Verdigris")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "Sweep" })
+		expect(decision).toEqual({ Action = "Cast", GlyphId = "Sweep" })
 		expect(sequence).toHaveLength(0)
 	end)
 
@@ -33,7 +33,7 @@ describe("ComboResolver", function()
 	it("resolves the pending recipe on timeout, dissipates otherwise", function()
 		expect(ComboResolver.timeout(resolver, { "Cinnabar", "Cinnabar" })).toEqual({
 			Action = "Cast",
-			JutsuId = "Brand",
+			GlyphId = "Brand",
 		})
 		expect(ComboResolver.timeout(resolver, { "Cinnabar" })).toEqual({ Action = "Reset", Reason = "Dissipated" })
 		expect(ComboResolver.timeout(resolver, {})).toEqual({ Action = "Reset", Reason = "Empty" })
@@ -41,7 +41,7 @@ describe("ComboResolver", function()
 
 	it("extends a pending recipe into a longer one", function()
 		local sequence, decision = ComboResolver.push(resolver, { "Cinnabar", "Cinnabar" }, "Verdigris")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "Scorch" })
+		expect(decision).toEqual({ Action = "Cast", GlyphId = "Scorch" })
 		expect(sequence).toHaveLength(0)
 	end)
 
@@ -54,12 +54,12 @@ describe("ComboResolver", function()
 	it("handles four-press recipes and the max length", function()
 		local sequence = {}
 		local decision
-		for _, element in ipairs({ "Cinnabar", "Umber", "Cinnabar" }) do
-			sequence, decision = ComboResolver.push(resolver, sequence, element)
+		for _, pigment in ipairs({ "Cinnabar", "Umber", "Cinnabar" }) do
+			sequence, decision = ComboResolver.push(resolver, sequence, pigment)
 			expect(decision.Action).toBe("Wait")
 		end
 		sequence, decision = ComboResolver.push(resolver, sequence, "Cinnabar")
-		expect(decision).toEqual({ Action = "Cast", JutsuId = "Blot" })
+		expect(decision).toEqual({ Action = "Cast", GlyphId = "Blot" })
 
 		local short = ComboResolver.new(
 			{ { Id = "Long", Combo = { "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar", "Cinnabar" } } },

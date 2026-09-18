@@ -135,7 +135,7 @@ function AnalyticsService.economy(
 	end)
 end
 
--- One step of the onboarding funnel (first touch, first jutsu, first match…).
+-- One step of the onboarding funnel (first touch, first glyph, first match…).
 function AnalyticsService.funnel(player: Player, stepName: string, stepNumber: number)
 	if not allow(player) then
 		return

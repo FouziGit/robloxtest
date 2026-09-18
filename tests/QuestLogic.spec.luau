@@ -56,14 +56,14 @@ describe("QuestLogic", function()
 
 	it("tracks progress, completion and claims", function()
 		local quests = {
-			{ Id = "A", Period = "Daily", Event = "JutsuCast", Target = 3, NameKey = "quest.castJutsus" },
+			{ Id = "A", Period = "Daily", Event = "GlyphCast", Target = 3, NameKey = "quest.castGlyphs" },
 			{ Id = "B", Period = "Daily", Event = "MatchWin", Target = 1, NameKey = "quest.winMatches" },
 		}
 		local set = newSet("D1")
-		expect(QuestLogic.applyEvent(set, quests, "JutsuCast", 2)).toEqual({})
-		expect(QuestLogic.applyEvent(set, quests, "JutsuCast", 5)).toEqual({ "A" })
+		expect(QuestLogic.applyEvent(set, quests, "GlyphCast", 2)).toEqual({})
+		expect(QuestLogic.applyEvent(set, quests, "GlyphCast", 5)).toEqual({ "A" })
 		expect(set.Progress.A).toBe(3)
-		expect(QuestLogic.applyEvent(set, quests, "JutsuCast", 1)).toEqual({})
+		expect(QuestLogic.applyEvent(set, quests, "GlyphCast", 1)).toEqual({})
 		expect(QuestLogic.applyEvent(set, quests, "Nope", 1)).toEqual({})
 		expect(QuestLogic.applyEvent(set, quests, "MatchWin", 0)).toEqual({})
 		expect(QuestLogic.canClaim(set, quests[1])).toBe(true)

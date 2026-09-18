@@ -4,7 +4,7 @@ Découle de `docs/JUICE_AUDIT.md` (le constat) et de `docs/ART_BIBLE.md` (la dir
 VELLUM). Chaque phase se termine par des portes vertes, un ou plusieurs commits atomiques, et un push.
 
 Principe de séquencement : **ce qui se répète le plus est refait en premier.** Un joueur presse M1 et
-l'esquive des centaines de fois par match, et lance Raijin une fois. La sensation se gagne donc sur le
+l'esquive des centaines de fois par match, et lance Colophon une fois. La sensation se gagne donc sur le
 M1 avant de se gagner sur l'ultime.
 
 ## Phase 1 — Le lexique et le lore
@@ -13,7 +13,7 @@ Renommage complet vers le lexique de l'`ART_BIBLE` : Glyphe, Encre, les cinq pig
 Volume, L'Effacement, Épreuve. Touche les identifiants de configuration, les clés de localisation EN et
 FR, les documents, et le nom du projet.
 
-- Les identifiants internes (`Fireball`, `Fire`) deviennent les identifiants de pigment et de glyphe.
+- Les identifiants internes (`Brand`, `Cinnabar`) deviennent les identifiants de pigment et de glyphe.
 - Migration de profil : un profil enregistré avec les anciens identifiants doit continuer à charger. La
   migration mappe l'ancien nom vers le nouveau, et un test le prouve.
 - Sortie : plus aucun terme emprunté. Vérifié par un test qui interdit la liste des mots bannis.
@@ -50,7 +50,7 @@ Appliqué d'abord au M1 et à l'esquive. Tout est chiffré dans `FeelConfig`, ri
 ## Phase 4 — Refonte sort par sort
 
 Du plus utilisé au plus rare. Un sort refait = un commit + sa fiche dans `docs/VFX_SPECS.md`.
-Ordre : Cast et Hit (partagés par tout le monde) → Boule de Feu → mêlée et esquive → les quatre glyphes
+Ordre : Cast et Hit (partagés par tout le monde) → Marque → mêlée et esquive → les quatre glyphes
 de base → les glyphes de niveau → les quatre glyphes d'Orpiment → L'Effacement.
 
 Aucun sort ne sort de cette phase avec moins de 4 couches, une lumière dynamique, une trace au sol et

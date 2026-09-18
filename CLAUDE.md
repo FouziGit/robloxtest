@@ -1,10 +1,10 @@
-# CLAUDE.md — Jutsu Battlegrounds
+# CLAUDE.md — Vellum
 
 Conventions du projet. Toute session (humaine ou agent) les respecte. Reprise de travail : lire `docs/PROGRESS.md` puis `docs/PLAN.md`.
 
 ## Produit
 
-Battleground PvP Roblox (Luau, Rojo). Mécanique signature : jutsus lancés par séquences de touches élémentaires (Feu / Eau / Terre / Vent / Foudre). Modes : hub d'entraînement, 1v1 classé, 3v3, World Boss. Objectif : jeu rejouable et rentable (mobile, EN/FR, rétention, monétisation propre).
+Battleground PvP Roblox (Luau, Rojo). Mécanique signature : glyphes lancés par séquences de touches de pigment (Cinabre / Indigo / Terre d'Ombre / Vert-de-gris / Orpiment). Modes : hub d'entraînement, 1v1 classé, 3v3, World Boss. Objectif : jeu rejouable et rentable (mobile, EN/FR, rétention, monétisation propre).
 
 ## Structure
 
@@ -28,7 +28,7 @@ stylua --check src tests
 selene src tests
 luau-lsp analyze --definitions=globalTypes.d.luau --settings=.luau-lsp.json src/shared
 lune run tests/run
-rojo build default.project.json -o build/JutsuBattlegrounds.rbxl
+rojo build default.project.json -o build/Vellum.rbxl
 ```
 
 Ces cinq commandes sont les quality gates : toutes vertes avant chaque commit. `scripts/check.sh` les enchaîne.

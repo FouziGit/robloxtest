@@ -1,4 +1,4 @@
-# Économie — Jutsu Battlegrounds V2
+# Économie — Vellum V2
 
 Toutes les valeurs sont des points de départ à ajuster avec les données réelles (voir KPIs). Les identifiants Roblox (game passes, developer products) sont à renseigner dans `src/shared/Config/MonetizationConfig.luau` (voir `docs/STUDIO_SETUP.md`).
 
@@ -9,7 +9,7 @@ Toutes les valeurs sont des points de départ à ajuster avec les données réel
 | **Ryo** | douce (gagnée) | matchs, kills, quêtes, boss, streak, pass, achat de packs | boutique cosmétique, rotation quotidienne |
 | **Robux** | dure | achat réel | game passes, developer products, prompts contextuels |
 
-Aucun élément de puissance n'est vendu contre Robux : Foudre est un sidegrade débloquable au niveau 40 (`docs/GAME_DESIGN.md` §5), les slots de loadout apportent de la variété, tout le reste est cosmétique ou du confort (boost d'XP, saut de paliers).
+Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade débloquable au niveau 40 (`docs/GAME_DESIGN.md` §5), les slots de loadout apportent de la variété, tout le reste est cosmétique ou du confort (boost d'XP, saut de paliers).
 
 ## 2. Sources de Ryo (par heure de jeu typique : ~6 matchs, 2 quêtes, 1 boss)
 
@@ -33,9 +33,9 @@ VIP : Ryo ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Ryo / 
 | Rareté | Prix Ryo | Heures de jeu ≈ | Exemples |
 |---|---|---|---|
 | Commun | 600 | 1 h | traînée simple, titre |
-| Rare | 1 800 | 2,5 h | aura colorée, skin de jutsu 1 palette |
+| Rare | 1 800 | 2,5 h | aura colorée, skin de glyphe 1 palette |
 | Épique | 4 000 | 6 h | effet de kill, aura animée |
-| Légendaire | 8 000 | 11 h | skin de jutsu complet (palette + forme), aura Kage |
+| Légendaire | 8 000 | 11 h | skin de glyphe complet (palette + forme), aura Codex |
 
 Rotation quotidienne : 6 articles (2 communs, 2 rares, 1 épique, 1 légendaire) tirés de façon déterministe par jour (`ShopRotation`, seed = jour UTC). Chaque article peut être acheté en Ryo **ou** via un developer product Robux équivalent (jamais de tirage aléatoire payant : boutique directe, conforme aux politiques Roblox sans `PolicyService` d'aléatoire payant).
 
@@ -47,8 +47,8 @@ Rotation quotidienne : 6 articles (2 communs, 2 rares, 1 épique, 1 légendaire)
 |---|---|---|---|
 | VIP | 399 | XP ×2, Ryo ×1,5, tag chat, aura exclusive | `Vip` |
 | Slots de loadout | 199 | +4 slots (6 → 10) | `LoadoutSlots` |
-| Élément Foudre | 299 | déblocage immédiat de Foudre (sinon niveau 40) | `Lightning` |
-| Pack de skins | 249 | 4 skins de jutsu (1 par élément de base) | `SkinPack` |
+| Pigment Orpiment | 299 | déblocage immédiat d'Orpiment (sinon niveau 40) | `Orpiment` |
+| Pack de skins | 249 | 4 skins de glyphe (1 par pigment de base) | `SkinPack` |
 
 ### Developer products (consommables)
 
@@ -69,7 +69,7 @@ Conversion implicite : 1 R$ ≈ 10-13 Ryo. Un légendaire (8 000 Ryo) vaut ≈ 6
 |---|---|---|
 | Défaite de peu (< 15 % de vie d'écart) | Boost d'XP | max 1 / 30 min |
 | Palier de pass bloqué (piste premium) | Pass premium | seulement depuis l'écran du pass |
-| Mort face à un joueur Foudre | Pass Foudre | max 1 / session, jamais avant le niveau 10 |
+| Mort face à un joueur Orpiment | Pass Orpiment | max 1 / session, jamais avant le niveau 10 |
 | Loadout plein | Slots | seulement depuis l'écran de loadout |
 | Boutique | article en Ryo insuffisant | bouton « Acheter avec Robux » explicite |
 
@@ -94,7 +94,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 | Matchs par session | 5 | matchmaking intra-serveur |
 | Taux de conversion | 2-4 % | prompts contextuels, pass premium |
 | ARPDAU | 0,02-0,05 $ | packs de Ryo, VIP |
-| Funnel onboarding | 90 % première touche → 70 % premier jutsu → 45 % premier match | tutoriel HUD, mannequins |
+| Funnel onboarding | 90 % première touche → 70 % premier glyphe → 45 % premier match | tutoriel HUD, mannequins |
 
 ## 9. Raisonner en dollars (DevEx)
 

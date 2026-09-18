@@ -180,7 +180,7 @@ local function onQueueChanged(payload: any)
 	MatchController.QueueChanged:Fire(snapshot)
 end
 
--- Single Fire site so the signal carries an optional snapshot: nil means "the match is over".
+-- Single Cinnabar site so the signal carries an optional snapshot: nil means "the match is over".
 local function fireMatch(snapshot: MatchSnapshot?)
 	match = snapshot
 	MatchController.MatchChanged:Fire(snapshot)

@@ -21,8 +21,8 @@ local log = Log.new("CombatController")
 local player = Players.LocalPlayer
 
 export type State = {
-	Chakra: number,
-	MaxChakra: number,
+	Ink: number,
+	MaxInk: number,
 	Health: number,
 	MaxHealth: number,
 	InCombat: boolean,
@@ -47,7 +47,7 @@ local SEND_INTERVAL: { [string]: number } = {
 	Melee = CombatConfig.Melee.HitIntervalSeconds,
 	Dash = CombatConfig.Dash.CooldownSeconds,
 }
-local NUMBER_FIELDS = { "Chakra", "MaxChakra", "Health", "MaxHealth" }
+local NUMBER_FIELDS = { "Ink", "MaxInk", "Health", "MaxHealth" }
 local BOOLEAN_FIELDS = { "InCombat", "Blocking" }
 
 local CombatController = {}
@@ -58,8 +58,8 @@ local remoteClient: any
 local inputController: any
 
 local state: State = {
-	Chakra = CombatConfig.Chakra.Max * CombatConfig.Chakra.StartFraction,
-	MaxChakra = CombatConfig.Chakra.Max,
+	Ink = CombatConfig.Ink.Max * CombatConfig.Ink.StartFraction,
+	MaxInk = CombatConfig.Ink.Max,
 	Health = CombatConfig.Health.Max,
 	MaxHealth = CombatConfig.Health.Max,
 	InCombat = false,

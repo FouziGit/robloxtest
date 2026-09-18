@@ -53,7 +53,7 @@ local BODY_SIZE = Vector3.new(BOSS.BodySize[1], BOSS.BodySize[2], BOSS.BodySize[
 -- The body is square in plan; this is how close a target has to be to stand inside it.
 local CONTACT_RADIUS_STUDS = math.max(BODY_SIZE.X, BODY_SIZE.Z) / 2
 -- Share of the horizontal push sent upwards, so an attack throws its targets instead of sliding them
--- along the floor (the blasts of JutsuEffects are shaped the same way).
+-- along the floor (the blasts of GlyphEffects are shaped the same way).
 local KNOCKBACK_LIFT_FACTOR = 0.35
 -- A reward is never rounded down to nothing: the smallest rewarded share still pays one point.
 local MIN_REWARD = 1

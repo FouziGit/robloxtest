@@ -21,7 +21,7 @@ GameConfig.Combo = {
 	MinLength = 2, -- shortest recipe: a shorter sequence can never resolve
 	MaxLength = 4, -- longest recipe
 	TimeoutSeconds = 1.2, -- inactivity before a pending sequence resolves or resets
-	ExtendWindowSeconds = 0.35, -- shorter wait when the pending sequence is already a recipe (e.g. Fire Fire → Fire Fire Earth)
+	ExtendWindowSeconds = 0.35, -- shorter wait when the pending sequence is already a recipe (e.g. Cinnabar Cinnabar → Cinnabar Cinnabar Umber)
 }
 
 GameConfig.Server = {
@@ -61,7 +61,7 @@ GameConfig.Latency = {
 	-- exploit this bounds is repositioning onto a target.
 	--
 	-- It bounds UNASSISTED movement, not the fastest thing in the game: every burst the server itself
-	-- grants (dash 22 studs, knockback, a jutsu gap-close) adds its own distance on top through
+	-- grants (dash 22 studs, knockback, a glyph gap-close) adds its own distance on top through
 	-- CombatService.grantMovement, so this does not have to cover them. The fastest a character moves on
 	-- its own is Movement.WalkSpeed (16), which a jump and a fall preserve rather than exceed, plus at most
 	-- the boss's own MoveSpeed (18) if it shoves someone. 40 leaves room for that and for jitter.

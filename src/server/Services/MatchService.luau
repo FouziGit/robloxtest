@@ -375,7 +375,7 @@ end
 
 -- Round setup: yields on LoadCharacterAsync, so it runs in its own thread and bails out when the match
 -- moved on meanwhile. A fresh character is the only reset CombatService exposes — it restores full
--- health, full chakra and spawn protection on CharacterAdded — so every round starts on one.
+-- health, full ink and spawn protection on CharacterAdded — so every round starts on one.
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)

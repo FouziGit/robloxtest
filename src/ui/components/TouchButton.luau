@@ -2,7 +2,7 @@
 -- TouchButton: round on-screen button for touch controls (one per ContextActionService action).
 -- Purely visual: a colored disc with a glyph label. The InputController owns the input handling and
 -- calls SetPressed to reflect the touch state. The label color is derived from the disc luminance, so
--- light element discs (Wind, Lightning) keep a readable glyph over the 3D scene, and its size is derived
+-- light pigment discs (Verdigris, Orpiment) keep a readable glyph over the 3D scene, and its size is derived
 -- from the disc so a localized action name shrinks to fit instead of being cut off.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

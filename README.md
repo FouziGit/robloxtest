@@ -1,6 +1,6 @@
-# Jutsu Battlegrounds
+# Vellum
 
-Battleground PvP Roblox où les jutsus se lancent en **tapant des séquences de touches élémentaires**. `J J` = Boule de Feu, `K K L` = Mur de Boue, `L L L` = Séisme. Le fun vient de la vitesse d'exécution, de la mémorisation des combos et des mind games — pas des statistiques.
+Battleground PvP Roblox où les glyphes se lancent en **tapant des séquences de touches de pigment**. `J J` = Marque, `K K L` = Marge, `L L L` = Rupture. Le fun vient de la vitesse d'exécution, de la mémorisation des combos et des mind games — pas des statistiques.
 
 Modes : hub d'entraînement, **1v1 classé**, **3v3**, **World Boss**. Mobile, manette et clavier. Anglais par défaut, français inclus.
 
@@ -13,16 +13,16 @@ Modes : hub d'entraînement, **1v1 classé**, **3v3**, **World Boss**. Mobile, m
 curl -fsSL https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
 
 # 2. Cloner et installer (rojo, wally, selene, stylua, luau-lsp, lune + paquets + types Roblox)
-git clone https://github.com/FouziGit/robloxtest.git jutsu-battlegrounds
-cd jutsu-battlegrounds
+git clone https://github.com/FouziGit/robloxtest.git glyph-battlegrounds
+cd glyph-battlegrounds
 ./scripts/setup.sh
 
 # 3. Vérifier que tout est vert
 ./scripts/check.sh
 
 # 4. Construire la place et l'ouvrir dans Studio
-rojo build default.project.json -o build/JutsuBattlegrounds.rbxl
-open build/JutsuBattlegrounds.rbxl
+rojo build default.project.json -o build/Vellum.rbxl
+open build/Vellum.rbxl
 ```
 
 Puis **Play**. C'est tout. Le fichier construit contient déjà le serveur, le client, l'interface et les paquets : aucun plugin, aucune connexion, rien qui puisse échouer. À reconstruire après chaque modification du code.
@@ -37,8 +37,8 @@ Pour que les sauvegardes fonctionnent : publier la place et cocher *Game Setting
 
 | Action | Clavier | Manette | Tactile |
 |---|---|---|---|
-| Feu / Eau / Terre / Vent | `J` `K` `L` `H` | D-pad | boutons colorés |
-| Foudre (niveau 40 ou pass) | `U` | `Y` | bouton jaune |
+| Cinabre / Indigo / Terre d'Ombre / Vert-de-gris | `J` `K` `L` `H` | D-pad | boutons colorés |
+| Orpiment (niveau 40 ou pass) | `U` | `Y` | bouton jaune |
 | Corps à corps | clic gauche | `X` | bouton |
 | Dash (i-frames) | Maj gauche | `B` | bouton |
 | Garde | `F` | `LT` | maintenir |
@@ -47,7 +47,7 @@ Pour que les sauvegardes fonctionnent : publier la place et cocher *Game Setting
 
 Toutes les touches sont réassignables (clavier **et** manette) dans les Options. Aucune touche par défaut n'entre en conflit avec WASD (QWERTY) ou ZQSD (AZERTY).
 
-Le **chakra** (100, régénération plus lente en combat) est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même jutsu. Design complet : **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)**.
+Le **encre** (100, régénération plus lente en combat) est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même glyph. Design complet : **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)**.
 
 ---
 
@@ -62,11 +62,11 @@ Le **chakra** (100, régénération plus lente en combat) est la vraie limite au
   │        ▼                             │        │                                         │
   │ ComboController  ComboResolver       │        │ RemoteRegistry                          │
   │        │                             │        │   Guard (schémas) + token bucket        │
-  │        └── CastJutsu ────────────────┼───────▶│   + AntiCheat (strikes → kick)          │
+  │        └── CastGlyph ────────────────┼───────▶│   + AntiCheat (strikes → kick)          │
   │ CombatController ── CombatAction ────┼───────▶│        │                                │
   │                                      │        │        ▼                                │
-  │ ClientData   ◀── ProfileChanged ─────┼────────│ JutsuService ──▶ JutsuEffects            │
-  │   (copie unique du profil)           │        │   (résout, vérifie chakra/cooldown/     │
+  │ ClientData   ◀── ProfileChanged ─────┼────────│ GlyphService ──▶ GlyphEffects            │
+  │   (copie unique du profil)           │        │   (résout, vérifie encre/cooldown/     │
   │        │                             │        │    unlock/loadout, origine serveur)     │
   │        ▼                             │        │        │                                │
   │ HudController / MenuController       │        │        ▼                                │
@@ -89,7 +89,7 @@ Le **chakra** (100, régénération plus lente en combat) est la vraie limite au
 
 Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)) :
 
-- **Serveur autoritaire.** Le client n'envoie que des *intentions* (séquence d'éléments, Melee/Dash/Block). Origine, direction, dégâts, ressources, récompenses : serveur.
+- **Serveur autoritaire.** Le client n'envoie que des *intentions* (séquence d'pigments, Melee/Dash/Block). Origine, direction, dégâts, ressources, récompenses : serveur.
 - **Un seul chemin de dégâts** : `CombatService.ApplyDamage`.
 - **Le serveur ne construit aucun VFX** : il diffuse `{Id, Origin, Direction, Params}` et chaque client rend localement.
 - **Zéro chaîne joueur en dur** : tout passe par `Strings` (test bloquant en CI).
@@ -99,12 +99,12 @@ Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/A
 
 ## Ajouter du contenu
 
-### Un jutsu
+### Un glyph
 
-1. Une entrée dans `src/shared/Config/JutsuConfig.luau` (`Id`, `Element`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `SfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`).
-2. La fonction d'effet correspondante dans `src/server/Effects/JutsuEffects.luau` : `function(ctx) -> hitCount`, dégâts **uniquement** via `ctx.Combat.ApplyDamage`, aucun visuel.
+1. Une entrée dans `src/shared/Config/GlyphConfig.luau` (`Id`, `Pigment`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `SfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`).
+2. La fonction d'effet correspondante dans `src/server/Effects/GlyphEffects.luau` : `function(ctx) -> hitCount`, dégâts **uniquement** via `ctx.Combat.ApplyDamage`, aucun visuel.
 3. Le rendu dans `src/client/Controllers/VfxLibrary.luau`, indexé par `VfxId`.
-4. Les clés `jutsu.<Id>.name` / `.desc` dans `src/shared/Strings.luau` (EN + FR).
+4. Les clés `glyph.<Id>.name` / `.desc` dans `src/shared/Strings.luau` (EN + FR).
 
 Le résolveur de combo, la validation serveur, les cooldowns, l'XP et le HUD suivent automatiquement. `tests/Config.spec.luau` vérifie l'unicité des combos et la présence des clés.
 
@@ -134,7 +134,7 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 | Tests | `lune run tests/run` |
 | Chaînes en dur | `lune run scripts/check-strings` |
 | Localisation à jour | `lune run scripts/export-strings -- --check` |
-| Build | `rojo build default.project.json -o build/JutsuBattlegrounds.rbxl` |
+| Build | `rojo build default.project.json -o build/Vellum.rbxl` |
 
 126 tests sur 20 fichiers de spécification. Cinq d'entre eux ne testent pas du code mais des invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de localisation morte ni manquante, un producteur serveur pour chaque événement de quête, aucune touche d'annulation qui soit aussi assignable, et le coût borné d'une charge utile rejetée.
 

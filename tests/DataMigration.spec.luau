@@ -44,8 +44,8 @@ local function template(): { [string]: any }
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
-			JutsusCast = 0,
-			JutsusHit = 0,
+			GlyphsCast = 0,
+			GlyphsHit = 0,
 			MatchesPlayed = 0,
 			BossKills = 0,
 			PlayTimeSeconds = 0,
@@ -122,9 +122,9 @@ describe("DataMigration", function()
 		expect(season.ClaimedPremium).toEqual({})
 		expect(data.Battlepass._template).toBeNil()
 
-		expect(data.Cosmetics.Owned).toEqual({ "GeninHeadband", "SteelKatana" })
+		expect(data.Cosmetics.Owned).toEqual({ "BlankHeadband", "SteelStylus" })
 		expect(data.Stats.Kills).toBe(31)
-		expect(data.Stats.JutsusCast).toBe(500)
+		expect(data.Stats.GlyphsCast).toBe(500)
 		expect(data.Stats.Deaths).toBe(0)
 		expect(data.Loadout.Slots).toEqual({ "Brand", "Wash" })
 	end)
@@ -168,7 +168,7 @@ describe("DataMigration", function()
 			Progression = { Level = 20, XP = 5, TotalXP = 9000 },
 			Currency = { Ryo = 77 },
 			Battlepass = { S1 = { Tier = 3, XP = 10, ClaimedFree = { ["1"] = true } } },
-			Cosmetics = { Owned = { "AnbuMask" }, Equipped = { Aura = "BlueChakraAura" } },
+			Cosmetics = { Owned = { "FrisketMask" }, Equipped = { Aura = "BlueInkAura" } },
 			Unknown = { junk = true },
 			Stats = { Kills = "many" },
 		}
@@ -181,7 +181,7 @@ describe("DataMigration", function()
 		expect(data.Battlepass.S1.Tier).toBe(3)
 		expect(data.Battlepass.S1.Premium).toBe(false)
 		expect(data.Battlepass.S1.ClaimedPremium).toEqual({})
-		expect(data.Cosmetics.Equipped.Aura).toBe("BlueChakraAura")
+		expect(data.Cosmetics.Equipped.Aura).toBe("BlueInkAura")
 		expect(data.Stats.Kills).toBe(0) -- type mismatch keeps template
 		expect(data.Unknown).toBeNil()
 		expect(data.Settings.Keyboard.Cinnabar).toBe("J")

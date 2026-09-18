@@ -12,28 +12,30 @@
 
 local DataMigration = {}
 
--- 3: the lexicon rename. Element and jutsu ids became pigment and glyph ids, and the two profile keys
--- that held them were renamed with their values (docs/ART_BIBLE.md). A version 2 profile still holds the
--- old strings under the old keys, so upgradeToV3 below rewrites both rather than letting the generic
--- overlay drop them silently.
+-- 3: the lexicon rename (docs/ART_BIBLE.md). Element and jutsu ids became pigment and glyph ids,
+-- cosmetics named after a rank or after the spell they reskin were renamed too, and the two lifetime
+-- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
+-- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
+-- below reads them out of the raw table before they are lost.
 DataMigration.CurrentVersion = 3
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {
-	BandeauGenin = "GeninHeadband",
-	KatanaAcier = "SteelKatana",
-	CapeBrume = "MistCape",
-	MasqueAnbu = "AnbuMask",
-	AuraChakraBleu = "BlueChakraAura",
-	KimonoClan = "ClanKimono",
-	AuraChakraViolet = "VioletChakraAura",
-	ManteauSage = "SageCloak",
-	AuraChakraDore = "GoldenChakraAura",
-	ManteauHokage = "HokageCloak",
+	BandeauGenin = "BlankHeadband",
+	KatanaAcier = "SteelStylus",
+	CapeBrume = "PalimpsestCape",
+	MasqueAnbu = "FrisketMask",
+	AuraChakraBleu = "BlueInkAura",
+	KimonoClan = "ScriptoriumRobe",
+	AuraChakraViolet = "VioletInkAura",
+	ManteauSage = "ScribeCloak",
+	AuraChakraDore = "GoldenInkAura",
+	ManteauHokage = "CodexCloak",
 }
 
--- V1 element names -> V2 action ids, and the V1 default keys that must be replaced by V2 defaults.
-local LEGACY_ELEMENTS: { [string]: string } = { Feu = "Cinnabar", Eau = "Indigo", Terre = "Umber", Vent = "Verdigris" }
+-- V1 element names (French, as the first version shipped them) -> current pigment action ids, and the
+-- V1 default keys that must be replaced by current defaults.
+local LEGACY_PIGMENTS: { [string]: string } = { Feu = "Cinnabar", Eau = "Indigo", Terre = "Umber", Vent = "Verdigris" }
 local LEGACY_DEFAULT_KEYS: { [string]: string } = { Feu = "A", Eau = "E", Terre = "R", Vent = "T" }
 
 -- Keys that conflict with movement (QWERTY/AZERTY) or Roblox defaults: never carried over.
@@ -71,7 +73,7 @@ local function migrateV1(raw: { [string]: any }, result: { [string]: any }, seas
 	-- Keybinds (keyboard only in V1).
 	local keybinds = raw.Keybinds
 	if type(keybinds) == "table" then
-		for legacyName, action in pairs(LEGACY_ELEMENTS) do
+		for legacyName, action in pairs(LEGACY_PIGMENTS) do
 			local key = keybinds[legacyName]
 			if
 				type(key) == "string"
@@ -136,7 +138,7 @@ local function migrateV1(raw: { [string]: any }, result: { [string]: any }, seas
 
 	-- Stats.
 	result.Stats.Kills = nonNegativeInteger(raw.TotalKills, 0)
-	result.Stats.JutsusCast = nonNegativeInteger(raw.TotalJutsusCast, 0)
+	result.Stats.GlyphsCast = nonNegativeInteger(raw.TotalJutsusCast, 0)
 end
 
 -- Copies every key of `source` that exists in `target` (recursively for tables), keeping the
@@ -170,11 +172,12 @@ export type MigrationInfo = { From: number, Migrated: boolean }
 export type LegacyMaps = {
 	Pigments: { [string]: string },
 	Glyphs: { [string]: string },
+	Cosmetics: { [string]: string },
 }
 
--- Rewrites a version 2 profile's identifiers and moves the two keys that held them. The old keys are
--- read from `raw`, not from `result`: the generic overlay never copied them, because the template no
--- longer declares them.
+-- Rewrites a version 2 profile's identifiers and moves the four keys that held them. Every old key is
+-- read from `raw`, never from `result`: the generic overlay could not copy them, because the template no
+-- longer declares them, so `result` holds the template's empty defaults at this point.
 local function upgradeToV3(raw: { [string]: any }, result: { [string]: any }, legacy: LegacyMaps)
 	local unlocks = result.Unlocks
 	if type(unlocks) ~= "table" then
@@ -208,6 +211,44 @@ local function upgradeToV3(raw: { [string]: any }, result: { [string]: any }, le
 				loadout.Slots[index] = legacy.Glyphs[id] or id
 			end
 		end
+	end
+
+	-- Cosmetics are rewards, not purchases that can be re-granted: a dropped id is a player who paid a
+	-- season of play for a title that vanished. Owned is a plain list. Equipped is a slot -> id map whose
+	-- Skin slot carries the glyph it reskins in its own key ("Skin:Brand"), so the key is translated
+	-- with the glyph map and the value with the cosmetic map.
+	local cosmetics = result.Cosmetics
+	local oldCosmetics = if type(raw.Cosmetics) == "table" then raw.Cosmetics else {}
+	if type(cosmetics) == "table" then
+		if type(oldCosmetics.Owned) == "table" then
+			local owned = {}
+			for _, id in ipairs(oldCosmetics.Owned) do
+				if type(id) == "string" then
+					table.insert(owned, legacy.Cosmetics[id] or id)
+				end
+			end
+			cosmetics.Owned = owned
+		end
+		if type(oldCosmetics.Equipped) == "table" then
+			local equipped: { [string]: string } = {}
+			for slot, id in pairs(oldCosmetics.Equipped) do
+				if type(slot) == "string" and type(id) == "string" then
+					local glyph = string.match(slot, "^Skin:(.+)$")
+					local freshSlot = if glyph ~= nil then "Skin:" .. (legacy.Glyphs[glyph] or glyph) else slot
+					equipped[freshSlot] = legacy.Cosmetics[id] or id
+				end
+			end
+			cosmetics.Equipped = equipped
+		end
+	end
+
+	-- Two lifetime counters were named after the old word for a spell. They feed quests and the profile
+	-- screen, so losing them would reset a player's whole history to zero.
+	local stats = result.Stats
+	local oldStats = if type(raw.Stats) == "table" then raw.Stats else {}
+	if type(stats) == "table" then
+		stats.GlyphsCast = nonNegativeInteger(oldStats.JutsusCast, stats.GlyphsCast)
+		stats.GlyphsHit = nonNegativeInteger(oldStats.JutsusHit, stats.GlyphsHit)
 	end
 end
 

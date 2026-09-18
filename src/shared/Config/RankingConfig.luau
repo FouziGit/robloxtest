@@ -46,9 +46,9 @@ RankingConfig.Leaderboard = {
 RankingConfig.SeasonRewards = {
 	Blank = { Ryo = 200 },
 	Sketch = { Ryo = 500 },
-	Script = { Ryo = 1000, Cosmetic = "TitleJonin" },
-	Illumination = { Ryo = 2000, Cosmetic = "TitleAnbu" },
-	Codex = { Ryo = 4000, Cosmetic = "TitleKageSeason" },
+	Script = { Ryo = 1000, Cosmetic = "TitleScript" },
+	Illumination = { Ryo = 2000, Cosmetic = "TitleIllumination" },
+	Codex = { Ryo = 4000, Cosmetic = "TitleCodexSeason" },
 } :: { [string]: { Ryo: number, Cosmetic: string? } }
 
 return RankingConfig

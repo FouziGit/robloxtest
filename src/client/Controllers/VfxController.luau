@@ -13,9 +13,9 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local ElementConfig = require(Shared.Config.ElementConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Trove = require(Packages.Trove)
 local VfxConfig = require(Shared.Config.VfxConfig)
 -- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
@@ -133,8 +133,8 @@ local function hitStop(seconds: number)
 	end)
 end
 
-local function elementColor(element: string): Color3
-	local rgb = ElementConfig.Colors[element :: any]
+local function pigmentColor(pigment: string): Color3
+	local rgb = PigmentConfig.Colors[pigment :: any]
 	if rgb == nil then
 		return FALLBACK_COLOR
 	end
@@ -145,7 +145,7 @@ local api: VfxLibrary.Api = {
 	Sound = nil :: any,
 	Shake = shake,
 	HitStop = hitStop,
-	ElementColor = elementColor,
+	PigmentColor = pigmentColor,
 	LocalCharacter = localCharacter,
 }
 

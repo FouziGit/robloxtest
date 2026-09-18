@@ -1,6 +1,6 @@
 --!strict
 -- Cosmetic catalog. Pure data. Cosmetics never affect gameplay; VfxLibrary reads the visual params.
--- Slots: Aura | Trail | KillEffect | Title | Skin (Skin applies to one jutsu id via Target).
+-- Slots: Aura | Trail | KillEffect | Title | Skin (Skin applies to one glyph id via Target).
 
 export type Slot = "Aura" | "Trail" | "KillEffect" | "Title" | "Skin"
 export type Rarity = "Common" | "Rare" | "Epic" | "Legendary"
@@ -10,7 +10,7 @@ export type CosmeticDef = {
 	Rarity: Rarity,
 	NameKey: string,
 	Sellable: boolean, -- false = reward only (battle pass, season, pack)
-	Target: string?, -- jutsu id for skins
+	Target: string?, -- glyph id for skins
 	Visual: { [string]: number }, -- colors as R/G/B components or numeric parameters
 }
 
@@ -23,75 +23,82 @@ end
 CosmeticConfig.Items = {
 	-- Battle pass free track
 	{
-		Id = "GeninHeadband",
+		Id = "BlankHeadband",
 		Slot = "Title",
 		Rarity = "Common",
-		NameKey = "cosmetic.GeninHeadband",
+		NameKey = "cosmetic.BlankHeadband",
 		Sellable = false,
 		Visual = {},
 	},
 	{
-		Id = "SteelKatana",
+		Id = "SteelStylus",
 		Slot = "Trail",
 		Rarity = "Rare",
-		NameKey = "cosmetic.SteelKatana",
+		NameKey = "cosmetic.SteelStylus",
 		Sellable = false,
 		Visual = rgb("Color", 200, 200, 210),
 	},
 	{
-		Id = "MistCape",
+		Id = "PalimpsestCape",
 		Slot = "Aura",
 		Rarity = "Rare",
-		NameKey = "cosmetic.MistCape",
+		NameKey = "cosmetic.PalimpsestCape",
 		Sellable = false,
 		Visual = rgb("Color", 180, 200, 220),
 	},
-	{ Id = "AnbuMask", Slot = "Title", Rarity = "Rare", NameKey = "cosmetic.AnbuMask", Sellable = false, Visual = {} },
 	{
-		Id = "BlueChakraAura",
-		Slot = "Aura",
-		Rarity = "Epic",
-		NameKey = "cosmetic.BlueChakraAura",
-		Sellable = false,
-		Visual = rgb("Color", 80, 160, 255),
-	},
-	{
-		Id = "ClanKimono",
+		Id = "FrisketMask",
 		Slot = "Title",
 		Rarity = "Rare",
-		NameKey = "cosmetic.ClanKimono",
+		NameKey = "cosmetic.FrisketMask",
 		Sellable = false,
 		Visual = {},
 	},
 	{
-		Id = "VioletChakraAura",
+		Id = "BlueInkAura",
 		Slot = "Aura",
 		Rarity = "Epic",
-		NameKey = "cosmetic.VioletChakraAura",
+		NameKey = "cosmetic.BlueInkAura",
+		Sellable = false,
+		Visual = rgb("Color", 80, 160, 255),
+	},
+	{
+		Id = "ScriptoriumRobe",
+		Slot = "Title",
+		Rarity = "Rare",
+		NameKey = "cosmetic.ScriptoriumRobe",
+		Sellable = false,
+		Visual = {},
+	},
+	{
+		Id = "VioletInkAura",
+		Slot = "Aura",
+		Rarity = "Epic",
+		NameKey = "cosmetic.VioletInkAura",
 		Sellable = false,
 		Visual = rgb("Color", 170, 90, 255),
 	},
 	{
-		Id = "SageCloak",
+		Id = "ScribeCloak",
 		Slot = "Trail",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SageCloak",
+		NameKey = "cosmetic.ScribeCloak",
 		Sellable = false,
 		Visual = rgb("Color", 230, 150, 60),
 	},
 	{
-		Id = "GoldenChakraAura",
+		Id = "GoldenInkAura",
 		Slot = "Aura",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.GoldenChakraAura",
+		NameKey = "cosmetic.GoldenInkAura",
 		Sellable = false,
 		Visual = rgb("Color", 255, 215, 90),
 	},
 	{
-		Id = "HokageCloak",
+		Id = "CodexCloak",
 		Slot = "Title",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.HokageCloak",
+		NameKey = "cosmetic.CodexCloak",
 		Sellable = false,
 		Visual = {},
 	},
@@ -129,10 +136,10 @@ CosmeticConfig.Items = {
 		Visual = {},
 	},
 	{
-		Id = "SkinFireballAzure",
+		Id = "SkinBrandAzure",
 		Slot = "Skin",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SkinFireballAzure",
+		NameKey = "cosmetic.SkinBrandAzure",
 		Sellable = false,
 		Target = "Brand",
 		Visual = rgb("Color", 60, 140, 255),
@@ -146,97 +153,97 @@ CosmeticConfig.Items = {
 		Visual = rgb("Color", 120, 200, 255),
 	},
 	{
-		Id = "SkinEarthquakeMagma",
+		Id = "SkinRuptureMagma",
 		Slot = "Skin",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.SkinEarthquakeMagma",
+		NameKey = "cosmetic.SkinRuptureMagma",
 		Sellable = false,
 		Target = "Rupture",
 		Visual = rgb("Color", 255, 90, 20),
 	},
 	{
-		Id = "KillEffectLightning",
+		Id = "KillEffectRedaction",
 		Slot = "KillEffect",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.KillEffectLightning",
+		NameKey = "cosmetic.KillEffectRedaction",
 		Sellable = false,
 		Visual = rgb("Color", 255, 240, 120),
 	},
 	{
-		Id = "TitleKage",
+		Id = "TitleCodex",
 		Slot = "Title",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.TitleKage",
+		NameKey = "cosmetic.TitleCodex",
 		Sellable = false,
 		Visual = {},
 	},
 	{
-		Id = "AuraHokage",
+		Id = "AuraCodex",
 		Slot = "Aura",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.AuraHokage",
+		NameKey = "cosmetic.AuraCodex",
 		Sellable = false,
 		Visual = rgb("Color", 255, 180, 60),
 	},
 	-- Season rewards
 	{
-		Id = "TitleJonin",
+		Id = "TitleScript",
 		Slot = "Title",
 		Rarity = "Rare",
-		NameKey = "cosmetic.TitleJonin",
+		NameKey = "cosmetic.TitleScript",
 		Sellable = false,
 		Visual = {},
 	},
 	{
-		Id = "TitleAnbu",
+		Id = "TitleIllumination",
 		Slot = "Title",
 		Rarity = "Epic",
-		NameKey = "cosmetic.TitleAnbu",
+		NameKey = "cosmetic.TitleIllumination",
 		Sellable = false,
 		Visual = {},
 	},
 	{
-		Id = "TitleKageSeason",
+		Id = "TitleCodexSeason",
 		Slot = "Title",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.TitleKageSeason",
+		NameKey = "cosmetic.TitleCodexSeason",
 		Sellable = false,
 		Visual = {},
 	},
 	-- Skin pack (game pass)
 	{
-		Id = "SkinWaterWaveJade",
+		Id = "SkinWashJade",
 		Slot = "Skin",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SkinWaterWaveJade",
+		NameKey = "cosmetic.SkinWashJade",
 		Sellable = false,
 		Target = "Wash",
 		Visual = rgb("Color", 60, 220, 160),
 	},
 	{
-		Id = "SkinEarthSpikesObsidian",
+		Id = "SkinSerifObsidian",
 		Slot = "Skin",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SkinEarthSpikesObsidian",
+		NameKey = "cosmetic.SkinSerifObsidian",
 		Sellable = false,
 		Target = "Serif",
 		Visual = rgb("Color", 40, 30, 50),
 	},
 	{
-		Id = "SkinWindGustSilver",
+		Id = "SkinSweepSilver",
 		Slot = "Skin",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SkinWindGustSilver",
+		NameKey = "cosmetic.SkinSweepSilver",
 		Sellable = false,
 		Target = "Sweep",
 		Visual = rgb("Color", 220, 225, 235),
 	},
 	-- Shop catalog (Ryo or Robux)
 	{
-		Id = "TrailLeaf",
+		Id = "TrailFolio",
 		Slot = "Trail",
 		Rarity = "Common",
-		NameKey = "cosmetic.TrailLeaf",
+		NameKey = "cosmetic.TrailFolio",
 		Sellable = true,
 		Visual = rgb("Color", 110, 200, 90),
 	},
@@ -289,10 +296,10 @@ CosmeticConfig.Items = {
 		Visual = rgb("Color", 180, 100, 255),
 	},
 	{
-		Id = "SkinFireballEmerald",
+		Id = "SkinBrandEmerald",
 		Slot = "Skin",
 		Rarity = "Rare",
-		NameKey = "cosmetic.SkinFireballEmerald",
+		NameKey = "cosmetic.SkinBrandEmerald",
 		Sellable = true,
 		Target = "Brand",
 		Visual = rgb("Color", 60, 200, 120),
@@ -314,10 +321,10 @@ CosmeticConfig.Items = {
 		Visual = rgb("Color", 90, 150, 255),
 	},
 	{
-		Id = "SkinEmberStormAzure",
+		Id = "SkinScorchAzure",
 		Slot = "Skin",
 		Rarity = "Epic",
-		NameKey = "cosmetic.SkinEmberStormAzure",
+		NameKey = "cosmetic.SkinScorchAzure",
 		Sellable = true,
 		Target = "Scorch",
 		Visual = rgb("Color", 60, 140, 255),
@@ -339,10 +346,10 @@ CosmeticConfig.Items = {
 		Visual = rgb("Color", 255, 230, 150),
 	},
 	{
-		Id = "SkinEarthquakeCrystal",
+		Id = "SkinRuptureCrystal",
 		Slot = "Skin",
 		Rarity = "Legendary",
-		NameKey = "cosmetic.SkinEarthquakeCrystal",
+		NameKey = "cosmetic.SkinRuptureCrystal",
 		Sellable = true,
 		Target = "Rupture",
 		Visual = rgb("Color", 150, 230, 255),
@@ -356,7 +363,7 @@ end
 
 CosmeticConfig.Slots = { "Aura", "Trail", "KillEffect", "Title", "Skin" } :: { Slot }
 
--- Equipped slot key for a cosmetic (skins are per jutsu).
+-- Equipped slot key for a cosmetic (skins are per glyph).
 function CosmeticConfig.slotKey(item: CosmeticDef): string
 	if item.Slot == "Skin" then
 		return "Skin:" .. tostring(item.Target)

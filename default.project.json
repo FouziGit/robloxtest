@@ -1,5 +1,5 @@
 {
-	"name": "JutsuBattlegrounds",
+	"name": "Vellum",
 	"globIgnorePaths": ["**/*.spec.luau"],
 	"tree": {
 		"$className": "DataModel",

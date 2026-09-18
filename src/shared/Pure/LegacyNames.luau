@@ -9,7 +9,12 @@
 -- which is what this game is now about.
 --
 -- A profile written before the rename holds the old strings in Unlocks.Jutsus, Unlocks.Elements,
--- Loadout.Slots and Rank.Modes. Without this table those players would lose every unlock they earned.
+-- Loadout.Slots and Cosmetics. Without this table those players would lose every unlock they earned
+-- and every cosmetic they were rewarded, which is the one loss no apology repairs.
+--
+-- Every key below is an OLD identifier and must stay spelled the old way forever. A sweep that renames
+-- them to match the rest of the codebase turns this file into an identity map and quietly wipes the
+-- profiles it exists to save.
 
 local LegacyNames = {}
 
@@ -57,6 +62,41 @@ LegacyNames.Ranks = {
 	Kage = "Codex",
 } :: { [string]: string }
 
+-- Cosmetics a profile can own. Two reasons an id is here. Ten named a rank or a character of the old
+-- licence, so they carry the same risk as the rest of the lexicon. Eight were named after the spell they
+-- reskin, and that spell no longer exists under that name: CosmeticConfig points a skin at its glyph
+-- through Target, so SkinFireballAzure would have been a skin for nothing.
+--
+-- The replacements stay inside the craft. A headband is the band sewn at the head of a book's spine, a
+-- frisket is the mask a printer cuts to keep ink off part of a sheet, a palimpsest is a page scraped
+-- clean and written over, and a stylus is what a scribe holds. The three chakra auras become ink auras,
+-- which is the same object under the name this game uses for it.
+LegacyNames.Cosmetics = {
+	GeninHeadband = "BlankHeadband",
+	SteelKatana = "SteelStylus",
+	MistCape = "PalimpsestCape",
+	AnbuMask = "FrisketMask",
+	BlueChakraAura = "BlueInkAura",
+	ClanKimono = "ScriptoriumRobe",
+	VioletChakraAura = "VioletInkAura",
+	SageCloak = "ScribeCloak",
+	GoldenChakraAura = "GoldenInkAura",
+	HokageCloak = "CodexCloak",
+	TitleKage = "TitleCodex",
+	AuraHokage = "AuraCodex",
+	TitleJonin = "TitleScript",
+	TitleAnbu = "TitleIllumination",
+	TitleKageSeason = "TitleCodexSeason",
+	SkinFireballAzure = "SkinBrandAzure",
+	SkinFireballEmerald = "SkinBrandEmerald",
+	SkinEarthquakeMagma = "SkinRuptureMagma",
+	SkinEarthquakeCrystal = "SkinRuptureCrystal",
+	SkinWaterWaveJade = "SkinWashJade",
+	SkinEarthSpikesObsidian = "SkinSerifObsidian",
+	SkinWindGustSilver = "SkinSweepSilver",
+	SkinEmberStormAzure = "SkinScorchAzure",
+} :: { [string]: string }
+
 -- Returns the current id for `old`, or `old` itself when it is already current or unknown. Unknown ids
 -- are passed through rather than dropped: a profile that somehow holds one keeps it, and the validation
 -- that runs afterwards decides what to do with it.
@@ -74,6 +114,10 @@ end
 
 function LegacyNames.rank(old: string): string
 	return translate(LegacyNames.Ranks, old)
+end
+
+function LegacyNames.cosmetic(old: string): string
+	return translate(LegacyNames.Cosmetics, old)
 end
 
 -- Rewrites a list of ids in place through `map`, keeping order and dropping nothing.

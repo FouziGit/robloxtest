@@ -1,9 +1,12 @@
 --!strict
 -- The rename is only safe if a profile written under the old lexicon keeps everything it earned. These
+-- tests are the proof. Every identifier in a `raw` fixture below is deliberately spelled the OLD way:
+-- that is the input. A future sweep that "tidies" them into current names deletes the test while
+-- leaving it green, so treat the old spellings here as data, never as names to update.
 -- tests are the proof: they migrate a realistic version 2 profile and check that every unlock, every
 -- equipped slot and every owned pigment survived, translated.
 local DataMigration = require("../src/shared/Pure/DataMigration")
-local GlyphConfig = require("../src/shared/Config/JutsuConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local LegacyNames = require("../src/shared/Pure/LegacyNames")
 
@@ -11,7 +14,7 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 describe("LegacyNames", function()
 	it("maps every old identifier exactly once", function()
-		for _, map in ipairs({ LegacyNames.Pigments, LegacyNames.Glyphs, LegacyNames.Ranks }) do
+		for _, map in ipairs({ LegacyNames.Pigments, LegacyNames.Glyphs, LegacyNames.Ranks, LegacyNames.Cosmetics }) do
 			local seen: { [string]: string } = {}
 			local count = 0
 			for old, fresh in pairs(map) do
@@ -30,7 +33,7 @@ describe("LegacyNames", function()
 	end)
 
 	it("covers the whole roster and the five schools", function()
-		expect(#GlyphConfig.Jutsus).toBe(20)
+		expect(#GlyphConfig.Glyphs).toBe(20)
 		local mapped = 0
 		for _ in pairs(LegacyNames.Glyphs) do
 			mapped += 1
@@ -66,6 +69,8 @@ describe("migration of a profile written before the rename", function()
 			Currency = { Ryo = 0 },
 			Unlocks = { Glyphs = {}, Pigments = {} },
 			Loadout = { Slots = {}, ExtraSlots = 0, SlotLimit = 6 },
+			Cosmetics = { Owned = {}, Equipped = {} },
+			Stats = { Kills = 0, GlyphsCast = 0, GlyphsHit = 0 },
 			Battlepass = { _template = { Tier = 1, XP = 0 } },
 			Meta = { SaveToken = 0 },
 		}
@@ -114,6 +119,52 @@ describe("migration of a profile written before the rename", function()
 		expect(data.Unlocks.Glyphs[1]).toBe("Brand")
 		expect(data.Unlocks.Glyphs[2]).toBe("Blot")
 		expect(data.Loadout.Slots[1]).toBe("Brand")
+	end)
+
+	it("keeps every cosmetic, and keeps a skin pointed at the glyph it reskins", function()
+		-- Cosmetics are earned, not bought again: a dropped id is a season of play thrown away. The Skin
+		-- slot is the awkward one, because the glyph it applies to is spelled inside the slot key.
+		local raw = {
+			DataVersion = 2,
+			Cosmetics = {
+				Owned = { "GeninHeadband", "SkinFireballAzure", "TitleKage", "TrailEmber", "AuraVoid" },
+				Equipped = {
+					Title = "TitleKage",
+					Aura = "AuraHokage",
+					["Skin:Fireball"] = "SkinFireballAzure",
+					Trail = "TrailEmber",
+				},
+			},
+			Stats = { Kills = 310, JutsusCast = 4820, JutsusHit = 3111 },
+		}
+		local data = DataMigration.migrate(raw, template(), "S1", LegacyNames)
+
+		expect(#data.Cosmetics.Owned).toBe(5)
+		expect(data.Cosmetics.Owned[1]).toBe("BlankHeadband")
+		expect(data.Cosmetics.Owned[2]).toBe("SkinBrandAzure")
+		expect(data.Cosmetics.Owned[3]).toBe("TitleCodex")
+		-- An id the rename never touched is carried through untouched, not dropped.
+		expect(data.Cosmetics.Owned[4]).toBe("TrailEmber")
+		expect(data.Cosmetics.Owned[5]).toBe("AuraVoid")
+
+		expect(data.Cosmetics.Equipped.Title).toBe("TitleCodex")
+		expect(data.Cosmetics.Equipped.Aura).toBe("AuraCodex")
+		expect(data.Cosmetics.Equipped.Trail).toBe("TrailEmber")
+		-- Both halves of the skin entry move: the key names Brand now, the value names the new skin.
+		expect(data.Cosmetics.Equipped["Skin:Brand"]).toBe("SkinBrandAzure")
+		expect(data.Cosmetics.Equipped["Skin:Fireball"]).toBeNil()
+
+		-- Two lifetime counters were renamed with the word they counted.
+		expect(data.Stats.GlyphsCast).toBe(4820)
+		expect(data.Stats.GlyphsHit).toBe(3111)
+		expect(data.Stats.Kills).toBe(310)
+	end)
+
+	it("leaves a profile with no cosmetics and no stats alone", function()
+		local data = DataMigration.migrate({ DataVersion = 2 }, template(), "S1", LegacyNames)
+		expect(next(data.Cosmetics.Owned)).toBeNil()
+		expect(next(data.Cosmetics.Equipped)).toBeNil()
+		expect(data.Stats.GlyphsCast).toBe(0)
 	end)
 
 	it("survives a version 2 profile with no unlocks at all", function()

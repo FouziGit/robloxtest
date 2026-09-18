@@ -16,7 +16,7 @@
 --
 -- The boss damages players through CombatService.ApplyDamage with no source, which is how
 -- server-authored damage keeps landing while PvP is switched off for the duration (see `bossPolicy`).
--- Players damage it through the ordinary jutsu and melee path, and their contribution is read back from
+-- Players damage it through the ordinary glyph and melee path, and their contribution is read back from
 -- the LastAttackerUserId attribute CombatService writes on every hit it applies. The quest log is pushed
 -- to, never polled (QuestService.report), like every other gameplay owner.
 

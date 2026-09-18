@@ -25,8 +25,8 @@ type Deps = Context.Deps
 local PASS_LIGHTNING = "Orpiment"
 local PASS_LOADOUT_SLOTS = "LoadoutSlots"
 local PASS_SKIN_PACK = "SkinPack"
--- The Lightning pass grants the Lightning element (ElementConfig.Unlockable).
-local LIGHTNING_ELEMENT = "Orpiment"
+-- The Orpiment pass grants the Orpiment pigment (PigmentConfig.Unlockable).
+local ORPIMENT_PIGMENT = "Orpiment"
 -- UserOwnsGamePassAsync is a web call: retried with a growing backoff before giving up.
 local OWNERSHIP_ATTEMPTS = 3
 local OWNERSHIP_BACKOFF_SECONDS = 2
@@ -70,7 +70,7 @@ function Passes.apply(player: Player, passKey: string)
 		return
 	end
 	if passKey == PASS_LIGHTNING then
-		log.try("grantElement " .. LIGHTNING_ELEMENT, deps.Loadout.grantElement, player, LIGHTNING_ELEMENT)
+		log.try("grantPigment " .. ORPIMENT_PIGMENT, deps.Loadout.grantPigment, player, ORPIMENT_PIGMENT)
 	elseif passKey == PASS_LOADOUT_SLOTS then
 		log.try("setExtraSlots", deps.Loadout.setExtraSlots, player, ProgressionConfig.Loadout.PassExtraSlots)
 	elseif passKey == PASS_SKIN_PACK then

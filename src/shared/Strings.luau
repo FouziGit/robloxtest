@@ -17,7 +17,7 @@ Strings.Table = {
 	["common.reset"] = { en = "Reset", fr = "Réinitialiser" },
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
 
-	-- Elements & actions
+	-- Pigments & actions
 	["pigment.cinnabar"] = { en = "Cinnabar", fr = "Cinabre" },
 	["pigment.indigo"] = { en = "Indigo", fr = "Indigo" },
 	["pigment.umber"] = { en = "Umber", fr = "Terre d'Ombre" },
@@ -35,11 +35,11 @@ Strings.Table = {
 	["currency.ryo"] = { en = "Ryo", fr = "Ryo" },
 
 	-- HUD / casting feedback
-	["hud.combo.noMatch"] = { en = "No jutsu matches…", fr = "Aucun jutsu ne correspond…" },
+	["hud.combo.noMatch"] = { en = "No glyph matches…", fr = "Aucun glyphe ne correspond…" },
 	["hud.combo.dissipated"] = { en = "The sequence dissipated…", fr = "La séquence s'est dissipée…" },
 	["hud.cast.cooldown"] = { en = "{name}: {seconds}s left", fr = "{name} : encore {seconds}s" },
 	["hud.cast.success"] = { en = "{name}!", fr = "{name} !" },
-	["hud.cast.notEnoughChakra"] = { en = "Not enough chakra", fr = "Pas assez de chakra" },
+	["hud.cast.notEnoughInk"] = { en = "Not enough ink", fr = "Plus d'encre" },
 	["hud.cast.locked"] = { en = "{name} is locked", fr = "{name} est verrouillé" },
 	["hud.cast.notEquipped"] = { en = "{name} is not in your loadout", fr = "{name} n'est pas dans ton équipement" },
 	["hud.cast.failed"] = { en = "{name} failed", fr = "{name} a échoué" },
@@ -49,7 +49,7 @@ Strings.Table = {
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
 	["hud.hint.keyboard"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
 	["hud.hint.gamepad"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
-	["hud.chakra"] = { en = "Chakra", fr = "Chakra" },
+	["hud.ink"] = { en = "Ink", fr = "Encre" },
 	["hud.health"] = { en = "Health", fr = "Vie" },
 	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
 	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
@@ -116,7 +116,7 @@ Strings.Table = {
 	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
 
-	-- Jutsus
+	-- Glyphs
 	["glyph.Brand.name"] = { en = "Brand", fr = "Marque" },
 	["glyph.Brand.desc"] = {
 		en = "Hurls a sphere of flames that explodes on impact.",
@@ -184,8 +184,8 @@ Strings.Table = {
 	},
 	["glyph.Hairline.name"] = { en = "Hairline", fr = "Délié" },
 	["glyph.Hairline.desc"] = {
-		en = "Throws a blade of wind that fans its target for your next fire jutsu.",
-		fr = "Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.",
+		en = "Throws a blade of wind that fans its target for your next fire glyph.",
+		fr = "Trace un délié qui évente sa cible pour ton prochain glyphe de Cinabre.",
 	},
 	["glyph.Spiral.name"] = { en = "Spiral", fr = "Spirale" },
 	["glyph.Spiral.desc"] = {
@@ -218,33 +218,33 @@ Strings.Table = {
 		fr = "La colère du dieu du tonnerre bondit d'ennemi en ennemi.",
 	},
 
-	-- Elemental statuses (CombatConfig.Status): shown as floating text on the marked target
+	-- Pigment statuses (CombatConfig.Status): shown as floating text on the marked target
 	["status.fanned"] = { en = "Fanned", fr = "Éventé" },
 	["status.conductive"] = { en = "Conductive", fr = "Conducteur" },
 	["status.stoneSkin"] = { en = "Stone Skin", fr = "Peau de Pierre" },
 	["hud.status.bonus"] = { en = "{status}: +{percent}% damage", fr = "{status} : +{percent} % de dégâts" },
 
 	-- Cosmetics
-	["cosmetic.GeninHeadband"] = { en = "Genin Headband", fr = "Bandeau du Genin" },
-	["cosmetic.SteelKatana"] = { en = "Steel Katana", fr = "Katana d'Acier" },
-	["cosmetic.MistCape"] = { en = "Mist Cape", fr = "Cape de Brume" },
-	["cosmetic.AnbuMask"] = { en = "Anbu Mask", fr = "Masque Anbu" },
-	["cosmetic.BlueChakraAura"] = { en = "Blue Chakra Aura", fr = "Aura de Chakra Bleu" },
-	["cosmetic.ClanKimono"] = { en = "Clan Kimono", fr = "Kimono du Clan" },
-	["cosmetic.VioletChakraAura"] = { en = "Violet Chakra Aura", fr = "Aura de Chakra Violet" },
-	["cosmetic.SageCloak"] = { en = "Sage Cloak", fr = "Manteau de Sage" },
-	["cosmetic.GoldenChakraAura"] = { en = "Golden Chakra Aura", fr = "Aura de Chakra Doré" },
-	["cosmetic.HokageCloak"] = { en = "Hokage Cloak", fr = "Manteau du Hokage" },
+	["cosmetic.BlankHeadband"] = { en = "Blank Headband", fr = "Tranchefile Vierge" },
+	["cosmetic.SteelStylus"] = { en = "Steel Stylus", fr = "Stylet d'Acier" },
+	["cosmetic.PalimpsestCape"] = { en = "Palimpsest Cape", fr = "Cape de Palimpseste" },
+	["cosmetic.FrisketMask"] = { en = "Frisket Mask", fr = "Masque de Frisquette" },
+	["cosmetic.BlueInkAura"] = { en = "Blue Ink Aura", fr = "Aura d'Encre Bleue" },
+	["cosmetic.ScriptoriumRobe"] = { en = "Scriptorium Robe", fr = "Robe du Scriptorium" },
+	["cosmetic.VioletInkAura"] = { en = "Violet Ink Aura", fr = "Aura d'Encre Violette" },
+	["cosmetic.ScribeCloak"] = { en = "Scribe Cloak", fr = "Manteau du Scribe" },
+	["cosmetic.GoldenInkAura"] = { en = "Golden Ink Aura", fr = "Aura d'Encre Dorée" },
+	["cosmetic.CodexCloak"] = { en = "Codex Cloak", fr = "Manteau du Codex" },
 	["cosmetic.TrailEmber"] = { en = "Ember Trail", fr = "Traînée de Braises" },
 	["cosmetic.AuraCrimson"] = { en = "Crimson Aura", fr = "Aura Pourpre" },
 	["cosmetic.KillEffectShatter"] = { en = "Shatter Finisher", fr = "Finisher Éclat" },
 	["cosmetic.TitleShadow"] = { en = "Title: Shadow", fr = "Titre : Ombre" },
-	["cosmetic.SkinFireballAzure"] = { en = "Azure Fireball Skin", fr = "Skin Boule de Feu Azur" },
+	["cosmetic.SkinBrandAzure"] = { en = "Azure Brand Skin", fr = "Skin Marque Azur" },
 	["cosmetic.TrailStorm"] = { en = "Storm Trail", fr = "Traînée de Tempête" },
-	["cosmetic.SkinEarthquakeMagma"] = { en = "Magma Earthquake Skin", fr = "Skin Séisme Magma" },
-	["cosmetic.KillEffectLightning"] = { en = "Lightning Finisher", fr = "Finisher Foudre" },
-	["cosmetic.TitleKage"] = { en = "Title: Kage", fr = "Titre : Kage" },
-	["cosmetic.AuraHokage"] = { en = "Hokage Aura", fr = "Aura du Hokage" },
+	["cosmetic.SkinRuptureMagma"] = { en = "Magma Rupture Skin", fr = "Skin Rupture Magma" },
+	["cosmetic.KillEffectRedaction"] = { en = "Redaction Finisher", fr = "Finisher Caviardage" },
+	["cosmetic.TitleCodex"] = { en = "Title: Codex", fr = "Titre : Codex" },
+	["cosmetic.AuraCodex"] = { en = "Codex Aura", fr = "Aura du Codex" },
 
 	-- Ranks & modes
 	["rank.blank"] = { en = "Blank", fr = "Vierge" },
@@ -254,13 +254,13 @@ Strings.Table = {
 	["rank.codex"] = { en = "Codex", fr = "Codex" },
 	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
-	["cosmetic.TitleJonin"] = { en = "Title: Jonin", fr = "Titre : Jonin" },
-	["cosmetic.TitleAnbu"] = { en = "Title: Anbu", fr = "Titre : Anbu" },
-	["cosmetic.TitleKageSeason"] = { en = "Title: Season Kage", fr = "Titre : Kage de la saison" },
+	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
+	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
+	["cosmetic.TitleCodexSeason"] = { en = "Title: Season Codex", fr = "Titre : Codex de la saison" },
 
 	-- Quests & daily
-	["quest.castJutsus"] = { en = "Cast {target} jutsus", fr = "Lance {target} jutsus" },
-	["quest.hitJutsus"] = { en = "Hit enemies with {target} jutsus", fr = "Touche des ennemis avec {target} jutsus" },
+	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
+	["quest.hitGlyphs"] = { en = "Hit enemies with {target} glyphs", fr = "Touche des ennemis avec {target} glyphes" },
 	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
 	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
 	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
@@ -295,23 +295,23 @@ Strings.Table = {
 	},
 	["daily.premium"] = { en = "Premium bonus: +{xp} XP, +{ryo} Ryo", fr = "Bonus Premium : +{xp} XP, +{ryo} Ryo" },
 
-	["cosmetic.SkinWaterWaveJade"] = { en = "Jade Water Wave Skin", fr = "Skin Vague Aquatique Jade" },
-	["cosmetic.SkinEarthSpikesObsidian"] = { en = "Obsidian Earth Spikes Skin", fr = "Skin Piques de Terre Obsidienne" },
-	["cosmetic.SkinWindGustSilver"] = { en = "Silver Gust Skin", fr = "Skin Rafale Argent" },
-	["cosmetic.TrailLeaf"] = { en = "Leaf Trail", fr = "Traînée de Feuilles" },
+	["cosmetic.SkinWashJade"] = { en = "Jade Wash Skin", fr = "Skin Lavis Jade" },
+	["cosmetic.SkinSerifObsidian"] = { en = "Obsidian Serif Skin", fr = "Skin Empattement Obsidienne" },
+	["cosmetic.SkinSweepSilver"] = { en = "Silver Sweep Skin", fr = "Skin Balayage Argent" },
+	["cosmetic.TrailFolio"] = { en = "Folio Trail", fr = "Traînée de Folios" },
 	["cosmetic.TrailSand"] = { en = "Sand Trail", fr = "Traînée de Sable" },
 	["cosmetic.TitleRookie"] = { en = "Title: Rookie", fr = "Titre : Recrue" },
 	["cosmetic.TitleWanderer"] = { en = "Title: Wanderer", fr = "Titre : Vagabond" },
 	["cosmetic.AuraFrost"] = { en = "Frost Aura", fr = "Aura de Givre" },
 	["cosmetic.AuraEmber"] = { en = "Ember Aura", fr = "Aura de Braise" },
 	["cosmetic.TrailViolet"] = { en = "Violet Trail", fr = "Traînée Violette" },
-	["cosmetic.SkinFireballEmerald"] = { en = "Emerald Fireball Skin", fr = "Skin Boule de Feu Émeraude" },
+	["cosmetic.SkinBrandEmerald"] = { en = "Emerald Brand Skin", fr = "Skin Marque Émeraude" },
 	["cosmetic.KillEffectPetals"] = { en = "Petal Finisher", fr = "Finisher Pétales" },
 	["cosmetic.AuraStorm"] = { en = "Storm Aura", fr = "Aura de Tempête" },
-	["cosmetic.SkinEmberStormAzure"] = { en = "Azure Ember Storm Skin", fr = "Skin Tempête de Braises Azur" },
+	["cosmetic.SkinScorchAzure"] = { en = "Azure Scorch Skin", fr = "Skin Roussi Azur" },
 	["cosmetic.AuraVoid"] = { en = "Void Aura", fr = "Aura du Néant" },
 	["cosmetic.KillEffectSupernova"] = { en = "Supernova Finisher", fr = "Finisher Supernova" },
-	["cosmetic.SkinEarthquakeCrystal"] = { en = "Crystal Earthquake Skin", fr = "Skin Séisme Cristal" },
+	["cosmetic.SkinRuptureCrystal"] = { en = "Crystal Rupture Skin", fr = "Skin Rupture Cristal" },
 
 	-- Passes, products, shop
 	["pass.vip"] = { en = "VIP", fr = "VIP" },
@@ -324,15 +324,15 @@ Strings.Table = {
 		en = "+4 loadout slots (10 in total).",
 		fr = "+4 slots d'équipement (10 au total).",
 	},
-	["pass.lightning"] = { en = "Lightning Element", fr = "Élément Foudre" },
-	["pass.lightning.desc"] = {
-		en = "Unlock Lightning right away (or reach level {level} for free).",
-		fr = "Débloque la Foudre tout de suite (ou atteins le niveau {level} gratuitement).",
+	["pass.orpiment"] = { en = "Orpiment Pigment", fr = "Pigment Orpiment" },
+	["pass.orpiment.desc"] = {
+		en = "Unlock Orpiment right away (or reach level {level} for free).",
+		fr = "Débloque l'Orpiment tout de suite (ou atteins le niveau {level} gratuitement).",
 	},
 	["pass.skinPack"] = { en = "Skin Pack", fr = "Pack de skins" },
 	["pass.skinPack.desc"] = {
-		en = "Four jutsu skins, one per base element.",
-		fr = "Quatre skins de jutsu, un par élément de base.",
+		en = "Four glyph skins, one per base pigment.",
+		fr = "Quatre skins de glyphe, un par pigment de base.",
 	},
 	["product.ryoSmall"] = { en = "1,000 Ryo", fr = "1 000 Ryo" },
 	["product.ryoMedium"] = { en = "3,500 Ryo", fr = "3 500 Ryo" },
@@ -444,13 +444,13 @@ Strings.Table = {
 	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
 	["loadout.full"] = { en = "Every slot is taken.", fr = "Tous les slots sont pris." },
 	["loadout.locked"] = { en = "Unlocks at level {level}", fr = "Se débloque au niveau {level}" },
-	["loadout.lockedElement"] = { en = "Requires the {element} element", fr = "Nécessite l'élément {element}" },
+	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
 	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
 	["loadout.combo"] = { en = "Combo: {combo}", fr = "Combo : {combo}" },
 	["loadout.stats"] = {
-		en = "{damage} damage · {cost} chakra · {cooldown}s",
-		fr = "{damage} dégâts · {cost} chakra · {cooldown}s",
+		en = "{damage} damage · {cost} ink · {cooldown}s",
+		fr = "{damage} dégâts · {cost} encre · {cooldown}s",
 	},
 
 	-- Cosmetics

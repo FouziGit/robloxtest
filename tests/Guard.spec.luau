@@ -33,7 +33,7 @@ describe("Guard", function()
 	end)
 
 	it("enforces array minLength", function()
-		-- Same options CastJutsu uses: a combo sequence shorter than the shortest recipe is refused.
+		-- Same options CastGlyph uses: a combo sequence shorter than the shortest recipe is refused.
 		local schema = Guard.array(Guard.oneOf({ "Cinnabar", "Indigo" }), { minLength = 2, maxLength = 4 })
 		expect((Guard.check(schema, {}))).toBe(false)
 		expect((Guard.check(schema, { "Cinnabar" }))).toBe(false)

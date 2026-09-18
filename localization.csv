@@ -1,307 +1,307 @@
 Key,Source,Context,Example,en,fr
-action.block,Block,JutsuBattlegrounds,,Block,Garde
-action.block.short,Block,JutsuBattlegrounds,,Block,Garde
-action.dash,Dash,JutsuBattlegrounds,,Dash,Ruée
-action.dash.short,Dash,JutsuBattlegrounds,,Dash,Ruée
-action.melee,Melee,JutsuBattlegrounds,,Melee,Corps à corps
-action.melee.short,Melee,JutsuBattlegrounds,,Melee,CAC
-action.menu,Menu,JutsuBattlegrounds,,Menu,Menu
-action.menu.short,Menu,JutsuBattlegrounds,,Menu,Menu
-battlepass.alreadyClaimed,Already claimed.,JutsuBattlegrounds,,Already claimed.,Déjà récupéré.
-battlepass.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
-battlepass.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupéré
-battlepass.completed,Completed!,JutsuBattlegrounds,,Completed!,Terminé !
-battlepass.free,Free,JutsuBattlegrounds,,Free,Gratuit
-battlepass.notReached,Tier {tier} not reached yet.,JutsuBattlegrounds,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
-battlepass.premium,Premium,JutsuBattlegrounds,,Premium,Premium
-battlepass.premiumRequired,Premium pass required.,JutsuBattlegrounds,,Premium pass required.,Pass premium requis.
-battlepass.reward.cosmetic,Cosmetic: {name},JutsuBattlegrounds,,Cosmetic: {name},Cosmétique : {name}
-battlepass.reward.none,No reward,JutsuBattlegrounds,,No reward,Aucune récompense
-battlepass.reward.ryo,{amount} Ryo,JutsuBattlegrounds,,{amount} Ryo,{amount} Ryo
-battlepass.reward.xpBoost,XP boost ({minutes} min),JutsuBattlegrounds,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
-battlepass.tier,Tier {tier} / {max},JutsuBattlegrounds,,Tier {tier} / {max},Palier {tier} / {max}
-battlepass.title,Battle Pass — Season {season},JutsuBattlegrounds,,Battle Pass — Season {season},Battle Pass — Saison {season}
-battlepass.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
-boss.announced,A World Boss appears in {seconds}s!,JutsuBattlegrounds,,A World Boss appears in {seconds}s!,Un boss du monde apparaît dans {seconds}s !
-boss.attack.eruption,Eruption,JutsuBattlegrounds,,Eruption,Éruption
-boss.attack.fury,Fury,JutsuBattlegrounds,,Fury,Furie
-boss.attack.slam,Slam,JutsuBattlegrounds,,Slam,Écrasement
-boss.attack.sweep,Sweep,JutsuBattlegrounds,,Sweep,Balayage
-boss.defeated,World Boss defeated!,JutsuBattlegrounds,,World Boss defeated!,Boss du monde vaincu !
-boss.expired,The World Boss escaped…,JutsuBattlegrounds,,The World Boss escaped…,Le boss du monde s'est échappé…
-boss.health,{health} / {max},JutsuBattlegrounds,,{health} / {max},{health} / {max}
-boss.incoming,{attack} incoming!,JutsuBattlegrounds,,{attack} incoming!,{attack} en approche !
-boss.killBonus,Top damage bonus!,JutsuBattlegrounds,,Top damage bonus!,Bonus de meilleur dégât !
-boss.name,World Boss,JutsuBattlegrounds,,World Boss,Boss du monde
-boss.phase,Phase {phase},JutsuBattlegrounds,,Phase {phase},Phase {phase}
-boss.reward,"Boss reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Boss reward: +{xp} XP, +{ryo} Ryo","Récompense du boss : +{xp} XP, +{ryo} Ryo"
-boss.share,Your damage: {percent}%,JutsuBattlegrounds,,Your damage: {percent}%,Tes dégâts : {percent} %
-boss.started,The World Boss is here!,JutsuBattlegrounds,,The World Boss is here!,Le boss du monde est là !
-boss.timeLeft,{seconds}s left,JutsuBattlegrounds,,{seconds}s left,{seconds}s restantes
-common.locked,Locked,JutsuBattlegrounds,,Locked,Verrouillé
-common.ok,OK,JutsuBattlegrounds,,OK,OK
-common.reset,Reset,JutsuBattlegrounds,,Reset,Réinitialiser
-common.save,Save,JutsuBattlegrounds,,Save,Sauvegarder
-cosmetic.AnbuMask,Anbu Mask,JutsuBattlegrounds,,Anbu Mask,Masque Anbu
-cosmetic.AuraCrimson,Crimson Aura,JutsuBattlegrounds,,Crimson Aura,Aura Pourpre
-cosmetic.AuraEmber,Ember Aura,JutsuBattlegrounds,,Ember Aura,Aura de Braise
-cosmetic.AuraFrost,Frost Aura,JutsuBattlegrounds,,Frost Aura,Aura de Givre
-cosmetic.AuraHokage,Hokage Aura,JutsuBattlegrounds,,Hokage Aura,Aura du Hokage
-cosmetic.AuraStorm,Storm Aura,JutsuBattlegrounds,,Storm Aura,Aura de Tempête
-cosmetic.AuraVoid,Void Aura,JutsuBattlegrounds,,Void Aura,Aura du Néant
-cosmetic.BlueChakraAura,Blue Chakra Aura,JutsuBattlegrounds,,Blue Chakra Aura,Aura de Chakra Bleu
-cosmetic.ClanKimono,Clan Kimono,JutsuBattlegrounds,,Clan Kimono,Kimono du Clan
-cosmetic.GeninHeadband,Genin Headband,JutsuBattlegrounds,,Genin Headband,Bandeau du Genin
-cosmetic.GoldenChakraAura,Golden Chakra Aura,JutsuBattlegrounds,,Golden Chakra Aura,Aura de Chakra Doré
-cosmetic.HokageCloak,Hokage Cloak,JutsuBattlegrounds,,Hokage Cloak,Manteau du Hokage
-cosmetic.KillEffectLightning,Lightning Finisher,JutsuBattlegrounds,,Lightning Finisher,Finisher Foudre
-cosmetic.KillEffectPetals,Petal Finisher,JutsuBattlegrounds,,Petal Finisher,Finisher Pétales
-cosmetic.KillEffectShatter,Shatter Finisher,JutsuBattlegrounds,,Shatter Finisher,Finisher Éclat
-cosmetic.KillEffectSupernova,Supernova Finisher,JutsuBattlegrounds,,Supernova Finisher,Finisher Supernova
-cosmetic.MistCape,Mist Cape,JutsuBattlegrounds,,Mist Cape,Cape de Brume
-cosmetic.SageCloak,Sage Cloak,JutsuBattlegrounds,,Sage Cloak,Manteau de Sage
-cosmetic.SkinEarthSpikesObsidian,Obsidian Earth Spikes Skin,JutsuBattlegrounds,,Obsidian Earth Spikes Skin,Skin Piques de Terre Obsidienne
-cosmetic.SkinEarthquakeCrystal,Crystal Earthquake Skin,JutsuBattlegrounds,,Crystal Earthquake Skin,Skin Séisme Cristal
-cosmetic.SkinEarthquakeMagma,Magma Earthquake Skin,JutsuBattlegrounds,,Magma Earthquake Skin,Skin Séisme Magma
-cosmetic.SkinEmberStormAzure,Azure Ember Storm Skin,JutsuBattlegrounds,,Azure Ember Storm Skin,Skin Tempête de Braises Azur
-cosmetic.SkinFireballAzure,Azure Fireball Skin,JutsuBattlegrounds,,Azure Fireball Skin,Skin Boule de Feu Azur
-cosmetic.SkinFireballEmerald,Emerald Fireball Skin,JutsuBattlegrounds,,Emerald Fireball Skin,Skin Boule de Feu Émeraude
-cosmetic.SkinWaterWaveJade,Jade Water Wave Skin,JutsuBattlegrounds,,Jade Water Wave Skin,Skin Vague Aquatique Jade
-cosmetic.SkinWindGustSilver,Silver Gust Skin,JutsuBattlegrounds,,Silver Gust Skin,Skin Rafale Argent
-cosmetic.SteelKatana,Steel Katana,JutsuBattlegrounds,,Steel Katana,Katana d'Acier
-cosmetic.TitleAnbu,Title: Anbu,JutsuBattlegrounds,,Title: Anbu,Titre : Anbu
-cosmetic.TitleJonin,Title: Jonin,JutsuBattlegrounds,,Title: Jonin,Titre : Jonin
-cosmetic.TitleKage,Title: Kage,JutsuBattlegrounds,,Title: Kage,Titre : Kage
-cosmetic.TitleKageSeason,Title: Season Kage,JutsuBattlegrounds,,Title: Season Kage,Titre : Kage de la saison
-cosmetic.TitleRookie,Title: Rookie,JutsuBattlegrounds,,Title: Rookie,Titre : Recrue
-cosmetic.TitleShadow,Title: Shadow,JutsuBattlegrounds,,Title: Shadow,Titre : Ombre
-cosmetic.TitleWanderer,Title: Wanderer,JutsuBattlegrounds,,Title: Wanderer,Titre : Vagabond
-cosmetic.TrailEmber,Ember Trail,JutsuBattlegrounds,,Ember Trail,Traînée de Braises
-cosmetic.TrailLeaf,Leaf Trail,JutsuBattlegrounds,,Leaf Trail,Traînée de Feuilles
-cosmetic.TrailSand,Sand Trail,JutsuBattlegrounds,,Sand Trail,Traînée de Sable
-cosmetic.TrailStorm,Storm Trail,JutsuBattlegrounds,,Storm Trail,Traînée de Tempête
-cosmetic.TrailViolet,Violet Trail,JutsuBattlegrounds,,Violet Trail,Traînée Violette
-cosmetic.VioletChakraAura,Violet Chakra Aura,JutsuBattlegrounds,,Violet Chakra Aura,Aura de Chakra Violet
-cosmetics.equipped,Equipped: {name},JutsuBattlegrounds,,Equipped: {name},Équipé : {name}
-cosmetics.none,None,JutsuBattlegrounds,,None,Aucun
-cosmetics.notOwned,You do not own this cosmetic.,JutsuBattlegrounds,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
-currency.ryo,Ryo,JutsuBattlegrounds,,Ryo,Ryo
-daily.broken,Your streak was reset. Come back tomorrow to keep it going!,JutsuBattlegrounds,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
-daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
-daily.firstWin,"First win of the day! +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"First win of the day! +{xp} XP, +{ryo} Ryo","Première victoire du jour ! +{xp} XP, +{ryo} Ryo"
-daily.premium,"Premium bonus: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Premium bonus: +{xp} XP, +{ryo} Ryo","Bonus Premium : +{xp} XP, +{ryo} Ryo"
-daily.streak,Login streak: day {day},JutsuBattlegrounds,,Login streak: day {day},Série de connexion : jour {day}
-daily.title,Daily reward,JutsuBattlegrounds,,Daily reward,Récompense du jour
-glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,JutsuBattlegrounds,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
-glyph.Binding.name,Binding,JutsuBattlegrounds,,Binding,Reliure
-glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,JutsuBattlegrounds,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
-glyph.Bleed.name,Bleed,JutsuBattlegrounds,,Bleed,Bavure
-glyph.Blot.desc,Calls down a blazing rock that shatters guards where it lands.,JutsuBattlegrounds,,Calls down a blazing rock that shatters guards where it lands.,Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.
-glyph.Blot.name,Blot,JutsuBattlegrounds,,Blot,Pâté
-glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,JutsuBattlegrounds,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
-glyph.Brand.name,Brand,JutsuBattlegrounds,,Brand,Marque
-glyph.Caret.desc,"Blink forward in a flash, untouchable for an instant.",JutsuBattlegrounds,,"Blink forward in a flash, untouchable for an instant.","Disparais vers l'avant dans un éclair, intouchable un instant."
-glyph.Caret.name,Caret,JutsuBattlegrounds,,Caret,Insertion
-glyph.Colophon.desc,The thunder god's wrath arcs from enemy to enemy.,JutsuBattlegrounds,,The thunder god's wrath arcs from enemy to enemy.,La colère du dieu du tonnerre bondit d'ennemi en ennemi.
-glyph.Colophon.name,Colophon,JutsuBattlegrounds,,Colophon,Colophon
-glyph.Gilding.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,JutsuBattlegrounds,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
-glyph.Gilding.name,Gilding,JutsuBattlegrounds,,Gilding,Dorure
-glyph.Hairline.desc,Throws a blade of wind that fans its target for your next fire jutsu.,JutsuBattlegrounds,,Throws a blade of wind that fans its target for your next fire jutsu.,Lance une lame de vent qui évente sa cible pour ton prochain jutsu de feu.
-glyph.Hairline.name,Hairline,JutsuBattlegrounds,,Hairline,Délié
-glyph.Ligature.desc,A short dash that leaves a burning trail behind you.,JutsuBattlegrounds,,A short dash that leaves a burning trail behind you.,Une ruée courte qui laisse une traînée brûlante derrière toi.
-glyph.Ligature.name,Ligature,JutsuBattlegrounds,,Ligature,Ligature
-glyph.Margin.desc,Raises a defensive wall of mud in front of you.,JutsuBattlegrounds,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
-glyph.Margin.name,Margin,JutsuBattlegrounds,,Margin,Marge
-glyph.Pounce.desc,A storm of sand that blinds and slows everyone inside it.,JutsuBattlegrounds,,A storm of sand that blinds and slows everyone inside it.,Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.
-glyph.Pounce.name,Pounce,JutsuBattlegrounds,,Pounce,Poncif
-glyph.Rupture.desc,Slam the ground: a massive shockwave launches enemies.,JutsuBattlegrounds,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
-glyph.Rupture.name,Rupture,JutsuBattlegrounds,,Rupture,Rupture
-glyph.Scorch.desc,A ring of embers whirls around you and burns everything.,JutsuBattlegrounds,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
-glyph.Scorch.name,Scorch,JutsuBattlegrounds,,Scorch,Roussi
-glyph.Serif.desc,Rock spikes burst from the ground in a straight line.,JutsuBattlegrounds,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
-glyph.Serif.name,Serif,JutsuBattlegrounds,,Serif,Empattement
-glyph.Spiral.desc,A whirlwind that drags everyone caught in it toward its centre.,JutsuBattlegrounds,,A whirlwind that drags everyone caught in it toward its centre.,Une tornade qui attire vers son centre tout ce qu'elle happe.
-glyph.Spiral.name,Spiral,JutsuBattlegrounds,,Spiral,Spirale
-glyph.Stipple.desc,Spits a fast bullet of mud that slows whoever it hits.,JutsuBattlegrounds,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
-glyph.Stipple.name,Stipple,JutsuBattlegrounds,,Stipple,Pointillé
-glyph.Strike.desc,An instant bolt that strikes the first enemy in your line of sight.,JutsuBattlegrounds,,An instant bolt that strikes the first enemy in your line of sight.,Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.
-glyph.Strike.name,Strike,JutsuBattlegrounds,,Strike,Rature
-glyph.Sweep.desc,A cone of wind violently pushes nearby enemies back.,JutsuBattlegrounds,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
-glyph.Sweep.name,Sweep,JutsuBattlegrounds,,Sweep,Balayage
-glyph.Wash.desc,A wave surges forward and sweeps enemies away.,JutsuBattlegrounds,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
-glyph.Wash.name,Wash,JutsuBattlegrounds,,Wash,Lavis
-glyph.Watermark.desc,A crackling field that shocks and locks up anyone standing in it.,JutsuBattlegrounds,,A crackling field that shocks and locks up anyone standing in it.,Un champ crépitant qui électrise et bloque ceux qui s'y attardent.
-glyph.Watermark.name,Watermark,JutsuBattlegrounds,,Watermark,Filigrane
-hud.bar,{name}  {current} / {max},JutsuBattlegrounds,,{name}  {current} / {max},{name}  {current} / {max}
-hud.cast.cooldown,{name}: {seconds}s left,JutsuBattlegrounds,,{name}: {seconds}s left,{name} : encore {seconds}s
-hud.cast.failed,{name} failed,JutsuBattlegrounds,,{name} failed,{name} a échoué
-hud.cast.locked,{name} is locked,JutsuBattlegrounds,,{name} is locked,{name} est verrouillé
-hud.cast.notEnoughChakra,Not enough chakra,JutsuBattlegrounds,,Not enough chakra,Pas assez de chakra
-hud.cast.notEquipped,{name} is not in your loadout,JutsuBattlegrounds,,{name} is not in your loadout,{name} n'est pas dans ton équipement
-hud.cast.success,{name}!,JutsuBattlegrounds,,{name}!,{name} !
-hud.chakra,Chakra,JutsuBattlegrounds,,Chakra,Chakra
-hud.combo.dissipated,The sequence dissipated…,JutsuBattlegrounds,,The sequence dissipated…,La séquence s'est dissipée…
-hud.combo.noMatch,No jutsu matches…,JutsuBattlegrounds,,No jutsu matches…,Aucun jutsu ne correspond…
-hud.currency,{amount} {currency},JutsuBattlegrounds,,{amount} {currency},{amount} {currency}
-hud.health,Health,JutsuBattlegrounds,,Health,Vie
-hud.hint.gamepad,{menu} = Menu,JutsuBattlegrounds,,{menu} = Menu,{menu} = Menu
-hud.hint.keyboard,{menu} = Menu,JutsuBattlegrounds,,{menu} = Menu,{menu} = Menu
-hud.killReward,Enemy defeated! +{xp} XP,JutsuBattlegrounds,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
-hud.levelUp,Level {level} reached!,JutsuBattlegrounds,,Level {level} reached!,Niveau {level} atteint !
-hud.playerKill,You defeated {name}! +{xp} XP,JutsuBattlegrounds,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
-hud.status.bonus,{status}: +{percent}% damage,JutsuBattlegrounds,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
-hud.tierUp,Battle pass tier {tier} unlocked!,JutsuBattlegrounds,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
-kick.abuse,Disconnected: too many invalid requests.,JutsuBattlegrounds,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
-kick.loadFailed,Could not load your data. Please try again in a minute.,JutsuBattlegrounds,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
-kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,JutsuBattlegrounds,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
-leaderboard.board.Duel1v1,1v1,JutsuBattlegrounds,,1v1,1v1
-leaderboard.board.Global,Global,JutsuBattlegrounds,,Global,Global
-leaderboard.board.Team3v3,3v3,JutsuBattlegrounds,,3v3,3v3
-leaderboard.empty,No ranked player yet.,JutsuBattlegrounds,,No ranked player yet.,Aucun joueur classé pour l'instant.
-leaderboard.rating,{rating},JutsuBattlegrounds,,{rating},{rating}
-leaderboard.row,#{rank}  {name},JutsuBattlegrounds,,#{rank}  {name},#{rank}  {name}
-leaderboard.title,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
-leaderboard.unranked,Unranked — play a ranked match,JutsuBattlegrounds,,Unranked — play a ranked match,Non classé — joue un match classé
-leaderboard.you,You: #{rank} ({rating}),JutsuBattlegrounds,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
-leaderboard.youUnlisted,You: outside the top {count},JutsuBattlegrounds,,You: outside the top {count},Toi : hors du top {count}
-level.max,Max level,JutsuBattlegrounds,,Max level,Niveau max
-level.title,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
-level.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
-loadout.combo,Combo: {combo},JutsuBattlegrounds,,Combo: {combo},Combo : {combo}
-loadout.equip,Equip,JutsuBattlegrounds,,Equip,Équiper
-loadout.equipped,Equipped,JutsuBattlegrounds,,Equipped,Équipé
-loadout.full,Every slot is taken.,JutsuBattlegrounds,,Every slot is taken.,Tous les slots sont pris.
-loadout.invalid,Invalid loadout.,JutsuBattlegrounds,,Invalid loadout.,Équipement invalide.
-loadout.locked,Unlocks at level {level},JutsuBattlegrounds,,Unlocks at level {level},Se débloque au niveau {level}
-loadout.lockedElement,Requires the {element} element,JutsuBattlegrounds,,Requires the {element} element,Nécessite l'élément {element}
-loadout.saved,Loadout saved!,JutsuBattlegrounds,,Loadout saved!,Équipement sauvegardé !
-loadout.slots,{used} / {total} slots,JutsuBattlegrounds,,{used} / {total} slots,{used} / {total} slots
-loadout.stats,{damage} damage · {cost} chakra · {cooldown}s,JutsuBattlegrounds,,{damage} damage · {cost} chakra · {cooldown}s,{damage} dégâts · {cost} chakra · {cooldown}s
-loadout.title,Loadout,JutsuBattlegrounds,,Loadout,Équipement
-loadout.unequip,Unequip,JutsuBattlegrounds,,Unequip,Retirer
-match.countdown,{seconds},JutsuBattlegrounds,,{seconds},{seconds}
-match.defeat,Defeat,JutsuBattlegrounds,,Defeat,Défaite
-match.draw,Draw,JutsuBattlegrounds,,Draw,Égalité
-match.firstWin,First win of the day!,JutsuBattlegrounds,,First win of the day!,Première victoire du jour !
-match.opponentLeft,Your opponent left.,JutsuBattlegrounds,,Your opponent left.,Ton adversaire est parti.
-match.rankUp,New rank: {rank}!,JutsuBattlegrounds,,New rank: {rank}!,Nouveau rang : {rank} !
-match.ratingDown,{rank}  {rating} ({delta}),JutsuBattlegrounds,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
-match.ratingUp,{rank}  {rating} (+{delta}),JutsuBattlegrounds,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
-match.returning,Returning to the hub…,JutsuBattlegrounds,,Returning to the hub…,Retour au hub…
-match.rewards,"+{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
-match.round,Round {round} / {total},JutsuBattlegrounds,,Round {round} / {total},Manche {round} / {total}
-match.roundLost,Round lost,JutsuBattlegrounds,,Round lost,Manche perdue
-match.roundWon,Round won!,JutsuBattlegrounds,,Round won!,Manche gagnée !
-match.score,{ours} - {theirs},JutsuBattlegrounds,,{ours} - {theirs},{ours} - {theirs}
-match.timeLeft,{seconds}s,JutsuBattlegrounds,,{seconds}s,{seconds}s
-match.victory,Victory!,JutsuBattlegrounds,,Victory!,Victoire !
-menu.battlepass,Battle Pass,JutsuBattlegrounds,,Battle Pass,Battle Pass
-menu.loadout,Loadout,JutsuBattlegrounds,,Loadout,Équipement
-menu.quests,Quests,JutsuBattlegrounds,,Quests,Quêtes
-menu.settings,Settings,JutsuBattlegrounds,,Settings,Options
-menu.shop,Shop,JutsuBattlegrounds,,Shop,Boutique
-menu.title,Menu,JutsuBattlegrounds,,Menu,Menu
-mode.duel1v1,Ranked 1v1,JutsuBattlegrounds,,Ranked 1v1,1v1 classé
-mode.team3v3,Team 3v3,JutsuBattlegrounds,,Team 3v3,3v3 en équipe
-pass.lightning,Lightning Element,JutsuBattlegrounds,,Lightning Element,Élément Foudre
-pass.lightning.desc,Unlock Lightning right away (or reach level {level} for free).,JutsuBattlegrounds,,Unlock Lightning right away (or reach level {level} for free).,Débloque la Foudre tout de suite (ou atteins le niveau {level} gratuitement).
-pass.loadoutSlots,Loadout Slots,JutsuBattlegrounds,,Loadout Slots,Slots d'équipement
-pass.loadoutSlots.desc,+4 loadout slots (10 in total).,JutsuBattlegrounds,,+4 loadout slots (10 in total).,+4 slots d'équipement (10 au total).
-pass.skinPack,Skin Pack,JutsuBattlegrounds,,Skin Pack,Pack de skins
-pass.skinPack.desc,"Four jutsu skins, one per base element.",JutsuBattlegrounds,,"Four jutsu skins, one per base element.","Quatre skins de jutsu, un par élément de base."
-pass.vip,VIP,JutsuBattlegrounds,,VIP,VIP
-pass.vip.desc,"Double XP, +50% Ryo, chat tag and an exclusive aura.",JutsuBattlegrounds,,"Double XP, +50% Ryo, chat tag and an exclusive aura.","XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive."
-pigment.cinnabar,Cinnabar,JutsuBattlegrounds,,Cinnabar,Cinabre
-pigment.indigo,Indigo,JutsuBattlegrounds,,Indigo,Indigo
-pigment.orpiment,Orpiment,JutsuBattlegrounds,,Orpiment,Orpiment
-pigment.umber,Umber,JutsuBattlegrounds,,Umber,Terre d'Ombre
-pigment.verdigris,Verdigris,JutsuBattlegrounds,,Verdigris,Vert-de-gris
-product.cosmetic,Cosmetic,JutsuBattlegrounds,,Cosmetic,Cosmétique
-product.cosmetic.desc,Buy the selected cosmetic with Robux.,JutsuBattlegrounds,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
-product.premiumPass,Premium Battle Pass,JutsuBattlegrounds,,Premium Battle Pass,Battle Pass Premium
-product.premiumPass.desc,Unlock the premium track of the current season.,JutsuBattlegrounds,,Unlock the premium track of the current season.,Débloque la piste premium de la saison en cours.
-product.ryo.desc,Ryo to spend in the cosmetic shop.,JutsuBattlegrounds,,Ryo to spend in the cosmetic shop.,Des Ryo à dépenser dans la boutique de cosmétiques.
-product.ryoLarge,"8,000 Ryo",JutsuBattlegrounds,,"8,000 Ryo",8 000 Ryo
-product.ryoMedium,"3,500 Ryo",JutsuBattlegrounds,,"3,500 Ryo",3 500 Ryo
-product.ryoSmall,"1,000 Ryo",JutsuBattlegrounds,,"1,000 Ryo",1 000 Ryo
-product.tierSkip5,+5 Tiers,JutsuBattlegrounds,,+5 Tiers,+5 paliers
-product.tierSkip5.desc,Advance five battle pass tiers.,JutsuBattlegrounds,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
-product.xpBoost1h,XP Boost (1 h),JutsuBattlegrounds,,XP Boost (1 h),Boost d'XP (1 h)
-product.xpBoost1h.desc,Double XP for one hour.,JutsuBattlegrounds,,Double XP for one hour.,XP doublée pendant une heure.
-purchase.alreadyOwned,You already own this.,JutsuBattlegrounds,,You already own this.,Tu possèdes déjà cet article.
-purchase.boostActive,XP boost active for {minutes} min,JutsuBattlegrounds,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
-purchase.failed,The purchase could not be completed.,JutsuBattlegrounds,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
-purchase.granted,Purchase complete: {name},JutsuBattlegrounds,,Purchase complete: {name},Achat terminé : {name}
-purchase.grantedRyoInstead,You own every item of that rarity: +{amount} Ryo instead,JutsuBattlegrounds,,You own every item of that rarity: +{amount} Ryo instead,Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place
-purchase.passGranted,{name} unlocked!,JutsuBattlegrounds,,{name} unlocked!,{name} débloqué !
-purchase.prompt,Opening the Roblox purchase…,JutsuBattlegrounds,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
-purchase.tiersGranted,+{tiers} battle pass tiers,JutsuBattlegrounds,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
-purchase.unavailable,This item is not available yet.,JutsuBattlegrounds,,This item is not available yet.,Cet article n'est pas encore disponible.
-quest.castJutsus,Cast {target} jutsus,JutsuBattlegrounds,,Cast {target} jutsus,Lance {target} jutsus
-quest.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
-quest.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupérée
-quest.completed,Quest completed: {name},JutsuBattlegrounds,,Quest completed: {name},Quête terminée : {name}
-quest.daily,Daily quests,JutsuBattlegrounds,,Daily quests,Quêtes journalières
-quest.dealDamage,Deal {target} damage,JutsuBattlegrounds,,Deal {target} damage,Inflige {target} dégâts
-quest.defeatDummies,Defeat {target} training dummies,JutsuBattlegrounds,,Defeat {target} training dummies,Détruis {target} mannequins
-quest.defeatPlayers,Defeat {target} players,JutsuBattlegrounds,,Defeat {target} players,Vaincs {target} joueurs
-quest.hitJutsus,Hit enemies with {target} jutsus,JutsuBattlegrounds,,Hit enemies with {target} jutsus,Touche des ennemis avec {target} jutsus
-quest.joinBoss,Take part in {target} World Boss fights,JutsuBattlegrounds,,Take part in {target} World Boss fights,Participe à {target} combats de World Boss
-quest.landMelee,Land {target} melee hits,JutsuBattlegrounds,,Land {target} melee hits,Place {target} coups au corps à corps
-quest.playMatches,Play {target} matches,JutsuBattlegrounds,,Play {target} matches,Joue {target} matchs
-quest.progress,{progress} / {target},JutsuBattlegrounds,,{progress} / {target},{progress} / {target}
-quest.reward,"+{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
-quest.useDash,Dash {target} times,JutsuBattlegrounds,,Dash {target} times,Utilise le dash {target} fois
-quest.weekly,Weekly quests,JutsuBattlegrounds,,Weekly quests,Quêtes hebdomadaires
-quest.winMatches,Win {target} matches,JutsuBattlegrounds,,Win {target} matches,Gagne {target} matchs
-queue.alreadyQueued,You are already in a queue.,JutsuBattlegrounds,,You are already in a queue.,Tu es déjà dans une file.
-queue.inMatch,You are already in a match.,JutsuBattlegrounds,,You are already in a match.,Tu es déjà en match.
-queue.join,Join queue,JutsuBattlegrounds,,Join queue,Rejoindre la file
-queue.joined,Queued for {mode}.,JutsuBattlegrounds,,Queued for {mode}.,En file pour {mode}.
-queue.leave,Leave queue,JutsuBattlegrounds,,Leave queue,Quitter la file
-queue.left,You left the queue.,JutsuBattlegrounds,,You left the queue.,Tu as quitté la file.
-queue.searching,Searching… {waited}s,JutsuBattlegrounds,,Searching… {waited}s,Recherche… {waited}s
-queue.teamSize,{size}v{size},JutsuBattlegrounds,,{size}v{size},{size}v{size}
-queue.timedOut,No opponent found. Try again!,JutsuBattlegrounds,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
-queue.title,Play,JutsuBattlegrounds,,Play,Jouer
-queue.waiting,{queued} / {needed} players,JutsuBattlegrounds,,{queued} / {needed} players,{queued} / {needed} joueurs
-rank.blank,Blank,JutsuBattlegrounds,,Blank,Vierge
-rank.codex,Codex,JutsuBattlegrounds,,Codex,Codex
-rank.illumination,Illumination,JutsuBattlegrounds,,Illumination,Enluminure
-rank.script,Script,JutsuBattlegrounds,,Script,Écriture
-rank.sketch,Sketch,JutsuBattlegrounds,,Sketch,Esquisse
-season.rewardGranted,Season reward ({rank}): +{amount} Ryo,JutsuBattlegrounds,,Season reward ({rank}): +{amount} Ryo,Récompense de saison ({rank}) : +{amount} Ryo
-settings.bound,{action} is now {key}. Don't forget to save!,JutsuBattlegrounds,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
-settings.cameraShake,Camera shake,JutsuBattlegrounds,,Camera shake,Secousses de caméra
-settings.captureCancelled,Cancelled.,JutsuBattlegrounds,,Cancelled.,Capture annulée.
-settings.duplicate,{key} is used twice.,JutsuBattlegrounds,,{key} is used twice.,La touche {key} est utilisée deux fois.
-settings.hint,Click a binding to change it.,JutsuBattlegrounds,,Click a binding to change it.,Clique sur une touche pour la changer.
-settings.keyNotAllowed,{key} is not allowed.,JutsuBattlegrounds,,{key} is not allowed.,{key} n'est pas autorisée.
-settings.music,Music volume,JutsuBattlegrounds,,Music volume,Volume musique
-settings.pressKey,Press a key for {action}… (Esc to cancel),JutsuBattlegrounds,,Press a key for {action}… (Esc to cancel),Appuie sur une touche pour {action}… (Échap pour annuler)
-settings.resetPending,Defaults restored. Don't forget to save!,JutsuBattlegrounds,,Defaults restored. Don't forget to save!,Touches par défaut restaurées. N'oublie pas de sauvegarder !
-settings.saveFailed,Could not save settings.,JutsuBattlegrounds,,Could not save settings.,Impossible de sauvegarder les options.
-settings.saved,Settings saved!,JutsuBattlegrounds,,Settings saved!,Options sauvegardées !
-settings.saving,Saving…,JutsuBattlegrounds,,Saving…,Sauvegarde…
-settings.sfx,Effects volume,JutsuBattlegrounds,,Effects volume,Volume effets
-settings.swapped,Swapped {a} and {b}. Don't forget to save!,JutsuBattlegrounds,,Swapped {a} and {b}. Don't forget to save!,{a} et {b} échangés. N'oublie pas de sauvegarder !
-settings.tab.audio,Audio,JutsuBattlegrounds,,Audio,Audio
-settings.tab.gamepad,Gamepad,JutsuBattlegrounds,,Gamepad,Manette
-settings.tab.keyboard,Keyboard,JutsuBattlegrounds,,Keyboard,Clavier
-settings.title,Settings,JutsuBattlegrounds,,Settings,Options
-shop.buyRobux,Buy with Robux,JutsuBattlegrounds,,Buy with Robux,Acheter en Robux
-shop.buyRyo,{price} Ryo,JutsuBattlegrounds,,{price} Ryo,{price} Ryo
-shop.equip,Equip,JutsuBattlegrounds,,Equip,Équiper
-shop.equipped,Equipped,JutsuBattlegrounds,,Equipped,Équipé
-shop.notEnoughRyo,Not enough Ryo.,JutsuBattlegrounds,,Not enough Ryo.,Pas assez de Ryo.
-shop.owned,Owned,JutsuBattlegrounds,,Owned,Possédé
-shop.purchased,Purchased: {name},JutsuBattlegrounds,,Purchased: {name},Acheté : {name}
-shop.rarity.Common,Common,JutsuBattlegrounds,,Common,Commun
-shop.rarity.Epic,Epic,JutsuBattlegrounds,,Epic,Épique
-shop.rarity.Legendary,Legendary,JutsuBattlegrounds,,Legendary,Légendaire
-shop.rarity.Rare,Rare,JutsuBattlegrounds,,Rare,Rare
-shop.rotation,Today's selection,JutsuBattlegrounds,,Today's selection,Sélection du jour
-shop.title,Shop,JutsuBattlegrounds,,Shop,Boutique
-status.conductive,Conductive,JutsuBattlegrounds,,Conductive,Conducteur
-status.fanned,Fanned,JutsuBattlegrounds,,Fanned,Éventé
-status.stoneSkin,Stone Skin,JutsuBattlegrounds,,Stone Skin,Peau de Pierre
+action.block,Block,Vellum,,Block,Garde
+action.block.short,Block,Vellum,,Block,Garde
+action.dash,Dash,Vellum,,Dash,Ruée
+action.dash.short,Dash,Vellum,,Dash,Ruée
+action.melee,Melee,Vellum,,Melee,Corps à corps
+action.melee.short,Melee,Vellum,,Melee,CAC
+action.menu,Menu,Vellum,,Menu,Menu
+action.menu.short,Menu,Vellum,,Menu,Menu
+battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà récupéré.
+battlepass.claim,Claim,Vellum,,Claim,Récupérer
+battlepass.claimed,Claimed,Vellum,,Claimed,Récupéré
+battlepass.completed,Completed!,Vellum,,Completed!,Terminé !
+battlepass.free,Free,Vellum,,Free,Gratuit
+battlepass.notReached,Tier {tier} not reached yet.,Vellum,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
+battlepass.premium,Premium,Vellum,,Premium,Premium
+battlepass.premiumRequired,Premium pass required.,Vellum,,Premium pass required.,Pass premium requis.
+battlepass.reward.cosmetic,Cosmetic: {name},Vellum,,Cosmetic: {name},Cosmétique : {name}
+battlepass.reward.none,No reward,Vellum,,No reward,Aucune récompense
+battlepass.reward.ryo,{amount} Ryo,Vellum,,{amount} Ryo,{amount} Ryo
+battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
+battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
+battlepass.title,Battle Pass — Season {season},Vellum,,Battle Pass — Season {season},Battle Pass — Saison {season}
+battlepass.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
+boss.announced,A World Boss appears in {seconds}s!,Vellum,,A World Boss appears in {seconds}s!,Un boss du monde apparaît dans {seconds}s !
+boss.attack.eruption,Eruption,Vellum,,Eruption,Éruption
+boss.attack.fury,Fury,Vellum,,Fury,Furie
+boss.attack.slam,Slam,Vellum,,Slam,Écrasement
+boss.attack.sweep,Sweep,Vellum,,Sweep,Balayage
+boss.defeated,World Boss defeated!,Vellum,,World Boss defeated!,Boss du monde vaincu !
+boss.expired,The World Boss escaped…,Vellum,,The World Boss escaped…,Le boss du monde s'est échappé…
+boss.health,{health} / {max},Vellum,,{health} / {max},{health} / {max}
+boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche !
+boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
+boss.name,World Boss,Vellum,,World Boss,Boss du monde
+boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}
+boss.reward,"Boss reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Boss reward: +{xp} XP, +{ryo} Ryo","Récompense du boss : +{xp} XP, +{ryo} Ryo"
+boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
+boss.started,The World Boss is here!,Vellum,,The World Boss is here!,Le boss du monde est là !
+boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+common.locked,Locked,Vellum,,Locked,Verrouillé
+common.ok,OK,Vellum,,OK,OK
+common.reset,Reset,Vellum,,Reset,Réinitialiser
+common.save,Save,Vellum,,Save,Sauvegarder
+cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
+cosmetic.AuraCrimson,Crimson Aura,Vellum,,Crimson Aura,Aura Pourpre
+cosmetic.AuraEmber,Ember Aura,Vellum,,Ember Aura,Aura de Braise
+cosmetic.AuraFrost,Frost Aura,Vellum,,Frost Aura,Aura de Givre
+cosmetic.AuraStorm,Storm Aura,Vellum,,Storm Aura,Aura de Tempête
+cosmetic.AuraVoid,Void Aura,Vellum,,Void Aura,Aura du Néant
+cosmetic.BlankHeadband,Blank Headband,Vellum,,Blank Headband,Tranchefile Vierge
+cosmetic.BlueInkAura,Blue Ink Aura,Vellum,,Blue Ink Aura,Aura d'Encre Bleue
+cosmetic.CodexCloak,Codex Cloak,Vellum,,Codex Cloak,Manteau du Codex
+cosmetic.FrisketMask,Frisket Mask,Vellum,,Frisket Mask,Masque de Frisquette
+cosmetic.GoldenInkAura,Golden Ink Aura,Vellum,,Golden Ink Aura,Aura d'Encre Dorée
+cosmetic.KillEffectPetals,Petal Finisher,Vellum,,Petal Finisher,Finisher Pétales
+cosmetic.KillEffectRedaction,Redaction Finisher,Vellum,,Redaction Finisher,Finisher Caviardage
+cosmetic.KillEffectShatter,Shatter Finisher,Vellum,,Shatter Finisher,Finisher Éclat
+cosmetic.KillEffectSupernova,Supernova Finisher,Vellum,,Supernova Finisher,Finisher Supernova
+cosmetic.PalimpsestCape,Palimpsest Cape,Vellum,,Palimpsest Cape,Cape de Palimpseste
+cosmetic.ScribeCloak,Scribe Cloak,Vellum,,Scribe Cloak,Manteau du Scribe
+cosmetic.ScriptoriumRobe,Scriptorium Robe,Vellum,,Scriptorium Robe,Robe du Scriptorium
+cosmetic.SkinBrandAzure,Azure Brand Skin,Vellum,,Azure Brand Skin,Skin Marque Azur
+cosmetic.SkinBrandEmerald,Emerald Brand Skin,Vellum,,Emerald Brand Skin,Skin Marque Émeraude
+cosmetic.SkinRuptureCrystal,Crystal Rupture Skin,Vellum,,Crystal Rupture Skin,Skin Rupture Cristal
+cosmetic.SkinRuptureMagma,Magma Rupture Skin,Vellum,,Magma Rupture Skin,Skin Rupture Magma
+cosmetic.SkinScorchAzure,Azure Scorch Skin,Vellum,,Azure Scorch Skin,Skin Roussi Azur
+cosmetic.SkinSerifObsidian,Obsidian Serif Skin,Vellum,,Obsidian Serif Skin,Skin Empattement Obsidienne
+cosmetic.SkinSweepSilver,Silver Sweep Skin,Vellum,,Silver Sweep Skin,Skin Balayage Argent
+cosmetic.SkinWashJade,Jade Wash Skin,Vellum,,Jade Wash Skin,Skin Lavis Jade
+cosmetic.SteelStylus,Steel Stylus,Vellum,,Steel Stylus,Stylet d'Acier
+cosmetic.TitleCodex,Title: Codex,Vellum,,Title: Codex,Titre : Codex
+cosmetic.TitleCodexSeason,Title: Season Codex,Vellum,,Title: Season Codex,Titre : Codex de la saison
+cosmetic.TitleIllumination,Title: Illumination,Vellum,,Title: Illumination,Titre : Enluminure
+cosmetic.TitleRookie,Title: Rookie,Vellum,,Title: Rookie,Titre : Recrue
+cosmetic.TitleScript,Title: Script,Vellum,,Title: Script,Titre : Écriture
+cosmetic.TitleShadow,Title: Shadow,Vellum,,Title: Shadow,Titre : Ombre
+cosmetic.TitleWanderer,Title: Wanderer,Vellum,,Title: Wanderer,Titre : Vagabond
+cosmetic.TrailEmber,Ember Trail,Vellum,,Ember Trail,Traînée de Braises
+cosmetic.TrailFolio,Folio Trail,Vellum,,Folio Trail,Traînée de Folios
+cosmetic.TrailSand,Sand Trail,Vellum,,Sand Trail,Traînée de Sable
+cosmetic.TrailStorm,Storm Trail,Vellum,,Storm Trail,Traînée de Tempête
+cosmetic.TrailViolet,Violet Trail,Vellum,,Violet Trail,Traînée Violette
+cosmetic.VioletInkAura,Violet Ink Aura,Vellum,,Violet Ink Aura,Aura d'Encre Violette
+cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
+cosmetics.none,None,Vellum,,None,Aucun
+cosmetics.notOwned,You do not own this cosmetic.,Vellum,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
+currency.ryo,Ryo,Vellum,,Ryo,Ryo
+daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
+daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
+daily.firstWin,"First win of the day! +{xp} XP, +{ryo} Ryo",Vellum,,"First win of the day! +{xp} XP, +{ryo} Ryo","Première victoire du jour ! +{xp} XP, +{ryo} Ryo"
+daily.premium,"Premium bonus: +{xp} XP, +{ryo} Ryo",Vellum,,"Premium bonus: +{xp} XP, +{ryo} Ryo","Bonus Premium : +{xp} XP, +{ryo} Ryo"
+daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
+daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
+glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
+glyph.Binding.name,Binding,Vellum,,Binding,Reliure
+glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,Vellum,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
+glyph.Bleed.name,Bleed,Vellum,,Bleed,Bavure
+glyph.Blot.desc,Calls down a blazing rock that shatters guards where it lands.,Vellum,,Calls down a blazing rock that shatters guards where it lands.,Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.
+glyph.Blot.name,Blot,Vellum,,Blot,Pâté
+glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,Vellum,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
+glyph.Brand.name,Brand,Vellum,,Brand,Marque
+glyph.Caret.desc,"Blink forward in a flash, untouchable for an instant.",Vellum,,"Blink forward in a flash, untouchable for an instant.","Disparais vers l'avant dans un éclair, intouchable un instant."
+glyph.Caret.name,Caret,Vellum,,Caret,Insertion
+glyph.Colophon.desc,The thunder god's wrath arcs from enemy to enemy.,Vellum,,The thunder god's wrath arcs from enemy to enemy.,La colère du dieu du tonnerre bondit d'ennemi en ennemi.
+glyph.Colophon.name,Colophon,Vellum,,Colophon,Colophon
+glyph.Gilding.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,Vellum,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
+glyph.Gilding.name,Gilding,Vellum,,Gilding,Dorure
+glyph.Hairline.desc,Throws a blade of wind that fans its target for your next fire glyph.,Vellum,,Throws a blade of wind that fans its target for your next fire glyph.,Trace un délié qui évente sa cible pour ton prochain glyphe de Cinabre.
+glyph.Hairline.name,Hairline,Vellum,,Hairline,Délié
+glyph.Ligature.desc,A short dash that leaves a burning trail behind you.,Vellum,,A short dash that leaves a burning trail behind you.,Une ruée courte qui laisse une traînée brûlante derrière toi.
+glyph.Ligature.name,Ligature,Vellum,,Ligature,Ligature
+glyph.Margin.desc,Raises a defensive wall of mud in front of you.,Vellum,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
+glyph.Margin.name,Margin,Vellum,,Margin,Marge
+glyph.Pounce.desc,A storm of sand that blinds and slows everyone inside it.,Vellum,,A storm of sand that blinds and slows everyone inside it.,Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.
+glyph.Pounce.name,Pounce,Vellum,,Pounce,Poncif
+glyph.Rupture.desc,Slam the ground: a massive shockwave launches enemies.,Vellum,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
+glyph.Rupture.name,Rupture,Vellum,,Rupture,Rupture
+glyph.Scorch.desc,A ring of embers whirls around you and burns everything.,Vellum,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
+glyph.Scorch.name,Scorch,Vellum,,Scorch,Roussi
+glyph.Serif.desc,Rock spikes burst from the ground in a straight line.,Vellum,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
+glyph.Serif.name,Serif,Vellum,,Serif,Empattement
+glyph.Spiral.desc,A whirlwind that drags everyone caught in it toward its centre.,Vellum,,A whirlwind that drags everyone caught in it toward its centre.,Une tornade qui attire vers son centre tout ce qu'elle happe.
+glyph.Spiral.name,Spiral,Vellum,,Spiral,Spirale
+glyph.Stipple.desc,Spits a fast bullet of mud that slows whoever it hits.,Vellum,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
+glyph.Stipple.name,Stipple,Vellum,,Stipple,Pointillé
+glyph.Strike.desc,An instant bolt that strikes the first enemy in your line of sight.,Vellum,,An instant bolt that strikes the first enemy in your line of sight.,Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.
+glyph.Strike.name,Strike,Vellum,,Strike,Rature
+glyph.Sweep.desc,A cone of wind violently pushes nearby enemies back.,Vellum,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
+glyph.Sweep.name,Sweep,Vellum,,Sweep,Balayage
+glyph.Wash.desc,A wave surges forward and sweeps enemies away.,Vellum,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
+glyph.Wash.name,Wash,Vellum,,Wash,Lavis
+glyph.Watermark.desc,A crackling field that shocks and locks up anyone standing in it.,Vellum,,A crackling field that shocks and locks up anyone standing in it.,Un champ crépitant qui électrise et bloque ceux qui s'y attardent.
+glyph.Watermark.name,Watermark,Vellum,,Watermark,Filigrane
+hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
+hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
+hud.cast.failed,{name} failed,Vellum,,{name} failed,{name} a échoué
+hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
+hud.cast.notEnoughInk,Not enough ink,Vellum,,Not enough ink,Plus d'encre
+hud.cast.notEquipped,{name} is not in your loadout,Vellum,,{name} is not in your loadout,{name} n'est pas dans ton équipement
+hud.cast.success,{name}!,Vellum,,{name}!,{name} !
+hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
+hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
+hud.currency,{amount} {currency},Vellum,,{amount} {currency},{amount} {currency}
+hud.health,Health,Vellum,,Health,Vie
+hud.hint.gamepad,{menu} = Menu,Vellum,,{menu} = Menu,{menu} = Menu
+hud.hint.keyboard,{menu} = Menu,Vellum,,{menu} = Menu,{menu} = Menu
+hud.ink,Ink,Vellum,,Ink,Encre
+hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
+hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
+hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
+hud.status.bonus,{status}: +{percent}% damage,Vellum,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
+hud.tierUp,Battle pass tier {tier} unlocked!,Vellum,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
+kick.abuse,Disconnected: too many invalid requests.,Vellum,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
+kick.loadFailed,Could not load your data. Please try again in a minute.,Vellum,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
+kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,Vellum,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
+leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
+leaderboard.board.Global,Global,Vellum,,Global,Global
+leaderboard.board.Team3v3,3v3,Vellum,,3v3,3v3
+leaderboard.empty,No ranked player yet.,Vellum,,No ranked player yet.,Aucun joueur classé pour l'instant.
+leaderboard.rating,{rating},Vellum,,{rating},{rating}
+leaderboard.row,#{rank}  {name},Vellum,,#{rank}  {name},#{rank}  {name}
+leaderboard.title,Leaderboard,Vellum,,Leaderboard,Classement
+leaderboard.unranked,Unranked — play a ranked match,Vellum,,Unranked — play a ranked match,Non classé — joue un match classé
+leaderboard.you,You: #{rank} ({rating}),Vellum,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
+leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the top {count},Toi : hors du top {count}
+level.max,Max level,Vellum,,Max level,Niveau max
+level.title,Level {level},Vellum,,Level {level},Niveau {level}
+level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
+loadout.combo,Combo: {combo},Vellum,,Combo: {combo},Combo : {combo}
+loadout.equip,Equip,Vellum,,Equip,Équiper
+loadout.equipped,Equipped,Vellum,,Equipped,Équipé
+loadout.full,Every slot is taken.,Vellum,,Every slot is taken.,Tous les slots sont pris.
+loadout.invalid,Invalid loadout.,Vellum,,Invalid loadout.,Équipement invalide.
+loadout.locked,Unlocks at level {level},Vellum,,Unlocks at level {level},Se débloque au niveau {level}
+loadout.lockedPigment,Requires the {pigment} pigment,Vellum,,Requires the {pigment} pigment,Nécessite le pigment {pigment}
+loadout.saved,Loadout saved!,Vellum,,Loadout saved!,Équipement sauvegardé !
+loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} slots
+loadout.stats,{damage} damage · {cost} ink · {cooldown}s,Vellum,,{damage} damage · {cost} ink · {cooldown}s,{damage} dégâts · {cost} encre · {cooldown}s
+loadout.title,Loadout,Vellum,,Loadout,Équipement
+loadout.unequip,Unequip,Vellum,,Unequip,Retirer
+match.countdown,{seconds},Vellum,,{seconds},{seconds}
+match.defeat,Defeat,Vellum,,Defeat,Défaite
+match.draw,Draw,Vellum,,Draw,Égalité
+match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
+match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversaire est parti.
+match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
+match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
+match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
+match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
+match.rewards,"+{xp} XP, +{ryo} Ryo",Vellum,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+match.round,Round {round} / {total},Vellum,,Round {round} / {total},Manche {round} / {total}
+match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
+match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
+match.score,{ours} - {theirs},Vellum,,{ours} - {theirs},{ours} - {theirs}
+match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
+match.victory,Victory!,Vellum,,Victory!,Victoire !
+menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
+menu.loadout,Loadout,Vellum,,Loadout,Équipement
+menu.quests,Quests,Vellum,,Quests,Quêtes
+menu.settings,Settings,Vellum,,Settings,Options
+menu.shop,Shop,Vellum,,Shop,Boutique
+menu.title,Menu,Vellum,,Menu,Menu
+mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
+mode.team3v3,Team 3v3,Vellum,,Team 3v3,3v3 en équipe
+pass.loadoutSlots,Loadout Slots,Vellum,,Loadout Slots,Slots d'équipement
+pass.loadoutSlots.desc,+4 loadout slots (10 in total).,Vellum,,+4 loadout slots (10 in total).,+4 slots d'équipement (10 au total).
+pass.orpiment,Orpiment Pigment,Vellum,,Orpiment Pigment,Pigment Orpiment
+pass.orpiment.desc,Unlock Orpiment right away (or reach level {level} for free).,Vellum,,Unlock Orpiment right away (or reach level {level} for free).,Débloque l'Orpiment tout de suite (ou atteins le niveau {level} gratuitement).
+pass.skinPack,Skin Pack,Vellum,,Skin Pack,Pack de skins
+pass.skinPack.desc,"Four glyph skins, one per base pigment.",Vellum,,"Four glyph skins, one per base pigment.","Quatre skins de glyphe, un par pigment de base."
+pass.vip,VIP,Vellum,,VIP,VIP
+pass.vip.desc,"Double XP, +50% Ryo, chat tag and an exclusive aura.",Vellum,,"Double XP, +50% Ryo, chat tag and an exclusive aura.","XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive."
+pigment.cinnabar,Cinnabar,Vellum,,Cinnabar,Cinabre
+pigment.indigo,Indigo,Vellum,,Indigo,Indigo
+pigment.orpiment,Orpiment,Vellum,,Orpiment,Orpiment
+pigment.umber,Umber,Vellum,,Umber,Terre d'Ombre
+pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
+product.cosmetic,Cosmetic,Vellum,,Cosmetic,Cosmétique
+product.cosmetic.desc,Buy the selected cosmetic with Robux.,Vellum,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
+product.premiumPass,Premium Battle Pass,Vellum,,Premium Battle Pass,Battle Pass Premium
+product.premiumPass.desc,Unlock the premium track of the current season.,Vellum,,Unlock the premium track of the current season.,Débloque la piste premium de la saison en cours.
+product.ryo.desc,Ryo to spend in the cosmetic shop.,Vellum,,Ryo to spend in the cosmetic shop.,Des Ryo à dépenser dans la boutique de cosmétiques.
+product.ryoLarge,"8,000 Ryo",Vellum,,"8,000 Ryo",8 000 Ryo
+product.ryoMedium,"3,500 Ryo",Vellum,,"3,500 Ryo",3 500 Ryo
+product.ryoSmall,"1,000 Ryo",Vellum,,"1,000 Ryo",1 000 Ryo
+product.tierSkip5,+5 Tiers,Vellum,,+5 Tiers,+5 paliers
+product.tierSkip5.desc,Advance five battle pass tiers.,Vellum,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
+product.xpBoost1h,XP Boost (1 h),Vellum,,XP Boost (1 h),Boost d'XP (1 h)
+product.xpBoost1h.desc,Double XP for one hour.,Vellum,,Double XP for one hour.,XP doublée pendant une heure.
+purchase.alreadyOwned,You already own this.,Vellum,,You already own this.,Tu possèdes déjà cet article.
+purchase.boostActive,XP boost active for {minutes} min,Vellum,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
+purchase.failed,The purchase could not be completed.,Vellum,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
+purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Achat terminé : {name}
+purchase.grantedRyoInstead,You own every item of that rarity: +{amount} Ryo instead,Vellum,,You own every item of that rarity: +{amount} Ryo instead,Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place
+purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
+purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
+purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
+purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
+quest.castGlyphs,Cast {target} glyphs,Vellum,,Cast {target} glyphs,Trace {target} glyphes
+quest.claim,Claim,Vellum,,Claim,Récupérer
+quest.claimed,Claimed,Vellum,,Claimed,Récupérée
+quest.completed,Quest completed: {name},Vellum,,Quest completed: {name},Quête terminée : {name}
+quest.daily,Daily quests,Vellum,,Daily quests,Quêtes journalières
+quest.dealDamage,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégâts
+quest.defeatDummies,Defeat {target} training dummies,Vellum,,Defeat {target} training dummies,Détruis {target} mannequins
+quest.defeatPlayers,Defeat {target} players,Vellum,,Defeat {target} players,Vaincs {target} joueurs
+quest.hitGlyphs,Hit enemies with {target} glyphs,Vellum,,Hit enemies with {target} glyphs,Touche des ennemis avec {target} glyphes
+quest.joinBoss,Take part in {target} World Boss fights,Vellum,,Take part in {target} World Boss fights,Participe à {target} combats de World Boss
+quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
+quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
+quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
+quest.reward,"+{xp} XP, +{ryo} Ryo",Vellum,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
+quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
+quest.winMatches,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
+queue.alreadyQueued,You are already in a queue.,Vellum,,You are already in a queue.,Tu es déjà dans une file.
+queue.inMatch,You are already in a match.,Vellum,,You are already in a match.,Tu es déjà en match.
+queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
+queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.
+queue.leave,Leave queue,Vellum,,Leave queue,Quitter la file
+queue.left,You left the queue.,Vellum,,You left the queue.,Tu as quitté la file.
+queue.searching,Searching… {waited}s,Vellum,,Searching… {waited}s,Recherche… {waited}s
+queue.teamSize,{size}v{size},Vellum,,{size}v{size},{size}v{size}
+queue.timedOut,No opponent found. Try again!,Vellum,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
+queue.title,Play,Vellum,,Play,Jouer
+queue.waiting,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
+rank.blank,Blank,Vellum,,Blank,Vierge
+rank.codex,Codex,Vellum,,Codex,Codex
+rank.illumination,Illumination,Vellum,,Illumination,Enluminure
+rank.script,Script,Vellum,,Script,Écriture
+rank.sketch,Sketch,Vellum,,Sketch,Esquisse
+season.rewardGranted,Season reward ({rank}): +{amount} Ryo,Vellum,,Season reward ({rank}): +{amount} Ryo,Récompense de saison ({rank}) : +{amount} Ryo
+settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
+settings.cameraShake,Camera shake,Vellum,,Camera shake,Secousses de caméra
+settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.
+settings.duplicate,{key} is used twice.,Vellum,,{key} is used twice.,La touche {key} est utilisée deux fois.
+settings.hint,Click a binding to change it.,Vellum,,Click a binding to change it.,Clique sur une touche pour la changer.
+settings.keyNotAllowed,{key} is not allowed.,Vellum,,{key} is not allowed.,{key} n'est pas autorisée.
+settings.music,Music volume,Vellum,,Music volume,Volume musique
+settings.pressKey,Press a key for {action}… (Esc to cancel),Vellum,,Press a key for {action}… (Esc to cancel),Appuie sur une touche pour {action}… (Échap pour annuler)
+settings.resetPending,Defaults restored. Don't forget to save!,Vellum,,Defaults restored. Don't forget to save!,Touches par défaut restaurées. N'oublie pas de sauvegarder !
+settings.saveFailed,Could not save settings.,Vellum,,Could not save settings.,Impossible de sauvegarder les options.
+settings.saved,Settings saved!,Vellum,,Settings saved!,Options sauvegardées !
+settings.saving,Saving…,Vellum,,Saving…,Sauvegarde…
+settings.sfx,Effects volume,Vellum,,Effects volume,Volume effets
+settings.swapped,Swapped {a} and {b}. Don't forget to save!,Vellum,,Swapped {a} and {b}. Don't forget to save!,{a} et {b} échangés. N'oublie pas de sauvegarder !
+settings.tab.audio,Audio,Vellum,,Audio,Audio
+settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
+settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
+settings.title,Settings,Vellum,,Settings,Options
+shop.buyRobux,Buy with Robux,Vellum,,Buy with Robux,Acheter en Robux
+shop.buyRyo,{price} Ryo,Vellum,,{price} Ryo,{price} Ryo
+shop.equip,Equip,Vellum,,Equip,Équiper
+shop.equipped,Equipped,Vellum,,Equipped,Équipé
+shop.notEnoughRyo,Not enough Ryo.,Vellum,,Not enough Ryo.,Pas assez de Ryo.
+shop.owned,Owned,Vellum,,Owned,Possédé
+shop.purchased,Purchased: {name},Vellum,,Purchased: {name},Acheté : {name}
+shop.rarity.Common,Common,Vellum,,Common,Commun
+shop.rarity.Epic,Epic,Vellum,,Epic,Épique
+shop.rarity.Legendary,Legendary,Vellum,,Legendary,Légendaire
+shop.rarity.Rare,Rare,Vellum,,Rare,Rare
+shop.rotation,Today's selection,Vellum,,Today's selection,Sélection du jour
+shop.title,Shop,Vellum,,Shop,Boutique
+status.conductive,Conductive,Vellum,,Conductive,Conducteur
+status.fanned,Fanned,Vellum,,Fanned,Éventé
+status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre

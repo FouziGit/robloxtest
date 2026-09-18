@@ -27,7 +27,7 @@ type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type Deps = { Registry: Registry }
 type TroveType = typeof(Trove.new())
 
--- One live slow source (guard, a jutsu id). Sources never merge: see recomputeSlow.
+-- One live slow source (guard, a glyph id). Sources never merge: see recomputeSlow.
 type SlowEntry = { Factor: number, Until: number }
 
 type State = {
@@ -241,9 +241,9 @@ local function onHeartbeat(deltaTime: number)
 	end
 end
 
--- Multiplies WalkSpeed by `factor` (0..1) for `seconds`, under the source `key` ("Block", a jutsu
+-- Multiplies WalkSpeed by `factor` (0..1) for `seconds`, under the source `key` ("Block", a glyph
 -- id). Re-applying the same key keeps its strongest factor and latest expiry; different keys stay
--- independent so clearing one (guard release) never cleanses another (a jutsu slow).
+-- independent so clearing one (guard release) never cleanses another (a glyph slow).
 function MovementService.applySlow(player: Player, key: string, factor: number, seconds: number)
 	if type(key) ~= "string" or key == "" then
 		log.warn("applySlow rejected for %s: invalid key %s", player.Name, tostring(key))

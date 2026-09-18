@@ -32,7 +32,7 @@ function Localize.resolveParams(params: Params?): Params?
 	for name, value in pairs(params) do
 		if type(value) == "string" and Strings.has(value) then
 			-- Pass the surrounding params through: a nested key such as a quest name carries its own
-			-- placeholders ("Cast {target} jutsus"), filled from the same payload.
+			-- placeholders ("Cast {target} glyphs"), filled from the same payload.
 			resolved[name] = Strings.t(value, params, currentLocale)
 		else
 			resolved[name] = value

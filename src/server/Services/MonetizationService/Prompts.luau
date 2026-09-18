@@ -39,12 +39,12 @@ local OFFERS: { [string]: Offer } = {
 	CloseLoss = { Kind = "Product", Key = "XpBoost1h", CooldownSeconds = Rules.CloseLossCooldownSeconds },
 	-- Premium reward the player just reached but cannot claim (battle pass screen only).
 	PassTierLocked = { Kind = "Product", Key = "PremiumPass" },
-	-- Killed by a Lightning user, once per session and never to a beginner.
-	LightningDeath = {
+	-- Killed by a Orpiment user, once per session and never to a beginner.
+	OrpimentDeath = {
 		Kind = "Pass",
 		Key = "Orpiment",
-		MinLevel = Rules.LightningDeathMinLevel,
-		PerSession = Rules.LightningDeathPerSession,
+		MinLevel = Rules.OrpimentDeathMinLevel,
+		PerSession = Rules.OrpimentDeathPerSession,
 	},
 	-- Every loadout slot taken (loadout screen only).
 	LoadoutFull = { Kind = "Pass", Key = "LoadoutSlots" },

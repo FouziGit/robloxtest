@@ -1,5 +1,5 @@
 --!strict
--- Combo resolver: turns a sequence of element presses into a cast / wait / reset decision.
+-- Combo resolver: turns a sequence of pigment presses into a cast / wait / reset decision.
 -- Pure module (no requires, no Roblox globals). Used by the client controller and by the server
 -- to validate that a submitted sequence is a real recipe. Tested under Lune.
 --
@@ -14,14 +14,14 @@
 export type Recipe = { Id: string, Combo: { string } }
 
 export type Resolver = {
-	byKey: { [string]: string }, -- combo key -> jutsu id
+	byKey: { [string]: string }, -- combo key -> glyph id
 	prefixes: { [string]: boolean }, -- keys that are strict prefixes of some recipe
 	maxLength: number,
 	duplicates: { string }, -- combo keys defined by more than one recipe (first wins)
 }
 
 export type Decision =
-	{ Action: "Cast", JutsuId: string }
+	{ Action: "Cast", GlyphId: string }
 	| { Action: "Wait", Castable: boolean }
 	| { Action: "Reset", Reason: "NoMatch" | "TooLong" | "Dissipated" | "Empty" }
 
@@ -48,25 +48,25 @@ function ComboResolver.new(recipes: { Recipe }, maxLength: number): Resolver
 end
 
 -- Returns the updated sequence and the decision for it.
-function ComboResolver.push(resolver: Resolver, sequence: { string }, element: string): ({ string }, Decision)
+function ComboResolver.push(resolver: Resolver, sequence: { string }, pigment: string): ({ string }, Decision)
 	local next = table.clone(sequence)
-	table.insert(next, element)
+	table.insert(next, pigment)
 
 	if #next > resolver.maxLength then
 		return {}, { Action = "Reset", Reason = "TooLong" }
 	end
 
 	local key = ComboResolver.keyFor(next)
-	local jutsuId = resolver.byKey[key]
+	local glyphId = resolver.byKey[key]
 	local isPrefix = resolver.prefixes[key] == true
 
-	if jutsuId ~= nil and not isPrefix then
-		return {}, { Action = "Cast", JutsuId = jutsuId }
+	if glyphId ~= nil and not isPrefix then
+		return {}, { Action = "Cast", GlyphId = glyphId }
 	end
-	if jutsuId == nil and not isPrefix then
+	if glyphId == nil and not isPrefix then
 		return {}, { Action = "Reset", Reason = "NoMatch" }
 	end
-	return next, { Action = "Wait", Castable = jutsuId ~= nil }
+	return next, { Action = "Wait", Castable = glyphId ~= nil }
 end
 
 -- Called when the inactivity timeout elapses with `sequence` still pending.
@@ -74,9 +74,9 @@ function ComboResolver.timeout(resolver: Resolver, sequence: { string }): Decisi
 	if #sequence == 0 then
 		return { Action = "Reset", Reason = "Empty" }
 	end
-	local jutsuId = resolver.byKey[ComboResolver.keyFor(sequence)]
-	if jutsuId ~= nil then
-		return { Action = "Cast", JutsuId = jutsuId }
+	local glyphId = resolver.byKey[ComboResolver.keyFor(sequence)]
+	if glyphId ~= nil then
+		return { Action = "Cast", GlyphId = glyphId }
 	end
 	return { Action = "Reset", Reason = "Dissipated" }
 end

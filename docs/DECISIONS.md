@@ -29,20 +29,20 @@ Pas de Jest-Lua ni TestEZ. `tests/harness.luau` fournit `describe / it / expect`
 Raison : les paquets Wally (TestEZ, Jest-Lua, Promise…) utilisent `require(script.Parent…)` et ne se chargent pas sous Lune sans darklua ; un harnais de 150 lignes évite une chaîne de build supplémentaire. Vérifié : `lune run` + `require("../src/…")` fonctionne (probe du 2026-09-16).
 
 **D-17 — Les statuts de combat sont des attributs de Humanoid avec leur propre expiration** · Phase 2
-`Fanned`, `Conductive` et `StoneSkin` sont écrits par `CombatService` comme attributs portant un horodatage `os.clock` serveur, relus paresseusement dans `ApplyDamage` (aucun ticker, aucune boucle par joueur) et effacés à la réapparition. L'ordre est : marque élémentaire → réduction StoneSkin → garde, avec un seul arrondi final.
+`Fanned`, `Conductive` et `Gilding` sont écrits par `CombatService` comme attributs portant un horodatage `os.clock` serveur, relus paresseusement dans `ApplyDamage` (aucun ticker, aucune boucle par joueur) et effacés à la réapparition. L'ordre est : marque de pigment → réduction Gilding → garde, avec un seul arrondi final.
 Raison : une file de timers par statut et par joueur coûterait plus cher que la lecture ponctuelle, et les attributs sont lisibles par le client pour l'affichage. Attention : la valeur est une horloge serveur, jamais comparable à `os.clock()` côté client.
 
-**D-18 — Prison d'Eau immobilise par un ralentissement à 0, pas par un stun** · Phase 2
-`WaterPrison` applique `applySlow(Def.Id, 0, 1.5)` au lieu de `applyStun`.
-Raison : la cible reste capable de lancer un jutsu et de se défendre — c'est un contrôle de position, pas un silence ; un stun de 1,5 s serait au-dessus du budget d'étourdissement du genre.
+**D-18 — Reliure immobilise par un ralentissement à 0, pas par un stun** · Phase 2
+`Binding` applique `applySlow(Def.Id, 0, 1.5)` au lieu de `applyStun`.
+Raison : la cible reste capable de lancer un glyph et de se défendre — c'est un contrôle de position, pas un silence ; un stun de 1,5 s serait au-dessus du budget d'étourdissement du genre.
 
-**D-19 — LightningStep téléporte côté serveur après validation par raycast** · Phase 2
+**D-19 — Caret téléporte côté serveur après validation par raycast** · Phase 2
 Le serveur lance un rayon sur `Def.Range`, recule de `WallBackoffStuds`, vérifie `ClearanceRadius` et raccroche au sol sur `GroundSnapStuds`, puis écrit le pivot du personnage. `MovementCommand` n'a pas de type « Teleport ».
 Raison : un déplacement instantané confié au client serait un téléport arbitraire ; la validation serveur garantit qu'on ne traverse ni mur ni vide, et le pivot écrit une seule fois est immédiatement répliqué.
 
 **D-20 — Une manche redémarre sur un personnage neuf** · Phase 4
 `MatchService` fait `LoadCharacterAsync` entre les manches plutôt que de réinitialiser l'état de combat en place.
-Raison : `CombatService` n'expose pas de remise à zéro complète (chakra, statuts, mémoire d'i-frames, protection de spawn) ; recharger le personnage réutilise le chemin `CharacterAdded` déjà testé et garantit qu'aucun statut ne fuit d'une manche à l'autre.
+Raison : `CombatService` n'expose pas de remise à zéro complète (encre, statuts, mémoire d'i-frames, protection de spawn) ; recharger le personnage réutilise le chemin `CharacterAdded` déjà testé et garantit qu'aucun statut ne fuit d'une manche à l'autre.
 
 **D-21 — Le PvP du hub est désactivé dès qu'un match existe** · Phase 4
 `MatchService.setPolicy` remplace la policy par défaut : seuls les participants d'un même match se blessent. Les joueurs du hub ne peuvent donc plus se frapper entre eux (les mannequins restent frappables).
@@ -80,13 +80,13 @@ Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance
 Plus de sprint/endurance côté client : le kit V2 (M1, dash avec i-frames, garde) le remplace ; la vitesse de marche est fixée par le serveur (`MovementService`).
 Raison : le sprint client-autoritaire était l'exploit n°1 de l'audit et n'existe pas dans le genre battlegrounds ; le dash apporte la mobilité attendue sans laisser le client écrire `WalkSpeed`.
 
-**D-9 — Les effets de jutsus sont livrés directement dans l'architecture cible** · Phase 1
-Le serveur ne fait que la détection de coups (overlaps / raycasts pas à pas / parts de collision invisibles) et diffuse des paquets `Vfx` ; chaque client rend via `VfxLibrary`. Le chakra (`CombatConfig`) est introduit en même temps.
+**D-9 — Les effets de glyphes sont livrés directement dans l'architecture cible** · Phase 1
+Le serveur ne fait que la détection de coups (overlaps / raycasts pas à pas / parts de collision invisibles) et diffuse des paquets `Vfx` ; chaque client rend via `VfxLibrary`. Le encre (`CombatConfig`) est introduit en même temps.
 Raison : réécrire les effets deux fois (Parts serveur en Phase 1 puis client en Phase 2) aurait doublé le travail sans valeur intermédiaire ; le plan Phase 1/2 est fusionné sur ce point.
 
 **D-10 — Dash et knockback appliqués par le client propriétaire de la physique** · Phase 1
-Le serveur décide (cooldown, chakra, i-frames, cible) puis envoie `MovementCommand` ; le client applique la vitesse sur son `HumanoidRootPart`.
-Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur : il valide, débite le chakra, arme la recharge et envoie l'ordre. Le déplacement qu'il demande est ajouté à la provision de trajet du joueur (D-32), donc un dash légitime ne ressemble jamais à une téléportation.
+Le serveur décide (cooldown, encre, i-frames, cible) puis envoie `MovementCommand` ; le client applique la vitesse sur son `HumanoidRootPart`.
+Raison : sur Roblox, le personnage est simulé par le client propriétaire : une vitesse écrite par le serveur est écrasée en une frame (constat de l'audit). La décision reste serveur : il valide, débite le encre, arme la recharge et envoie l'ordre. Le déplacement qu'il demande est ajouté à la provision de trajet du joueur (D-32), donc un dash légitime ne ressemble jamais à une téléportation.
 
 **D-11 — Touches par défaut J / K / L / H / U, menu M, garde F, dash Maj gauche** · Phase 1
 `InputConfig.DefaultKeyboard` évite WASD (QWERTY), ZQSD (AZERTY), Espace, Tab, Échap, I/O (zoom) et les chiffres (backpack) ; la liste blanche de rebind exclut ces mêmes touches.
@@ -98,11 +98,11 @@ Raison : aucune action GitHub officielle maintenue par rojo-rbx ; le script est 
 
 **D-13 — Les i-frames du dash sont accordées sur la seule décision serveur** · Phase 1
 Le serveur accorde 0,25 s d'invulnérabilité au moment où il valide le dash, sans observer le déplacement (le personnage est simulé par le client propriétaire, D-10). Un client qui ignore `MovementCommand` garde donc les i-frames sans bouger.
-Raison : le déplacement du dash lui-même n'est pas observable (D-10), donc ce qui borne l'esquive est son coût en chakra et sa recharge. En revanche l'**origine** de chaque attaque est désormais validée (D-32) : un client qui ignore `MovementCommand` garde ses i-frames sans bouger, mais il ne peut plus frapper depuis une position que le serveur n'a pas crue.
+Raison : le déplacement du dash lui-même n'est pas observable (D-10), donc ce qui borne l'esquive est son coût en encre et sa recharge. En revanche l'**origine** de chaque attaque est désormais validée (D-32) : un client qui ignore `MovementCommand` garde ses i-frames sans bouger, mais il ne peut plus frapper depuis une position que le serveur n'a pas crue.
 
 **D-14 — Les ralentissements sont indexés par clé** · Phase 1
-`MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque jutsu utilise son `Id`.
-Raison : une seule valeur globale permettait de « nettoyer » le ralentissement d'un jutsu adverse en tapant la garde une fraction de seconde.
+`MovementService.applySlow(player, key, factor, seconds)` / `clearSlow(player, key?)` : le facteur effectif est le minimum des entrées vivantes. La garde utilise la clé `"Block"`, chaque glyph utilise son `Id`.
+Raison : une seule valeur globale permettait de « nettoyer » le ralentissement d'un glyph adverse en tapant la garde une fraction de seconde.
 
 **D-15 — La zone sûre du hub est symétrique** · Phase 1
 Un joueur à l'intérieur de la zone sûre ne peut ni subir ni infliger de dégâts PvP (avant : il était seulement protégé).
@@ -138,7 +138,7 @@ Raison : D-26 existe pour les sections qui portent un effet de bord (un signal, 
 
 Seul l'horizontal est jugé : la vitesse verticale est celle de la gravité et n'a pas de plafond (une chute depuis une arène à 900 studs dépasse plusieurs centaines de studs par seconde), alors que ce qu'il faut borner est le repositionnement sur une cible. Le plafond borne le déplacement **non assisté** (marche 16, poussée du boss 18), parce que chaque élan décidé par le serveur ajoute sa propre distance via `CombatService.grantMovement`, seule porte pour tout déplacement. Les téléportations serveur passent la destination choisie à `resyncPosition`, jamais la position relue du client.
 
-Raison : le personnage est simulé par le client propriétaire, donc `root.CFrame` valait ce que le client voulait. Il suffisait de se placer sur l'adversaire, d'envoyer `CombatAction("Melee")` et de revenir pour poser tout le combo depuis n'importe où dans l'arène. La config qui devait borner cela existait depuis la Phase 1 et n'était lue par personne. Le recalage plutôt que le rejet est délibéré : il annule le gain de la triche sans punir une mauvaise connexion, et l'éjection est réservée aux actions choisies, parce qu'une chute dépasse tout plafond et aurait éjecté des joueurs honnêtes. Chaque clause ci-dessus vient d'un défaut que la relecture adversariale a tracé de bout en bout sur la première version : `LightningStep` faisait certifier par le serveur une position falsifiée, la provision était re-accordée à chaque échantillon (plafond réel : le triple), le compteur de violations était remis à zéro par l'échantillonnage, et une coupure réseau faisait écrêter le rattrapage d'un joueur honnête.
+Raison : le personnage est simulé par le client propriétaire, donc `root.CFrame` valait ce que le client voulait. Il suffisait de se placer sur l'adversaire, d'envoyer `CombatAction("Melee")` et de revenir pour poser tout le combo depuis n'importe où dans l'arène. La config qui devait borner cela existait depuis la Phase 1 et n'était lue par personne. Le recalage plutôt que le rejet est délibéré : il annule le gain de la triche sans punir une mauvaise connexion, et l'éjection est réservée aux actions choisies, parce qu'une chute dépasse tout plafond et aurait éjecté des joueurs honnêtes. Chaque clause ci-dessus vient d'un défaut que la relecture adversariale a tracé de bout en bout sur la première version : `Caret` faisait certifier par le serveur une position falsifiée, la provision était re-accordée à chaque échantillon (plafond réel : le triple), le compteur de violations était remis à zéro par l'échantillonnage, et une coupure réseau faisait écrêter le rattrapage d'un joueur honnête.
 
 **D-33 — Un abandon en classé est débité à la sortie, via `DataService.BeforeRelease`** · Phase 8
 `DataService` émet `BeforeRelease` pendant que le profil du partant est encore chargé ; `MatchService` y débite le forfait avec le même calcul Elo qu'une défaite réelle, et `applyResult` saute ensuite ce joueur. `RankingService` mémorise par session la dernière note vue pour chaque identifiant, donc l'équipe adverse est notée contre l'adversaire réel et non contre un débutant.
@@ -154,7 +154,7 @@ Raison : le code relevait le survivant à `RoundsToWin` sans condition, ce qui t
 Raison : les trois déclaraient le même ancrage et la même position. Le toast de manche gagnée masquait la manche, le score et le compte à rebours dans chaque match classé, et pendant un événement le bandeau du boss (420 px) recouvrait celui du match (360 px). Deux `ScreenGui` de même `DisplayOrder` n'ont pas d'ordre de dessin défini.
 
 **D-36 — La régénération intègre le temps réel écoulé** · Phase 8
-Chakra et vie multipliaient leur taux par la durée nominale du tick. Elles multiplient maintenant par l'intervalle réellement écoulé depuis le tick précédent.
+Ink et vie multipliaient leur taux par la durée nominale du tick. Elles multiplient maintenant par l'intervalle réellement écoulé depuis le tick précédent.
 Raison : l'accumulateur ne déclenche qu'un tick par image et jette le reste, donc sous la fréquence configurée le jeu versait silencieusement moins que ce que la config promet. Les taux sont par seconde : intégrer sur l'intervalle réel les rend indépendants du nombre d'images par seconde.
 
 **D-37 — Une sauvegarde forcée n'est confirmée que si l'écriture contient la mutation** · Phase 8
@@ -163,7 +163,7 @@ Raison : ProfileStore sérialise la charge utile **dans** la transformation `Upd
 
 **D-38 — La file de toasts a son propre calque, au-dessus de tous les écrans** · Phase 8
 `Theme.Layers.Toast` (50) est au-dessus de `Result` (40), et `HudController` crée un `ScreenGui` dédié pour la file.
-Raison : nommer les ordres de dessin (D-35) a placé chaque écran de menu au-dessus du HUD de façon déterministe, et la file de toasts vivait dans le HUD. Or c'est la seule surface qu'a un message serveur : un achat refusé devenait invisible exactement au moment où le joueur regardait le panneau qui l'avait causé, couvert par ce panneau et par son voile. Cela borne aussi la colonne centrale du haut, qui ne contient plus que les deux bandeaux et ne peut donc pas descendre sur les barres de vie et de chakra.
+Raison : nommer les ordres de dessin (D-35) a placé chaque écran de menu au-dessus du HUD de façon déterministe, et la file de toasts vivait dans le HUD. Or c'est la seule surface qu'a un message serveur : un achat refusé devenait invisible exactement au moment où le joueur regardait le panneau qui l'avait causé, couvert par ce panneau et par son voile. Cela borne aussi la colonne centrale du haut, qui ne contient plus que les deux bandeaux et ne peut donc pas descendre sur les barres de vie et d'encre.
 
 **D-39 — Ce qu'un écran mesure doit suivre le viewport, pas le premier ouverture** · Phase 8
 `MenuController` garde une instance d'écran pour toute la session. Tout ce qui est mesuré dans `new()` est donc figé à l'échelle du premier affichage, alors que chaque contrôle suit le viewport par le plancher en pixels réels (D-35). Les bandeaux de `Panel` acceptent une hauteur sous forme de fonction et sont réévalués dans le `relayout` déjà branché sur `Theme.bindScale` ; les rangées de battle pass sont remesurées et réappliquées au changement d'échelle ; la barre d'onglets des options est reconstruite quand le matériel change.
@@ -171,7 +171,7 @@ Raison : redimensionner la fenêtre après avoir ouvert un écran faisait dépas
 
 **D-40 — Deux dépendances ajoutées, dix-neuf écartées, chacune vérifiée sur Wally et GitHub** · Passe Identité
 Retenues : `littensy/ripple` (mouvement par ressorts, publiée sur Wally, source `.luau`, aucune dépendance transitive, dépôt actif) et `sleitnick/shake` (secousse de caméra par bruit de Perlin, MIT, sans dépendance, exactement le module que réinventer aurait coûté une journée).
-Écartées, avec la raison : `reselim/flipper` est morte depuis 2021 ; `jsdotlua/otter` n'a qu'une seule version publiée, en `.lua`, avec deux dépendances transitives ; `Fraktality/spr` n'a jamais été publiée par son auteur, seules des re-publications tierces existent, ce qui est un risque de chaîne d'approvisionnement ; `ZonePlus` n'est pas dans le registre Wally et nos besoins de zone sont deux tests de distance ; `WindShake` est vivante mais ce jeu n'a aucune végétation ; les modules caméra de Nevermore ne sont plus distribués sur Wally mais sur npm ; `sleitnick/component` et `sleitnick/timer` introduiraient un second cycle de vie et des connexions par objet que les conventions interdisent ; `BridgeNet2` est encore en alpha et son dépôt n'a pas bougé depuis un an ; les générateurs de remotes `Zap`, `Blink` et le sérialiseur `Squash` sont réels et maintenus mais ne se justifient qu'après un profilage que ce dépôt n'a pas.
+Écartées, avec la raison : `reselim/flipper` est morte depuis 2021 ; `jsdotlua/otter` n'a qu'une seule version publiée, en `.lua`, avec deux dépendances transitives ; `Fraktality/spr` n'a jamais été publiée par son auteur, seules des re-publications tierces existent, ce qui est un risque de chaîne d'approvisionnement ; `ZonePlus` n'est pas dans le registre Wally et nos besoins de zone sont deux tests de distance ; `WindShake` est vivante mais ce jeu n'a aucune végétation ; les modules caméra de Nevermore ne sont plus distribués sur Wally mais sur npm ; `sleitnick/component` et `sleitnick/timer` introduiraient un second cycle de vie et des connexions par objet que les conventions interdisent ; `BridgeNet2` est encore en alpha et son dépôt n'a pas bougé depuis un an ; les générateurs de remotes `Zap`, `Blencre` et le sérialiseur `Squash` sont réels et maintenus mais ne se justifient qu'après un profilage que ce dépôt n'a pas.
 Raison : la consigne était d'aller chercher à l'extérieur, mais de vérifier avant d'écrire la ligne. Le registre a été interrogé directement et les dates de dernière publication viennent de l'index Wally, pas d'un souvenir. La moitié des noms qu'on croit connaître dans cet écosystème sont morts ou n'ont jamais été publiés.
 
 **D-41 — Pas de changement de framework d'interface** · Passe Identité
@@ -181,3 +181,19 @@ Raison : l'interface existante fait environ 5 800 lignes de composants maison av
 **D-42 — `EditableImage` et `EditableMesh` sont écartés** · Passe Identité
 Les deux API sont vivantes et une expérience qui les utilise peut être publiée, mais seulement si le créateur est vérifié en âge **et** en identité.
 Raison : c'est une porte que je ne peux pas franchir à la place du propriétaire, et une identité visuelle qui en dépendrait serait invisible tant que la vérification n'est pas faite. Les textures seront donc générées hors ligne par script et téléversées comme des images ordinaires, ce qui ne dépend d'aucune vérification.
+
+**D-43 — Le lexique emprunté est remplacé partout, et une porte empêche son retour** · Passe Identité
+Les cinq éléments, les vingt sorts, les cinq rangs, le mot pour l'énergie, le nom du projet et vingt-trois cosmétiques ont été renommés vers le lexique de `docs/ART_BIBLE.md`. `tests/Lexicon.spec.luau` interdit désormais quatorze mots dans `src`, `tests` et `docs`, y compris à l'intérieur d'un identifiant en camelCase.
+Raison : le vocabulaire venait d'une licence existante, ce qui est un risque de modération, un risque DMCA et un obstacle à posséder une marque. Le test scanne aussi les documents parce que c'est là que les mots étaient encore vivants longtemps après que le code fût propre : le document de design listait toujours les cinq rangs empruntés et l'économie vendait une « aura Kage ». Un joueur ne lit jamais le code.
+
+**D-44 — Les deux noms de DataStore ne seront jamais renommés** · Passe Identité
+`JutsuBattlegrounds_v2` et `JutsuGame_PlayerData_v1` restent écrits tels qu'ils l'ont été le jour de leur création, et `tests/Lexicon.spec.luau` vérifie qu'ils sont toujours là, orthographiés exactement ainsi.
+Raison : un DataStore est adressé par son nom. Changer la chaîne rend un magasin différent et vide : chaque profil jamais sauvegardé serait lu comme un nouveau joueur. L'exemption doit être vérifiée dans les deux sens, sinon une reformulation de la chaîne ferait passer le test pour la mauvaise raison.
+
+**D-45 — La migration V3 déplace quatre clés, pas deux** · Passe Identité
+`Unlocks.Jutsus` → `Unlocks.Glyphs`, `Unlocks.Elements` → `Unlocks.Pigments`, `Cosmetics.Owned` / `Cosmetics.Equipped` (valeurs **et** clés, le slot `Skin:` portant l'identifiant du sort), et `Stats.JutsusCast` / `JutsusHit` → `GlyphsCast` / `GlyphsHit`. Tout est lu depuis le tableau brut, jamais depuis le résultat.
+Raison : le recouvrement générique ne copie que les clés que le gabarit déclare encore, et le gabarit ne déclare plus les anciennes. Sans cette étape un joueur se reconnectait avec zéro déblocage, zéro cosmétique et un historique remis à zéro — et les sept portes restaient vertes.
+
+**D-46 — Une porte relie chaque sort à son effet serveur et à son rendu client** · Passe Identité
+`tests/EffectCoverage.spec.luau` lit la source de `GlyphEffects` et de `VfxLibrary`, et échoue si un sort réclame une fonction qui n'existe pas, ou si une fonction n'est réclamée par aucun sort.
+Raison : le renommage avait cassé exactement ce lien. `GlyphConfig` disait `Effect = "Brand"` alors que `GlyphEffects` déclarait toujours `Fireball` : `effects[def.Effect]` valait `nil` pour les vingt sorts, aucun n'était lançable, et la seule trace était un `log.warn` au démarrage qu'aucune porte ne lit et qu'aucun joueur ne rapporte. Les sept portes étaient vertes.

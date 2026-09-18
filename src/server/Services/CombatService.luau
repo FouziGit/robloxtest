@@ -1,10 +1,10 @@
 --!strict
--- CombatService: the ONLY damage path of the game. Owns per-player combat state (chakra, guard,
--- dash / melee timers, spawn protection, per-jutsu hit memory), the M1 / dash / block handlers and
+-- CombatService: the ONLY damage path of the game. Owns per-player combat state (ink, guard,
+-- dash / melee timers, spawn protection, per-glyph hit memory), the M1 / dash / block handlers and
 -- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ).
--- Every hit, from melee, jutsus, bosses or the environment, goes through ApplyDamage so PvP policy,
+-- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so PvP policy,
 -- spawn protection, i-frames and guard rules apply everywhere.
--- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, StoneSkin): they
+-- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, Gilding): they
 -- live as Humanoid attributes named by CombatConfig.Status, carry their own expiry and are read back
 -- inside ApplyDamage / knockback, so no status needs a ticker and clients can render them.
 
@@ -29,7 +29,7 @@ local log = Log.new("CombatService")
 
 export type DamageKind = Types.DamageKind
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
-export type CombatState = { Chakra: number, MaxChakra: number, InCombat: boolean, Blocking: boolean, Stunned: boolean }
+export type CombatState = { Ink: number, MaxInk: number, InCombat: boolean, Blocking: boolean, Stunned: boolean }
 export type Policy = (source: Player?, targetModel: Model) -> boolean
 export type Action = "Melee" | "Dash" | "BlockStart" | "BlockEnd"
 
@@ -67,7 +67,7 @@ type VfxPacket = {
 type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
-type JutsuApi = { getCooldowns: (player: Player) -> { [string]: number } }
+type GlyphApi = { getCooldowns: (player: Player) -> { [string]: number } }
 type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
 	fire: (name: string, player: Player, ...any) -> (),
@@ -81,15 +81,15 @@ type Deps = {
 	Progression: ProgressionApi,
 	Currency: CurrencyApi,
 	AntiCheat: AntiCheatApi,
-	Jutsu: JutsuApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
+	Glyph: GlyphApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
 }
 type TroveType = typeof(Trove.new())
--- One elemental interaction of docs/GAME_DESIGN.md §6, as CombatConfig.Status declares it: damage of
--- AppliedByElement writes the mark, damage of AmplifiesElement is multiplied while it lasts.
-type ElementalMark = {
+-- One pigment interaction of docs/GAME_DESIGN.md §6, as CombatConfig.Status declares it: damage of
+-- AppliedByPigment writes the mark, damage of AmplifiesPigment is multiplied while it lasts.
+type PigmentMark = {
 	Attribute: string,
-	AppliedByElement: string,
-	AmplifiesElement: string,
+	AppliedByPigment: string,
+	AmplifiesPigment: string,
 	DurationSeconds: number,
 	DamageMultiplier: number,
 	NameKey: string,
@@ -101,7 +101,7 @@ type State = {
 	CharacterTrove: TroveType?, -- current character
 	Character: Model?,
 	Humanoid: Humanoid?, -- nil while dead or without character
-	Chakra: number,
+	Ink: number,
 	InCombatUntil: number, -- os.clock timestamps below
 	LastDamageTakenAt: number,
 	Blocking: boolean,
@@ -125,7 +125,7 @@ type State = {
 	-- between two swings would reset a counter every time and never be struck.
 	OriginViolations: { number },
 	-- Studs the travel budget still allows because the SERVER moved this character (dash, knockback, a
-	-- jutsu dash), until TravelAllowanceUntil. Consumed as it is spent, never re-granted per sample:
+	-- glyph dash), until TravelAllowanceUntil. Consumed as it is spent, never re-granted per sample:
 	-- without it every legitimate dash looked like a teleport, and re-granting it turned the ceiling into
 	-- a multiple of itself.
 	TravelAllowanceStuds: number,
@@ -146,23 +146,23 @@ local LAST_ATTACKER_ATTRIBUTE = "LastAttackerUserId"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local HUMANOID_WAIT_SECONDS = 10
 local BLOCK_ATTRIBUTE = CombatConfig.Status.BlockAttribute
--- Slow source key of the guard, so releasing the guard never cleanses a jutsu slow.
+-- Slow source key of the guard, so releasing the guard never cleanses a glyph slow.
 local BLOCK_SLOW_KEY = "Block"
 
 local brokenBy = (CombatConfig.Block.BrokenBy :: any) :: { [string]: boolean }
 
 local STONE_SKIN = CombatConfig.Status.Gilding
--- Elemental marks indexed by the element that writes them and by the element they amplify, so
--- ApplyDamage stays two table lookups instead of a chain of element tests.
-local ELEMENTAL_MARKS: { ElementalMark } = { CombatConfig.Status.Fanned, CombatConfig.Status.Conductive }
-local MARK_BY_SOURCE_ELEMENT: { [string]: ElementalMark } = {}
-local MARK_BY_AMPLIFIED_ELEMENT: { [string]: ElementalMark } = {}
+-- Pigment marks indexed by the pigment that writes them and by the pigment they amplify, so
+-- ApplyDamage stays two table lookups instead of a chain of pigment tests.
+local PIGMENT_MARKS: { PigmentMark } = { CombatConfig.Status.Fanned, CombatConfig.Status.Conductive }
+local MARK_BY_SOURCE_PIGMENT: { [string]: PigmentMark } = {}
+local MARK_BY_AMPLIFIED_PIGMENT: { [string]: PigmentMark } = {}
 -- Every status attribute this service owns, wiped when a character is bound so nothing survives a
 -- respawn (the guard attribute is not here: releaseBlock owns it).
 local STATUS_ATTRIBUTES: { string } = { STONE_SKIN.Attribute }
-for _, mark in ipairs(ELEMENTAL_MARKS) do
-	MARK_BY_SOURCE_ELEMENT[mark.AppliedByElement] = mark
-	MARK_BY_AMPLIFIED_ELEMENT[mark.AmplifiesElement] = mark
+for _, mark in ipairs(PIGMENT_MARKS) do
+	MARK_BY_SOURCE_PIGMENT[mark.AppliedByPigment] = mark
+	MARK_BY_AMPLIFIED_PIGMENT[mark.AmplifiesPigment] = mark
 	table.insert(STATUS_ATTRIBUTES, mark.Attribute)
 end
 
@@ -178,7 +178,7 @@ CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model
 -- event: several players hit the boss in one resumption cycle, so a shared "last attacker" slot
 -- credits them all to whoever wrote it last.
 CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind)
--- Fired once per dash the server actually granted (chakra spent, cooldown armed).
+-- Fired once per dash the server actually granted (ink spent, cooldown armed).
 CombatService.Dashed = Signal.new() -- (player: Player)
 
 local registry: Registry
@@ -189,7 +189,7 @@ local antiCheat: AntiCheatApi
 local vfx: VfxApi
 local progression: ProgressionApi
 local currency: CurrencyApi
-local jutsu: JutsuApi? = nil
+local glyph: GlyphApi? = nil
 local deps: Deps
 
 local states: { [Player]: State } = {}
@@ -320,7 +320,7 @@ local function clearStatuses(humanoid: Humanoid)
 end
 
 local function markInCombat(state: State, now: number)
-	state.InCombatUntil = now + CombatConfig.Chakra.InCombatSeconds
+	state.InCombatUntil = now + CombatConfig.Ink.InCombatSeconds
 end
 
 -- Drops expired i-frame entries so the memory never grows past the targets hit in the last window.
@@ -359,7 +359,7 @@ local GUARD: OriginGuard.Config = {
 -- The envelope widens with the time since the last accepted sample, so a stale sample always catches up
 -- and nobody can be stuck. Server-authored teleports go through resyncPosition instead.
 -- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
--- Called by every server-authored displacement the client applies (dash, knockback, a jutsu dash): the
+-- Called by every server-authored displacement the client applies (dash, knockback, a glyph dash): the
 -- character is simulated by the owning client, so the move arrives as one jump in the replicated
 -- position. Overlapping grants add up and share the later deadline.
 local function allowTravel(state: State, studs: number, seconds: number, now: number)
@@ -455,11 +455,11 @@ local function playerRoot(player: Player): BasePart?
 end
 
 -- Re-anchors the trust sample on a position the SERVER chose. Every server-authored reposition (match
--- spawn, hub return, boss arena placement, a teleporting jutsu) must call this, or the player's next
+-- spawn, hub return, boss arena placement, a teleporting glyph) must call this, or the player's next
 -- hitbox would be built where they used to stand and miss.
 --
 -- A teleport MUST pass `position`. Re-reading the character would anchor trust on whatever the client
--- last replicated, which is the one value this path exists not to believe: a jutsu that moves the caster
+-- last replicated, which is the one value this path exists not to believe: a glyph that moves the caster
 -- relative to a spoofed root would otherwise have the server bless the spoof. Callers that only want the
 -- sample re-armed on the current character, such as a respawn, pass nil.
 function CombatService.resyncPosition(player: Player, position: Vector3?)
@@ -481,7 +481,7 @@ end
 
 -- Issues a server-authored movement command AND grants the travel it covers. The single door for every
 -- displacement the client applies, so no caller can set a character moving without the travel budget
--- being told: a jutsu dash that forgot to would make an honest player's follow-up melee whiff.
+-- being told: a glyph dash that forgot to would make an honest player's follow-up melee whiff.
 function CombatService.grantMovement(player: Player, command: MovementCommand)
 	local state = states[player]
 	if state ~= nil then
@@ -571,7 +571,7 @@ local function releaseCharacter(state: State, now: number)
 end
 
 local function resetState(state: State, now: number)
-	state.Chakra = CombatConfig.Chakra.Max * CombatConfig.Chakra.StartFraction
+	state.Ink = CombatConfig.Ink.Max * CombatConfig.Ink.StartFraction
 	state.InCombatUntil = 0
 	state.LastDamageTakenAt = 0
 	state.Blocking = false
@@ -598,7 +598,7 @@ end
 local function creditDeath(state: State, character: Model, now: number)
 	local attribute = character:GetAttribute(LAST_ATTACKER_ATTRIBUTE)
 	local attackerId: number? = if typeof(attribute) == "number" then attribute :: number else nil
-	local inCombat = state.LastDamageTakenAt > 0 and now - state.LastDamageTakenAt < CombatConfig.Chakra.InCombatSeconds
+	local inCombat = state.LastDamageTakenAt > 0 and now - state.LastDamageTakenAt < CombatConfig.Ink.InCombatSeconds
 	if attackerId == nil and not inCombat then
 		return
 	end
@@ -686,7 +686,7 @@ local function onPlayerAdded(player: Player)
 		CharacterTrove = nil,
 		Character = nil,
 		Humanoid = nil,
-		Chakra = 0,
+		Ink = 0,
 		InCombatUntil = 0,
 		LastDamageTakenAt = 0,
 		Blocking = false,
@@ -756,38 +756,33 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 	CombatService.Killed:Fire(if source ~= nil then source.UserId else 0, targetModel)
 end
 
--- Elemental interaction (docs/GAME_DESIGN.md §6): a mark left by another element amplifies this hit
+-- Pigment interaction (docs/GAME_DESIGN.md §6): a mark left by another pigment amplifies this hit
 -- once, by the multiplier CombatConfig.Status declares. Returns the damage and the mark that did it,
 -- so the Hit packet can show the bonus (flat and visible, never a hidden multiplier).
-local function amplifyByMark(
-	humanoid: Humanoid,
-	damage: number,
-	element: string?,
-	now: number
-): (number, ElementalMark?)
-	if element == nil then
+local function amplifyByMark(humanoid: Humanoid, damage: number, pigment: string?, now: number): (number, PigmentMark?)
+	if pigment == nil then
 		return damage, nil
 	end
-	local mark = MARK_BY_AMPLIFIED_ELEMENT[element]
+	local mark = MARK_BY_AMPLIFIED_PIGMENT[pigment]
 	if mark == nil or not isStatusActive(humanoid, mark.Attribute, now) then
 		return damage, nil
 	end
 	return damage * mark.DamageMultiplier, mark
 end
 
--- Wind marks its targets Fanned, Water marks them Conductive: only a hit that landed marks, and a
--- second hit of the same element refreshes the expiry instead of stacking.
-local function markTarget(humanoid: Humanoid, element: string?, now: number)
-	if element == nil then
+-- Verdigris marks its targets Fanned, Indigo marks them Conductive: only a hit that landed marks, and a
+-- second hit of the same pigment refreshes the expiry instead of stacking.
+local function markTarget(humanoid: Humanoid, pigment: string?, now: number)
+	if pigment == nil then
 		return
 	end
-	local mark = MARK_BY_SOURCE_ELEMENT[element]
+	local mark = MARK_BY_SOURCE_PIGMENT[pigment]
 	if mark ~= nil then
 		setStatus(humanoid, mark.Attribute, mark.DurationSeconds, now)
 	end
 end
 
--- Guard rules for a blocking player target. Takes the damage left by the elemental and StoneSkin
+-- Guard rules for a blocking player target. Takes the damage left by the pigment and Gilding
 -- steps. Returns the damage that goes through and whether the guard absorbed part of it.
 local function applyGuard(
 	targetPlayer: Player,
@@ -808,8 +803,8 @@ local function applyGuard(
 	return damage * (1 - CombatConfig.Block.DamageReduction), true
 end
 
--- `element` (jutsu element, nil for melee / environment) colours the Hit packet clients render and
--- drives the elemental interactions: it writes the mark of its own element on the target and reads
+-- `pigment` (glyph pigment, nil for melee / environment) colours the Hit packet clients render and
+-- drives the pigment interactions: it writes the mark of its own pigment on the target and reads
 -- the mark that amplifies it (docs/GAME_DESIGN.md §6).
 function CombatService.ApplyDamage(
 	source: Player?,
@@ -817,7 +812,7 @@ function CombatService.ApplyDamage(
 	amount: number,
 	kind: DamageKind,
 	tags: { string },
-	element: string?
+	pigment: string?
 ): DamageResult
 	local result: DamageResult = { Applied = 0, Killed = false, Blocked = false }
 	if not isFiniteNonNegative(amount) then
@@ -841,7 +836,7 @@ function CombatService.ApplyDamage(
 		return result
 	end
 
-	-- Per-source i-frames: one jutsu instance (tags[1]) cannot hit the same target twice in a window.
+	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
 	local tag: string? = tags[1]
 	if sourceState ~= nil and tag ~= nil then
@@ -864,9 +859,9 @@ function CombatService.ApplyDamage(
 	end
 
 	local origin = positionOf(targetModel)
-	-- Elemental mark, then StoneSkin, then the guard: each step scales what the previous one left, so
-	-- a guarded Fanned Fire hit is amplified once and reduced once by each, and rounding happens once.
-	local damage, amplifier = amplifyByMark(humanoid, amount, element, now)
+	-- Pigment mark, then Gilding, then the guard: each step scales what the previous one left, so
+	-- a guarded Fanned Cinnabar hit is amplified once and reduced once by each, and rounding happens once.
+	local damage, amplifier = amplifyByMark(humanoid, amount, pigment, now)
 	if isStatusActive(humanoid, STONE_SKIN.Attribute, now) then
 		damage *= 1 - STONE_SKIN.DamageReduction
 	end
@@ -895,7 +890,7 @@ function CombatService.ApplyDamage(
 	if source ~= nil then
 		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)
 	end
-	markTarget(humanoid, element, now)
+	markTarget(humanoid, pigment, now)
 	if sourceState ~= nil then
 		markInCombat(sourceState, now)
 	end
@@ -904,8 +899,8 @@ function CombatService.ApplyDamage(
 		targetState.LastDamageTakenAt = now
 	end
 	local hitParams: { [string]: any } = { Amount = applied, Kind = kind }
-	if element ~= nil then
-		hitParams.Element = element
+	if pigment ~= nil then
+		hitParams.Pigment = pigment
 	end
 	if amplifier ~= nil then
 		-- Floating text of the interaction (Strings "hud.status.bonus" takes {status} and {percent}).
@@ -927,7 +922,7 @@ function CombatService.ApplyDamage(
 end
 
 -- Server-approved knockback, applied by the owning client (characters are client-simulated).
--- NPCs (anchored dummies, bosses) ignore it. A StoneSkin target keeps its ground: "la Terre bloque"
+-- NPCs (anchored dummies, bosses) ignore it. A Gilding target keeps its ground: "la Terre bloque"
 -- of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
 function CombatService.knockback(targetModel: Model, velocity: Vector3, duration: number)
 	local player = Players:GetPlayerFromCharacter(targetModel)
@@ -947,11 +942,11 @@ function CombatService.knockback(targetModel: Model, velocity: Vector3, duration
 	CombatService.grantMovement(player, { Kind = "Knockback", Velocity = velocity, Duration = duration })
 end
 
--- Grants the StoneSkin buff (CombatConfig.Status.Gilding) to a live caster for its configured
+-- Grants the Gilding buff (CombatConfig.Status.Gilding) to a live caster for its configured
 -- duration: every incoming hit loses DamageReduction and knockback stops applying until it expires.
 -- Re-casting refreshes the expiry instead of stacking. Returns false when the caster has no live
--- Humanoid, so the jutsu effect can skip its own rendering.
--- Grants an invulnerability window (mobility jutsus). Never shortens one already running: two
+-- Humanoid, so the glyph effect can skip its own rendering.
+-- Grants an invulnerability window (mobility glyphs). Never shortens one already running: two
 -- overlapping sources leave the later expiry in place.
 function CombatService.grantIFrames(player: Player, seconds: number)
 	if seconds ~= seconds or seconds <= 0 or seconds == math.huge then
@@ -1103,7 +1098,7 @@ local function onDash(player: Player, state: State, now: number)
 		return
 	end
 	local dash = CombatConfig.Dash
-	if not CombatService.trySpendChakra(player, dash.Cost) then
+	if not CombatService.trySpendInk(player, dash.Cost) then
 		return
 	end
 	-- I-frames are granted on the server decision alone, independently of the client actually applying
@@ -1167,7 +1162,7 @@ end
 ----------------------------------------------------------------
 
 local function cooldownsFor(player: Player): { [string]: number }
-	local api = jutsu
+	local api = glyph
 	if api == nil then
 		return {}
 	end
@@ -1180,8 +1175,8 @@ local function replicateState(player: Player, state: State, inCombat: boolean)
 	end
 	local humanoid = state.Humanoid
 	registry.fire("CombatState", player, {
-		Chakra = state.Chakra,
-		MaxChakra = CombatConfig.Chakra.Max,
+		Ink = state.Ink,
+		MaxInk = CombatConfig.Ink.Max,
 		Health = if humanoid ~= nil then humanoid.Health else 0,
 		MaxHealth = if humanoid ~= nil then humanoid.MaxHealth else CombatConfig.Health.Max,
 		InCombat = inCombat,
@@ -1192,14 +1187,14 @@ end
 
 -- `elapsed` is the wall-clock time since the previous tick, never the nominal tick length: the
 -- accumulator fires at most once per frame and drops the remainder, so below TickRate frames per second
--- a fixed step silently paid out less chakra and health per second than the config promises. Rates are
+-- a fixed step silently paid out less ink and health per second than the config promises. Rates are
 -- per second and integrating over the real interval makes them frame-rate independent.
 local function tickPlayer(player: Player, state: State, now: number, elapsed: number, replicate: boolean)
-	local chakra = CombatConfig.Chakra
+	local ink = CombatConfig.Ink
 	local inCombat = now < state.InCombatUntil
-	if state.Chakra < chakra.Max then
-		local rate = if inCombat then chakra.RegenInCombat else chakra.RegenOutOfCombat
-		state.Chakra = math.min(chakra.Max, state.Chakra + rate * elapsed)
+	if state.Ink < ink.Max then
+		local rate = if inCombat then ink.RegenInCombat else ink.RegenOutOfCombat
+		state.Ink = math.min(ink.Max, state.Ink + rate * elapsed)
 	end
 
 	-- Sampled every tick, so the plausibility envelope an action is measured against stays tight
@@ -1209,7 +1204,7 @@ local function tickPlayer(player: Player, state: State, now: number, elapsed: nu
 		trustedCFrame(state, sampleRoot, now, false)
 	end
 
-	-- Entries expire after CombatConfig.Hit.IFrameSeconds but were only ever swept when the same jutsu
+	-- Entries expire after CombatConfig.Hit.IFrameSeconds but were only ever swept when the same glyph
 	-- tag damaged something again, so a tag nobody casts twice kept strong references to the character
 	-- Models it hit, and through them their parts, long after they were destroyed.
 	for _, memory in pairs(state.HitMemory) do
@@ -1263,28 +1258,28 @@ end
 function CombatService.getState(player: Player): CombatState
 	local state = states[player]
 	if state == nil then
-		return { Chakra = 0, MaxChakra = CombatConfig.Chakra.Max, InCombat = false, Blocking = false, Stunned = false }
+		return { Ink = 0, MaxInk = CombatConfig.Ink.Max, InCombat = false, Blocking = false, Stunned = false }
 	end
 	return {
-		Chakra = state.Chakra,
-		MaxChakra = CombatConfig.Chakra.Max,
+		Ink = state.Ink,
+		MaxInk = CombatConfig.Ink.Max,
 		InCombat = os.clock() < state.InCombatUntil,
 		Blocking = state.Blocking,
 		Stunned = movement.isStunned(player),
 	}
 end
 
--- Debits `cost` chakra when available. Returns false (and changes nothing) otherwise.
-function CombatService.trySpendChakra(player: Player, cost: number): boolean
+-- Debits `cost` ink when available. Returns false (and changes nothing) otherwise.
+function CombatService.trySpendInk(player: Player, cost: number): boolean
 	if not isFiniteNonNegative(cost) then
-		log.warn("trySpendChakra rejected for %s: invalid cost %s", player.Name, tostring(cost))
+		log.warn("trySpendInk rejected for %s: invalid cost %s", player.Name, tostring(cost))
 		return false
 	end
 	local state = states[player]
-	if state == nil or state.Chakra < cost then
+	if state == nil or state.Ink < cost then
 		return false
 	end
-	state.Chakra -= cost
+	state.Ink -= cost
 	return true
 end
 
@@ -1327,9 +1322,9 @@ function CombatService.Init(injected: Deps)
 end
 
 function CombatService.Start()
-	jutsu = deps.Jutsu
-	if jutsu == nil then
-		log.warn("Jutsu dependency missing: CombatState replicates without cooldowns")
+	glyph = deps.Glyph
+	if glyph == nil then
+		log.warn("Glyph dependency missing: CombatState replicates without cooldowns")
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)

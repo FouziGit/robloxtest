@@ -1,5 +1,5 @@
 --!strict
--- HudController: the always-on overlay. Level / XP bar and Ryo counter (top-left), health and chakra
+-- HudController: the always-on overlay. Level / XP bar and Ryo counter (top-left), health and ink
 -- bars (bottom-left on mouse/gamepad, bottom-center above the combo row on touch so they never cover
 -- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the menu hint of
 -- the device in use. Every visible text goes through Localize; server Notify payloads carry Strings
@@ -15,10 +15,10 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
-local ElementConfig = require(Shared.Config.ElementConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressBar = require(UI.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(UI.components.ScreenRoot)
@@ -30,7 +30,7 @@ local log = Log.new("HudController")
 
 export type ToastKind = "Info" | "Success" | "Error"
 
-type CombatState = { Health: number, MaxHealth: number, Chakra: number, MaxChakra: number }
+type CombatState = { Health: number, MaxHealth: number, Ink: number, MaxInk: number }
 
 type Deps = {
 	Localize: any,
@@ -88,7 +88,7 @@ local levelTitle: TextLabel
 local levelBar: ProgressBar.ProgressBar
 local ryoLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
-local chakraBar: ProgressBar.ProgressBar
+local inkBar: ProgressBar.ProgressBar
 local comboRow: Frame
 local hintLabel: TextLabel
 local toast: Toast.Toast
@@ -182,7 +182,7 @@ local function buildTopStack(parent: Instance)
 	-- Bounded and clipped. The column is as tall as its visible children, and a player can legitimately
 	-- hold a match snapshot and a World Boss snapshot at once: the server pushes BossChanged to everyone
 	-- on the server, not only to the participants. Without a ceiling the two bands could reach down into
-	-- the health and chakra bars, which on touch sit bottom-centre in the same column of screen.
+	-- the health and ink bars, which on touch sit bottom-centre in the same column of screen.
 	local ceiling = Instance.new("UISizeConstraint")
 	ceiling.MaxSize = Vector2.new(math.huge, TOP_STACK_MAX_HEIGHT)
 	ceiling.Parent = topStack
@@ -244,7 +244,7 @@ local function build()
 	local barsPosition = if touch then UDim2.new(0.5, 0, 1, -BARS_TOUCH_BOTTOM_MARGIN) else UDim2.new(0, pad, 1, -pad)
 	local bars = makeColumn("Bars", barsAnchor, barsPosition, content)
 	healthBar = ProgressBar.new({ Name = "HealthBar", Color = Theme.Colors.Health, LayoutOrder = 1, Parent = bars })
-	chakraBar = ProgressBar.new({ Name = "ChakraBar", Color = Theme.Colors.Chakra, LayoutOrder = 2, Parent = bars })
+	inkBar = ProgressBar.new({ Name = "InkBar", Color = Theme.Colors.Ink, LayoutOrder = 2, Parent = bars })
 
 	comboRow = Instance.new("Frame")
 	comboRow.Name = "Combo"
@@ -300,12 +300,12 @@ function HudController.topStack(): (Frame?, number)
 	return topStack, BOSS_BAND_ORDER
 end
 
-local function makeChip(index: number, element: string): Frame
+local function makeChip(index: number, pigment: string): Frame
 	local chip = Instance.new("Frame")
 	chip.Name = "Chip" .. index
 	chip.LayoutOrder = index
 	chip.Size = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
-	chip.BackgroundColor3 = Theme.elementColor(element)
+	chip.BackgroundColor3 = Theme.pigmentColor(pigment)
 	chip.BorderSizePixel = 0
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
@@ -317,7 +317,7 @@ local function makeChip(index: number, element: string): Frame
 	glyph.Font = Theme.Fonts.Bold
 	glyph.TextSize = Theme.Sizes.TextLarge
 	glyph.TextColor3 = Theme.Colors.TextInverse
-	glyph.Text = ElementConfig.Glyphs[element :: any] or ""
+	glyph.Text = PigmentConfig.Sigils[pigment :: any] or ""
 	glyph.Parent = chip
 	return chip
 end
@@ -328,8 +328,8 @@ local function refreshCombo(sequence: { string })
 			child:Destroy()
 		end
 	end
-	for index, element in ipairs(sequence) do
-		makeChip(index, element).Parent = comboRow
+	for index, pigment in ipairs(sequence) do
+		makeChip(index, pigment).Parent = comboRow
 	end
 end
 
@@ -392,7 +392,7 @@ end
 
 local function refreshCombat(state: CombatState)
 	refreshBar(healthBar, "hud.health", state.Health, state.MaxHealth)
-	refreshBar(chakraBar, "hud.chakra", state.Chakra, state.MaxChakra)
+	refreshBar(inkBar, "hud.ink", state.Ink, state.MaxInk)
 end
 
 -- Roster instances are pooled: a match snapshot lands a few times per second, so nothing is rebuilt.

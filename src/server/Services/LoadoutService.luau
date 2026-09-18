@@ -1,9 +1,9 @@
 --!strict
--- LoadoutService: the single writer of ProfileData.Loadout and ProfileData.Unlocks. Grants the jutsus
--- a profile has earned (level gates of JutsuConfig.Unlock, every jutsu of an owned element), unlocks
--- Lightning at ProgressionConfig.LightningUnlockLevel and validates every SetLoadout.
+-- LoadoutService: the single writer of ProfileData.Loadout and ProfileData.Unlocks. Grants the glyphs
+-- a profile has earned (level gates of GlyphConfig.Unlock, every glyph of an owned pigment), unlocks
+-- Orpiment at ProgressionConfig.OrpimentUnlockLevel and validates every SetLoadout.
 --
--- The client only names jutsu ids: the slot budget, the duplicates and what is unlocked are decided
+-- The client only names glyph ids: the slot budget, the duplicates and what is unlocked are decided
 -- here. A refusal is replicated too, so the client never stays on a loadout the server did not accept.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,9 +11,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
-local ElementConfig = require(Shared.Config.ElementConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 
@@ -41,9 +41,9 @@ type Deps = {
 }
 
 local LOADOUT = ProgressionConfig.Loadout
-local LIGHTNING_ELEMENT = "Orpiment"
-local LIGHTNING_LEVEL = ProgressionConfig.LightningUnlockLevel
-local ELEMENT_NAME_KEYS = (ElementConfig.NameKeys :: any) :: { [string]: string? }
+local ORPIMENT_PIGMENT = "Orpiment"
+local ORPIMENT_LEVEL = ProgressionConfig.OrpimentUnlockLevel
+local PIGMENT_NAME_KEYS = (PigmentConfig.NameKeys :: any) :: { [string]: string? }
 -- Strings has no dedicated unlock key; "{name} unlocked!" is the closest fit (see notes).
 local UNLOCKED_KEY = "purchase.passGranted"
 
@@ -54,18 +54,18 @@ local dataService: DataApi
 local notify: NotifyApi
 local progression: ProgressionApi
 
--- Adds `jutsuId` to the unlocks when it is missing and tells the player. Returns true when it was just
+-- Adds `glyphId` to the unlocks when it is missing and tells the player. Returns true when it was just
 -- granted (the caller pushes "Unlocks" once for the whole batch).
-local function grantJutsu(player: Player, data: ProfileData, jutsuId: string, quiet: boolean?): boolean
-	if table.find(data.Unlocks.Glyphs, jutsuId) ~= nil then
+local function grantGlyph(player: Player, data: ProfileData, glyphId: string, quiet: boolean?): boolean
+	if table.find(data.Unlocks.Glyphs, glyphId) ~= nil then
 		return false
 	end
-	local def = JutsuConfig.ById[jutsuId]
+	local def = GlyphConfig.ById[glyphId]
 	if def == nil then
-		log.error("unknown jutsu %s for %s", jutsuId, player.Name)
+		log.error("unknown glyph %s for %s", glyphId, player.Name)
 		return false
 	end
-	table.insert(data.Unlocks.Glyphs, jutsuId)
+	table.insert(data.Unlocks.Glyphs, glyphId)
 	if not quiet then
 		-- `quiet` is for a bulk grant: twenty toasts at once would bury everything else on screen.
 		notify.send(player, UNLOCKED_KEY, { name = def.NameKey }, "Success", "LevelUp")
@@ -73,20 +73,20 @@ local function grantJutsu(player: Player, data: ProfileData, jutsuId: string, qu
 	return true
 end
 
--- Grants every jutsu the profile has already earned: the level gates up to its current level and the
--- jutsus of every owned element. Catches up a profile that predates a roster change or comes from V1.
+-- Grants every glyph the profile has already earned: the level gates up to its current level and the
+-- glyphs of every owned pigment. Catches up a profile that predates a roster change or comes from V1.
 local function grantEarned(player: Player, data: ProfileData): number
 	local granted = 0
 	for level = 1, data.Progression.Level do
-		for _, jutsuId in ipairs(JutsuConfig.unlocksForLevel(level)) do
-			if grantJutsu(player, data, jutsuId) then
+		for _, glyphId in ipairs(GlyphConfig.unlocksForLevel(level)) do
+			if grantGlyph(player, data, glyphId) then
 				granted += 1
 			end
 		end
 	end
-	for _, element in ipairs(data.Unlocks.Pigments) do
-		for _, jutsuId in ipairs(JutsuConfig.unlocksForElement(element)) do
-			if grantJutsu(player, data, jutsuId) then
+	for _, pigment in ipairs(data.Unlocks.Pigments) do
+		for _, glyphId in ipairs(GlyphConfig.unlocksForPigment(pigment)) do
+			if grantGlyph(player, data, glyphId) then
 				granted += 1
 			end
 		end
@@ -105,11 +105,11 @@ local function refreshSlotLimit(player: Player, data: ProfileData): boolean
 	local limit =
 		math.clamp(LOADOUT.BaseSlots + math.max(0, data.Loadout.ExtraSlots), LOADOUT.BaseSlots, LOADOUT.MaxSlots)
 	if isDeveloper(player) and DeveloperConfig.UnlimitedSlots then
-		limit = #JutsuConfig.Jutsus
+		limit = #GlyphConfig.Glyphs
 	end
 	-- Anything already equipped beyond the new budget is dropped here. A limit that shrinks below the
 	-- equipped count (an account leaving the developer list, a refunded pass) would otherwise leave a
-	-- profile whose own loadout every future setLoadout refuses, while the extra jutsus stayed castable.
+	-- profile whose own loadout every future setLoadout refuses, while the extra glyphs stayed castable.
 	local trimmed = false
 	while #data.Loadout.Slots > limit do
 		table.remove(data.Loadout.Slots)
@@ -123,15 +123,15 @@ local function refreshSlotLimit(player: Player, data: ProfileData): boolean
 	return true
 end
 
--- Hands a developer account the whole roster: every element, every jutsu, every loadout slot. Runs on
+-- Hands a developer account the whole roster: every pigment, every glyph, every loadout slot. Runs on
 -- each join because in Studio the profile is a fresh template every session.
 local function grantEverything(player: Player, data: ProfileData)
-	for _, elementId in ipairs(ElementConfig.Unlockable) do
-		LoadoutService.grantElement(player, elementId)
+	for _, pigmentId in ipairs(PigmentConfig.Unlockable) do
+		LoadoutService.grantPigment(player, pigmentId)
 	end
 	local granted = 0
-	for _, def in ipairs(JutsuConfig.Jutsus) do
-		if grantJutsu(player, data, def.Id, true) then
+	for _, def in ipairs(GlyphConfig.Glyphs) do
+		if grantGlyph(player, data, def.Id, true) then
 			granted += 1
 		end
 	end
@@ -145,7 +145,7 @@ local function grantEverything(player: Player, data: ProfileData)
 	end
 	refreshSlotLimit(player, data)
 	log.info(
-		"%s (id %d) is a developer: %d jutsu(s) granted, %d slots, free casting %s",
+		"%s (id %d) is a developer: %d glyph(s) granted, %d slots, free casting %s",
 		player.Name,
 		player.UserId,
 		granted,
@@ -154,31 +154,31 @@ local function grantEverything(player: Player, data: ProfileData)
 	)
 end
 
--- Grants `elementId` and every jutsu it gates (the Lightning game pass, the level gate). Idempotent:
--- false when the element is already owned or unknown.
-function LoadoutService.grantElement(player: Player, elementId: string): boolean
+-- Grants `pigmentId` and every glyph it gates (the Orpiment game pass, the level gate). Idempotent:
+-- false when the pigment is already owned or unknown.
+function LoadoutService.grantPigment(player: Player, pigmentId: string): boolean
 	local data = dataService.get(player)
 	if data == nil then
-		log.warn("grantElement skipped for %s: profile not loaded", player.Name)
+		log.warn("grantPigment skipped for %s: profile not loaded", player.Name)
 		return false
 	end
-	if not ElementConfig.isElement(elementId) then
-		log.error("unknown element %s for %s", elementId, player.Name)
+	if not PigmentConfig.isPigment(pigmentId) then
+		log.error("unknown pigment %s for %s", pigmentId, player.Name)
 		return false
 	end
-	if table.find(data.Unlocks.Pigments, elementId) ~= nil then
+	if table.find(data.Unlocks.Pigments, pigmentId) ~= nil then
 		return false
 	end
-	table.insert(data.Unlocks.Pigments, elementId)
-	local nameKey = ELEMENT_NAME_KEYS[elementId]
+	table.insert(data.Unlocks.Pigments, pigmentId)
+	local nameKey = PIGMENT_NAME_KEYS[pigmentId]
 	if nameKey ~= nil then
 		notify.send(player, UNLOCKED_KEY, { name = nameKey }, "Success", "LevelUp")
 	end
-	for _, jutsuId in ipairs(JutsuConfig.unlocksForElement(elementId)) do
-		grantJutsu(player, data, jutsuId)
+	for _, glyphId in ipairs(GlyphConfig.unlocksForPigment(pigmentId)) do
+		grantGlyph(player, data, glyphId)
 	end
 	dataService.push(player, "Unlocks")
-	log.info("%s unlocked the %s element", player.Name, elementId)
+	log.info("%s unlocked the %s pigment", player.Name, pigmentId)
 	return true
 end
 
@@ -231,23 +231,23 @@ function LoadoutService.setLoadout(player: Player, slots: { string }): boolean
 		return reject(string.format("%d ids for %d slots", #slots, limit))
 	end
 	local seen: { [string]: boolean } = {}
-	for _, jutsuId in ipairs(slots) do
-		if seen[jutsuId] then
-			return reject("duplicate " .. jutsuId)
+	for _, glyphId in ipairs(slots) do
+		if seen[glyphId] then
+			return reject("duplicate " .. glyphId)
 		end
-		seen[jutsuId] = true
-		if JutsuConfig.ById[jutsuId] == nil then
-			return reject("unknown jutsu " .. jutsuId)
+		seen[glyphId] = true
+		if GlyphConfig.ById[glyphId] == nil then
+			return reject("unknown glyph " .. glyphId)
 		end
-		if table.find(data.Unlocks.Glyphs, jutsuId) == nil then
-			return reject(jutsuId .. " is not unlocked")
+		if table.find(data.Unlocks.Glyphs, glyphId) == nil then
+			return reject(glyphId .. " is not unlocked")
 		end
 	end
 
 	data.Loadout.Slots = table.clone(slots)
 	dataService.push(player, "Loadout")
 	notify.send(player, "loadout.saved", nil, "Success", "UiClick")
-	log.info("%s saved a loadout of %d jutsu(s)", player.Name, #slots)
+	log.info("%s saved a loadout of %d glyph(s)", player.Name, #slots)
 	return true
 end
 
@@ -257,30 +257,30 @@ local function onLevelUp(player: Player, level: number)
 		return
 	end
 	local granted = 0
-	for _, jutsuId in ipairs(JutsuConfig.unlocksForLevel(level)) do
-		if grantJutsu(player, data, jutsuId) then
+	for _, glyphId in ipairs(GlyphConfig.unlocksForLevel(level)) do
+		if grantGlyph(player, data, glyphId) then
 			granted += 1
 		end
 	end
 	if granted > 0 then
 		dataService.push(player, "Unlocks")
-		log.info("%s unlocked %d jutsu(s) at level %d", player.Name, granted, level)
+		log.info("%s unlocked %d glyph(s) at level %d", player.Name, granted, level)
 	end
-	if level >= LIGHTNING_LEVEL then
-		LoadoutService.grantElement(player, LIGHTNING_ELEMENT)
+	if level >= ORPIMENT_LEVEL then
+		LoadoutService.grantPigment(player, ORPIMENT_PIGMENT)
 	end
 end
 
 -- Puts back what the developer list handed out, for an account that is no longer on it. Without this the
--- grant was irrevocable: removing the id left the profile holding all twenty jutsus and the Lightning
--- element that other players pay for, with the whole set still castable.
+-- grant was irrevocable: removing the id left the profile holding all twenty glyphs and the Orpiment
+-- pigment that other players pay for, with the whole set still castable.
 --
 -- The unlocks are rebuilt rather than subtracted, because there is no record of which ones were earned.
--- grantEarned below puts the level gates back, the Lightning level check and the game pass sync put the
--- element back if it is genuinely owned, and refreshSlotLimit trims the loadout to the real budget.
+-- grantEarned below puts the level gates back, the Orpiment level check and the game pass sync put the
+-- pigment back if it is genuinely owned, and refreshSlotLimit trims the loadout to the real budget.
 local function revokeDeveloperGrants(player: Player, data: ProfileData)
 	table.clear(data.Unlocks.Pigments)
-	data.Unlocks.Glyphs = JutsuConfig.defaultUnlocks()
+	data.Unlocks.Glyphs = GlyphConfig.defaultUnlocks()
 	data.Meta.DevGranted = false
 	dataService.push(player, "Unlocks")
 	log.info("%s is no longer a developer: unlocks rebuilt from what the profile earned", player.Name)
@@ -294,8 +294,8 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	if data.Meta.DevGranted then
 		revokeDeveloperGrants(player, data)
 	end
-	if data.Progression.Level >= LIGHTNING_LEVEL then
-		LoadoutService.grantElement(player, LIGHTNING_ELEMENT)
+	if data.Progression.Level >= ORPIMENT_LEVEL then
+		LoadoutService.grantPigment(player, ORPIMENT_PIGMENT)
 	end
 	if grantEarned(player, data) > 0 then
 		dataService.push(player, "Unlocks")

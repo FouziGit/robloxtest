@@ -1,15 +1,15 @@
 --!strict
--- JutsuEffects: server-side hit detection for every jutsu, keyed by JutsuConfig `Effect` id.
+-- GlyphEffects: server-side hit detection for every glyph, keyed by GlyphConfig `Effect` id.
 -- Effects build NO visuals: they detect targets (spatial queries, stepped raycasts, invisible
 -- collision parts for walls), deal damage through CombatService.ApplyDamage only, and broadcast Vfx
--- packets that each client renders, under the jutsu's own `VfxId` and carrying its `Element`. Timed
+-- packets that each client renders, under the glyph's own `VfxId` and carrying its `Pigment`. Timed
 -- effects step inline in the caller's thread (the remote handler runs in its own thread) and stop
 -- early when the caster dies, leaves, raises guard or is stunned.
 -- Every effect returns the number of distinct models it damaged.
 --
 -- The helper section owns every shape the roster needs: spheres and boxes of live humanoids, a
 -- stepped projectile (straight or arcing under a gravity), a hitscan beam that only walls stop, a
--- ticking zone, a chain search and the raycast-validated teleport destination of LightningStep. An
+-- ticking zone, a chain search and the raycast-validated teleport destination of Caret. An
 -- effect adds geometry, never a new query or a magic number: all tuning comes from `Def.Params`.
 
 local CollectionService = game:GetService("CollectionService")
@@ -21,9 +21,9 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 
-export type JutsuDef = JutsuConfig.JutsuDef
+export type GlyphDef = GlyphConfig.GlyphDef
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
 export type CombatApi = {
 	ApplyDamage: (
@@ -32,7 +32,7 @@ export type CombatApi = {
 		amount: number,
 		kind: string,
 		tags: { string },
-		element: string?
+		pigment: string?
 	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	applyStoneSkin: (player: Player) -> boolean,
@@ -70,7 +70,7 @@ export type MovementApi = {
 }
 export type Context = {
 	Caster: Player,
-	Def: JutsuDef,
+	Def: GlyphDef,
 	Origin: CFrame,
 	Direction: Vector3,
 	Combat: CombatApi,
@@ -81,7 +81,7 @@ export type Effect = (ctx: Context) -> number
 
 -- Tracks the models damaged across the steps of one cast. `MaxHits` = how often one model may be
 -- damaged by this cast: 1 for a wave or a spike line, `math.huge` for a zone that ticks every
--- interval, a small cap for the EmberStep trail. `Tags` is built once: tags[1] is the i-frame key
+-- interval, a small cap for the Ligature trail. `Tags` is built once: tags[1] is the i-frame key
 -- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate.
 type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags: { string } }
 -- One candidate of a distance ranking (hitscan beam, chain arc, projectile proximity scan).
@@ -90,7 +90,7 @@ type Ranked = { Model: Model, Distance: number }
 type ProjectileStop = { Point: Vector3, Model: Model? }
 
 -- Invisible server collision geometry (walls) carries this tag so spatial queries skip it.
-local COLLISION_TAG = "JutsuCollision"
+local COLLISION_TAG = "GlyphCollision"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local WALL_NAME = "Margin"
 -- A projectile fuse is clamped so a synchronous effect never pins the remote handler for long.
@@ -102,17 +102,17 @@ local WAVE_STEP_SECONDS = 0.05
 -- keeps the loop bounded when a crowd fills the whole line.
 local MAX_HITSCAN_CASTS = 8
 -- Blast push (horizontal, away from the blast) and lift applied to players caught in an explosion.
-local FIREBALL_PUSH = 40
-local FIREBALL_LIFT = 20
+local BRAND_PUSH = 40
+local BRAND_LIFT = 20
 local WAVE_LIFT = 10
 -- Humanoid roots float about this high above the floor (HipHeight + half the root height).
 local ROOT_FLOOR_OFFSET = 3
 local KNOCKBACK_DURATION = CombatConfig.Hit.KnockbackDurationSeconds
--- Self buff of the StoneSkin jutsu: CombatService reads the attribute in ApplyDamage.
+-- Self buff of the Gilding glyph: CombatService reads the attribute in ApplyDamage.
 local STONE_SKIN = CombatConfig.Status.Gilding
 local EPSILON = 1e-3
 
-local JutsuEffects = {}
+local GlyphEffects = {}
 
 ----------------------------------------------------------------
 -- Shared helpers
@@ -143,7 +143,7 @@ local function liveRoot(player: Player): BasePart?
 end
 
 -- Root of the caster while the cast may still deal damage: in the game with a live character, not
--- guarding and not stunned. JutsuService applies the same rule once at cast time; timed effects
+-- guarding and not stunned. GlyphService applies the same rule once at cast time; timed effects
 -- re-check it on every step so raising guard, dashing into a stun or being stunned stops waves,
 -- spike lines and zones instead of letting them tick under guard.
 local function casterRoot(ctx: Context): BasePart?
@@ -245,7 +245,7 @@ local function nearestModel(models: { Model }, position: Vector3): Model?
 	return ranked[1]
 end
 
-local function newTracker(def: JutsuDef, maxHits: number): Tracker
+local function newTracker(def: GlyphDef, maxHits: number): Tracker
 	return { MaxHits = maxHits, Hits = {}, Count = 0, Tags = { def.Id, def.Archetype } }
 end
 
@@ -256,7 +256,7 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	if hits ~= nil and hits >= tracker.MaxHits then
 		return false
 	end
-	local result = ctx.Combat.ApplyDamage(ctx.Caster, model, ctx.Def.Damage, "Jutsu", tracker.Tags, ctx.Def.Element)
+	local result = ctx.Combat.ApplyDamage(ctx.Caster, model, ctx.Def.Damage, "Glyph", tracker.Tags, ctx.Def.Pigment)
 	if result.Applied <= 0 then
 		return false
 	end
@@ -295,8 +295,8 @@ local function excludeParams(character: Model?): RaycastParams
 end
 
 -- Steps a projectile in the caller's thread: `velocity` studs/s, `gravity` studs/s² pulling it down
--- (0 = straight line). It stops on the first obstruction a ray finds — a MudWall and the terrain
--- included, which is how Earth blocks projectiles —, on the first live model within `hitRadius`
+-- (0 = straight line). It stops on the first obstruction a ray finds — a Margin and the terrain
+-- included, which is how Umber blocks projectiles —, on the first live model within `hitRadius`
 -- (0 = no proximity scan: the blast of an exploding projectile finds its own targets), once
 -- `maxDistance` of path has been travelled or when the fuse burns out. Returns nil as soon as the
 -- cast stops qualifying (caster dead, guarding or stunned) so nothing lands afterwards.
@@ -413,7 +413,7 @@ end
 -- Detonation shared by the exploding projectiles: one "Explosion" packet, one damage pass, and a
 -- push away from the blast for everything it hurt.
 local function explode(ctx: Context, point: Vector3, radius: number, push: number, lift: number): number
-	ctx.Vfx.emit({ Id = "Explosion", Origin = point, Params = { Radius = radius, Element = ctx.Def.Element } })
+	ctx.Vfx.emit({ Id = "Explosion", Origin = point, Params = { Radius = radius, Pigment = ctx.Def.Pigment } })
 	local tracker = newTracker(ctx.Def, 1)
 	for _, model in ipairs(damageArea(ctx, tracker, point, radius)) do
 		local offset = model:GetPivot().Position - point
@@ -426,10 +426,10 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 end
 
 ----------------------------------------------------------------
--- Fireball: stepped projectile that explodes on contact, fuse or max range
+-- Brand: stepped projectile that explodes on contact, fuse or max range
 ----------------------------------------------------------------
 
-function JutsuEffects.Fireball(ctx: Context): number
+function GlyphEffects.Brand(ctx: Context): number
 	local params = ctx.Def.Params
 	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
 	local direction = ctx.Direction
@@ -438,7 +438,7 @@ function JutsuEffects.Fireball(ctx: Context): number
 		Origin = ctx.Origin.Position,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Speed = params.Speed, Fuse = fuse, SpawnOffset = params.SpawnOffset, Element = ctx.Def.Element },
+		Params = { Speed = params.Speed, Fuse = fuse, SpawnOffset = params.SpawnOffset, Pigment = ctx.Def.Pigment },
 	})
 
 	local stop = stepProjectile(
@@ -453,14 +453,14 @@ function JutsuEffects.Fireball(ctx: Context): number
 	if stop == nil then
 		return 0
 	end
-	return explode(ctx, stop.Point, params.BlastRadius, FIREBALL_PUSH, FIREBALL_LIFT)
+	return explode(ctx, stop.Point, params.BlastRadius, BRAND_PUSH, BRAND_LIFT)
 end
 
 ----------------------------------------------------------------
--- WaterWave: a front that sweeps from the caster to max range, hitting each target once
+-- Wash: a front that sweeps from the caster to max range, hitting each target once
 ----------------------------------------------------------------
 
-function JutsuEffects.WaterWave(ctx: Context): number
+function GlyphEffects.Wash(ctx: Context): number
 	local params = ctx.Def.Params
 	local origin = ctx.Origin.Position
 	local direction = ctx.Direction
@@ -474,7 +474,7 @@ function JutsuEffects.WaterWave(ctx: Context): number
 			Range = ctx.Def.Range,
 			SpawnOffset = params.SpawnOffset,
 			HitRadius = params.HitRadius,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -500,10 +500,10 @@ function JutsuEffects.WaterWave(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- EarthSpikes: a line of spikes erupting one after the other, each target hit once, players stunned
+-- Serif: a line of spikes erupting one after the other, each target hit once, players stunned
 ----------------------------------------------------------------
 
-function JutsuEffects.EarthSpikes(ctx: Context): number
+function GlyphEffects.Serif(ctx: Context): number
 	local params = ctx.Def.Params
 	local origin = ctx.Origin.Position
 	local direction = ctx.Direction
@@ -517,7 +517,7 @@ function JutsuEffects.EarthSpikes(ctx: Context): number
 			Spacing = params.Spacing,
 			StartOffset = params.StartOffset,
 			StepDelay = params.StepDelay,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -541,10 +541,10 @@ function JutsuEffects.EarthSpikes(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- WindGust: instant burst in front of the caster that shoves targets away
+-- Sweep: instant burst in front of the caster that shoves targets away
 ----------------------------------------------------------------
 
-function JutsuEffects.WindGust(ctx: Context): number
+function GlyphEffects.Sweep(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = ctx.Direction
 	local center = ctx.Origin.Position + direction * params.Offset
@@ -553,7 +553,7 @@ function JutsuEffects.WindGust(ctx: Context): number
 		Origin = ctx.Origin.Position,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius, Offset = params.Offset, Element = ctx.Def.Element },
+		Params = { Radius = params.Radius, Offset = params.Offset, Pigment = ctx.Def.Pigment },
 	})
 
 	local tracker = newTracker(ctx.Def, 1)
@@ -565,10 +565,10 @@ function JutsuEffects.WindGust(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- BoilingMist: fixed zone that burns and slows on every tick
+-- Bleed: fixed zone that burns and slows on every tick
 ----------------------------------------------------------------
 
-function JutsuEffects.BoilingMist(ctx: Context): number
+function GlyphEffects.Bleed(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	ctx.Vfx.emit({
@@ -579,7 +579,7 @@ function JutsuEffects.BoilingMist(ctx: Context): number
 		Params = {
 			Radius = params.Radius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -592,11 +592,11 @@ function JutsuEffects.BoilingMist(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- MudWall: invisible collision wall in front of the caster (clients render the visual)
+-- Margin: invisible collision wall in front of the caster (clients render the visual)
 ----------------------------------------------------------------
 
 -- Live walls per caster. Their only bound used to be arithmetic: the wall lasts Params.Duration (6 s) and
--- the jutsu recharges in Cooldown (10 s), so one could exist at a time. Nothing stated that, and anything
+-- the glyph recharges in Cooldown (10 s), so one could exist at a time. Nothing stated that, and anything
 -- that shortens the cooldown turns an invisible, solid, 14 by 9 stud slab into something the caster can
 -- stack until the hub is a maze. The cap makes the invariant explicit and independent of the cooldown.
 local MAX_WALLS_PER_CASTER = 2
@@ -629,7 +629,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	wallsByCaster[player] = nil
 end)
 
-function JutsuEffects.MudWall(ctx: Context): number
+function GlyphEffects.Margin(ctx: Context): number
 	local params = ctx.Def.Params
 	local base = ctx.Origin * CFrame.new(0, 0, -params.Offset)
 	local floorY = ctx.Origin.Position.Y - ROOT_FLOOR_OFFSET
@@ -659,17 +659,17 @@ function JutsuEffects.MudWall(ctx: Context): number
 			Height = params.Height,
 			Thickness = params.Thickness,
 			Duration = params.Duration,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 	return 0
 end
 
 ----------------------------------------------------------------
--- EmberStorm: zone that follows the caster and burns on every tick
+-- Scorch: zone that follows the caster and burns on every tick
 ----------------------------------------------------------------
 
-function JutsuEffects.EmberStorm(ctx: Context): number
+function GlyphEffects.Scorch(ctx: Context): number
 	local params = ctx.Def.Params
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,
@@ -679,7 +679,7 @@ function JutsuEffects.EmberStorm(ctx: Context): number
 		Params = {
 			Radius = params.Radius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -700,10 +700,10 @@ function JutsuEffects.EmberStorm(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Earthquake: instant shockwave around the caster that launches and stuns
+-- Rupture: instant shockwave around the caster that launches and stuns
 ----------------------------------------------------------------
 
-function JutsuEffects.Earthquake(ctx: Context): number
+function GlyphEffects.Rupture(ctx: Context): number
 	local params = ctx.Def.Params
 	local origin = ctx.Origin.Position
 	ctx.Vfx.emit({
@@ -711,7 +711,7 @@ function JutsuEffects.Earthquake(ctx: Context): number
 		Origin = origin,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = params.Radius, Element = ctx.Def.Element },
+		Params = { Radius = params.Radius, Pigment = ctx.Def.Pigment },
 	})
 
 	local tracker = newTracker(ctx.Def, 1)
@@ -727,10 +727,10 @@ function JutsuEffects.Earthquake(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- EmberStep: forward dash that leaves a line of burning pools behind it
+-- Ligature: forward dash that leaves a line of burning pools behind it
 ----------------------------------------------------------------
 
-function JutsuEffects.EmberStep(ctx: Context): number
+function GlyphEffects.Ligature(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = horizontal(ctx.Direction)
 	local start = ctx.Origin.Position
@@ -752,12 +752,12 @@ function JutsuEffects.EmberStep(ctx: Context): number
 			TrailSpacing = params.TrailSpacing,
 			TrailRadius = params.TrailRadius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 	-- The character is client-simulated: the dash itself is a server-approved movement command, issued
 	-- through grantMovement so its distance joins the caster's travel budget. Going straight to
-	-- Movement.command made this jutsu's own gap-close look like a teleport, and the melee it exists to
+	-- Movement.command made this glyph's own gap-close look like a teleport, and the melee it exists to
 	-- set up was clamped back to where the dash started.
 	ctx.Combat.grantMovement(ctx.Caster, {
 		Kind = "Dash",
@@ -782,10 +782,10 @@ function JutsuEffects.EmberStep(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Meteor: heavy arcing projectile, detonates in a wide blast and breaks guards (Ultimate)
+-- Blot: heavy arcing projectile, detonates in a wide blast and breaks guards (Ultimate)
 ----------------------------------------------------------------
 
-function JutsuEffects.Meteor(ctx: Context): number
+function GlyphEffects.Blot(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = horizontal(ctx.Direction)
 	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
@@ -804,7 +804,7 @@ function JutsuEffects.Meteor(ctx: Context): number
 			Fuse = fuse,
 			SpawnOffset = params.SpawnOffset,
 			BlastRadius = params.BlastRadius,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -824,10 +824,10 @@ function JutsuEffects.Meteor(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- WaterPrison: roots the closest target in front of the caster
+-- Binding: roots the closest target in front of the caster
 ----------------------------------------------------------------
 
-function JutsuEffects.WaterPrison(ctx: Context): number
+function GlyphEffects.Binding(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	local targets =
@@ -853,16 +853,16 @@ function JutsuEffects.WaterPrison(ctx: Context): number
 		Targets = points,
 		-- Origin is already the centre of the grab, so the packet carries no Offset: the renderer
 		-- falls back to Origin itself when the prison caught nobody.
-		Params = { Radius = params.HitRadius, RootDuration = params.RootDuration, Element = ctx.Def.Element },
+		Params = { Radius = params.HitRadius, RootDuration = params.RootDuration, Pigment = ctx.Def.Pigment },
 	}, true)
 	return tracker.Count
 end
 
 ----------------------------------------------------------------
--- MudShot: fast direct-hit projectile that slows what it hits
+-- Stipple: fast direct-hit projectile that slows what it hits
 ----------------------------------------------------------------
 
-function JutsuEffects.MudShot(ctx: Context): number
+function GlyphEffects.Stipple(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = ctx.Direction
 	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
@@ -876,7 +876,7 @@ function JutsuEffects.MudShot(ctx: Context): number
 			Fuse = fuse,
 			SpawnOffset = params.SpawnOffset,
 			HitRadius = params.HitRadius,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	})
 
@@ -908,10 +908,10 @@ function JutsuEffects.MudShot(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- StoneSkin: self buff, damage reduction and knockback immunity read by CombatService
+-- Gilding: self buff, damage reduction and knockback immunity read by CombatService
 ----------------------------------------------------------------
 
-function JutsuEffects.StoneSkin(ctx: Context): number
+function GlyphEffects.Gilding(ctx: Context): number
 	local root = casterRoot(ctx)
 	if root == nil then
 		return 0
@@ -927,16 +927,16 @@ function JutsuEffects.StoneSkin(ctx: Context): number
 		Origin = root.Position,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Radius = ctx.Def.Range, Duration = STONE_SKIN.DurationSeconds, Element = ctx.Def.Element },
+		Params = { Radius = ctx.Def.Range, Duration = STONE_SKIN.DurationSeconds, Pigment = ctx.Def.Pigment },
 	}, true)
 	return 0
 end
 
 ----------------------------------------------------------------
--- WindBlade: fast direct-hit projectile; being Wind, it marks its target Fanned through ApplyDamage
+-- Hairline: fast direct-hit projectile; being Verdigris, it marks its target Fanned through ApplyDamage
 ----------------------------------------------------------------
 
-function JutsuEffects.WindBlade(ctx: Context): number
+function GlyphEffects.Hairline(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = ctx.Direction
 	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
@@ -949,7 +949,7 @@ function JutsuEffects.WindBlade(ctx: Context): number
 			Speed = params.Speed,
 			Fuse = fuse,
 			SpawnOffset = params.SpawnOffset,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	})
 
@@ -977,10 +977,10 @@ function JutsuEffects.WindBlade(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Cyclone: zone that drags everything it damages toward its centre on every tick
+-- Spiral: zone that drags everything it damages toward its centre on every tick
 ----------------------------------------------------------------
 
-function JutsuEffects.Cyclone(ctx: Context): number
+function GlyphEffects.Spiral(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	ctx.Vfx.emit({
@@ -991,7 +991,7 @@ function JutsuEffects.Cyclone(ctx: Context): number
 		Params = {
 			Radius = params.Radius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -1008,10 +1008,10 @@ function JutsuEffects.Cyclone(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Sandstorm: wide zone that slows everything inside on every tick
+-- Pounce: wide zone that slows everything inside on every tick
 ----------------------------------------------------------------
 
-function JutsuEffects.Sandstorm(ctx: Context): number
+function GlyphEffects.Pounce(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	ctx.Vfx.emit({
@@ -1022,7 +1022,7 @@ function JutsuEffects.Sandstorm(ctx: Context): number
 		Params = {
 			Radius = params.Radius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -1035,10 +1035,10 @@ function JutsuEffects.Sandstorm(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- LightningBolt: hitscan beam, no travel time
+-- Strike: hitscan beam, no travel time
 ----------------------------------------------------------------
 
-function JutsuEffects.LightningBolt(ctx: Context): number
+function GlyphEffects.Strike(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = horizontal(ctx.Direction)
 	local start = ctx.Origin.Position + direction * params.SpawnOffset
@@ -1066,14 +1066,14 @@ function JutsuEffects.LightningBolt(ctx: Context): number
 		Params = {
 			SpawnOffset = params.SpawnOffset,
 			Range = (stop - start).Magnitude,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	})
 	return tracker.Count
 end
 
 ----------------------------------------------------------------
--- LightningStep: teleport forward, to a destination the server validates
+-- Caret: teleport forward, to a destination the server validates
 ----------------------------------------------------------------
 
 -- A destination is valid when there is ground within `snap` studs under it and nothing overlaps the
@@ -1096,7 +1096,7 @@ local function landingPosition(candidate: Vector3, clearance: number, snap: numb
 	return landing
 end
 
-function JutsuEffects.LightningStep(ctx: Context): number
+function GlyphEffects.Caret(ctx: Context): number
 	local params = ctx.Def.Params
 	local root = casterRoot(ctx)
 	local character: Model? = ctx.Caster.Character
@@ -1136,7 +1136,7 @@ function JutsuEffects.LightningStep(ctx: Context): number
 		Params = {
 			Range = (landing - start).Magnitude,
 			IFrameSeconds = params.IFrameSeconds,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 	character:PivotTo(CFrame.new(landing) * root.CFrame.Rotation)
@@ -1148,10 +1148,10 @@ function JutsuEffects.LightningStep(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- StaticField: zone that micro-stuns on every tick
+-- Watermark: zone that micro-stuns on every tick
 ----------------------------------------------------------------
 
-function JutsuEffects.StaticField(ctx: Context): number
+function GlyphEffects.Watermark(ctx: Context): number
 	local params = ctx.Def.Params
 	local center = ctx.Origin.Position + ctx.Direction * params.Offset
 	ctx.Vfx.emit({
@@ -1162,7 +1162,7 @@ function JutsuEffects.StaticField(ctx: Context): number
 		Params = {
 			Radius = params.Radius,
 			Duration = params.Ticks * params.TickInterval,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 
@@ -1175,7 +1175,7 @@ function JutsuEffects.StaticField(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Raijin: hitscan that arcs from target to target, stunning every link (Ultimate)
+-- Colophon: hitscan that arcs from target to target, stunning every link (Ultimate)
 ----------------------------------------------------------------
 
 -- Closest live model within `radius` of the previous link that this cast has not arced to yet.
@@ -1189,7 +1189,7 @@ local function nextLink(ctx: Context, from: Vector3, radius: number, struck: { [
 	return nearestModel(candidates, from)
 end
 
-function JutsuEffects.Raijin(ctx: Context): number
+function GlyphEffects.Colophon(ctx: Context): number
 	local params = ctx.Def.Params
 	local direction = horizontal(ctx.Direction)
 	local start = ctx.Origin.Position + direction * params.SpawnOffset
@@ -1225,10 +1225,10 @@ function JutsuEffects.Raijin(ctx: Context): number
 		Params = {
 			SpawnOffset = params.SpawnOffset,
 			Range = (stop - start).Magnitude,
-			Element = ctx.Def.Element,
+			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
 	return tracker.Count
 end
 
-return JutsuEffects
+return GlyphEffects

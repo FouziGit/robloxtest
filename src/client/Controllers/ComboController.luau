@@ -1,7 +1,7 @@
 --!strict
--- ComboController: turns element presses into jutsu casts. Feeds the shared ComboResolver, arms the
+-- ComboController: turns pigment presses into glyph casts. Feeds the shared ComboResolver, arms the
 -- inactivity timer (short extend window when the pending sequence is already a recipe), sends
--- `CastJutsu` with the element sequence and reports resets to the HUD. The server re-validates
+-- `CastGlyph` with the pigment sequence and reports resets to the HUD. The server re-validates
 -- every sequence; this controller only decides when to send it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,10 +10,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local ComboResolver = require(Shared.Pure.ComboResolver)
-local ElementConfig = require(Shared.Config.ElementConfig)
 local GameConfig = require(Shared.Config.GameConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Signal = require(Packages.Signal)
 
 local log = Log.new("ComboController")
@@ -31,7 +31,7 @@ local soundController: any
 local inputController: any
 local hudController: any
 
-local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLength)
+local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 local sequence: { string } = {}
 local generation = 0 -- bumped on every change so a stale timer thread does nothing
 
@@ -44,8 +44,8 @@ local function cancelTimer()
 	generation += 1
 end
 
-local function cast(elements: { string })
-	remoteClient.fire("CastJutsu", elements)
+local function cast(pigments: { string })
+	remoteClient.fire("CastGlyph", pigments)
 end
 
 local function armTimer(delay: number)
@@ -67,7 +67,7 @@ local function armTimer(delay: number)
 end
 
 local function onAction(actionId: string, began: boolean)
-	if not began or not ElementConfig.isElement(actionId) or inputController.isSuspended() then
+	if not began or not PigmentConfig.isPigment(actionId) or inputController.isSuspended() then
 		return
 	end
 	local full = table.clone(sequence)
@@ -113,7 +113,7 @@ function ComboController.Start()
 	if #resolver.duplicates > 0 then
 		log.warn("duplicate recipes ignored: %s", table.concat(resolver.duplicates, ", "))
 	end
-	log.info("started (%d recipes)", #JutsuConfig.Jutsus)
+	log.info("started (%d recipes)", #GlyphConfig.Glyphs)
 end
 
 return ComboController

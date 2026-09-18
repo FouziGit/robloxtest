@@ -21,16 +21,16 @@ local MonetizationConfig = {}
 MonetizationConfig.Passes = {
 	Vip = { Id = 0, PriceRobux = 399, NameKey = "pass.vip", DescKey = "pass.vip.desc" },
 	LoadoutSlots = { Id = 0, PriceRobux = 199, NameKey = "pass.loadoutSlots", DescKey = "pass.loadoutSlots.desc" },
-	Orpiment = { Id = 0, PriceRobux = 299, NameKey = "pass.lightning", DescKey = "pass.lightning.desc" },
+	Orpiment = { Id = 0, PriceRobux = 299, NameKey = "pass.orpiment", DescKey = "pass.orpiment.desc" },
 	SkinPack = { Id = 0, PriceRobux = 249, NameKey = "pass.skinPack", DescKey = "pass.skinPack.desc" },
 } :: { [string]: PassDef }
 
 -- Cosmetics granted by the SkinPack pass.
 MonetizationConfig.SkinPackCosmetics = {
-	"SkinFireballAzure",
-	"SkinWaterWaveJade",
-	"SkinEarthSpikesObsidian",
-	"SkinWindGustSilver",
+	"SkinBrandAzure",
+	"SkinWashJade",
+	"SkinSerifObsidian",
+	"SkinSweepSilver",
 } :: { string }
 
 MonetizationConfig.Products = {
@@ -121,8 +121,8 @@ MonetizationConfig.Prompts = {
 	MinIntervalSeconds = 300, -- at most one prompt every 5 minutes
 	CloseLossHealthFraction = 0.15, -- "close loss" threshold for the XP boost prompt
 	CloseLossCooldownSeconds = 1800,
-	LightningDeathMinLevel = 10,
-	LightningDeathPerSession = 1,
+	OrpimentDeathMinLevel = 10,
+	OrpimentDeathPerSession = 1,
 }
 
 -- Keys whose Id is still 0.

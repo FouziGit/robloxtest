@@ -15,40 +15,40 @@ La cible de cette passe est de 4 minimum. **Dix effets sur trente-quatre en ont 
 ## Inventaire mesuré
 
 Compté automatiquement sur `src/client/Controllers/VfxLibrary.luau`. « Couches » additionne les pièces,
-les émetteurs, les lumières, les traînées et les instances `Fire`.
+les émetteurs, les lumières, les traînées et les instances `Cinnabar`.
 
-| Effet | Part | Émetteur | Lumière | Trail | Fire | Son | Shake | Linéaire | **Couches** |
+| Effet | Part | Émetteur | Lumière | Trail | Cinnabar | Son | Shake | Linéaire | **Couches** |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `Meteor` | 1 | 2 | 1 | 1 | 1 | 0 | 1 | 0 | **6** |
-| `EmberStep` | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | **5** |
-| `MudShot` | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | **5** |
-| `Fireball` | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 1 | **4** |
-| `Sandstorm` | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | **4** |
-| `EmberStorm` | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **3** |
-| `Earthquake` | 2 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | **3** |
-| `WindBlade` | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | **3** |
-| `Cyclone` | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **3** |
+| `Blot` | 1 | 2 | 1 | 1 | 1 | 0 | 1 | 0 | **6** |
+| `Ligature` | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | **5** |
+| `Stipple` | 2 | 2 | 0 | 1 | 0 | 0 | 0 | 1 | **5** |
+| `Brand` | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 1 | **4** |
+| `Pounce` | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | **4** |
+| `Scorch` | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **3** |
+| `Rupture` | 2 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | **3** |
+| `Hairline` | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | **3** |
+| `Spiral` | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **3** |
 | `Dash` | 1 | 1 | 0 | 1 | 0 | 1 | 0 | 1 | **3** |
 | `Cast` | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 | **2** |
 | `Explosion` | 1 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | **2** |
-| `WaterWave` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `EarthSpikes` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `WindGust` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `BoilingMist` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `MudWall` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `WaterPrison` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `StoneSkin` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `StaticField` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Wash` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Serif` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Sweep` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Bleed` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Margin` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Binding` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Gilding` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
+| `Watermark` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
 | `Hit` | 1 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | **2** |
 | `GuardBreak` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
 | `BossSpawn` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
 | `BossDefeated` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | **2** |
-| `LightningStep` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **1** |
-| `Raijin` | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | **1** |
+| `Caret` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **1** |
+| `Colophon` | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | **1** |
 | `Melee` | 1 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | **1** |
 | `BossSweep` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **1** |
 | `BossEruption` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **1** |
-| `LightningBolt` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
+| `Strike` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
 | `BlockStart` | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | **0** |
 | `BlockHit` | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | **0** |
 | `BossSlam` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **0** |
@@ -59,7 +59,7 @@ les émetteurs, les lumières, les traînées et les instances `Fire`.
 - **Zéro `Beam` dans tout le jeu.** Aucun lien, aucun arc électrique, aucune traînée d'énergie courbe.
   C'est l'outil le plus expressif de Roblox et il n'est pas utilisé une seule fois.
 - **Trois lumières dynamiques au total**, sur trente-quatre effets. Une boule de feu éclaire la scène,
-  un météore aussi, Raijin aussi. Les dix-sept autres glyphes traversent le monde sans l'éclairer. C'est
+  un météore aussi, Colophon aussi. Les dix-sept autres glyphes traversent le monde sans l'éclairer. C'est
   la moitié de la sensation de puissance, et elle est absente.
 - **Aucune trace au sol.** `Decal` et `Texture` n'apparaissent nulle part dans `src`. Un séisme, un
   météore et une tempête de braises ne laissent rien. Le monde n'a aucune mémoire.
@@ -83,7 +83,7 @@ Le sort le plus lancé du jeu, celui qu'un joueur voit dans ses quinze première
 
 ```
 une Part sphérique orange de 3 studs
-+ une instance Fire (l'effet hérité de 2008)
++ une instance Cinnabar (l'effet hérité de 2008)
 + une PointLight
 + une Trail
 déplacée en interpolation LINÉAIRE jusqu'à la fin de sa portée
@@ -173,13 +173,13 @@ Lisibilité = « je comprends ce qui m'arrive ». Punch = « je sens le poids »
 | Tuer | 3/10 | 2/10 | rien de spécifique : pas de ralenti, pas de silhouette, pas de son de finish |
 | Mourir | 2/10 | 1/10 | aucune mise en scène, aucun post-traitement, aucun ralenti |
 | Gagner un duel | 3/10 | 2/10 | écran de résultat fonctionnel mais sans aucune montée, sans animation de barre |
-| Boule de Feu | 5/10 | 3/10 | vol linéaire, aucune anticipation, aucune trace |
-| Vague / Pointes / Rafale | 5/10 | 2/10 | une pièce et un émetteur chacun, aucune lumière, aucun son |
-| Séisme | 6/10 | 4/10 | le shake porte tout le poids ; aucune fissure, aucun débris, aucune trace |
+| Marque | 5/10 | 3/10 | vol linéaire, aucune anticipation, aucune trace |
+| Lavis / Empattement / Balayage | 5/10 | 2/10 | une pièce et un émetteur chacun, aucune lumière, aucun son |
+| Rupture | 6/10 | 4/10 | le shake porte tout le poids ; aucune fissure, aucun débris, aucune trace |
 | Météore | 6/10 | 5/10 | le mieux doté du jeu, et il reste sans trace au sol ni post-traitement |
 | Éclair | 1/10 | 1/10 | **zéro instance visuelle.** Le sort le plus rapide du jeu est invisible. |
-| Raijin (ultime) | 2/10 | 3/10 | une `PointLight` et un shake. Le sort le plus cher du jeu est un flash. |
-| Prison d'Eau | 4/10 | 2/10 | une pièce, un émetteur ; l'immobilisation n'est pas lisible sur la cible |
+| Colophon (ultime) | 2/10 | 3/10 | une `PointLight` et un shake. Le sort le plus cher du jeu est un flash. |
+| Reliure | 4/10 | 2/10 | une pièce, un émetteur ; l'immobilisation n'est pas lisible sur la cible |
 | Peau de Pierre | 3/10 | 2/10 | aucune silhouette `Highlight`, on ne voit pas qu'un joueur est protégé |
 | L'Effacement (boss) | 4/10 | 4/10 | quatre de ses six attaques n'ont qu'un shake, le corps est une boîte |
 
@@ -206,7 +206,7 @@ aucune télégraphie au sol, aucune montée lumineuse, aucun son qui monte avant
 7. Une anticipation lisible sur chaque glyphe lourd, et une récupération punitive.
 8. Des traces au sol qui s'effacent.
 9. Des springs dans l'interface, et une barre de vie fantôme.
-10. Donner un visuel à `LightningBolt`, `Raijin`, `BlockStart` et `BlockHit`, qui n'en ont aucun.
+10. Donner un visuel à `Strike`, `Colophon`, `BlockStart` et `BlockHit`, qui n'en ont aucun.
 
 ## Ce que la vérification d'API autorise
 

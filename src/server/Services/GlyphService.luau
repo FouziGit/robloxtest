@@ -1,7 +1,7 @@
 --!strict
--- JutsuService: validates every CastJutsu request (profile, alive, not stunned / guarding, real
--- recipe, unlocked, equipped, cooldown, chakra), then runs the server effect from JutsuEffects with
--- the caster's HumanoidRootPart as origin. Hits feed XP and stats. The single owner of jutsu cooldowns.
+-- GlyphService: validates every CastGlyph request (profile, alive, not stunned / guarding, real
+-- recipe, unlocked, equipped, cooldown, ink), then runs the server effect from GlyphEffects with
+-- the caster's HumanoidRootPart as origin. Hits feed XP and stats. The single owner of glyph cooldowns.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,14 +11,14 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ComboResolver = require(Shared.Pure.ComboResolver)
 local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
 local GameConfig = require(Shared.Config.GameConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 
-local log = Log.new("JutsuService")
+local log = Log.new("GlyphService")
 
-export type JutsuDef = JutsuConfig.JutsuDef
+export type GlyphDef = GlyphConfig.GlyphDef
 
 type ProfileData = Types.ProfileData
 type DataApi = {
@@ -37,14 +37,14 @@ type CombatApi = {
 		amount: number,
 		kind: string,
 		tags: { string },
-		element: string?
+		pigment: string?
 	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
-	trySpendChakra: (player: Player, cost: number) -> boolean,
+	trySpendInk: (player: Player, cost: number) -> boolean,
 	-- Cast origin the server is willing to believe, corrected back to the last plausible position when
 	-- the client claims an implausible one.
 	trustedOrigin: (player: Player) -> CFrame?,
-	-- Called after an effect teleports its caster (LightningStep), so the trusted position follows.
+	-- Called after an effect teleports its caster (Caret), so the trusted position follows.
 	resyncPosition: (player: Player) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
@@ -72,7 +72,7 @@ type MovementApi = {
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
 type EffectContext = {
 	Caster: Player,
-	Def: JutsuDef,
+	Def: GlyphDef,
 	Origin: CFrame,
 	Direction: Vector3,
 	Combat: CombatApi,
@@ -105,7 +105,7 @@ type Deps = {
 local MAX_REWARDED_HITS = 3
 local ROOT_PART_NAME = "HumanoidRootPart"
 
-local JutsuService = {}
+local GlyphService = {}
 
 local registry: Registry
 local dataService: DataApi
@@ -119,11 +119,11 @@ local quest: QuestApi
 local match: MatchApi
 local worldBoss: WorldBossApi
 
-local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLength)
--- Per player: jutsu id -> os.clock timestamp at which it can be cast again.
+local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
+-- Per player: glyph id -> os.clock timestamp at which it can be cast again.
 local cooldowns: { [Player]: { [string]: number } } = {}
 
--- A developer account testing the roster in the hub: no chakra, and cooldowns collapsed to
+-- A developer account testing the roster in the hub: no ink, and cooldowns collapsed to
 -- DeveloperConfig.MinRecastSeconds.
 --
 -- Deliberately refused inside a ranked match and during a World Boss event. Both pay out to other
@@ -131,7 +131,7 @@ local cooldowns: { [Player]: { [string]: number } } = {}
 -- seasonal ladder, and would swallow a share of a boss payout that is divided between participants. The
 -- hub is where the roster is meant to be tried, and the hub pays nobody.
 --
--- The CastJutsu token bucket still applies: it is flood protection against an untrusted client, not an
+-- The CastGlyph token bucket still applies: it is flood protection against an untrusted client, not an
 -- economy rule, so a developer is throttled to its refill rate like everybody else. That bounds the real
 -- pace at a few casts a second, well below anything the effects were written against.
 local function freeCasting(player: Player): boolean
@@ -171,26 +171,26 @@ local function liveRoot(player: Player): BasePart?
 end
 
 -- Validates the request and returns the definition to cast, or nil after notifying the player.
-local function resolveCast(player: Player, data: ProfileData, sequence: { string }, now: number): JutsuDef?
-	local jutsuId = ComboResolver.resolve(resolver, sequence)
-	if jutsuId == nil then
+local function resolveCast(player: Player, data: ProfileData, sequence: { string }, now: number): GlyphDef?
+	local glyphId = ComboResolver.resolve(resolver, sequence)
+	if glyphId == nil then
 		notify.send(player, "hud.combo.noMatch", nil, "Error")
 		return nil
 	end
-	local def = JutsuConfig.ById[jutsuId]
+	local def = GlyphConfig.ById[glyphId]
 	if def == nil then
-		log.error("recipe %s resolves to unknown jutsu %s", table.concat(sequence, "-"), jutsuId)
+		log.error("recipe %s resolves to unknown glyph %s", table.concat(sequence, "-"), glyphId)
 		return nil
 	end
-	if table.find(data.Unlocks.Glyphs, jutsuId) == nil then
+	if table.find(data.Unlocks.Glyphs, glyphId) == nil then
 		notify.send(player, "hud.cast.locked", { name = def.NameKey }, "Error")
 		return nil
 	end
-	if table.find(data.Loadout.Slots, jutsuId) == nil then
+	if table.find(data.Loadout.Slots, glyphId) == nil then
 		notify.send(player, "hud.cast.notEquipped", { name = def.NameKey }, "Error")
 		return nil
 	end
-	local readyAt = cooldownsOf(player)[jutsuId]
+	local readyAt = cooldownsOf(player)[glyphId]
 	if readyAt ~= nil and readyAt > now then
 		local seconds = string.format("%.1f", readyAt - now)
 		notify.send(player, "hud.cast.cooldown", { name = def.NameKey, seconds = seconds }, "Error")
@@ -200,7 +200,7 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 end
 
 -- Runs the effect in the handler thread (timed effects yield inline). Returns distinct models hit.
-local function runEffect(player: Player, def: JutsuDef, effect: Effect, origin: CFrame, direction: Vector3): number
+local function runEffect(player: Player, def: GlyphDef, effect: Effect, origin: CFrame, direction: Vector3): number
 	local hits = 0
 	local ctx: EffectContext = {
 		Caster = player,
@@ -226,17 +226,17 @@ local function recordCast(player: Player, hits: number)
 	if data == nil then
 		return
 	end
-	data.Stats.JutsusCast += 1
-	quest.report(player, "JutsuCast", 1)
+	data.Stats.GlyphsCast += 1
+	quest.report(player, "GlyphCast", 1)
 	if hits > 0 then
-		data.Stats.JutsusHit += hits
-		quest.report(player, "JutsuHit", hits)
-		progression.addXp(player, ProgressionConfig.XP.JutsuHit * math.min(hits, MAX_REWARDED_HITS), "JutsuHit")
+		data.Stats.GlyphsHit += hits
+		quest.report(player, "GlyphHit", hits)
+		progression.addXp(player, ProgressionConfig.XP.GlyphHit * math.min(hits, MAX_REWARDED_HITS), "GlyphHit")
 	end
 	dataService.push(player, "Stats")
 end
 
-local function onCastJutsu(player: Player, sequence: { string })
+local function onCastGlyph(player: Player, sequence: { string })
 	local data = dataService.get(player)
 	if data == nil then
 		return
@@ -255,28 +255,28 @@ local function onCastJutsu(player: Player, sequence: { string })
 	end
 	local effect = effects[def.Effect]
 	if effect == nil then
-		log.error("no effect %s for jutsu %s", def.Effect, def.Id)
+		log.error("no effect %s for glyph %s", def.Effect, def.Id)
 		return
 	end
 
 	-- CombatService validates the origin against the position the server last believed: the character is
 	-- simulated by the owning client, so root.CFrame alone let a cast be placed anywhere on the map.
 	--
-	-- Resolved and failed closed BEFORE the chakra is spent. Falling back to root.CFrame would restore
+	-- Resolved and failed closed BEFORE the ink is spent. Falling back to root.CFrame would restore
 	-- exactly the hole this closes whenever the validator declines to answer, and refusing after the debit
-	-- would take the chakra for a cast that never happened. It declines only when there is no live
+	-- would take the ink for a cast that never happened. It declines only when there is no live
 	-- character, in which case there is nothing to cast from anyway.
 	local origin = combat.trustedOrigin(player)
 	if origin == nil then
 		return
 	end
-	if not freeCasting(player) and not combat.trySpendChakra(player, def.Cost) then
-		notify.send(player, "hud.cast.notEnoughChakra", nil, "Error", "Error")
+	if not freeCasting(player) and not combat.trySpendInk(player, def.Cost) then
+		notify.send(player, "hud.cast.notEnoughInk", nil, "Error", "Error")
 		return
 	end
 	local direction = origin.LookVector
-	-- A floor, not zero, under free casting. Every damage cap, hit tracker and duration in JutsuEffects is
-	-- per cast, so two live casts of the same jutsu double their damage, stack their stuns and pile up
+	-- A floor, not zero, under free casting. Every damage cap, hit tracker and duration in GlyphEffects is
+	-- per cast, so two live casts of the same glyph double their damage, stack their stuns and pile up
 	-- their world geometry. The floor is longer than the longest zone tick, so a cast always ends before
 	-- its successor starts.
 	local cooldown = if freeCasting(player) then DeveloperConfig.MinRecastSeconds else def.Cooldown
@@ -286,7 +286,7 @@ local function onCastJutsu(player: Player, sequence: { string })
 		Origin = origin.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { JutsuId = def.Id, SfxId = def.SfxId, Element = def.Element },
+		Params = { GlyphId = def.Id, SfxId = def.SfxId, Pigment = def.Pigment },
 	})
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
 	notify.send(player, "hud.cast.success", { name = def.NameKey }, "Info")
@@ -295,26 +295,26 @@ local function onCastJutsu(player: Player, sequence: { string })
 	recordCast(player, hits)
 end
 
--- Remaining cooldown per jutsu id, only entries still counting down. Expired entries are dropped.
-function JutsuService.getCooldowns(player: Player): { [string]: number }
+-- Remaining cooldown per glyph id, only entries still counting down. Expired entries are dropped.
+function GlyphService.getCooldowns(player: Player): { [string]: number }
 	local result: { [string]: number } = {}
 	local map = cooldowns[player]
 	if map == nil then
 		return result
 	end
 	local now = os.clock()
-	for jutsuId, readyAt in pairs(map) do
+	for glyphId, readyAt in pairs(map) do
 		local left = readyAt - now
 		if left > 0 then
-			result[jutsuId] = left
+			result[glyphId] = left
 		else
-			map[jutsuId] = nil
+			map[glyphId] = nil
 		end
 	end
 	return result
 end
 
-function JutsuService.Init(deps: Deps)
+function GlyphService.Init(deps: Deps)
 	registry = deps.Registry
 	dataService = deps.DataService
 	notify = deps.Notify
@@ -328,20 +328,20 @@ function JutsuService.Init(deps: Deps)
 	worldBoss = deps.WorldBoss
 end
 
-function JutsuService.Start()
+function GlyphService.Start()
 	if #resolver.duplicates > 0 then
 		log.warn("duplicate recipes (first wins): %s", table.concat(resolver.duplicates, ", "))
 	end
-	for _, def in ipairs(JutsuConfig.Jutsus) do
+	for _, def in ipairs(GlyphConfig.Glyphs) do
 		if effects[def.Effect] == nil then
-			log.warn("jutsu %s has no effect %s", def.Id, def.Effect)
+			log.warn("glyph %s has no effect %s", def.Id, def.Effect)
 		end
 	end
 	Players.PlayerRemoving:Connect(function(player: Player)
 		cooldowns[player] = nil
 	end)
-	registry.on("CastJutsu", onCastJutsu)
-	log.info("started (%d jutsus)", #JutsuConfig.Jutsus)
+	registry.on("CastGlyph", onCastGlyph)
+	log.info("started (%d glyphs)", #GlyphConfig.Glyphs)
 end
 
-return JutsuService
+return GlyphService

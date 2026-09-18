@@ -5,7 +5,7 @@
 -- The server builds no visual. The slots other players must see (Aura, Trail, KillEffect, Title) are
 -- published as one replicated string attribute per slot on the character model, named
 -- "Cosmetic<Slot>" and holding a CosmeticConfig id (or cleared when the slot is empty); each client
--- reads them and renders through VfxLibrary. Jutsu skins ("Skin:<jutsuId>") stay out of the character:
+-- reads them and renders through VfxLibrary. Glyph skins ("Skin:<glyphId>") stay out of the character:
 -- they colour the caster's own VFX and travel with the Vfx packet.
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
@@ -60,10 +60,10 @@ local notify: NotifyApi
 -- Character connections, one Trove per player.
 local troves: { [Player]: TroveType } = {}
 
--- Equipped slot keys: the plain slots of CosmeticConfig.Slots, or "Skin:<jutsuId>" for a jutsu skin.
+-- Equipped slot keys: the plain slots of CosmeticConfig.Slots, or "Skin:<glyphId>" for a glyph skin.
 local function isSlotKey(slotKey: string): boolean
 	if string.sub(slotKey, 1, #SKIN_PREFIX) == SKIN_PREFIX then
-		return JutsuConfig.ById[string.sub(slotKey, #SKIN_PREFIX + 1)] ~= nil
+		return GlyphConfig.ById[string.sub(slotKey, #SKIN_PREFIX + 1)] ~= nil
 	end
 	for _, slot in ipairs(CosmeticConfig.Slots) do
 		if slot ~= "Skin" and slot == slotKey then

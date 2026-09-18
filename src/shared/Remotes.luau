@@ -2,12 +2,12 @@
 -- Typed remote registry. The server creates instances from `Definitions`; both sides look them up by
 -- name. Every client→server definition carries a Guard schema per argument and a token-bucket rate.
 
-local ElementConfig = require(script.Parent.Config.ElementConfig)
 local GameConfig = require(script.Parent.Config.GameConfig)
+local GlyphConfig = require(script.Parent.Config.GlyphConfig)
 local Guard = require(script.Parent.Util.Guard)
 local InputConfig = require(script.Parent.Config.InputConfig)
-local JutsuConfig = require(script.Parent.Config.JutsuConfig)
 local MatchConfig = require(script.Parent.Config.MatchConfig)
+local PigmentConfig = require(script.Parent.Config.PigmentConfig)
 local RankingConfig = require(script.Parent.Config.RankingConfig)
 
 export type Kind = "RemoteEvent" | "RemoteFunction" | "UnreliableRemoteEvent"
@@ -25,17 +25,17 @@ local Remotes = {}
 
 Remotes.FolderName = "Remotes"
 
-local elementSchema = Guard.oneOf((ElementConfig.Order :: any) :: { any })
+local pigmentSchema = Guard.oneOf((PigmentConfig.Order :: any) :: { any })
 local keybindMapSchema = Guard.map(Guard.string({ min = 1, max = 24 }), { maxLength = #InputConfig.Actions })
 
 Remotes.Definitions = {
 	-- Client → Server
-	CastJutsu = {
+	CastGlyph = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
 		Args = {
 			Guard.array(
-				elementSchema,
+				pigmentSchema,
 				{ minLength = GameConfig.Combo.MinLength, maxLength = GameConfig.Combo.MaxLength }
 			),
 		},
@@ -108,7 +108,7 @@ Remotes.Definitions = {
 		-- and refuses a longer list with a toast. A wire cap below that limit refused the payload BEFORE
 		-- the handler ran, so the player got no explanation and each attempt counted as a schema strike
 		-- against their own account.
-		Args = { Guard.array(Guard.string({ min = 1, max = 64 }), { maxLength = #JutsuConfig.Jutsus }) },
+		Args = { Guard.array(Guard.string({ min = 1, max = 64 }), { maxLength = #GlyphConfig.Glyphs }) },
 		Rate = { Capacity = 4, Refill = 0.5 },
 	},
 	EquipCosmetic = {
@@ -146,7 +146,7 @@ Remotes.Definitions = {
 	Vfx = { Kind = "UnreliableRemoteEvent", Direction = "ServerToClient" },
 	-- Important visuals (walls, zones, kill effects): same payload as Vfx.
 	VfxReliable = { Kind = "RemoteEvent", Direction = "ServerToClient" },
-	-- Per-player combat snapshot: ({Chakra, MaxChakra, Health, MaxHealth, InCombat, Blocking, Cooldowns: {[jutsuId]: secondsLeft}})
+	-- Per-player combat snapshot: ({Ink, MaxInk, Health, MaxHealth, InCombat, Blocking, Cooldowns: {[glyphId]: secondsLeft}})
 	CombatState = { Kind = "UnreliableRemoteEvent", Direction = "ServerToClient" },
 	-- Server-approved movement applied by the owning client (characters are client-simulated on Roblox):
 	-- ({Kind = "Dash", Direction: Vector3, Distance: number, Duration: number}

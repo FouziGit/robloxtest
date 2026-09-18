@@ -20,9 +20,9 @@ local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
 local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
+local GlyphEffects = require(Effects.GlyphEffects)
+local GlyphService = require(Services.GlyphService)
 local HubService = require(Services.HubService)
-local JutsuEffects = require(Effects.JutsuEffects)
-local JutsuService = require(Services.JutsuService)
 local LeaderboardService = require(Services.LeaderboardService)
 local LoadoutService = require(Services.LoadoutService)
 local Log = require(Shared.Util.Log)
@@ -67,8 +67,8 @@ local deps = {
 	Settings = SettingsService,
 	Movement = MovementService,
 	Combat = CombatService,
-	Jutsu = JutsuService,
-	Effects = JutsuEffects,
+	Glyph = GlyphService,
+	Effects = GlyphEffects,
 	Vfx = VfxBroadcaster,
 	Enemy = EnemyService,
 	Hub = HubService,
@@ -109,7 +109,7 @@ local ordered: { Entry } = {
 	{ Name = "MovementService", Service = MovementService },
 	{ Name = "VfxBroadcaster", Service = VfxBroadcaster },
 	{ Name = "CombatService", Service = CombatService },
-	{ Name = "JutsuService", Service = JutsuService },
+	{ Name = "GlyphService", Service = GlyphService },
 	{ Name = "EnemyService", Service = EnemyService },
 	{ Name = "RankingService", Service = RankingService },
 	{ Name = "LeaderboardService", Service = LeaderboardService },
@@ -142,4 +142,4 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	registry.removePlayer(player)
 end)
 
-log.info("Jutsu Battlegrounds v%s ready: %d services started", GameConfig.Version, #ordered)
+log.info("Vellum v%s ready: %d services started", GameConfig.Version, #ordered)

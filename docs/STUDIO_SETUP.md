@@ -9,7 +9,7 @@ Deux façons d'avoir le jeu dans Studio. La première ne peut pas échouer et ne
 **A. Fichier construit (recommandé pour juste jouer).**
 
 ```bash
-./scripts/check.sh && open build/JutsuBattlegrounds.rbxl
+./scripts/check.sh && open build/Vellum.rbxl
 ```
 
 `rojo build` écrit un fichier de place complet : serveur, client, interface et paquets sont déjà dedans. Studio l'ouvre comme n'importe quelle place, et **Play** fonctionne immédiatement. Rien à connecter. À refaire après chaque modification du code, car ce fichier est une copie figée.
@@ -45,8 +45,8 @@ Créer chaque pass avec ce nom et ce prix, puis coller l'ID dans `MonetizationCo
 |---|---|---|---|
 | `Vip` | VIP | 399 R$ | XP ×2, Ryo ×1,5, tag dans le chat, aura exclusive |
 | `LoadoutSlots` | Loadout Slots | 199 R$ | +4 slots d'équipement (10 au total) |
-| `Lightning` | Lightning Element | 299 R$ | Débloque l'élément Foudre immédiatement (sinon niveau 40) |
-| `SkinPack` | Skin Pack | 249 R$ | 4 skins de jutsu (Boule de Feu, Vague, Piques, Rafale) |
+| `Orpiment` | Orpiment Pigment | 299 R$ | Débloque l'pigment Orpiment immédiatement (sinon niveau 40) |
+| `SkinPack` | Skin Pack | 249 R$ | 4 skins de glyphe (Marque, Lavis, Empattement, Balayage) |
 
 ## 4. Developer products (Creator Dashboard → Monetization → Developer Products)
 
@@ -67,22 +67,22 @@ Coller chaque ID dans `MonetizationConfig.Products.<Clé>.Id`. Les produits « C
 
 ## 5. Vérification en jeu (10 minutes)
 
-La méthode A de l'introduction suffit : `open build/JutsuBattlegrounds.rbxl`, puis **Play**.
+La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**.
 
-1. Play dans Studio : l'Output doit montrer `[Bootstrap] Jutsu Battlegrounds v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
-2. Frapper un mannequin (`J J` = Boule de Feu) → XP, Ryo, barre de niveau.
+1. Play dans Studio : l'Output doit montrer `[Bootstrap] Vellum v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
+2. Frapper un mannequin (`J J` = Marque) → XP, Ryo, barre de niveau.
 3. `M` → Options : réassigner une touche, sauvegarder, relancer Play : la touche est conservée (DataStore actif).
 4. Test tactile : Test → Device → téléphone (812x375, paysage). Vérifier trois choses :
-   - les cinq disques d'éléments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/ElementConfig.luau` (champ `Glyphs`) — le HUD et l'écran d'équipement suivent automatiquement ;
+   - les cinq disques d'pigments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/PigmentConfig.luau` (champ `Glyphs`) — le HUD et l'écran d'équipement suivent automatiquement ;
    - les disques Melee / Dash / Block / Menu affichent leur libellé court en entier (`CAC`, `Ruée`, `Garde`, `Menu` en français) ;
    - aucun bouton ne mesure moins de 44 px à l'écran, et rien ne chevauche le bouton de saut du moteur.
-5. Test manette : brancher une manette, D-pad = éléments. Dans le classement, le D-pad fait défiler la liste (les lignes ne sont pas sélectionnables, le panneau déplace le canevas lui-même).
+5. Test manette : brancher une manette, D-pad = pigments. Dans le classement, le D-pad fait défiler la liste (les lignes ne sont pas sélectionnables, le panneau déplace le canevas lui-même).
 
 ### La boucle complète, à un seul joueur (5 minutes de plus)
 
-6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des jutsus fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Ryo.
+6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Ryo.
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
-8. `M` → **Équipement** : retirer un jutsu, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
+8. `M` → **Équipement** : retirer un glyph, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
 9. `M` → **Boutique** : quatre articles du jour. Acheter en Ryo si le solde suffit, équiper, vérifier que l'article passe en « possédé ». L'achat en Robux ne fonctionne qu'une fois les IDs de §4 saisis et la place publiée.
 10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
 
@@ -144,9 +144,9 @@ ReplicatedStorage.Packages: OK
 
 | Sortie obtenue | Cause | Correction |
 |---|---|---|
-| `StarterPlayerScripts: 0` ou `ABSENT` | la place n'est pas synchronisée | ouvrir `build/JutsuBattlegrounds.rbxl` (méthode A ci-dessus) |
+| `StarterPlayerScripts: 0` ou `ABSENT` | la place n'est pas synchronisée | ouvrir `build/Vellum.rbxl` (méthode A ci-dessus) |
 | `Shared`, `UI` ou `Packages` `ABSENT` | synchronisation partielle, ou `wally install` jamais lancé | `./scripts/setup.sh` puis reconstruire |
-| des scripts aux noms inconnus (`ServerCore`, `DataManager`, `Client`…) | c'est une autre place, d'un autre projet | fermer sans enregistrer, ouvrir `build/JutsuBattlegrounds.rbxl` |
+| des scripts aux noms inconnus (`ServerCore`, `DataManager`, `Client`…) | c'est une autre place, d'un autre projet | fermer sans enregistrer, ouvrir `build/Vellum.rbxl` |
 | l'attendu s'affiche mais toujours aucune interface | erreur client à l'exécution | Output, onglet **Client** : la première ligne rouge nomme le contrôleur fautif |
 
 Un détail qui trompe : l'Output de Studio mélange serveur et client. Le HUD est construit par `HudController`, donc une erreur client passe inaperçue si le filtre est resté sur *Server*.

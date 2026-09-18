@@ -1,18 +1,18 @@
-# Game Design — Jutsu Battlegrounds V2
+# Game Design — Vellum V2
 
 ## 1. Piliers
 
-1. **Le combo est le skill.** Un jutsu = une séquence de touches élémentaires. La vitesse d'exécution, la mémorisation et la lecture de l'adversaire (mind games : feinter un début de combo, punir un cast long) font la différence, pas les statistiques.
+1. **Le combo est le skill.** Un glyph = une séquence de touches de pigment. La vitesse d'exécution, la mémorisation et la lecture de l'adversaire (mind games : feinter un début de combo, punir un cast long) font la différence, pas les statistiques.
 2. **Serveur autoritaire, client expressif.** Le serveur décide de tout ce qui compte (dégâts, ressources, positions de référence) ; le client rend des effets riches (particules, secousses, hit-stop) sans jamais être cru.
 3. **Rejouable.** Modes courts (1v1 en 2-3 min, 3v3 en 4-5 min), classement saisonnier, quêtes, pass, World Boss périodique.
-4. **Équitable.** Aucun achat n'ajoute de puissance brute : Foudre est un *sidegrade* atteignable gratuitement, les cosmétiques sont purement visuels, les slots de loadout supplémentaires offrent de la variété, pas de l'avantage.
+4. **Équitable.** Aucun achat n'ajoute de puissance brute : Orpiment est un *sidegrade* atteignable gratuitement, les cosmétiques sont purement visuels, les slots de loadout supplémentaires offrent de la variété, pas de l'avantage.
 
 ## 2. Contrôles
 
 | Action | Clavier (défaut) | Manette | Tactile |
 |---|---|---|---|
-| Feu / Eau / Terre / Vent | `J` / `K` / `L` / `H` | D-pad haut / droite / bas / gauche | boutons colorés, pouce droit |
-| Foudre (débloquée) | `U` | `Y` | bouton jaune |
+| Cinabre / Indigo / Terre d'Ombre / Vert-de-gris | `J` / `K` / `L` / `H` | D-pad haut / droite / bas / gauche | boutons colorés, pouce droit |
+| Orpiment (débloquée) | `U` | `Y` | bouton jaune |
 | Corps à corps (M1) | clic gauche | `X` | bouton |
 | Dash | Maj gauche | `B` | bouton |
 | Garde | `F` | `LT` | bouton (maintenir) |
@@ -24,11 +24,11 @@ Aucune touche par défaut n'entre en conflit avec WASD (QWERTY), ZQSD (AZERTY), 
 ## 3. Ressources et kit de base
 
 - **Vie** : 100. Régénération 3/s hors combat après 8 s sans dégât.
-- **Chakra** : 100. Chaque jutsu coûte 15-50. Régénération 12/s hors combat, 4/s en combat (6 s après avoir donné ou reçu un coup). Le chakra est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même jutsu.
+- **Ink** : 100. Chaque glyph coûte 15-50. Régénération 12/s hors combat, 4/s en combat (6 s après avoir donné ou reçu un coup). Le encre est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même glyph.
 - **M1** : combo de 4 coups (8 / 8 / 8 / 14), fenêtre de chaînage 0,9 s, portée 7 studs. Le 4e coup projette (knockback + léger envol), étourdit 0,5 s, brise la garde, puis impose 1,2 s de recharge.
-- **Dash** : 22 studs en 0,22 s, 0,25 s d'invulnérabilité, recharge 2,5 s, coûte 10 chakra. Direction = déplacement en cours, sinon regard.
+- **Dash** : 22 studs en 0,22 s, 0,25 s d'invulnérabilité, recharge 2,5 s, coûte 10 encre. Direction = déplacement en cours, sinon regard.
 - **Garde** : -70 % de dégâts, marche à 50 %, 4 s max puis 1,5 s de recharge. Brisée (1 s de stun) par les *Ultimes* et par le 4e coup de M1.
-- **Stun / ragdoll léger** : sur certains impacts (Piques, Séisme, finisher M1) — jamais plus de 2 s cumulées.
+- **Stun / ragdoll léger** : sur certains impacts (Empattement, Rupture, finisher M1) — jamais plus de 2 s cumulées.
 - **Protection de spawn** : 4 s sans donner ni recevoir de dégâts. La **zone sûre** autour du spawn du hub est symétrique : un joueur à l'intérieur ne peut ni subir ni infliger de dégâts PvP (les mannequins restent frappables).
 
 ## 4. Combos : règles de résolution
@@ -37,58 +37,58 @@ Le résolveur (`ComboResolver`, module pur testé) applique :
 
 1. La séquence tapée **est une recette et n'est le début d'aucune autre** → cast immédiat.
 2. La séquence **est le début d'une recette plus longue** → attente de la touche suivante.
-3. Sinon → reset (« aucun jutsu ne correspond »).
-4. **Fenêtre d'extension** : si la séquence est *déjà* une recette **et** le début d'une plus longue (`Feu Feu` → `Feu Feu Terre`), le client n'attend que `ExtendWindowSeconds` (0,35 s) au lieu du timeout complet (1,2 s). Un joueur rapide enchaîne `Feu Feu Terre` en moins de 350 ms ; un joueur qui voulait `Feu Feu` ne perd que 350 ms. C'est le cœur du « fun par la vitesse d'exécution ».
+3. Sinon → reset (« aucun glyph ne correspond »).
+4. **Fenêtre d'extension** : si la séquence est *déjà* une recette **et** le début d'une plus longue (`Cinabre Cinabre` → `Cinabre Cinabre Terre d'Ombre`), le client n'attend que `ExtendWindowSeconds` (0,35 s) au lieu du timeout complet (1,2 s). Un joueur rapide enchaîne `Cinabre Cinabre Terre d'Ombre` en moins de 350 ms ; un joueur qui voulait `Cinabre Cinabre` ne perd que 350 ms. C'est le cœur du « fun par la vitesse d'exécution ».
 5. Timeout complet (1,2 s) uniquement pour les séquences qui ne sont pas encore une recette.
 
-Le serveur re-résout la séquence reçue ; il ne fait jamais confiance au client pour l'identité du jutsu.
+Le serveur re-résout la séquence reçue ; il ne fait jamais confiance au client pour l'identité du glyph.
 
-## 5. Roster (20 jutsus, Phase 2)
+## 5. Roster (20 glyphes, Phase 2)
 
 Archétypes : **Projectile** (ligne, esquivable), **AoE** (instantané devant soi), **Zone** (persistante, contrôle d'espace), **Mur** (défense), **Mobilité**, **Contre**, **Buff**, **Ultime** (long combo, gros coût, gros impact).
 
-Légende combos : F Feu · W Eau · E Terre · A Vent · L Foudre.
+Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · O Orpiment.
 
-| Élément | Combo | Jutsu | Archétype | Coût | CD | Dégâts | Rôle |
+| Pigment | Combo | Glyph | Archétype | Coût | CD | Dégâts | Rôle |
 |---|---|---|---|---|---|---|---|
-| Feu | F F | Boule de Feu | Projectile | 20 | 4 | 25 | poke fiable, explose (rayon 7) |
-| Feu | F A | Pas de Braise | Mobilité | 15 | 6 | 6 | dash court qui laisse une traînée brûlante 2 s |
-| Feu | F F A | Tempête de Braises | Zone | 35 | 12 | 10 ×3 | anneau autour de soi, zone anti-mêlée |
-| Feu | F F E | Météore | Ultime | 50 | 20 | 45 | projectile lourd en cloche, AoE 10, brise la garde |
-| Eau | W W | Vague Aquatique | AoE | 22 | 5 | 18 | ligne, knockback |
-| Eau | W F | Brume Bouillante | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
-| Eau | W A | Prison d'Eau | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
-| Eau | W W E | Mur de Boue | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s |
-| Terre | E E | Piques de Terre | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
-| Terre | E W | Tir de Boue | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
-| Terre | E A | Peau de Pierre | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
-| Terre | E E E | Séisme | Ultime | 45 | 15 | 35 | AoE 18, envol, stun 0,8 s |
-| Vent | A A | Rafale Tranchante | AoE | 15 | 3 | 12 | cône, gros knockback, applique *Éventé* |
-| Vent | A F | Lame de Vent | Projectile | 15 | 3 | 14 | rapide, portée 60, applique *Éventé* |
-| Vent | A A W | Cyclone | Zone | 35 | 12 | 6 ×4 | attire vers le centre |
-| Vent | A A E | Tempête de Sable | Zone | 30 | 10 | 5 ×3 | ralentit 30 %, brouille la vue (fog local) |
-| Foudre | L L | Éclair | Projectile | 20 | 4 | 22 | hitscan instantané, portée 70 |
-| Foudre | L A | Pas de l'Éclair | Mobilité | 20 | 7 | 0 | téléport 18 studs, 0,4 s d'i-frames |
-| Foudre | L L E | Champ Statique | Zone | 35 | 12 | 6 ×4 | micro-stun à chaque tick |
-| Foudre | L L L L | Raijin | Ultime | 55 | 25 | 40 | chaîne sur 3 cibles, stun 0,6 s |
+| Cinabre | C C | Marque | Projectile | 20 | 4 | 25 | poke fiable, explose (rayon 7) |
+| Cinabre | C V | Ligature | Mobilité | 15 | 6 | 6 | dash court qui laisse une traînée brûlante 2 s |
+| Cinabre | C C V | Roussi | Zone | 35 | 12 | 10 ×3 | anneau autour de soi, zone anti-mêlée |
+| Cinabre | C C U | Pâté | Ultime | 50 | 20 | 45 | projectile lourd en cloche, AoE 10, brise la garde |
+| Indigo | I I | Lavis | AoE | 22 | 5 | 18 | ligne, knockback |
+| Indigo | I C | Bavure | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
+| Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
+| Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s |
+| Terre d'Ombre | U U | Empattement | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
+| Terre d'Ombre | U I | Pointillé | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
+| Terre d'Ombre | U V | Dorure | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
+| Terre d'Ombre | U U U | Rupture | Ultime | 45 | 15 | 35 | AoE 18, envol, stun 0,8 s |
+| Vert-de-gris | V V | Balayage | AoE | 15 | 3 | 12 | cône, gros knockback, applique *Éventé* |
+| Vert-de-gris | V C | Délié | Projectile | 15 | 3 | 14 | rapide, portée 60, applique *Éventé* |
+| Vert-de-gris | V V I | Spiral | Zone | 35 | 12 | 6 ×4 | attire vers le centre |
+| Vert-de-gris | V V U | Poncif | Zone | 30 | 10 | 5 ×3 | ralentit 30 %, brouille la vue (fog local) |
+| Orpiment | O O | Rature | Projectile | 20 | 4 | 22 | hitscan instantané, portée 70 |
+| Orpiment | O V | Insertion | Mobilité | 20 | 7 | 0 | téléport 18 studs, 0,4 s d'i-frames |
+| Orpiment | O O U | Filigrane | Zone | 35 | 12 | 6 ×4 | micro-stun à chaque tick |
+| Orpiment | O O O O | Colophon | Ultime | 55 | 25 | 40 | chaîne sur 3 cibles, stun 0,6 s |
 
-Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 s ; DPS soutenu des 2 touches ≈ 4-6/s ; un Ultime ne dépasse jamais 50 % de la vie. Les 8 jutsus V1 sont conservés (Boule de Feu, Vague, Piques, Rafale, Brume, Mur de Boue, Tempête de Braises, Séisme) avec les coûts de chakra ci-dessus.
+Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 s ; DPS soutenu des 2 touches ≈ 4-6/s ; un Ultime ne dépasse jamais 50 % de la vie. Les 8 glyphes V1 sont conservés (Marque, Lavis, Empattement, Balayage, Bavure, Marge, Roussi, Rupture) avec les coûts d'encre ci-dessus.
 
 ### Déblocages
 
-- Par défaut : les 8 jutsus V1.
-- Niveau 5 : Lame de Vent, Tir de Boue · niveau 10 : Pas de Braise, Prison d'Eau · niveau 15 : Peau de Pierre, Tempête de Sable · niveau 20 : Cyclone · niveau 25 : Météore.
-- **Foudre** : élément *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Foudre. Un joueur sans Foudre n'est jamais désavantagé statistiquement : Foudre échange la puissance de zone contre la précision.
-- **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les jutsus non équipés ne peuvent pas être lancés.
+- Par défaut : les 8 glyphes V1.
+- Niveau 5 : Délié, Pointillé · niveau 10 : Ligature, Reliure · niveau 15 : Dorure, Poncif · niveau 20 : Spiral · niveau 25 : Pâté.
+- **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Orpiment. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
+- **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les glyphes non équipés ne peuvent pas être lancés.
 
-## 6. Interactions élémentaires (simples, lisibles)
+## 6. Interactions de pigment (simples, lisibles)
 
 | Interaction | Règle serveur (`CombatService` tags) |
 |---|---|
-| **Le Vent attise le Feu** | une cible touchée par un jutsu Vent porte *Éventé* 3 s : +25 % de dégâts de Feu |
-| **L'Eau éteint le Feu** | une AoE/Zone d'Eau lancée dans une zone de Feu active (Tempête de Braises, traînée de Pas de Braise) la termine |
-| **La Terre bloque** | Mur de Boue et Peau de Pierre arrêtent projectiles et knockback |
-| **La Foudre conduit dans l'Eau** | une cible dans Brume Bouillante / Vague en cours subit +25 % de dégâts de Foudre |
+| **Le Vert-de-gris attise le Cinabre** | une cible touchée par un glyph Vert-de-gris porte *Éventé* 3 s : +25 % de dégâts de Cinabre |
+| **L'Indigo éteint le Cinabre** | une AoE/Zone d'Indigo lancée dans une zone de Cinabre active (Roussi, traînée de Ligature) la termine |
+| **La Terre d'Ombre bloque** | Marge et Dorure arrêtent projectiles et knockback |
+| **L'Orpiment conduit dans l'Indigo** | une cible dans une Bavure ou un Lavis en cours subit +25 % de dégâts d'Orpiment |
 
 Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais un multiplicateur caché.
 
@@ -112,6 +112,6 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 ## 9. Rétention
 
-Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Genin → Chunin → Jonin → Anbu → Kage) avec récompense de fin de saison, cosmétiques (skins de jutsu = palettes VFX, auras, traînées, effets de kill, titres).
+Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = palettes VFX, auras, traînées, effets de kill, titres).
 
 Détails économiques : `docs/ECONOMY.md`.

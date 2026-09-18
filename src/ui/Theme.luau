@@ -1,8 +1,8 @@
 --!strict
 -- Central UI theme: colors, fonts, sizes, spacing. Every component reads from here.
 
-local ElementConfig = require(
-	game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("ElementConfig")
+local PigmentConfig = require(
+	game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("PigmentConfig")
 )
 
 local Theme = {}
@@ -20,7 +20,7 @@ Theme.Colors = {
 	Success = Color3.fromRGB(90, 190, 110),
 	Danger = Color3.fromRGB(225, 90, 80),
 	Info = Color3.fromRGB(90, 160, 240),
-	Chakra = Color3.fromRGB(80, 170, 255),
+	Ink = Color3.fromRGB(80, 170, 255),
 	Health = Color3.fromRGB(90, 200, 110),
 	Overlay = Color3.fromRGB(0, 0, 0),
 	Premium = Color3.fromRGB(200, 140, 255),
@@ -160,8 +160,8 @@ function Theme.minPixelSize(object: GuiObject, pixels: number)
 	constraint.Parent = object
 end
 
-function Theme.elementColor(elementId: string): Color3
-	local rgb = ElementConfig.Colors[elementId :: any]
+function Theme.pigmentColor(pigmentId: string): Color3
+	local rgb = PigmentConfig.Colors[pigmentId :: any]
 	if rgb == nil then
 		return Theme.Colors.Accent
 	end

@@ -11,9 +11,9 @@ function ProgressionConfig.xpForLevel(level: number): number
 	return math.floor(100 + 25 * (level - 1) ^ 1.35)
 end
 
--- XP rewards. Cast XP is only granted when the jutsu hit at least one target (see JutsuService).
+-- XP rewards. Cast XP is only granted when the glyph hit at least one target (see GlyphService).
 ProgressionConfig.XP = {
-	JutsuHit = 8,
+	GlyphHit = 8,
 	DummyKill = 40,
 	PlayerKill = 120,
 	MatchWin = 350,
@@ -50,11 +50,11 @@ ProgressionConfig.VipRyoMultiplier = 1.5
 -- Timed XP boost (battlepass reward and the XpBoost product, docs/ECONOMY.md §4). It stacks with VIP.
 ProgressionConfig.XpBoostMultiplier = 2
 
--- Level required to unlock each jutsu id not unlocked by default (see JutsuConfig.Unlock).
--- Lightning element: free unlock at this level, or instantly via the Lightning game pass.
-ProgressionConfig.LightningUnlockLevel = 40
+-- Level required to unlock each glyph id not unlocked by default (see GlyphConfig.Unlock).
+-- Orpiment pigment: free unlock at this level, or instantly via the Orpiment game pass.
+ProgressionConfig.OrpimentUnlockLevel = 40
 
--- Loadout: how many jutsus a player may equip. Extra slots come from the LoadoutSlots game pass.
+-- Loadout: how many glyphs a player may equip. Extra slots come from the LoadoutSlots game pass.
 ProgressionConfig.Loadout = {
 	BaseSlots = 6,
 	MaxSlots = 10,

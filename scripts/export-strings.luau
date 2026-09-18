@@ -25,7 +25,7 @@ for _, key in ipairs(Strings.keys()) do
 		table.concat({
 			csvEscape(key),
 			csvEscape(entry.en),
-			csvEscape("JutsuBattlegrounds"),
+			csvEscape("Vellum"),
 			"",
 			csvEscape(entry.en),
 			csvEscape(entry.fr),

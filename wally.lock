@@ -8,7 +8,7 @@ version = "4.0.0"
 dependencies = []
 
 [[package]]
-name = "fouzigit/jutsu-battlegrounds"
+name = "fouzigit/glyph-battlegrounds"
 version = "2.0.0"
 dependencies = [["Promise", "evaera/promise@4.0.0"], ["Ripple", "littensy/ripple@0.10.2"], ["Shake", "sleitnick/shake@1.1.0"], ["Signal", "sleitnick/signal@2.0.3"], ["Trove", "sleitnick/trove@1.8.0"]]
 

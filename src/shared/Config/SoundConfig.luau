@@ -10,11 +10,11 @@ local SoundConfig = {}
 
 SoundConfig.Sfx = {
 	-- Casting (3D, at the caster)
-	CastFire = { Id = "rbxassetid://9114428742", Volume = 0.6, Speed = 1.0 },
-	CastWater = { Id = "rbxassetid://9125703162", Volume = 0.6, Speed = 1.0 },
-	CastEarth = { Id = BUILTIN, Volume = 0.7, Speed = 0.55 },
-	CastWind = { Id = BUILTIN, Volume = 0.45, Speed = 1.55 },
-	CastLightning = { Id = BUILTIN, Volume = 0.6, Speed = 1.9 },
+	CastCinnabar = { Id = "rbxassetid://9114428742", Volume = 0.6, Speed = 1.0 },
+	CastIndigo = { Id = "rbxassetid://9125703162", Volume = 0.6, Speed = 1.0 },
+	CastUmber = { Id = BUILTIN, Volume = 0.7, Speed = 0.55 },
+	CastVerdigris = { Id = BUILTIN, Volume = 0.45, Speed = 1.55 },
+	CastOrpiment = { Id = BUILTIN, Volume = 0.6, Speed = 1.9 },
 
 	-- Impacts (3D, at the hit point)
 	ImpactExplosion = { Id = "rbxassetid://138533090376585", Volume = 0.6, Speed = 1.0 },

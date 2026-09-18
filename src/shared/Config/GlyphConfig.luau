@@ -1,33 +1,33 @@
 --!strict
--- Jutsu roster. Pure data (no requires, no Roblox globals) so tests can validate it under Lune.
--- The 20 jutsus of docs/GAME_DESIGN.md §5: the 8 V1 jutsus (unlocked by default) first, then the
--- 12 Phase 2 additions grouped by element. Cost, Cooldown and Damage come straight from that
+-- Glyph roster. Pure data (no requires, no Roblox globals) so tests can validate it under Lune.
+-- The 20 glyphs of docs/GAME_DESIGN.md §5: the 8 V1 glyphs (unlocked by default) first, then the
+-- 12 Phase 2 additions grouped by pigment. Cost, Cooldown and Damage come straight from that
 -- table; every other number a server effect or a client renderer needs lives in Params, so no
 -- effect ever carries a magic constant.
 --
--- Field reference (see Types.JutsuDef):
+-- Field reference (see Types.GlyphDef):
 --   Id           stable identifier (persisted in loadouts/unlocks): never rename
---   Element      primary element (cast sound, skins, interactions of GAME_DESIGN §6)
---   Combo        element sequence, 2..4 entries (GameConfig.Combo.MinLength..MaxLength)
---   Cost         chakra spent on cast
---   Cooldown     seconds before the same jutsu can be cast again
+--   Pigment      primary pigment (cast sound, skins, interactions of GAME_DESIGN §6)
+--   Combo        pigment sequence, 2..4 entries (GameConfig.Combo.MinLength..MaxLength)
+--   Cost         ink spent on cast
+--   Cooldown     seconds before the same glyph can be cast again
 --   Damage       per hit (or per tick for Zone/Aoe with Params.Ticks)
 --   Range        studs; reach of the effect: projectile / hitscan travel, AoE radius, forward
 --                offset of a zone centre, dash or teleport distance, aura radius of a self buff
 --   Archetype    Projectile | Aoe | Zone | Wall | Mobility | Counter | Ultimate | Buff
 --                (Ultimate breaks guards through CombatConfig.Block.BrokenBy)
---   Effect       server effect function id (JutsuEffects)
+--   Effect       server effect function id (GlyphEffects)
 --   VfxId/SfxId  client rendering ids (VfxConfig / SoundConfig)
---   Unlock       {Kind="Default"} | {Kind="Level", Value=n} | {Kind="Element", Value=0}
---                ("Element" = gated by the jutsu's own element, Lightning at
---                ProgressionConfig.LightningUnlockLevel or through its game pass)
+--   Unlock       {Kind="Default"} | {Kind="Level", Value=n} | {Kind="Pigment", Value=0}
+--                ("Pigment" = gated by the glyph's own pigment, Orpiment at
+--                ProgressionConfig.OrpimentUnlockLevel or through its game pass)
 --   Params       effect-specific tuning, all numeric
 
-export type Unlock = { Kind: "Default" | "Level" | "Element", Value: number? }
+export type Unlock = { Kind: "Default" | "Level" | "Pigment", Value: number? }
 
-export type JutsuDef = {
+export type GlyphDef = {
 	Id: string,
-	Element: string,
+	Pigment: string,
 	Combo: { string },
 	Cost: number,
 	Cooldown: number,
@@ -43,13 +43,13 @@ export type JutsuDef = {
 	Params: { [string]: number },
 }
 
-local JutsuConfig = {}
+local GlyphConfig = {}
 
-JutsuConfig.Jutsus = {
+GlyphConfig.Glyphs = {
 	-- V1 roster: unlocked for every new profile
 	{
 		Id = "Brand",
-		Element = "Cinnabar",
+		Pigment = "Cinnabar",
 		Combo = { "Cinnabar", "Cinnabar" },
 		Cost = 20,
 		Cooldown = 4,
@@ -58,7 +58,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Projectile",
 		Effect = "Brand",
 		VfxId = "Brand",
-		SfxId = "CastFire",
+		SfxId = "CastCinnabar",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Brand.name",
 		DescriptionKey = "glyph.Brand.desc",
@@ -66,7 +66,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Wash",
-		Element = "Indigo",
+		Pigment = "Indigo",
 		Combo = { "Indigo", "Indigo" },
 		Cost = 22,
 		Cooldown = 5,
@@ -75,7 +75,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Aoe",
 		Effect = "Wash",
 		VfxId = "Wash",
-		SfxId = "CastWater",
+		SfxId = "CastIndigo",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Wash.name",
 		DescriptionKey = "glyph.Wash.desc",
@@ -83,7 +83,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Serif",
-		Element = "Umber",
+		Pigment = "Umber",
 		Combo = { "Umber", "Umber" },
 		Cost = 22,
 		Cooldown = 5,
@@ -92,7 +92,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Aoe",
 		Effect = "Serif",
 		VfxId = "Serif",
-		SfxId = "CastEarth",
+		SfxId = "CastUmber",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Serif.name",
 		DescriptionKey = "glyph.Serif.desc",
@@ -100,7 +100,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Sweep",
-		Element = "Verdigris",
+		Pigment = "Verdigris",
 		Combo = { "Verdigris", "Verdigris" },
 		Cost = 15,
 		Cooldown = 3,
@@ -109,7 +109,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Aoe",
 		Effect = "Sweep",
 		VfxId = "Sweep",
-		SfxId = "CastWind",
+		SfxId = "CastVerdigris",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Sweep.name",
 		DescriptionKey = "glyph.Sweep.desc",
@@ -117,7 +117,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Bleed",
-		Element = "Indigo",
+		Pigment = "Indigo",
 		Combo = { "Indigo", "Cinnabar" },
 		Cost = 28,
 		Cooldown = 8,
@@ -126,16 +126,16 @@ JutsuConfig.Jutsus = {
 		Archetype = "Zone",
 		Effect = "Bleed",
 		VfxId = "Bleed",
-		SfxId = "CastWater",
+		SfxId = "CastIndigo",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Bleed.name",
 		DescriptionKey = "glyph.Bleed.desc",
 		Params = { Radius = 9, Ticks = 3, TickInterval = 1, SlowFactor = 0.4, SlowDuration = 2.5, Offset = 12 },
 	},
 	{
-		-- Water combo, Earth element: the wall is the Earth half of GAME_DESIGN §6 ("Earth blocks").
+		-- Indigo combo, Umber pigment: the wall is the Umber half of GAME_DESIGN §6 ("Umber blocks").
 		Id = "Margin",
-		Element = "Umber",
+		Pigment = "Umber",
 		Combo = { "Indigo", "Indigo", "Umber" },
 		Cost = 30,
 		Cooldown = 10,
@@ -144,7 +144,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Wall",
 		Effect = "Margin",
 		VfxId = "Margin",
-		SfxId = "CastEarth",
+		SfxId = "CastUmber",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Margin.name",
 		DescriptionKey = "glyph.Margin.desc",
@@ -152,7 +152,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Scorch",
-		Element = "Cinnabar",
+		Pigment = "Cinnabar",
 		Combo = { "Cinnabar", "Cinnabar", "Verdigris" },
 		Cost = 35,
 		Cooldown = 12,
@@ -161,7 +161,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Zone",
 		Effect = "Scorch",
 		VfxId = "Scorch",
-		SfxId = "CastFire",
+		SfxId = "CastCinnabar",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Scorch.name",
 		DescriptionKey = "glyph.Scorch.desc",
@@ -169,7 +169,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Rupture",
-		Element = "Umber",
+		Pigment = "Umber",
 		Combo = { "Umber", "Umber", "Umber" },
 		Cost = 45,
 		Cooldown = 15,
@@ -178,20 +178,20 @@ JutsuConfig.Jutsus = {
 		Archetype = "Ultimate",
 		Effect = "Rupture",
 		VfxId = "Rupture",
-		SfxId = "CastEarth",
+		SfxId = "CastUmber",
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Rupture.name",
 		DescriptionKey = "glyph.Rupture.desc",
 		Params = { Radius = 18, Launch = 60, Stun = 0.8 },
 	},
 
-	-- Fire additions
+	-- Cinnabar additions
 	{
 		-- Short forward dash (Range studs in DashDuration) that drops TrailSegments burning pools
 		-- along the path; each pool ticks Ticks times, and a single target burns at most
 		-- MaxHitsPerTarget times per cast (6 x 2 = 12 damage, GAME_DESIGN's 6 per crossing).
 		Id = "Ligature",
-		Element = "Cinnabar",
+		Pigment = "Cinnabar",
 		Combo = { "Cinnabar", "Verdigris" },
 		Cost = 15,
 		Cooldown = 6,
@@ -200,7 +200,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Mobility",
 		Effect = "Ligature",
 		VfxId = "Ligature",
-		SfxId = "CastFire",
+		SfxId = "CastCinnabar",
 		Unlock = { Kind = "Level", Value = 10 },
 		NameKey = "glyph.Ligature.name",
 		DescriptionKey = "glyph.Ligature.desc",
@@ -218,7 +218,7 @@ JutsuConfig.Jutsus = {
 		-- Heavy arcing projectile: travels at Speed along a bell of ArcHeight studs, detonates on
 		-- the first hit or when Fuse expires (BlastRadius, "Explosion" vfx) and breaks guards.
 		Id = "Blot",
-		Element = "Cinnabar",
+		Pigment = "Cinnabar",
 		Combo = { "Cinnabar", "Cinnabar", "Umber" },
 		Cost = 50,
 		Cooldown = 20,
@@ -227,7 +227,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Ultimate",
 		Effect = "Blot",
 		VfxId = "Blot",
-		SfxId = "CastFire",
+		SfxId = "CastCinnabar",
 		Unlock = { Kind = "Level", Value = 25 },
 		NameKey = "glyph.Blot.name",
 		DescriptionKey = "glyph.Blot.desc",
@@ -242,13 +242,13 @@ JutsuConfig.Jutsus = {
 		},
 	},
 
-	-- Water additions
+	-- Indigo additions
 	{
 		-- Grabs MaxTargets target(s) inside a sphere of HitRadius centred Offset studs ahead and
 		-- roots them: MovementService.applySlow(id, RootSlowFactor, RootDuration) pins WalkSpeed at
 		-- zero while leaving the victim able to fight back (see docs/DECISIONS.md).
 		Id = "Binding",
-		Element = "Indigo",
+		Pigment = "Indigo",
 		Combo = { "Indigo", "Verdigris" },
 		Cost = 30,
 		Cooldown = 12,
@@ -257,19 +257,19 @@ JutsuConfig.Jutsus = {
 		Archetype = "Counter",
 		Effect = "Binding",
 		VfxId = "Binding",
-		SfxId = "CastWater",
+		SfxId = "CastIndigo",
 		Unlock = { Kind = "Level", Value = 10 },
 		NameKey = "glyph.Binding.name",
 		DescriptionKey = "glyph.Binding.desc",
 		Params = { Offset = 8, HitRadius = 7, MaxTargets = 1, RootDuration = 1.5, RootSlowFactor = 0 },
 	},
 
-	-- Earth additions
+	-- Umber additions
 	{
 		-- Fast direct-hit projectile (no blast): Speed studs/s for at most Fuse seconds, damages the
 		-- first model within HitRadius of the ray and slows it to SlowFactor for SlowDuration.
 		Id = "Stipple",
-		Element = "Umber",
+		Pigment = "Umber",
 		Combo = { "Umber", "Indigo" },
 		Cost = 18,
 		Cooldown = 4,
@@ -278,7 +278,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Projectile",
 		Effect = "Stipple",
 		VfxId = "Stipple",
-		SfxId = "CastEarth",
+		SfxId = "CastUmber",
 		Unlock = { Kind = "Level", Value = 5 },
 		NameKey = "glyph.Stipple.name",
 		DescriptionKey = "glyph.Stipple.desc",
@@ -289,7 +289,7 @@ JutsuConfig.Jutsus = {
 		-- owns every number (damage reduction, duration, knockback immunity) because CombatService
 		-- reads it in ApplyDamage. Range is the aura radius the client renders around the caster.
 		Id = "Gilding",
-		Element = "Umber",
+		Pigment = "Umber",
 		Combo = { "Umber", "Verdigris" },
 		Cost = 25,
 		Cooldown = 14,
@@ -298,19 +298,19 @@ JutsuConfig.Jutsus = {
 		Archetype = "Buff",
 		Effect = "Gilding",
 		VfxId = "Gilding",
-		SfxId = "CastEarth",
+		SfxId = "CastUmber",
 		Unlock = { Kind = "Level", Value = 15 },
 		NameKey = "glyph.Gilding.name",
 		DescriptionKey = "glyph.Gilding.desc",
 		Params = {},
 	},
 
-	-- Wind additions
+	-- Verdigris additions
 	{
-		-- Fast direct-hit projectile; being a Wind jutsu it marks its target Fanned
-		-- (CombatConfig.Status.Fanned) through CombatService, which amplifies the next Fire hit.
+		-- Fast direct-hit projectile; being a Verdigris glyph it marks its target Fanned
+		-- (CombatConfig.Status.Fanned) through CombatService, which amplifies the next Cinnabar hit.
 		Id = "Hairline",
-		Element = "Verdigris",
+		Pigment = "Verdigris",
 		Combo = { "Verdigris", "Cinnabar" },
 		Cost = 15,
 		Cooldown = 3,
@@ -319,7 +319,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Projectile",
 		Effect = "Hairline",
 		VfxId = "Hairline",
-		SfxId = "CastWind",
+		SfxId = "CastVerdigris",
 		Unlock = { Kind = "Level", Value = 5 },
 		NameKey = "glyph.Hairline.name",
 		DescriptionKey = "glyph.Hairline.desc",
@@ -329,7 +329,7 @@ JutsuConfig.Jutsus = {
 		-- Zone centred Offset studs ahead (Range = that offset). Every tick it damages and drags
 		-- targets toward the centre at PullSpeed, ignoring those already closer than PullMinDistance.
 		Id = "Spiral",
-		Element = "Verdigris",
+		Pigment = "Verdigris",
 		Combo = { "Verdigris", "Verdigris", "Indigo" },
 		Cost = 35,
 		Cooldown = 12,
@@ -338,7 +338,7 @@ JutsuConfig.Jutsus = {
 		Archetype = "Zone",
 		Effect = "Spiral",
 		VfxId = "Spiral",
-		SfxId = "CastWind",
+		SfxId = "CastVerdigris",
 		Unlock = { Kind = "Level", Value = 20 },
 		NameKey = "glyph.Spiral.name",
 		DescriptionKey = "glyph.Spiral.desc",
@@ -346,7 +346,7 @@ JutsuConfig.Jutsus = {
 	},
 	{
 		Id = "Pounce",
-		Element = "Verdigris",
+		Pigment = "Verdigris",
 		Combo = { "Verdigris", "Verdigris", "Umber" },
 		Cost = 30,
 		Cooldown = 10,
@@ -355,19 +355,19 @@ JutsuConfig.Jutsus = {
 		Archetype = "Zone",
 		Effect = "Pounce",
 		VfxId = "Pounce",
-		SfxId = "CastWind",
+		SfxId = "CastVerdigris",
 		Unlock = { Kind = "Level", Value = 15 },
 		NameKey = "glyph.Pounce.name",
 		DescriptionKey = "glyph.Pounce.desc",
 		Params = { Radius = 13, Offset = 14, Ticks = 3, TickInterval = 0.9, SlowFactor = 0.7, SlowDuration = 1.5 },
 	},
 
-	-- Lightning: sidegrade element, gated by ElementConfig.Unlockable
+	-- Orpiment: sidegrade pigment, gated by PigmentConfig.Unlockable
 	{
 		-- Hitscan: one ray from SpawnOffset studs ahead of the caster out to Range, damaging the
 		-- MaxTargets nearest models within HitRadius of that ray. No travel time, no Speed.
 		Id = "Strike",
-		Element = "Orpiment",
+		Pigment = "Orpiment",
 		Combo = { "Orpiment", "Orpiment" },
 		Cost = 20,
 		Cooldown = 4,
@@ -376,8 +376,8 @@ JutsuConfig.Jutsus = {
 		Archetype = "Projectile",
 		Effect = "Strike",
 		VfxId = "Strike",
-		SfxId = "CastLightning",
-		Unlock = { Kind = "Element", Value = 0 },
+		SfxId = "CastOrpiment",
+		Unlock = { Kind = "Pigment", Value = 0 },
 		NameKey = "glyph.Strike.name",
 		DescriptionKey = "glyph.Strike.desc",
 		Params = { SpawnOffset = 3, HitRadius = 3, MaxTargets = 1, Knockback = 18 },
@@ -387,7 +387,7 @@ JutsuConfig.Jutsus = {
 		-- first obstruction, checks ClearanceRadius around the destination and snaps it down by at
 		-- most GroundSnapStuds so the caster never lands inside geometry or over the void.
 		Id = "Caret",
-		Element = "Orpiment",
+		Pigment = "Orpiment",
 		Combo = { "Orpiment", "Verdigris" },
 		Cost = 20,
 		Cooldown = 7,
@@ -396,15 +396,15 @@ JutsuConfig.Jutsus = {
 		Archetype = "Mobility",
 		Effect = "Caret",
 		VfxId = "Caret",
-		SfxId = "CastLightning",
-		Unlock = { Kind = "Element", Value = 0 },
+		SfxId = "CastOrpiment",
+		Unlock = { Kind = "Pigment", Value = 0 },
 		NameKey = "glyph.Caret.name",
 		DescriptionKey = "glyph.Caret.desc",
 		Params = { IFrameSeconds = 0.4, WallBackoffStuds = 3, ClearanceRadius = 2.5, GroundSnapStuds = 12 },
 	},
 	{
 		Id = "Watermark",
-		Element = "Orpiment",
+		Pigment = "Orpiment",
 		Combo = { "Orpiment", "Orpiment", "Umber" },
 		Cost = 35,
 		Cooldown = 12,
@@ -413,8 +413,8 @@ JutsuConfig.Jutsus = {
 		Archetype = "Zone",
 		Effect = "Watermark",
 		VfxId = "Watermark",
-		SfxId = "CastLightning",
-		Unlock = { Kind = "Element", Value = 0 },
+		SfxId = "CastOrpiment",
+		Unlock = { Kind = "Pigment", Value = 0 },
 		NameKey = "glyph.Watermark.name",
 		DescriptionKey = "glyph.Watermark.desc",
 		Params = { Radius = 12, Offset = 13, Ticks = 4, TickInterval = 0.7, StunSeconds = 0.18 },
@@ -423,7 +423,7 @@ JutsuConfig.Jutsus = {
 		-- Hitscan to the first target, then arcs to the nearest untouched model within ChainRadius
 		-- of the previous one until ChainCount models have been struck. Stuns every link.
 		Id = "Colophon",
-		Element = "Orpiment",
+		Pigment = "Orpiment",
 		Combo = { "Orpiment", "Orpiment", "Orpiment", "Orpiment" },
 		Cost = 55,
 		Cooldown = 25,
@@ -432,60 +432,60 @@ JutsuConfig.Jutsus = {
 		Archetype = "Ultimate",
 		Effect = "Colophon",
 		VfxId = "Colophon",
-		SfxId = "CastLightning",
-		Unlock = { Kind = "Element", Value = 0 },
+		SfxId = "CastOrpiment",
+		Unlock = { Kind = "Pigment", Value = 0 },
 		NameKey = "glyph.Colophon.name",
 		DescriptionKey = "glyph.Colophon.desc",
 		Params = { SpawnOffset = 3, HitRadius = 5, ChainCount = 3, ChainRadius = 26, StunSeconds = 0.6, Knockback = 25 },
 	},
-} :: { JutsuDef }
+} :: { GlyphDef }
 
 -- Indexes built once at load.
-JutsuConfig.ById = {} :: { [string]: JutsuDef }
-for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-	JutsuConfig.ById[jutsu.Id] = jutsu
+GlyphConfig.ById = {} :: { [string]: GlyphDef }
+for _, glyph in ipairs(GlyphConfig.Glyphs) do
+	GlyphConfig.ById[glyph.Id] = glyph
 end
 
 -- Recipes for ComboResolver ({Id, Combo} pairs).
-function JutsuConfig.recipes(): { { Id: string, Combo: { string } } }
+function GlyphConfig.recipes(): { { Id: string, Combo: { string } } }
 	local recipes = {}
-	for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-		table.insert(recipes, { Id = jutsu.Id, Combo = jutsu.Combo })
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		table.insert(recipes, { Id = glyph.Id, Combo = glyph.Combo })
 	end
 	return recipes
 end
 
 -- Ids unlocked for a brand-new profile.
-function JutsuConfig.defaultUnlocks(): { string }
+function GlyphConfig.defaultUnlocks(): { string }
 	local ids = {}
-	for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-		if jutsu.Unlock.Kind == "Default" then
-			table.insert(ids, jutsu.Id)
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		if glyph.Unlock.Kind == "Default" then
+			table.insert(ids, glyph.Id)
 		end
 	end
 	return ids
 end
 
 -- Ids a player unlocks on reaching `level` (see ProgressionService).
-function JutsuConfig.unlocksForLevel(level: number): { string }
+function GlyphConfig.unlocksForLevel(level: number): { string }
 	local ids = {}
-	for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-		if jutsu.Unlock.Kind == "Level" and jutsu.Unlock.Value == level then
-			table.insert(ids, jutsu.Id)
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		if glyph.Unlock.Kind == "Level" and glyph.Unlock.Value == level then
+			table.insert(ids, glyph.Id)
 		end
 	end
 	return ids
 end
 
--- Ids gated by `element` (Lightning): granted with the element itself, never before.
-function JutsuConfig.unlocksForElement(element: string): { string }
+-- Ids gated by `pigment` (Orpiment): granted with the pigment itself, never before.
+function GlyphConfig.unlocksForPigment(pigment: string): { string }
 	local ids = {}
-	for _, jutsu in ipairs(JutsuConfig.Jutsus) do
-		if jutsu.Unlock.Kind == "Element" and jutsu.Element == element then
-			table.insert(ids, jutsu.Id)
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		if glyph.Unlock.Kind == "Pigment" and glyph.Pigment == pigment then
+			table.insert(ids, glyph.Id)
 		end
 	end
 	return ids
 end
 
-return JutsuConfig
+return GlyphConfig

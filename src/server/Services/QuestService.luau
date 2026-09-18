@@ -256,7 +256,7 @@ end
 
 -- The gameplay events of QuestConfig that no service reports explicitly come from CombatService
 -- signals: Killed (PlayerKill / DummyKill), Damaged (DamageDealt, and MeleeHit when the hit was a
--- melee) and Dashed (Dash). JutsuService, MatchService and WorldBossService call `report` directly for
+-- melee) and Dashed (Dash). GlyphService, MatchService and WorldBossService call `report` directly for
 -- the events they own. Every QuestConfig.Pool event has exactly one producer.
 local function onKilled(sourceUserId: number, victimModel: Model)
 	if sourceUserId == 0 then

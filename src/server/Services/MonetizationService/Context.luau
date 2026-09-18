@@ -12,7 +12,7 @@ local Types = require(Shared.Types)
 
 export type PurchaseKind = "Pass" | "Product" | "Cosmetic"
 -- Reasons another service may ask for a contextual prompt (docs/ECONOMY.md §5).
-export type PromptReason = "CloseLoss" | "PassTierLocked" | "LightningDeath" | "LoadoutFull"
+export type PromptReason = "CloseLoss" | "PassTierLocked" | "OrpimentDeath" | "LoadoutFull"
 
 export type ProfileData = Types.ProfileData
 export type ProfileSignal = { Connect: (self: ProfileSignal, fn: (player: Player, data: ProfileData) -> ()) -> any }
@@ -47,7 +47,7 @@ export type BattlepassApi = {
 export type ProgressionApi = { getLevel: (player: Player) -> number }
 -- The single writer of ProfileData.Loadout and ProfileData.Unlocks: pass effects go through it.
 export type LoadoutApi = {
-	grantElement: (player: Player, elementId: string) -> boolean,
+	grantPigment: (player: Player, pigmentId: string) -> boolean,
 	setExtraSlots: (player: Player, count: number) -> boolean,
 }
 export type CosmeticApi = { grant: (player: Player, cosmeticId: string) -> boolean }

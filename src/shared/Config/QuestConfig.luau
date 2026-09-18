@@ -7,11 +7,11 @@ export type QuestDef = { Id: string, Period: Period, Event: string, Target: numb
 
 local QuestConfig = {}
 
--- Events emitted by gameplay services: JutsuCast, JutsuHit, DummyKill, PlayerKill, MatchPlayed,
+-- Events emitted by gameplay services: GlyphCast, GlyphHit, DummyKill, PlayerKill, MatchPlayed,
 -- MatchWin, DamageDealt, Dash, MeleeHit, BossParticipation, BossKill.
 QuestConfig.Pool = {
-	{ Id = "DailyCastJutsus", Period = "Daily", Event = "JutsuCast", Target = 30, NameKey = "quest.castJutsus" },
-	{ Id = "DailyHitJutsus", Period = "Daily", Event = "JutsuHit", Target = 20, NameKey = "quest.hitJutsus" },
+	{ Id = "DailyCastGlyphs", Period = "Daily", Event = "GlyphCast", Target = 30, NameKey = "quest.castGlyphs" },
+	{ Id = "DailyHitGlyphs", Period = "Daily", Event = "GlyphHit", Target = 20, NameKey = "quest.hitGlyphs" },
 	{ Id = "DailyDummies", Period = "Daily", Event = "DummyKill", Target = 10, NameKey = "quest.defeatDummies" },
 	{ Id = "DailyWin", Period = "Daily", Event = "MatchWin", Target = 1, NameKey = "quest.winMatches" },
 	{ Id = "DailyPlay", Period = "Daily", Event = "MatchPlayed", Target = 3, NameKey = "quest.playMatches" },
@@ -21,7 +21,7 @@ QuestConfig.Pool = {
 	{ Id = "WeeklyWins", Period = "Weekly", Event = "MatchWin", Target = 10, NameKey = "quest.winMatches" },
 	{ Id = "WeeklyKills", Period = "Weekly", Event = "PlayerKill", Target = 25, NameKey = "quest.defeatPlayers" },
 	{ Id = "WeeklyBoss", Period = "Weekly", Event = "BossParticipation", Target = 3, NameKey = "quest.joinBoss" },
-	{ Id = "WeeklyCasts", Period = "Weekly", Event = "JutsuCast", Target = 200, NameKey = "quest.castJutsus" },
+	{ Id = "WeeklyCasts", Period = "Weekly", Event = "GlyphCast", Target = 200, NameKey = "quest.castGlyphs" },
 	{ Id = "WeeklyDamage", Period = "Weekly", Event = "DamageDealt", Target = 10000, NameKey = "quest.dealDamage" },
 } :: { QuestDef }
 

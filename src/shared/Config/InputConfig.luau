@@ -115,7 +115,7 @@ InputConfig.CaptureCancelKeys = { "Escape", "ButtonA" } :: { string }
 -- Anchors, resolved in this order so the first placed keeps its spot:
 --   "TopRight" — safe-area top-right corner, away from both thumbs (menu, never a mis-tap in a fight).
 --   "JumpRow"  — bottom row left of the jump button; Step 1 is the nearest disc, one step per unit.
---   "Cluster"  — element ring above and left of the jump button; Angle is in degrees counter-clockwise
+--   "Cluster"  — pigment ring above and left of the jump button; Angle is in degrees counter-clockwise
 --                from the +X axis, nil places the disc at the ring centre.
 export type TouchAnchor = "TopRight" | "JumpRow" | "Cluster"
 export type TouchPlacement = { Anchor: TouchAnchor, Angle: number?, Step: number? }
@@ -156,8 +156,8 @@ InputConfig.ActionNameKeys = {
 
 -- Short labels for the touch discs only. A disc is Touch.MinButtonSize wide, and the full name does not
 -- fit one line at that width in every locale: "Corps à corps" (fr action.melee) clips even scaled down
--- to the label's minimum text size. The Settings rows keep the full names. Elements are not here, they
--- use ElementConfig.Glyphs.
+-- to the label's minimum text size. The Settings rows keep the full names. Pigments are not here, they
+-- use PigmentConfig.Sigils.
 InputConfig.ActionShortKeys = {
 	Melee = "action.melee.short",
 	Dash = "action.dash.short",

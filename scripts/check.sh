@@ -37,6 +37,6 @@ lune run scripts/export-strings -- --check
 
 echo "▶ rojo build"
 mkdir -p build
-rojo build default.project.json -o build/JutsuBattlegrounds.rbxl
+rojo build default.project.json -o build/Vellum.rbxl
 
 echo "✔ all quality gates green"

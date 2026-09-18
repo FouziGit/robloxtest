@@ -11,11 +11,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local DataMigration = require(Shared.Pure.DataMigration)
-local ElementConfig = require(Shared.Config.ElementConfig)
 local GameConfig = require(Shared.Config.GameConfig)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local InputConfig = require(Shared.Config.InputConfig)
-local JutsuConfig = require(Shared.Config.JutsuConfig)
+local LegacyNames = require(Shared.Pure.LegacyNames)
 local Log = require(Shared.Util.Log)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProfileStore = require(script.Parent.Parent.Vendor.ProfileStore)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
@@ -26,6 +27,10 @@ type ProfileData = Types.ProfileData
 
 local log = Log.new("DataService")
 
+-- These two strings are DataStore names, not identifiers, and they are the only place in the codebase
+-- where the old project name must survive the rename. A DataStore is addressed by its name: change the
+-- string and the engine hands back a different, empty store, so every profile ever saved would read as a
+-- brand new player. They stay spelled as they were written the day they were created, forever.
 local STORE_NAME = "JutsuBattlegrounds_v2"
 local KEY_PREFIX = "Player_"
 local LEGACY_STORE_NAME = "JutsuGame_PlayerData_v1"
@@ -53,7 +58,7 @@ local loadedSignals: { [Player]: { any } } = {}
 
 local function defaultLoadout(): { string }
 	local slots = {}
-	for _, id in ipairs(JutsuConfig.defaultUnlocks()) do
+	for _, id in ipairs(GlyphConfig.defaultUnlocks()) do
 		if #slots >= ProgressionConfig.Loadout.BaseSlots then
 			break
 		end
@@ -82,13 +87,13 @@ function DataService.template(): { [string]: any }
 		Battlepass = { _template = seasonTemplate() },
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
-		Unlocks = { Glyphs = JutsuConfig.defaultUnlocks(), Pigments = table.clone(ElementConfig.Base) },
+		Unlocks = { Glyphs = GlyphConfig.defaultUnlocks(), Pigments = table.clone(PigmentConfig.Base) },
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
-			JutsusCast = 0,
-			JutsusHit = 0,
+			GlyphsCast = 0,
+			GlyphsHit = 0,
 			MatchesPlayed = 0,
 			BossKills = 0,
 			PlayTimeSeconds = 0,
@@ -205,16 +210,19 @@ local function loadProfile(player: Player)
 
 	profile:AddUserId(player.UserId)
 
-	-- Migration (V1 → V2, or fills a V2 profile that predates new fields).
+	-- Migration (V1 → current, or fills a profile that predates new fields). LegacyNames carries the
+	-- old-to-new identifier maps; without it a profile written before the lexicon rename would load with
+	-- an empty unlock list and no cosmetics, because the keys that held them were renamed too.
 	local template = DataService.template()
-	local migrated, info = DataMigration.migrate(profile.Data, template, GameConfig.SeasonId)
+	local migrated, info = DataMigration.migrate(profile.Data, template, GameConfig.SeasonId, LegacyNames)
 
 	-- Brand-new profile: try to import the V1 record once.
 	if info.From == 0 or (profile.SessionLoadCount == 1 and migrated.Meta.FirstJoin == 0) then
 		if not migrated.Meta.LegacyImported then
 			local legacy = readLegacy(player.UserId)
 			if legacy ~= nil then
-				local imported, legacyInfo = DataMigration.migrate(legacy, DataService.template(), GameConfig.SeasonId)
+				local imported, legacyInfo =
+					DataMigration.migrate(legacy, DataService.template(), GameConfig.SeasonId, LegacyNames)
 				if legacyInfo.Migrated then
 					migrated = imported
 					log.info("imported V1 profile for %s", player.Name)

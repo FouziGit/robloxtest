@@ -7,8 +7,9 @@
 -- Phase transitions are announced through the HUD toasts (announced / started / defeated / expired),
 -- once per transition: the server pushes the same phase many times per event.
 --
--- The controller owns its own ScreenRoot: the HUD is not its business, and the band lives and dies
--- with the event.
+-- The band is a child of the HUD's top-centre column (HudController.topStack), not a ScreenGui of its
+-- own: three overlays pinned to the same rectangle drew over each other. It still lives and dies with
+-- the event, by its Visible flag.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,21 +18,25 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 
 local Log = require(Shared.Util.Log)
 local ProgressBar = require(UI.components.ProgressBar)
-local ScreenRoot = require(UI.components.ScreenRoot)
 local Theme = require(UI.Theme)
 local Types = require(Shared.Types)
 
 local log = Log.new("BossController")
 
+-- The band needs a real contract from the HUD: it parents itself into the shared top-centre column and
+-- announces phase changes through the HUD toasts.
+type HudApi = {
+	topStack: () -> (Frame?, number),
+	showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> (),
+}
 type Deps = {
 	Localize: any,
-	HudController: any,
+	HudController: HudApi,
 	RemoteClient: any,
 }
 
 type Announcement = { Key: string, Kind: string }
 
-local DISPLAY_ORDER = 10
 local BAND_WIDTH = 420
 local TITLE_HEIGHT = Theme.Sizes.TextTitle + Theme.Sizes.PaddingSmall
 local BAR_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
@@ -48,10 +53,9 @@ local ANNOUNCEMENTS: { [string]: Announcement } = {
 local BossController = {}
 
 local localize: any
-local hudController: any
+local hudController: HudApi
 local remoteClient: any
 
-local root: ScreenRoot.ScreenRoot
 local band: Frame
 local titleLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
@@ -121,14 +125,20 @@ local function makeInfoRow(parent: Instance): (TextLabel, TextLabel, TextLabel)
 	return phase, time, share
 end
 
+-- The band lives inside the HUD's top-centre column rather than in a ScreenGui of its own. Two
+-- ScreenGuis at the same DisplayOrder have no defined draw order, and this 420-wide band simply covered
+-- the 360-wide match band: boss title over the round line, boss health bar over the score.
 local function build()
-	root = ScreenRoot.new({ Name = "BossBand", DisplayOrder = DISPLAY_ORDER })
+	local stack, layoutOrder = hudController.topStack()
+	if stack == nil then
+		log.warn("the HUD has no top stack: the World Boss band cannot be shown")
+		return
+	end
 
 	band = Instance.new("Frame")
 	band.Name = "Boss"
 	band.BackgroundTransparency = 1
-	band.AnchorPoint = Vector2.new(0.5, 0)
-	band.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	band.LayoutOrder = layoutOrder
 	band.Size = UDim2.fromOffset(BAND_WIDTH, 0)
 	band.AutomaticSize = Enum.AutomaticSize.Y
 	band.Visible = false -- refresh shows it while a snapshot is held
@@ -168,7 +178,7 @@ local function build()
 	)
 	warningLabel.Visible = false
 
-	band.Parent = root.Content
+	band.Parent = stack
 end
 
 local function finite(value: any, fallback: number): number

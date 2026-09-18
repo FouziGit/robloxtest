@@ -16,6 +16,10 @@ export type Kind = "Info" | "Success" | "Error"
 export type Props = {
 	Parent: GuiObject,
 	Name: string?,
+	-- Set when the parent lays its children out. The container then takes its place in that layout
+	-- instead of pinning itself to the top centre, which is what used to make it draw over the match
+	-- band and the World Boss band.
+	LayoutOrder: number?,
 }
 
 export type Toast = {
@@ -94,8 +98,12 @@ function Toast.new(props: Props): Toast
 
 	local container = Instance.new("Frame")
 	container.Name = props.Name or "Toasts"
-	container.AnchorPoint = Vector2.new(0.5, 0)
-	container.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	if props.LayoutOrder ~= nil then
+		container.LayoutOrder = props.LayoutOrder
+	else
+		container.AnchorPoint = Vector2.new(0.5, 0)
+		container.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	end
 	container.Size = UDim2.fromOffset(WIDTH, 0)
 	container.AutomaticSize = Enum.AutomaticSize.Y
 	container.BackgroundTransparency = 1

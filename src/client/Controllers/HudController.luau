@@ -56,6 +56,11 @@ local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error 
 local HINT_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
 -- Match band (top-center, hidden outside a match).
 local BAND_WIDTH = 360
+-- Order inside the top-centre column (see buildTopStack). The boss band takes BOSS_BAND_ORDER, which
+-- BossController reads through HudController.topStack.
+local MATCH_BAND_ORDER = 1
+local BOSS_BAND_ORDER = 2
+local TOAST_ORDER = 3
 local BAND_ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local BAND_HERO_HEIGHT = Theme.Sizes.TextHero + Theme.Sizes.PaddingSmall
 local ROSTER_COLUMN_WIDTH = (BAND_WIDTH - Theme.Sizes.Gap) / 2
@@ -84,6 +89,7 @@ local chakraBar: ProgressBar.ProgressBar
 local comboRow: Frame
 local hintLabel: TextLabel
 local toast: Toast.Toast
+local topStack: Frame
 local matchBand: Frame
 local matchRoundLabel: TextLabel
 local matchScoreLabel: TextLabel
@@ -146,12 +152,37 @@ local function makeBandLabel(name: string, order: number, height: number, textSi
 	return label
 end
 
+-- The one top-centre column. The match band, the World Boss band and the toast queue all used to
+-- declare the same anchor and the same position, so they drew on top of each other: a round-won toast
+-- hid the score and the countdown digit in every ranked match, and during an event the wider boss band
+-- covered the match band outright. They are now children of this frame with a vertical layout, so
+-- whatever is showing stacks instead of overlapping. A UIListLayout allocates nothing for an invisible
+-- child, so a hidden band costs no gap.
+--
+-- LayoutOrder is deliberate: persistent state first (match, then boss), transient messages last, so a
+-- toast can never push the information the player needs off its place.
+local function buildTopStack(parent: Instance)
+	topStack = Instance.new("Frame")
+	topStack.Name = "TopStack"
+	topStack.BackgroundTransparency = 1
+	topStack.AnchorPoint = Vector2.new(0.5, 0)
+	topStack.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	topStack.Size = UDim2.fromOffset(0, 0)
+	topStack.AutomaticSize = Enum.AutomaticSize.XY
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
+	layout.Parent = topStack
+	topStack.Parent = parent
+end
+
 local function buildMatchBand(parent: Instance)
 	matchBand = Instance.new("Frame")
 	matchBand.Name = "Match"
 	matchBand.BackgroundTransparency = 1
-	matchBand.AnchorPoint = Vector2.new(0.5, 0)
-	matchBand.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	matchBand.LayoutOrder = MATCH_BAND_ORDER
 	matchBand.Size = UDim2.fromOffset(BAND_WIDTH, 0)
 	matchBand.AutomaticSize = Enum.AutomaticSize.Y
 	matchBand.Visible = false -- refreshMatch shows it while a snapshot is held
@@ -235,9 +266,17 @@ local function build()
 	hintLabel.Visible = false -- refreshHint shows it for the device in use
 	hintLabel.Parent = content
 
-	buildMatchBand(content)
+	buildTopStack(content)
+	buildMatchBand(topStack)
 
-	toast = Toast.new({ Name = "Toasts", Parent = content })
+	toast = Toast.new({ Name = "Toasts", Parent = topStack, LayoutOrder = TOAST_ORDER })
+end
+
+-- The top-centre column the match band, the boss band and the toasts share, plus the LayoutOrder the
+-- boss band must use. BossController parents its band here instead of opening a second ScreenGui at the
+-- same DisplayOrder, which had no defined draw order against this one.
+function HudController.topStack(): (Frame?, number)
+	return topStack, BOSS_BAND_ORDER
 end
 
 local function makeChip(index: number, element: string): Frame

@@ -65,16 +65,38 @@ Créer chaque pass avec ce nom et ce prix, puis coller l'ID dans `MonetizationCo
 
 Coller chaque ID dans `MonetizationConfig.Products.<Clé>.Id`. Les produits « Cosmetic » sont génériques par rareté : le serveur mémorise l'article choisi avant d'ouvrir le prompt (`ShopService`).
 
-## 5. Vérification en jeu (5 minutes)
+## 5. Vérification en jeu (10 minutes)
 
-1. `rojo serve`, Play dans Studio : l'Output doit montrer `[Bootstrap] Jutsu Battlegrounds v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
+La méthode A de l'introduction suffit : `open build/JutsuBattlegrounds.rbxl`, puis **Play**.
+
+1. Play dans Studio : l'Output doit montrer `[Bootstrap] Jutsu Battlegrounds v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
 2. Frapper un mannequin (`J J` = Boule de Feu) → XP, Ryo, barre de niveau.
 3. `M` → Options : réassigner une touche, sauvegarder, relancer Play : la touche est conservée (DataStore actif).
 4. Test tactile : Test → Device → téléphone (812x375, paysage). Vérifier trois choses :
    - les cinq disques d'éléments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/ElementConfig.luau` (champ `Glyphs`) — le HUD et l'écran d'équipement suivent automatiquement ;
    - les disques Melee / Dash / Block / Menu affichent leur libellé court en entier (`CAC`, `Ruée`, `Garde`, `Menu` en français) ;
    - aucun bouton ne mesure moins de 44 px à l'écran, et rien ne chevauche le bouton de saut du moteur.
-5. Test manette : brancher une manette, D-pad = éléments.
+5. Test manette : brancher une manette, D-pad = éléments. Dans le classement, le D-pad fait défiler la liste (les lignes ne sont pas sélectionnables, le panneau déplace le canevas lui-même).
+
+### La boucle complète, à un seul joueur (5 minutes de plus)
+
+6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des jutsus fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Ryo.
+7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
+8. `M` → **Équipement** : retirer un jutsu, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
+9. `M` → **Boutique** : quatre articles du jour. Acheter en Ryo si le solde suffit, équiper, vérifier que l'article passe en « possédé ». L'achat en Robux ne fonctionne qu'une fois les IDs de §4 saisis et la place publiée.
+10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
+
+### Le classé, à deux joueurs (Studio le fait tout seul)
+
+11. **Test → Clients and Servers → 2 players → Start**. Deux fenêtres client s'ouvrent.
+12. Dans les deux : `M` → **Jouer** → **1v1 classé**. La file les apparie en quelques secondes, l'arène se construit, compte à rebours de 5 s.
+13. Se battre. Le premier à deux manches gagne. L'écran de résultat montre le score, l'XP, le Ryo et le mouvement de classement ; le rang apparaît sur les tableaux du hub au prochain rafraîchissement (60 s).
+14. **Tester l'abandon** : pendant un match, fermer une fenêtre client. Le survivant remporte la série, et le partant est débité comme s'il avait perdu (visible dans l'Output : `[RankingService] … abandoned …`).
+
+### Le World Boss, sans attendre vingt minutes
+
+15. L'événement se déclenche toutes les `WorldBossConfig.Schedule.IntervalSeconds` (1200 s) et demande deux joueurs. Pour le voir tout de suite : ramener `IntervalSeconds` à `30` et `AnnounceSeconds` à `5` dans `src/shared/Config/WorldBossConfig.luau`, relancer le test à 2 joueurs, attendre l'annonce, frapper le boss. **Remettre les valeurs d'origine après.**
+16. Pendant l'événement, la file de match est en pause et le compteur d'attente ne tourne pas : c'est voulu (D-25 et le correctif de file).
 
 ## 6. Publication automatisée (optionnel)
 

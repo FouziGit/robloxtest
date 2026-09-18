@@ -617,9 +617,36 @@ end
 -- DataService.BeforeRelease, because this is the last instant the leaver's profile is still loaded: the
 -- match resolves seconds later in their absence, and nothing could be written for them by then. Without
 -- it, quitting was strictly better than losing and a rating could only ever go up.
+-- The live ranked match `userId` is walking out of. `activeByUserId` is the fast path, but Roblox does
+-- not contract the order in which two connections to the same signal fire: if MatchService's own
+-- PlayerRemoving handler happened to run before DataService's, the slot would already be clear and the
+-- forfeit would be silently skipped. So the list is scanned as a fallback, which no ordering can defeat.
+-- A double debit is impossible either way: RankingService settles a user id once per match.
+local function liveRankedMatchOf(userId: number): Active?
+	local direct = activeByUserId[userId]
+	if direct ~= nil then
+		return if direct.Finished or not direct.Def.Ranked then nil else direct
+	end
+	local fallback: Active? = nil
+	for _, active in ipairs(actives) do
+		if not active.Finished and active.Def.Ranked then
+			for _, participant in ipairs(active.Match.Participants) do
+				if participant.UserId == userId then
+					if participant.Present then
+						return active
+					end
+					fallback = fallback or active
+					break
+				end
+			end
+		end
+	end
+	return fallback
+end
+
 local function onBeforeRelease(player: Player)
-	local active = activeByUserId[player.UserId]
-	if active == nil or active.Finished or not active.Def.Ranked then
+	local active = liveRankedMatchOf(player.UserId)
+	if active == nil then
 		return
 	end
 	if active.Match.Phase == "Result" then

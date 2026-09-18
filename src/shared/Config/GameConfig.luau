@@ -57,10 +57,26 @@ GameConfig.Latency = {
 	-- CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
 	OriginToleranceStuds = 6,
 	-- Anti-teleport ceiling, applied to HORIZONTAL travel only: vertical speed is gravity-driven and
-	-- unbounded (a fall from an arena at altitude 900 reaches ~600 studs per second), while the exploit
-	-- this bounds is repositioning onto a target. 120 is 7.5x the walk speed, and every burst the server
-	-- itself grants (dash, knockback, jutsu dashes) adds its own distance on top.
-	MaxSpeedStudsPerSecond = 120,
+	-- unbounded (a fall from an arena at altitude 900 reaches several hundred studs per second), while the
+	-- exploit this bounds is repositioning onto a target.
+	--
+	-- It bounds UNASSISTED movement, not the fastest thing in the game: every burst the server itself
+	-- grants (dash 22 studs, knockback, a jutsu gap-close) adds its own distance on top through
+	-- CombatService.grantMovement, so this does not have to cover them. The fastest a character moves on
+	-- its own is Movement.WalkSpeed (16), which a jump and a fall preserve rather than exceed, plus at most
+	-- the boss's own MoveSpeed (18) if it shoves someone. 40 leaves room for that and for jitter.
+	--
+	-- The value matters more than it looks: the budget grows with the time since the last accepted sample,
+	-- so a client that holds a spoofed position long enough eventually has it accepted. At 40 a 90-stud
+	-- offset takes 2.3 seconds of clamped, whiffing attacks before it is believed, which is no longer a
+	-- teleport; at 120 it took 0.75 s.
+	MaxSpeedStudsPerSecond = 40,
+	-- How much elapsed time the travel budget may accumulate. It must accumulate at all, because an uplink
+	-- stall replicates nothing and then delivers the catch-up as one jump: measured against a single tick
+	-- that honest burst reads as a teleport. It must be capped, because otherwise a player who stands still
+	-- for ten seconds banks four hundred studs of free relocation. Half a second covers a stall a player
+	-- can still play through and caps the bank at MaxSpeedStudsPerSecond / 2 studs.
+	MaxBudgetSeconds = 0.5,
 	-- Implausible origins on an ACTION (melee, cast) inside ViolationWindowSeconds before
 	-- AntiCheatService is struck. Counted over a window rather than consecutively, because a client that
 	-- returns to a legal position between two swings would otherwise reset the count every time and never

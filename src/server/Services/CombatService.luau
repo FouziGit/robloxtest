@@ -332,6 +332,9 @@ local function pruneHitMemory(memory: { [Model]: number }, now: number)
 end
 
 local LATENCY = GameConfig.Latency
+-- Below this, a sample carries no horizontal movement: the player is standing still, or the client has
+-- sent nothing new. Not zero, because a resting character still jitters by a fraction of a stud.
+local STILL_EPSILON_STUDS = 0.05
 
 -- The CFrame a hitbox or a cast origin is built from.
 --
@@ -409,12 +412,22 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 		state.TrustedAt = now
 		return observed
 	end
-	local elapsed = math.max(0, now - state.TrustedAt)
+	-- Capped: the budget has to accumulate so an uplink stall's catch-up jump is not read as a teleport,
+	-- and has to stop accumulating so standing still does not bank a free relocation.
+	local elapsed = math.clamp(now - state.TrustedAt, 0, LATENCY.MaxBudgetSeconds)
 	local allowance = liveAllowance(state, now)
 	local bySpeed = LATENCY.MaxSpeedStudsPerSecond * elapsed
 	local budget = bySpeed + allowance
 	local delta = observed.Position - trusted
 	local travelled = Vector3.new(delta.X, 0, delta.Z).Magnitude
+
+	if travelled <= STILL_EPSILON_STUDS then
+		-- Not moving, or nothing new arrived. Nothing to re-anchor, and deliberately NOT refreshing the
+		-- clock: during a stall the server keeps re-reading the same stale position, and refreshing here
+		-- would hold the budget at one tick and then refuse the burst that catches up.
+		state.TrustedPosition = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
+		return observed
+	end
 
 	if travelled <= budget then
 		state.TravelAllowanceStuds = math.max(0, allowance - math.max(0, travelled - bySpeed))

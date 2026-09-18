@@ -315,7 +315,14 @@ local function finish(active: Active)
 	end
 	active.Finished = true
 	for _, participant in ipairs(active.Match.Participants) do
-		activeByUserId[participant.UserId] = nil
+		-- Only while the slot still holds THIS match, exactly as ArenaService.release guards a slot. A
+		-- player who disconnected mid-match stays in Participants with Present = false, so they can
+		-- reconnect and be booked into a new match before this one finishes winding down. Clearing
+		-- unconditionally would erase that live match: allowDamage would then refuse every hit from and
+		-- against them, and isInMatch would let them queue for a third one.
+		if activeByUserId[participant.UserId] == active then
+			activeByUserId[participant.UserId] = nil
+		end
 		if isLive(participant) then
 			registry.fire("MatchChanged", participant.Player, nil)
 			notify.send(participant.Player, "match.returning", nil, "Info")

@@ -48,4 +48,4 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 - [x] Aucun TODO/placeholder ; seuls les IDs Roblox restent à renseigner, avec avertissements au démarrage
 - [x] Historique git propre en Conventional Commits, tout poussé sur `origin main`
 - [x] Passe de durcissement : trois revues adversariales enchaînées. La première a rendu 30 constats retenus (3 critiques, 10 élevés) ; la seconde, lancée sur les correctifs eux-mêmes, en a rendu 21 de plus dont 9 confirmés et 1 critique — une régression introduite par le premier correctif anti-triche. Tout est corrigé, et les décisions dont la conception a changé en route (D-32, D-33) ont été réécrites plutôt que contredites.
-- [ ] Rapport final dans le chat
+- [x] Rapport final dans le chat

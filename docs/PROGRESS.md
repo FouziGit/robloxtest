@@ -57,7 +57,7 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | 0 — Audit du game feel, bible d'art, plan | ✅ | `266bbf3`, `573a3d7` |
 | 1 — Le lexique et le lore | ✅ | `4fc31f6`…`fddeb8b` |
 | 2 — `Feel` et `FeelConfig` | ✅ | `14ef09b`, `be45b2f` |
-| 3 — Le pipeline VFX | ✅ | `3a7f5ec`…`b8820f7` |
+| 3 — Le pipeline VFX | ✅ | `3a7f5ec`…`85a1ef5` |
 | 4 à 9 — sorts, audio, UI, monde, boucle d'accroche, performance | ⬜ | — |
 
 ### Phase 1 — fait
@@ -103,3 +103,17 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 - `VfxPool.acquire` peut refuser au plafond et renvoyer `nil` ; le runtime l'assumait non-nul. Une couche qui n'obtient pas ses instances n'est simplement pas dessinée, ce qui est la dégradation que demande la règle 8.
 - `WorldLighting.pulse` ne renvoie rien ; mon runtime testait sa valeur de retour et aurait averti à chaque impact.
 - `Trail` et `Light` ne s'unifient pas en Luau : `Trail | Light` n'a aucun membre, donc la branche combinée est une erreur de type et non un raccourci.
+
+### Phase 3 — la relecture adversariale
+
+Six agents ont relu les trois chantiers bâtis en parallèle : 26 constats confirmés, aucun critique. Ce qui en est sorti et qui était un vrai défaut :
+
+- **Rien n'exécutait les générateurs de textures.** Toutes leurs propriétés — déterminisme, dimensions, grille du flipbook, tuilage sans couture — avaient été vérifiées à la main une fois puis laissées sans garde, et le couplage qui s'était déjà cassé une fois survivait sur 0,16 px de marge. `scripts/check.sh` et la CI régénèrent et refusent toute différence (D-60).
+- `Canvas.blit` n'avait aucune vérification de bornes et échouait **silencieusement dans les deux sens** : une ligne qui dépasse le bord droit se replie sur le bord gauche de la suivante. C'est exactement le décalage dont dépend le flipbook.
+- L'impulsion `Erasure` n'était déclenchée par rien : trois passes de post-traitement vivantes pour aucun retour visuel. Elle part à l'annonce de L'Effacement, ce dont elle porte le nom.
+- Deux impulsions simultanées dépassaient une bande que la configuration dit tenir : la saturation atteignait -1,08 et passait le recouvrement collée au plafond de -1, soit un écran entièrement gris que personne n'a choisi. Un impact pendant l'arrivée de L'Effacement n'est pas un cas rare, **c'est** le combat de boss.
+- Un joueur ayant coupé la secousse de caméra recevait quand même un blanchiment plein écran à chaque impact proche. Les impulsions obéissent maintenant à ce réglage, le seul contrôle de réduction de mouvement que le profil possède.
+- Le test d'éclairage lisait ses seuils dans le fichier qu'il garde : l'édition qu'il prétendait arrêter pouvait élargir la bande en passant.
+- `VfxPool.lease` était une API sans appelant. `resetEmitter` oubliait `WindAffectsDrag`, que le constructeur de couches écrit. Le test des plafonds recopiait à la main la liste des classes, donc il ne pouvait pas échouer quand le pool en gagnait une — ce qui était déjà arrivé, en silence, avec `Decal` et `Beam`.
+
+Et deux constats qui me visaient : un changement de code emporté dans un commit étiqueté `docs:`, et un message de commit décrivant un trait de pinceau qui n'a pas été livré. Les deux sont corrigés au registre (D-58, D-59), pas dans l'artefact : la version livrée est meilleure pour son usage réel.

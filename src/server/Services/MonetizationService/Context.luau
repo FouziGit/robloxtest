@@ -48,7 +48,8 @@ export type CosmeticApi = { grant: (player: Player, cosmeticId: string) -> boole
 export type ShopApi = {
 	setPurchaseIntent: (player: Player, cosmeticId: string) -> (string?, string?),
 	getPurchaseIntent: (player: Player) -> string?,
-	consumePurchaseIntent: (player: Player) -> string?,
+	resolveReceiptItem: (player: Player, rarity: string) -> string?,
+	clearPurchaseIntent: (player: Player, cosmeticId: string) -> (),
 	refresh: (player: Player) -> (),
 }
 export type MatchApi = { isInMatch: (player: Player) -> boolean }

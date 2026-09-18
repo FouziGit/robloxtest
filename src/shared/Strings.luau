@@ -456,6 +456,10 @@ Strings.Table = {
 	-- Purchases
 	["purchase.prompt"] = { en = "Opening the Roblox purchase…", fr = "Ouverture de l'achat Roblox…" },
 	["purchase.granted"] = { en = "Purchase complete: {name}", fr = "Achat terminé : {name}" },
+	["purchase.grantedRyoInstead"] = {
+		en = "You own every item of that rarity: +{amount} Ryo instead",
+		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place",
+	},
 	["purchase.failed"] = { en = "The purchase could not be completed.", fr = "L'achat n'a pas pu aboutir." },
 	["purchase.unavailable"] = {
 		en = "This item is not available yet.",

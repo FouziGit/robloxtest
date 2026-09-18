@@ -3,8 +3,13 @@
 -- provides the side effects it asks for (find the product, read the profile, check and record the
 -- purchase id, grant, save, log) and translates its verdict into an Enum.ProductPurchaseDecision.
 --
--- Anything that cannot be granted returns NotProcessedYet: the player is not charged and Roblox delivers
--- the receipt again later, so a half-applied purchase is impossible.
+-- Anything that cannot be granted returns NotProcessedYet, which makes a half-applied purchase
+-- impossible. It is NOT free: the Robux are debited when the player confirms the dialog, and
+-- NotProcessedYet only leaves the transaction pending, with Roblox re-delivering the receipt. A path
+-- that can never succeed therefore loops for ever on a purchase the player already paid for, so every
+-- refusal here must be a transient failure and never a permanent one. Two consequences enforced below:
+-- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Ryo
+-- compensation), and PurchaseGranted is only returned once DataService.saveNow confirms the write.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,6 +23,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ReceiptProcessor = require(Shared.Pure.ReceiptProcessor)
+local ShopConfig = require(Shared.Config.ShopConfig)
 
 local log = Log.new("MonetizationService")
 
@@ -66,22 +72,37 @@ local function grantRyo(player: Player, productKey: string, amount: number, name
 	return true
 end
 
--- Grants the rotation item the player picked before opening the dialog (ShopService purchase intent).
+-- Grants one cosmetic of the rarity the player paid for: the item they picked before opening the
+-- dialog when it still applies, otherwise the first unowned item of that rarity (ShopService resolves
+-- the preference order). The Robux are debited at confirmation, so this must never refuse: a refusal
+-- returns NotProcessedYet and Roblox re-delivers the same receipt for ever.
+--
+-- When the player owns every sellable item of the rarity there is nothing left to hand over, so the
+-- transaction is completed in Ryo at that rarity's shop price instead of looping.
 local function grantCosmetic(player: Player, rarity: string?): boolean
-	local cosmeticId = deps.Shop.consumePurchaseIntent(player)
-	if cosmeticId == nil then
-		log.warn("cosmetic receipt for %s has no live shop intent", player.Name)
-		deps.Notify.send(player, "purchase.failed", nil, "Error", Context.SfxError)
+	local price = if rarity ~= nil then ShopConfig.PriceRyo[rarity] else nil
+	if rarity == nil or price == nil then
+		log.error("cosmetic product has no usable rarity: %s", tostring(rarity))
 		return false
 	end
+	local cosmeticId = deps.Shop.resolveReceiptItem(player, rarity)
+	if cosmeticId == nil then
+		log.warn("%s owns every sellable %s item: paying %d Ryo instead", player.Name, rarity, price)
+		if deps.Currency.add(player, price, "Product:Cosmetic" .. rarity) <= 0 then
+			return false
+		end
+		deps.Notify.send(player, "purchase.grantedRyoInstead", { amount = price }, "Success", Context.SfxSuccess)
+		return true
+	end
 	local item = CosmeticConfig.ById[cosmeticId]
-	if item == nil or item.Rarity ~= rarity then
-		log.warn("cosmetic intent %s does not match rarity %s", cosmeticId, tostring(rarity))
+	if item == nil then
+		log.error("resolveReceiptItem returned the unknown cosmetic %s", cosmeticId)
 		return false
 	end
 	if not log.try("cosmetic grant " .. cosmeticId, deps.Cosmetic.grant, player, cosmeticId) then
 		return false
 	end
+	deps.Shop.clearPurchaseIntent(player, cosmeticId)
 	deps.Notify.send(player, "purchase.granted", { name = item.NameKey }, "Success", Context.SfxSuccess)
 	deps.Shop.refresh(player)
 	return true

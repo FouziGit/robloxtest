@@ -23,6 +23,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local ReceiptItem = require(Shared.Pure.ReceiptItem)
 local ShopConfig = require(Shared.Config.ShopConfig)
 local ShopRotation = require(Shared.Pure.ShopRotation)
 local Trove = require(Packages.Trove)
@@ -234,11 +235,36 @@ function ShopService.getPurchaseIntent(player: Player): string?
 	return intent.CosmeticId
 end
 
--- Takes the live intent of `player`: the cosmetic a Robux receipt must grant.
-function ShopService.consumePurchaseIntent(player: Player): string?
-	local cosmeticId = ShopService.getPurchaseIntent(player)
-	intents[player] = nil
-	return cosmeticId
+-- Drops the live intent, but only when it is exactly `cosmeticId`. A receipt must never discard the
+-- intent of another purchase the player has in flight: the two remotes that set an intent are
+-- client-reachable, so the slot can already hold a different item by the time a receipt lands.
+function ShopService.clearPurchaseIntent(player: Player, cosmeticId: string)
+	local intent = intents[player]
+	if intent ~= nil and intent.CosmeticId == cosmeticId then
+		intents[player] = nil
+	end
+end
+
+-- The cosmetic a Robux receipt of `rarity` must grant, or nil when the player already owns every
+-- sellable item of that rarity. Preference order: the live intent when it names an item of the right
+-- rarity, then today's rotation, then any sellable item of that rarity.
+--
+-- The Robux are debited when the player confirms the dialog, so a receipt must always have something
+-- to deliver: the intent slot is a single client-writable slot that can be overwritten or expire
+-- before the receipt arrives, and reading it as the only source would leave a paid purchase
+-- undeliverable forever (Roblox re-delivers the receipt until it is granted).
+function ShopService.resolveReceiptItem(player: Player, rarity: string): string?
+	local data = dataService.get(player)
+	if data == nil then
+		return nil
+	end
+	return ReceiptItem.pick(
+		(CosmeticConfig.Items :: any) :: { ReceiptItem.Item },
+		rotation,
+		data.Cosmetics.Owned,
+		rarity,
+		ShopService.getPurchaseIntent(player)
+	)
 end
 
 ----------------------------------------------------------------

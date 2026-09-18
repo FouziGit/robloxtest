@@ -228,6 +228,7 @@ purchase.alreadyOwned,You already own this.,JutsuBattlegrounds,,You already own 
 purchase.boostActive,XP boost active for {minutes} min,JutsuBattlegrounds,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
 purchase.failed,The purchase could not be completed.,JutsuBattlegrounds,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
 purchase.granted,Purchase complete: {name},JutsuBattlegrounds,,Purchase complete: {name},Achat terminé : {name}
+purchase.grantedRyoInstead,You own every item of that rarity: +{amount} Ryo instead,JutsuBattlegrounds,,You own every item of that rarity: +{amount} Ryo instead,Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place
 purchase.passGranted,{name} unlocked!,JutsuBattlegrounds,,{name} unlocked!,{name} débloqué !
 purchase.prompt,Opening the Roblox purchase…,JutsuBattlegrounds,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.tiersGranted,+{tiers} battle pass tiers,JutsuBattlegrounds,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass

@@ -31,6 +31,7 @@ local ORDER = {
 	"VfxController",
 	"MatchController",
 	"HudController",
+	"BossController",
 	"MenuController",
 	"InputController",
 	"ComboController",

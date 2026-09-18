@@ -75,6 +75,7 @@ type EffectContext = {
 }
 type Effect = (ctx: EffectContext) -> number
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
+type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -84,6 +85,7 @@ type Deps = {
 	Vfx: VfxApi,
 	Movement: MovementApi,
 	Progression: ProgressionApi,
+	Quest: QuestApi,
 }
 
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
@@ -100,6 +102,7 @@ local effects: { [string]: Effect }
 local vfx: VfxApi
 local movement: MovementApi
 local progression: ProgressionApi
+local quest: QuestApi
 
 local resolver = ComboResolver.new(JutsuConfig.recipes(), GameConfig.Combo.MaxLength)
 -- Per player: jutsu id -> os.clock timestamp at which it can be cast again.
@@ -188,8 +191,10 @@ local function recordCast(player: Player, hits: number)
 		return
 	end
 	data.Stats.JutsusCast += 1
+	quest.report(player, "JutsuCast", 1)
 	if hits > 0 then
 		data.Stats.JutsusHit += hits
+		quest.report(player, "JutsuHit", hits)
 		progression.addXp(player, ProgressionConfig.XP.JutsuHit * math.min(hits, MAX_REWARDED_HITS), "JutsuHit")
 	end
 	dataService.push(player, "Stats")
@@ -267,6 +272,7 @@ function JutsuService.Init(deps: Deps)
 	vfx = deps.Vfx
 	movement = deps.Movement
 	progression = deps.Progression
+	quest = deps.Quest
 end
 
 function JutsuService.Start()

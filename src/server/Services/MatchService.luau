@@ -16,7 +16,6 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local DailyStreak = require(Shared.Pure.DailyStreak)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
 local Log = require(Shared.Util.Log)
@@ -65,6 +64,8 @@ type RankingApi = {
 	getRating: (player: Player, modeId: string) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
 }
+type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
+type DailyApi = { markFirstWin: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -76,6 +77,8 @@ type Deps = {
 	Hub: HubApi,
 	Arena: ArenaApi,
 	Ranking: RankingApi,
+	Quest: QuestApi,
+	Daily: DailyApi,
 }
 type TroveType = typeof(Trove.new())
 
@@ -117,6 +120,8 @@ local currency: CurrencyApi
 local hub: HubApi
 local arenas: ArenaApi
 local ranking: RankingApi
+local quest: QuestApi
+local daily: DailyApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
@@ -236,17 +241,10 @@ local function bumpMatchesPlayed(player: Player)
 	dataService.push(player, "Stats")
 end
 
--- Daily first-win bonus (ProgressionConfig.*.FirstWinOfDay), claimed once per day and per player.
+-- Daily first-win bonus. DailyRewardService owns the Daily section (streak, first win, Premium
+-- bonus); it marks the day, pays ProgressionConfig.*.FirstWinOfDay and notifies the player.
 local function grantFirstWin(player: Player): boolean
-	local data = dataService.get(player)
-	if data == nil then
-		return false
-	end
-	if not DailyStreak.markFirstWin(data.Daily, DailyStreak.dayIndex(os.time())) then
-		return false
-	end
-	dataService.push(player, "Daily")
-	return true
+	return daily.markFirstWin(player)
 end
 
 local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
@@ -278,15 +276,15 @@ local function award(active: Active, result: Types.MatchResult)
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
 		local xp = math.floor(baseXp * scale.Xp + 0.5)
 		local ryo = math.floor(baseRyo * scale.Ryo + 0.5)
+		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
 		local firstWin = won and grantFirstWin(player)
-		if firstWin then
-			xp += XP.FirstWinOfDay
-			ryo += RYO.FirstWinOfDay
-			notify.send(player, "match.firstWin", nil, "Success")
-		end
 		progression.addXp(player, xp, reason)
 		currency.add(player, ryo, reason)
 		bumpMatchesPlayed(player)
+		quest.report(player, "MatchPlayed", 1)
+		if won then
+			quest.report(player, "MatchWin", 1)
+		end
 		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id)
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
@@ -698,6 +696,8 @@ function MatchService.Init(deps: Deps)
 	hub = deps.Hub
 	arenas = deps.Arena
 	ranking = deps.Ranking
+	quest = deps.Quest
+	daily = deps.Daily
 end
 
 function MatchService.Start()

@@ -9,11 +9,14 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Services = script.Parent.Services
 local Effects = script.Parent.Effects
 
+local AnalyticsService = require(Services.AnalyticsService)
 local AntiCheatService = require(Services.AntiCheatService)
 local ArenaService = require(Services.ArenaService)
 local BattlepassService = require(Services.BattlepassService)
 local CombatService = require(Services.CombatService)
+local CosmeticService = require(Services.CosmeticService)
 local CurrencyService = require(Services.CurrencyService)
+local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
 local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
@@ -21,17 +24,22 @@ local HubService = require(Services.HubService)
 local JutsuEffects = require(Effects.JutsuEffects)
 local JutsuService = require(Services.JutsuService)
 local LeaderboardService = require(Services.LeaderboardService)
+local LoadoutService = require(Services.LoadoutService)
 local Log = require(Shared.Util.Log)
 local MatchService = require(Services.MatchService)
 local MatchmakingService = require(Services.MatchmakingService)
+local MonetizationService = require(Services.MonetizationService)
 local MovementService = require(Services.MovementService)
 local NotifyService = require(Services.NotifyService)
 local ProgressionService = require(Services.ProgressionService)
+local QuestService = require(Services.QuestService)
 local RankingService = require(Services.RankingService)
 local RemoteRegistry = require(script.Parent.RemoteRegistry)
 local SettingsService = require(Services.SettingsService)
+local ShopService = require(Services.ShopService)
 local Types = require(Shared.Types)
 local VfxBroadcaster = require(Services.VfxBroadcaster)
+local WorldBossService = require(Services.WorldBossService)
 
 local log = Log.new("Bootstrap")
 
@@ -69,6 +77,14 @@ local deps = {
 	Leaderboard = LeaderboardService,
 	Match = MatchService,
 	Matchmaking = MatchmakingService,
+	Analytics = AnalyticsService,
+	Quest = QuestService,
+	Daily = DailyRewardService,
+	Loadout = LoadoutService,
+	Cosmetic = CosmeticService,
+	Shop = ShopService,
+	Monetization = MonetizationService,
+	WorldBoss = WorldBossService,
 }
 
 -- Dependency order: each service only reads services listed before it.
@@ -80,9 +96,15 @@ local ordered: { Entry } = {
 	{ Name = "DataService", Service = DataService },
 	{ Name = "AntiCheatService", Service = AntiCheatService },
 	{ Name = "NotifyService", Service = NotifyService },
+	{ Name = "AnalyticsService", Service = AnalyticsService },
 	{ Name = "CurrencyService", Service = CurrencyService },
 	{ Name = "ProgressionService", Service = ProgressionService },
+	{ Name = "CosmeticService", Service = CosmeticService },
 	{ Name = "BattlepassService", Service = BattlepassService },
+	{ Name = "LoadoutService", Service = LoadoutService },
+	{ Name = "QuestService", Service = QuestService },
+	{ Name = "DailyRewardService", Service = DailyRewardService },
+	{ Name = "ShopService", Service = ShopService },
 	{ Name = "SettingsService", Service = SettingsService },
 	{ Name = "MovementService", Service = MovementService },
 	{ Name = "VfxBroadcaster", Service = VfxBroadcaster },
@@ -93,6 +115,9 @@ local ordered: { Entry } = {
 	{ Name = "LeaderboardService", Service = LeaderboardService },
 	{ Name = "MatchService", Service = MatchService },
 	{ Name = "MatchmakingService", Service = MatchmakingService },
+	{ Name = "WorldBossService", Service = WorldBossService },
+	-- Last: it applies pass ownership through Loadout / Cosmetic / Battlepass, which must all be up.
+	{ Name = "MonetizationService", Service = MonetizationService },
 }
 
 for _, entry in ipairs(ordered) do

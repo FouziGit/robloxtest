@@ -56,6 +56,22 @@ Raison : un système de spectateur demande sa propre caméra, sa propre UI et se
 `applyStun` reste plafonné par `CombatConfig.Hit.StunMaxSeconds` (2 s) pour le combat ; `applyFreeze` n'est pas plafonné et sert aux pauses scriptées décidées par le serveur (compte à rebours, fin de match).
 Raison : avec le seul `applyStun`, un compte à rebours de 5 s devait être ré-appliqué à chaque tick, ce qui envoyait un `MovementCommand` par tick et par joueur.
 
+**D-24 — Un achat Robux de cosmétique nomme l'article, pas le produit** · Phase 7
+Les developer products cosmétiques sont génériques par rareté ; le client envoie donc `PromptPurchase("Cosmetic", cosmeticId)` et le serveur enregistre l'intention (`ShopService.setPurchaseIntent`) avant d'ouvrir le prompt du produit correspondant.
+Raison : sans cette intention, un produit « cosmétique épique » ne dit pas *lequel* accorder ; et faire envoyer un ID de produit par le client rouvrirait la porte à l'achat d'un article non sélectionné.
+
+**D-25 — Le matchmaking se met en pause pendant un World Boss** · Phase 7
+`CombatService` n'a qu'un seul emplacement de policy PvP. `WorldBossService` l'emprunte pour la durée de l'événement et la rend ensuite ; `MatchmakingService` refuse donc de former un match tant que `WorldBoss.isLive()` (les joueurs restent en file, leur minuteur continue).
+Raison : c'est le plus petit changement qui supprime le conflit, et un match formé pendant l'événement perdrait le PvP entre participants. Une pile de policies serait plus générale mais plus risquée pour un gain nul en V2.
+
+**D-26 — Un seul écrivain par section de profil** · Phase 7
+`Cosmetics.Owned` n'est écrit que par `CosmeticService`, `Daily` que par `DailyRewardService`, `Loadout`/`Unlocks` que par `LoadoutService`. Le battle pass et les matchs appellent ces services au lieu d'écrire la table.
+Raison : le battle pass insérait directement dans `Cosmetics.Owned`, ce qui contournait le signal que la boutique écoute pour rafraîchir la possession ; et le bonus de première victoire était dupliqué entre `MatchService` et le service qui possède la série quotidienne.
+
+**D-27 — Le boost d'XP est un vrai champ de profil** · Phase 7
+La récompense « boost » du battle pass et le produit Robux écrivent `Boosts.XpUntil` / `XpMultiplier` ; `ProgressionService` applique le multiplicateur à chaque gain.
+Raison : la V1 du battle pass payait un montant d'XP équivalent faute de champ — un contournement visible pour le joueur (pas de boost, juste de l'XP) et impossible à cumuler avec le VIP.
+
 **D-7 — luau-lsp avec définitions Roblox téléchargées** · Phase 0
 `scripts/setup.sh` télécharge `globalTypes.d.luau` depuis le dépôt luau-lsp (fichier ignoré par git) ; `.luau-lsp.json` déclare les alias. L'analyse stricte bloquante porte sur `src/shared` (gate), le reste est analysé en mode avertissement.
 Raison : sans définitions, `luau-lsp analyze` ne connaît pas `game`, `Instance`, etc. ; limiter le gate strict à `shared` (modules purs + config) garde la CI fiable pendant la migration.

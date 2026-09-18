@@ -37,7 +37,14 @@ type MatchApi = {
 	isInMatch: (player: Player) -> boolean,
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
-type Deps = { Registry: Registry, Notify: NotifyApi, Ranking: RankingApi, Match: MatchApi }
+type WorldBossApi = { isLive: () -> boolean }
+type Deps = {
+	Registry: Registry,
+	Notify: NotifyApi,
+	Ranking: RankingApi,
+	Match: MatchApi,
+	WorldBoss: WorldBossApi,
+}
 
 -- MatchmakingCore.Config: the widening window and the maximum wait.
 local WINDOW = MatchConfig.Matchmaking
@@ -49,6 +56,7 @@ local registry: Registry
 local notify: NotifyApi
 local ranking: RankingApi
 local match: MatchApi
+local worldBoss: WorldBossApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
 local accumulator = 0
@@ -191,6 +199,18 @@ local function tick(now: number)
 				push(player, now)
 			end
 		end
+		-- A World Boss event owns the single CombatService PvP policy for its whole duration, so a match
+		-- started now would lose participant PvP. Players keep waiting (their timer advances) instead of
+		-- being dropped into a broken match; the queue drains as soon as the event ends.
+		if worldBoss.isLive() then
+			for _, entry in ipairs(queue.Entries) do
+				local player = Players:GetPlayerByUserId(entry.UserId)
+				if player ~= nil then
+					push(player, now)
+				end
+			end
+			continue
+		end
 		-- Captured before findMatches removes the entries, for the requeue of a refused match.
 		local joinedAt: { [number]: number } = {}
 		for _, entry in ipairs(queue.Entries) do
@@ -239,6 +259,7 @@ function MatchmakingService.Init(deps: Deps)
 	notify = deps.Notify
 	ranking = deps.Ranking
 	match = deps.Match
+	worldBoss = deps.WorldBoss
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		queues[modeId] = MatchmakingCore.newQueue(modeId)
 	end

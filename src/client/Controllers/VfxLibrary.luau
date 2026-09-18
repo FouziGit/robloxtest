@@ -120,6 +120,23 @@ local RAIJIN_LINK_DELAY_SECONDS = 0.07
 local RAIJIN_SKY_HEIGHT_STUDS = 40
 local RAIJIN_BOLT_THICKNESS_STUDS = 0.7
 
+-- World Boss (docs/GAME_DESIGN.md §7). Every boss attack is painted on the arena floor for its whole
+-- telegraph window, so the warning shows exactly the area the server will damage.
+local BOSS_DANGER_COLOR = Color3.fromRGB(255, 96, 72)
+local BOSS_SAFE_COLOR = Color3.fromRGB(110, 210, 150)
+local BOSS_ENERGY_COLOR = Color3.fromRGB(168, 120, 235)
+local BOSS_WARNING_TRANSPARENCY = 0.85 -- the paint starts faint and fills in as the hit approaches
+local BOSS_WARNING_PEAK_TRANSPARENCY = 0.3
+local BOSS_IMPACT_SECONDS = 0.35
+local BOSS_DISC_THICKNESS_STUDS = 0.4
+local BOSS_DISC_LIFT_STUDS = 0.15 -- above the floor, so the paint never z-fights with it
+local BOSS_CONE_SEGMENTS = 5
+local BOSS_PILLAR_COUNT = 8
+local BOSS_PILLAR_WIDTH_STUDS = 4
+local BOSS_SPAWN_SECONDS = 1
+local BOSS_DEFEAT_SECONDS = 1.4
+local BOSS_DEFEAT_COLLAPSE_FACTOR = 0.4 -- share of the defeat spent collapsing before the blast
+
 local VfxLibrary: { [string]: Effect } = {}
 
 local folder: Folder? = nil
@@ -1534,6 +1551,211 @@ VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
 		Acceleration = Vector3.new(0, -30, 0),
 	})
 	burst(shards, 24)
+end
+
+----------------------------------------------------------------
+-- World Boss (docs/GAME_DESIGN.md §7)
+----------------------------------------------------------------
+
+-- Floor of the boss arena. The server sends it in the packet: the boss body is 14 studs tall and a
+-- downward probe started at its centre would begin inside it, so the ground probe is only a fallback.
+local function bossGround(packet: Packet): Vector3
+	local params = packet.Params
+	if params ~= nil and isFinite(params.Ground) then
+		return Vector3.new(packet.Origin.X, params.Ground, packet.Origin.Z)
+	end
+	return groundAt(packet.Origin)
+end
+
+-- Warning window the server announced, bounded so the whole effect (warning plus impact) fits inside
+-- the packet lifetime.
+local function bossTelegraph(packet: Packet): number
+	return clampLifetime(numberParam(packet, "Telegraph", 1), BOSS_IMPACT_SECONDS * 2)
+end
+
+-- Flat disc painted on the arena floor: the shape of a Circle attack and the two radii of a Ring one.
+local function bossDisc(trove: TroveType, ground: Vector3, radius: number, color: Color3, lift: number): Part
+	return newPart(trove, "BossWarning", {
+		Shape = Enum.PartType.Cylinder,
+		Color = color,
+		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, radius * 2, radius * 2),
+		Transparency = BOSS_WARNING_TRANSPARENCY,
+		CFrame = CFrame.new(ground + Vector3.new(0, BOSS_DISC_LIFT_STUDS + lift, 0)) * LYING_CYLINDER,
+	})
+end
+
+-- Fills the warning paint over the telegraph window, then clears it when the attack lands.
+local function bossFill(trove: TroveType, parts: { Part }, seconds: number)
+	for _, part in ipairs(parts) do
+		play(trove, part, seconds, { Transparency = BOSS_WARNING_PEAK_TRANSPARENCY }, Enum.EasingStyle.Linear)
+	end
+	after(trove, seconds, function()
+		fadeParts(trove, parts, BOSS_IMPACT_SECONDS)
+	end)
+end
+
+-- The hit itself: a shockwave running out to the damaged radius, dust, impact sound and a shake that
+-- fades with the distance.
+local function bossImpact(trove: TroveType, api: Api, ground: Vector3, radius: number, shake: number)
+	local wave = newPart(trove, "BossImpact", {
+		Shape = Enum.PartType.Cylinder,
+		Material = Enum.Material.Slate,
+		Color = BOSS_DANGER_COLOR,
+		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, 2, 2),
+		Transparency = 0.2,
+		CFrame = CFrame.new(ground + Vector3.new(0, BOSS_DISC_LIFT_STUDS, 0)) * LYING_CYLINDER,
+	})
+	play(trove, wave, BOSS_IMPACT_SECONDS, {
+		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, radius * 2, radius * 2),
+		Transparency = 1,
+	})
+	local dust = newEmitter(wave, {
+		Color = SMOKE_COLOR,
+		Lifetime = NumberRange.new(0.5, 1),
+		Speed = NumberRange.new(radius * 0.6, radius),
+		Size = NumberSequence.new(2, 0),
+		Spread = Vector2.new(60, 60),
+		Acceleration = Vector3.new(0, -20, 0),
+	})
+	burst(dust, 24)
+	api.Sound.play("ImpactExplosion", ground)
+	shakeNear(api, ground, shake)
+end
+
+-- Circle attacks (Slam, and Fury with its wider disc and harder landing): the whole area under the
+-- boss is painted, then it drops.
+local function bossCircleAttack(packet: Packet, trove: TroveType, api: Api, shake: number)
+	local radius = math.max(numberParam(packet, "Radius", 20), 1)
+	local ground = bossGround(packet)
+	local seconds = bossTelegraph(packet)
+	bossFill(trove, { bossDisc(trove, ground, radius, BOSS_DANGER_COLOR, 0) }, seconds)
+	after(trove, seconds, function()
+		bossImpact(trove, api, ground, radius, shake)
+	end)
+end
+
+VfxLibrary.BossSlam = function(packet: Packet, trove: TroveType, api: Api)
+	bossCircleAttack(packet, trove, api, CombatConfig.Hit.CameraShakeSmall)
+end
+
+VfxLibrary.BossFury = function(packet: Packet, trove: TroveType, api: Api)
+	bossCircleAttack(packet, trove, api, CombatConfig.Hit.CameraShakeLarge)
+end
+
+-- Sweep: a wedge in front of the boss, drawn as segments that widen with the distance exactly like the
+-- server opens it (WorldBossMode.isInShape), so standing at the edge really is standing at the edge.
+VfxLibrary.BossSweep = function(packet: Packet, trove: TroveType, api: Api)
+	local radius = math.max(numberParam(packet, "Radius", 14), 1)
+	local range = math.max(numberParam(packet, "Range", 40), 1)
+	local direction = flatDirectionOf(packet)
+	local ground = bossGround(packet)
+	local seconds = bossTelegraph(packet)
+	local step = range / BOSS_CONE_SEGMENTS
+
+	local segments: { Part } = {}
+	for index = 1, BOSS_CONE_SEGMENTS do
+		local forward = (index - 0.5) * step
+		local center = ground + direction * forward + Vector3.new(0, BOSS_DISC_LIFT_STUDS, 0)
+		segments[index] = newPart(trove, "BossWarning", {
+			Color = BOSS_DANGER_COLOR,
+			Size = Vector3.new(math.max(radius * (forward / range), 1) * 2, BOSS_DISC_THICKNESS_STUDS, step),
+			Transparency = BOSS_WARNING_TRANSPARENCY,
+			CFrame = CFrame.lookAt(center, center + direction),
+		})
+	end
+	bossFill(trove, segments, seconds)
+	after(trove, seconds, function()
+		bossImpact(trove, api, ground + direction * (range / 2), radius, CombatConfig.Hit.CameraShakeSmall)
+	end)
+end
+
+-- Eruption: everything between the safe centre and the outer reach goes up. The safe disc keeps its
+-- own colour for the whole warning, so the way out is readable at a glance.
+VfxLibrary.BossEruption = function(packet: Packet, trove: TroveType, api: Api)
+	local inner = math.max(numberParam(packet, "Radius", 16), 1)
+	local outer = math.max(numberParam(packet, "Range", 46), inner + 1)
+	local ground = bossGround(packet)
+	local seconds = bossTelegraph(packet)
+	local danger = bossDisc(trove, ground, outer, BOSS_DANGER_COLOR, 0)
+	local safe = bossDisc(trove, ground, inner, BOSS_SAFE_COLOR, BOSS_DISC_LIFT_STUDS)
+	bossFill(trove, { danger, safe }, seconds)
+	after(trove, seconds, function()
+		local distance = (inner + outer) / 2
+		for index = 1, BOSS_PILLAR_COUNT do
+			local angle = (index - 1) * (2 * math.pi / BOSS_PILLAR_COUNT)
+			local base = ground + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+			local pillar = newPart(trove, "BossPillar", {
+				Material = Enum.Material.Slate,
+				Color = BOSS_DANGER_COLOR,
+				Size = Vector3.new(BOSS_PILLAR_WIDTH_STUDS, 1, BOSS_PILLAR_WIDTH_STUDS),
+				Transparency = 0.1,
+				CFrame = CFrame.new(base),
+			})
+			play(trove, pillar, BOSS_IMPACT_SECONDS, {
+				Size = Vector3.new(BOSS_PILLAR_WIDTH_STUDS, outer / 2, BOSS_PILLAR_WIDTH_STUDS),
+				CFrame = CFrame.new(base + Vector3.new(0, outer / 4, 0)),
+				Transparency = 1,
+			})
+		end
+		bossImpact(trove, api, ground, outer, CombatConfig.Hit.CameraShakeLarge)
+	end)
+end
+
+-- The boss lands: a column of energy at the centre of the arena and a shockwave on the floor.
+VfxLibrary.BossSpawn = function(packet: Packet, trove: TroveType, api: Api)
+	local height = math.max(numberParam(packet, "Height", 14), 1)
+	local radius = math.max(numberParam(packet, "Radius", 4), 1)
+	local ground = bossGround(packet)
+
+	local column = newPart(trove, "BossSpawn", {
+		Shape = Enum.PartType.Cylinder,
+		Color = BOSS_ENERGY_COLOR,
+		Size = Vector3.new(height * 2, radius, radius),
+		Transparency = 0.15,
+		CFrame = CFrame.new(ground + Vector3.new(0, height, 0)) * LYING_CYLINDER,
+	})
+	play(trove, column, BOSS_SPAWN_SECONDS, {
+		Size = Vector3.new(height * 2, radius * 5, radius * 5),
+		Transparency = 1,
+	})
+	local motes = newEmitter(column, {
+		Color = BOSS_ENERGY_COLOR,
+		Lifetime = NumberRange.new(0.6, 1.2),
+		Speed = NumberRange.new(6, 14),
+		Size = NumberSequence.new(1.4, 0),
+		Acceleration = Vector3.new(0, 8, 0),
+	})
+	burst(motes, 28)
+	bossImpact(trove, api, ground, radius * 4, CombatConfig.Hit.CameraShakeLarge)
+end
+
+-- The boss goes down: its energy collapses into the floor, then blows out across the arena.
+VfxLibrary.BossDefeated = function(packet: Packet, trove: TroveType, api: Api)
+	local height = math.max(numberParam(packet, "Height", 14), 1)
+	local radius = math.max(numberParam(packet, "Radius", 4), 1)
+	local ground = bossGround(packet)
+	local collapse = BOSS_DEFEAT_SECONDS * BOSS_DEFEAT_COLLAPSE_FACTOR
+
+	local core = newPart(trove, "BossCore", {
+		Shape = Enum.PartType.Ball,
+		Color = BOSS_ENERGY_COLOR,
+		Size = Vector3.one * radius * 2,
+		Transparency = 0.1,
+		CFrame = CFrame.new(ground + Vector3.new(0, height / 2, 0)),
+	})
+	play(trove, core, collapse, { Size = Vector3.one, CFrame = CFrame.new(ground) }, Enum.EasingStyle.Back)
+	after(trove, collapse, function()
+		play(trove, core, BOSS_DEFEAT_SECONDS - collapse, { Size = Vector3.one * radius * 8, Transparency = 1 })
+		local shards = newEmitter(core, {
+			Color = BOSS_ENERGY_COLOR,
+			Lifetime = NumberRange.new(0.6, 1.2),
+			Speed = NumberRange.new(20, 40),
+			Size = NumberSequence.new(1.2, 0),
+			Acceleration = Vector3.new(0, -25, 0),
+		})
+		burst(shards, 36)
+		bossImpact(trove, api, ground, radius * 6, CombatConfig.Hit.CameraShakeLarge)
+	end)
 end
 
 return VfxLibrary

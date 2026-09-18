@@ -1,8 +1,8 @@
 --!strict
 -- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass, Play, Result,
--- Leaderboard) built by the UI/screens modules. Screens are created lazily with the controller
--- dependencies they need, gameplay input is suspended while one is open, and the Roblox menu (Escape)
--- closes whatever is open.
+-- Leaderboard, Quests, Daily, Loadout, Shop) built by the UI/screens modules. Screens are created
+-- lazily with the controller dependencies they need, gameplay input is suspended while one is open,
+-- and the Roblox menu (Escape) closes whatever is open.
 --
 -- Each screen owns its own open/close sound: its Open/Close guard on `Visible`, so they fire exactly
 -- once per real transition, including on a screen-to-screen navigation. The controller plays none, so
@@ -21,7 +21,17 @@ local Log = require(Shared.Util.Log)
 
 local log = Log.new("MenuController")
 
-export type ScreenId = "Menu" | "Settings" | "Battlepass" | "Play" | "Result" | "Leaderboard"
+export type ScreenId =
+	"Menu"
+	| "Settings"
+	| "Battlepass"
+	| "Play"
+	| "Result"
+	| "Leaderboard"
+	| "Quests"
+	| "Daily"
+	| "Loadout"
+	| "Shop"
 
 type Screen = {
 	Instance: Instance,
@@ -47,6 +57,10 @@ local MODULE_NAMES: { [string]: string } = {
 	Play = "PlayScreen",
 	Result = "ResultScreen",
 	Leaderboard = "LeaderboardScreen",
+	Quests = "QuestsScreen",
+	Daily = "DailyScreen",
+	Loadout = "LoadoutScreen",
+	Shop = "ShopScreen",
 }
 local DEFAULT_SCREEN: ScreenId = "Menu"
 local RESULT_SCREEN: ScreenId = "Result"

@@ -147,6 +147,50 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, battlepassButton)
 
+	local questsButton = Button.new({
+		Text = t("menu.quests"),
+		Variant = "Secondary",
+		LayoutOrder = 7,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Quests")
+		end,
+	})
+	own(trove, questsButton)
+
+	local dailyButton = Button.new({
+		Text = t("daily.title"),
+		Variant = "Secondary",
+		LayoutOrder = 8,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Daily")
+		end,
+	})
+	own(trove, dailyButton)
+
+	local loadoutButton = Button.new({
+		Text = t("menu.loadout"),
+		Variant = "Secondary",
+		LayoutOrder = 9,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Loadout")
+		end,
+	})
+	own(trove, loadoutButton)
+
+	local shopButton = Button.new({
+		Text = t("menu.shop"),
+		Variant = "Secondary",
+		LayoutOrder = 10,
+		Parent = panel.Content,
+		OnClick = function()
+			navigate("Shop")
+		end,
+	})
+	own(trove, shopButton)
+
 	local function refresh()
 		local data = deps.ClientData.get()
 		if data == nil then

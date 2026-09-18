@@ -122,7 +122,9 @@ Remotes.Definitions = {
 	PromptPurchase = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
-		Args = { Guard.oneOf({ "Pass", "Product" }), Guard.string({ min = 1, max = 64 }) },
+		-- "Cosmetic" names a shop item: the server records the intent and resolves the per-rarity product,
+		-- so a generic product can never grant the wrong cosmetic.
+		Args = { Guard.oneOf({ "Pass", "Product", "Cosmetic" }), Guard.string({ min = 1, max = 64 }) },
 		Rate = { Capacity = 4, Refill = 0.5 },
 	},
 	CombatAction = {

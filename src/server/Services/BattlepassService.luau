@@ -9,7 +9,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BattlepassConfig = require(Shared.Config.BattlepassConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
-local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("BattlepassService")
@@ -28,20 +27,19 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
-type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
+type CosmeticApi = { grant: (player: Player, cosmeticId: string) -> boolean }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
 	Notify: NotifyApi,
 	Currency: CurrencyApi,
-	Progression: ProgressionApi,
+	Cosmetic: CosmeticApi,
 }
 
 local SEASON = GameConfig.SeasonId
--- The profile schema has no timed-boost field, so an XpBoost reward is paid out immediately as the
--- XP of one match win per this many boost minutes.
-local BOOST_MINUTES_PER_MATCH_WIN = 30
+-- Multiplier a timed XP boost applies (see ProfileData.Boosts and ProgressionService).
+local BOOST_MULTIPLIER = 2
 
 local BattlepassService = {}
 
@@ -49,7 +47,7 @@ local registry: Registry
 local dataService: DataApi
 local notify: NotifyApi
 local currency: CurrencyApi
-local progression: ProgressionApi
+local cosmetic: CosmeticApi
 
 local function isPositiveInteger(value: number): boolean
 	return value == value and value ~= math.huge and value == math.floor(value) and value > 0
@@ -113,21 +111,60 @@ function BattlepassService.addXp(player: Player, amount: number)
 	end
 end
 
-local function grant(player: Player, data: ProfileData, reward: Reward)
+local function grant(player: Player, reward: Reward)
 	if reward.Kind == "Ryo" then
 		currency.add(player, reward.Amount, "Battlepass")
 		notify.send(player, "battlepass.reward.ryo", { amount = reward.Amount }, "Success", "Claim")
 	elseif reward.Kind == "Cosmetic" then
-		if table.find(data.Cosmetics.Owned, reward.Id) == nil then
-			table.insert(data.Cosmetics.Owned, reward.Id)
-			dataService.push(player, "Cosmetics")
-		end
+		-- CosmeticService is the single writer of Cosmetics.Owned: it pushes the section and fires the
+		-- Granted signal the shop listens to, which a direct table.insert here would bypass.
+		cosmetic.grant(player, reward.Id)
 		notify.send(player, "battlepass.reward.cosmetic", { name = "cosmetic." .. reward.Id }, "Success", "Claim")
 	else
-		local amount = math.floor(ProgressionConfig.XP.MatchWin * reward.Minutes / BOOST_MINUTES_PER_MATCH_WIN)
-		progression.addXp(player, amount, "BattlepassBoost")
+		BattlepassService.grantXpBoost(player, reward.Minutes)
 		notify.send(player, "battlepass.reward.xpBoost", { minutes = reward.Minutes }, "Success", "Claim")
 	end
+end
+
+-- Starts (or extends) a timed XP boost of `minutes`. ProgressionService reads Boosts on every grant.
+function BattlepassService.grantXpBoost(player: Player, minutes: number): boolean
+	local data = dataService.get(player)
+	if data == nil or minutes ~= minutes or minutes <= 0 then
+		return false
+	end
+	local now = os.time()
+	local from = math.max(now, data.Boosts.XpUntil)
+	data.Boosts.XpUntil = from + math.floor(minutes * 60)
+	data.Boosts.XpMultiplier = BOOST_MULTIPLIER
+	dataService.push(player, "Boosts")
+	log.info("%s XP boost until %d (x%s)", player.Name, data.Boosts.XpUntil, tostring(BOOST_MULTIPLIER))
+	return true
+end
+
+-- Advances the current season by `count` tiers (tier-skip product). Returns the tiers actually added,
+-- which is fewer than asked when the pass is already close to BattlepassConfig.MaxTier.
+function BattlepassService.addTiers(player: Player, count: number): number
+	local data = dataService.get(player)
+	if data == nil or count ~= count or count <= 0 then
+		return 0
+	end
+	local season = seasonOf(player, data)
+	if season == nil then
+		return 0
+	end
+	local target = math.min(BattlepassConfig.MaxTier, season.Tier + math.floor(count))
+	local added = target - season.Tier
+	if added <= 0 then
+		return 0
+	end
+	season.Tier = target
+	season.XP = 0
+	dataService.push(player, "Battlepass")
+	for tier = target - added + 1, target do
+		notify.send(player, "hud.tierUp", { tier = tier }, "Success", "TierUp")
+	end
+	log.info("%s skipped %d pass tier(s) -> %d", player.Name, added, target)
+	return added
 end
 
 -- Claims the reward of `tier` on `track`. Returns true when a reward was granted; every refusal is
@@ -171,7 +208,7 @@ function BattlepassService.claim(player: Player, tier: number, track: Track): bo
 	-- Mark before granting so a re-entrant claim cannot pay twice.
 	claimed[key] = true
 	dataService.push(player, "Battlepass")
-	grant(player, data, reward)
+	grant(player, reward)
 	log.info("%s claimed tier %d (%s): %s", player.Name, tier, track, reward.Kind)
 	return true
 end
@@ -205,7 +242,7 @@ function BattlepassService.Init(deps: Deps)
 	dataService = deps.DataService
 	notify = deps.Notify
 	currency = deps.Currency
-	progression = deps.Progression
+	cosmetic = deps.Cosmetic
 end
 
 function BattlepassService.Start()

@@ -1048,12 +1048,16 @@ function CombatService.isStunned(player: Player): boolean
 end
 
 -- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.
-function CombatService.setPolicy(fn: Policy)
+-- Installs the PvP rule and returns the one it replaced, so a temporary owner (a World Boss event)
+-- can hand it back. There is a single slot: two owners at once must coordinate, never interleave.
+function CombatService.setPolicy(fn: Policy): Policy?
 	if type(fn) ~= "function" then
 		log.warn("setPolicy rejected: expected function, got %s", typeof(fn))
-		return
+		return nil
 	end
+	local previous = policy
 	policy = fn
+	return previous
 end
 
 ----------------------------------------------------------------

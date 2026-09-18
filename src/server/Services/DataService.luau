@@ -101,7 +101,14 @@ function DataService.template(): { [string]: any }
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
-		Meta = { FirstJoin = 0, LastJoin = 0, SessionCount = 0, LegacyImported = false, FirstSessionPromptGate = false },
+		Meta = {
+			FirstJoin = 0,
+			LastJoin = 0,
+			SessionCount = 0,
+			LegacyImported = false,
+			FirstSessionPromptGate = false,
+			SaveToken = 0,
+		},
 	}
 end
 
@@ -395,23 +402,34 @@ function DataService.recordReceipt(player: Player, purchaseId: string): boolean
 	return true
 end
 
--- Forces an immediate save and waits for ProfileStore to confirm it actually landed. Yields, and
--- returns true only once an OnAfterSave has been observed for this profile.
+-- Forces an immediate save and waits for ProfileStore to confirm THIS data reached the DataStore.
+-- Yields. Returns true only when a write carrying the caller's mutation has been acknowledged.
 --
 -- Profile:Save() performs the UpdateAsync in a detached thread and returns nothing, so "it did not
--- throw" says nothing about whether the data reached the DataStore. MonetizationService must not tell
--- Roblox PurchaseGranted on an unconfirmed write: the Robux would be taken, the receipt never
--- re-delivered, and the profile could come back without the purchase. Any save that lands after the
--- caller's mutation persists it (ProfileStore writes the whole Data table), so an autosave arriving
--- inside the window is a valid confirmation.
+-- throw" says nothing about whether the data landed. MonetizationService must not tell Roblox
+-- PurchaseGranted on an unconfirmed write: the Robux are already taken, the receipt would never be
+-- delivered again, and the profile could come back without the purchase.
+--
+-- Waiting for any OnAfterSave is not enough either. ProfileStore serialises the payload inside the
+-- UpdateAsync transform and fires OnAfterSave only when that call returns, so a save already in flight
+-- when the caller mutated the data fires afterwards while carrying the OLDER snapshot. The token below
+-- distinguishes the two: it is bumped before the save and compared against the data ProfileStore reports
+-- as written, so only a write that actually contains the mutation counts.
 function DataService.saveNow(player: Player): boolean
 	local profile = profiles[player]
 	if profile == nil or not profile:IsActive() then
 		return false
 	end
+	local meta = profile.Data.Meta
+	meta.SaveToken = (if type(meta.SaveToken) == "number" then meta.SaveToken else 0) + 1
+	local token = meta.SaveToken
 	local confirmed = false
-	local connection = profile.OnAfterSave:Connect(function()
-		confirmed = true
+	local connection = profile.OnAfterSave:Connect(function(lastSavedData: any)
+		local saved = if type(lastSavedData) == "table" then lastSavedData.Meta else nil
+		local savedToken = if type(saved) == "table" then saved.SaveToken else nil
+		if type(savedToken) == "number" and savedToken >= token then
+			confirmed = true
+		end
 	end)
 	local started = log.try("Save " .. player.Name, profile.Save, profile)
 	if started then

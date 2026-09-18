@@ -102,10 +102,14 @@ end
 -- almost nothing for beating a high-rated opponent who quit.
 local lastRating: { [string]: { [number]: number } } = {}
 
--- User ids whose penalty for this match was already settled by applyAbandon. applyResult skips them so
--- a player who abandons and reconnects to the same server before the match resolves is not debited
--- twice. Cleared as soon as the result passes over them.
-local settled: { [number]: boolean } = {}
+-- Match id whose penalty applyAbandon already wrote for a user id. Keyed by match, not by a bare
+-- boolean, for two reasons:
+--  * applyAbandon consults it, so the same match can never be debited twice however many times a caller
+--    finds it (MatchService looks the match up two ways to survive signal ordering);
+--  * an entry orphaned by a match that ended without a result is inert, because it can only ever match
+--    the id that wrote it. A match can end that way: MatchService finishes outright when nobody is left,
+--    with no result to apply.
+local settled: { [number]: string } = {}
 
 local function remember(modeId: string, userId: number, rating: number)
 	local byUser = lastRating[modeId]
@@ -212,8 +216,8 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		for _, participant in ipairs(participants) do
 			local entry = participant.Entry
 			local player = participant.Player
-			if settled[participant.UserId] then
-				-- applyAbandon already debited this match for them when they left.
+			if settled[participant.UserId] == result.MatchId then
+				-- applyAbandon already debited THIS match for them when they left.
 				settled[participant.UserId] = nil
 				continue
 			end
@@ -266,8 +270,18 @@ end
 --
 -- The loss is scored against `opponentRating` with the same Elo call a real defeat uses, so abandoning
 -- costs the same as losing, never less: there is no cheaper exit than playing the match out.
-function RankingService.applyAbandon(player: Player, modeId: string, opponentRating: number): RatingDelta?
+function RankingService.applyAbandon(
+	player: Player,
+	matchId: string,
+	modeId: string,
+	opponentRating: number
+): RatingDelta?
 	if not isRankedMode(modeId) then
+		return nil
+	end
+	if settled[player.UserId] == matchId then
+		-- Already debited for this match. MatchService finds the match two ways so that no signal ordering
+		-- can skip the debit, which means it can also find it twice.
 		return nil
 	end
 	local data = dataService.get(player)
@@ -285,7 +299,7 @@ function RankingService.applyAbandon(player: Player, modeId: string, opponentRat
 	entry.PeakRating = math.max(entry.PeakRating, after)
 	dataService.push(player, RANK_SECTION)
 	remember(modeId, player.UserId, after)
-	settled[player.UserId] = true
+	settled[player.UserId] = matchId
 	RankingService.RatingChanged:Fire(player, modeId, before, after)
 	log.info(
 		"%s abandoned %s: %d -> %d (k %d, opponent %.0f)",

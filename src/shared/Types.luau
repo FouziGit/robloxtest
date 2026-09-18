@@ -110,6 +110,11 @@ export type MetaData = {
 	SessionCount: number,
 	LegacyImported: boolean,
 	FirstSessionPromptGate: boolean, -- true once the first-session no-prompt window has elapsed
+	-- Bumped by DataService.saveNow before each forced save, and matched against the value ProfileStore
+	-- reports as written. It is the only way to tell a save that CONTAINS the caller's mutation from one
+	-- that was already in flight when the mutation happened, which matters because a purchase is only
+	-- acknowledged to Roblox on a confirmed write.
+	SaveToken: number,
 }
 
 export type ProfileData = {
@@ -165,6 +170,9 @@ export type HitEvent = {
 export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss"
 
 export type MatchResult = {
+	-- Identifies which match this result belongs to, so a rating move already written for a player who
+	-- walked out of THIS match is not written a second time here (RankingService.applyAbandon).
+	MatchId: string,
 	ModeId: MatchModeId,
 	WinnerTeam: number?, -- nil = draw
 	Teams: { { number } }, -- team index -> user ids

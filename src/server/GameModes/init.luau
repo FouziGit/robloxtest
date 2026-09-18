@@ -293,6 +293,7 @@ end
 function GameModes.result(match: Match, winnerTeam: number?): Result
 	local endedAt = if match.EndedAt > 0 then match.EndedAt else match.StartedAt
 	return {
+		MatchId = match.Id,
 		ModeId = match.ModeId,
 		WinnerTeam = winnerTeam,
 		Teams = match.Teams,

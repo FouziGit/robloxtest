@@ -72,7 +72,7 @@ type RankingApi = {
 	getRating: (player: Player, modeId: string) -> number,
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
-	applyAbandon: (player: Player, modeId: string, opponentRating: number) -> RatingChange?,
+	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
@@ -590,14 +590,18 @@ end
 
 -- Average rating of the teams `player` is NOT on, for the forfeit debit below. Read from RankingService
 -- so an opponent who also left still counts at the rating this server last saw for them.
-local function opposingRating(active: Active, player: Player): number
-	local ownTeam: number? = nil
+-- Team index `userId` plays for in `active`, nil when they are not on its roster.
+local function teamOfParticipant(active: Active, userId: number): number?
 	for _, participant in ipairs(active.Match.Participants) do
-		if participant.UserId == player.UserId then
-			ownTeam = participant.Team
-			break
+		if participant.UserId == userId then
+			return participant.Team
 		end
 	end
+	return nil
+end
+
+local function opposingRating(active: Active, player: Player): number
+	local ownTeam = teamOfParticipant(active, player.UserId)
 	if ownTeam == nil then
 		return RankingConfig.InitialRating
 	end
@@ -655,10 +659,20 @@ local function onBeforeRelease(player: Player)
 		-- The result is already being applied; applyResult owns this player's rating move.
 		return
 	end
+	-- A series this player has ALREADY won on rounds stays theirs whoever then walks out (D-34), and
+	-- applyResult is about to credit them for it. Debiting a loss here would both contradict that and, by
+	-- marking them settled, make applyResult skip the win it is about to declare. The window is real: a
+	-- won series sits in RoundOver for MatchConfig.RoundOverSeconds before the result is entered, which is
+	-- exactly when a player who just saw "round won" closes the client.
+	local decided = GameModes.decidedWinner(active.Match)
+	if decided ~= nil and decided == teamOfParticipant(active, player.UserId) then
+		return
+	end
 	log.try(
 		"applyAbandon " .. active.Def.Id,
 		ranking.applyAbandon,
 		player,
+		active.Match.Id,
 		active.Def.Id,
 		opposingRating(active, player)
 	)

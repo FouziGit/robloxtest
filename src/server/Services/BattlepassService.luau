@@ -119,8 +119,11 @@ local function grant(player: Player, reward: Reward)
 		notify.send(player, "battlepass.reward.ryo", { amount = reward.Amount }, "Success", "Claim")
 	elseif reward.Kind == "Cosmetic" then
 		-- CosmeticService is the single writer of Cosmetics.Owned: it pushes the section and fires the
-		-- Granted signal the shop listens to, which a direct table.insert here would bypass.
-		cosmetic.grant(player, reward.Id)
+		-- Granted signal the shop listens to, which a direct table.insert here would bypass. log.try, not
+		-- succeeded: it refuses an item the player already bought in the shop, which is a normal outcome
+		-- for a tier reward and still worth claiming. tests/Config.spec.luau makes an unknown id
+		-- impossible, so the only refusal left is that one.
+		log.try("cosmetic grant " .. reward.Id, cosmetic.grant, player, reward.Id)
 		notify.send(player, "battlepass.reward.cosmetic", { name = "cosmetic." .. reward.Id }, "Success", "Claim")
 	else
 		BattlepassService.grantXpBoost(player, reward.Minutes)

@@ -297,6 +297,10 @@ describe("BattlepassConfig", function()
 						expect(reward.Amount).toBeGreaterThan(0)
 					elseif reward.Kind == "Cosmetic" then
 						expect(Strings.has("cosmetic." .. reward.Id)).toBe(true)
+						-- The id must exist in CosmeticConfig, not merely have a name. An id that only has
+						-- a Strings entry passes every gate and then refuses at grant time, while the
+						-- player is told they received the reward.
+						expect(CosmeticConfig.ById[reward.Id]).never.toBeNil()
 					elseif reward.Kind == "XpBoost" then
 						expect(reward.Minutes).toBeGreaterThan(0)
 					else
@@ -310,6 +314,48 @@ describe("BattlepassConfig", function()
 		expect(BattlepassConfig.getTier("S9", 1)).toBeNil()
 		expect(BattlepassConfig.xpForTier(1)).toBe(100)
 		expect(BattlepassConfig.xpForTier(50)).toBe(1080)
+	end)
+end)
+
+describe("cosmetic references", function()
+	it("every cosmetic id named anywhere in config exists in CosmeticConfig", function()
+		local function check(source: string, cosmeticId: string)
+			if CosmeticConfig.ById[cosmeticId] == nil then
+				error(("%s names the unknown cosmetic %q"):format(source, cosmeticId))
+			end
+		end
+		local seen = 0
+		for _, cosmeticId in ipairs(MonetizationConfig.SkinPackCosmetics) do
+			check("MonetizationConfig.SkinPackCosmetics", cosmeticId)
+			seen += 1
+		end
+		for tierId, reward in pairs(RankingConfig.SeasonRewards) do
+			local cosmeticId = reward.Cosmetic
+			if cosmeticId ~= nil then
+				check("RankingConfig.SeasonRewards." .. tierId, cosmeticId)
+				seen += 1
+			end
+		end
+		for seasonId, season in pairs(BattlepassConfig.Seasons) do
+			for tier, def in ipairs(season.Tiers) do
+				for _, reward in ipairs({ def.Free, def.Premium }) do
+					if reward.Kind == "Cosmetic" then
+						check(("BattlepassConfig.%s tier %d"):format(seasonId, tier), reward.Id)
+						seen += 1
+					end
+				end
+			end
+		end
+		expect(seen).toBeGreaterThan(5)
+	end)
+
+	it("every sellable cosmetic has a Ryo price and a Robux product for its rarity", function()
+		for _, item in ipairs(CosmeticConfig.Items) do
+			if item.Sellable then
+				expect(ShopConfig.PriceRyo[item.Rarity]).never.toBeNil()
+				expect(ShopConfig.RobuxProduct[item.Rarity]).never.toBeNil()
+			end
+		end
 	end)
 end)
 

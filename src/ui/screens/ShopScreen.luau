@@ -52,11 +52,9 @@ type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Action: Button.
 
 local ShopScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local RARITY_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
-local CARD_HEIGHT = Theme.Sizes.PaddingSmall * 2 + NAME_HEIGHT + RARITY_HEIGHT + Theme.Sizes.Gap + Theme.Sizes.RowHeight
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
 local RARITY_KEY_PREFIX = "shop.rarity."
@@ -180,7 +178,7 @@ function ShopScreen.new(deps: Deps): Screen
 	local signature = ""
 	local firstButton: GuiObject? = nil
 
-	local root = ScreenRoot.new({ Name = "ShopScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "ShopScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -270,7 +268,10 @@ function ShopScreen.new(deps: Deps): Screen
 		frame.Name = entry.CosmeticId
 		frame.BackgroundColor3 = Theme.Colors.PanelRaised
 		frame.BorderSizePixel = 0
-		frame.Size = UDim2.new(1, 0, 0, CARD_HEIGHT)
+		-- Grown from its rows: the two action buttons carry the touch minimum and are taller than their
+		-- design height on a phone, and the card has to follow instead of clipping them.
+		frame.Size = UDim2.fromScale(1, 0)
+		frame.AutomaticSize = Enum.AutomaticSize.Y
 		frame.LayoutOrder = layoutOrder
 
 		local corner = Instance.new("UICorner")
@@ -297,7 +298,8 @@ function ShopScreen.new(deps: Deps): Screen
 		local actions = Instance.new("Frame")
 		actions.Name = "Actions"
 		actions.BackgroundTransparency = 1
-		actions.Size = UDim2.new(1, 0, 0, Theme.Sizes.RowHeight)
+		actions.Size = UDim2.fromScale(1, 0)
+		actions.AutomaticSize = Enum.AutomaticSize.Y
 		actions.LayoutOrder = 3
 		local actionsLayout = Instance.new("UIListLayout")
 		actionsLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -311,10 +313,12 @@ function ShopScreen.new(deps: Deps): Screen
 		actions.Parent = frame
 
 		local card: Card
+		-- Width comes from the flex item, height from the button itself: the Actions frame is sized by its
+		-- children, so a button asking for the frame's height would make the pair circular.
 		local buy = Button.new({
 			Text = "",
 			Variant = "Primary",
-			Size = UDim2.fromScale(0, 1),
+			Size = UDim2.fromOffset(0, Theme.Sizes.RowHeight),
 			LayoutOrder = 1,
 			Parent = actions,
 			OnClick = function()
@@ -329,7 +333,7 @@ function ShopScreen.new(deps: Deps): Screen
 		local action = Button.new({
 			Text = "",
 			Variant = "Secondary",
-			Size = UDim2.fromScale(0, 1),
+			Size = UDim2.fromOffset(0, Theme.Sizes.RowHeight),
 			LayoutOrder = 2,
 			Parent = actions,
 			OnClick = function()

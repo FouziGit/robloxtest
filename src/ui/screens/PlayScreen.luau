@@ -49,7 +49,6 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local PlayScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local BUTTON_WIDTH = 150
 local MODE_ROW_HEIGHT = Theme.Sizes.RowHeight + Theme.Sizes.Padding
@@ -152,7 +151,7 @@ function PlayScreen.new(deps: Deps): Screen
 	local waitedBase = 0
 	local waitedAt = os.clock()
 
-	local root = ScreenRoot.new({ Name = "PlayScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "PlayScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 

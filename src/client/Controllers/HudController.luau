@@ -42,7 +42,7 @@ type Deps = {
 	MatchController: any,
 }
 
-local DISPLAY_ORDER = 10
+local DISPLAY_ORDER = Theme.Layers.Hud
 local COLUMN_WIDTH = 300
 local ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local CHIP_SIZE = 36

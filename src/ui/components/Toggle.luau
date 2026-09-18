@@ -76,6 +76,9 @@ function Toggle.new(props: Props): Toggle
 	button.SelectionImageObject = trove:Add(makeSelectionImage())
 	trove:Add(button)
 
+	-- The pill is decoration; the whole button is the target, so it carries the touch minimum.
+	Theme.minPixelSize(button, Theme.MinTouchTarget)
+
 	local pill = Instance.new("Frame")
 	pill.Name = "Pill"
 	pill.AnchorPoint = Vector2.new(0.5, 0.5)

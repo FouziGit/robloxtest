@@ -46,17 +46,11 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local BattlepassScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local SEASON = GameConfig.SeasonId
 local MAX_TIER = BattlepassConfig.MaxTier
 local TIER_COLUMN_WIDTH = Theme.Sizes.RowHeight
 local REWARD_LABEL_HEIGHT = Theme.Sizes.TextLarge
-local ROW_HEIGHT = Theme.Sizes.PaddingSmall * 2
-	+ REWARD_LABEL_HEIGHT
-	+ Theme.Sizes.PaddingSmall
-	+ Theme.Sizes.ButtonHeight
-local ROW_PITCH = ROW_HEIGHT + Theme.Sizes.Gap
 local COLUMN_HEADER_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
 local BAR_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2
@@ -145,7 +139,15 @@ function BattlepassScreen.new(deps: Deps): Screen
 	local rows: { Row } = {}
 	local pendingScrollTier: number? = nil
 
-	local root = ScreenRoot.new({ Name = "BattlepassScreen", DisplayOrder = DISPLAY_ORDER })
+	-- Each cell stacks a reward label over a claim button, and the button carries the touch minimum, so
+	-- the row reserves the height that button really takes.
+	local rowHeight = Theme.Sizes.PaddingSmall * 2
+		+ REWARD_LABEL_HEIGHT
+		+ Theme.Sizes.PaddingSmall
+		+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	local rowPitch = rowHeight + Theme.Sizes.Gap
+
+	local root = ScreenRoot.new({ Name = "BattlepassScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -279,7 +281,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 			row.Name = "Tier" .. tostring(tier)
 			row.BackgroundColor3 = Theme.Colors.PanelRaised
 			row.BorderSizePixel = 0
-			row.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+			row.Size = UDim2.new(1, 0, 0, rowHeight)
 			row.LayoutOrder = tier
 			sidePadding(row)
 			horizontalLayout(row)
@@ -378,7 +380,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 			return
 		end
 		pendingScrollTier = nil
-		local y = math.max(0, (tier - 2) * ROW_PITCH * root:GetScale())
+		local y = math.max(0, (tier - 2) * rowPitch * root:GetScale())
 		panel.Content.CanvasPosition = Vector2.new(0, y)
 	end
 

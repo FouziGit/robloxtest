@@ -1,8 +1,10 @@
 --!strict
 -- ListRow: a raised row with a left slot (label or any GuiObject, fills the remaining width) and an
 -- optional right slot (label or any GuiObject, sized by its content). Rows default to
--- Theme.Sizes.RowHeight so they stay comfortable touch targets. A GuiObject handed to a slot is only
--- re-parented: the caller keeps ownership, but it is destroyed with the row like any descendant.
+-- Theme.Sizes.RowHeight and never render below Theme.MinTouchTarget, so a row stays as tall as the
+-- button, slider or toggle it hosts once the ScreenRoot UIScale shrinks the layout. A GuiObject handed
+-- to a slot is only re-parented: the caller keeps ownership, but it is destroyed with the row like any
+-- descendant.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -113,6 +115,8 @@ function ListRow.new(props: Props): ListRow
 	frame.Size = UDim2.new(1, 0, 0, props.Height or Theme.Sizes.RowHeight)
 	frame.LayoutOrder = props.LayoutOrder or 0
 	trove:Add(frame)
+
+	Theme.minPixelSize(frame, Theme.MinTouchTarget)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)

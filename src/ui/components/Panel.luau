@@ -1,7 +1,8 @@
 --!strict
 -- Panel: centered card with a title bar, optional close button, fixed Header / Footer slots and a
 -- scrolling Content area. The frame fills its parent minus a margin and is capped at `Size`
--- (Theme panel size by default), so it fits 16:9 phones without any per-device code.
+-- (Theme panel size by default), so it fits 16:9 phones without any per-device code. When the content
+-- holds nothing selectable, the panel also scrolls it on D-pad up / down (see contentIsReachable).
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -41,8 +42,8 @@ export type Panel = {
 
 local Panel = {}
 
-local TITLE_HEIGHT = Theme.Sizes.RowHeight + Theme.Sizes.PaddingSmall * 2
 local CLOSE_GLYPH = "✕" -- icon glyph, locale independent
+local DPAD_SCROLL_ROWS = 1 -- canvas step per D-pad press, in list rows
 
 local function horizontalPadding(parent: Instance, top: number, bottom: number): UIPadding
 	local padding = Instance.new("UIPadding")
@@ -69,6 +70,8 @@ local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?)
 	close.TextColor3 = Theme.Colors.TextMuted
 	close.Text = CLOSE_GLYPH
 	close.Selectable = true
+	-- On touch this cross is the only way out of an open screen, so it never renders below the minimum.
+	Theme.minPixelSize(close, Theme.MinTouchTarget)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
@@ -139,7 +142,6 @@ function Panel.new(props: Props): Panel
 	local titleBar = Instance.new("Frame")
 	titleBar.Name = "TitleBar"
 	titleBar.BackgroundTransparency = 1
-	titleBar.Size = UDim2.new(1, 0, 0, TITLE_HEIGHT)
 	titleBar.Parent = frame
 
 	local divider = Instance.new("Frame")
@@ -152,19 +154,16 @@ function Panel.new(props: Props): Panel
 	divider.Parent = titleBar
 
 	local closeButton: TextButton? = nil
-	local titleRightMargin = Theme.Sizes.Padding
 	if props.Closable == true then
 		local close = makeCloseButton(trove, props.OnClose)
 		close.Parent = titleBar
 		closeButton = close
-		titleRightMargin = Theme.Sizes.RowHeight + Theme.Sizes.PaddingSmall * 2
 	end
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
 	title.BackgroundTransparency = 1
 	title.Position = UDim2.fromOffset(Theme.Sizes.Padding, 0)
-	title.Size = UDim2.new(1, -(Theme.Sizes.Padding + titleRightMargin), 1, 0)
 	title.Font = Theme.Fonts.Title
 	title.TextSize = Theme.Sizes.TextTitle
 	title.TextColor3 = Theme.Colors.Text
@@ -177,7 +176,6 @@ function Panel.new(props: Props): Panel
 	local header = Instance.new("Frame")
 	header.Name = "Header"
 	header.BackgroundTransparency = 1
-	header.Position = UDim2.fromOffset(0, TITLE_HEIGHT)
 	header.Size = UDim2.fromScale(1, 0)
 	header.Parent = frame
 	horizontalPadding(header, Theme.Sizes.PaddingSmall, Theme.Sizes.PaddingSmall)
@@ -217,13 +215,56 @@ function Panel.new(props: Props): Panel
 	local headerHeight = 0
 	local footerHeight = 0
 
+	-- The title bar holds the close button, so it follows the same minimum: on a phone the unscaled
+	-- touch row is taller than Theme.Sizes.RowHeight and the cross would otherwise overflow the bar.
 	local function relayout()
+		local titleHeight = Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.PaddingSmall * 2
+		-- The cross is square, so the width it needs is the height of the bar around it.
+		local titleRightMargin = if closeButton ~= nil then titleHeight else Theme.Sizes.Padding
+		titleBar.Size = UDim2.new(1, 0, 0, titleHeight)
+		title.Size = UDim2.new(1, -(Theme.Sizes.Padding + titleRightMargin), 1, 0)
+		header.Position = UDim2.fromOffset(0, titleHeight)
 		header.Size = UDim2.new(1, 0, 0, headerHeight)
 		footer.Size = UDim2.new(1, 0, 0, footerHeight)
-		content.Position = UDim2.fromOffset(0, TITLE_HEIGHT + headerHeight)
-		content.Size = UDim2.new(1, 0, 1, -(TITLE_HEIGHT + headerHeight + footerHeight))
+		content.Position = UDim2.fromOffset(0, titleHeight + headerHeight)
+		content.Size = UDim2.new(1, 0, 1, -(titleHeight + headerHeight + footerHeight))
 	end
-	relayout()
+	trove:Add(Theme.bindScale(relayout))
+
+	-- Roblox only scrolls a ScrollingFrame when GuiService.SelectedObject travels inside it, so a content
+	-- area holding nothing selectable (a read-only list) is frozen for a gamepad player: the rest of the
+	-- canvas is unreachable. The panel then steps the canvas itself while it holds the selection.
+	local function contentIsReachable(): boolean
+		for _, descendant in ipairs(content:GetDescendants()) do
+			if descendant:IsA("GuiObject") and descendant.Selectable then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function scrollRows(rows: number)
+		local maximum = math.max(0, content.AbsoluteCanvasSize.Y - content.AbsoluteWindowSize.Y)
+		-- CanvasPosition is in rendered pixels, the row pitch in unscaled offsets.
+		local step = (Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Gap) * Theme.activeScale()
+		local position = content.CanvasPosition
+		content.CanvasPosition = Vector2.new(position.X, math.clamp(position.Y + rows * step, 0, maximum))
+	end
+
+	trove:Connect(UserInputService.InputBegan, function(input: InputObject)
+		local rows = if input.KeyCode == Enum.KeyCode.DPadDown
+			then DPAD_SCROLL_ROWS
+			elseif input.KeyCode == Enum.KeyCode.DPadUp then -DPAD_SCROLL_ROWS
+			else 0
+		if rows == 0 then
+			return
+		end
+		local selected = GuiService.SelectedObject
+		if selected == nil or not selected:IsDescendantOf(frame) or contentIsReachable() then
+			return
+		end
+		scrollRows(rows)
+	end)
 
 	frame.Parent = props.Parent
 

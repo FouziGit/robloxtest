@@ -41,13 +41,11 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local ResultScreen = {}
 
-local DISPLAY_ORDER = 11 -- above the other menus: the match is over, this is the only thing to read
 local OVERLAY_TRANSPARENCY = 0.55
 local PANEL_SIZE = Vector2.new(Theme.Sizes.PanelWidth, Theme.Sizes.PanelHeight)
 local BUTTON_WIDTH = 150
 local STATUS_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
-local FOOTER_HEIGHT = Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.Sizes.ButtonHeight
 local FALLBACK_RESULT_SECONDS = MatchConfig.Modes[MatchConfig.ModeOrder[1]].ResultSeconds
 
 -- Dimmed backdrop that also swallows clicks so the world under the screen is not interacted with.
@@ -128,7 +126,7 @@ function ResultScreen.new(deps: Deps): Screen
 	local screen: Screen
 	local autoClose: thread? = nil
 
-	local root = ScreenRoot.new({ Name = "ResultScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "ResultScreen", DisplayOrder = Theme.Layers.Result })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -146,7 +144,10 @@ function ResultScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	panel:SetHeaderHeight(HEADER_HEIGHT)
-	panel:SetFooterHeight(FOOTER_HEIGHT)
+	-- The footer buttons carry the touch minimum, so the band reserves the height they really take.
+	panel:SetFooterHeight(
+		Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	)
 
 	local status = Instance.new("TextLabel")
 	status.Name = "Status"

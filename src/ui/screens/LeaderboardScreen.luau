@@ -46,7 +46,6 @@ type Entry = Types.LeaderboardEntry
 
 local LeaderboardScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local INVOKE_TIMEOUT = 10
 local REFRESH_MIN_SECONDS = 30
@@ -54,7 +53,6 @@ local BOARDS = RankingConfig.Leaderboard.Boards
 local TOP_COUNT = RankingConfig.Leaderboard.TopCount
 local BOARD_KEY_PREFIX = "leaderboard.board."
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
-local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + Theme.Sizes.RowHeight + Theme.Sizes.Gap + STATUS_HEIGHT
 
 -- Boards named after a ranked mode read that mode's record in the profile; "Global" spans every mode.
 local MODE_BOARDS: { [string]: boolean } = {}
@@ -165,7 +163,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	local currentBoard: string = BOARDS[1]
 	local destroyed = false
 
-	local root = ScreenRoot.new({ Name = "LeaderboardScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "LeaderboardScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -181,7 +179,10 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		Parent = overlay,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(HEADER_HEIGHT)
+	-- The tab strip carries the touch minimum, so the header band is measured from the same height.
+	panel:SetHeaderHeight(
+		Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Gap + STATUS_HEIGHT
+	)
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical

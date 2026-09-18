@@ -40,7 +40,6 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local MenuScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local SUMMARY_BAR_WIDTH = 220
 local SUMMARY_BAR_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
@@ -69,7 +68,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local t = deps.Localize.t
 	local screen: Screen
 
-	local root = ScreenRoot.new({ Name = "MenuScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "MenuScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 

@@ -1,6 +1,7 @@
 --!strict
 -- Button: themed TextButton (Primary / Secondary / Danger) with hover, pressed, disabled and gamepad
--- selection states. Default height is Theme.Sizes.RowHeight so touch targets stay at least 44 px.
+-- selection states. Default height is Theme.Sizes.RowHeight, and Theme.minPixelSize keeps the rendered
+-- button at Theme.MinTouchTarget real pixels even where the ScreenRoot UIScale shrinks the layout.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -91,6 +92,8 @@ function Button.new(props: Props): Button
 	button.Selectable = not disabled
 	button.SelectionImageObject = trove:Add(makeSelectionImage())
 	trove:Add(button)
+
+	Theme.minPixelSize(button, Theme.MinTouchTarget)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)

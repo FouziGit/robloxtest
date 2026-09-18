@@ -3,7 +3,8 @@
 -- pending copy per kind and sent with Save; the Settings push that follows confirms them. Audio
 -- values are sent automatically after a short debounce, coalesced so a single call is in flight at a
 -- time and consecutive calls stay inside the remote budget. Refreshes from ClientData on Open and on
--- Settings changes, without overwriting unsaved local edits.
+-- Settings changes, without overwriting unsaved local edits. A rebinding tab only exists when the
+-- matching hardware is attached, so a capture is never started where no key can end it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -54,7 +55,6 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local SettingsScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local AUDIO_DEBOUNCE_SECONDS = 0.5
 local UPDATE_SETTINGS_RATE = Remotes.Definitions.UpdateSettings.Rate
@@ -67,8 +67,6 @@ local VOLUME_STEP = 0.05
 local KEY_BUTTON_WIDTH = 150
 local FOOTER_BUTTON_WIDTH = 140
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
-local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + Theme.Sizes.RowHeight + Theme.Sizes.Gap + STATUS_HEIGHT
-local FOOTER_HEIGHT = Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.Sizes.ButtonHeight
 local AUDIO_ROW_HEIGHT = Theme.Sizes.RowHeight + Theme.Sizes.PaddingSmall
 
 -- Config maps are keyed by the ActionId literal union; the screen works with plain string keys.
@@ -144,7 +142,16 @@ function SettingsScreen.new(deps: Deps): Screen
 	local sfxSlider: Slider.Slider? = nil
 	local shakeToggle: Toggle.Toggle? = nil
 
-	local root = ScreenRoot.new({ Name = "SettingsScreen", DisplayOrder = DISPLAY_ORDER })
+	-- The tab strip and the footer buttons carry the touch minimum, so both bands reserve their real height.
+	local headerHeight = Theme.Sizes.PaddingSmall * 2
+		+ Theme.touchTargetHeight(Theme.Sizes.RowHeight)
+		+ Theme.Sizes.Gap
+		+ STATUS_HEIGHT
+	local footerHeight = Theme.Sizes.PaddingSmall
+		+ Theme.Sizes.Padding
+		+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+
+	local root = ScreenRoot.new({ Name = "SettingsScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -160,7 +167,7 @@ function SettingsScreen.new(deps: Deps): Screen
 		Parent = overlay,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(HEADER_HEIGHT)
+	panel:SetHeaderHeight(headerHeight)
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical
@@ -458,7 +465,7 @@ function SettingsScreen.new(deps: Deps): Screen
 	own(trove, saveButton)
 
 	local function setFooterVisible(visible: boolean)
-		panel:SetFooterHeight(if visible then FOOTER_HEIGHT else 0)
+		panel:SetFooterHeight(if visible then footerHeight else 0)
 		resetButton.Instance.Visible = visible
 		saveButton.Instance.Visible = visible
 	end
@@ -575,12 +582,21 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- A rebinding page can only be finished with the matching hardware: a capture unbinds every on-screen
+	-- touch control and waits for a key no touch-only device can send, which would leave the player with
+	-- no HUD and a half-finished capture. The page is therefore not offered at all without the hardware,
+	-- which also matches what initialTab already opens on.
+	local tabItems: { Tabs.Item } = {}
+	if UserInputService.KeyboardEnabled then
+		table.insert(tabItems, { Id = "Keyboard", Text = t("settings.tab.keyboard") })
+	end
+	if UserInputService.GamepadEnabled then
+		table.insert(tabItems, { Id = "Gamepad", Text = t("settings.tab.gamepad") })
+	end
+	table.insert(tabItems, { Id = "Audio", Text = t("settings.tab.audio") })
+
 	local tabs = Tabs.new({
-		Items = {
-			{ Id = "Keyboard", Text = t("settings.tab.keyboard") },
-			{ Id = "Gamepad", Text = t("settings.tab.gamepad") },
-			{ Id = "Audio", Text = t("settings.tab.audio") },
-		},
+		Items = tabItems,
 		Selected = currentTab,
 		OnSelect = function(id: string)
 			deps.SoundController.play("UiClick")

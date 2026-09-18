@@ -88,6 +88,9 @@ function Slider.new(props: Props): Slider
 	track.NextSelectionRight = track
 	trove:Add(track)
 
+	-- The whole track is the drag area, so the touch minimum belongs to it: the knob is only an indicator.
+	Theme.minPixelSize(track, Theme.MinTouchTarget)
+
 	-- Bar inset by half a knob on each side so the knob never overflows the hit area.
 	local bar = Instance.new("Frame")
 	bar.Name = "Bar"

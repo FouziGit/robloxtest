@@ -48,7 +48,6 @@ type Entry = { Def: JutsuDef, Lock: TextLabel, Button: Button.Button }
 
 local LoadoutScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local BUTTON_WIDTH = 150
 local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
@@ -162,7 +161,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 	local equipped: { string } = {}
 	local firstButton: GuiObject? = nil
 
-	local root = ScreenRoot.new({ Name = "LoadoutScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "LoadoutScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 

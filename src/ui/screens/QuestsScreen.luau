@@ -50,7 +50,6 @@ type Section = { Signature: string, Rows: { QuestRow }, Trove: any }
 
 local QuestsScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local BUTTON_WIDTH = 130
 local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
@@ -150,7 +149,7 @@ function QuestsScreen.new(deps: Deps): Screen
 	local sections: { [string]: Section } = {}
 	local firstButton: GuiObject? = nil
 
-	local root = ScreenRoot.new({ Name = "QuestsScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "QuestsScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 

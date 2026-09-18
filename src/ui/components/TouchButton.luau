@@ -2,7 +2,8 @@
 -- TouchButton: round on-screen button for touch controls (one per ContextActionService action).
 -- Purely visual: a colored disc with a glyph label. The InputController owns the input handling and
 -- calls SetPressed to reflect the touch state. The label color is derived from the disc luminance, so
--- light element discs (Wind, Lightning) keep a readable glyph over the 3D scene.
+-- light element discs (Wind, Lightning) keep a readable glyph over the 3D scene, and its size is derived
+-- from the disc so a localized action name shrinks to fit instead of being cut off.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -15,7 +16,7 @@ local Trove = require(Packages.Trove)
 export type Props = {
 	Label: string,
 	Color: Color3,
-	Size: number, -- px at UIScale 1
+	Size: number, -- disc diameter in rendered px (these buttons sit under no UIScale)
 	Position: UDim2,
 	Parent: Instance?,
 	Name: string?,
@@ -37,6 +38,11 @@ local STROKE_TRANSPARENCY = 0.5
 local LABEL_STROKE_TRANSPARENCY = 0.35
 -- Rec. 709 relative luminance above which a disc counts as light and takes the dark glyph.
 local LIGHT_DISC_LUMINANCE = 0.55
+-- Label size as a fraction of the disc diameter: half a disc is what a single glyph fills without
+-- touching the ring. Localized words are longer than a glyph, so TextScaled shrinks them from there
+-- down to LABEL_MIN_TEXT_SIZE instead of truncating.
+local LABEL_TEXT_RATIO = 0.5
+local LABEL_MIN_TEXT_SIZE = 10
 
 -- Glyph color and its outline for a disc of `color`: the pair is always the light/dark contrast, so a
 -- semi-transparent disc over a bright world stays legible.
@@ -84,13 +90,19 @@ function TouchButton.new(props: Props): TouchButton
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
 	label.Font = Theme.Fonts.Title
-	label.TextSize = Theme.Sizes.TextTitle
 	label.TextColor3 = textColor
 	label.TextStrokeColor3 = outlineColor
 	label.TextStrokeTransparency = LABEL_STROKE_TRANSPARENCY
-	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.TextScaled = true
+	label.TextWrapped = false -- one line: a wrapped word inside a disc reads worse than a smaller one
 	label.Text = props.Label
 	label.Parent = frame
+
+	local textSize = Instance.new("UITextSizeConstraint")
+	textSize.MinTextSize = LABEL_MIN_TEXT_SIZE
+	textSize.MaxTextSize =
+		math.clamp(math.floor(props.Size * LABEL_TEXT_RATIO), LABEL_MIN_TEXT_SIZE, Theme.Sizes.TextTitle)
+	textSize.Parent = label
 
 	local function render()
 		TweenService:Create(frame, TweenInfo.new(Theme.Animation.Fast), {

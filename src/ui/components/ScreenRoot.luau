@@ -27,20 +27,8 @@ export type ScreenRoot = {
 
 local ScreenRoot = {}
 
--- Fallback viewport used before a camera exists (16:9 at the reference height).
-local FALLBACK_VIEWPORT = Vector2.new(Theme.ReferenceHeight * 16 / 9, Theme.ReferenceHeight)
-
-local function viewportSize(): Vector2
-	local camera: Camera? = workspace.CurrentCamera
-	if camera == nil then
-		return FALLBACK_VIEWPORT
-	end
-	return camera.ViewportSize
-end
-
 function ScreenRoot.new(props: Props): ScreenRoot
 	local trove = Trove.new()
-	local cameraTrove = trove:Extend()
 
 	local gui = Instance.new("ScreenGui")
 	gui.Name = props.Name
@@ -69,7 +57,7 @@ function ScreenRoot.new(props: Props): ScreenRoot
 
 	-- Offsets are multiplied by the UIScale, so pixel insets are divided by it to stay exact.
 	local function apply()
-		currentScale = Theme.scaleFor(viewportSize())
+		currentScale = Theme.activeScale()
 		scale.Scale = currentScale
 		local topLeft, bottomRight = GuiService:GetGuiInset()
 		padding.PaddingTop = UDim.new(0, topLeft.Y / currentScale)
@@ -78,18 +66,8 @@ function ScreenRoot.new(props: Props): ScreenRoot
 		padding.PaddingRight = UDim.new(0, bottomRight.X / currentScale)
 	end
 
-	local function bindCamera()
-		cameraTrove:Clean()
-		local camera: Camera? = workspace.CurrentCamera
-		if camera ~= nil then
-			cameraTrove:Connect(camera:GetPropertyChangedSignal("ViewportSize"), apply)
-		end
-		apply()
-	end
-
-	trove:Connect(workspace:GetPropertyChangedSignal("CurrentCamera"), bindCamera)
+	trove:Add(Theme.bindScale(apply))
 	trove:Connect(GuiService.SafeZoneOffsetsChanged, apply)
-	bindCamera()
 
 	gui.Parent = props.Parent or Players.LocalPlayer:WaitForChild("PlayerGui")
 

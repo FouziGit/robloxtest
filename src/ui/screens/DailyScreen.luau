@@ -42,11 +42,9 @@ type Destroyable = { Destroy: (self: any) -> () }
 
 local DailyScreen = {}
 
-local DISPLAY_ORDER = 10
 local OVERLAY_TRANSPARENCY = 0.45
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
-local FOOTER_HEIGHT = Theme.Sizes.PaddingSmall + Theme.Sizes.RowHeight + Theme.Sizes.Padding
 local HIGHLIGHT_THICKNESS = 2
 local STREAK_LENGTH = #DailyConfig.Streak
 
@@ -85,7 +83,7 @@ function DailyScreen.new(deps: Deps): Screen
 	local screen: Screen
 	local highlights: { UIStroke } = {}
 
-	local root = ScreenRoot.new({ Name = "DailyScreen", DisplayOrder = DISPLAY_ORDER })
+	local root = ScreenRoot.new({ Name = "DailyScreen", DisplayOrder = Theme.Layers.Screen })
 	own(trove, root)
 	root.Instance.Enabled = false
 
@@ -102,7 +100,10 @@ function DailyScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	panel:SetHeaderHeight(HEADER_HEIGHT)
-	panel:SetFooterHeight(FOOTER_HEIGHT)
+	-- The Claim button carries the touch minimum, so the footer reserves the height it really takes.
+	panel:SetFooterHeight(
+		Theme.Sizes.PaddingSmall + Theme.touchTargetHeight(Theme.Sizes.RowHeight) + Theme.Sizes.Padding
+	)
 
 	local streakLabel = Instance.new("TextLabel")
 	streakLabel.Name = "Streak"

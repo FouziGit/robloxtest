@@ -70,6 +70,9 @@ function Tabs.new(props: Props): Tabs
 	frame.LayoutOrder = props.LayoutOrder or 0
 	trove:Add(frame)
 
+	-- The tabs fill the strip, so flooring the strip is enough to keep every tab tappable.
+	Theme.minPixelSize(frame, Theme.MinTouchTarget)
+
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
 	corner.Parent = frame

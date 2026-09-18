@@ -36,6 +36,9 @@ local ORDER = {
 	-- a pulse fired against effects that do not exist yet is a pulse nobody sees.
 	"WorldLighting",
 	"Feel",
+	-- The pool hands out instances and the renderers borrow them, so its Start has to have run before
+	-- the first packet arrives.
+	"VfxPool",
 	"VfxController",
 	"MatchController",
 	"HudController",

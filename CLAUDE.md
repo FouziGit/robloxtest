@@ -26,7 +26,7 @@ build/        → sortie `rojo build` (ignoré par git)
 ```bash
 stylua --check src tests
 selene src tests
-luau-lsp analyze --definitions=globalTypes.d.luau --settings=.luau-lsp.json src/shared
+luau-lsp analyze --definitions=globalTypes.d.luau --settings=.luau-lsp.json --ignore="**/Vendor/**" src
 lune run tests/run
 rojo build default.project.json -o build/Vellum.rbxl
 ```

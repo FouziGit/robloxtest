@@ -37,14 +37,15 @@ jobs:
       - name: Rojo sourcemap
         run: rojo sourcemap default.project.json -o sourcemap.json
 
-      - name: luau-lsp analyze (strict gate on src/shared)
+      - name: luau-lsp analyze (strict gate on all of src)
         run: |
           luau-lsp analyze \
             --definitions=globalTypes.d.luau \
             --sourcemap=sourcemap.json \
             --settings=.luau-lsp.json \
             --ignore="Packages/**" \
-            src/shared
+            --ignore="**/Vendor/**" \
+            src
 
       - name: Lune tests
         run: lune run tests/run

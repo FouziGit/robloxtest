@@ -31,6 +31,10 @@ Theme.Fonts = {
 	Body = Enum.Font.Gotham,
 	Bold = Enum.Font.GothamBold,
 	Mono = Enum.Font.RobotoMono,
+	-- Numbers that fly past the eye: a condensed grotesque, per docs/ART_BIBLE.md. Condensed because a
+	-- four-digit hit has to stay one readable block at arm's length on a phone, and because it has to
+	-- not be the same face as the prose, which is what makes a number read as a number.
+	Numeric = Enum.Font.Oswald,
 }
 
 -- Base sizes at UIScale 1 (1080p). Screens apply Theme.scaleFor(viewport).

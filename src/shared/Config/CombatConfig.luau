@@ -55,8 +55,10 @@ CombatConfig.Hit = {
 	KnockbackDurationSeconds = 0.25,
 	StunMaxSeconds = 2,
 	RagdollSeconds = 0.6,
-	-- Client-side juice (read by VfxController).
-	HitStopSeconds = 0.06,
+	-- Camera weight for the spells phase 4 of docs/JUICE_PLAN.md has not reworked yet, on the old 0-to-1
+	-- scale VfxLibrary.shakeNear still takes. Everything already reworked names a profile in
+	-- Config/FeelConfig instead, and these two leave with the last renderer that reads them. Hit-stop
+	-- moved there outright: its length is derived from the damage now, not fixed at one duration.
 	CameraShakeSmall = 0.35,
 	CameraShakeLarge = 0.9,
 }

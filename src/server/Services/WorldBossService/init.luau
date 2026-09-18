@@ -289,12 +289,16 @@ local function spawnBoss(now: number)
 
 	local live = Encounter.build(arena, fresh.MaxHealth)
 	trove:Add(live.Model)
-	trove:Connect(deps.Combat.Damaged, function(sourceUserId: number, targetModel: Model, applied: number)
+	-- Connected then added, rather than through trove:Connect: Trove accepts a signal whose Connect takes
+	-- a variadic handler, and Context.Damaged deliberately declares the four argument types instead, so
+	-- that a handler with the wrong shape is a type error here rather than a nil at runtime. The
+	-- connection is still owned by the trove and still released with the encounter.
+	trove:Add(deps.Combat.Damaged:Connect(function(sourceUserId: number, targetModel: Model, applied: number)
 		local current = state
 		if current ~= nil and boss == live and targetModel == live.Model then
 			Encounter.recordDamage(live, current, sourceUserId, applied)
 		end
-	end)
+	end))
 	boss = live
 
 	takePolicy()

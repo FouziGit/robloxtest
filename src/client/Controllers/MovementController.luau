@@ -7,19 +7,22 @@
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
+local FeelConfig = require(Shared.Config.FeelConfig)
+local FeelMath = require(Shared.Pure.FeelMath)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MovementController")
 
-type Deps = { RemoteClient: any }
+type Deps = { RemoteClient: any, Feel: any }
 type TroveType = typeof(Trove.new())
 
 local ROOT_PART_NAME = "HumanoidRootPart"
@@ -42,6 +45,7 @@ local MAX_COMMAND_SECONDS = 3 -- safety cap so a mover can never outlive a bad p
 local MovementController = {}
 
 local remoteClient: any
+local feel: any
 
 local player = Players.LocalPlayer
 local characterTrove = Trove.new()
@@ -99,8 +103,14 @@ local function stopMover()
 	end
 end
 
--- Drives the root at `velocity` for `duration` with a LinearVelocity, replacing any mover in progress.
-local function pushVelocity(part: BasePart, velocity: Vector3, duration: number)
+-- Drives the root along `velocity` for `duration` with a LinearVelocity, replacing any mover in
+-- progress. The speed is not held flat: it follows FeelMath.impulseSpeed, which starts above the flat
+-- speed and decays to nothing, the way a body that was struck actually moves.
+--
+-- That curve is normalised, so the distance travelled is exactly what the flat velocity would have
+-- covered over the same duration. This matters more than it looks: knockback distance and dash range
+-- are balance numbers the server granted, and a polish pass is not allowed to change them.
+local function pushVelocity(part: BasePart, velocity: Vector3, duration: number, exponent: number)
 	stopMover()
 	local commandTrove = characterTrove:Extend()
 	activeMover = commandTrove
@@ -116,14 +126,29 @@ local function pushVelocity(part: BasePart, velocity: Vector3, duration: number)
 	mover.MaxForce = math.huge
 	mover.RelativeTo = Enum.ActuatorRelativeTo.World
 	mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-	mover.VectorVelocity = velocity
+	mover.VectorVelocity = velocity * FeelMath.impulseSpeed(0, exponent)
 	mover.Parent = part
 	commandTrove:Add(mover)
 
-	task.delay(math.min(duration, MAX_COMMAND_SECONDS), function()
-		if activeMover == commandTrove then
-			stopMover()
+	local total = math.min(duration, MAX_COMMAND_SECONDS)
+	local elapsed = 0
+	local sinceStep = 0
+	commandTrove:Connect(RunService.Heartbeat, function(deltaTime: number)
+		elapsed += deltaTime
+		if elapsed >= total then
+			if activeMover == commandTrove then
+				stopMover()
+			end
+			return
 		end
+		-- The curve is re-evaluated at a fixed rate rather than every frame: between evaluations the
+		-- constraint holds its value, so a 240 Hz client and a 30 Hz client travel the same path.
+		sinceStep += deltaTime
+		if sinceStep < FeelConfig.Impulse.StepSeconds then
+			return
+		end
+		sinceStep = 0
+		mover.VectorVelocity = velocity * FeelMath.impulseSpeed(elapsed / total, exponent)
 	end)
 end
 
@@ -242,7 +267,17 @@ local function onCommand(payload: any)
 			warnMalformed("Dash distance/duration")
 			return
 		end
-		pushVelocity(currentRoot, direction.Unit * (payload.Distance / payload.Duration), payload.Duration)
+		pushVelocity(
+			currentRoot,
+			direction.Unit * (payload.Distance / payload.Duration),
+			payload.Duration,
+			FeelConfig.Impulse.DashExponent
+		)
+		if feel ~= nil then
+			feel.fovPunch(FeelConfig.Fov.DashImpulse)
+			feel.shake("Dash")
+			feel.haptic("Dash")
+		end
 	elseif kind == "Knockback" then
 		local velocity = payload.Velocity
 		if typeof(velocity) ~= "Vector3" or not isPositive(payload.Duration) then
@@ -250,7 +285,7 @@ local function onCommand(payload: any)
 			return
 		end
 		currentRoot.AssemblyLinearVelocity = velocity
-		pushVelocity(currentRoot, velocity, payload.Duration)
+		pushVelocity(currentRoot, velocity, payload.Duration, FeelConfig.Impulse.KnockbackExponent)
 	else
 		warnMalformed("unknown kind " .. kind)
 	end
@@ -258,6 +293,13 @@ end
 
 function MovementController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
+	feel = deps.Feel
+end
+
+-- True while a server-approved displacement is carrying the character. Feel reads it so hit-stop
+-- never plants the feet in the middle of a dash the server already granted.
+function MovementController.isDisplacing(): boolean
+	return activeMover ~= nil
 end
 
 function MovementController.Start()

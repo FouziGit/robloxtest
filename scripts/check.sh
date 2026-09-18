@@ -18,13 +18,17 @@ selene src tests
 echo "▶ rojo sourcemap"
 rojo sourcemap default.project.json -o sourcemap.json
 
-echo "▶ luau-lsp analyze (strict gate on src/shared)"
+# All of src, not just src/shared. The narrow gate was a real hole: every client controller, every UI
+# component and every server service was unchecked, which is three quarters of the code and all of the
+# code that touches the engine. Vendor/ is excluded because vendored ProfileStore is not ours to fix.
+echo "▶ luau-lsp analyze (strict gate on all of src)"
 luau-lsp analyze \
 	--definitions=globalTypes.d.luau \
 	--sourcemap=sourcemap.json \
 	--settings=.luau-lsp.json \
 	--ignore="Packages/**" \
-	src/shared
+	--ignore="**/Vendor/**" \
+	src
 
 echo "▶ lune tests"
 lune run tests/run

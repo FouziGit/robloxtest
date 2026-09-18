@@ -1,14 +1,14 @@
 --!strict
 -- VfxController: receives Vfx / VfxReliable packets, validates them and renders each one through
--- VfxLibrary inside a fresh Trove destroyed after a fixed lifetime. Owns the client-side juice the
--- effects call through `api`: camera shake (Humanoid.CameraOffset jitter, honouring Settings.CameraShake)
--- and hit-stop (a short FieldOfView pulse — WalkSpeed is server-owned and never touched).
+-- VfxLibrary inside a fresh Trove destroyed after a fixed lifetime.
+--
+-- It no longer owns any camera work. Camera shake, hit-stop, field of view, hit flashes and damage
+-- numbers all belong to Feel now, so there is exactly one owner of the camera and one place the numbers
+-- live (Config/FeelConfig). What is left here is what this module was always for: deciding whether a
+-- packet is trustworthy and handing it to the right renderer.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -23,114 +23,26 @@ local VfxLibrary = require(script.Parent:WaitForChild("VfxLibrary"))
 
 local log = Log.new("VfxController")
 
-type Deps = { RemoteClient: any, ClientData: any, SoundController: any }
+type Deps = { RemoteClient: any, ClientData: any, SoundController: any, Feel: any }
 
 -- Every packet trove is destroyed after this delay (VfxLibrary effects fit inside it).
 local TROVE_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
-local SHAKE_SECONDS = 0.25
-local HIT_STOP_FOV_DELTA = 6
-local HIT_STOP_RELEASE_FACTOR = 2 -- the FOV returns over twice the pulse duration
 local FALLBACK_COLOR = Color3.fromRGB(255, 245, 220)
+-- Magnitude at or above which a renderer that still asks for a bare shake intensity gets the heavy
+-- profile. The old scale ran 0 to 1 with 0.9 meaning "an ultimate landed".
+local LEGACY_HEAVY_SHAKE = 0.7
 
 local VfxController = {}
 
 local remoteClient: any
-local clientData: any
 local soundController: any
+local feel: any
 
 local unknownIds: { [string]: boolean } = {}
 local malformedWarned = false
 
-local shakeRemaining = 0
-local shakeIntensity = 0
-local shakeConnection: RBXScriptConnection? = nil
-local hitStopActive = false
-
 local function localCharacter(): Model?
 	return Players.LocalPlayer.Character
-end
-
-local function localHumanoid(): Humanoid?
-	local character = localCharacter()
-	if character == nil then
-		return nil
-	end
-	return character:FindFirstChildOfClass("Humanoid")
-end
-
-local function shakeEnabled(): boolean
-	local data = clientData.get()
-	if data == nil then
-		return true
-	end
-	return data.Settings.CameraShake ~= false
-end
-
-local function stopShake()
-	local connection = shakeConnection
-	shakeConnection = nil
-	if connection ~= nil then
-		connection:Disconnect()
-	end
-	shakeRemaining = 0
-	shakeIntensity = 0
-	local humanoid = localHumanoid()
-	if humanoid ~= nil then
-		humanoid.CameraOffset = Vector3.zero
-	end
-end
-
-local function stepShake(deltaTime: number)
-	shakeRemaining -= deltaTime
-	local humanoid = localHumanoid()
-	if shakeRemaining <= 0 or humanoid == nil then
-		stopShake()
-		return
-	end
-	local strength = shakeIntensity * (shakeRemaining / SHAKE_SECONDS)
-	humanoid.CameraOffset = Vector3.new((math.random() * 2 - 1) * strength, (math.random() * 2 - 1) * strength, 0)
-end
-
--- Jitters the camera for SHAKE_SECONDS; a stronger shake replaces a weaker one in progress.
-local function shake(intensity: number)
-	if intensity <= 0 or not shakeEnabled() or localHumanoid() == nil then
-		return
-	end
-	shakeIntensity = math.max(shakeIntensity, intensity)
-	shakeRemaining = SHAKE_SECONDS
-	if shakeConnection == nil then
-		shakeConnection = RunService.RenderStepped:Connect(stepShake)
-	end
-end
-
--- Brief FieldOfView pulse. Never overlaps itself so the base FOV is always restored.
-local function hitStop(seconds: number)
-	if hitStopActive or seconds <= 0 then
-		return
-	end
-	local camera: Camera? = Workspace.CurrentCamera
-	if camera == nil then
-		return
-	end
-	hitStopActive = true
-	local baseFov = camera.FieldOfView
-	local pulseIn = TweenService:Create(
-		camera,
-		TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ FieldOfView = baseFov - HIT_STOP_FOV_DELTA }
-	)
-	pulseIn:Play()
-	task.delay(seconds, function()
-		local releaseSeconds = seconds * HIT_STOP_RELEASE_FACTOR
-		TweenService:Create(
-			camera,
-			TweenInfo.new(releaseSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ FieldOfView = baseFov }
-		):Play()
-		task.delay(releaseSeconds, function()
-			hitStopActive = false
-		end)
-	end)
 end
 
 local function pigmentColor(pigment: string): Color3
@@ -141,12 +53,43 @@ local function pigmentColor(pigment: string): Color3
 	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
 
+-- Renderers not yet reworked still call Shake and HitStop with a bare number. Both go through Feel, so
+-- the camera has one owner even during the transition. Phase 4 of docs/JUICE_PLAN.md rewrites them
+-- spell by spell to name a profile instead of a magnitude, and these two shims leave with the last one.
+local function legacyShake(intensity: number)
+	if intensity <= 0 then
+		return
+	end
+	feel.shake(if intensity >= LEGACY_HEAVY_SHAKE then "Heavy" else "Light", math.min(intensity, 1))
+end
+
+local function legacyHitStop(seconds: number)
+	feel.hitStop(seconds, "None")
+end
+
+-- The character of a player by user id, for effects that adorn the person rather than a point in space.
+-- nil for user id 0, which is how the server writes "a training dummy or an enemy, with nobody behind
+-- it", and nil for a player who has left or has not respawned.
+local function characterOf(userId: number): Model?
+	if userId == 0 then
+		return nil
+	end
+	local target = Players:GetPlayerByUserId(userId)
+	if target == nil then
+		return nil
+	end
+	return target.Character
+end
+
 local api: VfxLibrary.Api = {
 	Sound = nil :: any,
-	Shake = shake,
-	HitStop = hitStop,
+	Shake = legacyShake,
+	HitStop = legacyHitStop,
 	PigmentColor = pigmentColor,
 	LocalCharacter = localCharacter,
+	Feel = nil :: any,
+	LocalUserId = Players.LocalPlayer.UserId,
+	CharacterOf = characterOf,
 }
 
 local function warnMalformed(reason: string)
@@ -214,12 +157,15 @@ end
 
 function VfxController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
-	clientData = deps.ClientData
 	soundController = deps.SoundController
+	feel = deps.Feel
 	api.Sound = soundController
+	api.Feel = feel
 end
 
 -- Every declared effect id must have a renderer: a missing one would silently drop its packets.
+-- tests/EffectCoverage.spec.luau fails the build for the same thing, so this only catches a renderer
+-- removed at runtime, which should never happen and is worth a line in the log if it does.
 local function auditRenderers()
 	local missing: { string } = {}
 	for _, id in ipairs(VfxConfig.Ids) do
@@ -236,7 +182,6 @@ function VfxController.Start()
 	auditRenderers()
 	remoteClient.on("Vfx", onPacket)
 	remoteClient.on("VfxReliable", onPacket)
-	Players.LocalPlayer.CharacterRemoving:Connect(stopShake)
 	log.info("started")
 end
 

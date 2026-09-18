@@ -130,7 +130,7 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 |---|---|
 | Format | `stylua --check src tests` |
 | Lint | `selene src tests` |
-| Types (strict sur `src/shared`) | `luau-lsp analyze …` |
+| Types (strict sur tout `src`) | `luau-lsp analyze …` |
 | Tests | `lune run tests/run` |
 | Chaînes en dur | `lune run scripts/check-strings` |
 | Localisation à jour | `lune run scripts/export-strings -- --check` |

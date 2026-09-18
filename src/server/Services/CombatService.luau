@@ -434,15 +434,18 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 	-- Every other verdict leaves the horizontal anchor and its clock alone. The altitude still follows, so
 	-- a falling player is not measured against where they jumped from and a clamped origin is never
 	-- underground.
-	state.TrustedPosition = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
+	local anchor = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
+	state.TrustedPosition = anchor
 	if verdict ~= "Refused" then
 		return observed
 	end
 	if strikeOnFailure then
 		countViolation(state, now, travelled, OriginGuard.budget(elapsed, allowance, GUARD))
 	end
-	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected.
-	return CFrame.new(state.TrustedPosition) * (observed - observed.Position)
+	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected. The local
+	-- anchor is used rather than state.TrustedPosition, which the field's own type says may be nil: it is
+	-- not, one line above, but relying on that is how a later edit turns a type error into a crash.
+	return CFrame.new(anchor) * (observed - observed.Position)
 end
 
 -- The live root of `player`, resolved through Players rather than the state's cached Character: with
@@ -902,12 +905,36 @@ function CombatService.ApplyDamage(
 	if pigment ~= nil then
 		hitParams.Pigment = pigment
 	end
+	-- Who dealt it and who took it. Without these the client could only guess from the impact position,
+	-- and it guessed badly: every player standing near a hit got the hit-stop and the camera shake meant
+	-- for the two people actually in it. Target is 0 for a training dummy or an enemy, which has no
+	-- player behind it; the client treats that as "not me" and it is right.
+	hitParams.Target = if targetPlayer ~= nil then targetPlayer.UserId else 0
 	if amplifier ~= nil then
 		-- Floating text of the interaction (Strings "hud.status.bonus" takes {status} and {percent}).
 		hitParams.StatusKey = amplifier.NameKey
 		hitParams.StatusPercent = math.floor((amplifier.DamageMultiplier - 1) * 100 + 0.5)
 	end
-	vfx.emit({ Id = "Hit", Origin = origin, Params = hitParams })
+	-- Horizontal unit vector from whoever dealt the hit toward whoever took it. The client needs it to
+	-- throw sparks the way the blow travelled and to lean the camera with the impact instead of shaking
+	-- it symmetrically; docs/JUICE_AUDIT.md lists its absence as the reason every hit reads the same.
+	-- nil when there is no attacker position to measure from (an environmental hit, a hit on itself),
+	-- and the client falls back to a direction-free impact rather than inventing one.
+	local hitDirection: Vector3? = nil
+	if sourceCharacter ~= nil then
+		local flat = origin - positionOf(sourceCharacter)
+		flat = Vector3.new(flat.X, 0, flat.Z)
+		if flat.Magnitude > 1e-3 then
+			hitDirection = flat.Unit
+		end
+	end
+	vfx.emit({
+		Id = "Hit",
+		Origin = origin,
+		Caster = if source ~= nil then source.UserId else nil,
+		Direction = hitDirection,
+		Params = hitParams,
+	})
 	if memory ~= nil then
 		memory[targetModel] = now + CombatConfig.Hit.IFrameSeconds
 	end

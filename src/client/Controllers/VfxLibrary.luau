@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
+local FeelConfig = require(Shared.Config.FeelConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Trove = require(Packages.Trove)
 
@@ -36,6 +37,14 @@ export type Api = {
 	HitStop: (seconds: number) -> (),
 	PigmentColor: (pigment: string) -> Color3,
 	LocalCharacter: () -> Model?,
+	-- The Feel controller, untyped here on purpose: this module is required by the client only, and a
+	-- concrete type would make ReplicatedStorage depend on a controller in StarterPlayerScripts.
+	-- Phase 3 replaces Shake and HitStop above with calls through this (docs/JUICE_PLAN.md).
+	Feel: any,
+	LocalUserId: number,
+	-- The model of a player by user id, for effects that have to adorn the person who was hit rather
+	-- than draw at a point in space. nil for a training dummy or an enemy, which has no player.
+	CharacterOf: (userId: number) -> Model?,
 }
 
 type TroveType = typeof(Trove.new())
@@ -71,8 +80,17 @@ local FOLDER_NAME = "ClientVfx"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local ROOT_HEIGHT_STUDS = 3 -- HumanoidRootPart center above the ground for a standing rig
 local GROUND_PROBE_STUDS = 24
-local HIT_FEEDBACK_RADIUS_STUDS = 4
-local SHAKE_FALLOFF_STUDS = 45 -- large shakes fade linearly with the distance to the local character
+-- Damage at or above which an impact uses the heavy profile instead of the light one. It is the
+-- roster's own midpoint, not a guess: tests/Config.spec.luau holds it between the jab and the
+-- heaviest ultimate.
+local HEAVY_HIT_DAMAGE = 25
+-- How much of a shake survives for a fight the local player is not in.
+local DISTANT_HIT_SCALE = 0.55
+-- Damage you took is red, whatever pigment dealt it (docs/ART_BIBLE.md: red means danger to you).
+local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
+-- Magnitude at or above which a renderer that still asks for a bare shake intensity gets the heavy
+-- profile rather than the light one. The old scale ran 0 to 1, with 0.9 meaning "an ultimate landed".
+local HEAVY_SHAKE_INTENSITY = 0.7
 local DEFAULT_DIRECTION = Vector3.new(0, 0, -1)
 local WHITE = Color3.fromRGB(255, 245, 220)
 local SHIELD_COLOR = Color3.fromRGB(120, 190, 255)
@@ -353,21 +371,15 @@ local function rootOf(character: Model?): BasePart?
 	return nil
 end
 
-local function localRoot(api: Api): BasePart?
-	return rootOf(api.LocalCharacter())
-end
-
--- Shakes the local camera with an intensity that fades with the distance to `origin`.
+-- Shakes the local camera with an intensity that fades with the distance to `origin`. The falloff and
+-- the radius belong to Feel, so a spell reworked in phase 4 and one that has not been yet still fade
+-- the same way and still read against the same radius; only the way the caller names its weight
+-- changes. `intensity` is the old 0-to-1 magnitude, mapped onto a profile the way VfxController does.
 local function shakeNear(api: Api, origin: Vector3, intensity: number)
-	local root = localRoot(api)
-	if root == nil then
+	if intensity <= 0 then
 		return
 	end
-	local distance = (root.Position - origin).Magnitude
-	local falloff = 1 - math.clamp(distance / SHAKE_FALLOFF_STUDS, 0, 1)
-	if falloff > 0 then
-		api.Shake(intensity * falloff)
-	end
+	api.Feel.shakeAt(if intensity >= HEAVY_SHAKE_INTENSITY then "Heavy" else "Light", origin, math.min(intensity, 1))
 end
 
 local function casterRoot(packet: Packet): BasePart?
@@ -1546,9 +1558,21 @@ VfxLibrary.Colophon = function(packet: Packet, trove: TroveType, api: Api)
 	playPacketSound(packet, api)
 end
 
--- Small impact flash; hit-stop and a small shake when the local character is the one being hit.
+-- Impact. Everything the player learns about a hit in the first tenth of a second happens here: how
+-- hard it was, who took it, from which side, and whether it was their own.
+--
+-- The previous version keyed all of that off one distance test: anyone standing within a few studs of
+-- the impact got the hit-stop and the shake, whoever they were. In a six-player arena that meant the
+-- camera jolted for fights the player was not in and stayed calm for the one they were. The packet now
+-- names the attacker and the target, so the three cases are told apart properly.
 VfxLibrary.Hit = function(packet: Packet, trove: TroveType, api: Api)
-	local color = api.PigmentColor(stringParam(packet, "Pigment", ""))
+	local pigment = stringParam(packet, "Pigment", "")
+	local color = api.PigmentColor(pigment)
+	local amount = numberParam(packet, "Amount", 0)
+	local direction = directionOf(packet)
+	local targetUserId = numberParam(packet, "Target", 0)
+	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
+
 	local flash = newPart(trove, "HitFlash", {
 		Shape = Enum.PartType.Ball,
 		Color = color,
@@ -1557,19 +1581,48 @@ VfxLibrary.Hit = function(packet: Packet, trove: TroveType, api: Api)
 		CFrame = CFrame.new(packet.Origin),
 	})
 	play(trove, flash, 0.2, { Size = Vector3.one * 3.5, Transparency = 1 })
+	-- Sparks leave along the blow rather than symmetrically, which is what makes an impact read as
+	-- having come FROM somewhere.
 	local sparks = newEmitter(flash, {
 		Color = color,
 		Lifetime = NumberRange.new(0.2, 0.4),
 		Speed = NumberRange.new(8, 14),
 		Size = NumberSequence.new(0.5, 0),
 	})
+	sparks.EmissionDirection = Enum.NormalId.Front
+	sparks.SpreadAngle = Vector2.new(35, 35)
+	flash.CFrame = CFrame.lookAt(packet.Origin, packet.Origin + direction)
 	burst(sparks, 10)
 	api.Sound.play("ImpactHit", packet.Origin)
 
-	local root = localRoot(api)
-	if root ~= nil and (root.Position - packet.Origin).Magnitude <= HIT_FEEDBACK_RADIUS_STUDS then
-		api.HitStop(CombatConfig.Hit.HitStopSeconds)
-		api.Shake(CombatConfig.Hit.CameraShakeSmall)
+	local feel = api.Feel
+	local dealtByMe = packet.Caster == api.LocalUserId
+	local takenByMe = targetUserId == api.LocalUserId and targetUserId ~= 0
+	local heavy = amount >= HEAVY_HIT_DAMAGE
+
+	if takenByMe then
+		feel.hitStopForDamage(amount, "Taken")
+		feel.fovPunch(FeelConfig.Fov.HitTakenImpulse)
+		feel.shake(if heavy then "Heavy" else "Light")
+		feel.haptic("HitTaken")
+	elseif dealtByMe then
+		feel.hitStopForDamage(amount, "Dealt")
+		feel.fovPunch(FeelConfig.Fov.HitDealtImpulse)
+		feel.shake(if heavy then "Heavy" else "Melee")
+		feel.haptic("HitDealt")
+	else
+		-- Somebody else's exchange: the camera still acknowledges it, faded by how far away it was.
+		feel.shakeAt(if heavy then "Heavy" else "Light", packet.Origin, DISTANT_HIT_SCALE)
+	end
+
+	-- The outline is what tells you your hit landed on the right person through a crowd and through a
+	-- wall. Only ever drawn for the two people in the exchange; everybody else's is noise.
+	if dealtByMe or takenByMe then
+		local targetModel = api.CharacterOf(targetUserId)
+		if targetModel ~= nil then
+			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else color)
+		end
+		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else color, amplified)
 	end
 end
 
@@ -1598,6 +1651,17 @@ VfxLibrary.Melee = function(packet: Packet, trove: TroveType, api: Api)
 	else
 		api.Sound.play("Melee" .. math.clamp(index, 1, MELEE_SFX_VARIANTS), packet.Origin)
 	end
+
+	-- The swing itself, felt by whoever threw it, whether or not it connects. A whiff that feels like
+	-- nothing is why melee reads as weightless, and this is the action a player repeats more than any
+	-- other in a match (docs/JUICE_PLAN.md sequences the pass by exactly that).
+	if packet.Caster == api.LocalUserId then
+		local feel = api.Feel
+		local finisher = index >= finisherIndex
+		feel.fovPunch(if finisher then FeelConfig.Fov.HeavyCastImpulse else FeelConfig.Fov.CastImpulse)
+		feel.shake(if finisher then "Melee" else "Cast")
+		feel.haptic("Cast")
+	end
 end
 
 -- Streak left behind by a dash.
@@ -1620,13 +1684,10 @@ VfxLibrary.Dash = function(packet: Packet, trove: TroveType, api: Api)
 		Size = NumberSequence.new(1.2, 0),
 	})
 	burst(puff, 12)
-	play(
-		trove,
-		streak,
-		duration,
-		{ CFrame = CFrame.new(packet.Origin + direction * distance) },
-		Enum.EasingStyle.Linear
-	)
+	-- Quad-out, not linear: the body itself now decelerates along FeelMath.impulseSpeed
+	-- (MovementController), and a streak sliding at a constant speed beside a character that is slowing
+	-- down is the single most visible way to make a dash look fake.
+	play(trove, streak, duration, { CFrame = CFrame.new(packet.Origin + direction * distance) })
 	api.Sound.play("Dash", packet.Origin)
 end
 

@@ -2,7 +2,7 @@
 
 Adapté aux constats de `docs/AUDIT.md`. Chaque phase se termine par : quality gates verts → commits Conventional Commits → `git push origin main` → `docs/PROGRESS.md` à jour. Le jeu reste `rojo build`-able et les tests verts à chaque commit.
 
-Quality gates (`scripts/check.sh`) : `stylua --check src tests` · `selene src tests` · `luau-lsp analyze` strict sur `src/shared` · `lune run tests/run` · `rojo build default.project.json -o build/Vellum.rbxl`.
+Quality gates (`scripts/check.sh`) : `stylua --check src tests` · `selene src tests` · `luau-lsp analyze` strict sur tout `src` · `lune run tests/run` · `rojo build default.project.json -o build/Vellum.rbxl`.
 
 ---
 

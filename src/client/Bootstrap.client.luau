@@ -32,6 +32,7 @@ local ORDER = {
 	"ClientData",
 	"Localize",
 	"SoundController",
+	"Feel",
 	"VfxController",
 	"MatchController",
 	"HudController",

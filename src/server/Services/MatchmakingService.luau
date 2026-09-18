@@ -60,6 +60,9 @@ local worldBoss: WorldBossApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
 local accumulator = 0
+-- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
+-- stood still and can hand that time back to everybody waiting.
+local lastTickAt: number? = nil
 
 local function neededFor(def: MatchConfig.ModeDef): number
 	return def.TeamSize * def.Teams
@@ -185,13 +188,54 @@ local function requeue(modeId: string, teams: { { number } }, joinedAt: { [numbe
 	log.warn("match %s was refused: %d player(s) requeued", modeId, restored)
 end
 
+-- Pairs whatever the queue holds now and hands each formed match to MatchService.
+local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: MatchmakingCore.Queue, now: number)
+	-- Captured before findMatches removes the entries, for the requeue of a refused match.
+	local joinedAt: { [number]: number } = {}
+	for _, entry in ipairs(queue.Entries) do
+		joinedAt[entry.UserId] = entry.JoinedAt
+	end
+	for _, formed in ipairs(MatchmakingCore.findMatches(queue, def.TeamSize, def.Teams, now, WINDOW)) do
+		-- They are out of the queue now: their client leaves the searching state either way.
+		for _, members in ipairs(formed.Teams) do
+			for _, userId in ipairs(members) do
+				pushUserId(userId, now)
+			end
+		end
+		if match.start(modeId, formed.Teams) == nil then
+			requeue(modeId, formed.Teams, joinedAt, now)
+		else
+			log.info("%s match formed (average rating %d)", modeId, math.floor(formed.AverageRating + 0.5))
+		end
+	end
+end
+
 local function tick(now: number)
+	-- A World Boss event owns the single CombatService PvP policy for its whole duration, so a match
+	-- started now would lose participant PvP. Match formation is suspended for the event and the wait it
+	-- costs is handed back: every JoinedAt slides forward by the paused interval, so a queue only ages
+	-- while the server is really trying to pair it. Otherwise an event (375s) outlasts MaxQueueSeconds
+	-- (240s) and every entry would be dropped mid-event for a wait nobody was serving. Clients still get
+	-- QueueChanged while paused, and the first scan after the event pairs the queue again.
+	local paused = worldBoss.isLive()
+	local pausedSeconds = 0
+	if paused and lastTickAt ~= nil then
+		pausedSeconds = math.max(0, now - lastTickAt)
+	end
+	lastTickAt = now
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		local def = MatchConfig.Modes[modeId]
 		local queue = queues[modeId]
 		if def == nil or queue == nil then
 			continue
 		end
+		if pausedSeconds > 0 then
+			for _, entry in ipairs(queue.Entries) do
+				-- Clamped to now: an entry that joined inside the paused interval has waited nothing yet.
+				entry.JoinedAt = math.min(now, entry.JoinedAt + pausedSeconds)
+			end
+		end
+		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
 			local player = Players:GetPlayerByUserId(userId)
 			if player ~= nil then
@@ -199,37 +243,10 @@ local function tick(now: number)
 				push(player, now)
 			end
 		end
-		-- A World Boss event owns the single CombatService PvP policy for its whole duration, so a match
-		-- started now would lose participant PvP. Players keep waiting (their timer advances) instead of
-		-- being dropped into a broken match; the queue drains as soon as the event ends.
-		if worldBoss.isLive() then
-			for _, entry in ipairs(queue.Entries) do
-				local player = Players:GetPlayerByUserId(entry.UserId)
-				if player ~= nil then
-					push(player, now)
-				end
-			end
-			continue
+		if not paused then
+			formMatches(modeId, def, queue, now)
 		end
-		-- Captured before findMatches removes the entries, for the requeue of a refused match.
-		local joinedAt: { [number]: number } = {}
-		for _, entry in ipairs(queue.Entries) do
-			joinedAt[entry.UserId] = entry.JoinedAt
-		end
-		for _, formed in ipairs(MatchmakingCore.findMatches(queue, def.TeamSize, def.Teams, now, WINDOW)) do
-			-- They are out of the queue now: their client leaves the searching state either way.
-			for _, members in ipairs(formed.Teams) do
-				for _, userId in ipairs(members) do
-					pushUserId(userId, now)
-				end
-			end
-			if match.start(modeId, formed.Teams) == nil then
-				requeue(modeId, formed.Teams, joinedAt, now)
-			else
-				log.info("%s match formed (average rating %d)", modeId, math.floor(formed.AverageRating + 0.5))
-			end
-		end
-		-- Everybody still waiting sees their timer advance.
+		-- Everybody still waiting sees their timer: advancing normally, standing still while paused.
 		for _, entry in ipairs(queue.Entries) do
 			pushUserId(entry.UserId, now)
 		end

@@ -32,6 +32,9 @@ local ORDER = {
 	"ClientData",
 	"Localize",
 	"SoundController",
+	-- Before anything that pulses it: WorldLighting builds the five post-processing effects at Start, and
+	-- a pulse fired against effects that do not exist yet is a pulse nobody sees.
+	"WorldLighting",
 	"Feel",
 	"VfxController",
 	"MatchController",

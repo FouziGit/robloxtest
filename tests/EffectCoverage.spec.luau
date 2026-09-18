@@ -10,6 +10,7 @@
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
+local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -113,5 +114,52 @@ describe("vfx renderer coverage", function()
 		if #missing > 0 then
 			error(table.concat(missing, "\n"))
 		end
+	end)
+end)
+
+-- The World Boss names its effects in two places that are not VfxConfig: the four attacks in
+-- WorldBossConfig, and the spawn and defeat bookends in WorldBossService's own Context. Both are real
+-- emissions in a real fight, and before this neither was reachable from any list a gate walks.
+describe("world boss effect coverage", function()
+	local renderers = declaredMembers(VFX_PATH, "VfxLibrary")
+
+	it("declares every attack the encounter can play", function()
+		local missing: { string } = {}
+		for _, attack in ipairs(WorldBossConfig.Attacks) do
+			if not VfxConfig.IdSet[attack.VfxId] then
+				table.insert(
+					missing,
+					("%s names vfx %s, which VfxConfig does not declare"):format(attack.Id, attack.VfxId)
+				)
+			end
+			if not renderers[attack.VfxId] then
+				table.insert(missing, ("%s wants VfxLibrary.%s"):format(attack.Id, attack.VfxId))
+			end
+		end
+		table.sort(missing)
+		if #missing > 0 then
+			error(table.concat(missing, "\n"))
+		end
+	end)
+
+	it("declares the spawn and the defeat", function()
+		-- Read out of the server module's source: it touches Roblox services, so it cannot be required
+		-- here, and hard-coding the two strings would be a test that cannot notice a rename.
+		local source = fs.readFile("src/server/Services/WorldBossService/Context.luau")
+		local found = 0
+		for _, field in ipairs({ "SpawnVfxId", "DefeatVfxId" }) do
+			local id = string.match(source, "Context%." .. field .. ' = "([%w_]+)"')
+			if id == nil then
+				error(("WorldBossService Context has no %s; this test is checking nothing"):format(field))
+			end
+			found += 1
+			if not VfxConfig.IdSet[id] then
+				error(("Context.%s is %s, which VfxConfig does not declare"):format(field, id))
+			end
+			if not renderers[id] then
+				error(("Context.%s is %s, and VfxLibrary has no renderer for it"):format(field, id))
+			end
+		end
+		expect(found).toBe(2)
 	end)
 end)

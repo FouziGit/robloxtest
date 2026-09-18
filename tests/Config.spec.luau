@@ -558,7 +558,7 @@ describe("VfxConfig", function()
 			seen[id] = true
 			expect(VfxConfig.IdSet[id]).toBe(true)
 		end
-		expect(#VfxConfig.Ids).toBe(#VfxConfig.GlyphIds + #VfxConfig.CombatIds)
+		expect(#VfxConfig.Ids).toBe(#VfxConfig.GlyphIds + #VfxConfig.CombatIds + #VfxConfig.BossIds)
 		expect(VfxConfig.isId("NotAnEffect")).toBe(false)
 		for _, glyph in ipairs(GlyphConfig.Glyphs) do
 			expect(VfxConfig.isId(glyph.VfxId)).toBe(true)

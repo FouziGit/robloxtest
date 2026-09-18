@@ -45,9 +45,26 @@ VfxConfig.CombatIds = {
 	"GuardBreak",
 } :: { string }
 
+-- Emitted by the World Boss encounter. The four attacks name themselves in WorldBossConfig, and the two
+-- bookends in WorldBossService's Context.
+--
+-- They were missing from this file entirely, which meant six effects the game really does emit were
+-- outside every gate that exists: VfxController's startup audit walks VfxConfig.Ids, and so does
+-- tests/EffectCoverage.spec.luau, so a boss renderer deleted or renamed would have been silent. That is
+-- the exact shape of the defect that made all twenty glyphs uncastable, found the same way -- by asking
+-- what the lists do NOT contain.
+VfxConfig.BossIds = {
+	"BossSpawn",
+	"BossSlam",
+	"BossSweep",
+	"BossEruption",
+	"BossFury",
+	"BossDefeated",
+} :: { string }
+
 VfxConfig.Ids = {} :: { string }
 VfxConfig.IdSet = {} :: { [string]: boolean }
-for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds }) do
+for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds, VfxConfig.BossIds }) do
 	for _, id in ipairs(list) do
 		table.insert(VfxConfig.Ids, id)
 		VfxConfig.IdSet[id] = true

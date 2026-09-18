@@ -126,7 +126,7 @@ local function grant(player: Player, reward: Reward)
 		log.try("cosmetic grant " .. reward.Id, cosmetic.grant, player, reward.Id)
 		notify.send(player, "battlepass.reward.cosmetic", { name = "cosmetic." .. reward.Id }, "Success", "Claim")
 	else
-		BattlepassService.grantXpBoost(player, reward.Minutes)
+		log.try("grantXpBoost", BattlepassService.grantXpBoost, player, reward.Minutes)
 		notify.send(player, "battlepass.reward.xpBoost", { minutes = reward.Minutes }, "Success", "Claim")
 	end
 end

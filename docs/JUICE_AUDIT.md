@@ -93,6 +93,46 @@ Aucune anticipation : le sort part à l'image même où la séquence est résolu
 départ, aucun recul du lanceur, aucune déformation de la trajectoire, aucune conséquence au sol. C'est
 littéralement la sphère orange générique, et elle est envoyée en ligne droite à vitesse constante.
 
+## Le manque que le comptage ne pouvait pas voir : le personnage ne bouge jamais
+
+`LoadAnimation`, `Animator`, `AnimationId` et `AnimationTrack` n'apparaissent **nulle part** dans
+`src`. Les seules occurrences du mot « Animation » sont des durées d'interpolation d'interface et un
+type interne à `VfxLibrary`.
+
+Autrement dit : les vingt glyphes sont lancés par un personnage debout dans la pose d'attente par
+défaut de Roblox. Aucun sceau de la main, aucune garde, aucun accompagnement. Pour un jeu dont la
+mécanique signature est une séquence de sceaux élémentaires, c'est le manque d'identité le plus
+coûteux du projet, et aucun compteur de particules ne l'aurait révélé.
+
+## Les vingt sorts partagent une seule mise en scène
+
+Chaque glyphe commence par le **même** paquet `Cast` : une bille de 1,5 stud qui grandit à 6 sur
+350 ms, plus une salve de 16 particules, recolorée selon le pigment. Vingt sorts, un visuel de
+lancement, cinq couleurs possibles.
+
+Chaque dégât du jeu émet ensuite le **même** paquet `Hit`, qui ne transporte **ni direction, ni
+normale, ni gravité** : un tic de brume à 8 dégâts et la détonation d'un météore à 45 produisent
+exactement le même éclat et la même constante de secousse. Le client ne peut pas distinguer une
+égratignure d'une exécution, parce que le serveur ne le lui dit pas.
+
+## Ce que les particules n'utilisent pas
+
+- **Toutes les particules du jeu sont le sprite par défaut de Roblox.** Aucune texture, aucun
+  `ImageLabel`, aucun `rbxassetid` de sprite dans tout `src`.
+- **Aucune courbe.** Ni dans les particules, ni dans les traînées. Les valeurs sont plates.
+- `FlipbookLayout`, `Squash`, `WindAffectsDrag`, `ShapeInOut` : **zéro occurrence chacun**, alors que
+  la vérification d'API confirme que les quatre sont disponibles et non dépréciés aujourd'hui.
+- L'interface n'a **aucune couche raster** : 0 `ImageLabel`, 0 `UIGradient`, 0 `ViewportFrame`.
+- Le monde n'a **aucun asset** : 0 `MeshPart`, 0 `SpecialMesh`, 0 `Decal`, 0 `Texture`, 0
+  `SurfaceAppearance`. Il est entièrement fait de primitives d'une seule palette.
+
+## Un défaut visible, pas seulement une absence
+
+La boule de feu cliente est interpolée en linéaire jusqu'au **bout de sa portée**, 90 studs, et rien
+n'annule cette interpolation. Quand le serveur arrête le projectile sur un corps à 20 studs, la bille
+continue donc sa route **à travers la cible** pendant que l'explosion s'épanouit derrière elle. Le
+serveur n'envoie aucun paquet disant où le projectile est réellement mort.
+
 ## Le manque structurel : il n'y a pas d'anticipation
 
 `grep` sur `Windup`, `Anticipation`, `ChargeSeconds`, `CastTime` dans toute la configuration et tout le
@@ -155,6 +195,8 @@ aucune télégraphie au sol, aucune montée lumineuse, aucun son qui monte avant
 
 ## Les dix gains les plus rentables, par ordre de rapport qualité-prix
 
+0. Donner une animation au lanceur. Le personnage ne bouge pas quand il lance un sort : c'est le
+   premier écart d'identité, avant même les particules.
 1. Configurer `Lighting` et `Atmosphere`. Une heure de travail, change chaque capture d'écran.
 2. Un vrai hit-stop, 40 à 90 ms selon les dégâts. L'effet le plus rentable qui existe en game feel.
 3. Post-traitement à l'impact : saturation qui monte et retombe sur 80 ms.
@@ -165,6 +207,17 @@ aucune télégraphie au sol, aucune montée lumineuse, aucun son qui monte avant
 8. Des traces au sol qui s'effacent.
 9. Des springs dans l'interface, et une barre de vie fantôme.
 10. Donner un visuel à `LightningBolt`, `Raijin`, `BlockStart` et `BlockHit`, qui n'en ont aucun.
+
+## Ce que la vérification d'API autorise
+
+Vérifié contre l'API live et la documentation, pas de mémoire :
+
+- `FlipbookLayout`, `Squash`, `WindAffectsDrag`, `ShapeInOut` sont **tous disponibles**, non
+  dépréciés, non restreints. Aucun n'est utilisé ici.
+- `EditableImage` et `EditableMesh` sont vivants et une expérience qui les utilise **peut** être
+  publiée, mais derrière une vérification d'âge et d'identité du créateur. C'est une porte que je ne
+  peux pas franchir à la place du propriétaire : ces deux API sont donc écartées et notées dans
+  `docs/DECISIONS.md`.
 
 ## Méthode
 

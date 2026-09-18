@@ -8,3 +8,7 @@ realm = "shared"
 Promise = "evaera/promise@4.0.0"
 Signal = "sleitnick/signal@2.0.3"
 Trove = "sleitnick/trove@1.8.0"
+# Mouvement par ressorts : l'interface et la caméra ne doivent plus rien faire en linéaire (D-40).
+Ripple = "littensy/ripple@0.10.2"
+# Secousse de caméra par bruit de Perlin, avec montée, maintien et décroissance séparés (D-40).
+Shake = "sleitnick/shake@1.1.0"

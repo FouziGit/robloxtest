@@ -19,6 +19,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local OriginGuard = require(Shared.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
@@ -332,9 +333,15 @@ local function pruneHitMemory(memory: { [Model]: number }, now: number)
 end
 
 local LATENCY = GameConfig.Latency
--- Below this, a sample carries no horizontal movement: the player is standing still, or the client has
--- sent nothing new. Not zero, because a resting character still jitters by a fraction of a stud.
-local STILL_EPSILON_STUDS = 0.05
+-- Pure/OriginGuard owns the arithmetic and is unit-tested; this is the shipped configuration it judges
+-- against. The epsilon is here rather than in GameConfig because it is a property of Roblox character
+-- jitter, not a balance value: a resting character still moves by a fraction of a stud.
+local GUARD: OriginGuard.Config = {
+	MaxSpeedStudsPerSecond = LATENCY.MaxSpeedStudsPerSecond,
+	OriginToleranceStuds = LATENCY.OriginToleranceStuds,
+	MaxBudgetSeconds = LATENCY.MaxBudgetSeconds,
+	StillEpsilonStuds = 0.05,
+}
 
 -- The CFrame a hitbox or a cast origin is built from.
 --
@@ -412,37 +419,27 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 		state.TrustedAt = now
 		return observed
 	end
-	-- Capped: the budget has to accumulate so an uplink stall's catch-up jump is not read as a teleport,
-	-- and has to stop accumulating so standing still does not bank a free relocation.
-	local elapsed = math.clamp(now - state.TrustedAt, 0, LATENCY.MaxBudgetSeconds)
+	local elapsed = now - state.TrustedAt
 	local allowance = liveAllowance(state, now)
-	local bySpeed = LATENCY.MaxSpeedStudsPerSecond * elapsed
-	local budget = bySpeed + allowance
 	local delta = observed.Position - trusted
 	local travelled = Vector3.new(delta.X, 0, delta.Z).Magnitude
+	local verdict, allowanceLeft = OriginGuard.judge(travelled, elapsed, allowance, GUARD)
+	state.TravelAllowanceStuds = allowanceLeft
 
-	if travelled <= STILL_EPSILON_STUDS then
-		-- Not moving, or nothing new arrived. Nothing to re-anchor, and deliberately NOT refreshing the
-		-- clock: during a stall the server keeps re-reading the same stale position, and refreshing here
-		-- would hold the budget at one tick and then refuse the burst that catches up.
-		state.TrustedPosition = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
-		return observed
-	end
-
-	if travelled <= budget then
-		state.TravelAllowanceStuds = math.max(0, allowance - math.max(0, travelled - bySpeed))
+	if verdict == "Accepted" then
 		state.TrustedPosition = observed.Position
 		state.TrustedAt = now
 		return observed
 	end
-	-- The anchor stays put horizontally but tracks the altitude, so a falling player is not measured
-	-- against where they jumped from and a clamped origin is never underground.
+	-- Every other verdict leaves the horizontal anchor and its clock alone. The altitude still follows, so
+	-- a falling player is not measured against where they jumped from and a clamped origin is never
+	-- underground.
 	state.TrustedPosition = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
-	if travelled <= budget + LATENCY.OriginToleranceStuds then
+	if verdict ~= "Refused" then
 		return observed
 	end
 	if strikeOnFailure then
-		countViolation(state, now, travelled, budget)
+		countViolation(state, now, travelled, OriginGuard.budget(elapsed, allowance, GUARD))
 	end
 	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected.
 	return CFrame.new(state.TrustedPosition) * (observed - observed.Position)

@@ -14,11 +14,11 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 | 5 — World Boss | ✅ | `831a789` |
 | 6 — Quêtes, daily, loadout, cosmétiques | ✅ | `831a789` |
 | 7 — Monétisation, boutique, analytics | ✅ | `831a789` |
-| 8 — Sécurité, performance, polish, docs finales | 🔶 revue adversariale en cours | |
+| 8 — Sécurité, performance, polish, docs finales | ✅ | `8eac72b`…`1b160c2` |
 
 ## Chiffres
 
-126 fichiers `.luau` (hors lib vendorée), 28 200 lignes, 8 documents, 323 clés de localisation EN/FR, 80 tests Lune, 7 portes de qualité en CI.
+130 fichiers `.luau` hors bibliothèque vendorée, 29 631 lignes, 8 documents, 306 clés de localisation EN/FR, 105 tests Lune sur 18 fichiers de spécification, 7 portes de qualité en CI.
 
 ## Ce qui reste à faire par le propriétaire
 
@@ -46,4 +46,5 @@ Reprise : « continue depuis docs/PROGRESS.md ». Lire ensuite `docs/PLAN.md` (p
 - [x] Game passes, developer products, `ProcessReceipt` idempotent, pass premium, boutique, bonus Premium, analytics
 - [x] Aucun TODO/placeholder ; seuls les IDs Roblox restent à renseigner, avec avertissements au démarrage
 - [x] Historique git propre en Conventional Commits, tout poussé sur `origin main`
-- [ ] Rapport final dans le chat (après la passe de durcissement)
+- [x] Passe de durcissement : deux revues adversariales (32 puis N constats), 3 critiques et 10 élevés corrigés, 5 nouveaux garde-fous en test
+- [ ] Rapport final dans le chat

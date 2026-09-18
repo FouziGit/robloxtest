@@ -118,6 +118,28 @@ function LoadoutService.grantElement(player: Player, elementId: string): boolean
 	return true
 end
 
+-- Sets how many extra loadout slots the profile owns (the LoadoutSlots game pass grants them). Lives here
+-- so ProfileData.Loadout keeps a single writer. Idempotent: false when the count is already stored, so
+-- re-applying an owned pass on every profile load writes and replicates nothing.
+function LoadoutService.setExtraSlots(player: Player, count: number): boolean
+	local data = dataService.get(player)
+	if data == nil then
+		log.warn("setExtraSlots skipped for %s: profile not loaded", player.Name)
+		return false
+	end
+	if count < 0 or count % 1 ~= 0 or LOADOUT.BaseSlots + count > LOADOUT.MaxSlots then
+		log.error("rejected %s extra slot(s) for %s", tostring(count), player.Name)
+		return false
+	end
+	if data.Loadout.ExtraSlots == count then
+		return false
+	end
+	data.Loadout.ExtraSlots = count
+	dataService.push(player, "Loadout")
+	log.info("%s now owns %d extra loadout slot(s)", player.Name, count)
+	return true
+end
+
 -- Validates and stores a loadout: at most the slots the profile owns, no duplicate, nothing locked.
 function LoadoutService.setLoadout(player: Player, slots: { string }): boolean
 	local data = dataService.get(player)

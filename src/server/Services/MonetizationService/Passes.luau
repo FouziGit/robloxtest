@@ -64,17 +64,15 @@ end
 
 -- Applies what an owned pass grants.
 function Passes.apply(player: Player, passKey: string)
-	local data = deps.DataService.get(player)
-	if data == nil then
+	-- Every effect below writes through the service that owns the section, and each of those warns on a
+	-- missing profile: bail out first so a sync racing a leaving player stays quiet.
+	if deps.DataService.get(player) == nil then
 		return
 	end
 	if passKey == PASS_LIGHTNING then
 		log.try("grantElement " .. LIGHTNING_ELEMENT, deps.Loadout.grantElement, player, LIGHTNING_ELEMENT)
 	elseif passKey == PASS_LOADOUT_SLOTS then
-		if data.Loadout.ExtraSlots ~= ProgressionConfig.Loadout.PassExtraSlots then
-			data.Loadout.ExtraSlots = ProgressionConfig.Loadout.PassExtraSlots
-			deps.DataService.push(player, "Loadout")
-		end
+		log.try("setExtraSlots", deps.Loadout.setExtraSlots, player, ProgressionConfig.Loadout.PassExtraSlots)
 	elseif passKey == PASS_SKIN_PACK then
 		for _, cosmeticId in ipairs(MonetizationConfig.SkinPackCosmetics) do
 			if CosmeticConfig.ById[cosmeticId] == nil then

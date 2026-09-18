@@ -43,7 +43,11 @@ export type BattlepassApi = {
 	grantXpBoost: (player: Player, minutes: number) -> boolean,
 }
 export type ProgressionApi = { getLevel: (player: Player) -> number }
-export type LoadoutApi = { grantElement: (player: Player, elementId: string) -> boolean }
+-- The single writer of ProfileData.Loadout and ProfileData.Unlocks: pass effects go through it.
+export type LoadoutApi = {
+	grantElement: (player: Player, elementId: string) -> boolean,
+	setExtraSlots: (player: Player, count: number) -> boolean,
+}
 export type CosmeticApi = { grant: (player: Player, cosmeticId: string) -> boolean }
 export type ShopApi = {
 	setPurchaseIntent: (player: Player, cosmeticId: string) -> (string?, string?),

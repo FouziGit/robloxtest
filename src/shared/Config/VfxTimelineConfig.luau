@@ -67,6 +67,17 @@ export type Layer = {
 	-- Built on the phase's Carrier rather than at a fixed point. Ignored when the timeline has no
 	-- carrier, so a layer that rides is still drawn, standing still, rather than not drawn at all.
 	Ride: boolean?,
+	-- Anchored to Context.Follow -- the caster's own body -- and moved with it every frame.
+	--
+	-- Not a convenience. Several glyphs are zones the server re-centres on the caster on every tick
+	-- (GlyphEffects.Scorch calls trustedOrigin each time), so a visual pinned to the cast point would
+	-- draw a lit boundary around empty floor while the player carries an unmarked kill radius around
+	-- with them. And a Trail has no meaning at all on a part that never moves: buildTrail would hand
+	-- back a ribbon between two attachments that never separate, which draws nothing while costing
+	-- three pooled instances to do it.
+	--
+	-- A layer that follows nothing is not drawn, and the runtime says so once, naming the timeline.
+	Follow: boolean?,
 	-- Carrier only: studs travelled over the layer's duration. The distance is scaled by Context.Scale
 	-- like everything else, so one timeline serves a short poke and a long-range projectile.
 	Travel: number?,
@@ -394,6 +405,10 @@ local DASH: Timeline = {
 					For = 0.34,
 					Ease = "Quart",
 					EaseDirection = "Out",
+					-- The dashing body itself. It drew before this said so, because buildTrail happens to
+					-- prefer Context.Follow when a renderer passes one -- which made it correct by accident
+					-- of the builder rather than by declaration, and invisible to every gate.
+					Follow = true,
 					Texture = "BrushStroke",
 					Size = 3.2,
 					EndSize = 0,

@@ -61,6 +61,7 @@ type Live = {
 }
 
 type Pending = {
+	Id: string,
 	Layer: Layer,
 	Context: Context,
 	At: number,
@@ -81,6 +82,7 @@ local warnedTextures: { [string]: boolean } = {}
 -- ends, so a layer that outlives the flight falls back to standing still rather than following a
 -- part that has gone back to the pool.
 local carriers: { [number]: BasePart } = {}
+local warnedFollow: { [string]: boolean } = {}
 local nextPlayId = 0
 local overBudgetWarned = false
 
@@ -571,6 +573,30 @@ local function followCarrier(entry: Live)
 	end
 end
 
+-- The same as followCarrier, against the body the renderer passed rather than against a carrier this
+-- timeline created. This is what keeps a zone drawn where the server is actually damaging.
+local function followBody(entry: Live)
+	local body = entry.Context.Follow
+	if body == nil or body.Parent == nil then
+		return
+	end
+	local primary = entry.Primary
+	if primary == nil then
+		return
+	end
+	local anchor = if primary:IsA("BasePart") then primary :: BasePart else primary.Parent
+	if anchor ~= nil and anchor:IsA("BasePart") then
+		local layer = entry.Layer
+		local scale = entry.Context.Scale or 1
+		local offset = layer.Offset
+		if offset == nil then
+			anchor.CFrame = body.CFrame
+		else
+			anchor.CFrame = body.CFrame * CFrame.new(offset[1] * scale, offset[2] * scale, -offset[3] * scale)
+		end
+	end
+end
+
 local function stepEmitter(entry: Live, alpha: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
@@ -607,6 +633,7 @@ local function releaseLive(entry: Live)
 end
 
 local function activate(item: Pending, now: number)
+	local id = item.Id
 	local layer = item.Layer
 	local context = item.Context
 	local scale = context.Scale or 1
@@ -658,6 +685,16 @@ local function activate(item: Pending, now: number)
 		end
 	end
 
+	if layer.Follow == true and context.Follow == nil then
+		-- Nothing to follow: a ribbon between two attachments that never separate draws nothing, and a
+		-- zone pinned to a body that was never passed would sit at the cast point lying about where the
+		-- damage is. Skipped, and said once so the gap is visible rather than merely invisible.
+		if not warnedFollow[id] then
+			warnedFollow[id] = true
+			log.warn("timeline %s has a layer that follows the caster, and the renderer passed no body", id)
+		end
+		return
+	end
 	local base = frameOf(context)
 	local rider = if layer.Ride == true then carriers[item.PlayId] else nil
 	if rider ~= nil then
@@ -712,6 +749,8 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	end
 	if entry.Layer.Ride == true then
 		followCarrier(entry)
+	elseif entry.Layer.Follow == true then
+		followBody(entry)
 	end
 	if kind == "Sprite" then
 		stepSprite(entry, alpha, deltaTime)
@@ -774,7 +813,7 @@ function VfxTimeline.play(id: string, context: Context): boolean
 				for _, layer in ipairs(phase.Layers) do
 					table.insert(
 						pending,
-						{ Layer = layer, Context = context, At = now + phaseStart + layer.At, PlayId = playId }
+						{ Id = id, Layer = layer, Context = context, At = now + phaseStart + layer.At, PlayId = playId }
 					)
 				end
 				phaseStart += phase.Duration

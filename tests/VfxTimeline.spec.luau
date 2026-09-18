@@ -270,6 +270,28 @@ describe("vfx timelines", function()
 		end)
 	end)
 
+	it("gives every trail something that moves", function()
+		-- A Trail draws the gap between two attachments as they separate. On a part that never moves they
+		-- never separate, so the layer renders nothing at all while costing three pooled instances to do
+		-- it -- and it looks like an authoring choice rather than a bug, which is why it needs a gate.
+		eachLayer(function(id, phase, layer)
+			if layer.Kind == "Trail" and layer.Ride ~= true and layer.Follow ~= true then
+				error(("timeline %s / %s trails from something that never moves"):format(id, phase.Name))
+			end
+		end)
+	end)
+
+	it("never asks a layer to ride and follow at once", function()
+		-- They are two different anchors. A layer that declared both would silently take whichever the
+		-- runtime checks first, which is the kind of thing that is only wrong in the one fight nobody
+		-- tested.
+		eachLayer(function(id, phase, layer)
+			if layer.Ride == true and layer.Follow == true then
+				error(("timeline %s / %s both rides a carrier and follows the caster"):format(id, phase.Name))
+			end
+		end)
+	end)
+
 	it("gives every rider something to ride", function()
 		for id, timeline in pairs(TIMELINES) do
 			local hasCarrier = false

@@ -70,7 +70,10 @@ Coller chaque ID dans `MonetizationConfig.Products.<Clé>.Id`. Les produits « C
 1. `rojo serve`, Play dans Studio : l'Output doit montrer `[Bootstrap] Jutsu Battlegrounds v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
 2. Frapper un mannequin (`J J` = Boule de Feu) → XP, Ryo, barre de niveau.
 3. `M` → Options : réassigner une touche, sauvegarder, relancer Play : la touche est conservée (DataStore actif).
-4. Test tactile : Test → Device → téléphone : les boutons d'action apparaissent à droite.
+4. Test tactile : Test → Device → téléphone (812x375, paysage). Vérifier trois choses :
+   - les cinq disques d'éléments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/ElementConfig.luau` (champ `Glyphs`) — le HUD et l'écran d'équipement suivent automatiquement ;
+   - les disques Melee / Dash / Block / Menu affichent leur libellé court en entier (`CAC`, `Ruée`, `Garde`, `Menu` en français) ;
+   - aucun bouton ne mesure moins de 44 px à l'écran, et rien ne chevauche le bouton de saut du moteur.
 5. Test manette : brancher une manette, D-pad = éléments.
 
 ## 6. Publication automatisée (optionnel)

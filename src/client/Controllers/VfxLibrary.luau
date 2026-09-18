@@ -3,6 +3,8 @@
 -- per packet Id, called by VfxController with a fresh trove that is destroyed after the packet lifetime.
 -- Every part, tween, connection and delayed thread is tracked by that trove, particle rates are capped,
 -- and nothing yields on the caller thread: timed steps run in task.delay threads owned by the trove.
+-- Effects that need a frame step share one Heartbeat (see `animate`) and are skipped while they play
+-- farther than GameConfig.Vfx.AnimateRadiusStuds from the local character.
 -- The server never builds visuals; it only sends {Id, Origin, Direction, Caster, Targets, Params}.
 
 local Players = game:GetService("Players")
@@ -61,6 +63,7 @@ type EmitterProps = {
 
 -- VfxController destroys the packet trove after the same delay: every effect fits inside it.
 local MAX_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
+local ANIMATE_RADIUS_SQUARED = GameConfig.Vfx.AnimateRadiusStuds * GameConfig.Vfx.AnimateRadiusStuds
 local MAX_PARTICLE_RATE = 40
 local MAX_PARTICLE_BURST = 40
 local FOLDER_NAME = "ClientVfx"
@@ -141,6 +144,13 @@ local VfxLibrary: { [string]: Effect } = {}
 
 local folder: Folder? = nil
 
+-- Set whenever the ground probe's exclude list stops describing the world (see `groundAt`).
+local groundExcludeStale = true
+
+local function markGroundExcludeStale()
+	groundExcludeStale = true
+end
+
 local function getFolder(): Folder
 	local existing = folder
 	if existing ~= nil and existing.Parent ~= nil then
@@ -150,6 +160,7 @@ local function getFolder(): Folder
 	created.Name = FOLDER_NAME
 	created.Parent = Workspace
 	folder = created
+	markGroundExcludeStale()
 	return created
 end
 
@@ -203,8 +214,10 @@ local groundParams = RaycastParams.new()
 groundParams.FilterType = Enum.RaycastFilterType.Exclude
 groundParams.IgnoreWater = true
 
--- Ground point under `position` (a root-height origin); falls back to root height when nothing is hit.
-local function groundAt(position: Vector3): Vector3
+-- Assigning FilterDescendantsInstances makes the engine resolve every descendant of the list, and a
+-- full server of characters is a few hundred instances. The list only changes when the effect folder or
+-- a character does, so it is rebuilt then and not on every probe (one jutsu can fire several).
+local function refreshGroundExclude()
 	local exclude: { Instance } = { getFolder() }
 	for _, player in ipairs(Players:GetPlayers()) do
 		local character = player.Character
@@ -213,6 +226,27 @@ local function groundAt(position: Vector3): Vector3
 		end
 	end
 	groundParams.FilterDescendantsInstances = exclude
+	groundExcludeStale = false
+end
+
+-- A respawn swaps the character model, so both edges have to invalidate or the filter would keep
+-- excluding a destroyed rig and stop excluding the live one.
+local function watchCharacters(player: Player)
+	player.CharacterAdded:Connect(markGroundExcludeStale)
+	player.CharacterRemoving:Connect(markGroundExcludeStale)
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+	watchCharacters(player)
+end
+Players.PlayerAdded:Connect(watchCharacters)
+Players.PlayerRemoving:Connect(markGroundExcludeStale)
+
+-- Ground point under `position` (a root-height origin); falls back to root height when nothing is hit.
+local function groundAt(position: Vector3): Vector3
+	if groundExcludeStale then
+		refreshGroundExclude()
+	end
 	local result = Workspace:Raycast(
 		position + Vector3.new(0, ROOT_HEIGHT_STUDS, 0),
 		Vector3.new(0, -GROUND_PROBE_STUDS, 0),
@@ -304,8 +338,7 @@ local function addTrail(parent: BasePart, color: Color3, halfWidth: number, life
 	return trail
 end
 
-local function localRoot(api: Api): BasePart?
-	local character = api.LocalCharacter()
+local function rootOf(character: Model?): BasePart?
 	if character == nil then
 		return nil
 	end
@@ -314,6 +347,10 @@ local function localRoot(api: Api): BasePart?
 		return root
 	end
 	return nil
+end
+
+local function localRoot(api: Api): BasePart?
+	return rootOf(api.LocalCharacter())
 end
 
 -- Shakes the local camera with an intensity that fades with the distance to `origin`.
@@ -338,15 +375,85 @@ local function casterRoot(packet: Packet): BasePart?
 	if player == nil then
 		return nil
 	end
-	local character = player.Character
-	if character == nil then
-		return nil
+	return rootOf(player.Character)
+end
+
+----------------------------------------------------------------
+-- Frame ticker
+----------------------------------------------------------------
+
+-- One live frame-stepped effect. `Center` is where it plays and is what the distance gate measures;
+-- `Follow` is the root it rides, when it tracks its caster.
+type Animation = {
+	Center: Vector3,
+	Follow: BasePart?,
+	Elapsed: number,
+	Live: boolean,
+	Step: (elapsed: number, center: Vector3, viewer: BasePart?) -> (),
+}
+
+-- Every frame-stepped effect shares one Heartbeat. A connection per effect made the per-frame cost
+-- scale with the number of casters instead of with what the viewer can see: chakra lets a full server
+-- keep two dozen of them alive at once, each rewriting up to ten CFrames a frame.
+local animations: { Animation } = {}
+local animationConnection: RBXScriptConnection? = nil
+
+local function stepAnimations(deltaTime: number)
+	-- The ticker is shared, so it has no packet `api`; it reads the same character api.LocalCharacter
+	-- returns, once for every effect instead of once per effect.
+	local viewer = rootOf(Players.LocalPlayer.Character)
+	local viewerPosition = if viewer ~= nil then viewer.Position else nil
+	local index = 1
+	while index <= #animations do
+		local animation = animations[index]
+		if not animation.Live then
+			-- Order does not matter: swapping the last one in keeps the scan over live effects only.
+			animations[index] = animations[#animations]
+			table.remove(animations)
+		else
+			animation.Elapsed += deltaTime
+			local follow = animation.Follow
+			if follow ~= nil and follow.Parent ~= nil then
+				animation.Center = follow.Position
+			end
+			local offset = if viewerPosition ~= nil then animation.Center - viewerPosition else nil
+			-- Elapsed keeps running while gated, so an effect that comes back into range resumes at the
+			-- phase it should be at rather than replaying from where it froze.
+			if offset == nil or offset:Dot(offset) <= ANIMATE_RADIUS_SQUARED then
+				animation.Step(animation.Elapsed, animation.Center, viewer)
+			end
+			index += 1
+		end
 	end
-	local root: Instance? = character:FindFirstChild(ROOT_PART_NAME)
-	if root ~= nil and root:IsA("BasePart") then
-		return root
+	local connection = animationConnection
+	if #animations == 0 and connection ~= nil then
+		animationConnection = nil
+		connection:Disconnect()
 	end
-	return nil
+end
+
+-- Steps `step` every frame until `trove` is cleaned, so an effect keeps exactly the lifetime it had
+-- when it owned its own connection.
+local function animate(
+	trove: TroveType,
+	center: Vector3,
+	follow: BasePart?,
+	step: (elapsed: number, center: Vector3, viewer: BasePart?) -> ()
+)
+	local animation: Animation = {
+		Center = center,
+		Follow = follow,
+		Elapsed = 0,
+		Live = true,
+		Step = step,
+	}
+	table.insert(animations, animation)
+	trove:Add(function()
+		animation.Live = false
+	end)
+	if animationConnection == nil then
+		animationConnection = RunService.Heartbeat:Connect(stepAnimations)
+	end
 end
 
 local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency: number, seconds: number)
@@ -744,13 +851,12 @@ VfxLibrary.EmberStorm = function(packet: Packet, trove: TroveType, api: Api)
 	local duration = clampLifetime(numberParam(packet, "Duration", defaultDuration), 0.5)
 	local color = api.ElementColor("Fire")
 	local follow = casterRoot(packet)
-	local center = packet.Origin
 	local ringTrove = trove:Extend()
 
 	local ring = newPart(ringTrove, "EmberRing", {
 		Transparency = 1,
 		Size = Vector3.new(radius * 2, 1, radius * 2),
-		CFrame = CFrame.new(center),
+		CFrame = CFrame.new(packet.Origin),
 	})
 	local sparks = newEmitter(ring, {
 		Color = color,
@@ -770,14 +876,8 @@ VfxLibrary.EmberStorm = function(packet: Packet, trove: TroveType, api: Api)
 		})
 	end
 
-	local angle = 0
-	local elapsed = 0
-	ringTrove:Connect(RunService.Heartbeat, function(deltaTime: number)
-		elapsed += deltaTime
-		angle += deltaTime * EMBER_SPIN_RADIANS_PER_SECOND
-		if follow ~= nil and follow.Parent ~= nil then
-			center = follow.Position
-		end
+	animate(ringTrove, packet.Origin, follow, function(elapsed: number, center: Vector3)
+		local angle = elapsed * EMBER_SPIN_RADIANS_PER_SECOND
 		local fade = math.clamp((elapsed - (duration - RING_FADE_SECONDS)) / RING_FADE_SECONDS, 0, 1)
 		for index, ember in ipairs(embers) do
 			local emberAngle = angle + (index - 1) * (2 * math.pi / EMBER_COUNT)
@@ -954,12 +1054,11 @@ VfxLibrary.Meteor = function(packet: Packet, trove: TroveType, api: Api)
 
 	-- Ballistic arc: a tween cannot drive it, so the rock is stepped every frame.
 	local arc = trove:Extend()
-	local elapsed = 0
-	arc:Connect(RunService.Heartbeat, function(deltaTime: number)
-		elapsed = math.min(elapsed + deltaTime, flight)
-		local spin = elapsed * METEOR_SPIN_RADIANS_PER_SECOND
-		local lift = rise * elapsed - 0.5 * gravity * elapsed * elapsed
-		rock.CFrame = CFrame.new(start + direction * (speed * elapsed) + Vector3.new(0, lift, 0))
+	animate(arc, start, nil, function(elapsed: number)
+		local flown = math.min(elapsed, flight)
+		local spin = flown * METEOR_SPIN_RADIANS_PER_SECOND
+		local lift = rise * flown - 0.5 * gravity * flown * flown
+		rock.CFrame = CFrame.new(start + direction * (speed * flown) + Vector3.new(0, lift, 0))
 			* CFrame.Angles(spin, spin * 0.6, 0)
 	end)
 
@@ -1088,7 +1187,6 @@ VfxLibrary.StoneSkin = function(packet: Packet, trove: TroveType, api: Api)
 	local radius = math.max(numberParam(packet, "Radius", 6), 1.5)
 	local color = api.ElementColor(stringParam(packet, "Element", "Earth"))
 	local follow = casterRoot(packet)
-	local center = packet.Origin
 	local shellTrove = trove:Extend()
 	local plateWidth = (2 * math.pi * radius / STONE_PLATE_COUNT) * STONE_PLATE_GAP_FACTOR
 
@@ -1111,12 +1209,7 @@ VfxLibrary.StoneSkin = function(packet: Packet, trove: TroveType, api: Api)
 	})
 	burst(grit, 18)
 
-	local elapsed = 0
-	shellTrove:Connect(RunService.Heartbeat, function(deltaTime: number)
-		elapsed += deltaTime
-		if follow ~= nil and follow.Parent ~= nil then
-			center = follow.Position
-		end
+	animate(shellTrove, packet.Origin, follow, function(elapsed: number, center: Vector3)
 		local spin = elapsed * STONE_SPIN_RADIANS_PER_SECOND
 		for index, plate in ipairs(plates) do
 			local angle = spin + (index - 1) * (2 * math.pi / STONE_PLATE_COUNT)
@@ -1213,9 +1306,7 @@ VfxLibrary.Cyclone = function(packet: Packet, trove: TroveType, api: Api)
 		Acceleration = Vector3.new(0, 14, 0),
 	})
 
-	local elapsed = 0
-	funnelTrove:Connect(RunService.Heartbeat, function(deltaTime: number)
-		elapsed += deltaTime
+	animate(funnelTrove, ground, nil, function(elapsed: number)
 		local spin = elapsed * CYCLONE_SPIN_RADIANS_PER_SECOND
 		local fade = math.clamp((elapsed - (duration - RING_FADE_SECONDS)) / RING_FADE_SECONDS, 0, 1)
 		for index, ring in ipairs(rings) do
@@ -1291,14 +1382,13 @@ VfxLibrary.Sandstorm = function(packet: Packet, trove: TroveType, api: Api)
 		Transparency = NumberSequence.new(0.35, 1),
 	})
 	gritEmitter.Enabled = false
-	domeTrove:Connect(RunService.Heartbeat, function()
-		local root = localRoot(api)
-		if root == nil then
+	animate(domeTrove, ground, nil, function(_elapsed: number, _center: Vector3, viewer: BasePart?)
+		if viewer == nil then
 			gritEmitter.Enabled = false
 			return
 		end
-		grit.CFrame = CFrame.new(root.Position)
-		gritEmitter.Enabled = (root.Position - ground).Magnitude <= radius
+		grit.CFrame = CFrame.new(viewer.Position)
+		gritEmitter.Enabled = (viewer.Position - ground).Magnitude <= radius
 	end)
 	after(trove, math.max(duration - 0.4, 0.1), function()
 		sand.Enabled = false

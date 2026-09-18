@@ -4,7 +4,8 @@
 -- board scoring every rating above RankingConfig.InitialRating).
 -- Writes are driven by RankingService.RatingChanged and coalesced: only the latest value of a key is
 -- kept and a key is written at most once every RankingConfig.Leaderboard.MinWriteIntervalSeconds, with
--- a forced flush when the player leaves so a session never ends on a stale ladder. Every board is
+-- a forced flush when the player leaves so a session never ends on a stale ladder — that flush waits
+-- out the key's OrderedDataStore cooldown rather than writing through it. Every board is
 -- re-read every RankingConfig.Leaderboard.RefreshSeconds with GetSortedAsync, names resolved through a
 -- cache, and the rows are rendered onto the hub's LeaderboardBoard_<boardId> SurfaceGuis. Every
 -- DataStore call goes through a retry with backoff and stays silent on failure, so a server without
@@ -47,8 +48,9 @@ type RankingApi = {
 type Registry = { setCallback: (name: string, callback: (player: Player, ...any) -> ...any) -> () }
 type Deps = { Registry: Registry, Ranking: RankingApi }
 
--- One coalesced ladder write.
-type Write = { BoardId: string, UserId: number, Value: number }
+-- One coalesced ladder write. `NotBefore` is the os.clock() at which the key leaves its per-key
+-- OrderedDataStore cooldown; writing earlier is rejected, so the write waits for it instead.
+type Write = { BoardId: string, UserId: number, Value: number, NotBefore: number }
 
 local STORE_SEPARATOR = "_"
 local BOARD_PART_PREFIX = "LeaderboardBoard_"
@@ -59,6 +61,10 @@ local ROWS_FRAME_NAME = "LeaderboardRows"
 local WRITE_SCAN_SECONDS = 1
 local RETRY_ATTEMPTS = 3
 local RETRY_BACKOFF_SECONDS = 2 -- doubles after each failed attempt
+-- Roblox rejects a second SetAsync on the same OrderedDataStore key inside this window. The periodic
+-- scan is far slower than that, but the forced flush on leave is not, so it waits the remainder out:
+-- writing through the cooldown spends every retry on a rejection and can still end up losing the value.
+local KEY_COOLDOWN_SECONDS = 6
 
 local LeaderboardService = {}
 
@@ -180,7 +186,8 @@ end
 ----------------------------------------------------------------
 
 -- Takes every write that is due out of the queue. With `onlyUserId` it takes that player's writes
--- whatever the interval (used when they leave). Never yields, so the queue is never mutated mid-scan.
+-- whatever the interval (used when they leave), each stamped with the time its key becomes writable.
+-- Never yields, so the queue is never mutated mid-scan.
 local function takeDue(onlyUserId: number?): { Write }
 	local now = os.clock()
 	local interval = RankingConfig.Leaderboard.MinWriteIntervalSeconds
@@ -189,26 +196,34 @@ local function takeDue(onlyUserId: number?): { Write }
 		local queue = pending[boardId]
 		local stamps = lastWrite[boardId]
 		for userId, value in pairs(queue) do
+			local last = stamps[userId]
 			local include: boolean
 			if onlyUserId ~= nil then
 				include = userId == onlyUserId
 			else
-				local last = stamps[userId]
 				include = last == nil or now - last >= interval
 			end
 			if include then
+				-- Only the forced path can reach a key still inside its cooldown: the periodic scan
+				-- already waited a whole MinWriteIntervalSeconds, which is the longer of the two.
+				local notBefore = if last == nil then now else math.max(now, last + KEY_COOLDOWN_SECONDS)
 				queue[userId] = nil
-				table.insert(due, { BoardId = boardId, UserId = userId, Value = value })
+				table.insert(due, { BoardId = boardId, UserId = userId, Value = value, NotBefore = notBefore })
 			end
 		end
 	end
 	return due
 end
 
--- Writes taken values one by one. A failed write goes back to the queue unless a newer value arrived
--- meanwhile, so nothing is lost and nothing overwrites a fresher rating. Yields.
+-- Writes taken values one by one, each once its key is out of cooldown. A failed write goes back to the
+-- queue unless a newer value arrived meanwhile, so nothing is lost and nothing overwrites a fresher
+-- rating. Yields.
 local function writeDue(due: { Write })
 	for _, item in ipairs(due) do
+		local cooldown = item.NotBefore - os.clock()
+		if cooldown > 0 then
+			task.wait(cooldown)
+		end
 		local store = storeFor(GameConfig.SeasonId, item.BoardId)
 		local ok = false
 		if store ~= nil then

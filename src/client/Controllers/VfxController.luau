@@ -18,7 +18,8 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Trove = require(Packages.Trove)
 local VfxConfig = require(Shared.Config.VfxConfig)
-local VfxLibrary = require(script.Parent.VfxLibrary)
+-- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
+local VfxLibrary = require(script.Parent:WaitForChild("VfxLibrary"))
 
 local log = Log.new("VfxController")
 

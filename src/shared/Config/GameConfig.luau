@@ -22,8 +22,10 @@ GameConfig.PreviousSeasonId = ""
 --
 -- This is server-side only. The client never learns who is on the list and cannot ask to be added.
 GameConfig.Developers = {
-	Names = { "BakuyaraTZ" } :: { string },
-	UserIds = {} :: { number },
+	-- Empty on purpose: the id below is what matches. A name is only useful before an account has ever
+	-- joined, and it can be changed by its owner and then taken by somebody else.
+	Names = {} :: { string },
+	UserIds = { 3721321390 } :: { number }, -- BakuyaraTZ
 	-- Every jutsu equipped at once instead of the purchased slot budget, so the whole roster is one key
 	-- sequence away.
 	UnlimitedSlots = true,

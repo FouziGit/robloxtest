@@ -8,7 +8,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Log = require(Shared.Util.Log)
-local RemoteClient = require(script.Parent.Parent.RemoteClient)
+-- WaitForChild: a sibling of this module's folder may not have been copied into PlayerScripts yet.
+local RemoteClient = require(script.Parent.Parent:WaitForChild("RemoteClient"))
 local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 

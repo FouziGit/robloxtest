@@ -48,6 +48,36 @@ local function stripComments(source: string): string
 	return table.concat(lines, "\n")
 end
 
+-- StarterPlayerScripts is COPIED into PlayerScripts one child at a time when a player spawns, so a module
+-- there can start before its own siblings exist. Indexing a sibling directly raised "RemoteClient is not
+-- a valid member of PlayerScripts" and killed the whole client; the server ran on, so the player saw a
+-- world with no interface and no error they could act on. Every sibling reach must go through
+-- WaitForChild, which blocks until the child arrives instead of returning nil.
+describe("client sibling access", function()
+	it("never indexes a sibling module directly", function()
+		local files: { string } = {}
+		collect("src/client", files)
+		expect(#files).toBeGreaterThan(5)
+
+		local offences: { string } = {}
+		for _, path in ipairs(files) do
+			local code = stripComments(fs.readFile(path))
+			for line in string.gmatch(code .. "\n", "(.-)\n") do
+				-- script.Parent.Name or script.Parent.Parent.Name, with no WaitForChild on that line.
+				if
+					string.match(line, "script%.Parent[%.%w]*%.%u%w*") ~= nil and not string.find(line, "WaitForChild")
+				then
+					table.insert(offences, ("%s: %s"):format(path, (string.gsub(line, "^%s+", ""))))
+				end
+			end
+		end
+		table.sort(offences)
+		if #offences > 0 then
+			error(table.concat(offences, "\n"))
+		end
+	end)
+end)
+
 describe("engine-only API", function()
 	it("is never touched from game code", function()
 		local files: { string } = {}

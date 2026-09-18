@@ -18,8 +18,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
-local Log = require(Shared.Util.Log)
-local RemoteClient = require(script.Parent.RemoteClient)
+-- WaitForChild the whole way down, siblings included. StarterPlayerScripts is COPIED into PlayerScripts
+-- one child at a time when the player spawns, and this script can start before its own siblings have
+-- arrived: indexing RemoteClient directly raised "not a valid member of PlayerScripts" and killed the
+-- entire client, HUD and all ten screens with it, while the server ran on perfectly.
+local Log = require(Shared:WaitForChild("Util"):WaitForChild("Log"))
+local RemoteClient = require(script.Parent:WaitForChild("RemoteClient"))
 
 local log = Log.new("ClientBootstrap")
 

@@ -16,13 +16,24 @@ PigmentConfig.Base = { "Cinnabar", "Indigo", "Umber", "Verdigris" } :: { Pigment
 -- Unlocked by grind or game pass (see MonetizationConfig / ProgressionConfig).
 PigmentConfig.Unlockable = { "Orpiment" } :: { PigmentId }
 
--- Colors as RGB 0-255 (UI converts to Color3).
+-- The five pigments, as RGB 0-255 (the UI converts to Color3). These are the exact values argued in
+-- docs/ART_BIBLE.md, and they are the game's whole colour language: a school IS its pigment, so a
+-- player has to be able to name the school from the colour alone, from behind, at thirty studs.
+--
+-- What they replace was the default elemental wheel -- orange, blue, brown, pale green, yellow -- which
+-- is the palette every other game of this genre ships, and the first reason a screenshot of this one
+-- was interchangeable with any other.
+--
+-- They are dark and saturated on purpose. The world is cream and unsaturated (rule 1: nothing in the
+-- scenery is ever saturated), so a mark reads as ink on a page rather than as a glow in a dark room,
+-- which is the inversion the direction is built on. tests/Config.spec.luau holds every pair apart by a
+-- perceptual distance, because two schools nobody can tell apart is a gameplay defect, not a taste one.
 PigmentConfig.Colors = {
-	Cinnabar = { 235, 90, 40 },
-	Indigo = { 60, 140, 235 },
-	Umber = { 150, 105, 60 },
-	Verdigris = { 170, 220, 190 },
-	Orpiment = { 240, 220, 80 },
+	Cinnabar = { 217, 58, 34 }, -- #D93A22, mercury red
+	Indigo = { 46, 74, 140 }, -- #2E4A8C, vat blue
+	Umber = { 107, 74, 47 }, -- #6B4A2F, burnt earth
+	Verdigris = { 79, 168, 140 }, -- #4FA88C, copper green
+	Orpiment = { 232, 192, 34 }, -- #E8C022, arsenic yellow
 } :: { [PigmentId]: Rgb }
 
 -- Sigil shown on combo chips / touch buttons. Pictographs, not initials: an initial is the initial of

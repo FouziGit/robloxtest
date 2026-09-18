@@ -728,3 +728,77 @@ describe("FeelConfig", function()
 		end
 	end)
 end)
+
+-- docs/ART_BIBLE.md rule 2: "Un joueur doit pouvoir nommer l'école d'un sort à la couleur seule, de dos,
+-- à trente studs." That is a gameplay requirement, not a taste one -- a player who cannot tell Indigo
+-- from Umber at a glance cannot read what is about to hit them -- so it is worth a test rather than an
+-- opinion in a document.
+describe("pigment readability", function()
+	-- Weighted euclidean distance in sRGB ("redmean"), the cheap approximation of perceptual difference
+	-- that is standard for exactly this question. It ranges from 0 to about 765.
+	local function distance(a: { number }, b: { number }): number
+		local rmean = (a[1] + b[1]) / 2
+		local dr, dg, db = a[1] - b[1], a[2] - b[2], a[3] - b[3]
+		return math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db)
+	end
+
+	-- The closest pair in the shipped palette is Indigo and Umber at 179, and the next is Cinnabar and
+	-- Umber at 182. The floor sits below both with room to spare, so it is a guard against a future edit
+	-- rather than a restatement of today's values.
+	local MIN_PAIR_DISTANCE = 150
+	-- Against the world itself. Vellum #E8E0CE is the paper everything is drawn on, and the weakest
+	-- pigment against it is Orpiment at 257: a yellow on cream is the hardest case the palette contains.
+	local MIN_BACKGROUND_DISTANCE = 200
+	local VELLUM = { 232, 224, 206 }
+
+	it("keeps every pair of schools apart", function()
+		local order = PigmentConfig.Order
+		for i = 1, #order do
+			for j = i + 1, #order do
+				local a, b = order[i], order[j]
+				local apart = distance(PigmentConfig.Colors[a], PigmentConfig.Colors[b])
+				if apart < MIN_PAIR_DISTANCE then
+					error(("%s and %s are %.0f apart; a player cannot name the school"):format(a, b, apart))
+				end
+			end
+		end
+	end)
+
+	it("keeps every school off the page it is drawn on", function()
+		for _, id in ipairs(PigmentConfig.Order) do
+			local apart = distance(PigmentConfig.Colors[id], VELLUM)
+			if apart < MIN_BACKGROUND_DISTANCE then
+				error(("%s is %.0f from the world's own colour and would vanish into it"):format(id, apart))
+			end
+		end
+	end)
+
+	it("keeps the scenery out of the pigments' range", function()
+		-- Art bible rule 1: "Le décor n'est jamais saturé. Le seul élément saturé de l'écran est un sort."
+		-- Both halves are tested, because the rule only buys anything if both hold: a muted world with a
+		-- muted spell is as unreadable as a loud world with a loud one.
+		--
+		-- Measured as absolute chroma, (max - min) / 255, not as HSV saturation. HSV saturation is
+		-- meaningless on a near-black: Charcoal #17150F has eight units of spread across a value of 23,
+		-- which reads as 0.35 saturated and looks exactly like black. Absolute chroma puts it at 0.03,
+		-- which is what the eye agrees with.
+		local function chroma(rgb: { number }): number
+			return (math.max(rgb[1], rgb[2], rgb[3]) - math.min(rgb[1], rgb[2], rgb[3])) / 255
+		end
+		-- The world's two colours: Vellum #E8E0CE at 0.10 and Charcoal #17150F at 0.03.
+		for _, world in ipairs({ VELLUM, { 23, 21, 15 } }) do
+			local value = chroma(world)
+			if value > 0.15 then
+				error(("a world colour has chroma %.2f; the scenery is never saturated"):format(value))
+			end
+		end
+		-- And every pigment above it. Umber is the narrowest at 0.24 -- a burnt earth is a muted colour by
+		-- nature -- which is why the floor sits where it does rather than somewhere more comfortable.
+		for _, id in ipairs(PigmentConfig.Order) do
+			local value = chroma(PigmentConfig.Colors[id])
+			if value < 0.2 then
+				error(("%s has chroma %.2f and would read as scenery"):format(id, value))
+			end
+		end
+	end)
+end)

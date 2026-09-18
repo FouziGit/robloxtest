@@ -13,15 +13,9 @@ Strings.Locales = { "en", "fr" }
 Strings.Table = {
 	-- Common
 	["common.ok"] = { en = "OK", fr = "OK" },
-	["common.cancel"] = { en = "Cancel", fr = "Annuler" },
-	["common.back"] = { en = "Back", fr = "Retour" },
-	["common.close"] = { en = "Close", fr = "Fermer" },
-	["common.yes"] = { en = "Yes", fr = "Oui" },
-	["common.no"] = { en = "No", fr = "Non" },
 	["common.save"] = { en = "Save", fr = "Sauvegarder" },
 	["common.reset"] = { en = "Reset", fr = "Réinitialiser" },
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
-	["common.level"] = { en = "Level {level}", fr = "Niveau {level}" },
 
 	-- Elements & actions
 	["element.fire"] = { en = "Fire", fr = "Feu" },
@@ -38,7 +32,6 @@ Strings.Table = {
 	-- HUD / casting feedback
 	["hud.combo.noMatch"] = { en = "No jutsu matches…", fr = "Aucun jutsu ne correspond…" },
 	["hud.combo.dissipated"] = { en = "The sequence dissipated…", fr = "La séquence s'est dissipée…" },
-	["hud.cast.tooFast"] = { en = "Too fast! Catch your breath…", fr = "Trop rapide ! Reprends ton souffle…" },
 	["hud.cast.cooldown"] = { en = "{name}: {seconds}s left", fr = "{name} : encore {seconds}s" },
 	["hud.cast.success"] = { en = "{name}!", fr = "{name} !" },
 	["hud.cast.notEnoughChakra"] = { en = "Not enough chakra", fr = "Pas assez de chakra" },
@@ -66,7 +59,6 @@ Strings.Table = {
 	["menu.settings"] = { en = "Settings", fr = "Options" },
 	["menu.battlepass"] = { en = "Battle Pass", fr = "Battle Pass" },
 	["menu.shop"] = { en = "Shop", fr = "Boutique" },
-	["menu.leaderboard"] = { en = "Leaderboard", fr = "Classement" },
 	["menu.quests"] = { en = "Quests", fr = "Quêtes" },
 	["menu.loadout"] = { en = "Loadout", fr = "Équipement" },
 
@@ -118,8 +110,6 @@ Strings.Table = {
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
 	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
-	["battlepass.claimedToast"] = { en = "Claimed: {reward}", fr = "Récupéré : {reward}" },
-	["battlepass.unlockPremium"] = { en = "Unlock Premium", fr = "Débloquer Premium" },
 
 	-- Jutsus
 	["jutsu.Fireball.name"] = { en = "Fireball", fr = "Boule de Feu" },
@@ -390,7 +380,6 @@ Strings.Table = {
 	["queue.alreadyQueued"] = { en = "You are already in a queue.", fr = "Tu es déjà dans une file." },
 	["queue.inMatch"] = { en = "You are already in a match.", fr = "Tu es déjà en match." },
 	["match.countdown"] = { en = "{seconds}", fr = "{seconds}" },
-	["match.starting"] = { en = "Get ready!", fr = "Prépare-toi !" },
 	["match.round"] = { en = "Round {round} / {total}", fr = "Manche {round} / {total}" },
 	["match.timeLeft"] = { en = "{seconds}s", fr = "{seconds}s" },
 	["match.score"] = { en = "{ours} - {theirs}", fr = "{ours} - {theirs}" },
@@ -420,9 +409,6 @@ Strings.Table = {
 	["leaderboard.you"] = { en = "You: #{rank} ({rating})", fr = "Toi : #{rank} ({rating})" },
 	["leaderboard.youUnlisted"] = { en = "You: outside the top {count}", fr = "Toi : hors du top {count}" },
 	["leaderboard.unranked"] = { en = "Unranked — play a ranked match", fr = "Non classé — joue un match classé" },
-	["hub.queueTerminal"] = { en = "Match queue", fr = "File de match" },
-	["hub.trainingArea"] = { en = "Training", fr = "Entraînement" },
-	["hub.shop"] = { en = "Shop", fr = "Boutique" },
 
 	-- World Boss
 	["boss.name"] = { en = "World Boss", fr = "Boss du monde" },
@@ -463,12 +449,6 @@ Strings.Table = {
 	},
 
 	-- Cosmetics
-	["cosmetics.title"] = { en = "Cosmetics", fr = "Cosmétiques" },
-	["cosmetics.slot.Aura"] = { en = "Aura", fr = "Aura" },
-	["cosmetics.slot.Trail"] = { en = "Trail", fr = "Traînée" },
-	["cosmetics.slot.KillEffect"] = { en = "Finisher", fr = "Finisher" },
-	["cosmetics.slot.Title"] = { en = "Title", fr = "Titre" },
-	["cosmetics.slot.Skin"] = { en = "Jutsu skin", fr = "Skin de jutsu" },
 	["cosmetics.none"] = { en = "None", fr = "Aucun" },
 	["cosmetics.equipped"] = { en = "Equipped: {name}", fr = "Équipé : {name}" },
 	["cosmetics.notOwned"] = { en = "You do not own this cosmetic.", fr = "Tu ne possèdes pas ce cosmétique." },
@@ -490,7 +470,6 @@ Strings.Table = {
 	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
 
 	-- Enemies
-	["enemy.dummy"] = { en = "Training Dummy", fr = "Mannequin d'entraînement" },
 
 	-- Kick / errors
 	["kick.sessionElsewhere"] = {

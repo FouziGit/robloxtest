@@ -6,7 +6,6 @@ action.menu,Menu,JutsuBattlegrounds,,Menu,Menu
 battlepass.alreadyClaimed,Already claimed.,JutsuBattlegrounds,,Already claimed.,Déjà récupéré.
 battlepass.claim,Claim,JutsuBattlegrounds,,Claim,Récupérer
 battlepass.claimed,Claimed,JutsuBattlegrounds,,Claimed,Récupéré
-battlepass.claimedToast,Claimed: {reward},JutsuBattlegrounds,,Claimed: {reward},Récupéré : {reward}
 battlepass.completed,Completed!,JutsuBattlegrounds,,Completed!,Terminé !
 battlepass.free,Free,JutsuBattlegrounds,,Free,Gratuit
 battlepass.notReached,Tier {tier} not reached yet.,JutsuBattlegrounds,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
@@ -18,7 +17,6 @@ battlepass.reward.ryo,{amount} Ryo,JutsuBattlegrounds,,{amount} Ryo,{amount} Ryo
 battlepass.reward.xpBoost,XP boost ({minutes} min),JutsuBattlegrounds,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},JutsuBattlegrounds,,Tier {tier} / {max},Palier {tier} / {max}
 battlepass.title,Battle Pass — Season {season},JutsuBattlegrounds,,Battle Pass — Season {season},Battle Pass — Saison {season}
-battlepass.unlockPremium,Unlock Premium,JutsuBattlegrounds,,Unlock Premium,Débloquer Premium
 battlepass.xp,{xp} / {needed} XP,JutsuBattlegrounds,,{xp} / {needed} XP,{xp} / {needed} XP
 boss.announced,A World Boss appears in {seconds}s!,JutsuBattlegrounds,,A World Boss appears in {seconds}s!,Un boss du monde apparaît dans {seconds}s !
 boss.attack.eruption,Eruption,JutsuBattlegrounds,,Eruption,Éruption
@@ -36,16 +34,10 @@ boss.reward,"Boss reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Boss reward
 boss.share,Your damage: {percent}%,JutsuBattlegrounds,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The World Boss is here!,JutsuBattlegrounds,,The World Boss is here!,Le boss du monde est là !
 boss.timeLeft,{seconds}s left,JutsuBattlegrounds,,{seconds}s left,{seconds}s restantes
-common.back,Back,JutsuBattlegrounds,,Back,Retour
-common.cancel,Cancel,JutsuBattlegrounds,,Cancel,Annuler
-common.close,Close,JutsuBattlegrounds,,Close,Fermer
-common.level,Level {level},JutsuBattlegrounds,,Level {level},Niveau {level}
 common.locked,Locked,JutsuBattlegrounds,,Locked,Verrouillé
-common.no,No,JutsuBattlegrounds,,No,Non
 common.ok,OK,JutsuBattlegrounds,,OK,OK
 common.reset,Reset,JutsuBattlegrounds,,Reset,Réinitialiser
 common.save,Save,JutsuBattlegrounds,,Save,Sauvegarder
-common.yes,Yes,JutsuBattlegrounds,,Yes,Oui
 cosmetic.AnbuMask,Anbu Mask,JutsuBattlegrounds,,Anbu Mask,Masque Anbu
 cosmetic.AuraCrimson,Crimson Aura,JutsuBattlegrounds,,Crimson Aura,Aura Pourpre
 cosmetic.AuraEmber,Ember Aura,JutsuBattlegrounds,,Ember Aura,Aura de Braise
@@ -89,12 +81,6 @@ cosmetic.VioletChakraAura,Violet Chakra Aura,JutsuBattlegrounds,,Violet Chakra A
 cosmetics.equipped,Equipped: {name},JutsuBattlegrounds,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,JutsuBattlegrounds,,None,Aucun
 cosmetics.notOwned,You do not own this cosmetic.,JutsuBattlegrounds,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
-cosmetics.slot.Aura,Aura,JutsuBattlegrounds,,Aura,Aura
-cosmetics.slot.KillEffect,Finisher,JutsuBattlegrounds,,Finisher,Finisher
-cosmetics.slot.Skin,Jutsu skin,JutsuBattlegrounds,,Jutsu skin,Skin de jutsu
-cosmetics.slot.Title,Title,JutsuBattlegrounds,,Title,Titre
-cosmetics.slot.Trail,Trail,JutsuBattlegrounds,,Trail,Traînée
-cosmetics.title,Cosmetics,JutsuBattlegrounds,,Cosmetics,Cosmétiques
 currency.ryo,Ryo,JutsuBattlegrounds,,Ryo,Ryo
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,JutsuBattlegrounds,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
 daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",JutsuBattlegrounds,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
@@ -107,10 +93,6 @@ element.fire,Fire,JutsuBattlegrounds,,Fire,Feu
 element.lightning,Lightning,JutsuBattlegrounds,,Lightning,Foudre
 element.water,Water,JutsuBattlegrounds,,Water,Eau
 element.wind,Wind,JutsuBattlegrounds,,Wind,Vent
-enemy.dummy,Training Dummy,JutsuBattlegrounds,,Training Dummy,Mannequin d'entraînement
-hub.queueTerminal,Match queue,JutsuBattlegrounds,,Match queue,File de match
-hub.shop,Shop,JutsuBattlegrounds,,Shop,Boutique
-hub.trainingArea,Training,JutsuBattlegrounds,,Training,Entraînement
 hud.bar,{name}  {current} / {max},JutsuBattlegrounds,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.cooldown,{name}: {seconds}s left,JutsuBattlegrounds,,{name}: {seconds}s left,{name} : encore {seconds}s
 hud.cast.failed,{name} failed,JutsuBattlegrounds,,{name} failed,{name} a échoué
@@ -118,7 +100,6 @@ hud.cast.locked,{name} is locked,JutsuBattlegrounds,,{name} is locked,{name} est
 hud.cast.notEnoughChakra,Not enough chakra,JutsuBattlegrounds,,Not enough chakra,Pas assez de chakra
 hud.cast.notEquipped,{name} is not in your loadout,JutsuBattlegrounds,,{name} is not in your loadout,{name} n'est pas dans ton équipement
 hud.cast.success,{name}!,JutsuBattlegrounds,,{name}!,{name} !
-hud.cast.tooFast,Too fast! Catch your breath…,JutsuBattlegrounds,,Too fast! Catch your breath…,Trop rapide ! Reprends ton souffle…
 hud.chakra,Chakra,JutsuBattlegrounds,,Chakra,Chakra
 hud.combo.dissipated,The sequence dissipated…,JutsuBattlegrounds,,The sequence dissipated…,La séquence s'est dissipée…
 hud.combo.noMatch,No jutsu matches…,JutsuBattlegrounds,,No jutsu matches…,Aucun jutsu ne correspond…
@@ -213,11 +194,9 @@ match.round,Round {round} / {total},JutsuBattlegrounds,,Round {round} / {total},
 match.roundLost,Round lost,JutsuBattlegrounds,,Round lost,Manche perdue
 match.roundWon,Round won!,JutsuBattlegrounds,,Round won!,Manche gagnée !
 match.score,{ours} - {theirs},JutsuBattlegrounds,,{ours} - {theirs},{ours} - {theirs}
-match.starting,Get ready!,JutsuBattlegrounds,,Get ready!,Prépare-toi !
 match.timeLeft,{seconds}s,JutsuBattlegrounds,,{seconds}s,{seconds}s
 match.victory,Victory!,JutsuBattlegrounds,,Victory!,Victoire !
 menu.battlepass,Battle Pass,JutsuBattlegrounds,,Battle Pass,Battle Pass
-menu.leaderboard,Leaderboard,JutsuBattlegrounds,,Leaderboard,Classement
 menu.loadout,Loadout,JutsuBattlegrounds,,Loadout,Équipement
 menu.quests,Quests,JutsuBattlegrounds,,Quests,Quêtes
 menu.settings,Settings,JutsuBattlegrounds,,Settings,Options

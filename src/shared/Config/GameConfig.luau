@@ -31,6 +31,10 @@ GameConfig.Server = {
 	RateLimitKickThreshold = 600, -- rate-limit overflows before kick (legitimate fast input must never reach it)
 	AbuseWindowSeconds = 60,
 	CombatStateHz = 5, -- CombatState replication rate per player
+	-- DataService.saveNow waits this long for ProfileStore to confirm the write before reporting
+	-- failure. A purchase is only acknowledged to Roblox once the write is confirmed.
+	SaveConfirmTimeoutSeconds = 10,
+	SaveConfirmPollSeconds = 0.1,
 }
 
 GameConfig.Vfx = {

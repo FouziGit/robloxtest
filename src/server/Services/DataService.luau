@@ -383,12 +383,43 @@ function DataService.recordReceipt(player: Player, purchaseId: string): boolean
 	return true
 end
 
--- Forces an immediate save (used right after purchases). Yields.
-function DataService.saveNow(player: Player)
+-- Forces an immediate save and waits for ProfileStore to confirm it actually landed. Yields, and
+-- returns true only once an OnAfterSave has been observed for this profile.
+--
+-- Profile:Save() performs the UpdateAsync in a detached thread and returns nothing, so "it did not
+-- throw" says nothing about whether the data reached the DataStore. MonetizationService must not tell
+-- Roblox PurchaseGranted on an unconfirmed write: the Robux would be taken, the receipt never
+-- re-delivered, and the profile could come back without the purchase. Any save that lands after the
+-- caller's mutation persists it (ProfileStore writes the whole Data table), so an autosave arriving
+-- inside the window is a valid confirmation.
+function DataService.saveNow(player: Player): boolean
 	local profile = profiles[player]
-	if profile ~= nil and profile:IsActive() then
-		profile:Save()
+	if profile == nil or not profile:IsActive() then
+		return false
 	end
+	local confirmed = false
+	local connection = profile.OnAfterSave:Connect(function()
+		confirmed = true
+	end)
+	local started = log.try("Save " .. player.Name, profile.Save, profile)
+	if started then
+		local deadline = os.clock() + GameConfig.Server.SaveConfirmTimeoutSeconds
+		while not confirmed and os.clock() < deadline do
+			task.wait(GameConfig.Server.SaveConfirmPollSeconds)
+			if not profile:IsActive() then
+				break
+			end
+		end
+	end
+	connection:Disconnect()
+	if not confirmed then
+		log.warn(
+			"save of %s was not confirmed within %ds: the caller must treat it as not persisted",
+			player.Name,
+			GameConfig.Server.SaveConfirmTimeoutSeconds
+		)
+	end
+	return confirmed
 end
 
 function DataService.isActive(player: Player): boolean

@@ -149,6 +149,12 @@ end
 local CombatService = {}
 
 CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model)
+-- Fired once per damage application that actually removed health, after every guard, i-frame and
+-- policy check. QuestService turns it into the DamageDealt and MeleeHit quest events; nothing else
+-- may count damage, so a single application can never be credited twice.
+CombatService.Damaged = Signal.new() -- (sourceUserId: number, applied: number, kind: DamageKind)
+-- Fired once per dash the server actually granted (chakra spent, cooldown armed).
+CombatService.Dashed = Signal.new() -- (player: Player)
 
 local registry: Registry
 local dataService: DataApi
@@ -667,6 +673,9 @@ function CombatService.ApplyDamage(
 	end
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
+	if source ~= nil then
+		CombatService.Damaged:Fire(source.UserId, applied, kind)
+	end
 	markTarget(humanoid, element, now)
 	if source ~= nil then
 		targetModel:SetAttribute(LAST_ATTACKER_ATTRIBUTE, source.UserId)
@@ -876,10 +885,9 @@ local function onDash(player: Player, state: State, now: number)
 	if not CombatService.trySpendChakra(player, dash.Cost) then
 		return
 	end
-	-- I-frames are granted on the server decision alone, independently of the client actually
-	-- applying the Dash MovementCommand (characters are client-simulated, so the displacement is not
-	-- observable here). Phase 8 adds the displacement check: expected start position / direction /
-	-- duration recorded when the command is sent, compared with the observed root afterwards.
+	-- I-frames are granted on the server decision alone, independently of the client actually applying
+	-- the Dash MovementCommand: characters are client-simulated, so the displacement is not observable
+	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
 	local direction = dashDirection(humanoid, root)
@@ -896,6 +904,7 @@ local function onDash(player: Player, state: State, now: number)
 		Caster = player.UserId,
 		Params = { Distance = dash.Distance, Duration = dash.DurationSeconds },
 	})
+	CombatService.Dashed:Fire(player)
 end
 
 local function onBlockStart(player: Player, state: State, now: number)

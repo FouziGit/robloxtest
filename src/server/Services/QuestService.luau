@@ -47,7 +47,11 @@ type NotifyApi = {
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> number }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> number }
 type KilledSignal = { Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any }
-type CombatApi = { Killed: KilledSignal }
+type DamagedSignal = {
+	Connect: (self: DamagedSignal, fn: (sourceUserId: number, applied: number, kind: string) -> ()) -> any,
+}
+type DashedSignal = { Connect: (self: DashedSignal, fn: (player: Player) -> ()) -> any }
+type CombatApi = { Killed: KilledSignal, Damaged: DamagedSignal, Dashed: DashedSignal }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type Deps = {
 	Registry: Registry,
@@ -65,6 +69,8 @@ local PERIOD_ORDER: { Period } = { "Daily", "Weekly" }
 -- Keyed by period id so a Period value reads as a plain string key.
 local PERIOD_DEFS = (QuestConfig.Periods :: any) :: { [string]: { Count: number, RewardXp: number, RewardRyo: number } }
 local ENEMY_TAG = GameConfig.Enemy.Tag
+-- Types.DamageKind value that makes a damage application a landed melee hit.
+local MELEE_KIND: Types.DamageKind = "Melee"
 -- Coalescing window of the progress pushes.
 local PUSH_INTERVAL_SECONDS = 1
 
@@ -245,8 +251,10 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	end
 end
 
--- CombatService.Killed is the only gameplay signal that exists today: it credits a player kill or a
--- training dummy to its source. Every other event reaches this service through `report`.
+-- The gameplay events of QuestConfig that no service reports explicitly come from CombatService
+-- signals: Killed (PlayerKill / DummyKill), Damaged (DamageDealt, and MeleeHit when the hit was a
+-- melee) and Dashed (Dash). JutsuService, MatchService and WorldBossService call `report` directly for
+-- the events they own. Every QuestConfig.Pool event has exactly one producer.
 local function onKilled(sourceUserId: number, victimModel: Model)
 	if sourceUserId == 0 then
 		return
@@ -260,6 +268,26 @@ local function onKilled(sourceUserId: number, victimModel: Model)
 	elseif CollectionService:HasTag(victimModel, ENEMY_TAG) then
 		QuestService.report(source, "DummyKill", 1)
 	end
+end
+
+-- One event per damage application that removed health, whatever the victim: the damage quests count
+-- what the player dealt, and MeleeHit counts landed melee hits rather than swings.
+local function onDamaged(sourceUserId: number, applied: number, kind: string)
+	if sourceUserId == 0 or applied <= 0 then
+		return
+	end
+	local source = Players:GetPlayerByUserId(sourceUserId)
+	if source == nil then
+		return
+	end
+	QuestService.report(source, "DamageDealt", applied)
+	if kind == MELEE_KIND then
+		QuestService.report(source, "MeleeHit", 1)
+	end
+end
+
+local function onDashed(player: Player)
+	QuestService.report(player, "Dash", 1)
 end
 
 function QuestService.Init(deps: Deps)
@@ -277,6 +305,8 @@ function QuestService.Start()
 		pending[player] = nil
 	end)
 	combat.Killed:Connect(onKilled)
+	combat.Damaged:Connect(onDamaged)
+	combat.Dashed:Connect(onDashed)
 	registry.on("ClaimQuest", function(player: Player, period: Period, questId: string)
 		QuestService.claim(player, period, questId)
 	end)

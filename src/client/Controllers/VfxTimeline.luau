@@ -38,6 +38,14 @@ export type Context = {
 	Color: Color3,
 	-- Multiplies every distance and size in the timeline, so one timeline serves a jab and an ultimate.
 	Scale: number?,
+	-- How long a phase that declared Window lasts: the warning the server is really waiting through
+	-- before it deals the damage. Ignored by every other phase.
+	Window: number?,
+	-- Studs of the shape the server will damage, for the layers that measure themselves against it
+	-- instead of against Scale. Radius is the inner measure and Reach the outer one. A layer naming one
+	-- the renderer did not pass is skipped rather than drawn at the wrong size.
+	Radius: number?,
+	Reach: number?,
 	-- A part the effect rides: a projectile, or the caster's root. Layers that need a moving anchor
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
@@ -45,13 +53,25 @@ export type Context = {
 }
 
 type Layer = VfxTimelineConfig.Layer
+type Measure = VfxTimelineConfig.Measure
+
+-- What a layer's own numbers are multiplied by. Effect is Context.Scale, which is what everything used
+-- before a layer could measure itself against the damage; the other three are studs of a measure the
+-- packet carried when the layer named one, and the same Scale when it did not. Resolved once when the
+-- layer starts rather than per frame: a warning that changed size halfway through is a warning about
+-- nothing.
+type Scales = { Effect: number, Size: number, Span: number, Offset: number }
 
 -- One layer in flight. `Instances` is everything it borrowed, released together when it ends.
 type Live = {
 	Layer: Layer,
 	Context: Context,
+	Scales: Scales,
 	Frame: CFrame,
 	StartedAt: number,
+	-- Its own length, resolved: a layer inside a windowed phase declares a fraction of the window, so
+	-- this is not layer.For.
+	Seconds: number,
 	EndsAt: number,
 	Instances: { Instance },
 	Primary: Instance?,
@@ -65,6 +85,8 @@ type Pending = {
 	Layer: Layer,
 	Context: Context,
 	At: number,
+	-- Seconds, resolved against the window of the phase it belongs to.
+	Seconds: number,
 	PlayId: number,
 }
 
@@ -83,6 +105,7 @@ local warnedTextures: { [string]: boolean } = {}
 -- part that has gone back to the pool.
 local carriers: { [number]: BasePart } = {}
 local warnedFollow: { [string]: boolean } = {}
+local warnedMeasures: { [string]: boolean } = {}
 local nextPlayId = 0
 local overBudgetWarned = false
 
@@ -149,6 +172,52 @@ end
 
 -- TweenService owns the curves the engine already ships; reimplementing them would be a second set of
 -- easing functions to keep in agreement with the tweens the rest of the client still uses.
+-- The frame a ground mark is drawn in: flat on the floor the probe found, its depth axis along the
+-- effect's own direction, and lifted by the layer's up offset so that two marks in one place do not
+-- z-fight. The direction is new and it matters, because a mark can now be longer than it is wide: a
+-- lookAt straight up has no answer for which way a stroke points, and Roblox picks one for it.
+local function markFrame(position: Vector3, normal: Vector3, forward: Vector3, lift: number): CFrame
+	local flat = forward - normal * forward:Dot(normal)
+	if flat.Magnitude < 1e-3 then
+		-- Aimed straight at the floor: any horizontal axis will do, so long as it is not the normal.
+		flat = Vector3.xAxis - normal * normal.X
+		if flat.Magnitude < 1e-3 then
+			flat = Vector3.zAxis
+		end
+	end
+	local base = position + normal * (0.03 + math.max(lift, 0))
+	return CFrame.lookAt(base, base + flat.Unit, normal) * LYING
+end
+
+-- Studs of the measure `name`, or nil when the packet did not carry it. A measure that arrived as zero,
+-- negative or NaN counts as absent: it comes off a remote, so it is not trusted to be a number that
+-- behaves, and drawing a warning at zero studs is the failure this whole mechanism exists to prevent.
+local function geometryScale(context: Context, name: Measure?, effect: number): number?
+	if name == nil then
+		return effect
+	end
+	local studs: number? = if name == "Radius" then context.Radius else context.Reach
+	if studs == nil then
+		return nil
+	end
+	if studs ~= studs or studs <= 0 then
+		return nil
+	end
+	return studs
+end
+
+-- nil when the layer measures itself against a length this play has not got.
+local function scalesOf(context: Context, layer: Layer): Scales?
+	local effect = context.Scale or 1
+	local size = geometryScale(context, layer.SizeFrom, effect)
+	local span = geometryScale(context, layer.SpanFrom, effect)
+	local offset = geometryScale(context, layer.OffsetFrom, effect)
+	if size == nil or span == nil or offset == nil then
+		return nil
+	end
+	return { Effect = effect, Size = size, Span = span, Offset = offset }
+end
+
 local function eased(layer: Layer, alpha: number): number
 	local style = layer.Ease
 	if style == nil then
@@ -236,12 +305,20 @@ local function textureMissing(layer: Layer): boolean
 	return layer.Texture ~= nil and textureOf(layer) == ""
 end
 
-local function buildSprite(entry: Live, layer: Layer, place: CFrame, scale: number)
+-- A plane's size at `alpha`: Size across, Span along, and thin. A layer with no Span is square and both
+-- axes follow the size animation, which is every plane authored before Span existed.
+local function planeSize(entry: Live, alpha: number): Vector3
+	local layer = entry.Layer
+	local width = lerp(layer.Size, layer.EndSize, alpha, 1) * entry.Scales.Size
+	local span = layer.Span
+	return Vector3.new(width, if span ~= nil then span * entry.Scales.Span else width, 0.05)
+end
+
+local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 	if textureMissing(layer) then
 		return
 	end
-	local size = (layer.Size or 1) * scale
-	local part = host(entry, place, Vector3.new(size, size, 0.05))
+	local part = host(entry, place, planeSize(entry, 0))
 	if part == nil then
 		return
 	end
@@ -265,15 +342,16 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame, scale: numb
 	entry.Primary = part
 end
 
-local function buildMark(entry: Live, layer: Layer, place: CFrame, scale: number)
+local function buildMark(entry: Live, layer: Layer, place: CFrame)
 	if textureMissing(layer) then
 		return
 	end
 	local position, normal = groundAt(place.Position)
-	local size = (layer.Size or 1) * scale
-	-- Lifted a hair off the floor: a decal coplanar with the ground z-fights, which reads as flicker.
-	local part =
-		host(entry, CFrame.lookAt(position + normal * 0.03, position + normal) * LYING, Vector3.new(size, size, 0.05))
+	local offset: { number }? = layer.Offset
+	-- Lifted a hair off the floor, plus whatever the layer's up offset asks for: a decal coplanar with
+	-- the ground z-fights, and so do two decals coplanar with each other.
+	local lift = if offset ~= nil then offset[2] * entry.Scales.Offset else 0
+	local part = host(entry, markFrame(position, normal, place.LookVector, lift), planeSize(entry, 0))
 	local decalInstance = borrow(entry, "Decal")
 	if part == nil or decalInstance == nil then
 		return
@@ -289,7 +367,8 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame, scale: number
 	entry.Primary = part
 end
 
-local function buildEmitter(entry: Live, layer: Layer, place: CFrame, scale: number)
+local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
+	local scale = entry.Scales.Effect
 	local part = host(entry, place, Vector3.one * 0.2)
 	if part == nil then
 		return
@@ -305,8 +384,10 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame, scale: num
 		emitter.Texture = id
 	end
 	emitter.Color = ColorSequence.new(entry.Context.Color)
-	local size = (layer.Size or 1) * scale
-	local endSize = (layer.EndSize or size / scale) * scale
+	-- Particle size is a size, so it follows the layer's size measure; speed is a distance through the
+	-- world and follows the effect's own scale.
+	local size = (layer.Size or 1) * entry.Scales.Size
+	local endSize = (layer.EndSize or layer.Size or 1) * entry.Scales.Size
 	emitter.Size = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, size),
 		NumberSequenceKeypoint.new(1, math.max(endSize, 0)),
@@ -347,7 +428,7 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame, scale: num
 	entry.Primary = emitter
 end
 
-local function buildLight(entry: Live, layer: Layer, place: CFrame, scale: number)
+local function buildLight(entry: Live, layer: Layer, place: CFrame)
 	local part = host(entry, place, Vector3.one * 0.2)
 	if part == nil then
 		return
@@ -359,7 +440,7 @@ local function buildLight(entry: Live, layer: Layer, place: CFrame, scale: numbe
 	end
 	local light = lightInstance :: PointLight
 	light.Color = entry.Context.Color
-	light.Range = (layer.Range or 8) * scale
+	light.Range = (layer.Range or 8) * entry.Scales.Effect
 	light.Brightness = layer.Brightness or 1
 	light.Shadows = false
 	light.Parent = part
@@ -368,7 +449,8 @@ end
 
 -- Two attachments and a Beam between them. CurveSize is what draws a stroke rather than a laser: the art
 -- direction's "un trait qui se dessine est un Beam dont on anime CurveSize".
-local function buildBeam(entry: Live, layer: Layer, place: CFrame, scale: number)
+local function buildBeam(entry: Live, layer: Layer, place: CFrame)
+	local scale = entry.Scales.Size
 	local length = (layer.Size or 1) * 8 * scale
 	local from = host(entry, place, Vector3.one * 0.1)
 	local to = host(entry, place * CFrame.new(0, 0, -length), Vector3.one * 0.1)
@@ -417,7 +499,7 @@ local function buildCarrier(entry: Live, place: CFrame)
 	entry.Primary = part
 end
 
-local function buildTrail(entry: Live, layer: Layer, place: CFrame, scale: number)
+local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 	-- The caster's body only when the layer said Follow. A riding trail gets its own host, which
 	-- followCarrier then moves with the projectile: preferring Context.Follow unconditionally is how
 	-- a trail meant to ride a fireball ended up drawn from the caster's chest instead.
@@ -430,7 +512,7 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame, scale: numbe
 	if anchor == nil or a0Instance == nil or a1Instance == nil or trailInstance == nil then
 		return
 	end
-	local width = (layer.Size or 1) * scale
+	local width = (layer.Size or 1) * entry.Scales.Size
 	local a0 = a0Instance :: Attachment
 	a0.Position = Vector3.new(0, width * 0.5, 0)
 	a0.Parent = anchor
@@ -442,7 +524,7 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame, scale: numbe
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
 	trail.Color = ColorSequence.new(entry.Context.Color)
-	trail.Lifetime = layer.For
+	trail.Lifetime = entry.Seconds
 	trail.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0.3),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
@@ -469,9 +551,7 @@ local function stepSprite(entry: Live, alpha: number, deltaTime: number)
 	end
 	local part = primary :: BasePart
 	local layer = entry.Layer
-	local scale = entry.Context.Scale or 1
-	local size = lerp(layer.Size, layer.EndSize, alpha, 1) * scale
-	part.Size = Vector3.new(size, size, 0.05)
+	part.Size = planeSize(entry, alpha)
 	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0), 0, 1)
 	for _, child in ipairs(part:GetChildren()) do
 		if child:IsA("Decal") then
@@ -492,9 +572,7 @@ local function stepMark(entry: Live, alpha: number)
 	end
 	local part = primary :: BasePart
 	local layer = entry.Layer
-	local scale = entry.Context.Scale or 1
-	local size = lerp(layer.Size, layer.EndSize, alpha, 1) * scale
-	part.Size = Vector3.new(size, size, 0.05)
+	part.Size = planeSize(entry, alpha)
 	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0.3), 0, 1)
 	for _, child in ipairs(part:GetChildren()) do
 		if child:IsA("Decal") then
@@ -509,9 +587,11 @@ local function stepLight(entry: Live, alpha: number)
 		return
 	end
 	local light = primary :: PointLight
-	-- A light fades by brightness, never by being removed: an instant cut reads as a bug, and art bible
-	-- rule 3 forbids anything appearing or vanishing outright.
-	light.Brightness = (entry.Layer.Brightness or 1) * (1 - alpha)
+	-- A light changes by brightness, never by being removed: an instant cut reads as a bug, and art bible
+	-- rule 3 forbids anything appearing or vanishing outright. EndBrightness absent means zero, so the
+	-- default is the fade it always was, and a telegraph can ask for the opposite.
+	local layer = entry.Layer
+	light.Brightness = math.max(lerp(layer.Brightness, layer.EndBrightness or 0, alpha, 1), 0)
 end
 
 local function stepBeam(entry: Live, alpha: number)
@@ -521,8 +601,7 @@ local function stepBeam(entry: Live, alpha: number)
 	end
 	local beam = primary :: Beam
 	local layer = entry.Layer
-	local scale = entry.Context.Scale or 1
-	local width = lerp(layer.Size, layer.EndSize, alpha, 1) * scale
+	local width = lerp(layer.Size, layer.EndSize, alpha, 1) * entry.Scales.Size
 	beam.Width0 = math.max(width, 0)
 	beam.Width1 = math.max(width * 0.35, 0)
 	beam.Transparency =
@@ -539,7 +618,7 @@ local function stepCarrier(entry: Live, alpha: number)
 	end
 	local part = primary :: BasePart
 	local layer = entry.Layer
-	local scale = entry.Context.Scale or 1
+	local scale = entry.Scales.Effect
 	local distance = (layer.Travel or 0) * scale * alpha
 	-- A half sine: zero at both ends, highest in the middle. Multiplied by the arc rather than added to
 	-- it, so a timeline with no Arc travels flat and pays nothing for the option.
@@ -568,7 +647,7 @@ local function followCarrier(entry: Live)
 	local anchor = if primary:IsA("BasePart") then primary :: BasePart else primary.Parent
 	if anchor ~= nil and anchor:IsA("BasePart") then
 		local layer = entry.Layer
-		local scale = entry.Context.Scale or 1
+		local scale = entry.Scales.Offset
 		local offset = layer.Offset
 		if offset == nil then
 			anchor.CFrame = carrier.CFrame
@@ -592,7 +671,7 @@ local function followBody(entry: Live)
 	local anchor = if primary:IsA("BasePart") then primary :: BasePart else primary.Parent
 	if anchor ~= nil and anchor:IsA("BasePart") then
 		local layer = entry.Layer
-		local scale = entry.Context.Scale or 1
+		local scale = entry.Scales.Offset
 		local offset = layer.Offset
 		if offset == nil then
 			anchor.CFrame = body.CFrame
@@ -641,7 +720,6 @@ local function activate(item: Pending, now: number)
 	local id = item.Id
 	local layer = item.Layer
 	local context = item.Context
-	local scale = context.Scale or 1
 
 	if layer.Kind == "Shake" then
 		local profile = layer.Profile
@@ -700,6 +778,18 @@ local function activate(item: Pending, now: number)
 		end
 		return
 	end
+	local scales = scalesOf(context, layer)
+	if scales == nil then
+		-- The layer is written against the shape the server is damaging and this play did not carry it.
+		-- Drawing it against the effect's scale instead would paint a warning a fraction of the size of
+		-- the danger, which is worse than painting none, so it is skipped and named once.
+		if not warnedMeasures[id] then
+			warnedMeasures[id] = true
+			log.warn("timeline %s measures a layer against a length the renderer did not pass", id)
+		end
+		return
+	end
+
 	local base = frameOf(context)
 	local rider = if layer.Ride == true then carriers[item.PlayId] else nil
 	if rider ~= nil then
@@ -707,13 +797,16 @@ local function activate(item: Pending, now: number)
 		-- moment it starts, which for a layer scheduled mid-flight is not where the cast began.
 		base = rider.CFrame
 	end
-	local place = placeOf(base, layer, scale)
+	local place = placeOf(base, layer, scales.Offset)
+	local seconds = math.min(item.Seconds, VfxTimelineConfig.MaxLayerSeconds)
 	local entry: Live = {
 		Layer = layer,
 		Context = context,
+		Scales = scales,
 		Frame = place,
 		StartedAt = now,
-		EndsAt = now + math.min(layer.For, VfxTimelineConfig.MaxLayerSeconds),
+		Seconds = seconds,
+		EndsAt = now + seconds,
 		Instances = {},
 		Primary = nil,
 		PlayId = item.PlayId,
@@ -722,17 +815,17 @@ local function activate(item: Pending, now: number)
 	if layer.Kind == "Carrier" then
 		buildCarrier(entry, place)
 	elseif layer.Kind == "Sprite" then
-		buildSprite(entry, layer, place, scale)
+		buildSprite(entry, layer, place)
 	elseif layer.Kind == "Mark" then
-		buildMark(entry, layer, place, scale)
+		buildMark(entry, layer, place)
 	elseif layer.Kind == "Emitter" then
-		buildEmitter(entry, layer, place, scale)
+		buildEmitter(entry, layer, place)
 	elseif layer.Kind == "Light" then
-		buildLight(entry, layer, place, scale)
+		buildLight(entry, layer, place)
 	elseif layer.Kind == "Beam" then
-		buildBeam(entry, layer, place, scale)
+		buildBeam(entry, layer, place)
 	elseif layer.Kind == "Trail" then
-		buildTrail(entry, layer, place, scale)
+		buildTrail(entry, layer, place)
 	end
 
 	if entry.Primary == nil then
@@ -815,13 +908,23 @@ function VfxTimeline.play(id: string, context: Context): boolean
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
+				-- A windowed phase lasts as long as the packet says, and its layers declare fractions of
+				-- it rather than seconds. Everything after it is pushed back by the same amount, which is
+				-- what keeps an impact landing at the end of the warning instead of at a time this file
+				-- guessed.
+				local seconds = VfxTimelineConfig.phaseSeconds(phase, context.Window)
+				local factor = if phase.Window == true then seconds else 1
 				for _, layer in ipairs(phase.Layers) do
-					table.insert(
-						pending,
-						{ Id = id, Layer = layer, Context = context, At = now + phaseStart + layer.At, PlayId = playId }
-					)
+					table.insert(pending, {
+						Id = id,
+						Layer = layer,
+						Context = context,
+						At = now + phaseStart + layer.At * factor,
+						Seconds = layer.For * factor,
+						PlayId = playId,
+					})
 				end
-				phaseStart += phase.Duration
+				phaseStart += seconds
 			end
 		end
 	end

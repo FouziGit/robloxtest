@@ -322,7 +322,10 @@ describe("vfx timelines", function()
 			if layer.For <= 0 then
 				error(("timeline %s / %s has a layer that lasts %.3f"):format(id, phase.Name, layer.For))
 			end
-			if layer.At + layer.For > VfxTimelineConfig.MaxLayerSeconds then
+			-- Inside a windowed phase these are fractions of the longest window the packet can carry, so
+			-- the backstop is checked against what they resolve to in the worst case.
+			local factor = if phase.Window == true then VfxTimelineConfig.MaxWindowSeconds else 1
+			if (layer.At + layer.For) * factor > VfxTimelineConfig.MaxLayerSeconds then
 				error(("timeline %s / %s has a layer outliving the force-release backstop"):format(id, phase.Name))
 			end
 		end)
@@ -361,6 +364,134 @@ describe("vfx timelines", function()
 		end)
 	end)
 
+	it("keeps a windowed phase's layers inside the window", function()
+		-- A windowed phase's At and For are fractions of the warning, not seconds. A fraction above one is
+		-- a layer that outlives the hit it is warning about, which reads as the attack landing twice.
+		eachLayer(function(id, phase, layer)
+			if phase.Window ~= true then
+				return
+			end
+			if layer.At + layer.For > 1.0001 then
+				error(
+					("timeline %s / %s runs to %.3f of a window that ends at 1"):format(
+						id,
+						phase.Name,
+						layer.At + layer.For
+					)
+				)
+			end
+		end)
+	end)
+
+	it("fills every window it asks for", function()
+		-- A phase whose length comes from the packet and whose layers all end early is a gap: the warning
+		-- would finish, and then six players would stand in an unpainted danger area waiting for a hit
+		-- they can no longer see coming. Something has to last the whole of it.
+		for id, timeline in pairs(TIMELINES) do
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Window == true then
+					local filled = false
+					for _, layer in ipairs(phase.Layers) do
+						if layer.At <= 0.0001 and layer.At + layer.For >= 0.9999 then
+							filled = true
+						end
+					end
+					if not filled then
+						error(("timeline %s / %s takes a window nothing spans"):format(id, phase.Name))
+					end
+				end
+			end
+		end
+	end)
+
+	it("stretches only the wind-up", function()
+		-- The window is the warning. An impact is as long as an impact is, whatever the boss was waiting,
+		-- so a windowed Impact or Residue would stretch the consequence along with the threat.
+		for id, timeline in pairs(TIMELINES) do
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Window == true and phase.Name ~= "Anticipation" then
+					error(("timeline %s takes its %s phase from the packet"):format(id, phase.Name))
+				end
+			end
+		end
+	end)
+
+	it("only measures a field it declares", function()
+		-- A measure on a field the layer does not have is a line that does nothing, and it reads exactly
+		-- like a line that does something.
+		eachLayer(function(id, phase, layer)
+			local function need(measured: boolean, field: string, present: boolean)
+				if measured and not present then
+					error(("timeline %s / %s measures %s and declares none"):format(id, phase.Name, field))
+				end
+			end
+			need(layer.SizeFrom ~= nil, "Size", layer.Size ~= nil)
+			need(layer.SpanFrom ~= nil, "Span", layer.Span ~= nil)
+			need(layer.OffsetFrom ~= nil, "Offset", layer.Offset ~= nil)
+		end)
+	end)
+
+	it("spans only what is a plane", function()
+		-- Span is the depth of a flat plane. On anything else it is silently ignored, which is the kind of
+		-- authoring mistake that survives review because the effect still draws.
+		eachLayer(function(id, phase, layer)
+			local span = layer.Span
+			if span == nil then
+				return
+			end
+			if layer.Kind ~= "Sprite" and layer.Kind ~= "Mark" then
+				error(("timeline %s / %s gives a %s layer a span"):format(id, phase.Name, layer.Kind))
+			end
+			if span <= 0 then
+				error(("timeline %s / %s spans %.3f"):format(id, phase.Name, span))
+			end
+		end)
+	end)
+
+	it("brightens only a light", function()
+		eachLayer(function(id, phase, layer)
+			local endBrightness = layer.EndBrightness
+			if endBrightness == nil then
+				return
+			end
+			if layer.Kind ~= "Light" then
+				error(("timeline %s / %s gives a %s layer an end brightness"):format(id, phase.Name, layer.Kind))
+			end
+			if endBrightness < 0 then
+				error(("timeline %s / %s ends at brightness %.3f"):format(id, phase.Name, endBrightness))
+			end
+		end)
+	end)
+
+	it("resolves a phase length against the packet", function()
+		-- Hand-computed, because the runtime, duration() and the telegraph test all trust this one
+		-- function to agree with each other about when a warning ends.
+		local fixed: VfxTimelineConfig.Phase = {
+			Name = "Anticipation",
+			Duration = 0.3,
+			Layers = { { Kind = "Shake", At = 0, For = 0.1, Profile = "Cast" } },
+		}
+		local windowed: VfxTimelineConfig.Phase = {
+			Name = "Anticipation",
+			Duration = 1.2,
+			Window = true,
+			Layers = { { Kind = "Shake", At = 0, For = 1, Profile = "Cast" } },
+		}
+		-- A phase that did not ask for a window ignores one.
+		expect(VfxTimelineConfig.phaseSeconds(fixed, 1.7)).toBeCloseTo(0.3, 5)
+		expect(VfxTimelineConfig.phaseSeconds(windowed, 1.7)).toBeCloseTo(1.7, 5)
+		-- No window, or one that is not a usable number: the phase falls back to its own duration rather
+		-- than to zero, so a packet that lost its parameter warns for a plausible time instead of not at
+		-- all.
+		expect(VfxTimelineConfig.phaseSeconds(windowed, nil)).toBeCloseTo(1.2, 5)
+		expect(VfxTimelineConfig.phaseSeconds(windowed, 0)).toBeCloseTo(1.2, 5)
+		expect(VfxTimelineConfig.phaseSeconds(windowed, -4)).toBeCloseTo(1.2, 5)
+		expect(VfxTimelineConfig.phaseSeconds(windowed, 0 / 0)).toBeCloseTo(1.2, 5)
+		-- And one that is a number, but not one anybody chose.
+		expect(VfxTimelineConfig.phaseSeconds(windowed, math.huge)).toBeCloseTo(VfxTimelineConfig.MaxWindowSeconds, 5)
+		expect(VfxTimelineConfig.phaseSeconds(windowed, 0.01)).toBeCloseTo(VfxTimelineConfig.MinWindowSeconds, 5)
+	end)
+
 	it("measures its own duration correctly", function()
 		-- Hand-computed against a fixture, because every budget check above trusts this function.
 		local fixture: VfxTimelineConfig.Timeline = {
@@ -393,5 +524,25 @@ describe("vfx timelines", function()
 			},
 		}
 		expect(VfxTimelineConfig.duration(short)).toBeCloseTo(1.5, 5)
+
+		-- A windowed phase is measured at the longest window it can be given, and its layers' fractions
+		-- are resolved against that same length: 2 for the wind-up, then a tenth-of-a-second impact.
+		local windowed: VfxTimelineConfig.Timeline = {
+			Intent = "fixture",
+			Phases = {
+				{
+					Name = "Anticipation",
+					Duration = 1.2,
+					Window = true,
+					Layers = { { Kind = "Shake", At = 0, For = 1, Profile = "Cast" } },
+				},
+				{
+					Name = "Impact",
+					Duration = 0.1,
+					Layers = { { Kind = "Shake", At = 0, For = 0.1, Profile = "Heavy" } },
+				},
+			},
+		}
+		expect(VfxTimelineConfig.duration(windowed)).toBeCloseTo(VfxTimelineConfig.MaxWindowSeconds + 0.1, 5)
 	end)
 end)

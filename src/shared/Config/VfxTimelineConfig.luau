@@ -30,6 +30,16 @@ export type PhaseName = "Anticipation" | "Cast" | "Travel" | "Impact" | "Residue
 export type Ease = "Quad" | "Cubic" | "Quart" | "Quint" | "Sine" | "Back" | "Exponential" | "Circular"
 export type Direction = "In" | "Out" | "InOut"
 
+-- What a layer's geometry is measured against. A layer that names none is written in studs and scales
+-- with the effect, which is what every layer did before this existed. A layer that names one is written
+-- in multiples of a length the PACKET carried, because some shapes are not this file's to know:
+-- L'Effacement covers a radius that changes with the attack and with how far into the fight it is, and a
+-- warning painted at any other size is a lie about where the damage is.
+--   Radius  the inner measure: what a Circle attack covers, the safe centre of a Ring one, the
+--           half-width a Cone has opened to by the end of its reach
+--   Reach   the outer measure: how far forward a Cone goes, the outer edge of a Ring
+export type Measure = "Radius" | "Reach"
+
 -- What a layer is made of. One kind, one Roblox concept, so the runtime never has to guess.
 --   Carrier  an invisible part that travels, for the phase a projectile is in flight. Layers in the
 --            same phase that declare Ride are built on it instead of on a fixed point, so a trail, a
@@ -62,8 +72,20 @@ export type Layer = {
 	-- change size, which is different from not declaring EndSize at all.
 	Size: number?,
 	EndSize: number?,
-	-- Studs from the effect's own frame, as {right, up, forward}.
+	-- Sprite and Mark only: the plane's extent along its own forward axis, Size then being its width
+	-- across it. A layer that declares no Span is square, which is what every plane was before this
+	-- existed. It does not animate: something that has to grow along both axes is two layers.
+	Span: number?,
+	-- Studs from the effect's own frame, as {right, up, forward}. On a Mark the up component lifts it off
+	-- the floor instead of moving it there, because two marks drawn in the same place z-fight, and
+	-- flicker is worst exactly where a telegraph has to be legible.
 	Offset: { number }?,
+	-- The measure Size and EndSize, Span, and Offset are expressed in when they are not studs. A layer
+	-- naming a measure the renderer did not pass is not drawn at all and the runtime says so once: the
+	-- alternative is a warning painted at a twentieth of the danger it exists to warn about.
+	SizeFrom: Measure?,
+	SpanFrom: Measure?,
+	OffsetFrom: Measure?,
 	-- Built on the phase's Carrier rather than at a fixed point. Ignored when the timeline has no
 	-- carrier, so a layer that rides is still drawn, standing still, rather than not drawn at all.
 	Ride: boolean?,
@@ -104,6 +126,10 @@ export type Layer = {
 	-- Light only.
 	Range: number?,
 	Brightness: number?,
+	-- Where the brightness arrives. Absent means zero, which is the fade every light had before this
+	-- existed. A wind-up is the case that needs the other direction: a floor that brightens as the hit
+	-- approaches is the telegraph.
+	EndBrightness: number?,
 
 	-- Shake and Flash only: the profile name in FeelConfig.Shake.Profiles or LightingConfig's pulses.
 	Profile: string?,
@@ -114,6 +140,15 @@ export type Phase = {
 	-- Seconds. The phase's own length, which is not the same as the longest layer in it: a layer may
 	-- outlive its phase, and usually does in Residue.
 	Duration: number,
+	-- The phase takes its length from the packet (Context.Window) instead of from Duration, and the At
+	-- and For of its layers are FRACTIONS of that length rather than seconds. Duration is the fallback
+	-- for a play that carried no window.
+	--
+	-- One thing needs this, and it needs it badly. L'Effacement warns for between 0.6 and 2 seconds
+	-- depending on the attack and on the phase of the fight, and the warning has to fill exactly that
+	-- window: a fixed anticipation either finishes early -- telling six players the hit has landed while
+	-- it has not -- or is still filling when it lands.
+	Window: boolean?,
 	Layers: { Layer },
 }
 
@@ -5864,6 +5899,28 @@ VfxTimelineConfig.MaxLayerSeconds = 6
 -- degrades into fewer effects rather than into a frame rate.
 VfxTimelineConfig.MaxLiveLayers = 90
 
+-- Bounds on a phase whose length comes from the packet. The ceiling is the longest warning
+-- WorldBossConfig can ask for -- tests/WorldBossTelegraph.spec.luau holds the config to it, so a longer
+-- one fails the build rather than being quietly cut short -- and the floor is there so a zero, a negative
+-- or a NaN cannot turn a warning into an instant.
+VfxTimelineConfig.MaxWindowSeconds = 2
+VfxTimelineConfig.MinWindowSeconds = 0.1
+
+-- The length of `phase` in seconds. `window` is whatever the packet carried and is ignored by a phase
+-- that did not ask for one. Pure, and shared by the runtime, by duration() below and by the tests, so the
+-- three can never disagree about the moment a warning ends.
+function VfxTimelineConfig.phaseSeconds(phase: Phase, window: number?): number
+	if phase.Window ~= true then
+		return phase.Duration
+	end
+	-- window ~= window is the NaN test: it arrives from a remote packet, so it is not trusted to be a
+	-- number that behaves.
+	if window == nil or window ~= window or window <= 0 then
+		return phase.Duration
+	end
+	return math.clamp(window, VfxTimelineConfig.MinWindowSeconds, VfxTimelineConfig.MaxWindowSeconds)
+end
+
 -- Total duration of a timeline, phases end to end plus the tail of whatever layer outlives the last one.
 -- Used by the runtime to size its own bookkeeping and by the test to keep a timeline inside the window
 -- its packet's Trove lives for.
@@ -5873,10 +5930,15 @@ function VfxTimelineConfig.duration(timeline: Timeline): number
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
+				-- The longest window a windowed phase can be given, because this number is what every
+				-- budget check is made of: a timeline that only fits while the boss is warning for its
+				-- shortest window does not fit.
+				local seconds = VfxTimelineConfig.phaseSeconds(phase, VfxTimelineConfig.MaxWindowSeconds)
+				local factor = if phase.Window == true then seconds else 1
 				for _, layer in ipairs(phase.Layers) do
-					longest = math.max(longest, phaseStart + layer.At + layer.For)
+					longest = math.max(longest, phaseStart + (layer.At + layer.For) * factor)
 				end
-				phaseStart += phase.Duration
+				phaseStart += seconds
 			end
 		end
 	end

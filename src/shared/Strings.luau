@@ -100,7 +100,7 @@ Strings.Table = {
 	},
 
 	-- Battle pass
-	["battlepass.title"] = { en = "Battle Pass — Season {season}", fr = "Battle Pass — Saison {season}" },
+	["battlepass.title"] = { en = "Battle Pass — Volume {season}", fr = "Battle Pass — Volume {season}" },
 	["battlepass.tier"] = { en = "Tier {tier} / {max}", fr = "Palier {tier} / {max}" },
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
@@ -149,8 +149,8 @@ Strings.Table = {
 	},
 	["glyph.Scorch.name"] = { en = "Scorch", fr = "Roussi" },
 	["glyph.Scorch.desc"] = {
-		en = "A ring of embers whirls around you and burns everything.",
-		fr = "Un anneau de braises tourbillonne autour de toi et brûle tout.",
+		en = "A scorched ring that follows you: everything inside it burns.",
+		fr = "Un anneau roussi qui te suit : tout ce qui s'y tient brûle.",
 	},
 	["glyph.Rupture.name"] = { en = "Rupture", fr = "Rupture" },
 	["glyph.Rupture.desc"] = {
@@ -164,8 +164,8 @@ Strings.Table = {
 	},
 	["glyph.Blot.name"] = { en = "Blot", fr = "Pâté" },
 	["glyph.Blot.desc"] = {
-		en = "Calls down a blazing rock that shatters guards where it lands.",
-		fr = "Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.",
+		en = "Drops a blot of ink from above that shatters guards where it lands.",
+		fr = "Fait tomber un pâté d'encre qui brise les gardes là où il s'écrase.",
 	},
 	["glyph.Binding.name"] = { en = "Binding", fr = "Reliure" },
 	["glyph.Binding.desc"] = {
@@ -199,23 +199,23 @@ Strings.Table = {
 	},
 	["glyph.Strike.name"] = { en = "Strike", fr = "Rature" },
 	["glyph.Strike.desc"] = {
-		en = "An instant bolt that strikes the first enemy in your line of sight.",
-		fr = "Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.",
+		en = "One stroke crosses out the first enemy in your line of sight.",
+		fr = "Un seul trait rature le premier ennemi dans ta ligne de vue.",
 	},
 	["glyph.Caret.name"] = { en = "Caret", fr = "Insertion" },
 	["glyph.Caret.desc"] = {
-		en = "Blink forward in a flash, untouchable for an instant.",
-		fr = "Disparais vers l'avant dans un éclair, intouchable un instant.",
+		en = "Cross yourself out here and write yourself in further on, untouchable between the two.",
+		fr = "Rature-toi ici et réécris-toi plus loin, intouchable entre les deux.",
 	},
 	["glyph.Watermark.name"] = { en = "Watermark", fr = "Filigrane" },
 	["glyph.Watermark.desc"] = {
-		en = "A crackling field that shocks and locks up anyone standing in it.",
-		fr = "Un champ crépitant qui électrise et bloque ceux qui s'y attardent.",
+		en = "A mark pressed into the ground: whoever stays in it is held by the page.",
+		fr = "Une marque pressée dans le sol : qui s'y attarde est retenu par la page.",
 	},
 	["glyph.Colophon.name"] = { en = "Colophon", fr = "Colophon" },
 	["glyph.Colophon.desc"] = {
-		en = "The thunder god's wrath arcs from enemy to enemy.",
-		fr = "La colère du dieu du tonnerre bondit d'ennemi en ennemi.",
+		en = "Your signature leaps from body to body, and everyone it touches is signed.",
+		fr = "Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé.",
 	},
 
 	-- Pigment statuses (CombatConfig.Status): shown as floating text on the marked target
@@ -256,7 +256,7 @@ Strings.Table = {
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
-	["cosmetic.TitleCodexSeason"] = { en = "Title: Season Codex", fr = "Titre : Codex de la saison" },
+	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
 
 	-- Quests & daily
 	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
@@ -269,8 +269,8 @@ Strings.Table = {
 	["quest.landMelee"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
 	["quest.defeatPlayers"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
 	["quest.joinBoss"] = {
-		en = "Take part in {target} World Boss fights",
-		fr = "Participe à {target} combats de World Boss",
+		en = "Face the Erasure {target} times",
+		fr = "Affronte l'Effacement {target} fois",
 	},
 	["quest.daily"] = { en = "Daily quests", fr = "Quêtes journalières" },
 	["quest.weekly"] = { en = "Weekly quests", fr = "Quêtes hebdomadaires" },
@@ -343,8 +343,8 @@ Strings.Table = {
 	},
 	["product.premiumPass"] = { en = "Premium Battle Pass", fr = "Battle Pass Premium" },
 	["product.premiumPass.desc"] = {
-		en = "Unlock the premium track of the current season.",
-		fr = "Débloque la piste premium de la saison en cours.",
+		en = "Unlock the premium track of the current volume.",
+		fr = "Débloque la piste premium du volume en cours.",
 	},
 	["product.tierSkip5"] = { en = "+5 Tiers", fr = "+5 paliers" },
 	["product.tierSkip5.desc"] = {
@@ -398,8 +398,8 @@ Strings.Table = {
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
 	["season.rewardGranted"] = {
-		en = "Season reward ({rank}): +{amount} Ryo",
-		fr = "Récompense de saison ({rank}) : +{amount} Ryo",
+		en = "Volume reward ({rank}): +{amount} Ryo",
+		fr = "Récompense du volume ({rank}) : +{amount} Ryo",
 	},
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
@@ -415,20 +415,26 @@ Strings.Table = {
 	["leaderboard.youUnlisted"] = { en = "You: outside the top {count}", fr = "Toi : hors du top {count}" },
 	["leaderboard.unranked"] = { en = "Unranked — play a ranked match", fr = "Non classé — joue un match classé" },
 
-	-- World Boss
-	["boss.name"] = { en = "World Boss", fr = "Boss du monde" },
+	-- L'Effacement (the World Boss, docs/GAME_DESIGN.md §7)
+	["boss.name"] = { en = "The Erasure", fr = "L'Effacement" },
 	["boss.announced"] = {
-		en = "A World Boss appears in {seconds}s!",
-		fr = "Un boss du monde apparaît dans {seconds}s !",
+		en = "The Erasure comes for the page in {seconds}s!",
+		fr = "L'Effacement vient pour la page dans {seconds}s !",
 	},
-	["boss.started"] = { en = "The World Boss is here!", fr = "Le boss du monde est là !" },
+	["boss.started"] = { en = "The Erasure is here.", fr = "L'Effacement est là." },
 	["boss.health"] = { en = "{health} / {max}", fr = "{health} / {max}" },
 	["boss.phase"] = { en = "Phase {phase}", fr = "Phase {phase}" },
 	["boss.timeLeft"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
 	["boss.share"] = { en = "Your damage: {percent}%", fr = "Tes dégâts : {percent} %" },
-	["boss.defeated"] = { en = "World Boss defeated!", fr = "Boss du monde vaincu !" },
-	["boss.expired"] = { en = "The World Boss escaped…", fr = "Le boss du monde s'est échappé…" },
-	["boss.reward"] = { en = "Boss reward: +{xp} XP, +{ryo} Ryo", fr = "Récompense du boss : +{xp} XP, +{ryo} Ryo" },
+	["boss.defeated"] = {
+		en = "The Erasure is undone. The page keeps.",
+		fr = "L'Effacement est défait. La page reste.",
+	},
+	["boss.expired"] = { en = "The Erasure has left the page…", fr = "L'Effacement a quitté la page…" },
+	["boss.reward"] = {
+		en = "Erasure reward: +{xp} XP, +{ryo} Ryo",
+		fr = "Récompense de l'Effacement : +{xp} XP, +{ryo} Ryo",
+	},
 	["boss.killBonus"] = { en = "Top damage bonus!", fr = "Bonus de meilleur dégât !" },
 	["boss.attack.slam"] = { en = "Slam", fr = "Écrasement" },
 	["boss.attack.sweep"] = { en = "Sweep", fr = "Balayage" },
@@ -447,7 +453,7 @@ Strings.Table = {
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
 	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
-	["loadout.combo"] = { en = "Combo: {combo}", fr = "Combo : {combo}" },
+	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
 	["loadout.stats"] = {
 		en = "{damage} damage · {cost} ink · {cooldown}s",
 		fr = "{damage} dégâts · {cost} encre · {cooldown}s",

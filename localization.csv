@@ -20,23 +20,23 @@ battlepass.reward.none,No reward,Vellum,,No reward,Aucune récompense
 battlepass.reward.ryo,{amount} Ryo,Vellum,,{amount} Ryo,{amount} Ryo
 battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
-battlepass.title,Battle Pass — Season {season},Vellum,,Battle Pass — Season {season},Battle Pass — Saison {season}
+battlepass.title,Battle Pass — Volume {season},Vellum,,Battle Pass — Volume {season},Battle Pass — Volume {season}
 battlepass.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
-boss.announced,A World Boss appears in {seconds}s!,Vellum,,A World Boss appears in {seconds}s!,Un boss du monde apparaît dans {seconds}s !
+boss.announced,The Erasure comes for the page in {seconds}s!,Vellum,,The Erasure comes for the page in {seconds}s!,L'Effacement vient pour la page dans {seconds}s !
 boss.attack.eruption,Eruption,Vellum,,Eruption,Éruption
 boss.attack.fury,Fury,Vellum,,Fury,Furie
 boss.attack.slam,Slam,Vellum,,Slam,Écrasement
 boss.attack.sweep,Sweep,Vellum,,Sweep,Balayage
-boss.defeated,World Boss defeated!,Vellum,,World Boss defeated!,Boss du monde vaincu !
-boss.expired,The World Boss escaped…,Vellum,,The World Boss escaped…,Le boss du monde s'est échappé…
+boss.defeated,The Erasure is undone. The page keeps.,Vellum,,The Erasure is undone. The page keeps.,L'Effacement est défait. La page reste.
+boss.expired,The Erasure has left the page…,Vellum,,The Erasure has left the page…,L'Effacement a quitté la page…
 boss.health,{health} / {max},Vellum,,{health} / {max},{health} / {max}
 boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche !
 boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
-boss.name,World Boss,Vellum,,World Boss,Boss du monde
+boss.name,The Erasure,Vellum,,The Erasure,L'Effacement
 boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}
-boss.reward,"Boss reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Boss reward: +{xp} XP, +{ryo} Ryo","Récompense du boss : +{xp} XP, +{ryo} Ryo"
+boss.reward,"Erasure reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Erasure reward: +{xp} XP, +{ryo} Ryo","Récompense de l'Effacement : +{xp} XP, +{ryo} Ryo"
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
-boss.started,The World Boss is here!,Vellum,,The World Boss is here!,Le boss du monde est là !
+boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
 common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
@@ -70,7 +70,7 @@ cosmetic.SkinSweepSilver,Silver Sweep Skin,Vellum,,Silver Sweep Skin,Skin Balaya
 cosmetic.SkinWashJade,Jade Wash Skin,Vellum,,Jade Wash Skin,Skin Lavis Jade
 cosmetic.SteelStylus,Steel Stylus,Vellum,,Steel Stylus,Stylet d'Acier
 cosmetic.TitleCodex,Title: Codex,Vellum,,Title: Codex,Titre : Codex
-cosmetic.TitleCodexSeason,Title: Season Codex,Vellum,,Title: Season Codex,Titre : Codex de la saison
+cosmetic.TitleCodexSeason,Title: Codex of the Volume,Vellum,,Title: Codex of the Volume,Titre : Codex du volume
 cosmetic.TitleIllumination,Title: Illumination,Vellum,,Title: Illumination,Titre : Enluminure
 cosmetic.TitleRookie,Title: Rookie,Vellum,,Title: Rookie,Titre : Recrue
 cosmetic.TitleScript,Title: Script,Vellum,,Title: Script,Titre : Écriture
@@ -96,13 +96,13 @@ glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them i
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
 glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,Vellum,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
 glyph.Bleed.name,Bleed,Vellum,,Bleed,Bavure
-glyph.Blot.desc,Calls down a blazing rock that shatters guards where it lands.,Vellum,,Calls down a blazing rock that shatters guards where it lands.,Fait tomber un rocher enflammé qui brise les gardes là où il s'écrase.
+glyph.Blot.desc,Drops a blot of ink from above that shatters guards where it lands.,Vellum,,Drops a blot of ink from above that shatters guards where it lands.,Fait tomber un pâté d'encre qui brise les gardes là où il s'écrase.
 glyph.Blot.name,Blot,Vellum,,Blot,Pâté
 glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,Vellum,,Hurls a sphere of flames that explodes on impact.,Projette une sphère de flammes qui explose à l'impact.
 glyph.Brand.name,Brand,Vellum,,Brand,Marque
-glyph.Caret.desc,"Blink forward in a flash, untouchable for an instant.",Vellum,,"Blink forward in a flash, untouchable for an instant.","Disparais vers l'avant dans un éclair, intouchable un instant."
+glyph.Caret.desc,"Cross yourself out here and write yourself in further on, untouchable between the two.",Vellum,,"Cross yourself out here and write yourself in further on, untouchable between the two.","Rature-toi ici et réécris-toi plus loin, intouchable entre les deux."
 glyph.Caret.name,Caret,Vellum,,Caret,Insertion
-glyph.Colophon.desc,The thunder god's wrath arcs from enemy to enemy.,Vellum,,The thunder god's wrath arcs from enemy to enemy.,La colère du dieu du tonnerre bondit d'ennemi en ennemi.
+glyph.Colophon.desc,"Your signature leaps from body to body, and everyone it touches is signed.",Vellum,,"Your signature leaps from body to body, and everyone it touches is signed.","Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé."
 glyph.Colophon.name,Colophon,Vellum,,Colophon,Colophon
 glyph.Gilding.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,Vellum,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
 glyph.Gilding.name,Gilding,Vellum,,Gilding,Dorure
@@ -116,7 +116,7 @@ glyph.Pounce.desc,A storm of sand that blinds and slows everyone inside it.,Vell
 glyph.Pounce.name,Pounce,Vellum,,Pounce,Poncif
 glyph.Rupture.desc,Slam the ground: a massive shockwave launches enemies.,Vellum,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
 glyph.Rupture.name,Rupture,Vellum,,Rupture,Rupture
-glyph.Scorch.desc,A ring of embers whirls around you and burns everything.,Vellum,,A ring of embers whirls around you and burns everything.,Un anneau de braises tourbillonne autour de toi et brûle tout.
+glyph.Scorch.desc,A scorched ring that follows you: everything inside it burns.,Vellum,,A scorched ring that follows you: everything inside it burns.,Un anneau roussi qui te suit : tout ce qui s'y tient brûle.
 glyph.Scorch.name,Scorch,Vellum,,Scorch,Roussi
 glyph.Serif.desc,Rock spikes burst from the ground in a straight line.,Vellum,,Rock spikes burst from the ground in a straight line.,Des piques rocheuses jaillissent du sol en ligne droite.
 glyph.Serif.name,Serif,Vellum,,Serif,Empattement
@@ -124,13 +124,13 @@ glyph.Spiral.desc,A whirlwind that drags everyone caught in it toward its centre
 glyph.Spiral.name,Spiral,Vellum,,Spiral,Spirale
 glyph.Stipple.desc,Spits a fast bullet of mud that slows whoever it hits.,Vellum,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
 glyph.Stipple.name,Stipple,Vellum,,Stipple,Pointillé
-glyph.Strike.desc,An instant bolt that strikes the first enemy in your line of sight.,Vellum,,An instant bolt that strikes the first enemy in your line of sight.,Un éclair instantané qui frappe le premier ennemi dans ta ligne de vue.
+glyph.Strike.desc,One stroke crosses out the first enemy in your line of sight.,Vellum,,One stroke crosses out the first enemy in your line of sight.,Un seul trait rature le premier ennemi dans ta ligne de vue.
 glyph.Strike.name,Strike,Vellum,,Strike,Rature
 glyph.Sweep.desc,A cone of wind violently pushes nearby enemies back.,Vellum,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
 glyph.Sweep.name,Sweep,Vellum,,Sweep,Balayage
 glyph.Wash.desc,A wave surges forward and sweeps enemies away.,Vellum,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
 glyph.Wash.name,Wash,Vellum,,Wash,Lavis
-glyph.Watermark.desc,A crackling field that shocks and locks up anyone standing in it.,Vellum,,A crackling field that shocks and locks up anyone standing in it.,Un champ crépitant qui électrise et bloque ceux qui s'y attardent.
+glyph.Watermark.desc,A mark pressed into the ground: whoever stays in it is held by the page.,Vellum,,A mark pressed into the ground: whoever stays in it is held by the page.,Une marque pressée dans le sol : qui s'y attarde est retenu par la page.
 glyph.Watermark.name,Watermark,Vellum,,Watermark,Filigrane
 hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
@@ -167,7 +167,7 @@ leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the to
 level.max,Max level,Vellum,,Max level,Niveau max
 level.title,Level {level},Vellum,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
-loadout.combo,Combo: {combo},Vellum,,Combo: {combo},Combo : {combo}
+loadout.combo,Sequence: {combo},Vellum,,Sequence: {combo},Séquence : {combo}
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé
 loadout.full,Every slot is taken.,Vellum,,Every slot is taken.,Tous les slots sont pris.
@@ -219,7 +219,7 @@ pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
 product.cosmetic,Cosmetic,Vellum,,Cosmetic,Cosmétique
 product.cosmetic.desc,Buy the selected cosmetic with Robux.,Vellum,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
 product.premiumPass,Premium Battle Pass,Vellum,,Premium Battle Pass,Battle Pass Premium
-product.premiumPass.desc,Unlock the premium track of the current season.,Vellum,,Unlock the premium track of the current season.,Débloque la piste premium de la saison en cours.
+product.premiumPass.desc,Unlock the premium track of the current volume.,Vellum,,Unlock the premium track of the current volume.,Débloque la piste premium du volume en cours.
 product.ryo.desc,Ryo to spend in the cosmetic shop.,Vellum,,Ryo to spend in the cosmetic shop.,Des Ryo à dépenser dans la boutique de cosmétiques.
 product.ryoLarge,"8,000 Ryo",Vellum,,"8,000 Ryo",8 000 Ryo
 product.ryoMedium,"3,500 Ryo",Vellum,,"3,500 Ryo",3 500 Ryo
@@ -246,7 +246,7 @@ quest.dealDamage,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {targ
 quest.defeatDummies,Defeat {target} training dummies,Vellum,,Defeat {target} training dummies,Détruis {target} mannequins
 quest.defeatPlayers,Defeat {target} players,Vellum,,Defeat {target} players,Vaincs {target} joueurs
 quest.hitGlyphs,Hit enemies with {target} glyphs,Vellum,,Hit enemies with {target} glyphs,Touche des ennemis avec {target} glyphes
-quest.joinBoss,Take part in {target} World Boss fights,Vellum,,Take part in {target} World Boss fights,Participe à {target} combats de World Boss
+quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target} times,Affronte l'Effacement {target} fois
 quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
 quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
@@ -270,7 +270,7 @@ rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
-season.rewardGranted,Season reward ({rank}): +{amount} Ryo,Vellum,,Season reward ({rank}): +{amount} Ryo,Récompense de saison ({rank}) : +{amount} Ryo
+season.rewardGranted,Volume reward ({rank}): +{amount} Ryo,Vellum,,Volume reward ({rank}): +{amount} Ryo,Récompense du volume ({rank}) : +{amount} Ryo
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Camera shake,Vellum,,Camera shake,Secousses de caméra
 settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.

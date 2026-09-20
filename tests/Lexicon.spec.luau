@@ -33,6 +33,12 @@ local BORROWED: { [string]: string } = {
 	uchiha = "no equivalent: invent one",
 	sharingan = "no equivalent: invent one",
 	rasengan = "no equivalent: invent one",
+	-- The ban list catches a borrowed NAME. It does not catch the same borrow translated, and that is how
+	-- one came back: the Colophon's own tooltip called it "the thunder god's wrath" in both languages, in a
+	-- player-facing string, for the whole of phases 1 to 4 -- while "raijin" three lines above was clean.
+	-- A word list only ever catches the spelling somebody used last time.
+	["thunder god"] = "Colophon",
+	["dieu du tonnerre"] = "Colophon",
 }
 
 -- Where an old spelling is data rather than a name, and must survive untouched.

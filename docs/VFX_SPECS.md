@@ -183,36 +183,6 @@ rapproche aussi le milieu, puisque le vrai projectile est déjà à treize studs
 vrai télégraphe d'un ultime serait un temps d'incantation côté serveur : il n'existe pas, et aucune
 timeline ne peut l'inventer sans mentir sur l'instant du tir. Noté, pas corrigé.
 
-================================================================================
-3. Textures used, for the assembler to check
-================================================================================
-
-- **Scorch** uses `InkBlot`, `DustMote`, `SealRing`, `BrushStroke`, `SmokeSoft` — 18 layers, 3.36 s end to
-  end, no Carrier, no Flash, 5 Trails, 3 Lights. (`ShockwaveRing` and `SparkStreak` are gone on purpose.)
-- **Ligature** uses `InkBlot`, `DustMote`, `BrushStroke`, `SparkStreak`, `SmokeSoft` — 25 layers, 3.06 s,
-  `Carrier.Travel = 16` of Range 20, 3 riders, 10 Marks, 4 Lights, no Shake.
-- **Blot** uses `InkBlot`, `DustMote`, `BrushStroke`, `SmokeSoft` — 15 layers, 2.70 s,
-  `Carrier.Travel = 66` of Range 75, 4 riders, 2 Shakes (Cast then Light), no `SparkStreak`.
-
-Renderer contract, unchanged from the reviewed draft where it was right:
-
-- **`Scorch` does not work unless its renderer passes `Follow = casterRoot(packet)`** (it already computes
-  that value today). Five of its layers are Trails and `buildTrail` is the only builder that reads
-  `Context.Follow`; without it they anchor to static host parts and draw nothing at all. Scorch declares no
-  `Ride`, so `Follow` is safe here: `followCarrier` never runs.
-- **`Ligature` and `Blot` must NOT be given `Follow`.** `buildTrail` prefers `Context.Follow` over its own
-  host part, and `followCarrier` then writes `carrier.CFrame` into that anchor — the caster's
-  `HumanoidRootPart`. Both have riding trails, so passing `Follow` to either is a character-teleport bug,
-  not a cosmetic one.
-- **Leave `Scale` at 1 for all three.** `placeOf` multiplies `Offset` by scale: Ligature's five pool
-  offsets must stay equal to the server's `TrailSpacing`, and Blot's carrier offset holds the server's
-  `SpawnOffset` of 5.
-- Found while reading, mentioned rather than touched: (1) `Strings.luau` still describes Blot as "un rocher
-  enflammé" and Scorch as "un anneau de braises tourbillonne autour de toi" — both are the pre-identity
-  meteor and the pre-identity ember ring, and both now contradict their own glyph; (2) a plain dash shakes
-  twice for the dasher, once from `MovementController` on the `Dash` command and once from the `Dash`
-  timeline's own Shake layer, fired by the packet `CombatService` emits alongside it.
-
 ---
 
 # Maison du Indigo
@@ -329,7 +299,6 @@ de genou et rebondit sur neuf studs de dalle. Chaque couche tient donc sa hauteu
 en une demie seconde, pour finir à 5,88 et 5,94, un dixième avant que `Debris` prenne la vraie dalle à 6,0.
 Ce qui reste comme mensonge est un mur invisible qui bloque encore, jamais de l'encre visible qui ne bloque
 plus.
-```
 
 ---
 
@@ -466,26 +435,6 @@ ici : le plan d'un `Sprite` est perpendiculaire à la visée, il est donc écrit
 absent à quiconque se tient à côté de lui, et un ultime ne peut pas dépenser une couche sur un seul siège.
 Tout ce qui porte de l'information est plat — deux marques au sol, qui se lisent pareil de partout — ou
 fait de particules en espace monde.
-```
-
----
-
-### 3. Texture inventory, per glyph (corrected)
-
-- **Serif** — `BrushStroke` (2 `Beam` : le trait qui s'encre, le trait qui sèche), `InkBlot` (5 empreintes), `DustMote` (rassemblement), `SparkStreak` (5 éclats de gravier), `SmokeSoft` (résidu). Aucune autre.
-- **Stipple** — `DustMote` (rassemblement, pointillé en vol, résidu), `SparkStreak` (éclat de lancement), `InkBlot` (la tête), `BrushStroke` (traînée). Aucune autre.
-- **Gilding** — `DustMote` (feuille tirée sur le corps, poussière résiduelle), `SealRing` (halo tracé, halo replié, empreinte au sol), `SparkStreak` (éclats du brunissoir), `BrushStroke` (7 traînées d'or). Aucune autre.
-- **Rupture** — `SparkStreak` (aspiration, colonne de lancement), `CrackWeb` (déchirure en deux temps, déchirure qui sèche), `SmokeSoft` (nappe au sol, fumée résiduelle), `InkBlot` (le trou sous le caster). `BrushStroke` retiré avec le `Sprite`. Aucune autre.
-
-Profils nommés, à croiser : `FeelConfig.Shake.Profiles` → `Light` (Serif ×2), `Cast` (Gilding), `Heavy` (Rupture). `LightingConfig.Pulses` → `PageFlash` (Rupture uniquement).
-
-**Notes for the assembler — `Context.Follow`, per renderer:**
-- `Serif`, `Rupture`: pass **no** `Follow`. Both are world-anchored events.
-- `Stipple`: pass **no** `Follow`. Its `Trail` has `Ride = true`; `buildTrail` prefers `Context.Follow` over the carrier as its anchor, and `followCarrier` then assigns `anchor.CFrame = carrier.CFrame` — which would drive the caster's own `HumanoidRootPart` along the dart's path every frame.
-- `Gilding`: pass `Follow = casterRoot(packet)`. Required — it is the only way the seven `Trail` layers land on the body, and Gilding has no `Carrier`, so there is no `followCarrier` to seize the root.
-
-**Verified budgets** (`VfxTimelineConfig.duration`, recomputed rather than eyeballed): Serif 2.30 s / 18 layers / max `At+For` 1.90 · Stipple 2.36 s / 9 / 0.64 · Gilding 4.00 s / 15 / 3.55 · Rupture 3.27 s / 12 / 2.90. All inside `GameConfig.Vfx.LifetimeSeconds` and `MaxLayerSeconds`, both 6.
-
 ---
 
 # Maison du Vert-de-gris
@@ -535,20 +484,6 @@ Profils nommés, à croiser : `FeelConfig.Shake.Profiles` → `Light` (Serif ×2
 **Comment il est construit.** Une ombre douce couvre les vingt-six studs de `Params.Radius` en une demi-seconde, et elle est **visible** pendant qu'elle le fait — quarante-cinq pour cent de transparence, pas quatre-vingts, qui est le réglage d'une couche écrite et jamais vue — parce que le serveur frappe immédiatement et que l'emprise doit être honnête tout de suite. Elle s'efface quand la première poudre vient la remplacer, pour que rien ne disparaisse sans relève. Puis trois versements, à zéro, neuf et dix-huit dixièmes, les intervalles propres du serveur : chacun tombe de sept studs de haut, en vitesse négative sur un cône de cinquante-huit degrés, la seule chose qu'un émetteur de ce format peut affirmer sans mentir — son axe est le haut, donc le bas est la direction qu'il donne réellement. Dessous, une brume basse qui **descend** au lieu de monter, et du grain fin par-dessus, parce qu'une poudre sans grain dur est une fumée et qu'une fumée appartient au Cinabre ou à l'Indigo. Chaque versement élargit la tache au sol d'un cran — douze, dix-sept, vingt-et-un studs — donc la zone paraît compter ses passages.
 
 **Il ne secoue pas la caméra, et ce qu'il laisse n'a pas d'arête.** Aucune secousse, aucun éclair, nulle part : c'est voulu et non oublié. Le glyphe n'applique aucune force — ni poussée, ni portance, ni étourdissement — et une caméra qui sursauterait sur une chute de poudre effacerait la seule différence entre lui et toutes les autres zones. La bible artistique appelle le silence un matériau ; ici c'est le matériau principal. Quant à la trace, c'est un `GradientRadial` et non du `PaperGrain` : le grain de papier est la surface tuilable du monde, sans forme, et sur le sol il donne un carré de pigment à arêtes vives posé sur la texture même dont il est fait. Un disque à bord fondu n'a aucune arête pour se trahir — c'est à ça que ressemble une poudre retombée.
-
-==============================================================================
-3. TEXTURES ET MONTAGE, par glyphe (pour l'assembleur)
-==============================================================================
-
-Sweep — BrushStroke, InkBlot, DustMote, SparkStreak. (PaperGrain n'est plus utilisé nulle part dans l'école.) Jouer sur le CENTRE, pas sur le lanceur: Origin = packet.Origin + directionOf(packet) * numberParam(packet, "Offset", 10) — le serveur envoie Offset dans Params et l'ancien renderer calcule déjà ce centre —, Direction du paquet, Scale = Radius / 12. Les couches de la main portent elles-mêmes leur -10 vers l'avant, donc une dérive d'échelle tombe sur le cosmétique et jamais sur l'empreinte.
-
-Hairline — SparkStreak, BrushStroke, DustMote. Origin = packet.Origin, Direction du paquet, Scale = 1, et **pas de `Follow`** : les deux Trails s'ancrent sur `Context.Follow` quand il est fourni, et `followCarrier` piloterait alors le CFrame de la pièce suivie — la racine du personnage. Brand n'en passe aucun pour exactement cette raison.
-
-Spiral — SparkStreak, GradientRadial, ShockwaveRing, SmokeSoft, InkBlot. Origin = packet.Origin (déjà le centre de la zone), Scale = Radius / 11.
-
-Pounce — GradientRadial, DustMote, SmokeSoft, InkBlot. Origin = packet.Origin (déjà le centre), Scale = Radius / 13.
-
-La barre, recalculée sous Lune contre les vrais AssetIds / FeelConfig / GlyphConfig / GameConfig / LightingConfig : couches 10 / 9 / 15 / 13 ; une lumière partout ; marques 2 / 0 / 6 / 5, et les trois timelines à phase Impact en portent ; un seul porteur, celui du Délié, soixante studs contre soixante de portée, avec trois passagers ; aucune interpolation hors des huit permises ; aucun champ de couleur ; `duration()` = 1,34 / 1,11 / 4,70 / 4,82 s contre les 6 s de `GameConfig.Vfx.LifetimeSeconds` ; plus longue couche isolée 3,35 s contre le garde-fou de 6. `stylua --check` propre au réglage du projet.
 
 ---
 
@@ -709,27 +644,187 @@ seconde sans que rien sur eux ne le dise — exactement l'information qu'il faut
 convertir l'ultime. Quand tout est fini, le sol porte le chemin entier comme un seul trait brisé, pendant
 près de deux secondes : la page a été signée.
 
-================================================================================
-3. TEXTURES PAR GLYPHE, à vérifier contre AssetIds.Textures
-================================================================================
+---
 
-- `Strike` : `SparkStreak`, `BrushStroke` (traînée + marque au sol), `SmokeSoft`, `DustMote`.
-- `Caret` : `SparkStreak`, `BrushStroke` (rature de départ, caret, marque d'insertion), `SmokeSoft`,
-  `InkBlot` (deux marques), `DustMote`.
-- `Watermark` : `PaperGrain` (deux marques), `DustMote` (fibres des quatre presses + résidu), `InkBlot`.
-- `Colophon` : `SealRing`, `SparkStreak`, `BrushStroke` (deux passes du trait, deux traits croisés sur le
-  corps, ombre du trait au sol), `CrackWeb`, `DustMote`. Plus de `SmokeSoft` : la bouffée d'impact a été
-  remplacée par le trait croisé.
-- `ColophonLink` : `SparkStreak`, `BrushStroke` (deux passes, marque d'étourdissement, segment au sol),
-  `InkBlot`, `DustMote`.
+# L'Effacement
 
-Aucune couche n'utilise `ShockwaveRing`, `ExplosionBloom`, `GradientRadial` ni `GradientLinear`.
+Les sept effets du World Boss sont les seuls du jeu dont le visuel est **une règle** et non une décoration :
+six joueurs lisent la peinture au sol et décident où se tenir. D'où trois choses que ne fait aucune autre
+timeline. Leur phase d'anticipation prend sa durée **du paquet** (`Phase.Window`) — le serveur attend entre
+0,6 et 2 secondes selon l'attaque et selon la phase du combat. Leurs couches se mesurent sur **la forme
+que le serveur va frapper** (`SizeFrom`, `SpanFrom`, `OffsetFrom` contre `Radius` et `Reach`), pas sur une
+échelle. Et elles sont dessinées avec les quatre textures `Telegraph*`, les seules dont l'encre atteint
+le bord du plan (`AssetIds.Ink`) : le pâté s'arrête à 0,53 de son plan, l'onde à 0,81, et une règle
+peinte avec eux serait une règle sur six dixièmes du sol.
 
-Deux notes pour l'assembleur, reprises de la soumission parce qu'elles sont justes. `buildTrail` ancre une
-`Trail` sur `Context.Follow` quand il existe et `followCarrier` écrit la CFrame de l'ancre : un jeu qui
-passe `Follow` avec une `Trail` montée déplace le `HumanoidRootPart` du lanceur. `Strike` et `Caret`
-doivent être joués avec `Follow = nil`, comme `Brand`. Et `src/shared/Strings.luau` décrit encore ces
-quatre glyphes dans le vocabulaire d'avant VELLUM (`glyph.Colophon.desc` = « la colère du dieu du
-tonnerre », `glyph.Strike.desc` = « un éclair instantané », `glyph.Watermark.desc` = « un champ
-crépitant », `glyph.Caret.desc` = « dans un éclair »), ce qui contredit à la fois la table du lexique du
-bible artistique et ces fiches.
+`tests/BossTelegraph.spec.luau` tient les trois ensemble. Il lit `WorldBossConfig`, reconstruit la forme
+de `isInShape`, multiplie la demi-largeur de chaque plan par l'encre de sa texture, et vérifie que la
+peinture couvre le disque, l'anneau et — tous les quarts de stud — le cône, sans jamais sous-couvrir ;
+que le refuge ne dépasse jamais le vrai rayon, en diagonale comprise ; que chaque avertissement est
+lisible dès sa première image ; que la fenêtre se résout sans clamp dans chaque phase du combat et que
+l'impact commence à sa fin ; et que chaque forme du serveur a une timeline écrite pour elle. Chaque
+assertion a été vue échouer sur un défaut réintroduit avant d'être gardée. Et côté serveur, D-72 : le boss
+ne bouge pas pendant qu'il prévient, et les dégâts lisent l'origine figée au début de l'avertissement.
+
+**Le vocabulaire est partagé par les quatre attaques**, parce qu'un boss qu'on apprend est un boss dont la
+langue se répète :
+
+| Signe | Ce qu'il dit |
+|---|---|
+| Le sol **s'éclaire** d'abord (`EndBrightness`), sur toute la fenêtre | la première chose lisible à quarante studs, à travers les effets de six joueurs |
+| L'encre inonde le sol qu'il va effacer à 4 %, lisible dès la première image, en `Quad` entrant | le dernier tiers se remplit d'un coup : c'est « maintenant » sans afficher de chiffre |
+| Un anneau balaie à vitesse régulière vers le cœur du danger, à partir de 12 % | donc il s'éloigne aussi **de la sortie** : vers le centre pour un disque, vers le boss pour un cône, vers l'extérieur pour un anneau |
+| Le grain de la page est tiré **vers** le point du coup | L'Effacement prend en lui là où tout glyphe projette ; les étincelles sont au Cinabre et à l'Orpiment |
+| Ce qui reste est du **papier nu, couleur papier** (`BossScour`) | aucun autre effet du jeu ne laisse ça : les glyphes brûlent la page, L'Effacement l'efface |
+
+**Sa couleur.** Rouge pour ce qui touche (la même règle que les dégâts reçus), vert pour le seul endroit
+qu'une attaque ne couvre pas, et **vélin** `#E8E0CE` pour le boss lui-même et pour ce qu'il laisse : la
+couleur de la page. C'est la seule chose du jeu teintée par le papier et non par un pigment. Ce qui était
+là avant était une colonne d'énergie violette, et une colonne d'énergie violette est le visuel le plus
+copiable-collable de Roblox.
+
+**Le papier nu est un second jeu.** Une timeline porte une couleur, et l'attaque porte celle du danger ;
+`BossScour` est joué par le rendu sur la phase Résidu de l'attaque (`VfxTimelineConfig.phaseAt`), en
+vélin, sur le rayon du disque, la portée de l'anneau, ou un pâté à mi-trait pour le cône. Les résidus des
+attaques elles-mêmes ne gardent que la fracture et la poussière.
+
+---
+
+## `BossSlam` — le coup plat (disque)
+
+**Ce qu'il doit faire sentir.** Que le sol sous soi est déjà perdu. Vingt-deux studs, 1,2 seconde
+d'avertissement, l'attaque la plus fréquente du combat : c'est elle qui enseigne la langue du boss.
+
+**Ce qu'il a remplacé.** Un cylindre couché de 0,4 stud d'épaisseur, teinté rouge, passant de 85 % à 30 %
+d'alpha **en linéaire** sur la fenêtre, puis un second cylindre qui s'étendait au rayon. Deux couches, une
+interpolation interdite par la règle 4, aucune lumière, et une trace qui n'existait pas : le sol redevenait
+propre une demi-seconde après le coup.
+
+**Comment il est construit.** Le disque d'encre monte à 2 × `Radius` de diamètre — donc exactement le
+cercle que `isInShape` teste, jusqu'à la dernière ligne de pixels — et l'anneau se referme dessus en
+`Sine` entrant-sortant, à un rythme qu'on peut lire à mi-fenêtre, arrivant au centre à l'instant du coup.
+Le grain de la page converge depuis onze studs, puis une bouffée de trente sur les 14 % finaux : c'est ce
+dernier temps qui fait bouger un joueur, pas le remplissage. À l'impact, l'encre se consume au lieu
+d'être coupée, l'onde s'arrête **au rayon** et pas un stud plus loin, la fracture s'ouvre à 1,7 fois le
+rayon, et le papier nu vient par-dessus en vélin.
+
+---
+
+## `BossFury` — la même langue, plus fort (disque)
+
+**Ce qu'il doit faire sentir.** Que ce n'est pas le coup plat, **avant** d'avoir choisi où courir.
+Trente studs, quarante-cinq dégâts, deux secondes pleines : l'attaque de la troisième phase.
+
+**Ce qu'il a remplacé.** Exactement `BossSlam`, avec un autre nombre en entrée. Rien à l'écran ne
+distinguait l'attaque à 28 dégâts de l'attaque à 45. Et ma première version ne valait guère mieux : sa
+seconde horloge arrivait aux deux tiers de la fenêtre — 0,42 seconde avant le coup en phase trois,
+après que le joueur a dû s'engager.
+
+**Comment il est construit.** Deux horloges concentriques **dès la première image**, qui se referment à
+des rythmes différents : l'anneau en balayage régulier, et dedans un `SealRing` qui tourne à 2,2 rad/s et
+se referme en `Quart` entrant, donc arrive en dernier. Une silhouette qu'aucune autre attaque n'a, lisible
+à l'instant où elle apparaît. Et deux ondes à l'atterrissage au lieu d'une : un front mince en
+`Exponential` sortant jusqu'au rayon exact, puis un corps d'encre plus lent qui le dépasse, parce qu'un
+coup qui a un front **et** un corps a du poids, là où un seul anneau n'a que de la vitesse.
+
+---
+
+## `BossSweep` — le trait (cône)
+
+**Ce qu'il doit faire sentir.** Qu'une direction est condamnée et que les autres ne le sont pas. C'est la
+seule attaque du boss qui n'est pas un disque, et la seule dont on se sauve en marchant de côté.
+
+**Ce qu'il a remplacé.** Cinq pavés rouges de 0,4 stud d'épaisseur dont la largeur était calculée au
+**centre** de chaque segment. Un joueur debout dans la moitié extérieure de n'importe quel segment se
+tenait dans les dégâts et hors de la peinture, sur toute la longueur du cône.
+
+**Comment il est construit.** C'est la raison pour laquelle le format a appris `Span` : un `Mark` peut
+enfin être plus long que large, donc le cône est cinq barres d'encre plein-bord (`TelegraphBar`) posées
+bout à bout le long de la portée, chacune large comme le coin l'est **à sa sortie** et non en son milieu.
+Toutes couvrent donc plus que les dégâts, jamais moins, et jamais moins que le corps du boss lui-même —
+`isInShape` ne referme pas le coin sous 4 studs, parce que se coller au boss n'est pas une esquive, et le
+test échantillonne les quarante studs tous les quarts de stud pour le prouver, encre comprise. Elles
+s'allument **vers l'extérieur** avec un décalage de 5 % chacune et finissent ensemble : la direction est
+lisible avant que la forme soit terminée, et le trait arrive à son propre bout quand le coup tombe. Le
+coup lui-même est un seul trait de pinceau sur toute la longueur, plus étroit que le coin : l'avertissement
+était la forme, ceci est le poids.
+
+---
+
+## `BossEruption` — l'anneau (et `BossEruptionSafe`)
+
+**Ce qu'il doit faire sentir.** Que la sortie est **à l'intérieur**. C'est la seule attaque du jeu dont on
+se sauve en courant vers le danger apparent.
+
+**Ce qu'il a remplacé.** Un disque rouge à la portée extérieure, un disque vert au rayon sûr, et huit
+piliers qui montaient du sol à l'impact. Le disque vert était surélevé de 0,15 stud pour ne pas se battre
+avec le rouge, ce qui est la bonne idée — mais les deux étaient dans le même effet, et un effet ne porte
+qu'une couleur depuis la règle 2.
+
+**Comment il est construit.** Le danger est une seule inondation mesurée sur `Reach`, et son horloge part
+du centre vers le bord extérieur : elle traverse la frontière du refuge en chemin, ce qui est exactement ce
+qu'elle raconte. Sa matière est posée **sur l'anneau** qu'elle va soulever, mesurée sur la portée, en trois
+points — trois, parce que deux se lisent comme une paire et trois comme un anneau —, du grain qui monte
+avant le coup et trois colonnes de fumée d'encre après.
+
+**Le refuge est un second jeu.** `BossEruptionSafe` est joué à côté, dans la seule couleur de ce sol qui ne
+veut pas dire danger, avec la même fenêtre : le papier nu se remplit et la ligne autour de lui tient
+exactement aussi longtemps qu'il reste du temps pour entrer, puis **survit** à l'effacement dessiné autour,
+parce que la page garde ce qui n'a pas été effacé. Le disque est un disque (`TelegraphPage`), pas le grain
+du monde sur une plaque carrée : un carré de sécurité a des coins à six studs dans les dégâts, et c'est le
+seul mensonge de ce sol qui tue. Le test refuse un refuge plus grand que le vrai rayon, diagonale comprise,
+et un refuge plus petit que 90 % de lui.
+
+---
+
+## `BossSpawn` — l'arrivée
+
+**Ce qu'il doit faire sentir.** Qu'il faut arrêter ce qu'on fait. Il ne blesse personne : son seul travail
+est d'être impossible à manquer et impossible à confondre avec un impact.
+
+**Ce qu'il a remplacé.** Une colonne d'énergie violette qui grossissait, vingt-huit motes, et l'onde de
+choc standard. C'est-à-dire l'apparition de boss par défaut de Roblox, teintée.
+
+**Comment il est construit.** À l'envers. Le grain de la page est **aspiré** depuis quatorze studs dans
+le point où le boss va tomber — une vraie convergence, depuis une coquille, et non des particules envoyées
+« à l'envers » depuis un point (D-70) —, le sceau est **tracé sur place** en tournant plutôt que refermé,
+parce que l'anneau qui se referme est l'horloge des attaques et que la première chose que voient six
+joueurs ne doit pas leur apprendre qu'elle est inoffensive, et le sol s'assombrit avant de s'éclairer.
+C'est le seul effet du jeu à déclencher la pulsation `Erasure` de `LightingConfig` : près de cinq secondes
+d'écran **drainé** et non flashé, sur les cinq effets de post-traitement à la fois. Et le seul du boss à
+garder une chose empruntée, le `ExplosionBloom` de toute détonation, parce que c'est la seule fois où il
+est plus fort qu'elles.
+
+---
+
+## `BossDefeated` — la fin
+
+**Ce qu'il doit faire sentir.** Que c'est rendu. Le seul temps du combat qui appartient aux joueurs qui
+regardent plutôt qu'au boss.
+
+**Ce qu'il a remplacé.** Une boule qui se contractait en `Back` puis grossissait à huit fois le rayon en
+s'effaçant, plus trente-six éclats.
+
+**Comment il est construit.** Le miroir de l'arrivée : ce qu'il avait pris ressort. Le sceau se referme en
+`Quint` entrant sur six dixièmes — il se rassemble, hésite, puis part —, l'onde repart en `Exponential`
+sortant à soixante-dix studs et l'encre qu'il avait prise est jetée en retour sur la page. Puis le résidu
+fait ce que ne fait aucun autre résidu du jeu : le papier nu s'efface **d'abord**, et l'encre revient
+par-dessus — en deux couches, une qui arrive et une qui part, parce qu'une couche ne va jamais que dans
+un sens. La page est rendue dans l'autre sens.
+
+---
+
+## Ce qui n'est pas fait
+
+**Le son en couches, encore.** Les six effets jouent un seul `ImpactExplosion`, programmé sur la fin de
+l'avertissement par `VfxTimelineConfig.phaseAt` — donc au bon instant, ce qui est le minimum, mais un seul
+son, et le son de toute détonation. La passe 5 le construit en entier, et donne au boss le sien.
+
+**Rien ne remplace le corps du boss.** Ces fiches décrivent ce qu'il **fait** ; le boss lui-même est
+encore un bloc gris de 8 × 14 × 8 studs construit par `WorldBossService`. C'est la passe 7 (« le monde »)
+qui le met en scène, et aucune timeline ne peut le faire à sa place.
+
+**Rien n'a été vu dans un client vivant.** Ni ces sept timelines, ni les dix-neuf glyphes de la passe 4.
+Ce que les portes couvrent est dit plus haut ; ce qu'elles ne couvrent pas — une combinaison de valeurs que
+le runtime traiterait mal, un décalque à la mauvaise face (D-68, trouvé par relecture et non par porte) —
+ne se voit qu'en jouant.

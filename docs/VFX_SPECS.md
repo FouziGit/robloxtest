@@ -824,7 +824,9 @@ son, et le son de toute détonation. La passe 5 le construit en entier, et donne
 encore un bloc gris de 8 × 14 × 8 studs construit par `WorldBossService`. C'est la passe 7 (« le monde »)
 qui le met en scène, et aucune timeline ne peut le faire à sa place.
 
-**Rien n'a été vu dans un client vivant.** Ni ces sept timelines, ni les dix-neuf glyphes de la passe 4.
-Ce que les portes couvrent est dit plus haut ; ce qu'elles ne couvrent pas — une combinaison de valeurs que
-le runtime traiterait mal, un décalque à la mauvaise face (D-68, trouvé par relecture et non par porte) —
-ne se voit qu'en jouant.
+**Les huit timelines ont tourné dans un client vivant, mais pas avec leurs textures.** Émises par le vrai
+chemin serveur depuis un place de travail (D-76) : zéro erreur, et les sondes ont lu les barres du
+Balayage aux largeurs exactes, la crue et le refuge de l'Éruption dans leurs deux couleurs, toutes les
+plaques couchées et orientées. Tant que les PNG ne sont pas en ligne, ce sont des plaques nues ; l'image
+telle qu'elle est écrite ici reste à voir. Les dix-neuf glyphes de la passe 4 restent, eux, non éprouvés
+en jeu.

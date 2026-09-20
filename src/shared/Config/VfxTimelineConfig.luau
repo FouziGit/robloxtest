@@ -5862,6 +5862,1548 @@ local COLOPHON_LINK: Timeline = {
 	},
 }
 
+----------------------------------------------------------------
+-- L'Effacement (docs/GAME_DESIGN.md §7)
+----------------------------------------------------------------
+
+-- The World Boss is the only thing in Vellum that hits six players at once, and its four attacks are the
+-- only effects in the game whose visual is load-bearing: the paint on the floor IS the rule. So these are
+-- the only timelines that measure themselves against the packet instead of against Scale -- the radius
+-- comes from WorldBossConfig, changes per attack, and tests/BossTelegraph.spec.luau proves the paint
+-- covers the floor the server will damage -- and the only ones whose wind-up lasts exactly as long as the
+-- server is really waiting.
+--
+-- They draw with the four Telegraph textures and nothing else on the floor they warn about, because those
+-- are the only textures whose ink reaches the edge of the plane it is drawn on (AssetIds.Ink). The blot's
+-- ink stops at six tenths of its plane; a warning drawn with it would warn about six tenths of the floor.
+--
+-- The four share one vocabulary, because a boss you can learn is a boss whose language repeats:
+--   the floor lights first, then ink floods the ground it is about to erase, readable from its first
+--     frame and filling faster as the hit approaches (Quad in), so the last third reads as "now";
+--   a ring sweeps at a steady pace toward the heart of the danger, which is the same sentence as "away
+--     from safety": inward for a Circle, back to the boss for a Cone, outward for a Ring;
+--   the page's own grain is pulled off the floor INTO the point of the hit -- the Erasure takes in,
+--     where every glyph in the game throws out, and sparks belong to Cinnabar and Orpiment, not to it;
+--   and what is left is not a scorch mark. It is bare paper, in the colour of paper, laid by BOSS_SCOUR
+--     as a second play once the damage is over: the one thing only this boss leaves behind.
+
+local BOSS_SLAM: Timeline = {
+	Intent = "The floor lights, ink floods it to the exact radius, a ring closes on the centre, and the page tears",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 1.2,
+			Window = true,
+			Layers = {
+				-- The light is the earliest legible thing at forty studs, so it goes first and spans the
+				-- whole window.
+				{
+					Kind = "Light",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = { 0, 3, 0 },
+					Range = 26,
+					Brightness = 0.2,
+					EndBrightness = 2.4,
+				},
+				-- The damage area, at the damage size, for the whole warning, and readable from the first
+				-- frame: a warning three quarters transparent for half its window is a warning about the
+				-- last half.
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Radius",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				-- The clock. A steady sweep (Sine in-out is the nearest legal thing to one) rather than a
+				-- curve that has barely moved at the halfway mark: its whole job is to be read mid-window.
+				{
+					Kind = "Mark",
+					At = 0.12,
+					For = 0.88,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Texture = "TelegraphRing",
+					Size = 2,
+					EndSize = 0.12,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.4,
+					EndTransparency = 0.06,
+				},
+				-- The page's grain, drawn in. Negative speed converges from a shell the runtime sizes to
+				-- the particle's own flight, so this really arrives at the point instead of leaving it.
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 0.5, 0 },
+					Rate = 18,
+					Speed = { -16, -8 },
+					Lifetime = { 0.7, 1.1 },
+					Spread = 40,
+					Drag = 1.2,
+					Size = 0.5,
+					EndSize = 0.05,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				-- The last beat of the wind-up, which is the one that makes a player move.
+				{
+					Kind = "Emitter",
+					At = 0.86,
+					For = 0.14,
+					Texture = "DustMote",
+					Offset = { 0, 0.5, 0 },
+					Burst = 30,
+					Speed = { -30, -18 },
+					Lifetime = { 0.12, 0.2 },
+					Spread = 30,
+					Size = 0.6,
+					EndSize = 0.05,
+				},
+				{ Kind = "Shake", At = 0.9, For = 0.1, Profile = "Light" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.4,
+			Layers = {
+				-- The flood is not switched off on the frame the hit lands: it burns off the page, which is
+				-- the hand-off rule 3 asks for.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.4,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Radius",
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				-- The wave runs out to exactly the radius that hurt, and stops there.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.36,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 0.25,
+					EndSize = 2,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.06,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.02,
+					For = 0.38,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 1.7,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Radius",
+					Transparency = 1,
+					EndTransparency = 0.28,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "SmokeSoft",
+					Offset = { 0, 0.5, 0 },
+					Burst = 30,
+					Speed = { 14, 30 },
+					Lifetime = { 0.7, 1.2 },
+					Spread = 75,
+					Drag = 2.2,
+					Size = 3,
+					EndSize = 7,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.35,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 3, 0 },
+					Range = 34,
+					Brightness = 3.2,
+				},
+				{ Kind = "Flash", At = 0, For = 0.05, Profile = "PageFlash" },
+				{ Kind = "Shake", At = 0, For = 0.1, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 1.6,
+			Layers = {
+				-- The tear, fading. The bare page itself is BOSS_SCOUR, played in the paper's colour.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.6,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 1.7,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.28,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.1,
+					Texture = "DustMote",
+					Offset = { 0, 0.8, 0 },
+					Rate = 10,
+					Speed = { 0.5, 2.5 },
+					Lifetime = { 0.6, 1 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.4,
+					EndSize = 0,
+					Transparency = 0.5,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Fury is the phase-three attack: thirty studs, forty-five damage, two full seconds of warning. It is the
+-- same language spoken louder, and it has to be told from the Slam in one frame, mid-fight, before a
+-- player commits: both are discs, and thirty studs against twenty-two is not a difference a bare floor
+-- shows. So it has two clocks from its first frame, concentric and closing at different rates -- a
+-- silhouette no other attack has -- and two waves on the landing, a front and a body, so the hit has
+-- weight rather than only speed.
+local BOSS_FURY: Timeline = {
+	Intent = "The same flood with two clocks inside it from the first frame: the attack that ends a careless player",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 2,
+			Window = true,
+			Layers = {
+				{
+					Kind = "Light",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = { 0, 3, 0 },
+					Range = 34,
+					Brightness = 0.2,
+					EndBrightness = 3.4,
+				},
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Radius",
+					Transparency = 0.72,
+					EndTransparency = 0.16,
+				},
+				{
+					Kind = "Mark",
+					At = 0.12,
+					For = 0.88,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Texture = "TelegraphRing",
+					Size = 2,
+					EndSize = 0.12,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.36,
+					EndTransparency = 0.05,
+				},
+				-- The second clock: inside the first, turning, and closing on a harder curve, so the two
+				-- separate as the window runs and the inner one arrives last.
+				{
+					Kind = "Mark",
+					At = 0.12,
+					For = 0.88,
+					Ease = "Quart",
+					EaseDirection = "In",
+					Texture = "SealRing",
+					Size = 1.5,
+					EndSize = 0.2,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Radius",
+					Spin = 2.2,
+					Transparency = 0.45,
+					EndTransparency = 0.05,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 0.5, 0 },
+					Rate = 26,
+					Speed = { -20, -10 },
+					Lifetime = { 0.8, 1.2 },
+					Spread = 40,
+					Drag = 1.2,
+					Size = 0.6,
+					EndSize = 0.05,
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.82,
+					For = 0.18,
+					Texture = "DustMote",
+					Offset = { 0, 0.5, 0 },
+					Burst = 44,
+					Speed = { -36, -20 },
+					Lifetime = { 0.14, 0.24 },
+					Spread = 30,
+					Size = 0.7,
+					EndSize = 0.05,
+				},
+				{ Kind = "Shake", At = 0.62, For = 0.2, Profile = "Light" },
+				{ Kind = "Shake", At = 0.9, For = 0.1, Profile = "Melee" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.5,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.5,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Radius",
+					Transparency = 0.16,
+					EndTransparency = 1,
+				},
+				-- The front, fast and thin, to the exact radius.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.3,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 0.25,
+					EndSize = 2,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.04,
+					EndTransparency = 1,
+				},
+				-- The body behind it, slower and past the front, which is what gives the hit weight rather
+				-- than speed. Ink, not a warning, so the blot is the right texture here.
+				{
+					Kind = "Mark",
+					At = 0.06,
+					For = 0.44,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "InkBlot",
+					Size = 0.6,
+					EndSize = 2.4,
+					Offset = { 0, 0.06, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.02,
+					For = 0.48,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 1.8,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Radius",
+					Transparency = 1,
+					EndTransparency = 0.2,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.6,
+					Texture = "SmokeSoft",
+					Offset = { 0, 0.5, 0 },
+					Burst = 38,
+					Speed = { 18, 40 },
+					Lifetime = { 0.8, 1.4 },
+					Spread = 80,
+					Drag = 2.4,
+					Size = 4,
+					EndSize = 9,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.45,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 3, 0 },
+					Range = 44,
+					Brightness = 4.4,
+				},
+				{ Kind = "Flash", At = 0, For = 0.05, Profile = "PageFlash" },
+				{ Kind = "Shake", At = 0, For = 0.12, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 1.8,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.4,
+					Texture = "DustMote",
+					Offset = { 0, 1, 0 },
+					Rate = 12,
+					Speed = { 0.5, 3 },
+					Lifetime = { 0.7, 1.2 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.45,
+					EndSize = 0,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Sweep is the only boss attack that is not a disc, and the wedge it opens is the reason the format
+-- learned Span. The server's shape (WorldBossMode.isInShape) is a triangle that opens to Radius of
+-- half-width by the end of Range and never closes below the boss's own body, so the warning is five
+-- full-bleed bars laid end to end along the reach, each as wide as the wedge is by the time it leaves
+-- that bar. Every one of them is wider than the damage rather than narrower -- the last thing a warning
+-- may do is tell somebody they are outside it -- and tests/BossTelegraph.spec.luau samples the whole
+-- length against the numbers WorldBossConfig actually ships, and against the bar's own ink.
+--
+-- They are painted outward with a stagger, all finishing together, so the direction is readable before
+-- the shape is finished: the stroke leaves the boss and arrives at its own end as the hit lands.
+local BOSS_SWEEP: Timeline = {
+	Intent = "A bar of ink painted outward from the boss, arriving at its far end as the blow lands",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 1,
+			Window = true,
+			Layers = {
+				{
+					Kind = "Light",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = { 0, 3, 18 },
+					Range = 40,
+					Brightness = 0.2,
+					EndBrightness = 2.2,
+				},
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 0.62,
+					Span = 0.2,
+					Offset = { 0, 0, 0.1 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				{
+					Kind = "Mark",
+					At = 0.09,
+					For = 0.91,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 0.86,
+					Span = 0.2,
+					Offset = { 0, 0, 0.3 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				{
+					Kind = "Mark",
+					At = 0.14,
+					For = 0.86,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 1.26,
+					Span = 0.2,
+					Offset = { 0, 0, 0.5 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				{
+					Kind = "Mark",
+					At = 0.19,
+					For = 0.81,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 1.66,
+					Span = 0.2,
+					Offset = { 0, 0, 0.7 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				{
+					Kind = "Mark",
+					At = 0.24,
+					For = 0.76,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 2.06,
+					Span = 0.2,
+					Offset = { 0, 0, 0.9 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.2,
+				},
+				-- The clock, at the apex: it closes on the boss, which is where the stroke is coming from
+				-- and therefore the one direction that is not a way out.
+				{
+					Kind = "Mark",
+					At = 0.12,
+					For = 0.88,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Texture = "TelegraphRing",
+					Size = 1.4,
+					EndSize = 0.12,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.4,
+					EndTransparency = 0.06,
+				},
+				-- The grain of the stroke, gathered back into the boss.
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 0.5, 0 },
+					Rate = 18,
+					Speed = { -14, -7 },
+					Lifetime = { 0.7, 1.1 },
+					Spread = 40,
+					Drag = 1.2,
+					Size = 0.5,
+					EndSize = 0.05,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				{ Kind = "Shake", At = 0.9, For = 0.1, Profile = "Light" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.4,
+			Layers = {
+				-- The blow itself is one stroke down the whole length, narrower than the widest part of
+				-- the wedge: the warning was the shape, this is the weight. The bars end at 0.2 and this
+				-- opens at 0.06, so nothing on the floor is switched off.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.4,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Size = 1.4,
+					Span = 1,
+					Offset = { 0, 0.1, 0.5 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.06,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.02,
+					For = 0.38,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 1.3,
+					Offset = { 0, 0.16, 0.5 },
+					SizeFrom = "Radius",
+					OffsetFrom = "Reach",
+					Transparency = 1,
+					EndTransparency = 0.3,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "SmokeSoft",
+					Offset = { 0, 0.6, 16 },
+					Burst = 26,
+					Speed = { 16, 34 },
+					Lifetime = { 0.6, 1.1 },
+					Spread = 65,
+					Drag = 2.2,
+					Size = 3,
+					EndSize = 7,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.4,
+					Texture = "DustMote",
+					Offset = { 0, 0.6, 24 },
+					Burst = 30,
+					Speed = { 26, 52 },
+					Lifetime = { 0.3, 0.6 },
+					Spread = 35,
+					Drag = 2,
+					Size = 0.8,
+					EndSize = 0,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.35,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 3, 18 },
+					Range = 40,
+					Brightness = 3,
+				},
+				{ Kind = "Flash", At = 0, For = 0.05, Profile = "PageFlash" },
+				{ Kind = "Shake", At = 0, For = 0.1, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 1.6,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.6,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 1.3,
+					Offset = { 0, 0.16, 0.5 },
+					SizeFrom = "Radius",
+					OffsetFrom = "Reach",
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.1,
+					Texture = "DustMote",
+					Offset = { 0, 0.8, 18 },
+					Rate = 9,
+					Speed = { 0.5, 2.5 },
+					Lifetime = { 0.6, 1 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.4,
+					EndSize = 0,
+					Transparency = 0.5,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Eruption is the one attack whose safe place is inside it, so its clock runs the other way: the ring
+-- leaves the centre and travels out to the far edge, which is the same sentence as "inward is the way
+-- out". The bare centre is a second play (BOSS_ERUPTION_SAFE) because a timeline carries one colour and
+-- the safe disc is the one thing on this floor that must not be the colour of danger.
+--
+-- Its matter sits on the ring it is about to lift, measured against the reach so a Range changed in
+-- WorldBossConfig moves it with the paint: three risers, because two read as a pair and three as a ring.
+local BOSS_ERUPTION: Timeline = {
+	Intent = "Ink floods everything but the middle, the ring runs outward, and the page erupts where it was inked",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 1.6,
+			Window = true,
+			Layers = {
+				{
+					Kind = "Light",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = { 0, 3, 0 },
+					Range = 46,
+					Brightness = 0.2,
+					EndBrightness = 2.6,
+				},
+				-- The outer reach, which is where the damage stops.
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Reach",
+					Transparency = 0.72,
+					EndTransparency = 0.22,
+				},
+				-- The clock, outward. It crosses the safe boundary on its way, which is exactly what it is
+				-- saying: this is coming through here, and it is going that way.
+				{
+					Kind = "Mark",
+					At = 0.12,
+					For = 0.88,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Texture = "TelegraphRing",
+					Size = 0.12,
+					EndSize = 2,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Reach",
+					Transparency = 0.4,
+					EndTransparency = 0.06,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 0.01, 0.67 },
+					OffsetFrom = "Reach",
+					Rate = 14,
+					Speed = { 4, 11 },
+					Lifetime = { 0.5, 0.9 },
+					Spread = 50,
+					Drag = 1.6,
+					Size = 0.55,
+					EndSize = 0,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0.58, 0.01, -0.335 },
+					OffsetFrom = "Reach",
+					Rate = 14,
+					Speed = { 4, 11 },
+					Lifetime = { 0.5, 0.9 },
+					Spread = 50,
+					Drag = 1.6,
+					Size = 0.55,
+					EndSize = 0,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { -0.58, 0.01, -0.335 },
+					OffsetFrom = "Reach",
+					Rate = 14,
+					Speed = { 4, 11 },
+					Lifetime = { 0.5, 0.9 },
+					Spread = 50,
+					Drag = 1.6,
+					Size = 0.55,
+					EndSize = 0,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				{ Kind = "Shake", At = 0.88, For = 0.12, Profile = "Light" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.5,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.5,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphDisc",
+					Size = 2,
+					SizeFrom = "Reach",
+					Transparency = 0.22,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.44,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 0.4,
+					EndSize = 2,
+					Offset = { 0, 0.1, 0 },
+					SizeFrom = "Reach",
+					Transparency = 0.06,
+					EndTransparency = 1,
+				},
+				-- The page splitting from the middle outward. The safe disc is drawn above this one, so the
+				-- centre of the crack is covered and the middle still reads as intact.
+				{
+					Kind = "Mark",
+					At = 0.02,
+					For = 0.48,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 1.9,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Reach",
+					Transparency = 1,
+					EndTransparency = 0.26,
+				},
+				-- Three columns of ink smoke off the ring, where the risers stood.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "SmokeSoft",
+					Offset = { 0, 0.01, 0.67 },
+					OffsetFrom = "Reach",
+					Burst = 22,
+					Speed = { 30, 55 },
+					Lifetime = { 0.6, 1.1 },
+					Spread = 18,
+					Drag = 1.4,
+					Size = 2,
+					EndSize = 5,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "SmokeSoft",
+					Offset = { 0.58, 0.01, -0.335 },
+					OffsetFrom = "Reach",
+					Burst = 22,
+					Speed = { 30, 55 },
+					Lifetime = { 0.6, 1.1 },
+					Spread = 18,
+					Drag = 1.4,
+					Size = 2,
+					EndSize = 5,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "SmokeSoft",
+					Offset = { -0.58, 0.01, -0.335 },
+					OffsetFrom = "Reach",
+					Burst = 22,
+					Speed = { 30, 55 },
+					Lifetime = { 0.6, 1.1 },
+					Spread = 18,
+					Drag = 1.4,
+					Size = 2,
+					EndSize = 5,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.45,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 3, 0 },
+					Range = 52,
+					Brightness = 3.8,
+				},
+				{ Kind = "Flash", At = 0, For = 0.05, Profile = "PageFlash" },
+				{ Kind = "Shake", At = 0, For = 0.12, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 1.8,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.8,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 1.9,
+					Offset = { 0, 0.16, 0 },
+					SizeFrom = "Reach",
+					Transparency = 0.26,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.2,
+					Texture = "DustMote",
+					Offset = { 0, 1, 0 },
+					Rate = 12,
+					Speed = { 0.5, 3 },
+					Lifetime = { 0.7, 1.2 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.45,
+					EndSize = 0,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- The safe middle of an Eruption, played alongside it in the one colour on this floor that does not mean
+-- danger. It is a separate play rather than a layer because a timeline is tinted by whoever plays it, and
+-- that rule is what keeps a glyph from ever showing two pigments at once; the World Boss is not a reason
+-- to break it. It takes the same window, so the bare page fills and the line around it holds for exactly
+-- as long as there is still time to get inside.
+--
+-- The page is a disc (TelegraphPage), not the world's grain on a square plate: a square of safety has
+-- corners six studs into the damage, and that is the one lie on this floor that kills. It outlives the
+-- erasure drawn around it, because the page keeps what was not erased.
+local BOSS_ERUPTION_SAFE: Timeline = {
+	Intent = "The one disc of bare page an Eruption does not touch, and the line around it",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 1.6,
+			Window = true,
+			Layers = {
+				-- The boundary, at exactly the radius the server reads as safe, held rather than animated:
+				-- it is the one line on this floor whose whole job is to not move.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Texture = "TelegraphRing",
+					Size = 2,
+					Offset = { 0, 0.26, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.3,
+					EndTransparency = 0.1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphPage",
+					Size = 2,
+					Offset = { 0, 0.22, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.55,
+					EndTransparency = 0.22,
+				},
+				{
+					Kind = "Emitter",
+					At = 0.1,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 0.8, 0 },
+					Rate = 12,
+					Speed = { 2, 5 },
+					Lifetime = { 0.6, 1 },
+					Spread = 120,
+					Drag = 1.4,
+					Size = 0.5,
+					EndSize = 0,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 1.8,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.8,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "TelegraphPage",
+					Size = 2,
+					Offset = { 0, 0.22, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.22,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- What the Erasure leaves behind, laid once the damage is over and in the colour of the page itself --
+-- which the attack's own play cannot do, since it carries the colour of danger. A second play, the way
+-- the safe disc is one, scheduled by the renderer on the attack's own Residue phase (phaseAt). The disc
+-- is measured against whatever the renderer passes as Radius: the attack's radius for a Circle, its reach
+-- for a Ring, and a blot at mid-stroke for the Cone.
+local BOSS_SCOUR: Timeline = {
+	Intent = "Bare page where the ink was, in the colour of paper, fading as the world writes itself back",
+	Phases = {
+		{
+			Name = "Residue",
+			Duration = 1.6,
+			Layers = {
+				-- The halo of the scrubbing goes first, wider than the wound and gone in half a second.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.55,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphPage",
+					Size = 2.3,
+					Offset = { 0, 0.04, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.78,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.5,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "TelegraphPage",
+					Size = 1.9,
+					Offset = { 0, 0.06, 0 },
+					SizeFrom = "Radius",
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				-- The page glows faintly where it was scrubbed, and stops.
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.9,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Offset = { 0, 3, 0 },
+					Range = 28,
+					Brightness = 0.9,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.1,
+					Texture = "DustMote",
+					Offset = { 0, 0.8, 0 },
+					Rate = 10,
+					Speed = { 0.5, 2.5 },
+					Lifetime = { 0.6, 1 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.4,
+					EndSize = 0,
+					Transparency = 0.5,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- The arrival. Nothing is being warned about here -- the boss damages nobody by landing -- so this one
+-- measures nothing and is authored in studs against the body WorldBossConfig ships; the renderer scales
+-- it by the body's own height, so a bigger boss lands bigger.
+--
+-- It is the only effect in Vellum that fires the Erasure pulse (LightingConfig), which is nearly five
+-- seconds of the screen being drained rather than flashed, and it is the only one that should: the pulse
+-- was written for this arrival and nothing else in the game is allowed to cost that much attention.
+--
+-- The wind-up runs backwards on purpose. The page's grain is pulled INTO the point the boss will land on
+-- from fourteen studs out, the seal is drawn in place rather than closing -- a closing ring is the
+-- attacks' clock, and the first thing six players see must not teach them that the clock can be
+-- harmless -- and the floor goes dark before it goes bright.
+local BOSS_SPAWN: Timeline = {
+	Intent = "The page is drained into one point, and what lands there has taken the colour of the paper",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 0.9,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.9,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Texture = "TelegraphDisc",
+					Size = 4,
+					EndSize = 26,
+					Transparency = 0.85,
+					EndTransparency = 0.3,
+				},
+				-- The seal, drawn in place: it turns and darkens and does not move.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.9,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "SealRing",
+					Size = 30,
+					Offset = { 0, 0.1, 0 },
+					Spin = 1.6,
+					Transparency = 0.95,
+					EndTransparency = 0.15,
+				},
+				-- Inward, from fourteen studs. This is the whole idea of the character.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.9,
+					Texture = "DustMote",
+					Offset = { 0, 7, 0 },
+					Rate = 34,
+					Speed = { -28, -14 },
+					Lifetime = { 0.5, 0.8 },
+					Spread = 20,
+					Drag = 1.2,
+					Size = 0.8,
+					EndSize = 0.05,
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.9,
+					Ease = "Quart",
+					EaseDirection = "In",
+					Offset = { 0, 4, 0 },
+					Range = 30,
+					Brightness = 0.05,
+					EndBrightness = 3,
+				},
+				{ Kind = "Shake", At = 0.6, For = 0.3, Profile = "Light" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.6,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.55,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 4,
+					EndSize = 60,
+					Offset = { 0, 0.1, 0 },
+					Transparency = 0.05,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.02,
+					For = 0.58,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 40,
+					Offset = { 0, 0.16, 0 },
+					Transparency = 1,
+					EndTransparency = 0.26,
+				},
+				-- The arrival is allowed the one borrowed thing in the boss's whole vocabulary: the bloom
+				-- every detonation in the game opens with, because this is the one time it is louder than
+				-- any of them.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "ExplosionBloom",
+					Offset = { 0, 7, 0 },
+					Burst = 10,
+					Speed = { 3, 9 },
+					Lifetime = { 0.5, 0.8 },
+					Spread = 180,
+					Size = 14,
+					EndSize = 22,
+					Transparency = 0.1,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.6,
+					Texture = "SmokeSoft",
+					Offset = { 0, 1, 0 },
+					Burst = 34,
+					Speed = { 20, 44 },
+					Lifetime = { 0.9, 1.5 },
+					Spread = 80,
+					Drag = 2.4,
+					Size = 5,
+					EndSize = 12,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.45,
+					Texture = "DustMote",
+					Offset = { 0, 2, 0 },
+					Burst = 40,
+					Speed = { 30, 60 },
+					Lifetime = { 0.4, 0.8 },
+					Spread = 90,
+					Drag = 1.8,
+					Size = 1,
+					EndSize = 0,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.55,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 6, 0 },
+					Range = 60,
+					Brightness = 5,
+				},
+				{ Kind = "Flash", At = 0, For = 0.1, Profile = "Erasure" },
+				{ Kind = "Shake", At = 0, For = 0.14, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 1.8,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.7,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "TelegraphPage",
+					Size = 44,
+					Offset = { 0, 0.06, 0 },
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.8,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 40,
+					Offset = { 0, 0.16, 0 },
+					Transparency = 0.26,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.3,
+					Texture = "DustMote",
+					Offset = { 0, 1.4, 0 },
+					Rate = 12,
+					Speed = { 0.5, 3 },
+					Lifetime = { 0.8, 1.3 },
+					Spread = 170,
+					Drag = 1.2,
+					Size = 0.5,
+					EndSize = 0,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- The end of the fight, and the mirror of the arrival: what it took in comes back out, and what it wrote
+-- over is given back. The collapse is Quint-in, so the seal gathers, hesitates, and then goes -- the one
+-- beat in the whole fight that belongs to the players watching it rather than to the boss.
+local BOSS_DEFEATED: Timeline = {
+	Intent = "The erasure folds into itself and gives the page back",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 0.6,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.6,
+					Ease = "Quint",
+					EaseDirection = "In",
+					Texture = "SealRing",
+					Size = 30,
+					EndSize = 2,
+					Offset = { 0, 0.1, 0 },
+					Spin = 4.5,
+					Transparency = 0.4,
+					EndTransparency = 0.06,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.6,
+					Texture = "DustMote",
+					Offset = { 0, 7, 0 },
+					Rate = 40,
+					Speed = { -40, -22 },
+					Lifetime = { 0.35, 0.6 },
+					Spread = 20,
+					Drag = 1.6,
+					Size = 0.9,
+					EndSize = 0.05,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.6,
+					Ease = "Exponential",
+					EaseDirection = "In",
+					Offset = { 0, 5, 0 },
+					Range = 26,
+					Brightness = 0.1,
+					EndBrightness = 5,
+				},
+				{ Kind = "Shake", At = 0.4, For = 0.2, Profile = "Melee" },
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.7,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.65,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 2,
+					EndSize = 70,
+					Offset = { 0, 0.1, 0 },
+					Transparency = 0.04,
+					EndTransparency = 1,
+				},
+				-- The ink it took, thrown back over the page.
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.66,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "TelegraphDisc",
+					Size = 6,
+					EndSize = 46,
+					Offset = { 0, 0.04, 0 },
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.7,
+					Texture = "DustMote",
+					Offset = { 0, 6, 0 },
+					Burst = 46,
+					Speed = { 36, 72 },
+					Lifetime = { 0.6, 1.2 },
+					Spread = 180,
+					Drag = 1.6,
+					Size = 1.2,
+					EndSize = 0,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.7,
+					Texture = "SmokeSoft",
+					Offset = { 0, 2, 0 },
+					Burst = 32,
+					Speed = { 18, 40 },
+					Lifetime = { 1, 1.6 },
+					Spread = 90,
+					Drag = 2.6,
+					Size = 5,
+					EndSize = 13,
+					Transparency = 0.22,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.6,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0, 5, 0 },
+					Range = 64,
+					Brightness = 5.5,
+				},
+				{ Kind = "Flash", At = 0, For = 0.06, Profile = "PageFlash" },
+				{ Kind = "Shake", At = 0, For = 0.16, Profile = "Heavy" },
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2,
+			Layers = {
+				-- The page comes back: the bare paper goes first and the ink returns over it, which is the
+				-- opposite order of every other residue in the game. The ink arrives in one layer and
+				-- leaves in a second, because a layer only ever goes one way.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1.1,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "TelegraphPage",
+					Size = 44,
+					Offset = { 0, 0.06, 0 },
+					Transparency = 0.24,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0.3,
+					For = 0.8,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "InkBlot",
+					Size = 40,
+					Transparency = 0.9,
+					EndTransparency = 0.45,
+				},
+				{
+					Kind = "Mark",
+					At = 1.1,
+					For = 0.9,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "InkBlot",
+					Size = 40,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.5,
+					Texture = "DustMote",
+					Offset = { 0, 1.6, 0 },
+					Rate = 14,
+					Speed = { 0.5, 3.5 },
+					Lifetime = { 0.9, 1.5 },
+					Spread = 170,
+					Drag = 1.1,
+					Size = 0.5,
+					EndSize = 0,
+					Transparency = 0.4,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
 VfxTimelineConfig.Timelines = {
 	Cast = CAST,
 	Hit = HIT,
@@ -5889,6 +7431,14 @@ VfxTimelineConfig.Timelines = {
 	Bleed = BLEED,
 	Binding = BINDING,
 	Margin = MARGIN,
+	BossSpawn = BOSS_SPAWN,
+	BossSlam = BOSS_SLAM,
+	BossSweep = BOSS_SWEEP,
+	BossEruption = BOSS_ERUPTION,
+	BossEruptionSafe = BOSS_ERUPTION_SAFE,
+	BossScour = BOSS_SCOUR,
+	BossFury = BOSS_FURY,
+	BossDefeated = BOSS_DEFEATED,
 } :: { [string]: Timeline }
 
 -- Phases always play in this order, whichever subset a timeline declares. The runtime reads it rather
@@ -5907,7 +7457,7 @@ VfxTimelineConfig.MaxLayerSeconds = 6
 VfxTimelineConfig.MaxLiveLayers = 90
 
 -- Bounds on a phase whose length comes from the packet. The ceiling is the longest warning
--- WorldBossConfig can ask for -- tests/WorldBossTelegraph.spec.luau holds the config to it, so a longer
+-- WorldBossConfig can ask for -- tests/BossTelegraph.spec.luau holds the config to it, so a longer
 -- one fails the build rather than being quietly cut short -- and the floor is there so a zero, a negative
 -- or a NaN cannot turn a warning into an instant.
 VfxTimelineConfig.MaxWindowSeconds = 2
@@ -5926,6 +7476,31 @@ function VfxTimelineConfig.phaseSeconds(phase: Phase, window: number?): number
 		return phase.Duration
 	end
 	return math.clamp(window, VfxTimelineConfig.MinWindowSeconds, VfxTimelineConfig.MaxWindowSeconds)
+end
+
+-- Seconds from the start of `id` to the moment its phase `name` begins, resolved against the window the
+-- packet carried. A renderer with something to line up with a phase -- the boss's impact sound, the bare
+-- page it lays once the damage is over -- reads it here instead of adding up durations of its own, so the
+-- sound cannot land at a time the data no longer says. nil for an unknown id or a timeline without that
+-- phase: a sound for an effect that does not exist is a hit heard from nowhere, and nil is what makes the
+-- caller decide rather than schedule.
+function VfxTimelineConfig.phaseAt(id: string, name: PhaseName, window: number?): number?
+	local timeline: Timeline? = VfxTimelineConfig.Timelines[id]
+	if timeline == nil then
+		return nil
+	end
+	local elapsed = 0
+	for _, phaseName in ipairs(VfxTimelineConfig.PhaseOrder) do
+		for _, phase in ipairs(timeline.Phases) do
+			if phase.Name == phaseName then
+				if phaseName == name then
+					return elapsed
+				end
+				elapsed += VfxTimelineConfig.phaseSeconds(phase, window)
+			end
+		end
+	end
+	return nil
 end
 
 -- Total duration of a timeline, phases end to end plus the tail of whatever layer outlives the last one.

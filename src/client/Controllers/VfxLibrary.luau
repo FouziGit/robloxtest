@@ -1,11 +1,11 @@
 --!strict
 -- VfxLibrary: client renderers for the Vfx / VfxReliable packets broadcast by the server. One function
 -- per packet Id, called by VfxController with a fresh trove that is destroyed after the packet lifetime.
--- Every part, tween, connection and delayed thread is tracked by that trove, particle rates are capped,
--- and nothing yields on the caller thread: timed steps run in task.delay threads owned by the trove.
--- Effects that need a frame step share one Heartbeat (see `animate`), which lays them out once at
--- registration and then skips frames while they play farther than GameConfig.Vfx.AnimateRadiusStuds
--- from the local character.
+-- Every part, connection and delayed thread is tracked by that trove and nothing yields on the caller
+-- thread. What remains imperative here is the guard kit and the few renderers that have to decide
+-- something before they play: everything else is a timeline in Config/VfxTimelineConfig, played through
+-- Api.Timeline, and a renderer's whole job is to say where it happened, which way it was aimed, in what
+-- colour, and against what shape.
 -- The server never builds visuals; it only sends {Id, Origin, Direction, Caster, Targets, Params}.
 
 local Players = game:GetService("Players")
@@ -18,9 +18,9 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
 local FeelConfig = require(Shared.Config.FeelConfig)
-local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Trove = require(Packages.Trove)
+local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 
 export type Packet = {
 	Id: string,
@@ -33,13 +33,10 @@ export type Packet = {
 
 export type Api = {
 	Sound: { play: (sfxId: string, position: Vector3?) -> () },
-	Shake: (intensity: number) -> (),
-	HitStop: (seconds: number) -> (),
 	PigmentColor: (pigment: string) -> Color3,
 	LocalCharacter: () -> Model?,
 	-- The Feel controller, untyped here on purpose: this module is required by the client only, and a
 	-- concrete type would make ReplicatedStorage depend on a controller in StarterPlayerScripts.
-	-- Phase 3 replaces Shake and HitStop above with calls through this (docs/JUICE_PLAN.md).
 	Feel: any,
 	-- The timeline runtime. A reworked effect declares its layers in Config/VfxTimelineConfig and
 	-- plays them through this instead of building instances by hand.
@@ -48,6 +45,20 @@ export type Api = {
 	-- The model of a player by user id, for effects that have to adorn the person who was hit rather
 	-- than draw at a point in space. nil for a training dummy or an enemy, which has no player.
 	CharacterOf: (userId: number) -> Model?,
+}
+
+-- What api.Timeline.play takes. Written here rather than imported because VfxTimeline lives in
+-- StarterPlayerScripts and this module is required from ReplicatedStorage -- the same reason Api.Timeline
+-- is untyped -- and a renderer that hands one of these around needs to say what it is handing around.
+type TimelineContext = {
+	Origin: Vector3,
+	Direction: Vector3,
+	Color: Color3,
+	Scale: number?,
+	Window: number?,
+	Radius: number?,
+	Reach: number?,
+	Follow: BasePart?,
 }
 
 type TroveType = typeof(Trove.new())
@@ -74,8 +85,6 @@ type EmitterProps = {
 	Acceleration: Vector3?,
 }
 
--- VfxController destroys the packet trove after the same delay: every effect fits inside it.
-local MAX_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
 local MAX_PARTICLE_RATE = 40
 local MAX_PARTICLE_BURST = 40
 local FOLDER_NAME = "ClientVfx"
@@ -90,9 +99,6 @@ local HEAVY_HIT_DAMAGE = 25
 local DISTANT_HIT_SCALE = 0.55
 -- Damage you took is red, whatever pigment dealt it (docs/ART_BIBLE.md: red means danger to you).
 local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
--- Magnitude at or above which a renderer that still asks for a bare shake intensity gets the heavy
--- profile rather than the light one. The old scale ran 0 to 1, with 0.9 meaning "an ultimate landed".
-local HEAVY_SHAKE_INTENSITY = 0.7
 -- Brand's blast radius (GlyphConfig), which the Explosion timeline is authored at. A packet carrying
 -- a different radius scales the whole timeline by the ratio.
 local DEFAULT_BLAST_RADIUS = 7
@@ -103,26 +109,19 @@ local GUARD_BREAK_COLOR = Color3.fromRGB(255, 120, 90)
 
 local MELEE_SFX_VARIANTS = 3 -- SoundConfig has Melee1..Melee3 plus MeleeFinisher
 
--- Phase 2 roster tuning (docs/GAME_DESIGN.md §5)
-local LYING_CYLINDER = CFrame.Angles(0, 0, math.rad(90)) -- a cylinder's axis is X: stand it upright
-local SMOKE_COLOR = Color3.fromRGB(70, 62, 58)
-
--- World Boss (docs/GAME_DESIGN.md §7). Every boss attack is painted on the arena floor for its whole
--- telegraph window, so the warning shows exactly the area the server will damage.
-local BOSS_DANGER_COLOR = Color3.fromRGB(255, 96, 72)
-local BOSS_SAFE_COLOR = Color3.fromRGB(110, 210, 150)
-local BOSS_ENERGY_COLOR = Color3.fromRGB(168, 120, 235)
-local BOSS_WARNING_TRANSPARENCY = 0.85 -- the paint starts faint and fills in as the hit approaches
-local BOSS_WARNING_PEAK_TRANSPARENCY = 0.3
-local BOSS_IMPACT_SECONDS = 0.35
-local BOSS_DISC_THICKNESS_STUDS = 0.4
-local BOSS_DISC_LIFT_STUDS = 0.15 -- above the floor, so the paint never z-fights with it
-local BOSS_CONE_SEGMENTS = 5
-local BOSS_PILLAR_COUNT = 8
-local BOSS_PILLAR_WIDTH_STUDS = 4
-local BOSS_SPAWN_SECONDS = 1
-local BOSS_DEFEAT_SECONDS = 1.4
-local BOSS_DEFEAT_COLLAPSE_FACTOR = 0.4 -- share of the defeat spent collapsing before the blast
+-- L'Effacement (docs/GAME_DESIGN.md §7). Red is danger to you whatever painted it, which is the same rule
+-- HIT_TAKEN_COLOR follows; green is the one place inside an attack that it does not reach.
+local ERASURE_DANGER_COLOR = Color3.fromRGB(255, 96, 72)
+local ERASURE_SAFE_COLOR = Color3.fromRGB(110, 210, 150)
+-- The boss itself is the colour of the page it leaves behind: vélin (docs/ART_BIBLE.md). It is the only
+-- thing in the game tinted by the paper instead of by a pigment, which is the point -- it is what comes to
+-- erase the page. What it replaced was a purple energy column, and a purple energy column is the single
+-- most copy-pasteable visual in Roblox.
+local ERASURE_COLOR = Color3.fromRGB(232, 224, 206)
+-- The body height the spawn and defeat timelines are drawn against (WorldBossConfig.Boss.BodySize.Y at the
+-- time they were authored). The renderer scales them by the height the packet carries, so a boss built
+-- bigger arrives bigger instead of arriving wrong.
+local AUTHORED_BOSS_HEIGHT_STUDS = 14
 
 local VfxLibrary: { [string]: Effect } = {}
 
@@ -317,17 +316,7 @@ local function rootOf(character: Model?): BasePart?
 	return nil
 end
 
--- Shakes the local camera with an intensity that fades with the distance to `origin`. The falloff and
--- the radius belong to Feel, so a spell reworked in phase 4 and one that has not been yet still fade
--- the same way and still read against the same radius; only the way the caller names its weight
--- changes. `intensity` is the old 0-to-1 magnitude, mapped onto a profile the way VfxController does.
-local function shakeNear(api: Api, origin: Vector3, intensity: number)
-	if intensity <= 0 then
-		return
-	end
-	api.Feel.shakeAt(if intensity >= HEAVY_SHAKE_INTENSITY then "Heavy" else "Light", origin, math.min(intensity, 1))
-end
-
+-- The root of the player who sent this packet, for a timeline that follows the caster's body.
 local function casterRoot(packet: Packet): BasePart?
 	local userId = packet.Caster
 	if userId == nil then
@@ -340,20 +329,6 @@ local function casterRoot(packet: Packet): BasePart?
 	return rootOf(player.Character)
 end
 
-----------------------------------------------------------------
--- Frame ticker
-----------------------------------------------------------------
-
--- One live frame-stepped effect. `Center` is where it plays and is what the distance gate measures;
--- `Follow` is the root it rides, when it tracks its caster.
-type Animation = {
-	Center: Vector3,
-	Follow: BasePart?,
-	Elapsed: number,
-	Live: boolean,
-	Step: (elapsed: number, center: Vector3, viewer: BasePart?) -> (),
-}
-
 local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency: number, seconds: number)
 	local shield = newPart(trove, "Shield", {
 		Shape = Enum.PartType.Ball,
@@ -364,17 +339,6 @@ local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency:
 		CFrame = CFrame.new(origin),
 	})
 	play(trove, shield, seconds, { Transparency = 1, Size = Vector3.one * 7.5 })
-end
-
-local function clampLifetime(seconds: number, reserve: number): number
-	return math.clamp(seconds, 0.1, MAX_LIFETIME_SECONDS - reserve)
-end
-
--- Fades a group of parts out together (bolt segments, stone plates).
-local function fadeParts(trove: TroveType, parts: { Part }, seconds: number)
-	for _, part in ipairs(parts) do
-		play(trove, part, seconds, { Transparency = 1 })
-	end
 end
 
 -- Plays the glyph's own sound when the server attached one to the packet (as the Cast packet does).
@@ -705,11 +669,12 @@ VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
 end
 
 ----------------------------------------------------------------
--- World Boss (docs/GAME_DESIGN.md §7)
+-- L'Effacement (docs/GAME_DESIGN.md §7)
 ----------------------------------------------------------------
 
--- Floor of the boss arena. The server sends it in the packet: the boss body is 14 studs tall and a
--- downward probe started at its centre would begin inside it, so the ground probe is only a fallback.
+-- Floor of the boss arena. The server sends it in the packet: the boss body is fourteen studs tall and a
+-- downward probe started at its centre would begin inside it, so the probe here is only a fallback. The
+-- timeline is played AT the floor rather than at the body, because everything it draws is on the ground.
 local function bossGround(packet: Packet): Vector3
 	local params = packet.Params
 	if params ~= nil and isFinite(params.Ground) then
@@ -718,195 +683,137 @@ local function bossGround(packet: Packet): Vector3
 	return groundAt(packet.Origin)
 end
 
--- Warning window the server announced, bounded so the whole effect (warning plus impact) fits inside
--- the packet lifetime.
-local function bossTelegraph(packet: Packet): number
-	return clampLifetime(numberParam(packet, "Telegraph", 1), BOSS_IMPACT_SECONDS * 2)
-end
-
--- Flat disc painted on the arena floor: the shape of a Circle attack and the two radii of a Ring one.
-local function bossDisc(trove: TroveType, ground: Vector3, radius: number, color: Color3, lift: number): Part
-	return newPart(trove, "BossWarning", {
-		Shape = Enum.PartType.Cylinder,
-		Color = color,
-		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, radius * 2, radius * 2),
-		Transparency = BOSS_WARNING_TRANSPARENCY,
-		CFrame = CFrame.new(ground + Vector3.new(0, BOSS_DISC_LIFT_STUDS + lift, 0)) * LYING_CYLINDER,
-	})
-end
-
--- Fills the warning paint over the telegraph window, then clears it when the attack lands.
-local function bossFill(trove: TroveType, parts: { Part }, seconds: number)
-	for _, part in ipairs(parts) do
-		play(trove, part, seconds, { Transparency = BOSS_WARNING_PEAK_TRANSPARENCY }, Enum.EasingStyle.Linear)
+-- What the Erasure leaves behind: bare page, in the colour of the page, laid where the ink was once the
+-- damage is over. The attack's own play cannot draw it, because that play carries the colour of danger
+-- and a timeline carries one colour (art bible rule 2), so it is a second play scheduled on the attack's
+-- own Residue phase -- the same seam the safe disc uses.
+local function scourAfter(
+	id: string,
+	context: TimelineContext,
+	trove: TroveType,
+	api: Api,
+	origin: Vector3,
+	radius: number
+)
+	local residueAt = VfxTimelineConfig.phaseAt(id, "Residue", context.Window)
+	if residueAt == nil then
+		return
 	end
-	after(trove, seconds, function()
-		fadeParts(trove, parts, BOSS_IMPACT_SECONDS)
+	after(trove, residueAt, function()
+		api.Timeline.play("BossScour", {
+			Origin = origin,
+			Direction = context.Direction,
+			Color = ERASURE_COLOR,
+			Radius = radius,
+		})
 	end)
 end
 
--- The hit itself: a shockwave running out to the damaged radius, dust, impact sound and a shake that
--- fades with the distance.
-local function bossImpact(trove: TroveType, api: Api, ground: Vector3, radius: number, shake: number)
-	local wave = newPart(trove, "BossImpact", {
-		Shape = Enum.PartType.Cylinder,
-		Material = Enum.Material.Slate,
-		Color = BOSS_DANGER_COLOR,
-		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, 2, 2),
-		Transparency = 0.2,
-		CFrame = CFrame.new(ground + Vector3.new(0, BOSS_DISC_LIFT_STUDS, 0)) * LYING_CYLINDER,
-	})
-	play(trove, wave, BOSS_IMPACT_SECONDS, {
-		Size = Vector3.new(BOSS_DISC_THICKNESS_STUDS, radius * 2, radius * 2),
-		Transparency = 1,
-	})
-	local dust = newEmitter(wave, {
-		Color = SMOKE_COLOR,
-		Lifetime = NumberRange.new(0.5, 1),
-		Speed = NumberRange.new(radius * 0.6, radius),
-		Size = NumberSequence.new(2, 0),
-		Spread = Vector2.new(60, 60),
-		Acceleration = Vector3.new(0, -20, 0),
-	})
-	burst(dust, 24)
-	api.Sound.play("ImpactExplosion", ground)
-	shakeNear(api, ground, shake)
-end
-
--- Circle attacks (Slam, and Fury with its wider disc and harder landing): the whole area under the
--- boss is painted, then it drops.
-local function bossCircleAttack(packet: Packet, trove: TroveType, api: Api, shake: number)
-	local radius = math.max(numberParam(packet, "Radius", 20), 1)
+-- One of L'Effacement's four attacks, which are the only effects in Vellum whose visual is load-bearing:
+-- the paint on the floor IS the rule, and six players read it at once.
+--
+-- So nothing about the shape is decided here. The window the server is really waiting (Params.Telegraph,
+-- between 0.6 and 2 seconds depending on the attack and on the phase of the fight) and the shape it will
+-- damage both come off the packet, and the timeline measures itself against them
+-- (Config/VfxTimelineConfig): a radius changed in WorldBossConfig moves the paint with it, and
+-- tests/BossTelegraph.spec.luau samples the shipped numbers to prove the paint covers the damage.
+--
+-- The impact sound is scheduled on the same resolved window the visual uses, through
+-- VfxTimelineConfig.phaseAt, rather than on the raw parameter. They clamp the same way, so the hit can
+-- never be heard before it is seen -- and never heard at all for a timeline that was not drawn.
+local function playBossAttack(id: string, packet: Packet, trove: TroveType, api: Api): TimelineContext?
 	local ground = bossGround(packet)
-	local seconds = bossTelegraph(packet)
-	bossFill(trove, { bossDisc(trove, ground, radius, BOSS_DANGER_COLOR, 0) }, seconds)
-	after(trove, seconds, function()
-		bossImpact(trove, api, ground, radius, shake)
-	end)
+	local radius = math.max(numberParam(packet, "Radius", 20), 1)
+	local window = numberParam(packet, "Telegraph", 1)
+	local context: TimelineContext = {
+		Origin = ground,
+		Direction = flatDirectionOf(packet),
+		Color = ERASURE_DANGER_COLOR,
+		Window = window,
+		Radius = radius,
+		-- A Circle attack reaches no further than its radius and the server sends the two equal. Holding
+		-- the reach at or above the radius means a timeline measuring either one can never draw a shape
+		-- turned inside out.
+		Reach = math.max(numberParam(packet, "Range", radius), radius),
+	}
+	if not api.Timeline.play(id, context) then
+		return nil
+	end
+	local impactAt = VfxTimelineConfig.phaseAt(id, "Impact", window)
+	if impactAt ~= nil then
+		after(trove, impactAt, function()
+			api.Sound.play("ImpactExplosion", ground)
+		end)
+	end
+	return context
 end
 
 VfxLibrary.BossSlam = function(packet: Packet, trove: TroveType, api: Api)
-	bossCircleAttack(packet, trove, api, CombatConfig.Hit.CameraShakeSmall)
+	local context = playBossAttack("BossSlam", packet, trove, api)
+	if context ~= nil then
+		scourAfter("BossSlam", context, trove, api, context.Origin, context.Radius or 1)
+	end
 end
 
 VfxLibrary.BossFury = function(packet: Packet, trove: TroveType, api: Api)
-	bossCircleAttack(packet, trove, api, CombatConfig.Hit.CameraShakeLarge)
-end
-
--- Sweep: a wedge in front of the boss, drawn as segments that widen with the distance exactly like the
--- server opens it (WorldBossMode.isInShape), so standing at the edge really is standing at the edge.
-VfxLibrary.BossSweep = function(packet: Packet, trove: TroveType, api: Api)
-	local radius = math.max(numberParam(packet, "Radius", 14), 1)
-	local range = math.max(numberParam(packet, "Range", 40), 1)
-	local direction = flatDirectionOf(packet)
-	local ground = bossGround(packet)
-	local seconds = bossTelegraph(packet)
-	local step = range / BOSS_CONE_SEGMENTS
-
-	local segments: { Part } = {}
-	for index = 1, BOSS_CONE_SEGMENTS do
-		local forward = (index - 0.5) * step
-		local center = ground + direction * forward + Vector3.new(0, BOSS_DISC_LIFT_STUDS, 0)
-		segments[index] = newPart(trove, "BossWarning", {
-			Color = BOSS_DANGER_COLOR,
-			Size = Vector3.new(math.max(radius * (forward / range), 1) * 2, BOSS_DISC_THICKNESS_STUDS, step),
-			Transparency = BOSS_WARNING_TRANSPARENCY,
-			CFrame = CFrame.lookAt(center, center + direction),
-		})
+	local context = playBossAttack("BossFury", packet, trove, api)
+	if context ~= nil then
+		scourAfter("BossFury", context, trove, api, context.Origin, context.Radius or 1)
 	end
-	bossFill(trove, segments, seconds)
-	after(trove, seconds, function()
-		bossImpact(trove, api, ground + direction * (range / 2), radius, CombatConfig.Hit.CameraShakeSmall)
-	end)
 end
 
--- Eruption: everything between the safe centre and the outer reach goes up. The safe disc keeps its
--- own colour for the whole warning, so the way out is readable at a glance.
+VfxLibrary.BossSweep = function(packet: Packet, trove: TroveType, api: Api)
+	local context = playBossAttack("BossSweep", packet, trove, api)
+	if context ~= nil then
+		-- A blot at mid-stroke: the residue is not the rule, so a disc over a wedge is allowed to spill.
+		local reach = context.Reach or 1
+		local origin = context.Origin + context.Direction * (reach * 0.5)
+		scourAfter("BossSweep", context, trove, api, origin, context.Radius or 1)
+	end
+end
+
 VfxLibrary.BossEruption = function(packet: Packet, trove: TroveType, api: Api)
-	local inner = math.max(numberParam(packet, "Radius", 16), 1)
-	local outer = math.max(numberParam(packet, "Range", 46), inner + 1)
-	local ground = bossGround(packet)
-	local seconds = bossTelegraph(packet)
-	local danger = bossDisc(trove, ground, outer, BOSS_DANGER_COLOR, 0)
-	local safe = bossDisc(trove, ground, inner, BOSS_SAFE_COLOR, BOSS_DISC_LIFT_STUDS)
-	bossFill(trove, { danger, safe }, seconds)
-	after(trove, seconds, function()
-		local distance = (inner + outer) / 2
-		for index = 1, BOSS_PILLAR_COUNT do
-			local angle = (index - 1) * (2 * math.pi / BOSS_PILLAR_COUNT)
-			local base = ground + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
-			local pillar = newPart(trove, "BossPillar", {
-				Material = Enum.Material.Slate,
-				Color = BOSS_DANGER_COLOR,
-				Size = Vector3.new(BOSS_PILLAR_WIDTH_STUDS, 1, BOSS_PILLAR_WIDTH_STUDS),
-				Transparency = 0.1,
-				CFrame = CFrame.new(base),
-			})
-			play(trove, pillar, BOSS_IMPACT_SECONDS, {
-				Size = Vector3.new(BOSS_PILLAR_WIDTH_STUDS, outer / 2, BOSS_PILLAR_WIDTH_STUDS),
-				CFrame = CFrame.new(base + Vector3.new(0, outer / 4, 0)),
-				Transparency = 1,
-			})
-		end
-		bossImpact(trove, api, ground, outer, CombatConfig.Hit.CameraShakeLarge)
-	end)
+	local context = playBossAttack("BossEruption", packet, trove, api)
+	if context == nil then
+		return
+	end
+	-- The safe middle, in the one colour on this floor that does not mean danger. It is a second play and
+	-- not a layer because a timeline carries a single colour (art bible rule 2: one glyph, one pigment, one
+	-- colour), and the boss is not a reason to break the rule that keeps a glyph from ever showing two
+	-- pigments at once. It takes the same window, so the bare page fills for exactly as long as there is
+	-- still time to get inside it.
+	local safe = table.clone(context)
+	safe.Color = ERASURE_SAFE_COLOR
+	api.Timeline.play("BossEruptionSafe", safe)
+	-- The ring was erased out to the reach; the safe disc's own residue stays on top of the scour.
+	scourAfter("BossEruption", context, trove, api, context.Origin, context.Reach or 1)
 end
 
--- The boss lands: a column of energy at the centre of the arena and a shockwave on the floor.
+-- The arrival and the end. They damage nobody, so they measure nothing: they are authored in studs against
+-- the body the config ships and scaled by the height the packet carries.
+local function playBossEvent(id: string, packet: Packet, trove: TroveType, api: Api)
+	local ground = bossGround(packet)
+	local height = math.max(numberParam(packet, "Height", AUTHORED_BOSS_HEIGHT_STUDS), 1)
+	api.Timeline.play(id, {
+		Origin = ground,
+		Direction = flatDirectionOf(packet),
+		Color = ERASURE_COLOR,
+		Scale = height / AUTHORED_BOSS_HEIGHT_STUDS,
+	})
+	local impactAt = VfxTimelineConfig.phaseAt(id, "Impact", nil)
+	if impactAt ~= nil then
+		after(trove, impactAt, function()
+			api.Sound.play("ImpactExplosion", ground)
+		end)
+	end
+end
+
 VfxLibrary.BossSpawn = function(packet: Packet, trove: TroveType, api: Api)
-	local height = math.max(numberParam(packet, "Height", 14), 1)
-	local radius = math.max(numberParam(packet, "Radius", 4), 1)
-	local ground = bossGround(packet)
-
-	local column = newPart(trove, "BossSpawn", {
-		Shape = Enum.PartType.Cylinder,
-		Color = BOSS_ENERGY_COLOR,
-		Size = Vector3.new(height * 2, radius, radius),
-		Transparency = 0.15,
-		CFrame = CFrame.new(ground + Vector3.new(0, height, 0)) * LYING_CYLINDER,
-	})
-	play(trove, column, BOSS_SPAWN_SECONDS, {
-		Size = Vector3.new(height * 2, radius * 5, radius * 5),
-		Transparency = 1,
-	})
-	local motes = newEmitter(column, {
-		Color = BOSS_ENERGY_COLOR,
-		Lifetime = NumberRange.new(0.6, 1.2),
-		Speed = NumberRange.new(6, 14),
-		Size = NumberSequence.new(1.4, 0),
-		Acceleration = Vector3.new(0, 8, 0),
-	})
-	burst(motes, 28)
-	bossImpact(trove, api, ground, radius * 4, CombatConfig.Hit.CameraShakeLarge)
+	playBossEvent("BossSpawn", packet, trove, api)
 end
 
--- The boss goes down: its energy collapses into the floor, then blows out across the arena.
 VfxLibrary.BossDefeated = function(packet: Packet, trove: TroveType, api: Api)
-	local height = math.max(numberParam(packet, "Height", 14), 1)
-	local radius = math.max(numberParam(packet, "Radius", 4), 1)
-	local ground = bossGround(packet)
-	local collapse = BOSS_DEFEAT_SECONDS * BOSS_DEFEAT_COLLAPSE_FACTOR
-
-	local core = newPart(trove, "BossCore", {
-		Shape = Enum.PartType.Ball,
-		Color = BOSS_ENERGY_COLOR,
-		Size = Vector3.one * radius * 2,
-		Transparency = 0.1,
-		CFrame = CFrame.new(ground + Vector3.new(0, height / 2, 0)),
-	})
-	play(trove, core, collapse, { Size = Vector3.one, CFrame = CFrame.new(ground) }, Enum.EasingStyle.Back)
-	after(trove, collapse, function()
-		play(trove, core, BOSS_DEFEAT_SECONDS - collapse, { Size = Vector3.one * radius * 8, Transparency = 1 })
-		local shards = newEmitter(core, {
-			Color = BOSS_ENERGY_COLOR,
-			Lifetime = NumberRange.new(0.6, 1.2),
-			Speed = NumberRange.new(20, 40),
-			Size = NumberSequence.new(1.2, 0),
-			Acceleration = Vector3.new(0, -25, 0),
-		})
-		burst(shards, 36)
-		bossImpact(trove, api, ground, radius * 6, CombatConfig.Hit.CameraShakeLarge)
-	end)
+	playBossEvent("BossDefeated", packet, trove, api)
 end
 
 return VfxLibrary

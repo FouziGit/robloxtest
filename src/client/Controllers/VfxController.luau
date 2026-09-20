@@ -28,9 +28,6 @@ type Deps = { RemoteClient: any, ClientData: any, SoundController: any, Feel: an
 -- Every packet trove is destroyed after this delay (VfxLibrary effects fit inside it).
 local TROVE_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
 local FALLBACK_COLOR = Color3.fromRGB(255, 245, 220)
--- Magnitude at or above which a renderer that still asks for a bare shake intensity gets the heavy
--- profile. The old scale ran 0 to 1 with 0.9 meaning "an ultimate landed".
-local LEGACY_HEAVY_SHAKE = 0.7
 
 local VfxController = {}
 
@@ -54,20 +51,6 @@ local function pigmentColor(pigment: string): Color3
 	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
 
--- Renderers not yet reworked still call Shake and HitStop with a bare number. Both go through Feel, so
--- the camera has one owner even during the transition. Phase 4 of docs/JUICE_PLAN.md rewrites them
--- spell by spell to name a profile instead of a magnitude, and these two shims leave with the last one.
-local function legacyShake(intensity: number)
-	if intensity <= 0 then
-		return
-	end
-	feel.shake(if intensity >= LEGACY_HEAVY_SHAKE then "Heavy" else "Light", math.min(intensity, 1))
-end
-
-local function legacyHitStop(seconds: number)
-	feel.hitStop(seconds, "None")
-end
-
 -- The character of a player by user id, for effects that adorn the person rather than a point in space.
 -- nil for user id 0, which is how the server writes "a training dummy or an enemy, with nobody behind
 -- it", and nil for a player who has left or has not respawned.
@@ -84,8 +67,6 @@ end
 
 local api: VfxLibrary.Api = {
 	Sound = nil :: any,
-	Shake = legacyShake,
-	HitStop = legacyHitStop,
 	PigmentColor = pigmentColor,
 	LocalCharacter = localCharacter,
 	Feel = nil :: any,

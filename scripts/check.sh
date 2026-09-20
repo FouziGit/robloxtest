@@ -55,6 +55,11 @@ if ! git diff --quiet -- assets/textures; then
 	exit 1
 fi
 
+# The other half of the same proof: AssetIds says how far each texture's ink reaches, and the boss
+# telegraph test trusts it. Measured off the files here, because Lune cannot decode a PNG.
+echo "▶ ink reach matches AssetIds"
+python3 tools/textures/check_ink.py
+
 echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/Vellum.rbxl

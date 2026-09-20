@@ -32,12 +32,21 @@ export type Asset = {
 	-- Frames per row and per column, for a flipbook. 1 and 1 for a still image.
 	Columns: number,
 	Rows: number,
+	-- How far the ink reaches from the centre, in half-widths of the plane it is drawn on: Least is the
+	-- direction it reaches least, Most the direction it reaches most. A plane is sized to its edge and
+	-- a player reads the alpha, so this is the number a decal is REALLY drawn at -- the blot's ink stops
+	-- at half its plane, a full-bleed square runs to 1.41 on its diagonals. Measured off the PNG by
+	-- tools/textures/check_ink.py, which fails the build when a value here stops matching the file, and
+	-- read by tests/BossTelegraph.spec.luau so that a warning is held to its ink rather than to its
+	-- rectangle. Absent for a texture that is not square, which no warning may use.
+	Ink: { Least: number, Most: number }?,
 }
 
 local AssetIds = {}
 
-local function texture(source: string, width: number, height: number): Asset
-	return { Id = "", Source = source, Width = width, Height = height, Columns = 1, Rows = 1 }
+local function texture(source: string, width: number, height: number, least: number?, most: number?): Asset
+	local ink = if least ~= nil and most ~= nil then { Least = least, Most = most } else nil
+	return { Id = "", Source = source, Width = width, Height = height, Columns = 1, Rows = 1, Ink = ink }
 end
 
 local function flipbook(source: string, size: number, columns: number, rows: number): Asset
@@ -47,29 +56,37 @@ end
 AssetIds.Textures = {
 	-- Volumetric-looking smoke and dust. The noisy edge is the point: a clean circle reads as a gradient,
 	-- a ragged one reads as matter.
-	SmokeSoft = texture("assets/textures/smoke_soft.png", 256, 256),
+	SmokeSoft = texture("assets/textures/smoke_soft.png", 256, 256, 0.535, 0.875),
 	-- Sparks. Tapers along +X so the emitter's own velocity orients it and a spark reads as travelling.
-	SparkStreak = texture("assets/textures/spark_streak.png", 128, 128),
+	SparkStreak = texture("assets/textures/spark_streak.png", 128, 128, 0.039, 0.812),
 	-- The residue every impact leaves on the ground (art bible rule 5: the world remembers for a few
 	-- seconds). An irregular blot, because a circle is a decal and a blot is ink.
-	InkBlot = texture("assets/textures/ink_blot.png", 256, 256),
+	InkBlot = texture("assets/textures/ink_blot.png", 256, 256, 0.531, 0.828),
 	-- Cracks radiating from a heavy impact.
-	CrackWeb = texture("assets/textures/crack_web.png", 512, 512),
+	CrackWeb = texture("assets/textures/crack_web.png", 512, 512, 0.043, 0.895),
 	-- One thin ring, for an expanding wave. Scaled rather than redrawn.
-	ShockwaveRing = texture("assets/textures/shockwave_ring.png", 512, 512),
+	ShockwaveRing = texture("assets/textures/shockwave_ring.png", 512, 512, 0.814, 0.828),
 	-- Tileable grain for world surfaces. Low contrast on purpose: it is the paper the world is written
 	-- on, and paper you notice is a texture, not a surface.
-	PaperGrain = texture("assets/textures/paper_grain.png", 512, 512),
+	PaperGrain = texture("assets/textures/paper_grain.png", 512, 512, 0.998, 1.414),
 	-- The seal a cast draws in the air before it fires. This is the art direction's signature image and
 	-- the reason a cast has an anticipation phase at all.
-	SealRing = texture("assets/textures/seal_ring.png", 512, 512),
+	SealRing = texture("assets/textures/seal_ring.png", 512, 512, 0.902, 0.918),
 	-- A tapered brush stroke, dry at both ends, for beams and trails. A beam with a hard edge is a laser
 	-- and belongs to a different game.
 	BrushStroke = texture("assets/textures/brush_stroke.png", 512, 128),
 	-- Ambient motes, for the residue that hangs after a zone ends.
-	DustMote = texture("assets/textures/dust_mote.png", 64, 64),
-	GradientRadial = texture("assets/textures/gradient_radial.png", 256, 256),
-	GradientLinear = texture("assets/textures/gradient_linear.png", 256, 256),
+	DustMote = texture("assets/textures/dust_mote.png", 64, 64, 0.688, 0.719),
+	GradientRadial = texture("assets/textures/gradient_radial.png", 256, 256, 0.836, 0.848),
+	GradientLinear = texture("assets/textures/gradient_linear.png", 256, 256, 0.688, 1.414),
+	-- L'Effacement's warnings, and the only textures whose edge is a rule: the plane is sized to the
+	-- damage and the ink reaches the plane (tools/textures/telegraph.py). A disc of flooding ink, one
+	-- stroke on its rim, a full-bleed bar for the wedge the Sweep opens, and a disc of bare page for the
+	-- one place an Eruption does not touch.
+	TelegraphDisc = texture("assets/textures/telegraph_disc.png", 512, 512, 0.998, 1.004),
+	TelegraphRing = texture("assets/textures/telegraph_ring.png", 512, 512, 0.998, 1.004),
+	TelegraphBar = texture("assets/textures/telegraph_bar.png", 256, 256, 0.996, 1.414),
+	TelegraphPage = texture("assets/textures/telegraph_page.png", 512, 512, 0.998, 1.004),
 	-- An ink bloom opening and dispersing, as an 8x8 grid read left to right, top to bottom, which is
 	-- what Enum.ParticleFlipbookLayout.Grid8x8 expects.
 	ExplosionBloom = flipbook("assets/textures/explosion_flipbook.png", 1024, 8, 8),

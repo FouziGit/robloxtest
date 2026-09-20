@@ -394,6 +394,107 @@ def read_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", head[16:24])
 
 
+def read_alpha(path: Path) -> tuple[int, int, bytes]:
+    """Decodes the alpha channel of an 8-bit PNG this module wrote, or any other 8-bit RGBA / grey+alpha
+    PNG. Returns (width, height, alpha bytes row-major). Every filter type is handled, because a file
+    that came from anywhere else is exactly the file worth measuring."""
+    data = path.read_bytes()
+    if data[:8] != PNG_SIGNATURE:
+        raise ValueError(f"{path} is not a PNG")
+    position = 8
+    idat = bytearray()
+    width = height = 0
+    channels = 0
+    while position < len(data):
+        (length,) = struct.unpack(">I", data[position : position + 4])
+        tag = data[position + 4 : position + 8]
+        body = data[position + 8 : position + 8 + length]
+        if tag == b"IHDR":
+            width, height, depth, colour_type = struct.unpack(">IIBB", body[:10])
+            if depth != 8:
+                raise ValueError(f"{path}: only 8-bit PNGs are measured, this one is {depth}-bit")
+            channels = {6: 4, 4: 2}.get(colour_type, 0)
+            if channels == 0:
+                raise ValueError(f"{path}: colour type {colour_type} carries no alpha channel")
+        elif tag == b"IDAT":
+            idat += body
+        position += 12 + length
+    raw = zlib.decompress(bytes(idat))
+    stride = width * channels
+    alpha = bytearray(width * height)
+    previous = bytearray(stride)
+    offset = 0
+    for y in range(height):
+        filter_type = raw[offset]
+        line = bytearray(raw[offset + 1 : offset + 1 + stride])
+        offset += 1 + stride
+        for x in range(stride):
+            left = line[x - channels] if x >= channels else 0
+            up = previous[x]
+            up_left = previous[x - channels] if x >= channels else 0
+            if filter_type == 1:
+                line[x] = (line[x] + left) & 0xFF
+            elif filter_type == 2:
+                line[x] = (line[x] + up) & 0xFF
+            elif filter_type == 3:
+                line[x] = (line[x] + (left + up) // 2) & 0xFF
+            elif filter_type == 4:
+                estimate = left + up - up_left
+                d_left = abs(estimate - left)
+                d_up = abs(estimate - up)
+                d_up_left = abs(estimate - up_left)
+                if d_left <= d_up and d_left <= d_up_left:
+                    predictor = left
+                elif d_up <= d_up_left:
+                    predictor = up
+                else:
+                    predictor = up_left
+                line[x] = (line[x] + predictor) & 0xFF
+        row = y * width
+        for x in range(width):
+            alpha[row + x] = line[x * channels + channels - 1]
+        previous = line
+    return width, height, bytes(alpha)
+
+
+# Alpha at or above this counts as ink. Eight of 255 is where a feathered edge stops being visible on a
+# tinted decal over a lit floor; below it the pixel is the texture's own anti-aliasing.
+INK_THRESHOLD = 8
+
+
+def ink_reach(path: Path, rays: int = 360) -> tuple[float, float]:
+    """How far the ink reaches from the centre, in half-widths, in the direction it reaches least and the
+    direction it reaches most.
+
+    This is the number a decal is really drawn at. A plane is sized to its edge, but a player reads the
+    alpha, and a blot whose ink stops at 0.6 of its plane warns about 0.6 of the floor. Rays run to the
+    corners, so a full-bleed square measures 1.0 along its axes and 1.41 on its diagonals: the least is
+    what a warning covers, the most is what a refuge promises, and both are held in AssetIds."""
+    width, height, alpha = read_alpha(path)
+    if width != height:
+        raise ValueError(f"{path}: ink reach is defined for square textures, this one is {width}x{height}")
+    half = width * 0.5
+    corner = half * math.sqrt(2.0)
+    least = math.inf
+    most = 0.0
+    for index in range(rays):
+        angle = (index / rays) * 2.0 * math.pi
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        farthest = 0.0
+        distance = 0.0
+        while distance <= corner:
+            x = int(half + distance * cos_a)
+            y = int(half + distance * sin_a)
+            if 0 <= x < width and 0 <= y < height and alpha[y * width + x] >= INK_THRESHOLD:
+                farthest = distance
+            distance += 0.5
+        reach = farthest / half
+        least = min(least, reach)
+        most = max(most, reach)
+    return least, most
+
+
 def report(paths: list[Path]) -> int:
     """Prints one line per written file and returns how many broke MAX_BYTES.
 

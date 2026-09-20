@@ -35,7 +35,7 @@ describe("AssetIds", function()
 		for _ in pairs(AssetIds.Textures) do
 			count += 1
 		end
-		expect(count).toBeGreaterThanOrEqual(10)
+		expect(count).toBeGreaterThanOrEqual(16)
 	end)
 
 	it("points every entry at a file that exists", function()
@@ -129,6 +129,29 @@ describe("AssetIds", function()
 		for index = 2, #missing do
 			if missing[index] < missing[index - 1] then
 				error("missing() is not sorted, so its warning changes order between runs")
+			end
+		end
+	end)
+
+	it("measures the ink of every square texture, and only those", function()
+		-- The two numbers a boss warning is held to (tests/BossTelegraph.spec.luau). They are measured off
+		-- the PNG by tools/textures/check_ink.py in the same gate that proves the art reproduces; here the
+		-- shape of the claim is checked, because a square texture with no measurement is a texture nobody
+		-- may draw a warning with, and the way it becomes one is somebody adding it to a timeline.
+		for key, asset in pairs(AssetIds.Textures) do
+			local square = asset.Width == asset.Height and asset.Columns == 1
+			local ink = asset.Ink
+			if square and ink == nil then
+				error(("%s is square and carries no ink measurement"):format(key))
+			end
+			if not square and ink ~= nil then
+				error(("%s is not square, so its ink reach is undefined"):format(key))
+			end
+			if ink ~= nil then
+				expect(ink.Least > 0).toBe(true)
+				expect(ink.Least <= ink.Most).toBe(true)
+				-- The far corner of a square is at 1.414 half-widths: nothing reaches further.
+				expect(ink.Most <= 1.415).toBe(true)
 			end
 		end
 	end)

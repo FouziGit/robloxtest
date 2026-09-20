@@ -55,6 +55,7 @@ jobs:
             git --no-pager diff --stat -- assets/textures
             exit 1
           fi
+          python3 tools/textures/check_ink.py
 
       - name: Lune tests
         run: lune run tests/run

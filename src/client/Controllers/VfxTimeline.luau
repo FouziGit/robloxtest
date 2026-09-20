@@ -73,6 +73,10 @@ type Live = {
 	-- this is not layer.For.
 	Seconds: number,
 	EndsAt: number,
+	-- Part of a windowed phase: a warning about damage that has not landed yet. The budget never retires
+	-- one early, and one whose texture is not uploaded yet is drawn as a bare plate rather than skipped,
+	-- because a warning is a rule and the rules do not go missing while the art is late.
+	Warning: boolean,
 	Instances: { Instance },
 	Primary: Instance?,
 	-- Which call to play() this layer came from. Layers of one play share a carrier, and two casts in
@@ -87,6 +91,7 @@ type Pending = {
 	At: number,
 	-- Seconds, resolved against the window of the phase it belongs to.
 	Seconds: number,
+	Warning: boolean,
 	PlayId: number,
 }
 
@@ -150,16 +155,50 @@ local function placeOf(base: CFrame, layer: Layer, scale: number): CFrame
 	return base * CFrame.new(right * scale, up * scale, -forward * scale)
 end
 
+-- The ground probe ignores every character on the server, not only the local one. A mark under a point
+-- that happens to be another player is otherwise drawn on that player's body, tilted to whatever surface
+-- of theirs the ray met, and a boss telegraph drawn across somebody's shoulders warns nobody. Pooled parts
+-- are already invisible to the ray (VfxPool sets CanQuery false).
+--
+-- Assigning FilterDescendantsInstances resolves every descendant of the list, so it is rebuilt only when
+-- a character comes or goes rather than on every probe -- one boss attack lays a dozen marks at once.
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Exclude
+groundParams.IgnoreWater = true
+local groundExcludeStale = true
+
+local function markGroundExcludeStale()
+	groundExcludeStale = true
+end
+
+local function refreshGroundExclude()
+	local exclude: { Instance } = {}
+	for _, other in ipairs(Players:GetPlayers()) do
+		local character = other.Character
+		if character ~= nil then
+			table.insert(exclude, character)
+		end
+	end
+	groundParams.FilterDescendantsInstances = exclude
+	groundExcludeStale = false
+end
+
+-- Both edges of a respawn invalidate, or the filter keeps excluding a destroyed rig and stops excluding
+-- the live one; a join invalidates too, because the joiner's first CharacterAdded can land before this
+-- client sees the PlayerAdded.
+local function watchCharacters(other: Player)
+	markGroundExcludeStale()
+	other.CharacterAdded:Connect(markGroundExcludeStale)
+	other.CharacterRemoving:Connect(markGroundExcludeStale)
+end
+
 -- The ground under a point, for the marks every impact leaves. Falls back to the point itself rather than
 -- skipping the mark: a trace slightly off the floor is better than a world that forgets.
 local function groundAt(position: Vector3): (Vector3, Vector3)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local character = player.Character
-	if character ~= nil then
-		params.FilterDescendantsInstances = { character }
+	if groundExcludeStale then
+		refreshGroundExclude()
 	end
-	local result = Workspace:Raycast(position + Vector3.yAxis, Vector3.yAxis * -GROUND_PROBE_STUDS, params)
+	local result = Workspace:Raycast(position + Vector3.yAxis, Vector3.yAxis * -GROUND_PROBE_STUDS, groundParams)
 	if result == nil then
 		return position, Vector3.yAxis
 	end
@@ -343,33 +382,67 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 end
 
 local function buildMark(entry: Live, layer: Layer, place: CFrame)
-	if textureMissing(layer) then
+	-- A plane that names a texture it cannot get is not drawn -- except a warning. A warning is a rule
+	-- six players read, and a bare tinted plate on the floor still says where not to stand; nothing at
+	-- all says nothing. It draws untextured until the PNG is uploaded, and STUDIO_SETUP names the file.
+	if textureMissing(layer) and not entry.Warning then
 		return
 	end
 	local position, normal = groundAt(place.Position)
 	local offset: { number }? = layer.Offset
 	-- Lifted a hair off the floor, plus whatever the layer's up offset asks for: a decal coplanar with
-	-- the ground z-fights, and so do two decals coplanar with each other.
-	local lift = if offset ~= nil then offset[2] * entry.Scales.Offset else 0
+	-- the ground z-fights, and so do two decals coplanar with each other. The lift is studs scaled with
+	-- the effect, never with a measure: a z-fight gap is a stud quantity, and a layer whose offset is
+	-- measured against a forty-stud reach would otherwise float its mark a metre above the page.
+	local lift = if offset ~= nil then offset[2] * entry.Scales.Effect else 0
 	local part = host(entry, markFrame(position, normal, place.LookVector, lift), planeSize(entry, 0))
+	if part == nil then
+		return
+	end
+	local id = textureOf(layer)
+	if id == "" then
+		part.Color = entry.Context.Color
+		part.Transparency = layer.Transparency or 0.3
+		entry.Primary = part
+		return
+	end
 	local decalInstance = borrow(entry, "Decal")
-	if part == nil or decalInstance == nil then
+	if decalInstance == nil then
 		return
 	end
 	part.Transparency = 1
-	local id = textureOf(layer)
 	local decal = decalInstance :: Decal
 	decal.Texture = id
-	decal.Face = Enum.NormalId.Front
+	-- markFrame leaves the part's +Z along the ground normal, and Front is the -Z face: the face that
+	-- looks up is Back. Front here pointed every mark in the game into the floor.
+	decal.Face = Enum.NormalId.Back
 	decal.Color3 = entry.Context.Color
 	decal.Transparency = layer.Transparency or 0.3
 	decal.Parent = part
 	entry.Primary = part
 end
 
+-- Studs a particle covers over its life, at the middle of its speed and lifetime ranges. This is the
+-- radius of the shell an inward emitter spawns on, so a particle born at the edge of it arrives at the
+-- centre as it dies -- which is what "pulled inward" has to mean, and what forty layers in the data ask
+-- for with a negative speed.
+local function convergeRadius(speed: { number }, lifetime: { number }, scale: number): number
+	local meanSpeed = (math.abs(speed[1]) + math.abs(speed[2])) * 0.5 * scale
+	local meanLife = (lifetime[1] + lifetime[2]) * 0.5
+	return math.max(meanSpeed * meanLife, 0.25)
+end
+
 local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	local scale = entry.Scales.Effect
-	local part = host(entry, place, Vector3.one * 0.2)
+	local speed = layer.Speed or { 0, 0 }
+	local lifetime = layer.Lifetime or { 0.3, 0.6 }
+	-- Negative speed is written as "pulls inward", and from a point-sized host that is not what happens:
+	-- a particle born at the point and sent the opposite way is still a particle leaving the point. So
+	-- an inward layer emits from the surface of a sphere, facing in, and its particles run toward the
+	-- point instead of away from it. The sphere's size comes from the data the layer already declares.
+	local inward = speed[1] < 0 or speed[2] < 0
+	local hostSize = if inward then Vector3.one * (2 * convergeRadius(speed, lifetime, scale)) else Vector3.one * 0.2
+	local part = host(entry, place, hostSize)
 	if part == nil then
 		return
 	end
@@ -396,9 +469,16 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
-	local speed = layer.Speed or { 0, 0 }
-	emitter.Speed = NumberRange.new(speed[1] * scale, speed[2] * scale)
-	local lifetime = layer.Lifetime or { 0.3, 0.6 }
+	if inward then
+		emitter.Shape = Enum.ParticleEmitterShape.Sphere
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+		emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+		-- The shell already faces inward, so the speed is the magnitude: {-9, -5} runs 5 to 9 studs a
+		-- second toward the point, ordered low to high as NumberRange demands.
+		emitter.Speed = NumberRange.new(math.abs(speed[2]) * scale, math.abs(speed[1]) * scale)
+	else
+		emitter.Speed = NumberRange.new(speed[1] * scale, speed[2] * scale)
+	end
 	emitter.Lifetime = NumberRange.new(lifetime[1], lifetime[2])
 	emitter.SpreadAngle = Vector2.new(layer.Spread or 0, layer.Spread or 0)
 	emitter.Drag = layer.Drag or 0
@@ -574,11 +654,14 @@ local function stepMark(entry: Live, alpha: number)
 	local layer = entry.Layer
 	part.Size = planeSize(entry, alpha)
 	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0.3), 0, 1)
-	for _, child in ipairs(part:GetChildren()) do
+	local children = part:GetChildren()
+	for _, child in ipairs(children) do
 		if child:IsA("Decal") then
 			child.Transparency = transparency
 		end
 	end
+	-- A warning drawn bare, before its texture exists, fades on the part itself.
+	part.Transparency = if #children > 0 then 1 else transparency
 end
 
 local function stepLight(entry: Live, alpha: number)
@@ -669,6 +752,12 @@ local function followBody(entry: Live)
 		return
 	end
 	local anchor = if primary:IsA("BasePart") then primary :: BasePart else primary.Parent
+	-- A following Trail is adorned to the body itself, so the anchor IS the body: writing its CFrame
+	-- back is a same-value write today and, with an Offset, would compound that offset every frame
+	-- and fling the character. A layer that follows the caster must never be able to move the caster.
+	if anchor == body then
+		return
+	end
 	if anchor ~= nil and anchor:IsA("BasePart") then
 		local layer = entry.Layer
 		local scale = entry.Scales.Offset
@@ -757,10 +846,25 @@ local function activate(item: Pending, now: number)
 
 	if #live >= VfxTimelineConfig.MaxLiveLayers then
 		-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a
-		-- six-player exchange loses effects rather than frames.
-		local oldest = table.remove(live, 1)
-		if oldest ~= nil then
-			releaseLive(oldest)
+		-- six-player exchange loses effects rather than frames -- but never a warning. A telegraph is
+		-- laid at the start of a two-second window and is the longest-lived thing on screen, so "oldest
+		-- first" would retire exactly the layers six players are reading, in the fight that fills the
+		-- budget. The oldest ordinary layer goes instead; if there is none, an ordinary newcomer is the
+		-- one not drawn, and a warning is drawn over budget.
+		local victim: number? = nil
+		for index, entry in ipairs(live) do
+			if not entry.Warning then
+				victim = index
+				break
+			end
+		end
+		if victim ~= nil then
+			local retired = table.remove(live, victim)
+			if retired ~= nil then
+				releaseLive(retired)
+			end
+		elseif not item.Warning then
+			return
 		end
 		if not overBudgetWarned then
 			overBudgetWarned = true
@@ -807,6 +911,7 @@ local function activate(item: Pending, now: number)
 		StartedAt = now,
 		Seconds = seconds,
 		EndsAt = now + seconds,
+		Warning = item.Warning,
 		Instances = {},
 		Primary = nil,
 		PlayId = item.PlayId,
@@ -921,6 +1026,7 @@ function VfxTimeline.play(id: string, context: Context): boolean
 						Context = context,
 						At = now + phaseStart + layer.At * factor,
 						Seconds = layer.For * factor,
+						Warning = phase.Window == true,
 						PlayId = playId,
 					})
 				end
@@ -960,6 +1066,11 @@ function VfxTimeline.Start()
 	-- handles the only thing that actually has to be released, which is the instances.
 	RunService.Heartbeat:Connect(onHeartbeat)
 	player.CharacterRemoving:Connect(VfxTimeline.clear)
+	for _, other in ipairs(Players:GetPlayers()) do
+		watchCharacters(other)
+	end
+	Players.PlayerAdded:Connect(watchCharacters)
+	Players.PlayerRemoving:Connect(markGroundExcludeStale)
 	local missing = AssetIds.missing()
 	if #missing > 0 then
 		log.warn(

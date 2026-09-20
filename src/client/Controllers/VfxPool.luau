@@ -134,6 +134,10 @@ local function resetEmitter(emitter: ParticleEmitter)
 	emitter.VelocityInheritance = 0
 	emitter.EmissionDirection = Enum.NormalId.Top
 	emitter.Shape = Enum.ParticleEmitterShape.Box
+	-- An inward layer (VfxTimeline.buildEmitter) emits from the surface of a sphere, facing in. Left
+	-- as-is, the next borrower's particles would be born on a shell and run backwards.
+	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
 	-- A leftover flipbook layout slices a plain texture into frames, which reads as a broken effect
 	-- rather than as a wrong one. Layout None is what makes the flipbook properties moot.
 	emitter.FlipbookLayout = Enum.ParticleFlipbookLayout.None

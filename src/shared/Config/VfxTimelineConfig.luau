@@ -72,13 +72,16 @@ export type Layer = {
 	-- change size, which is different from not declaring EndSize at all.
 	Size: number?,
 	EndSize: number?,
-	-- Sprite and Mark only: the plane's extent along its own forward axis, Size then being its width
-	-- across it. A layer that declares no Span is square, which is what every plane was before this
-	-- existed. It does not animate: something that has to grow along both axes is two layers.
+	-- Sprite and Mark only: the plane's second extent, Size being its width. On a Mark that is its depth
+	-- along the effect's direction; on a Sprite, which stands facing the direction, it is its height. A
+	-- layer that declares no Span is square, which is what every plane was before this existed, and it
+	-- does not animate: something that has to grow along both axes is two layers.
 	Span: number?,
 	-- Studs from the effect's own frame, as {right, up, forward}. On a Mark the up component lifts it off
 	-- the floor instead of moving it there, because two marks drawn in the same place z-fight, and
-	-- flicker is worst exactly where a telegraph has to be legible.
+	-- flicker is worst exactly where a telegraph has to be legible. That lift is always studs scaled with
+	-- the effect, even when OffsetFrom measures the rest of the offset against the damage: a z-fight gap
+	-- is a stud quantity, never a fraction of a forty-stud reach.
 	Offset: { number }?,
 	-- The measure Size and EndSize, Span, and Offset are expressed in when they are not studs. A layer
 	-- naming a measure the renderer did not pass is not drawn at all and the runtime says so once: the
@@ -219,6 +222,7 @@ local CAST: Timeline = {
 					Offset = { 0, 0.6, 2.4 },
 					Range = 4,
 					Brightness = 0,
+					EndBrightness = 1.6,
 				},
 				-- Felt, not seen. Late in the wind-up, so it reads as the moment before release.
 				{ Kind = "Shake", At = 0.16, For = 0.06, Profile = "Cast" },
@@ -463,6 +467,10 @@ local DASH: Timeline = {
 					Size = 0.4,
 					EndSize = 0,
 				},
+				-- No Shake layer here, on purpose. The dasher's own camera is pushed by MovementController
+				-- the instant the command is accepted, before any packet comes back, and a second push from
+				-- this packet summed on top of it (FeelConfig.Shake sums concurrent shakes) is what made the
+				-- dodge feel like a stumble. Nobody else needs to feel a dodge: it is not an impact.
 				{
 					Kind = "Light",
 					At = 0,
@@ -472,7 +480,6 @@ local DASH: Timeline = {
 					Range = 6,
 					Brightness = 1.1,
 				},
-				{ Kind = "Shake", At = 0, For = 0.05, Profile = "Dash" },
 			},
 		},
 		{

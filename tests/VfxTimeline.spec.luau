@@ -448,6 +448,18 @@ describe("vfx timelines", function()
 		end)
 	end)
 
+	it("never declares a light that is dark at both ends", function()
+		-- Brightness 0 with no EndBrightness is a light that never lights and costs two pooled instances to
+		-- do it. The shared Cast timeline shipped one for a whole phase -- its comment said it rose and
+		-- its numbers said it did not -- and nothing could see it, because "has a brightness" was the only
+		-- thing asked.
+		eachLayer(function(id, phase, layer)
+			if layer.Kind == "Light" and (layer.Brightness or 0) <= 0 and (layer.EndBrightness or 0) <= 0 then
+				error(("timeline %s / %s has a light that is dark for its whole life"):format(id, phase.Name))
+			end
+		end)
+	end)
+
 	it("brightens only a light", function()
 		eachLayer(function(id, phase, layer)
 			local endBrightness = layer.EndBrightness

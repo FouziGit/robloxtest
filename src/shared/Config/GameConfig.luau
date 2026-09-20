@@ -43,10 +43,6 @@ GameConfig.Vfx = {
 	-- studs corner to corner, and live arenas sit MatchConfig.ArenaSpacingStuds (400) apart in altitude,
 	-- so this covers everyone in the scene a packet fires in and nobody in the scene above or below.
 	BroadcastRadiusStuds = 250,
-	-- Client-side gate: an effect whose centre is farther than this from the local character is not
-	-- stepped per frame (its tweens still play). Covers both PvP arenas whole (Duel 113 studs corner to
-	-- corner, Team 170), so ranked play never freezes an effect a player could be watching.
-	AnimateRadiusStuds = 180,
 	LifetimeSeconds = 6, -- hard cap on any client effect's lifetime (cleanup)
 }
 

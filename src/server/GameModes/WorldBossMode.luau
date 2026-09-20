@@ -30,7 +30,10 @@ export type Phase = Types.BossPhaseSnapshot
 export type Reward = { Xp: number, Ryo: number, BonusXp: number, BonusRyo: number }
 
 -- Live rules state of one event. `Attack` is the attack being telegraphed (nil between attacks) and
--- `ResolveAt` the os.clock stamp its hit lands on.
+-- `ResolveAt` the os.clock stamp its hit lands on. `Origin` and `Facing` are where the boss stood and
+-- looked when the warning started: the packet that paints the floor and the test that deals the damage
+-- both read THESE, never the live body, so the shape that hurts is the shape that was shown. The body
+-- also stands still for the wind-up (Encounter.step), but that is the animation; this is the rule.
 export type State = {
 	Phase: Phase,
 	PhaseIndex: number,
@@ -42,6 +45,8 @@ export type State = {
 	Cooldowns: { [string]: number }, -- attack id -> os.clock it may be started again
 	Attack: Attack?,
 	ResolveAt: number,
+	Origin: Vector3,
+	Facing: Vector3,
 }
 
 local XP = ProgressionConfig.XP
@@ -50,8 +55,10 @@ local REWARDS = WorldBossConfig.Rewards
 local BOSS = WorldBossConfig.Boss
 -- WorldBossConfig stays free of Roblox globals and stores the body as {X, Y, Z}: build the vector once.
 local BODY_SIZE = Vector3.new(BOSS.BodySize[1], BOSS.BodySize[2], BOSS.BodySize[3])
--- The body is square in plan; this is how close a target has to be to stand inside it.
-local CONTACT_RADIUS_STUDS = math.max(BODY_SIZE.X, BODY_SIZE.Z) / 2
+-- The body is square in plan; this is how close a target has to be to stand inside it. Derived in
+-- WorldBossConfig, because the client's telegraph is held to the same number by a test and the two must
+-- not be able to drift apart.
+local CONTACT_RADIUS_STUDS = WorldBossConfig.contactRadius()
 -- Share of the horizontal push sent upwards, so an attack throws its targets instead of sliding them
 -- along the floor (the blasts of GlyphEffects are shaped the same way).
 local KNOCKBACK_LIFT_FACTOR = 0.35
@@ -112,6 +119,8 @@ function WorldBossMode.newState(participants: number, now: number): State
 		Cooldowns = cooldowns,
 		Attack = nil,
 		ResolveAt = 0,
+		Origin = Vector3.zero,
+		Facing = DEFAULT_FACING,
 	}
 end
 
@@ -202,11 +211,15 @@ function WorldBossMode.telegraphSeconds(state: State, attack: Attack): number
 end
 
 -- Starts the telegraph and returns how long it lasts. The cooldown runs from the warning, not from the
--- hit, so a long telegraph never pushes the whole rotation back.
-function WorldBossMode.beginAttack(state: State, attack: Attack, now: number): number
+-- hit, so a long telegraph never pushes the whole rotation back. `origin` and `facing` are frozen into
+-- the state here: a warning painted at one origin and a hit resolved at another was the first thing the
+-- telegraph test could not see, because it compares shapes and a walk is a translation.
+function WorldBossMode.beginAttack(state: State, attack: Attack, now: number, origin: Vector3, facing: Vector3): number
 	local seconds = WorldBossMode.telegraphSeconds(state, attack)
 	state.Attack = attack
 	state.ResolveAt = now + seconds
+	state.Origin = origin
+	state.Facing = facing
 	state.Cooldowns[attack.Id] = now + attack.CooldownSeconds
 	return seconds
 end

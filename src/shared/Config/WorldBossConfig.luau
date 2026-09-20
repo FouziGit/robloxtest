@@ -114,6 +114,16 @@ WorldBossConfig.Boss = {
 	ContactDamage = 12, -- per second while standing inside the boss
 }
 
+-- How close a target has to be to count as standing inside the boss body, which is also the narrowest a
+-- Cone attack's wedge ever gets: hugging the boss is not a dodge (WorldBossMode.isInShape). It lives here
+-- rather than in WorldBossMode because the client's telegraph has to paint at least this much floor, and
+-- tests/BossTelegraph.spec.luau proves it does -- and a rule proved against a copy of the number is a rule
+-- proved against nothing.
+function WorldBossConfig.contactRadius(): number
+	local body = WorldBossConfig.Boss.BodySize
+	return math.max(body[1], body[3]) / 2
+end
+
 function WorldBossConfig.healthFor(playerCount: number): number
 	local extra = math.max(0, playerCount - WorldBossConfig.Schedule.MinPlayers)
 	return math.min(

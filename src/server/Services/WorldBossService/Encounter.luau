@@ -162,11 +162,13 @@ local function startAttack(boss: Boss, state: WorldBossMode.State, now: number):
 	if attack == nil then
 		return false
 	end
-	local seconds = WorldBossMode.beginAttack(state, attack, now)
+	local seconds = WorldBossMode.beginAttack(state, attack, now, boss.Body.Position, boss.Facing)
+	-- Emitted from the snapshot the rules just took, not from the body: the two are equal on this tick,
+	-- and reading the state is what makes it impossible for them to differ on the tick that resolves.
 	deps.Vfx.emit({
 		Id = attack.VfxId,
-		Origin = boss.Body.Position,
-		Direction = boss.Facing,
+		Origin = state.Origin,
+		Direction = state.Facing,
 		Params = {
 			Shape = attack.Shape,
 			Radius = attack.Radius,
@@ -181,14 +183,18 @@ end
 -- The telegraph is over: everything standing in the shape takes the hit, through the single damage path
 -- and with no source, so the attack lands whatever the PvP policy is. Knockback and stun only follow
 -- damage that actually landed, so a guard that soaked it all stops them too.
+--
+-- The shape is tested from where the boss stood when the warning was painted (state.Origin / Facing),
+-- never from the live body. The body does not move during a wind-up either, but a rule that held only
+-- because the animation happened to agree with it would be a rule until somebody let the boss walk.
 local function resolveAttack(boss: Boss, state: WorldBossMode.State)
 	local attack = state.Attack
 	if attack == nil then
 		return
 	end
+	local origin = state.Origin
+	local facing = state.Facing
 	WorldBossMode.endAttack(state)
-	local origin = boss.Body.Position
-	local facing = boss.Facing
 	local tags = { "Boss" .. attack.Id }
 	for _, model in ipairs(Context.humanoidsInRadius(origin, WorldBossMode.reachOf(attack), boss.Model)) do
 		local position = model:GetPivot().Position
@@ -269,7 +275,11 @@ function Encounter.step(
 		log.info("phase %d at %d / %d health", state.PhaseIndex, math.floor(state.Health), state.MaxHealth)
 	end
 	state.Participants = #roots
-	walk(boss, state, roots, deltaSeconds)
+	-- A wind-up is the body standing still. The rule that keeps the hit where the warning was painted is
+	-- the snapshot in the state; this is the boss looking like it obeys it.
+	if state.Attack == nil then
+		walk(boss, state, roots, deltaSeconds)
+	end
 	applyContactDamage(boss, userIds, now)
 
 	if state.Attack == nil then

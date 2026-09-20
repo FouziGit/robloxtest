@@ -110,7 +110,7 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 Lancer ensuite le workflow « Publish to Roblox » depuis l'onglet Actions (`Saved` pour un brouillon, `Published` pour mettre en ligne).
 
-## 7. Téléverser les douze textures (10 minutes, une seule fois)
+## 7. Téléverser les seize textures (15 minutes, une seule fois)
 
 C'est la seule étape manuelle que le code ne peut pas faire à ta place, et tant qu'elle n'est pas faite
 les effets se dessinent **sans texture** : ils fonctionnent, mais ils sont plats.
@@ -119,8 +119,11 @@ Les PNG sont dans `assets/textures/`. Ils sont générés par les scripts de `to
 vient de la boîte à outils, et ils se régénèrent à l'identique avec `python3 tools/textures/generate_all.py`.
 
 1. Creator Dashboard → **Creations** → **Development Items** → **Images** → **Add Image**.
-2. Téléverse les douze fichiers de `assets/textures/`. Roblox les passe en modération ; compte quelques
-   minutes par image.
+2. Téléverse les seize fichiers de `assets/textures/`. Roblox les passe en modération ; compte quelques
+   minutes par image. Les quatre `telegraph_*.png` sont les avertissements de L'Effacement : ce sont les
+   seules textures dont le bord est une règle (leur encre atteint le bord du plan, `AssetIds.Ink`), et
+   tant qu'elles ne sont pas en ligne le boss prévient avec des **plaques teintées sans texture** — un
+   carré rouge au sol dit encore où ne pas se tenir, mais un carré déborde d'un disque dans les coins.
 3. Pour chacune, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
    `src/shared/Config/AssetIds.luau`. Chaque entrée nomme déjà son fichier source dans son champ
    `Source`, donc l'appariement est mécanique.
@@ -131,6 +134,8 @@ vient de la boîte à outils, et ils se régénèrent à l'identique avec `pytho
 Tant qu'un identifiant est vide, le client l'annonce **une fois** au démarrage en nommant le fichier à
 téléverser, puis l'effet se joue quand même. Une couche qui ne sert qu'à porter une texture — un sceau,
 une brûlure au sol — n'est simplement pas dessinée plutôt que de laisser un rectangle de couleur en l'air.
+La seule exception est un avertissement du boss, qui se dessine nu : une règle ne disparaît pas parce que
+l'art est en retard.
 
 ## 8. Assets à remplacer plus tard
 

@@ -387,8 +387,8 @@ local function grantSeasonRewards(player: Player, data: ProfileData)
 			log.warn("no season reward configured for tier %s", tier.Id)
 			return
 		end
-		if reward.Ryo > 0 then
-			currency.add(player, reward.Ryo, SEASON_REWARD_REASON)
+		if reward.Folios > 0 then
+			currency.add(player, reward.Folios, SEASON_REWARD_REASON)
 		end
 		local cosmetic = reward.Cosmetic
 		if cosmetic ~= nil then
@@ -396,8 +396,8 @@ local function grantSeasonRewards(player: Player, data: ProfileData)
 		end
 		-- The payout happens on join, long after the season ended: without this toast the player is paid
 		-- in silence and never learns their rank earned anything.
-		notify.send(player, "season.rewardGranted", { rank = tier.NameKey, amount = reward.Ryo }, "Success", "Claim")
-		log.info("%s rewarded for season %s: tier %s, %d Ryo", player.Name, season, tier.Id, reward.Ryo)
+		notify.send(player, "season.rewardGranted", { rank = tier.NameKey, amount = reward.Folios }, "Success", "Claim")
+		log.info("%s rewarded for season %s: tier %s, %d Folios", player.Name, season, tier.Id, reward.Folios)
 	end)
 end
 

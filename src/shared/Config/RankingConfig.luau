@@ -42,13 +42,13 @@ RankingConfig.Leaderboard = {
 	KeyCooldownSeconds = 6,
 }
 
--- End-of-season rewards by tier reached (Ryo + cosmetic title id).
+-- End-of-season rewards by tier reached (Folios + cosmetic title id).
 RankingConfig.SeasonRewards = {
-	Blank = { Ryo = 200 },
-	Sketch = { Ryo = 500 },
-	Script = { Ryo = 1000, Cosmetic = "TitleScript" },
-	Illumination = { Ryo = 2000, Cosmetic = "TitleIllumination" },
-	Codex = { Ryo = 4000, Cosmetic = "TitleCodexSeason" },
-} :: { [string]: { Ryo: number, Cosmetic: string? } }
+	Blank = { Folios = 200 },
+	Sketch = { Folios = 500 },
+	Script = { Folios = 1000, Cosmetic = "TitleScript" },
+	Illumination = { Folios = 2000, Cosmetic = "TitleIllumination" },
+	Codex = { Folios = 4000, Cosmetic = "TitleCodexSeason" },
+} :: { [string]: { Folios: number, Cosmetic: string? } }
 
 return RankingConfig

@@ -4,12 +4,12 @@
 -- each Id left at 0. Prices are informational (the Dashboard is the source of truth).
 
 export type PassDef = { Id: number, PriceRobux: number, NameKey: string, DescKey: string }
-export type ProductKind = "Ryo" | "PremiumPass" | "TierSkip" | "XpBoost" | "Cosmetic"
+export type ProductKind = "Folios" | "PremiumPass" | "TierSkip" | "XpBoost" | "Cosmetic"
 export type ProductDef = {
 	Id: number,
 	PriceRobux: number,
 	Kind: ProductKind,
-	Amount: number?, -- Ryo amount / tiers
+	Amount: number?, -- Folios amount / tiers
 	Minutes: number?, -- XpBoost
 	Rarity: string?, -- Cosmetic
 	NameKey: string,
@@ -34,29 +34,29 @@ MonetizationConfig.SkinPackCosmetics = {
 } :: { string }
 
 MonetizationConfig.Products = {
-	RyoSmall = {
+	FolioSmall = {
 		Id = 0,
 		PriceRobux = 99,
-		Kind = "Ryo",
+		Kind = "Folios",
 		Amount = 1000,
-		NameKey = "product.ryoSmall",
-		DescKey = "product.ryo.desc",
+		NameKey = "product.folioSmall",
+		DescKey = "product.folios.desc",
 	},
-	RyoMedium = {
+	FolioMedium = {
 		Id = 0,
 		PriceRobux = 299,
-		Kind = "Ryo",
+		Kind = "Folios",
 		Amount = 3500,
-		NameKey = "product.ryoMedium",
-		DescKey = "product.ryo.desc",
+		NameKey = "product.folioMedium",
+		DescKey = "product.folios.desc",
 	},
-	RyoLarge = {
+	FolioLarge = {
 		Id = 0,
 		PriceRobux = 599,
-		Kind = "Ryo",
+		Kind = "Folios",
 		Amount = 8000,
-		NameKey = "product.ryoLarge",
-		DescKey = "product.ryo.desc",
+		NameKey = "product.folioLarge",
+		DescKey = "product.folios.desc",
 	},
 	PremiumPass = {
 		Id = 0,

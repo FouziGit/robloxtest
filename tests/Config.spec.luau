@@ -294,7 +294,7 @@ describe("BattlepassConfig", function()
 				expect(def.Free).never.toBeNil()
 				expect(def.Premium).never.toBeNil()
 				for _, reward in ipairs({ def.Free, def.Premium }) do
-					if reward.Kind == "Ryo" then
+					if reward.Kind == "Folios" then
 						expect(reward.Amount).toBeGreaterThan(0)
 					elseif reward.Kind == "Cosmetic" then
 						expect(Strings.has("cosmetic." .. reward.Id)).toBe(true)
@@ -396,10 +396,10 @@ describe("cosmetic references", function()
 		expect(seen).toBeGreaterThan(5)
 	end)
 
-	it("every sellable cosmetic has a Ryo price and a Robux product for its rarity", function()
+	it("every sellable cosmetic has a Folios price and a Robux product for its rarity", function()
 		for _, item in ipairs(CosmeticConfig.Items) do
 			if item.Sellable then
-				expect(ShopConfig.PriceRyo[item.Rarity]).never.toBeNil()
+				expect(ShopConfig.PriceFolios[item.Rarity]).never.toBeNil()
 				expect(ShopConfig.RobuxProduct[item.Rarity]).never.toBeNil()
 			end
 		end
@@ -429,7 +429,7 @@ describe("RankingConfig", function()
 			expect(Strings.has(tier.NameKey)).toBe(true)
 			local reward = RankingConfig.SeasonRewards[tier.Id]
 			expect(reward).never.toBeNil()
-			expect(reward.Ryo).toBeGreaterThan(0)
+			expect(reward.Folios).toBeGreaterThan(0)
 			if reward.Cosmetic ~= nil then
 				expect(Strings.has("cosmetic." .. reward.Cosmetic)).toBe(true)
 			end
@@ -479,7 +479,7 @@ describe("CosmeticConfig", function()
 			expect(seen[item.Id]).toBeNil()
 			seen[item.Id] = true
 			expect(Strings.has(item.NameKey)).toBe(true)
-			expect(ShopConfig.PriceRyo[item.Rarity]).never.toBeNil()
+			expect(ShopConfig.PriceFolios[item.Rarity]).never.toBeNil()
 			expect(table.find(CosmeticConfig.Slots, item.Slot)).never.toBeNil()
 			if item.Slot == "Skin" then
 				expect(GlyphConfig.ById[item.Target :: string]).never.toBeNil()
@@ -531,12 +531,12 @@ describe("MonetizationConfig", function()
 			expect(Strings.has(product.NameKey)).toBe(true)
 			expect(Strings.has(product.DescKey)).toBe(true)
 			expect(product.PriceRobux).toBeGreaterThan(0)
-			if product.Kind == "Ryo" or product.Kind == "TierSkip" then
+			if product.Kind == "Folios" or product.Kind == "TierSkip" then
 				expect(product.Amount).toBeGreaterThan(0)
 			elseif product.Kind == "XpBoost" then
 				expect(product.Minutes).toBeGreaterThan(0)
 			elseif product.Kind == "Cosmetic" then
-				expect(ShopConfig.PriceRyo[product.Rarity :: string]).never.toBeNil()
+				expect(ShopConfig.PriceFolios[product.Rarity :: string]).never.toBeNil()
 			end
 			if product.Id == 0 then
 				expect(table.find(missing, "Products." .. key)).never.toBeNil()

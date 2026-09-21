@@ -85,7 +85,7 @@ function DataService.template(): { [string]: any }
 			Quality = QualityConfig.Default,
 		},
 		Progression = { Level = 1, XP = 0, TotalXP = 0 },
-		Currency = { Ryo = 0 },
+		Currency = { Folios = 0 },
 		Battlepass = { _template = seasonTemplate() },
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },

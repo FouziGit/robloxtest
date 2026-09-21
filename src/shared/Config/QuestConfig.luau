@@ -29,8 +29,8 @@ QuestConfig.Pool = {
 } :: { QuestDef }
 
 QuestConfig.Periods = {
-	Daily = { Count = 3, RewardXp = 250, RewardRyo = 50 },
-	Weekly = { Count = 3, RewardXp = 900, RewardRyo = 200 },
+	Daily = { Count = 3, RewardXp = 250, RewardFolios = 50 },
+	Weekly = { Count = 3, RewardXp = 900, RewardFolios = 200 },
 }
 
 return QuestConfig

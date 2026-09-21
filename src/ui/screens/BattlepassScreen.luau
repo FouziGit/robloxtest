@@ -222,8 +222,8 @@ function BattlepassScreen.new(deps: Deps): Screen
 		if reward == nil then
 			return t("battlepass.reward.none")
 		end
-		if reward.Kind == "Ryo" then
-			return t("battlepass.reward.ryo", { amount = reward.Amount })
+		if reward.Kind == "Folios" then
+			return t("battlepass.reward.folio", { amount = reward.Amount })
 		elseif reward.Kind == "Cosmetic" then
 			return t("battlepass.reward.cosmetic", { name = t("cosmetic." .. reward.Id) })
 		end

@@ -174,7 +174,7 @@ local function creditKiller(model: Model)
 	end
 	local xp = ProgressionConfig.XP.DummyKill
 	progression.addXp(killer, xp, "DummyKill")
-	currency.add(killer, ProgressionConfig.Ryo.DummyKill, "DummyKill")
+	currency.add(killer, ProgressionConfig.Folios.DummyKill, "DummyKill")
 	data.Stats.Kills += 1
 	dataService.push(killer, "Stats")
 	notify.send(killer, "hud.killReward", { xp = xp }, "Success", "Kill")

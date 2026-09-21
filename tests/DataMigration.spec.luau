@@ -35,7 +35,7 @@ local function template(): { [string]: any }
 			CameraShake = true,
 		},
 		Progression = { Level = 1, XP = 0, TotalXP = 0 },
-		Currency = { Ryo = 0 },
+		Currency = { Folios = 0 },
 		Battlepass = { _template = { XP = 0, Tier = 1, Premium = false, ClaimedFree = {}, ClaimedPremium = {} } },
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = { "Brand", "Wash" }, ExtraSlots = 0, SlotLimit = 6 },
@@ -112,7 +112,7 @@ describe("DataMigration", function()
 		-- legacy curve floor(80*n^1.3) for n = 1..6 = 80+196+333+485+648+821 = 2563, plus 123
 		expect(data.Progression.TotalXP).toBe(2563 + 123)
 
-		expect(data.Currency.Ryo).toBe(1234)
+		expect(data.Currency.Folios).toBe(1234)
 
 		local season = data.Battlepass.S1
 		expect(season.Tier).toBe(12)
@@ -140,7 +140,7 @@ describe("DataMigration", function()
 		local data = DataMigration.migrate(raw, template(), "S1")
 		expect(data.Progression.Level).toBe(1)
 		expect(data.Progression.XP).toBe(0)
-		expect(data.Currency.Ryo).toBe(0)
+		expect(data.Currency.Folios).toBe(0)
 		expect(data.Settings.Keyboard.Cinnabar).toBe("J")
 		expect(data.Cosmetics.Owned).toEqual({})
 		expect(data.Battlepass.S1.ClaimedFree).toEqual({})
@@ -166,18 +166,18 @@ describe("DataMigration", function()
 		local raw = {
 			DataVersion = 2,
 			Progression = { Level = 20, XP = 5, TotalXP = 9000 },
-			Currency = { Ryo = 77 },
+			Currency = { Ryo = 77 }, -- the borrowed name a saved profile still holds
 			Battlepass = { S1 = { Tier = 3, XP = 10, ClaimedFree = { ["1"] = true } } },
 			Cosmetics = { Owned = { "FrisketMask" }, Equipped = { Aura = "BlueInkAura" } },
 			Unknown = { junk = true },
 			Stats = { Kills = "many" },
 		}
-		-- Migrated is true now: a version 2 profile still holds the borrowed lexicon, so every load
-		-- upgrades it to version 3 (see the rename test below).
+		-- Migrated is true: a version 2 profile still holds the borrowed lexicon and the borrowed currency,
+		-- so every load upgrades it (see the rename tests below).
 		local data, info = DataMigration.migrate(raw, template(), "S1")
 		expect(info).toEqual({ From = 2, Migrated = true })
 		expect(data.Progression.Level).toBe(20)
-		expect(data.Currency.Ryo).toBe(77)
+		expect(data.Currency.Folios).toBe(77)
 		expect(data.Battlepass.S1.Tier).toBe(3)
 		expect(data.Battlepass.S1.Premium).toBe(false)
 		expect(data.Battlepass.S1.ClaimedPremium).toEqual({})
@@ -185,6 +185,32 @@ describe("DataMigration", function()
 		expect(data.Stats.Kills).toBe(0) -- type mismatch keeps template
 		expect(data.Unknown).toBeNil()
 		expect(data.Settings.Keyboard.Cinnabar).toBe("J")
+	end)
+
+	it("carries a V3 balance into the currency's new name", function()
+		-- Version 4 is the currency's rename. The template no longer declares the old key, so the generic
+		-- overlay cannot carry it: without the upgrade the player reads as somebody who never earned a coin.
+		local raw = {
+			DataVersion = 3,
+			Currency = { Ryo = 4821 },
+			Progression = { Level = 12, XP = 40, TotalXP = 5000 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info).toEqual({ From = 3, Migrated = true })
+		expect(data.Currency.Folios).toBe(4821)
+		expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
+		-- And the rest of the profile is untouched by the currency's upgrade.
+		expect(data.Progression.Level).toBe(12)
+	end)
+
+	it("leaves a profile already on the current version alone", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Currency = { Folios = 99 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
+		expect(data.Currency.Folios).toBe(99)
 	end)
 
 	it("never mutates the template", function()

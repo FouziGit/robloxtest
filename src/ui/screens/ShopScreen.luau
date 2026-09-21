@@ -1,5 +1,5 @@
 --!strict
--- ShopScreen: today's cosmetic rotation, one card per entry (name, rarity, Ryo price, Robux action).
+-- ShopScreen: today's cosmetic rotation, one card per entry (name, rarity, Folios price, Robux action).
 -- The rotation comes from the server's ShopChanged snapshot; until one arrives (screens are built on
 -- their first Open, after the join-time push) the same deterministic rotation is derived locally from
 -- ShopRotation over the sellable CosmeticConfig items, so the card list is never empty. Prices and
@@ -7,7 +7,7 @@
 --
 -- Ownership and the equipped slot are always read from the profile, which the server pushes: buying or
 -- equipping updates the cards through ProfileChanged, never from a local guess. The screen only names
--- catalog entries: BuyCosmetic for the Ryo path, PromptPurchase for the Robux one, EquipCosmetic to
+-- catalog entries: BuyCosmetic for the Folios path, PromptPurchase for the Robux one, EquipCosmetic to
 -- wear what is already owned.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -91,13 +91,18 @@ local function finite(value: any, fallback: number): number
 	return math.floor(value)
 end
 
-local function entryFor(item: CosmeticConfig.CosmeticDef, priceRyo: number, productKey: string, owned: boolean): Entry
+local function entryFor(
+	item: CosmeticConfig.CosmeticDef,
+	priceFolios: number,
+	productKey: string,
+	owned: boolean
+): Entry
 	return {
 		CosmeticId = item.Id,
 		NameKey = item.NameKey,
 		Slot = item.Slot,
 		Rarity = item.Rarity,
-		PriceRyo = priceRyo,
+		PriceFolios = priceFolios,
 		ProductKey = productKey,
 		Owned = owned,
 	}
@@ -112,7 +117,7 @@ local function localSnapshot(): Types.ShopSnapshot
 		local item = CosmeticConfig.ById[id]
 		if item ~= nil then
 			-- Same rule as the server: a rarity without a price or without a Robux product is not offered.
-			local price = ShopConfig.PriceRyo[item.Rarity]
+			local price = ShopConfig.PriceFolios[item.Rarity]
 			local productKey = ShopConfig.RobuxProduct[item.Rarity]
 			if price ~= nil and productKey ~= nil then
 				table.insert(entries, entryFor(item, price, productKey, false))
@@ -133,7 +138,7 @@ local function readSnapshot(payload: any): Types.ShopSnapshot?
 		if type(raw) == "table" and type(raw.CosmeticId) == "string" then
 			local item = CosmeticConfig.ById[raw.CosmeticId]
 			if item ~= nil then
-				local price = math.max(0, finite(raw.PriceRyo, ShopConfig.PriceRyo[item.Rarity] or 0))
+				local price = math.max(0, finite(raw.PriceFolios, ShopConfig.PriceFolios[item.Rarity] or 0))
 				local product = if type(raw.ProductKey) == "string"
 					then raw.ProductKey
 					else ShopConfig.RobuxProduct[item.Rarity] or ""
@@ -203,7 +208,7 @@ function ShopScreen.new(deps: Deps): Screen
 	headerLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	headerLayout.Parent = panel.Header
 
-	-- The two header columns share the width: the rotation title on the left, the Ryo balance on the right.
+	-- The two header columns share the width: the rotation title on the left, the Folios balance on the right.
 	local rotationLabel =
 		makeLine("Rotation", STATUS_HEIGHT, Theme.Sizes.TextBody, true, Theme.Colors.TextMuted, 1, panel.Header)
 	rotationLabel.Text = t("shop.rotation")
@@ -243,7 +248,7 @@ function ShopScreen.new(deps: Deps): Screen
 	-- Intent
 	----------------------------------------------------------------
 
-	local function buyWithRyo(entry: Entry)
+	local function buyWithFolios(entry: Entry)
 		deps.SoundController.play("UiClick")
 		deps.RemoteClient.fire("BuyCosmetic", entry.CosmeticId)
 	end
@@ -322,7 +327,7 @@ function ShopScreen.new(deps: Deps): Screen
 			LayoutOrder = 1,
 			Parent = actions,
 			OnClick = function()
-				buyWithRyo(entry)
+				buyWithFolios(entry)
 			end,
 		})
 		own(cardsTrove, buy)
@@ -372,7 +377,7 @@ function ShopScreen.new(deps: Deps): Screen
 			end
 			return
 		end
-		card.Buy:SetText(t("shop.buyRyo", { price = entry.PriceRyo }))
+		card.Buy:SetText(t("shop.buyFolios", { price = entry.PriceFolios }))
 		card.Buy:SetVariant("Primary")
 		card.Buy:SetDisabled(false)
 		card.Action:SetText(t("shop.buyRobux"))
@@ -403,7 +408,9 @@ function ShopScreen.new(deps: Deps): Screen
 
 	local function refresh()
 		local data = deps.ClientData.get()
-		balanceLabel.Text = if data ~= nil then t("shop.buyRyo", { price = math.floor(data.Currency.Ryo) }) else ""
+		balanceLabel.Text = if data ~= nil
+			then t("shop.buyFolios", { price = math.floor(data.Currency.Folios) })
+			else ""
 		local wanted = signatureOf(snapshot)
 		if wanted ~= signature then
 			signature = wanted

@@ -4,7 +4,7 @@
 -- Heartbeat accumulator, and replicated as a Types.ShopSnapshot with ownership resolved for each
 -- receiver (ShopChanged) on join, on every rotation and on every ownership change.
 --
--- Ryo purchases are settled here: the server checks the rotation, the Sellable flag, ownership and the
+-- Folios purchases are settled here: the server checks the rotation, the Sellable flag, ownership and the
 -- price from ShopConfig, then debits through CurrencyService and grants through CosmeticService. The
 -- client only ever names a cosmetic id.
 --
@@ -146,7 +146,7 @@ local function entriesFor(data: ProfileData): { ShopEntry }
 			log.error("rotation holds unknown cosmetic %s", cosmeticId)
 			continue
 		end
-		local price = ShopConfig.PriceRyo[item.Rarity]
+		local price = ShopConfig.PriceFolios[item.Rarity]
 		local productKey = ShopConfig.RobuxProduct[item.Rarity]
 		if price == nil or productKey == nil then
 			log.error("rarity %s has no price or no Robux product (%s)", item.Rarity, cosmeticId)
@@ -159,7 +159,7 @@ local function entriesFor(data: ProfileData): { ShopEntry }
 			NameKey = item.NameKey,
 			Slot = item.Slot :: string,
 			Rarity = item.Rarity :: string,
-			PriceRyo = price,
+			PriceFolios = price,
 			ProductKey = productKey,
 			Owned = table.find(data.Cosmetics.Owned, item.Id) ~= nil,
 		})
@@ -268,7 +268,7 @@ function ShopService.resolveReceiptItem(player: Player, rarity: string): string?
 end
 
 ----------------------------------------------------------------
--- Ryo purchase
+-- Folios purchase
 ----------------------------------------------------------------
 
 local function onBuyCosmetic(player: Player, cosmeticId: string)
@@ -290,9 +290,9 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 		ShopService.refresh(player)
 		return
 	end
-	local price = ShopConfig.PriceRyo[item.Rarity]
+	local price = ShopConfig.PriceFolios[item.Rarity]
 	if price == nil then
-		log.error("rarity %s has no Ryo price (%s)", item.Rarity, cosmeticId)
+		log.error("rarity %s has no Folios price (%s)", item.Rarity, cosmeticId)
 		notify.send(player, "purchase.unavailable", nil, "Error", SFX_ERROR)
 		return
 	end
@@ -300,7 +300,7 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 	if not currency.trySpend(player, price, TRANSACTION_SHOP .. ":" .. cosmeticId) then
 		-- Not affordable: remember the choice so the explicit "buy with Robux" button can complete it.
 		ShopService.setPurchaseIntent(player, cosmeticId)
-		notify.send(player, "shop.notEnoughRyo", nil, "Error", SFX_ERROR)
+		notify.send(player, "shop.notEnoughFolios", nil, "Error", SFX_ERROR)
 		ShopService.refresh(player)
 		return
 	end
@@ -315,7 +315,7 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 	intents[player] = nil
 	notify.send(player, "shop.purchased", { name = item.NameKey }, "Success", SFX_SUCCESS)
 	analytics.economy(player, "Sink", GameConfig.Currency.Id, price, currency.get(player), TRANSACTION_SHOP, cosmeticId)
-	log.info("%s bought %s for %d Ryo", player.Name, cosmeticId, price)
+	log.info("%s bought %s for %d Folios", player.Name, cosmeticId, price)
 	ShopService.refresh(player)
 end
 

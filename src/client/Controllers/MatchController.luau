@@ -164,7 +164,7 @@ local function readOutcome(payload: any): MatchOutcome?
 		Draw = payload.Draw == true,
 		Scores = readScores(payload.Scores),
 		Xp = count(payload.Xp, 0),
-		Ryo = count(payload.Ryo, 0),
+		Folios = count(payload.Folios, 0),
 		RatingBefore = count(payload.RatingBefore, 0),
 		RatingAfter = count(payload.RatingAfter, 0),
 		-- Empty when the mode is unranked: the result screen then hides its rating line.

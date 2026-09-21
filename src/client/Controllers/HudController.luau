@@ -1,5 +1,5 @@
 --!strict
--- HudController: the always-on overlay. Level / XP bar and Ryo counter (top-left), health and ink
+-- HudController: the always-on overlay. Level / XP bar and Folios counter (top-left), health and ink
 -- bars (bottom-left on mouse/gamepad, bottom-center above the combo row on touch so they never cover
 -- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the menu hint of
 -- the device in use. Every visible text goes through Localize; server Notify payloads carry Strings
@@ -107,7 +107,7 @@ local matchController: any
 local root: ScreenRoot.ScreenRoot
 local levelTitle: TextLabel
 local levelBar: ProgressBar.ProgressBar
-local ryoLabel: TextLabel
+local folioLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
 local inkBar: ProgressBar.ProgressBar
 local comboRow: Frame
@@ -275,7 +275,7 @@ local function build()
 	local topLeft = makeColumn("TopLeft", Vector2.zero, UDim2.fromOffset(pad, pad), content)
 	levelTitle = makeLabel("LevelTitle", 1, topLeft)
 	levelBar = ProgressBar.new({ Name = "LevelBar", Color = Theme.Colors.Accent, LayoutOrder = 2, Parent = topLeft })
-	ryoLabel = makeLabel("Ryo", 3, topLeft)
+	folioLabel = makeLabel("Folios", 3, topLeft)
 
 	local touch = UserInputService.TouchEnabled
 	local barsAnchor = if touch then Vector2.new(0.5, 1) else Vector2.new(0, 1)
@@ -500,8 +500,8 @@ local function refreshProgression(data: Types.ProfileData)
 end
 
 local function refreshCurrency(data: Types.ProfileData)
-	ryoLabel.Text = localize.t("hud.currency", {
-		amount = math.floor(data.Currency.Ryo),
+	folioLabel.Text = localize.t("hud.currency", {
+		amount = math.floor(data.Currency.Folios),
 		currency = localize.t(GameConfig.Currency.NameKey),
 	})
 end

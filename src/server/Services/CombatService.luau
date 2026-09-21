@@ -748,7 +748,7 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 		if source ~= nil then
 			local xp = ProgressionConfig.XP.PlayerKill
 			progression.addXp(source, xp, "PlayerKill")
-			currency.add(source, ProgressionConfig.Ryo.PlayerKill, "PlayerKill")
+			currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
 			local sourceData = dataService.get(source)
 			if sourceData ~= nil then
 				sourceData.Stats.Kills += 1

@@ -59,9 +59,9 @@ MatchConfig.Matchmaking = {
 }
 
 MatchConfig.Rewards = {
-	-- Multipliers applied to ProgressionConfig.XP / Ryo match values per mode.
-	Duel1v1 = { Xp = 1, Ryo = 1 },
-	Team3v3 = { Xp = 1.2, Ryo = 1.2 },
+	-- Multipliers applied to ProgressionConfig.XP / Folios match values per mode.
+	Duel1v1 = { Xp = 1, Folios = 1 },
+	Team3v3 = { Xp = 1.2, Folios = 1.2 },
 }
 
 -- Geometry of generated arenas (studs). Anchors are documented in docs/GAME_DESIGN.md §8.

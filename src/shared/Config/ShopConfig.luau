@@ -1,9 +1,9 @@
 --!strict
--- Cosmetic shop: Ryo prices by rarity, daily rotation, Robux equivalents. Pure data.
+-- Cosmetic shop: Folios prices by rarity, daily rotation, Robux equivalents. Pure data.
 
 local ShopConfig = {}
 
-ShopConfig.PriceRyo = { Common = 600, Rare = 1800, Epic = 4000, Legendary = 8000 } :: { [string]: number }
+ShopConfig.PriceFolios = { Common = 600, Rare = 1800, Epic = 4000, Legendary = 8000 } :: { [string]: number }
 
 -- Developer product key (MonetizationConfig.Products) that buys one item of the rarity with Robux.
 ShopConfig.RobuxProduct = {

@@ -8,7 +8,7 @@
 -- NotProcessedYet only leaves the transaction pending, with Roblox re-delivering the receipt. A path
 -- that can never succeed therefore loops for ever on a purchase the player already paid for, so every
 -- refusal here must be a transient failure and never a permanent one. Two consequences enforced below:
--- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Ryo
+-- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Folios
 -- compensation), and PurchaseGranted is only returned once DataService.saveNow confirms the write.
 
 local Players = game:GetService("Players")
@@ -54,7 +54,7 @@ local function tierSkipXp(data: ProfileData, tiers: number): (number, number)
 	return xp, granted
 end
 
-local function grantRyo(player: Player, productKey: string, amount: number, nameKey: string): boolean
+local function grantFolios(player: Player, productKey: string, amount: number, nameKey: string): boolean
 	local credited = deps.Currency.add(player, amount, "Product:" .. productKey)
 	if credited <= 0 then
 		return false
@@ -78,20 +78,20 @@ end
 -- returns NotProcessedYet and Roblox re-delivers the same receipt for ever.
 --
 -- When the player owns every sellable item of the rarity there is nothing left to hand over, so the
--- transaction is completed in Ryo at that rarity's shop price instead of looping.
+-- transaction is completed in Folios at that rarity's shop price instead of looping.
 local function grantCosmetic(player: Player, rarity: string?): boolean
-	local price = if rarity ~= nil then ShopConfig.PriceRyo[rarity] else nil
+	local price = if rarity ~= nil then ShopConfig.PriceFolios[rarity] else nil
 	if rarity == nil or price == nil then
 		log.error("cosmetic product has no usable rarity: %s", tostring(rarity))
 		return false
 	end
 	local cosmeticId = deps.Shop.resolveReceiptItem(player, rarity)
 	if cosmeticId == nil then
-		log.warn("%s owns every sellable %s item: paying %d Ryo instead", player.Name, rarity, price)
+		log.warn("%s owns every sellable %s item: paying %d Folios instead", player.Name, rarity, price)
 		if deps.Currency.add(player, price, "Product:Cosmetic" .. rarity) <= 0 then
 			return false
 		end
-		deps.Notify.send(player, "purchase.grantedRyoInstead", { amount = price }, "Success", Context.SfxSuccess)
+		deps.Notify.send(player, "purchase.grantedFoliosInstead", { amount = price }, "Success", Context.SfxSuccess)
 		return true
 	end
 	local item = CosmeticConfig.ById[cosmeticId]
@@ -122,13 +122,13 @@ local function grantProduct(
 	end
 
 	local granted = false
-	if product.Kind == "Ryo" then
+	if product.Kind == "Folios" then
 		local amount = product.Amount
 		if amount == nil or amount <= 0 then
-			log.error("product %s has no Ryo amount", productKey)
+			log.error("product %s has no Folios amount", productKey)
 			return false
 		end
-		granted = grantRyo(player, productKey, amount, def.NameKey)
+		granted = grantFolios(player, productKey, amount, def.NameKey)
 	elseif product.Kind == "PremiumPass" then
 		if deps.Battlepass.isPremium(player) then
 			deps.Notify.send(player, "purchase.alreadyOwned", nil, "Info")

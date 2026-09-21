@@ -14,7 +14,7 @@ type World = {
 }
 
 local products = {
-	[101] = { key = "RyoSmall", def = { Kind = "Ryo", Amount = 1000 } },
+	[101] = { key = "FolioSmall", def = { Kind = "Folios", Amount = 1000 } },
 	[102] = { key = "XpBoost1h", def = { Kind = "XpBoost", Minutes = 60 } },
 }
 
@@ -42,8 +42,8 @@ local function makeWorld(): (World, ReceiptProcessor.Deps)
 				return false
 			end
 			table.insert(world.grants, productKey)
-			if product.Kind == "Ryo" then
-				data.Ryo += product.Amount :: number
+			if product.Kind == "Folios" then
+				data.Folios += product.Amount :: number
 			end
 			return true
 		end,
@@ -65,18 +65,18 @@ end
 describe("ReceiptProcessor", function()
 	it("grants once and is idempotent on retries", function()
 		local world, deps = makeWorld()
-		world.profiles[7] = { Receipts = {}, Ryo = 0 }
+		world.profiles[7] = { Receipts = {}, Folios = 0 }
 		local decision, reason = ReceiptProcessor.process(receipt("p1", 101), deps)
 		expect(decision).toBe("PurchaseGranted")
 		expect(reason).toBe("granted")
-		expect(world.profiles[7].Ryo).toBe(1000)
-		expect(world.grants).toEqual({ "RyoSmall" })
+		expect(world.profiles[7].Folios).toBe(1000)
+		expect(world.grants).toEqual({ "FolioSmall" })
 		expect(world.saves).toBe(1)
 
 		decision, reason = ReceiptProcessor.process(receipt("p1", 101), deps)
 		expect(decision).toBe("PurchaseGranted")
 		expect(reason).toBe("already granted")
-		expect(world.profiles[7].Ryo).toBe(1000)
+		expect(world.profiles[7].Folios).toBe(1000)
 		expect(world.grants).toHaveLength(1)
 	end)
 
@@ -89,7 +89,7 @@ describe("ReceiptProcessor", function()
 
 	it("defers unknown products without granting", function()
 		local world, deps = makeWorld()
-		world.profiles[7] = { Receipts = {}, Ryo = 0 }
+		world.profiles[7] = { Receipts = {}, Folios = 0 }
 		local decision = ReceiptProcessor.process(receipt("p3", 999), deps)
 		expect(decision).toBe("NotProcessedYet")
 		expect(world.logs).toHaveLength(1)
@@ -98,7 +98,7 @@ describe("ReceiptProcessor", function()
 
 	it("defers when the grant fails and does not record", function()
 		local world, deps = makeWorld()
-		world.profiles[7] = { Receipts = {}, Ryo = 0 }
+		world.profiles[7] = { Receipts = {}, Folios = 0 }
 		world.failGrant = true
 		local decision = ReceiptProcessor.process(receipt("p4", 102), deps)
 		expect(decision).toBe("NotProcessedYet")
@@ -107,17 +107,17 @@ describe("ReceiptProcessor", function()
 
 	it("defers when the save fails, then grants on retry without a double grant", function()
 		local world, deps = makeWorld()
-		world.profiles[7] = { Receipts = {}, Ryo = 0 }
+		world.profiles[7] = { Receipts = {}, Folios = 0 }
 		world.failSave = true
 		local decision = ReceiptProcessor.process(receipt("p5", 101), deps)
 		expect(decision).toBe("NotProcessedYet")
-		expect(world.profiles[7].Ryo).toBe(1000)
+		expect(world.profiles[7].Folios).toBe(1000)
 		expect(world.profiles[7].Receipts).toEqual({ "p5" })
 
 		world.failSave = false
 		decision = ReceiptProcessor.process(receipt("p5", 101), deps)
 		expect(decision).toBe("PurchaseGranted")
-		expect(world.profiles[7].Ryo).toBe(1000)
+		expect(world.profiles[7].Folios).toBe(1000)
 		expect(world.grants).toHaveLength(1)
 	end)
 end)

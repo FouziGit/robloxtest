@@ -1,6 +1,6 @@
 --!strict
--- CurrencyService: the only writer of Currency.Ryo. Amounts are positive integers and the balance
--- never goes negative. Mirrors the balance into the leaderstats "Ryo" value when it exists.
+-- CurrencyService: the only writer of Currency.Folios. Amounts are positive integers and the balance
+-- never goes negative. Mirrors the balance into the leaderstats "Folios" value when it exists.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -12,7 +12,7 @@ local Types = require(Shared.Types)
 
 local log = Log.new("CurrencyService")
 
--- Pass key in ProfileData.Passes granting the Ryo multiplier (see MonetizationConfig.Passes).
+-- Pass key in ProfileData.Passes granting the Folios multiplier (see MonetizationConfig.Passes).
 local VIP_PASS_KEY = "Vip"
 
 type ProfileData = Types.ProfileData
@@ -23,7 +23,7 @@ type DataApi = {
 type Deps = { DataService: DataApi }
 
 local LEADERSTATS_FOLDER = "leaderstats"
-local LEADERSTAT_RYO = "Ryo"
+local LEADERSTAT_FOLIOS = "Folios"
 
 local CurrencyService = {}
 
@@ -38,7 +38,7 @@ local function syncLeaderstat(player: Player, value: number)
 	if folder == nil then
 		return
 	end
-	local stat = folder:FindFirstChild(LEADERSTAT_RYO)
+	local stat = folder:FindFirstChild(LEADERSTAT_FOLIOS)
 	if stat ~= nil and stat:IsA("IntValue") then
 		stat.Value = value
 	end
@@ -50,10 +50,10 @@ function CurrencyService.get(player: Player): number
 	if data == nil then
 		return 0
 	end
-	return data.Currency.Ryo
+	return data.Currency.Folios
 end
 
--- Returns the Ryo actually credited (base amount times the VIP multiplier), or 0 when nothing was
+-- Returns the Folios actually credited (base amount times the VIP multiplier), or 0 when nothing was
 -- granted, so callers can report the real figure to the player.
 function CurrencyService.add(player: Player, amount: number, reason: string): number
 	if not isPositiveInteger(amount) then
@@ -66,12 +66,12 @@ function CurrencyService.add(player: Player, amount: number, reason: string): nu
 		return 0
 	end
 	if data.Passes[VIP_PASS_KEY] == true then
-		amount = math.max(1, math.floor(amount * ProgressionConfig.VipRyoMultiplier))
+		amount = math.max(1, math.floor(amount * ProgressionConfig.VipFolioMultiplier))
 	end
-	data.Currency.Ryo += amount
-	syncLeaderstat(player, data.Currency.Ryo)
+	data.Currency.Folios += amount
+	syncLeaderstat(player, data.Currency.Folios)
 	dataService.push(player, "Currency")
-	log.info("%s +%d Ryo (%s) -> %d", player.Name, amount, reason, data.Currency.Ryo)
+	log.info("%s +%d Folios (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
 	return amount
 end
 
@@ -86,13 +86,13 @@ function CurrencyService.trySpend(player: Player, amount: number, reason: string
 		log.warn("spend skipped for %s (%s): profile not loaded", player.Name, reason)
 		return false
 	end
-	if data.Currency.Ryo < amount then
+	if data.Currency.Folios < amount then
 		return false
 	end
-	data.Currency.Ryo -= amount
-	syncLeaderstat(player, data.Currency.Ryo)
+	data.Currency.Folios -= amount
+	syncLeaderstat(player, data.Currency.Folios)
 	dataService.push(player, "Currency")
-	log.info("%s -%d Ryo (%s) -> %d", player.Name, amount, reason, data.Currency.Ryo)
+	log.info("%s -%d Folios (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
 	return true
 end
 

@@ -42,7 +42,7 @@ type Deps = {
 
 local STREAK_LENGTH = #DailyConfig.Streak
 local FIRST_WIN_XP = ProgressionConfig.XP.FirstWinOfDay
-local FIRST_WIN_RYO = ProgressionConfig.Ryo.FirstWinOfDay
+local FIRST_WIN_FOLIOS = ProgressionConfig.Folios.FirstWinOfDay
 local PREMIUM_BONUS = DailyConfig.PremiumBonus
 
 local DailyRewardService = {}
@@ -72,10 +72,10 @@ function DailyRewardService.claim(player: Player): boolean
 		log.error("no streak entry for day %d (%d entries)", streak, STREAK_LENGTH)
 		return false
 	end
-	local ryo = currency.add(player, reward.Ryo, "DailyStreak")
+	local folios = currency.add(player, reward.Folios, "DailyStreak")
 	local xp = progression.addXp(player, reward.Xp, "DailyStreak")
-	notify.send(player, "daily.claimed", { day = streak, xp = xp, ryo = ryo }, "Success", "Claim")
-	log.info("%s claimed day %d (+%d XP, +%d Ryo)", player.Name, streak, xp, ryo)
+	notify.send(player, "daily.claimed", { day = streak, xp = xp, folios = folios }, "Success", "Claim")
+	log.info("%s claimed day %d (+%d XP, +%d Folios)", player.Name, streak, xp, folios)
 	return true
 end
 
@@ -92,9 +92,9 @@ function DailyRewardService.markFirstWin(player: Player): boolean
 	end
 	dataService.push(player, "Daily")
 	local xp = progression.addXp(player, FIRST_WIN_XP, "FirstWinOfDay")
-	local ryo = currency.add(player, FIRST_WIN_RYO, "FirstWinOfDay")
-	notify.send(player, "daily.firstWin", { xp = xp, ryo = ryo }, "Success", "Claim")
-	log.info("%s took the first win of the day (+%d XP, +%d Ryo)", player.Name, xp, ryo)
+	local folios = currency.add(player, FIRST_WIN_FOLIOS, "FirstWinOfDay")
+	notify.send(player, "daily.firstWin", { xp = xp, folios = folios }, "Success", "Claim")
+	log.info("%s took the first win of the day (+%d XP, +%d Folios)", player.Name, xp, folios)
 	return true
 end
 
@@ -109,10 +109,10 @@ function DailyRewardService.grantPremiumBonus(player: Player): boolean
 		return false
 	end
 	dataService.push(player, "Daily")
-	local ryo = currency.add(player, PREMIUM_BONUS.Ryo, "PremiumBonus")
+	local folios = currency.add(player, PREMIUM_BONUS.Folios, "PremiumBonus")
 	local xp = progression.addXp(player, PREMIUM_BONUS.Xp, "PremiumBonus")
-	notify.send(player, "daily.premium", { xp = xp, ryo = ryo }, "Success", "Claim")
-	log.info("%s took the Premium bonus (+%d XP, +%d Ryo)", player.Name, xp, ryo)
+	notify.send(player, "daily.premium", { xp = xp, folios = folios }, "Success", "Claim")
+	log.info("%s took the Premium bonus (+%d XP, +%d Folios)", player.Name, xp, folios)
 	return true
 end
 

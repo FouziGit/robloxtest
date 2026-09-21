@@ -238,7 +238,7 @@ CosmeticConfig.Items = {
 		Target = "Sweep",
 		Visual = rgb("Color", 220, 225, 235),
 	},
-	-- Shop catalog (Ryo or Robux)
+	-- Shop catalog (Folios or Robux)
 	{
 		Id = "TrailFolio",
 		Slot = "Trail",

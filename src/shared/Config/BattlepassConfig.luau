@@ -1,9 +1,9 @@
 --!strict
 -- Battle pass: 50 tiers per season, free track + premium track. Pure data.
--- Reward kinds: {Kind="Ryo", Amount=n} | {Kind="Cosmetic", Id="…"} | {Kind="XpBoost", Minutes=n}
+-- Reward kinds: {Kind="Folios", Amount=n} | {Kind="Cosmetic", Id="…"} | {Kind="XpBoost", Minutes=n}
 
 export type Reward =
-	{ Kind: "Ryo", Amount: number }
+	{ Kind: "Folios", Amount: number }
 	| { Kind: "Cosmetic", Id: string }
 	| { Kind: "XpBoost", Minutes: number }
 export type Tier = { Free: Reward?, Premium: Reward? }
@@ -18,8 +18,8 @@ function BattlepassConfig.xpForTier(tier: number): number
 	return 100 + (tier - 1) * 20
 end
 
-local function ryo(amount: number): Reward
-	return { Kind = "Ryo", Amount = amount }
+local function folios(amount: number): Reward
+	return { Kind = "Folios", Amount = amount }
 end
 
 local function cosmetic(id: string): Reward
@@ -31,59 +31,59 @@ local function boost(minutes: number): Reward
 end
 
 -- Free track: the V1 rewards (cosmetic ids re-identified in English, see DataMigration).
--- Premium track: doubled Ryo, extra cosmetics and boosts.
+-- Premium track: doubled Folios, extra cosmetics and boosts.
 BattlepassConfig.Seasons = {
 	S1 = {
 		Tiers = {
-			{ Free = ryo(50), Premium = ryo(100) },
-			{ Free = ryo(60), Premium = boost(30) },
-			{ Free = ryo(70), Premium = ryo(150) },
-			{ Free = ryo(80), Premium = ryo(150) },
+			{ Free = folios(50), Premium = folios(100) },
+			{ Free = folios(60), Premium = boost(30) },
+			{ Free = folios(70), Premium = folios(150) },
+			{ Free = folios(80), Premium = folios(150) },
 			{ Free = cosmetic("BlankHeadband"), Premium = cosmetic("TrailEmber") },
-			{ Free = ryo(90), Premium = ryo(200) },
-			{ Free = ryo(100), Premium = boost(30) },
-			{ Free = ryo(110), Premium = ryo(200) },
-			{ Free = ryo(120), Premium = ryo(250) },
+			{ Free = folios(90), Premium = folios(200) },
+			{ Free = folios(100), Premium = boost(30) },
+			{ Free = folios(110), Premium = folios(200) },
+			{ Free = folios(120), Premium = folios(250) },
 			{ Free = cosmetic("SteelStylus"), Premium = cosmetic("AuraCrimson") },
-			{ Free = ryo(130), Premium = ryo(250) },
-			{ Free = ryo(140), Premium = boost(60) },
-			{ Free = ryo(150), Premium = ryo(300) },
-			{ Free = ryo(160), Premium = ryo(300) },
+			{ Free = folios(130), Premium = folios(250) },
+			{ Free = folios(140), Premium = boost(60) },
+			{ Free = folios(150), Premium = folios(300) },
+			{ Free = folios(160), Premium = folios(300) },
 			{ Free = cosmetic("PalimpsestCape"), Premium = cosmetic("KillEffectShatter") },
-			{ Free = ryo(170), Premium = ryo(350) },
-			{ Free = ryo(180), Premium = boost(60) },
-			{ Free = ryo(190), Premium = ryo(350) },
-			{ Free = ryo(200), Premium = ryo(400) },
+			{ Free = folios(170), Premium = folios(350) },
+			{ Free = folios(180), Premium = boost(60) },
+			{ Free = folios(190), Premium = folios(350) },
+			{ Free = folios(200), Premium = folios(400) },
 			{ Free = cosmetic("FrisketMask"), Premium = cosmetic("TitleShadow") },
-			{ Free = ryo(220), Premium = ryo(400) },
-			{ Free = ryo(240), Premium = boost(60) },
-			{ Free = ryo(260), Premium = ryo(450) },
-			{ Free = ryo(280), Premium = ryo(450) },
+			{ Free = folios(220), Premium = folios(400) },
+			{ Free = folios(240), Premium = boost(60) },
+			{ Free = folios(260), Premium = folios(450) },
+			{ Free = folios(280), Premium = folios(450) },
 			{ Free = cosmetic("BlueInkAura"), Premium = cosmetic("SkinBrandAzure") },
-			{ Free = ryo(300), Premium = ryo(500) },
-			{ Free = ryo(320), Premium = boost(90) },
-			{ Free = ryo(340), Premium = ryo(500) },
-			{ Free = ryo(360), Premium = ryo(550) },
+			{ Free = folios(300), Premium = folios(500) },
+			{ Free = folios(320), Premium = boost(90) },
+			{ Free = folios(340), Premium = folios(500) },
+			{ Free = folios(360), Premium = folios(550) },
 			{ Free = cosmetic("ScriptoriumRobe"), Premium = cosmetic("TrailStorm") },
-			{ Free = ryo(380), Premium = ryo(550) },
-			{ Free = ryo(400), Premium = boost(90) },
-			{ Free = ryo(420), Premium = ryo(600) },
-			{ Free = ryo(440), Premium = ryo(600) },
+			{ Free = folios(380), Premium = folios(550) },
+			{ Free = folios(400), Premium = boost(90) },
+			{ Free = folios(420), Premium = folios(600) },
+			{ Free = folios(440), Premium = folios(600) },
 			{ Free = cosmetic("VioletInkAura"), Premium = cosmetic("SkinRuptureMagma") },
-			{ Free = ryo(460), Premium = ryo(650) },
-			{ Free = ryo(480), Premium = boost(120) },
-			{ Free = ryo(500), Premium = ryo(650) },
-			{ Free = ryo(550), Premium = ryo(700) },
+			{ Free = folios(460), Premium = folios(650) },
+			{ Free = folios(480), Premium = boost(120) },
+			{ Free = folios(500), Premium = folios(650) },
+			{ Free = folios(550), Premium = folios(700) },
 			{ Free = cosmetic("ScribeCloak"), Premium = cosmetic("KillEffectRedaction") },
-			{ Free = ryo(600), Premium = ryo(750) },
-			{ Free = ryo(650), Premium = boost(120) },
-			{ Free = ryo(700), Premium = ryo(800) },
-			{ Free = ryo(750), Premium = ryo(850) },
+			{ Free = folios(600), Premium = folios(750) },
+			{ Free = folios(650), Premium = boost(120) },
+			{ Free = folios(700), Premium = folios(800) },
+			{ Free = folios(750), Premium = folios(850) },
 			{ Free = cosmetic("GoldenInkAura"), Premium = cosmetic("TitleCodex") },
-			{ Free = ryo(800), Premium = ryo(900) },
-			{ Free = ryo(900), Premium = boost(180) },
-			{ Free = ryo(1000), Premium = ryo(1000) },
-			{ Free = ryo(1250), Premium = ryo(1500) },
+			{ Free = folios(800), Premium = folios(900) },
+			{ Free = folios(900), Premium = boost(180) },
+			{ Free = folios(1000), Premium = folios(1000) },
+			{ Free = folios(1250), Premium = folios(1500) },
 			{ Free = cosmetic("CodexCloak"), Premium = cosmetic("AuraCodex") },
 		},
 	},

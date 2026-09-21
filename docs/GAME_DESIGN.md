@@ -146,9 +146,9 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | Mode | Joueurs | Durée | Victoire | Récompenses |
 |---|---|---|---|---|
 | Hub | tous | libre | — | XP des mannequins, quêtes |
-| 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Ryo, Elo, pass |
-| 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Ryo, Elo équipe, pass |
-| World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Ryo/pass |
+| 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass |
+| 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
+| World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux participants, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 

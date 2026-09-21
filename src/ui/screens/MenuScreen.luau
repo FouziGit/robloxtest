@@ -1,5 +1,5 @@
 --!strict
--- MenuScreen: the hub menu. Shows the player's level (XP bar) and Ryo, and navigates to the other
+-- MenuScreen: the hub menu. Shows the player's level (XP bar) and Folios, and navigates to the other
 -- screens. Hidden until Open(); refreshes from ClientData on Open and whenever a relevant section
 -- changes. The close button hides the screen and notifies the controller through OnClose.
 
@@ -93,8 +93,8 @@ function MenuScreen.new(deps: Deps): Screen
 	own(trove, levelBar)
 	local levelRow = ListRow.new({ Left = "", Right = levelBar.Instance, LayoutOrder = 1, Parent = panel.Content })
 	own(trove, levelRow)
-	local ryoRow = ListRow.new({ Left = t("currency.ryo"), Right = "", LayoutOrder = 2, Parent = panel.Content })
-	own(trove, ryoRow)
+	local folioRow = ListRow.new({ Left = t("currency.folio"), Right = "", LayoutOrder = 2, Parent = panel.Content })
+	own(trove, folioRow)
 
 	-- Navigation
 	local function navigate(id: string)
@@ -205,7 +205,7 @@ function MenuScreen.new(deps: Deps): Screen
 			levelBar:SetProgress(if needed > 0 then data.Progression.XP / needed else 0)
 			levelBar:SetLabel(t("level.xp", { xp = data.Progression.XP, needed = needed }))
 		end
-		ryoRow:SetRight(tostring(data.Currency.Ryo))
+		folioRow:SetRight(tostring(data.Currency.Folios))
 	end
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)

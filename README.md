@@ -177,7 +177,7 @@ le défaut qu'elle garde, réintroduit exprès.
 | [CLAUDE.md](CLAUDE.md) | conventions de code, structure, git |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | contrats d'API de chaque module et remote |
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) | roster, combos, interactions, modes, arènes |
-| [docs/ECONOMY.md](docs/ECONOMY.md) | prix, flux de Ryo, prompts, KPIs, DevEx |
+| [docs/ECONOMY.md](docs/ECONOMY.md) | prix, flux de Folios, prompts, KPIs, DevEx |
 | [docs/STUDIO_SETUP.md](docs/STUDIO_SETUP.md) | checklist manuelle Studio / Creator Dashboard |
 | [docs/ART_BIBLE.md](docs/ART_BIBLE.md) | l'identité : palette, formes, lumière, son, lexique, les huit règles non négociables |
 | [docs/VFX_SPECS.md](docs/VFX_SPECS.md) | une fiche par effet : ce qu'il doit faire sentir, ce qu'il a remplacé, comment il est construit |

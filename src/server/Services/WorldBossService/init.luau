@@ -194,15 +194,15 @@ local function rewardParticipants(current: State)
 		local reward = WorldBossMode.rewardFor(share)
 		if reward ~= nil then
 			local xp = deps.Progression.addXp(player, reward.Xp, "BossParticipation")
-			local ryo = deps.Currency.add(player, reward.Ryo, "BossParticipation")
+			local folios = deps.Currency.add(player, reward.Folios, "BossParticipation")
 			if reward.BonusXp > 0 then
 				xp += deps.Progression.addXp(player, reward.BonusXp, "BossKillBonus")
-				ryo += deps.Currency.add(player, reward.BonusRyo, "BossKillBonus")
+				folios += deps.Currency.add(player, reward.BonusFolios, "BossKillBonus")
 				deps.Notify.send(player, "boss.killBonus", nil, "Success")
 			end
 			bumpBossKills(player)
 			reportQuest(player, "BossKill")
-			deps.Notify.send(player, "boss.reward", { xp = xp, ryo = ryo }, "Success", "Claim")
+			deps.Notify.send(player, "boss.reward", { xp = xp, folios = folios }, "Success", "Claim")
 			paid += 1
 		end
 	end

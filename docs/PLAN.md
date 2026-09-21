@@ -92,7 +92,7 @@ Tests Phase 2 : `ComboResolver`, `GlyphConfig` (unicité, longueurs, coûts > 0,
 2. `Pure/MatchmakingCore.luau` (file par mode, fenêtre de rating élargie dans le temps, retrait, tests) ; `MatchmakingService` intra-serveur 1v1 / 3v3 ; interface réservée pour `MemoryStoreService`.
 3. `GameMode` (`CanStart, Start, OnPlayerLeft, End`) ; `MatchService` (instanciation d'arène, téléport, compte à rebours, timer, conditions de victoire, best-of-3 optionnel, déconnexions/abandons, retour hub, cleanup Trove, PvP restreint aux participants, spawn protection).
 4. `Pure/Elo.luau` (K dégressif, symétrie, bornes, tests) ; `Pure/RankTiers.luau` (Vierge → Esquisse → Écriture → Enluminure → Codex) ; `RankingService` + `LeaderboardService` (`OrderedDataStore` par saison : global, 1v1, 3v3 ; refresh 60 s sous budget) ; `MatchController` + `LeaderboardScreen`.
-5. Récompenses de fin de match (XP, Ryo, XP de pass, quêtes) ; bonus première victoire du jour.
+5. Récompenses de fin de match (XP, Folios, XP de pass, quêtes) ; bonus première victoire du jour.
 
 Tests Phase 4 : `MatchmakingCore`, `Elo`, `RankTiers`.
 
@@ -108,7 +108,7 @@ Tests Phase 6 : `QuestLogic`, `DailyStreak`, `BattlepassConfig` (50 paliers, deu
 
 ## Phase 7 — Monétisation, analytics, économie
 
-`MonetizationConfig` (IDs + validation au boot avec `warn` par ID manquant), `MonetizationService` (game passes : VIP, slots de loadout, Orpiment, pack de skins ; dev products : 3 packs de Ryo, pass premium, saut de paliers, boost XP ; ownership vérifiée à la connexion / cachée / mise à jour sur `PromptGamePassPurchaseFinished` ; `Pure/ReceiptProcessor.luau` idempotent testé avec mocks ; achats hors connexion), `ShopService` + `Pure/ShopRotation.luau` (rotation quotidienne seedée), bonus Premium, `PolicyService` avant tout aléatoire payant (boutique directe, pas de caisses), prompts contextuels non agressifs (jamais dans les 3 premières minutes de la première session), `AnalyticsService` (économie, funnel, custom, rate-limité), `docs/ECONOMY.md`.
+`MonetizationConfig` (IDs + validation au boot avec `warn` par ID manquant), `MonetizationService` (game passes : VIP, slots de loadout, Orpiment, pack de skins ; dev products : 3 packs de Folios, pass premium, saut de paliers, boost XP ; ownership vérifiée à la connexion / cachée / mise à jour sur `PromptGamePassPurchaseFinished` ; `Pure/ReceiptProcessor.luau` idempotent testé avec mocks ; achats hors connexion), `ShopService` + `Pure/ShopRotation.luau` (rotation quotidienne seedée), bonus Premium, `PolicyService` avant tout aléatoire payant (boutique directe, pas de caisses), prompts contextuels non agressifs (jamais dans les 3 premières minutes de la première session), `AnalyticsService` (économie, funnel, custom, rate-limité), `docs/ECONOMY.md`.
 
 Tests Phase 7 : `ReceiptProcessor`, `ShopRotation`, `MonetizationConfig` (validation).
 

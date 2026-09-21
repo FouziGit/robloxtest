@@ -13,8 +13,8 @@ GameConfig.SeasonId = "S1"
 GameConfig.PreviousSeasonId = ""
 
 GameConfig.Currency = {
-	Id = "Ryo",
-	NameKey = "currency.ryo",
+	Id = "Folios",
+	NameKey = "currency.folio",
 }
 
 GameConfig.Combo = {

@@ -50,8 +50,8 @@ ProgressionConfig.XP = {
 	FirstWinOfDay = 500,
 }
 
--- Ryo rewards.
-ProgressionConfig.Ryo = {
+-- Folios rewards.
+ProgressionConfig.Folios = {
 	DummyKill = 2,
 	PlayerKill = 15,
 	MatchWin = 60,
@@ -67,9 +67,9 @@ ProgressionConfig.Ryo = {
 -- Battlepass XP mirrors player XP with this multiplier.
 ProgressionConfig.BattlepassXpMultiplier = 1
 
--- VIP game pass multiplies XP and Ryo from every source.
+-- VIP game pass multiplies XP and Folios from every source.
 ProgressionConfig.VipXpMultiplier = 2
-ProgressionConfig.VipRyoMultiplier = 1.5
+ProgressionConfig.VipFolioMultiplier = 1.5
 
 -- Timed XP boost (battlepass reward and the XpBoost product, docs/ECONOMY.md §4). It stacks with VIP.
 ProgressionConfig.XpBoostMultiplier = 2

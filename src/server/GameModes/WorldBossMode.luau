@@ -27,7 +27,7 @@ export type Phase = Types.BossPhaseSnapshot
 
 -- What one participant takes home. The bonus is kept apart from the base so the service can credit it
 -- under its own reason (ProgressionConfig keys BossParticipation / BossKillBonus).
-export type Reward = { Xp: number, Ryo: number, BonusXp: number, BonusRyo: number }
+export type Reward = { Xp: number, Folios: number, BonusXp: number, BonusFolios: number }
 
 -- Live rules state of one event. `Attack` is the attack being telegraphed (nil between attacks) and
 -- `ResolveAt` the os.clock stamp its hit lands on. `Origin` and `Facing` are where the boss stood and
@@ -50,7 +50,7 @@ export type State = {
 }
 
 local XP = ProgressionConfig.XP
-local RYO = ProgressionConfig.Ryo
+local FOLIOS = ProgressionConfig.Folios
 local REWARDS = WorldBossConfig.Rewards
 local BOSS = WorldBossConfig.Boss
 -- WorldBossConfig stays free of Roblox globals and stores the body as {X, Y, Z}: build the vector once.
@@ -177,9 +177,9 @@ function WorldBossMode.rewardFor(share: number): Reward?
 	local bonus = share >= REWARDS.KillBonusShare
 	return {
 		Xp = math.max(MIN_REWARD, math.floor(XP.BossParticipation * share + 0.5)),
-		Ryo = math.max(MIN_REWARD, math.floor(RYO.BossParticipation * share + 0.5)),
+		Folios = math.max(MIN_REWARD, math.floor(FOLIOS.BossParticipation * share + 0.5)),
 		BonusXp = if bonus then XP.BossKillBonus else 0,
-		BonusRyo = if bonus then RYO.BossKillBonus else 0,
+		BonusFolios = if bonus then FOLIOS.BossKillBonus else 0,
 	}
 end
 

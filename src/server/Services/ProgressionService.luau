@@ -1,5 +1,5 @@
 --!strict
--- ProgressionService: player XP and levels. Cascades level-ups, mirrors Level / Ryo into leaderstats
+-- ProgressionService: player XP and levels. Cascades level-ups, mirrors Level / Folios into leaderstats
 -- and forwards battle pass XP. The single writer of Progression.
 
 local Players = game:GetService("Players")
@@ -32,7 +32,7 @@ type Deps = { DataService: DataApi, Notify: NotifyApi, Battlepass: BattlepassApi
 -- leaderstats names are read by the engine's player list, not shown through Strings.
 local LEADERSTATS_FOLDER = "leaderstats"
 local LEADERSTAT_LEVEL = "Level"
-local LEADERSTAT_RYO = "Ryo"
+local LEADERSTAT_FOLIOS = "Folios"
 -- Pass key in ProfileData.Passes granting the XP multiplier (see MonetizationConfig.Passes).
 local VIP_PASS_KEY = "Vip"
 
@@ -89,10 +89,10 @@ local function createLeaderstats(player: Player, data: ProfileData)
 	level.Value = data.Progression.Level
 	level.Parent = folder
 
-	local ryo = Instance.new("IntValue")
-	ryo.Name = LEADERSTAT_RYO
-	ryo.Value = data.Currency.Ryo
-	ryo.Parent = folder
+	local folios = Instance.new("IntValue")
+	folios.Name = LEADERSTAT_FOLIOS
+	folios.Value = data.Currency.Folios
+	folios.Parent = folder
 
 	folder.Parent = player
 end

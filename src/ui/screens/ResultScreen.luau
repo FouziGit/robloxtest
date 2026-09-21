@@ -352,7 +352,7 @@ function ResultScreen.new(deps: Deps): Screen
 			casts = outcome.Casts,
 			damage = outcome.DamageDealt,
 		})
-		rewardLine.Text = t("match.rewards", { xp = outcome.Xp, ryo = outcome.Ryo })
+		rewardLine.Text = t("match.rewards", { xp = outcome.Xp, folios = outcome.Folios })
 		againButton:SetDisabled(MatchConfig.Modes[outcome.ModeId] == nil)
 		showProgress(outcome)
 

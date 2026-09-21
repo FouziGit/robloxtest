@@ -39,6 +39,11 @@ local BORROWED: { [string]: string } = {
 	-- A word list only ever catches the spelling somebody used last time.
 	["thunder god"] = "Colophon",
 	["dieu du tonnerre"] = "Colophon",
+	-- The currency. It went through the whole of phases 1 to 9 unnoticed, in every reward toast, because a
+	-- ban list only holds the words somebody thought of: the lexicon of docs/ART_BIBLE.md replaced fifteen
+	-- borrowed terms and never had a row for money. A folio is a leaf of a manuscript, so in Vellum the
+	-- page is the coin.
+	ryo = "folio",
 }
 
 -- Where an old spelling is data rather than a name, and must survive untouched.

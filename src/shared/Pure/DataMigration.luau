@@ -12,12 +12,17 @@
 
 local DataMigration = {}
 
+-- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
+-- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the
+-- money). The template no longer declares the old key, so the generic overlay cannot carry it and a
+-- migrated profile would read as a player who had never earned anything: upgradeToV4 moves the balance.
+--
 -- 3: the lexicon rename (docs/ART_BIBLE.md). Element and jutsu ids became pigment and glyph ids,
 -- cosmetics named after a rank or after the spell they reskin were renamed too, and the two lifetime
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 3
+DataMigration.CurrentVersion = 4
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {
@@ -102,7 +107,9 @@ local function migrateV1(raw: { [string]: any }, result: { [string]: any }, seas
 	result.Progression.TotalXP = total
 
 	-- Currency.
-	result.Currency.Ryo = nonNegativeInteger(raw.Currency, 0)
+	-- V1 kept one number; the current profile keeps it under the name the lexicon gave it (see version 4
+	-- above), so this writes the new key rather than the old one it read.
+	result.Currency.Folios = nonNegativeInteger(raw.Currency, 0)
 
 	-- Battle pass (single V1 track -> free track of the current season).
 	local season = result.Battlepass[seasonId]
@@ -252,6 +259,16 @@ local function upgradeToV3(raw: { [string]: any }, result: { [string]: any }, le
 	end
 end
 
+-- The currency's rename. Reads the old key out of the raw profile, because the template has only the new
+-- one and the overlay walks the template.
+local function upgradeToV4(raw: { [string]: any }, result: { [string]: any })
+	local currency = result.Currency
+	local oldCurrency = if type(raw.Currency) == "table" then raw.Currency else {}
+	if type(currency) == "table" then
+		currency.Folios = nonNegativeInteger(oldCurrency.Ryo, currency.Folios)
+	end
+end
+
 function DataMigration.migrate(
 	raw: any,
 	template: { [string]: any },
@@ -295,6 +312,12 @@ function DataMigration.migrate(
 
 	if version < 3 and legacy ~= nil then
 		upgradeToV3(raw, result, legacy)
+		info.Migrated = true
+	end
+
+	-- After V1's own path too: migrateV1 writes the balance it found under the old key.
+	if version < 4 then
+		upgradeToV4(raw, result)
 		info.Migrated = true
 	end
 

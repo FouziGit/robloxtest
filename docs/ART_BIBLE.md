@@ -144,6 +144,7 @@ préparée sur laquelle on écrit ce qui doit durer.
 | match | **Duel / Assaut** | sans emprunt |
 | World Boss | **L'Effacement** (The Erasure) | ce qui vient effacer la page |
 | mannequin | **Épreuve** (Proof) | une épreuve d'imprimerie, ce sur quoi on essaie |
+| ryo (monnaie) | **Folio** (Folio) | un feuillet de manuscrit : dans Vellum, la page est la monnaie |
 
 ### Les cinq écoles
 

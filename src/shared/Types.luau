@@ -25,7 +25,7 @@ export type ProgressionData = {
 }
 
 export type CurrencyData = {
-	Ryo: number,
+	Folios: number,
 }
 
 export type BattlepassSeasonData = {
@@ -224,7 +224,7 @@ export type MatchOutcome = {
 	Draw: boolean,
 	Scores: { number },
 	Xp: number,
-	Ryo: number,
+	Folios: number,
 	RatingBefore: number,
 	RatingAfter: number,
 	RankKeyBefore: string, -- Strings key of the rank tier
@@ -276,7 +276,7 @@ export type ShopEntry = {
 	NameKey: string,
 	Slot: string,
 	Rarity: string,
-	PriceRyo: number,
+	PriceFolios: number,
 	ProductKey: string, -- MonetizationConfig.Products key for the Robux path
 	Owned: boolean,
 }

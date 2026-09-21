@@ -47,7 +47,7 @@ Client → serveur (Guard + token bucket, abus → `AntiCheatService.strike`) :
 | `ClaimDaily` | — | `DailyRewardService` |
 | `SetLoadout` | `{glyphId}` (≤ 10) | `LoadoutService` |
 | `EquipCosmetic` | `slotKey`, `cosmeticId` (`""` = retirer) | `CosmeticService` |
-| `BuyCosmetic` | `cosmeticId` (achat en Ryo) | `ShopService` |
+| `BuyCosmetic` | `cosmeticId` (achat en Folios) | `ShopService` |
 | `PromptPurchase` | `"Pass" \| "Product"`, `clé du catalogue` | `MonetizationService` (le client n'envoie jamais d'ID Roblox) |
 
 Serveur → client :
@@ -75,8 +75,8 @@ Serveur → client :
 | `DataService` | `template()`, `get(player) -> ProfileData?` (table vivante), `waitFor(player, timeout?)`, `snapshot(player)`, `push(player, section \| "*")`, `recordReceipt(player, id) -> bool`, `saveNow(player)`, `isActive(player)`, signaux `ProfileLoaded(player, data)`, `ProfileReleased(player)` |
 | `AntiCheatService` | `strike(player, source, reason, kind: "Schema" \| "RateLimit"?)` — un compteur et un seuil par `kind` dans `AbuseWindowSeconds` : `Schema` (défaut) kick à `GameConfig.Server.AbuseKickThreshold`, `RateLimit` à son propre seuil, bien plus haut (une rafale d'input légitime en produit) ; `Init`, `Start` |
 | `NotifyService` | `send(player, key, params?, kind?, sfx?)`, `sendAll(key, params?, kind?, sfx?)` |
-| `CurrencyService` | `get(player) -> number`, `add(player, amount, reason) -> number` (retourne le Ryo réellement crédité ; multiplicateur VIP), `trySpend(player, amount, reason) -> bool` ; pousse `Currency` |
-| `ProgressionService` | `addXp(player, amount, reason) -> number` (retourne l'XP réellement créditée ; multiplicateur VIP × boost temporaire `Boosts.XpUntil`, niveaux en cascade, XP de pass via Battlepass, leaderstats `Level`/`Ryo`), `getLevel(player)`, signal `LevelUp(player, level)` ; pousse `Progression` |
+| `CurrencyService` | `get(player) -> number`, `add(player, amount, reason) -> number` (retourne le Folios réellement crédité ; multiplicateur VIP), `trySpend(player, amount, reason) -> bool` ; pousse `Currency` |
+| `ProgressionService` | `addXp(player, amount, reason) -> number` (retourne l'XP réellement créditée ; multiplicateur VIP × boost temporaire `Boosts.XpUntil`, niveaux en cascade, XP de pass via Battlepass, leaderstats `Level`/`Folios`), `getLevel(player)`, signal `LevelUp(player, level)` ; pousse `Progression` |
 | `BattlepassService` | `addXp(player, amount)`, `addTiers(player, count) -> number`, `grantXpBoost(player, minutes)`, `claim(player, tier, track)`, `isPremium(player)`, `setPremium(player, value)` ; pousse `Battlepass` ; les cosmétiques passent par `CosmeticService.grant` |
 | `SettingsService` | handlers `UpdateKeybinds` / `UpdateSettings` (whitelists `InputConfig.Allowed*`, `Rebindable`, sans doublon) ; pousse `Settings` ; `Notify settings.saved` |
 | `MovementService` | applique `GameConfig.Movement` au spawn ; `applySlow(player, key, factor, seconds)` (ralentissements indexés par source : facteur effectif = minimum des entrées vivantes), `clearSlow(player, key?)` (une source, ou toutes si `key == nil`), `applyStun(player, seconds)`, `isStunned(player)` (attributs `CombatConfig.Status.*` sur le Humanoid) ; `command(player, payload)` → `MovementCommand` |
@@ -95,11 +95,11 @@ Serveur → client :
 | `DailyRewardService` | unique propriétaire de `Daily` : streak de connexion (`Pure/DailyStreak`), `markFirstWin(player)`, `grantPremiumBonus(player)`, handler `ClaimDaily` ; pousse `Daily` |
 | `LoadoutService` | unique propriétaire de `Loadout` et `Unlocks` : débloque les glyphes au niveau et par pigment, `grantPigment(player, pigmentId)`, handler `SetLoadout` (slots, doublons, déblocages validés) |
 | `CosmeticService` | unique **écrivain** de `Cosmetics.Owned` : `grant(player, cosmeticId) -> bool` (idempotent), signal `Granted(player, cosmeticId)`, handler `EquipCosmetic` ; publie l'équipement sur le personnage en attributs `CosmeticAura` / `CosmeticTrail` / `CosmeticKillEffect` / `CosmeticTitle` |
-| `ShopService` | rotation quotidienne via `Pure/ShopRotation` ; handler `BuyCosmetic` (Ryo), `setPurchaseIntent(player, cosmeticId) -> (productKey?, reasonKey?)` / `consumePurchaseIntent(player)` pour le chemin Robux, `getSnapshot(player)` ; pousse `ShopChanged` |
+| `ShopService` | rotation quotidienne via `Pure/ShopRotation` ; handler `BuyCosmetic` (Folios), `setPurchaseIntent(player, cosmeticId) -> (productKey?, reasonKey?)` / `consumePurchaseIntent(player)` pour le chemin Robux, `getSnapshot(player)` ; pousse `ShopChanged` |
 | `MonetizationService` | seul module à parler à `MarketplaceService` : validation des IDs au démarrage (un `warn` par ID manquant), ownership des passes en cache, `ProcessReceipt` idempotent via `Pure/ReceiptProcessor`, handler `PromptPurchase` (`"Pass"` / `"Product"` / `"Cosmetic"` — le client nomme toujours une entrée de catalogue), `maybePrompt(player, reason)` pour les prompts contextuels |
 | `AnalyticsService` | enveloppe limitée en débit d'`AnalyticsService` Roblox : `economy`, `funnel`, `progression`, `custom` ; silencieuse quand le service est indisponible |
 | `WorldBossService` | événement périodique (`WorldBossConfig`) : annonce, arène Boss, PV mis à l'échelle, phases (la bande d'encre de la figure `WorldConfig.Erasure` prend la hauteur de la phase et `BossPhase` est émis, D-87), attaques télégraphiées, récompenses à la contribution ; `isLive()` ; emprunte la policy PvP de `CombatService` et la rend à la fin |
-| `EnemyService` | épreuves (`GameConfig.Enemy`, rôles `WorldConfig.Proof` : corps vélin, tête craie, croix d'encre), tag `Enemy`, crédit du tueur via l'attribut `LastAttackerUserId` posé par `CombatService`, XP/Ryo `DummyKill`, respawn |
+| `EnemyService` | épreuves (`GameConfig.Enemy`, rôles `WorldConfig.Proof` : corps vélin, tête craie, croix d'encre), tag `Enemy`, crédit du tueur via l'attribut `LastAttackerUserId` posé par `CombatService`, XP/Folios `DummyKill`, respawn |
 
 ## Client (`src/client`)
 

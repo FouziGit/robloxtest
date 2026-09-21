@@ -70,7 +70,9 @@ type Selection = { PeriodKey: string, Quests: { QuestDef } }
 
 local PERIOD_ORDER: { Period } = { "Daily", "Weekly" }
 -- Keyed by period id so a Period value reads as a plain string key.
-local PERIOD_DEFS = (QuestConfig.Periods :: any) :: { [string]: { Count: number, RewardXp: number, RewardRyo: number } }
+local PERIOD_DEFS = (
+	QuestConfig.Periods :: any
+) :: { [string]: { Count: number, RewardXp: number, RewardFolios: number } }
 local ENEMY_TAG = GameConfig.Enemy.Tag
 -- Types.DamageKind value that makes a damage application a landed melee hit.
 local MELEE_KIND: Types.DamageKind = "Melee"
@@ -217,9 +219,9 @@ function QuestService.claim(player: Player, period: Period, questId: string): bo
 
 	local reward = PERIOD_DEFS[period]
 	local xp = progression.addXp(player, reward.RewardXp, "Quest" .. period)
-	local ryo = currency.add(player, reward.RewardRyo, "Quest" .. period)
-	notify.send(player, "quest.reward", { xp = xp, ryo = ryo }, "Success", "Claim")
-	log.info("%s claimed %s (%s): +%d XP, +%d Ryo", player.Name, questId, period, xp, ryo)
+	local folios = currency.add(player, reward.RewardFolios, "Quest" .. period)
+	notify.send(player, "quest.reward", { xp = xp, folios = folios }, "Success", "Claim")
+	log.info("%s claimed %s (%s): +%d XP, +%d Folios", player.Name, questId, period, xp, folios)
 	return true
 end
 

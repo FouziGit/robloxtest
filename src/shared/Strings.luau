@@ -32,7 +32,7 @@ Strings.Table = {
 	["action.dash"] = { en = "Dash", fr = "Ruée" },
 	["action.block"] = { en = "Block", fr = "Garde" },
 	["action.menu"] = { en = "Menu", fr = "Menu" },
-	["currency.ryo"] = { en = "Ryo", fr = "Ryo" },
+	["currency.folio"] = { en = "Folios", fr = "Folios" },
 
 	-- HUD / casting feedback
 	["hud.combo.noMatch"] = { en = "No glyph matches…", fr = "Aucun glyphe ne correspond…" },
@@ -123,7 +123,7 @@ Strings.Table = {
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
 	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
 	["battlepass.claimed"] = { en = "Claimed", fr = "Récupéré" },
-	["battlepass.reward.ryo"] = { en = "{amount} Ryo", fr = "{amount} Ryo" },
+	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
 	["battlepass.reward.none"] = { en = "No reward", fr = "Aucune récompense" },
@@ -297,23 +297,26 @@ Strings.Table = {
 	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
 	["quest.claim"] = { en = "Claim", fr = "Récupérer" },
 	["quest.claimed"] = { en = "Claimed", fr = "Récupérée" },
-	["quest.reward"] = { en = "+{xp} XP, +{ryo} Ryo", fr = "+{xp} XP, +{ryo} Ryo" },
+	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
 	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
 	["daily.claimed"] = {
-		en = "Day {day} reward: +{xp} XP, +{ryo} Ryo",
-		fr = "Récompense du jour {day} : +{xp} XP, +{ryo} Ryo",
+		en = "Day {day} reward: +{xp} XP, +{folios} Folios",
+		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folios",
 	},
 	["daily.broken"] = {
 		en = "Your streak was reset. Come back tomorrow to keep it going!",
 		fr = "Ta série est repartie de zéro. Reviens demain pour la garder !",
 	},
 	["daily.firstWin"] = {
-		en = "First win of the day! +{xp} XP, +{ryo} Ryo",
-		fr = "Première victoire du jour ! +{xp} XP, +{ryo} Ryo",
+		en = "First win of the day! +{xp} XP, +{folios} Folios",
+		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folios",
 	},
-	["daily.premium"] = { en = "Premium bonus: +{xp} XP, +{ryo} Ryo", fr = "Bonus Premium : +{xp} XP, +{ryo} Ryo" },
+	["daily.premium"] = {
+		en = "Premium bonus: +{xp} XP, +{folios} Folios",
+		fr = "Bonus Premium : +{xp} XP, +{folios} Folios",
+	},
 
 	["cosmetic.SkinWashJade"] = { en = "Jade Wash Skin", fr = "Skin Lavis Jade" },
 	["cosmetic.SkinSerifObsidian"] = { en = "Obsidian Serif Skin", fr = "Skin Empattement Obsidienne" },
@@ -336,8 +339,8 @@ Strings.Table = {
 	-- Passes, products, shop
 	["pass.vip"] = { en = "VIP", fr = "VIP" },
 	["pass.vip.desc"] = {
-		en = "Double XP, +50% Ryo, chat tag and an exclusive aura.",
-		fr = "XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive.",
+		en = "Double XP, +50% Folios, chat tag and an exclusive aura.",
+		fr = "XP ×2, +50 % de Folios, tag dans le chat et une aura exclusive.",
 	},
 	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Slots d'équipement" },
 	["pass.loadoutSlots.desc"] = {
@@ -354,12 +357,12 @@ Strings.Table = {
 		en = "Four glyph skins, one per base pigment.",
 		fr = "Quatre skins de glyphe, un par pigment de base.",
 	},
-	["product.ryoSmall"] = { en = "1,000 Ryo", fr = "1 000 Ryo" },
-	["product.ryoMedium"] = { en = "3,500 Ryo", fr = "3 500 Ryo" },
-	["product.ryoLarge"] = { en = "8,000 Ryo", fr = "8 000 Ryo" },
-	["product.ryo.desc"] = {
-		en = "Ryo to spend in the cosmetic shop.",
-		fr = "Des Ryo à dépenser dans la boutique de cosmétiques.",
+	["product.folioSmall"] = { en = "1,000 Folios", fr = "1 000 Folios" },
+	["product.folioMedium"] = { en = "3,500 Folios", fr = "3 500 Folios" },
+	["product.folioLarge"] = { en = "8,000 Folios", fr = "8 000 Folios" },
+	["product.folios.desc"] = {
+		en = "Folios to spend in the cosmetic shop.",
+		fr = "Des Folios à dépenser dans la boutique de cosmétiques.",
 	},
 	["product.premiumPass"] = { en = "Premium Battle Pass", fr = "Battle Pass Premium" },
 	["product.premiumPass.desc"] = {
@@ -380,12 +383,12 @@ Strings.Table = {
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
 	["shop.rotation"] = { en = "Today's selection", fr = "Sélection du jour" },
-	["shop.buyRyo"] = { en = "{price} Ryo", fr = "{price} Ryo" },
+	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
 	["shop.buyRobux"] = { en = "Buy with Robux", fr = "Acheter en Robux" },
 	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
-	["shop.notEnoughRyo"] = { en = "Not enough Ryo.", fr = "Pas assez de Ryo." },
+	["shop.notEnoughFolios"] = { en = "Not enough Folios.", fr = "Pas assez de Folios." },
 	["shop.purchased"] = { en = "Purchased: {name}", fr = "Acheté : {name}" },
 	["shop.rarity.Common"] = { en = "Common", fr = "Commun" },
 	["shop.rarity.Rare"] = { en = "Rare", fr = "Rare" },
@@ -413,13 +416,13 @@ Strings.Table = {
 	["match.victory"] = { en = "Victory!", fr = "Victoire !" },
 	["match.defeat"] = { en = "Defeat", fr = "Défaite" },
 	["match.draw"] = { en = "Draw", fr = "Égalité" },
-	["match.rewards"] = { en = "+{xp} XP, +{ryo} Ryo", fr = "+{xp} XP, +{ryo} Ryo" },
+	["match.rewards"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["match.ratingUp"] = { en = "{rank}  {rating} (+{delta})", fr = "{rank}  {rating} (+{delta})" },
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
 	["season.rewardGranted"] = {
-		en = "Volume reward ({rank}): +{amount} Ryo",
-		fr = "Récompense du volume ({rank}) : +{amount} Ryo",
+		en = "Volume reward ({rank}): +{amount} Folios",
+		fr = "Récompense du volume ({rank}) : +{amount} Folios",
 	},
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.again"] = { en = "Play again", fr = "Rejouer" },
@@ -465,8 +468,8 @@ Strings.Table = {
 	},
 	["boss.expired"] = { en = "The Erasure has left the page…", fr = "L'Effacement a quitté la page…" },
 	["boss.reward"] = {
-		en = "Erasure reward: +{xp} XP, +{ryo} Ryo",
-		fr = "Récompense de l'Effacement : +{xp} XP, +{ryo} Ryo",
+		en = "Erasure reward: +{xp} XP, +{folios} Folios",
+		fr = "Récompense de l'Effacement : +{xp} XP, +{folios} Folios",
 	},
 	["boss.killBonus"] = { en = "Top damage bonus!", fr = "Bonus de meilleur dégât !" },
 	["boss.attack.slam"] = { en = "Slam", fr = "Écrasement" },
@@ -500,9 +503,9 @@ Strings.Table = {
 	-- Purchases
 	["purchase.prompt"] = { en = "Opening the Roblox purchase…", fr = "Ouverture de l'achat Roblox…" },
 	["purchase.granted"] = { en = "Purchase complete: {name}", fr = "Achat terminé : {name}" },
-	["purchase.grantedRyoInstead"] = {
-		en = "You own every item of that rarity: +{amount} Ryo instead",
-		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place",
+	["purchase.grantedFoliosInstead"] = {
+		en = "You own every item of that rarity: +{amount} Folios instead",
+		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place",
 	},
 	["purchase.failed"] = { en = "The purchase could not be completed.", fr = "L'achat n'a pas pu aboutir." },
 	["purchase.unavailable"] = {

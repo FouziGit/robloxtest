@@ -226,3 +226,13 @@ Rien de la passe 8 n'a été **joué**. Les prix (15 encre pour annuler, 5 rendu
 ### Phase 9 — ce qui n'est pas fait
 
 **Aucun nombre d'images par seconde du dépôt ne vient d'un appareil.** Les coûts sont ce que le rendu *va* emprunter et demander ; ce qu'une image prend sur un téléphone donné est l'autre moitié, et elle demande cet appareil. Les seuils 40/55 sont les valeurs usuelles d'un client Roblox mobile, pas une mesure. La dégradation n'a jamais été **vue** descendre ni remonter, et les quatre niveaux n'ont pas été comparés à l'œil : ce sont des budgets tenus par des tests, pas un réglage éprouvé.
+
+### Après les neuf passes — le dernier mot emprunté
+
+La monnaie s'appelait **Ryo**, le nom de la licence que la passe 1 devait quitter, et le lexique de
+`ART_BIBLE` n'avait pas de ligne pour l'argent : le mot a traversé les neuf passes dans chaque
+notification de récompense, sans qu'aucune porte le voie. Elle s'appelle le **Folio** (D-95), dans le code,
+dans les textes, dans les trois produits, dans les cinq documents et dans le README ; le profil passe en
+version 4 et `upgradeToV4` porte le solde d'un joueur sauvegardé dans la nouvelle clé. `ryo` est ajouté à
+la liste d'interdits de `tests/Lexicon.spec.luau` — la même leçon que D-66 : une liste d'interdits ne
+contient que les mots auxquels quelqu'un a pensé.

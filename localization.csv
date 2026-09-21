@@ -16,8 +16,8 @@ battlepass.notReached,Tier {tier} not reached yet.,Vellum,,Tier {tier} not reach
 battlepass.premium,Premium,Vellum,,Premium,Premium
 battlepass.premiumRequired,Premium pass required.,Vellum,,Premium pass required.,Pass premium requis.
 battlepass.reward.cosmetic,Cosmetic: {name},Vellum,,Cosmetic: {name},Cosmétique : {name}
+battlepass.reward.folio,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
 battlepass.reward.none,No reward,Vellum,,No reward,Aucune récompense
-battlepass.reward.ryo,{amount} Ryo,Vellum,,{amount} Ryo,{amount} Ryo
 battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
 battlepass.title,Battle Pass — Volume {season},Vellum,,Battle Pass — Volume {season},Battle Pass — Volume {season}
@@ -34,7 +34,7 @@ boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche
 boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
 boss.name,The Erasure,Vellum,,The Erasure,L'Effacement
 boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}
-boss.reward,"Erasure reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Erasure reward: +{xp} XP, +{ryo} Ryo","Récompense de l'Effacement : +{xp} XP, +{ryo} Ryo"
+boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward: +{xp} XP, +{folios} Folios","Récompense de l'Effacement : +{xp} XP, +{folios} Folios"
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
@@ -85,11 +85,11 @@ cosmetic.VioletInkAura,Violet Ink Aura,Vellum,,Violet Ink Aura,Aura d'Encre Viol
 cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,Vellum,,None,Aucun
 cosmetics.notOwned,You do not own this cosmetic.,Vellum,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
-currency.ryo,Ryo,Vellum,,Ryo,Ryo
+currency.folio,Folios,Vellum,,Folios,Folios
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
-daily.claimed,"Day {day} reward: +{xp} XP, +{ryo} Ryo",Vellum,,"Day {day} reward: +{xp} XP, +{ryo} Ryo","Récompense du jour {day} : +{xp} XP, +{ryo} Ryo"
-daily.firstWin,"First win of the day! +{xp} XP, +{ryo} Ryo",Vellum,,"First win of the day! +{xp} XP, +{ryo} Ryo","Première victoire du jour ! +{xp} XP, +{ryo} Ryo"
-daily.premium,"Premium bonus: +{xp} XP, +{ryo} Ryo",Vellum,,"Premium bonus: +{xp} XP, +{ryo} Ryo","Bonus Premium : +{xp} XP, +{ryo} Ryo"
+daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
+daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
+daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
@@ -200,7 +200,7 @@ match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
-match.rewards,"+{xp} XP, +{ryo} Ryo",Vellum,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+match.rewards,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 match.round,Round {round} / {total},Vellum,,Round {round} / {total},Manche {round} / {total}
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
@@ -222,7 +222,7 @@ pass.orpiment.desc,Unlock Orpiment right away (or reach level {level} for free).
 pass.skinPack,Skin Pack,Vellum,,Skin Pack,Pack de skins
 pass.skinPack.desc,"Four glyph skins, one per base pigment.",Vellum,,"Four glyph skins, one per base pigment.","Quatre skins de glyphe, un par pigment de base."
 pass.vip,VIP,Vellum,,VIP,VIP
-pass.vip.desc,"Double XP, +50% Ryo, chat tag and an exclusive aura.",Vellum,,"Double XP, +50% Ryo, chat tag and an exclusive aura.","XP ×2, +50 % de Ryo, tag dans le chat et une aura exclusive."
+pass.vip.desc,"Double XP, +50% Folios, chat tag and an exclusive aura.",Vellum,,"Double XP, +50% Folios, chat tag and an exclusive aura.","XP ×2, +50 % de Folios, tag dans le chat et une aura exclusive."
 pigment.cinnabar,Cinnabar,Vellum,,Cinnabar,Cinabre
 pigment.indigo,Indigo,Vellum,,Indigo,Indigo
 pigment.orpiment,Orpiment,Vellum,,Orpiment,Orpiment
@@ -230,12 +230,12 @@ pigment.umber,Umber,Vellum,,Umber,Terre d'Ombre
 pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
 product.cosmetic,Cosmetic,Vellum,,Cosmetic,Cosmétique
 product.cosmetic.desc,Buy the selected cosmetic with Robux.,Vellum,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
+product.folioLarge,"8,000 Folios",Vellum,,"8,000 Folios",8 000 Folios
+product.folioMedium,"3,500 Folios",Vellum,,"3,500 Folios",3 500 Folios
+product.folioSmall,"1,000 Folios",Vellum,,"1,000 Folios",1 000 Folios
+product.folios.desc,Folios to spend in the cosmetic shop.,Vellum,,Folios to spend in the cosmetic shop.,Des Folios à dépenser dans la boutique de cosmétiques.
 product.premiumPass,Premium Battle Pass,Vellum,,Premium Battle Pass,Battle Pass Premium
 product.premiumPass.desc,Unlock the premium track of the current volume.,Vellum,,Unlock the premium track of the current volume.,Débloque la piste premium du volume en cours.
-product.ryo.desc,Ryo to spend in the cosmetic shop.,Vellum,,Ryo to spend in the cosmetic shop.,Des Ryo à dépenser dans la boutique de cosmétiques.
-product.ryoLarge,"8,000 Ryo",Vellum,,"8,000 Ryo",8 000 Ryo
-product.ryoMedium,"3,500 Ryo",Vellum,,"3,500 Ryo",3 500 Ryo
-product.ryoSmall,"1,000 Ryo",Vellum,,"1,000 Ryo",1 000 Ryo
 product.tierSkip5,+5 Tiers,Vellum,,+5 Tiers,+5 paliers
 product.tierSkip5.desc,Advance five battle pass tiers.,Vellum,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
 product.xpBoost1h,XP Boost (1 h),Vellum,,XP Boost (1 h),Boost d'XP (1 h)
@@ -244,7 +244,7 @@ purchase.alreadyOwned,You already own this.,Vellum,,You already own this.,Tu pos
 purchase.boostActive,XP boost active for {minutes} min,Vellum,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
 purchase.failed,The purchase could not be completed.,Vellum,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
 purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Achat terminé : {name}
-purchase.grantedRyoInstead,You own every item of that rarity: +{amount} Ryo instead,Vellum,,You own every item of that rarity: +{amount} Ryo instead,Tu possèdes tous les articles de cette rareté : +{amount} Ryo à la place
+purchase.grantedFoliosInstead,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
@@ -268,7 +268,7 @@ quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target}
 quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
 quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
-quest.reward,"+{xp} XP, +{ryo} Ryo",Vellum,,"+{xp} XP, +{ryo} Ryo","+{xp} XP, +{ryo} Ryo"
+quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
 quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
 quest.winMatches,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
@@ -288,7 +288,7 @@ rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
-season.rewardGranted,Volume reward ({rank}): +{amount} Ryo,Vellum,,Volume reward ({rank}): +{amount} Ryo,Récompense du volume ({rank}) : +{amount} Ryo
+season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Camera shake,Vellum,,Camera shake,Secousses de caméra
 settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.
@@ -310,11 +310,11 @@ settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
 settings.tab.graphics,Graphics,Vellum,,Graphics,Graphismes
 settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
 settings.title,Settings,Vellum,,Settings,Options
+shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
 shop.buyRobux,Buy with Robux,Vellum,,Buy with Robux,Acheter en Robux
-shop.buyRyo,{price} Ryo,Vellum,,{price} Ryo,{price} Ryo
 shop.equip,Equip,Vellum,,Equip,Équiper
 shop.equipped,Equipped,Vellum,,Equipped,Équipé
-shop.notEnoughRyo,Not enough Ryo.,Vellum,,Not enough Ryo.,Pas assez de Ryo.
+shop.notEnoughFolios,Not enough Folios.,Vellum,,Not enough Folios.,Pas assez de Folios.
 shop.owned,Owned,Vellum,,Owned,Possédé
 shop.purchased,Purchased: {name},Vellum,,Purchased: {name},Acheté : {name}
 shop.rarity.Common,Common,Vellum,,Common,Commun

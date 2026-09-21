@@ -128,10 +128,10 @@ local TICKS_PER_SNAPSHOT = math.max(1, math.floor(GameConfig.Server.TickRate / S
 -- Characters are pivoted this far above their spawn pad so they never start clipped into it.
 local SPAWN_CLEARANCE_STUDS = 4
 local XP = ProgressionConfig.XP
-local RYO = ProgressionConfig.Ryo
+local FOLIOS = ProgressionConfig.Folios
 -- Per-mode reward multipliers; MatchConfig.Rewards is keyed by mode id.
-local REWARD_SCALES = (MatchConfig.Rewards :: any) :: { [string]: { Xp: number, Ryo: number } }
-local DEFAULT_SCALE = { Xp = 1, Ryo = 1 }
+local REWARD_SCALES = (MatchConfig.Rewards :: any) :: { [string]: { Xp: number, Folios: number } }
+local DEFAULT_SCALE = { Xp = 1, Folios = 1 }
 
 local MatchService = {}
 
@@ -296,7 +296,7 @@ local function ratingChanges(active: Active, result: Types.MatchResult): { [numb
 	return (applied :: any) :: { [number]: RatingChange }
 end
 
--- XP, Ryo, stats, ranking and the single MatchEnded summary, for everybody still in the server.
+-- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server.
 local function award(active: Active, result: Types.MatchResult)
 	local match = active.Match
 	local scale = REWARD_SCALES[active.Def.Id] or DEFAULT_SCALE
@@ -309,14 +309,14 @@ local function award(active: Active, result: Types.MatchResult)
 		local draw = result.WinnerTeam == nil
 		local won = result.WinnerTeam == participant.Team
 		local baseXp = if draw then XP.MatchDraw elseif won then XP.MatchWin else XP.MatchLoss
-		local baseRyo = if draw then RYO.MatchDraw elseif won then RYO.MatchWin else RYO.MatchLoss
+		local baseFolios = if draw then FOLIOS.MatchDraw elseif won then FOLIOS.MatchWin else FOLIOS.MatchLoss
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
 		local xp = math.floor(baseXp * scale.Xp + 0.5)
-		local ryo = math.floor(baseRyo * scale.Ryo + 0.5)
+		local folios = math.floor(baseFolios * scale.Folios + 0.5)
 		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
 		local firstWin = won and grantFirstWin(player)
 		progression.addXp(player, xp, reason)
-		currency.add(player, ryo, reason)
+		currency.add(player, folios, reason)
 		bumpMatchesPlayed(player)
 		quest.report(player, "MatchPlayed", 1)
 		if won then
@@ -330,7 +330,7 @@ local function award(active: Active, result: Types.MatchResult)
 			Draw = draw,
 			Scores = table.clone(match.Scores),
 			Xp = xp,
-			Ryo = ryo,
+			Folios = folios,
 			RatingBefore = change.Before,
 			RatingAfter = change.After,
 			RankKeyBefore = change.RankKeyBefore,

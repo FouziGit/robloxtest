@@ -114,9 +114,9 @@ function BattlepassService.addXp(player: Player, amount: number)
 end
 
 local function grant(player: Player, reward: Reward)
-	if reward.Kind == "Ryo" then
+	if reward.Kind == "Folios" then
 		currency.add(player, reward.Amount, "Battlepass")
-		notify.send(player, "battlepass.reward.ryo", { amount = reward.Amount }, "Success", "Claim")
+		notify.send(player, "battlepass.reward.folio", { amount = reward.Amount }, "Success", "Claim")
 	elseif reward.Kind == "Cosmetic" then
 		-- CosmeticService is the single writer of Cosmetics.Owned: it pushes the section and fires the
 		-- Granted signal the shop listens to, which a direct table.insert here would bypass. log.try, not

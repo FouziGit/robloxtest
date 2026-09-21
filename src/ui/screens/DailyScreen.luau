@@ -120,7 +120,7 @@ function DailyScreen.new(deps: Deps): Screen
 
 	for index, reward in ipairs(DailyConfig.Streak) do
 		local row = ListRow.new({
-			Left = t("daily.claimed", { day = index, xp = reward.Xp, ryo = reward.Ryo }),
+			Left = t("daily.claimed", { day = index, xp = reward.Xp, folios = reward.Folios }),
 			LayoutOrder = index,
 			Name = "Day" .. tostring(index),
 			Parent = panel.Content,

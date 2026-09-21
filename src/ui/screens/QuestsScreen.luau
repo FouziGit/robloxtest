@@ -43,7 +43,7 @@ export type Screen = {
 
 type Period = QuestLogic.Period
 type QuestDef = QuestConfig.QuestDef
-type PeriodDef = { Count: number, RewardXp: number, RewardRyo: number }
+type PeriodDef = { Count: number, RewardXp: number, RewardFolios: number }
 type Destroyable = { Destroy: (self: any) -> () }
 type QuestRow = { Name: TextLabel, Progress: TextLabel, Button: Button.Button }
 type Section = { Signature: string, Rows: { QuestRow }, Trove: any }
@@ -190,7 +190,7 @@ function QuestsScreen.new(deps: Deps): Screen
 		local def = periodDef(period)
 		local header = ListRow.new({
 			Left = t(TITLE_KEYS[period]),
-			Right = t("quest.reward", { xp = def.RewardXp, ryo = def.RewardRyo }),
+			Right = t("quest.reward", { xp = def.RewardXp, folios = def.RewardFolios }),
 			LayoutOrder = LAYOUT_BASE[period],
 			Name = period .. "Header",
 			Parent = panel.Content,

@@ -19,8 +19,10 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
+local Palette = require(Shared.Util.Palette)
 local Trove = require(Packages.Trove)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 export type Packet = {
 	Id: string,
@@ -54,6 +56,7 @@ type TimelineContext = {
 	Origin: Vector3,
 	Direction: Vector3,
 	Color: Color3,
+	Ink: Color3?,
 	Scale: number?,
 	Window: number?,
 	Radius: number?,
@@ -120,11 +123,18 @@ local MELEE_SFX_VARIANTS = 3 -- SoundConfig has Melee1..Melee3 plus MeleeFinishe
 -- HIT_TAKEN_COLOR follows; green is the one place inside an attack that it does not reach.
 local ERASURE_DANGER_COLOR = Color3.fromRGB(255, 96, 72)
 local ERASURE_SAFE_COLOR = Color3.fromRGB(110, 210, 150)
--- The boss itself is the colour of the page it leaves behind: vélin (docs/ART_BIBLE.md). It is the only
--- thing in the game tinted by the paper instead of by a pigment, which is the point -- it is what comes to
--- erase the page. What it replaced was a purple energy column, and a purple energy column is the single
--- most copy-pasteable visual in Roblox.
+-- The Erasure's light and its dust are the colour of the page it leaves behind: vélin (docs/ART_BIBLE.md).
+-- It is the only thing in the game tinted by the paper instead of by a pigment, which is the point -- it is
+-- what comes to erase the page. What it replaced was a purple energy column, and a purple energy column is
+-- the single most copy-pasteable visual in Roblox.
 local ERASURE_COLOR = Color3.fromRGB(232, 224, 206)
+-- What it leaves ON the floor, which since the world became a page (D-86) can no longer be the page's own
+-- colour: its seals and rings are drawn in ink, and what it erased stays as the grey ghost of what was
+-- written there. Both come from WorldConfig, so the floor and the marks on it cannot be set from two
+-- places again -- which is exactly how every mark of the arrival, the phases and the end came to be
+-- painted in the colour of the floor they were painted on.
+local ERASURE_INK = Palette.world(WorldConfig.Erasure.Mark)
+local ERASURE_ERASED = Palette.world(WorldConfig.Erasure.Erased)
 -- The body height the spawn and defeat timelines are drawn against (WorldBossConfig.Boss.BodySize.Y at the
 -- time they were authored). The renderer scales them by the height the packet carries, so a boss built
 -- bigger arrives bigger instead of arriving wrong.
@@ -718,6 +728,7 @@ local function scourAfter(
 			Origin = origin,
 			Direction = context.Direction,
 			Color = ERASURE_COLOR,
+			Ink = ERASURE_ERASED,
 			Radius = radius,
 		})
 	end)
@@ -805,6 +816,7 @@ local function playBossEvent(id: string, packet: Packet, api: Api)
 		Origin = ground,
 		Direction = flatDirectionOf(packet),
 		Color = ERASURE_COLOR,
+		Ink = ERASURE_INK,
 		Scale = height / AUTHORED_BOSS_HEIGHT_STUDS,
 	})
 end

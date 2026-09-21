@@ -9,6 +9,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
@@ -16,6 +17,7 @@ local CombatConfig = require(Shared.Config.CombatConfig)
 local Context = require(script.Parent.Context)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
+local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.Parent.GameModes.WorldBossMode)
 local WorldConfig = require(Shared.Config.WorldConfig)
@@ -32,6 +34,11 @@ type Boss = Context.Boss
 
 local BOSS = WorldBossConfig.Boss
 local ERASURE = WorldConfig.Erasure
+-- The band takes exactly as long to widen as the BossPhase effect takes to reach its Impact: the page is
+-- struck at the instant the erasure has finished spreading, so what everybody sees anticipated is
+-- something that has not happened yet. Read off the timeline, so the two cannot drift apart.
+local BAND_GROW_SECONDS = VfxTimelineConfig.phaseAt("BossPhase", "Impact") or 0.4
+local BAND_GROW_INFO = TweenInfo.new(BAND_GROW_SECONDS, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 local Encounter = {}
 
@@ -134,11 +141,17 @@ local function buildBody(position: Vector3, facing: Vector3, health: number): (M
 	return model, humanoid, body, band
 end
 
--- Sets the band to the phase's height: what a player reads the phase off, from anywhere in the arena.
+-- Widens the band to the phase's height: what a player reads the phase off, from anywhere in the arena.
+-- It grows rather than jumping -- rule 3 of docs/ART_BIBLE.md, nothing appears -- and it lands on the blow.
 function Encounter.dress(boss: Boss, phaseIndex: number)
 	local bandDef = ERASURE.Band
 	local height = bandDef.Heights[math.clamp(phaseIndex, 1, #bandDef.Heights)]
-	boss.Band.Size = Vector3.new(bandDef.Width, height, bandDef.Depth)
+	local size = Vector3.new(bandDef.Width, height, bandDef.Depth)
+	if BAND_GROW_SECONDS <= 0 then
+		boss.Band.Size = size
+		return
+	end
+	TweenService:Create(boss.Band, BAND_GROW_INFO, { Size = size }):Play()
 end
 
 -- Spawns the boss with `health` in `arena` and returns it, parented and ready to be ticked. The caller

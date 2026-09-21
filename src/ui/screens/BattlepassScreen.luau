@@ -255,7 +255,9 @@ function BattlepassScreen.new(deps: Deps): Screen
 		label.Size = UDim2.new(1, 0, 0, REWARD_LABEL_HEIGHT)
 		label.FontFace = Theme.Fonts.Body
 		label.TextSize = Theme.Sizes.TextSmall
-		label.TextColor3 = if track == "Premium" then Theme.Colors.Premium else Theme.Colors.Text
+		-- The column header carries the gold; the rows are ink. Gilded thirteen-pixel text on the shaded
+		-- sheet was under the body floor even after the pigment was soaked into the page.
+		label.TextColor3 = Theme.Colors.Text
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextTruncate = Enum.TextTruncate.AtEnd
 		label.Text = rewardText(reward)

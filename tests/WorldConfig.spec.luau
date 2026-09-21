@@ -5,6 +5,7 @@
 -- src/server may name a Color3 or a Material of its own.
 local AssetIds = require("../src/shared/Config/AssetIds")
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
@@ -26,6 +27,60 @@ local INK_ROLES = { "Ink" }
 -- The builders, which name roles and never colours.
 local BUILDER_ROOT = "src/server"
 local PALETTE = "src/shared/Util/Palette.luau"
+
+-- The saturated roles of the interface's palette. A screen may say danger in Cinnabar; the WORLD may not
+-- carry one for a whole session (docs/ART_BIBLE.md rule 1: every vivid colour on screen belongs to a
+-- glyph). The hub's queue terminal wore an exact Indigo emblem, permanently, which is the longest-lived
+-- thing on screen.
+local FORBIDDEN_THEME_ROLES = { "Info", "Danger", "Success", "Premium", "Ink" }
+
+-- What has to be legible against what. A colour that matches the surface it is drawn on is not a subtle
+-- bug: it is nothing at all, which is what happened to every mark of the Erasure when the floor became
+-- the page (D-86) while its marks stayed the page's own vellum.
+local READABLE_PAIRS = {
+	{ Label = "the Erasure's mark on the arena floor", Ink = "Erasure.Mark", On = "Arena.Floor", Ratio = 4.5 },
+	{ Label = "what the Erasure erased, on the floor", Ink = "Erasure.Erased", On = "Arena.Floor", Ratio = 1.4 },
+	{ Label = "a footprint on the hub platform", Ink = "Footprints.Color", On = "Hub.Platform", Ratio = 4.5 },
+	{ Label = "the rule along an arena wall", Ink = "Arena.WallRule", On = "Arena.Wall", Ratio = 3 },
+	{ Label = "the hub's kerb on its platform", Ink = "Hub.Kerb", On = "Hub.Platform", Ratio = 3 },
+	{ Label = "the page's ruling on the platform", Ink = "Hub.Rule", On = "Hub.Platform", Ratio = 3 },
+	{ Label = "the seal of the spawn on its rim", Ink = "Hub.Spawn", On = "Hub.SpawnRim", Ratio = 3 },
+	{ Label = "a proof's registration cross on its body", Ink = "Proof.Mark", On = "Proof.Body", Ratio = 4.5 },
+}
+
+-- Easings the timelines already use, which tests/VfxTimeline.spec.luau holds to the art bible's rule 4.
+-- The footprint layer is played through the same runtime without being one of their layers, so a name
+-- nothing else uses would only be found by Enum.EasingStyle handing the renderer a nil, every frame.
+local function timelineEasings(): ({ [string]: boolean }, { [string]: boolean })
+	local eases: { [string]: boolean } = {}
+	local directions: { [string]: boolean } = {}
+	for _, timeline in pairs(VfxTimelineConfig.Timelines) do
+		for _, phase in ipairs(timeline.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Ease ~= nil then
+					eases[layer.Ease] = true
+				end
+				if layer.EaseDirection ~= nil then
+					directions[layer.EaseDirection] = true
+				end
+			end
+		end
+	end
+	return eases, directions
+end
+
+-- The colour a dotted role path ("Hub.Kerb") resolves to.
+local function roleColor(path: string): WorldConfig.Rgb
+	local group, field = string.match(path, "^(%w+)%.(%w+)$")
+	assert(group ~= nil and field ~= nil, "not a role path: " .. path)
+	local table_ = (WorldConfig :: any)[group]
+	assert(type(table_) == "table", "no such group in WorldConfig: " .. tostring(group))
+	local role = table_[field]
+	assert(type(role) == "string", ("%s is not a role name"):format(path))
+	local rgb = WorldConfig.Colors[role]
+	assert(rgb ~= nil, ("%s names %s, which WorldConfig.Colors does not have"):format(path, role))
+	return rgb
+end
 
 local function measure(rgb: WorldConfig.Rgb): (number, number, number)
 	local high = math.max(rgb[1], rgb[2], rgb[3])
@@ -56,12 +111,14 @@ local function stripComments(source: string): string
 	return table.concat(lines, "\n")
 end
 
--- Every role name a builder table points at, labelled by where it is used.
+-- Every role name a builder table points at, labelled by where it is used. EVERY string in those tables
+-- is a role -- their other fields are numbers and triples -- so an unknown one reaches the assertion
+-- instead of being dropped here, which is what made the check below pass whatever the tables said.
 local function roleUses(): { { Label: string, Role: string } }
 	local out: { { Label: string, Role: string } } = {}
 	local function take(label: string, table_: { [string]: any })
 		for key, value in pairs(table_) do
-			if type(value) == "string" and WorldConfig.Colors[value] ~= nil then
+			if type(value) == "string" then
 				table.insert(out, { Label = label .. "." .. key, Role = value })
 			end
 		end
@@ -69,6 +126,9 @@ local function roleUses(): { { Label: string, Role: string } }
 	take("Hub", WorldConfig.Hub)
 	take("Arena", WorldConfig.Arena)
 	take("Proof", WorldConfig.Proof)
+	table.insert(out, { Label = "Footprints.Color", Role = WorldConfig.Footprints.Color })
+	table.insert(out, { Label = "Erasure.Mark", Role = WorldConfig.Erasure.Mark })
+	table.insert(out, { Label = "Erasure.Erased", Role = WorldConfig.Erasure.Erased })
 	for _, part in ipairs(WorldConfig.Erasure.Parts) do
 		table.insert(out, { Label = "Erasure." .. part.Name, Role = part.Color })
 	end
@@ -134,10 +194,21 @@ describe("the world's colours", function()
 	it("come with one material, and it is the bible's", function()
 		expect(WorldConfig.Material).toBe("SmoothPlastic")
 	end)
+
+	it("are legible against what they are drawn on", function()
+		for _, pair in ipairs(READABLE_PAIRS) do
+			local ratio = ThemeConfig.contrast(roleColor(pair.Ink), roleColor(pair.On))
+			if ratio < pair.Ratio then
+				error(("%s is invisible: contrast %.2f, floor %.2f"):format(pair.Label, ratio, pair.Ratio))
+			end
+		end
+	end)
 end)
 
 describe("the Erasure's figure", function()
 	local hull = WorldBossConfig.Boss.BodySize
+	-- Studs the figure may fall short of its own hull on an axis before the gap is a lie.
+	local HULL_FILL_TOLERANCE_STUDS = 0.3
 
 	local function inside(label: string, size: WorldConfig.Triple, offset: WorldConfig.Triple)
 		for axis = 1, 3 do
@@ -163,6 +234,35 @@ describe("the Erasure's figure", function()
 		local band = WorldConfig.Erasure.Band
 		local tallest = band.Heights[#band.Heights]
 		inside(band.Name, { band.Width, tallest, band.Depth }, band.Offset)
+	end)
+
+	it("fills the hull, so what is drawn is what is hit", function()
+		-- The other half of the rule above. A figure that merely FITS inside its hull leaves the
+		-- difference as an invisible wall the player bumps into, and as the surface every projectile
+		-- detonates against: at 8 studs of depth for a 4.2-deep figure, two studs in front of its face.
+		local reach = { 0, 0, 0 }
+		local function take(size: WorldConfig.Triple, offset: WorldConfig.Triple)
+			for axis = 1, 3 do
+				reach[axis] = math.max(reach[axis], math.abs(offset[axis]) + size[axis] / 2)
+			end
+		end
+		for _, part in ipairs(WorldConfig.Erasure.Parts) do
+			take(part.Size, part.Offset)
+		end
+		local band = WorldConfig.Erasure.Band
+		take({ band.Width, band.Heights[#band.Heights], band.Depth }, band.Offset)
+		for axis = 1, 3 do
+			local half = hull[axis] / 2
+			if reach[axis] < half - HULL_FILL_TOLERANCE_STUDS then
+				error(
+					("the figure reaches %.2f studs on axis %d and the hull %.2f: the difference is an invisible wall"):format(
+						reach[axis],
+						axis,
+						half
+					)
+				)
+			end
+		end
 	end)
 
 	it("wears one band height per phase, widening", function()
@@ -197,9 +297,28 @@ describe("the footprints", function()
 		expect(AssetIds.Textures[layer.Texture]).toBeTruthy()
 	end)
 
-	it("never take more than a third of the mark budget", function()
+	it("are eased the way the timelines are, since the same runtime draws them", function()
+		local eases, directions = timelineEasings()
+		local layer = footprints.Layer
+		if layer.Ease == nil or not eases[layer.Ease] then
+			error(("the footprint is eased %s, which no timeline uses"):format(tostring(layer.Ease)))
+		end
+		if layer.EaseDirection == nil or not directions[layer.EaseDirection] then
+			error(("the footprint eases %s, which no timeline uses"):format(tostring(layer.EaseDirection)))
+		end
+		-- A print is longer than it is wide and lies along the walk: without a Span it is a round blot.
+		expect(layer.Span).toBeGreaterThan(layer.Size)
+	end)
+
+	it("can never push an effect's residue out of the pool", function()
+		-- MaxLive alone was never the guarantee the config claimed: eviction inside the timeline is
+		-- oldest-first across every effect, so a print stamped at the cap removes whatever is oldest,
+		-- which in a fight is the fight's own residue. YieldAboveLayers is the real bound -- prints stop
+		-- being stamped before the pool can fill -- and this is the arithmetic that says so.
 		expect(footprints.MaxLive).toBeGreaterThan(0)
-		expect(footprints.MaxLive * 3).toBeLessThanOrEqual(VfxTimelineConfig.MaxLiveLayers)
+		expect(footprints.MaxPerCharacter).toBeGreaterThan(0)
+		expect(footprints.MaxPerCharacter).toBeLessThanOrEqual(footprints.MaxLive)
+		expect(footprints.YieldAboveLayers + footprints.MaxLive).toBeLessThanOrEqual(VfxTimelineConfig.MaxLiveLayers)
 		expect(footprints.StrideStuds).toBeGreaterThan(0)
 		expect(footprints.RangeStuds).toBeGreaterThan(footprints.StrideStuds)
 	end)
@@ -225,6 +344,24 @@ describe("the builders", function()
 				"the world's colours and material come from WorldConfig through Util/Palette:\n"
 					.. table.concat(found, "\n")
 			)
+		end
+	end)
+
+	it("carry no saturated colour of the interface into the world", function()
+		local files: { string } = {}
+		collect(BUILDER_ROOT, files)
+		local found: { string } = {}
+		for _, path in ipairs(files) do
+			local code = stripComments(fs.readFile(path))
+			for _, role in ipairs(FORBIDDEN_THEME_ROLES) do
+				if string.find(code, "Theme%.Colors%." .. role) ~= nil then
+					table.insert(found, ("%s paints the world with Theme.Colors.%s"):format(path, role))
+				end
+			end
+		end
+		table.sort(found)
+		if #found > 0 then
+			error("the scenery is never saturated (docs/ART_BIBLE.md rule 1):\n" .. table.concat(found, "\n"))
 		end
 	end)
 

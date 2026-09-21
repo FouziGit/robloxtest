@@ -29,6 +29,26 @@ local COLOR_OWNER_PREFIX = "src/client/Controllers/Vfx"
 local BODY_CONTRAST = 4.5
 local ACCENT_CONTRAST = 3
 
+-- The pairs the interface really puts on screen, each at the floor its size asks for. A gate that loops
+-- over every role against one paper checks pairs nobody draws and misses the ones somebody does: the
+-- battle pass sets gold at thirteen pixels on the SHADED sheet, and the loadout set Cinnabar there.
+local TEXT_PAIRS = {
+	{ Ink = "Text", On = "Panel", Ratio = BODY_CONTRAST, Where = "body text on the page" },
+	{ Ink = "TextMuted", On = "Panel", Ratio = BODY_CONTRAST, Where = "a secondary line on the page" },
+	{ Ink = "Text", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "body text on a shaded sheet" },
+	{ Ink = "TextMuted", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a locked glyph's line" },
+	{ Ink = "Info", On = "Panel", Ratio = BODY_CONTRAST, Where = "the rating line" },
+	{ Ink = "Success", On = "Panel", Ratio = BODY_CONTRAST, Where = "the first win of the day" },
+	{ Ink = "Success", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a claimed reward" },
+	{ Ink = "Premium", On = "Panel", Ratio = BODY_CONTRAST, Where = "the premium column" },
+	{ Ink = "Premium", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a premium row of the pass" },
+	{ Ink = "TextInverse", On = "Accent", Ratio = BODY_CONTRAST, Where = "the label of a primary button" },
+	-- Cinnabar is a pigment before it is a colour of text: it stays exact (rule 7), so it is only ever
+	-- set large -- the rating line when it falls, and a Danger button -- and only on the page itself.
+	{ Ink = "Danger", On = "Panel", Ratio = ACCENT_CONTRAST, Where = "a rating that fell" },
+	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "the label of a Danger button" },
+}
+
 -- The engine's defaults, which docs/ART_BIBLE.md says are replaced.
 local DEFAULT_FONTS = {
 	"Gotham",
@@ -144,21 +164,26 @@ describe("the page", function()
 		expect(ThemeConfig.Colors.Info).toEqual(PigmentConfig.Colors.Indigo)
 	end)
 
-	it("reads: every text role has its contrast on the paper it is set on", function()
+	it("reads: every pair the interface draws has its contrast", function()
 		local colors = ThemeConfig.Colors
-		for _, paper in ipairs({ colors.Panel, colors.PanelRaised }) do
-			expect(ThemeConfig.contrast(colors.Text, paper)).toBeGreaterThanOrEqual(BODY_CONTRAST)
-			expect(ThemeConfig.contrast(colors.TextMuted, paper)).toBeGreaterThanOrEqual(BODY_CONTRAST)
-		end
-		for _, role in ipairs({ "Success", "Danger", "Info", "Premium" }) do
-			local ratio = ThemeConfig.contrast(colors[role], colors.Panel)
-			if ratio < ACCENT_CONTRAST then
-				error(("%s does not read on the page: contrast %.2f"):format(role, ratio))
+		expect(#TEXT_PAIRS).toBeGreaterThanOrEqual(12)
+		for _, pair in ipairs(TEXT_PAIRS) do
+			local ink = colors[pair.Ink]
+			local paper = colors[pair.On]
+			assert(ink ~= nil and paper ~= nil, ("no such role in the pair %s / %s"):format(pair.Ink, pair.On))
+			local ratio = ThemeConfig.contrast(ink, paper)
+			if ratio < pair.Ratio then
+				error(
+					("%s is under its floor: %s on %s measures %.2f, floor %.2f"):format(
+						pair.Where,
+						pair.Ink,
+						pair.On,
+						ratio,
+						pair.Ratio
+					)
+				)
 			end
 		end
-		-- The two button faces: vellum on ink, ink on Cinnabar.
-		expect(ThemeConfig.contrast(colors.TextInverse, colors.Accent)).toBeGreaterThanOrEqual(BODY_CONTRAST)
-		expect(ThemeConfig.contrast(colors.Text, colors.Danger)).toBeGreaterThanOrEqual(ACCENT_CONTRAST)
 	end)
 
 	it("picks the ink that reads on each pigment", function()

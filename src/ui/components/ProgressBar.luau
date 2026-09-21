@@ -30,7 +30,8 @@ export type Props = {
 
 export type ProgressBar = {
 	Instance: Frame,
-	SetProgress: (self: ProgressBar, progress: number) -> (),
+	-- `immediate` writes the value now, with no motion: where an animated bar starts from.
+	SetProgress: (self: ProgressBar, progress: number, immediate: boolean?) -> (),
 	SetLabel: (self: ProgressBar, text: string) -> (),
 	SetColor: (self: ProgressBar, color: Color3) -> (),
 	Destroy: (self: ProgressBar) -> (),
@@ -39,6 +40,8 @@ export type ProgressBar = {
 local ProgressBar = {}
 
 local DEFAULT_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
+local TRACK_EDGE_TRANSPARENCY = 0.55
+local LABEL_HALO_TRANSPARENCY = 0.15
 
 local function roundCorners(parent: Instance)
 	local corner = Instance.new("UICorner")
@@ -59,6 +62,15 @@ function ProgressBar.new(props: Props): ProgressBar
 	track.LayoutOrder = props.LayoutOrder or 0
 	trove:Add(track)
 	roundCorners(track)
+
+	-- An edge of ink. The HUD's bars float over a world that is itself the colour of paper, so a pale
+	-- track with no edge has no shape at all out there.
+	local edge = Instance.new("UIStroke")
+	edge.Color = Theme.Colors.Outline
+	edge.Thickness = 1
+	edge.Transparency = TRACK_EDGE_TRANSPARENCY
+	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	edge.Parent = track
 
 	local ghost: Frame? = nil
 	if props.Ghost ~= nil then
@@ -89,11 +101,14 @@ function ProgressBar.new(props: Props): ProgressBar
 	label.ZIndex = 3
 	label.FontFace = Theme.Fonts.Numeric
 	label.TextSize = Theme.Sizes.TextBody
-	-- Ink on the page, and the page on ink: the label sits over both halves of the bar, so it is stroked
-	-- in the opposite colour to stay legible on either.
-	label.TextColor3 = Theme.Colors.TextInverse
-	label.TextStrokeColor3 = Theme.Colors.Text
-	label.TextStrokeTransparency = 0.35
+	-- The label crosses the boundary between the ink that is left and the paper that is empty, so neither
+	-- colour alone can carry it: it is ink with a halo of page. Over the paper it is charcoal on vellum;
+	-- over the fill the halo is what draws the digits. Vellum text with an ink stroke, which is what this
+	-- was, measured 1.19 against the track -- an outline with nothing inside it, exactly when a bar is
+	-- nearly empty and its number matters most.
+	label.TextColor3 = Theme.Colors.Text
+	label.TextStrokeColor3 = Theme.Colors.TextInverse
+	label.TextStrokeTransparency = LABEL_HALO_TRANSPARENCY
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.Text = props.Label or ""
 	label.Parent = track
@@ -107,19 +122,28 @@ function ProgressBar.new(props: Props): ProgressBar
 
 	track.Parent = props.Parent
 
-	local function setProgress(_self: ProgressBar, progress: number)
+	local function setProgress(_self: ProgressBar, progress: number, immediate: boolean?)
 		local clamped = math.clamp(progress, 0, 1)
 		local goal = UDim2.fromScale(clamped, 1)
 		local shadow = ghost
-		if shadow ~= nil then
+		if immediate then
+			Motion.set(fill, { Size = goal })
+			if shadow ~= nil then
+				Motion.set(shadow, { Size = goal })
+			end
+		elseif shadow ~= nil then
 			if clamped < current then
 				-- Lost: the fill drops now, the ghost stays and catches up.
 				Motion.to(fill, { Size = goal }, "UiSnappy")
 				Motion.to(shadow, { Size = goal }, "UiGhost")
 			else
-				-- Gained: there is no ghost to a gain, so it rides with the fill.
+				-- Gained: there is no ghost to a gain, so it rides WITH the fill, from where the fill is
+				-- now. Writing the goal straight onto it -- which is what this did -- put the ghost ahead
+				-- of the fill for the whole rise, so every heal, every out-of-combat tick and the first
+				-- frame of the HUD drew a band of Cinnabar where health had just been gained.
+				Motion.set(shadow, { Size = fill.Size })
+				Motion.to(shadow, { Size = goal }, "Ui")
 				Motion.to(fill, { Size = goal }, "Ui")
-				Motion.set(shadow, { Size = goal })
 			end
 		else
 			Motion.to(fill, { Size = goal }, "Ui")

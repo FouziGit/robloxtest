@@ -109,7 +109,11 @@ WorldBossConfig.Rewards = {
 WorldBossConfig.Boss = {
 	Name = "WorldBoss", -- instance name (not shown to players; the HUD uses boss.name)
 	NameKey = "boss.name",
-	BodySize = { 8, 14, 8 }, -- studs {X, Y, Z}; the service builds the vector (this module stays pure)
+	-- Studs {X, Y, Z}; the service builds the vector (this module stays pure). Flat on Z: it is the
+	-- collider and the figure inside it (WorldConfig.Erasure) is a flat silhouette, so a deeper hull
+	-- would be an invisible wall two studs in front of anything the player can see -- and the surface
+	-- every projectile detonates against. contactRadius stays max(X, Z) / 2 = 4.
+	BodySize = { 8, 14, 4.4 },
 	AggroRadius = 70,
 	ContactDamage = 12, -- per second while standing inside the boss
 }

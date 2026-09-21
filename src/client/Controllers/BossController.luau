@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local Log = require(Shared.Util.Log)
+local Motion = require(UI.Motion)
 local ProgressBar = require(UI.components.ProgressBar)
 local Theme = require(UI.Theme)
 local Types = require(Shared.Types)
@@ -40,6 +41,8 @@ type Deps = {
 type Announcement = { Key: string, Kind: string }
 
 local BAND_WIDTH = 420
+-- The band grows into place when the event starts: rule 3 of docs/ART_BIBLE.md, nothing appears.
+local BAND_ENTER_SCALE = 0.9
 local TITLE_HEIGHT = Theme.Sizes.TextTitle + Theme.Sizes.PaddingSmall
 local BAR_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local INFO_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
@@ -64,6 +67,7 @@ local remoteClient: any
 local built = false
 
 local band: Frame
+local bandScale: UIScale
 local titleLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
 local phaseLabel: TextLabel
@@ -94,6 +98,7 @@ local function makeLabel(
 	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = size
 	label.TextColor3 = color
+	label.TextStrokeColor3 = Theme.Colors.TextInverse
 	label.TextStrokeTransparency = 0.6
 	label.TextXAlignment = alignment
 	label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -195,6 +200,10 @@ local function build()
 	)
 	warningLabel.Visible = false
 
+	bandScale = Instance.new("UIScale")
+	bandScale.Name = "Entrance"
+	bandScale.Parent = band
+
 	band.Parent = stack
 end
 
@@ -251,7 +260,11 @@ local function refresh()
 	else
 		warningLabel.Visible = false
 	end
-	band.Visible = true
+	if not band.Visible then
+		band.Visible = true
+		Motion.set(bandScale, { Scale = BAND_ENTER_SCALE })
+		Motion.to(bandScale, { Scale = 1 }, "UiSnappy")
+	end
 end
 
 local function announce(current: Types.BossSnapshot)

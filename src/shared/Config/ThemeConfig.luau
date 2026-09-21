@@ -17,30 +17,32 @@ local ThemeConfig = {}
 export type Rgb = { number }
 export type FontDef = { Font: string, Weight: string }
 
--- docs/ART_BIBLE.md: Vélin #E8E0CE, Charbon #17150F. The five pigments live in PigmentConfig.
-ThemeConfig.Vellum = { 232, 224, 206 } :: Rgb
-ThemeConfig.Charcoal = { 23, 21, 15 } :: Rgb
+-- docs/ART_BIBLE.md: Vélin #E8E0CE, Charbon #17150F. The five pigments live in PigmentConfig. The two
+-- hexes are written ONCE, here, and the roles below point at them: a role that repeated the literal could
+-- drift from the bible while the test that holds the bible's hex still passed.
+local VELLUM: Rgb = { 232, 224, 206 }
+local CHARCOAL: Rgb = { 23, 21, 15 }
+
+ThemeConfig.Vellum = VELLUM
+ThemeConfig.Charcoal = CHARCOAL
 
 ThemeConfig.Colors = {
-	-- The world behind a screen when one is needed: charcoal, warm. Nothing on it competes with the
-	-- page in front.
-	Background = { 30, 28, 24 },
 	-- The page.
-	Panel = { 232, 224, 206 },
+	Panel = VELLUM,
 	-- A second sheet laid on the first: the same paper, in shadow.
 	PanelRaised = { 216, 206, 184 },
 	Border = { 168, 156, 132 },
 	-- Ink.
-	Text = { 23, 21, 15 },
+	Text = CHARCOAL,
 	TextMuted = { 92, 86, 74 },
 	-- Vellum on ink: the text of a charcoal button.
-	TextInverse = { 232, 224, 206 },
+	TextInverse = VELLUM,
 	-- The accent of a page is its ink. A primary action is charcoal on vellum, not gold.
-	Accent = { 23, 21, 15 },
-	AccentSoft = { 196, 186, 166 },
+	Accent = CHARCOAL,
 	-- Verdigris as ink: what displaces, and here what went well. The pigment itself (#4FA88C) is too
-	-- light to read as text on the page; soaked into it, it is this.
-	Success = { 31, 104, 82 },
+	-- light to read as text on the page; soaked into it, it is this -- dark enough to clear 4.5 on the
+	-- shaded sheet as well as on the page, which is where the battle pass and the loadout set it.
+	Success = { 26, 88, 70 },
 	-- Cinnabar, exact: danger to you.
 	Danger = { 217, 58, 34 },
 	-- Indigo, exact: what contains, and here what informs.
@@ -48,12 +50,13 @@ ThemeConfig.Colors = {
 	-- The inkwell. Ink is Indigo on the page.
 	Ink = { 46, 74, 140 },
 	-- Health is the ink still on the page: charcoal. What was just lost is the bar's ghost, in Cinnabar.
-	Health = { 23, 21, 15 },
+	Health = CHARCOAL,
 	Overlay = { 0, 0, 0 },
-	-- Orpiment as ink: what is gilded. The pigment itself (#E8C022) is unreadable as text on vellum.
-	Premium = { 138, 110, 12 },
+	-- Orpiment as ink: what is gilded. The pigment itself (#E8C022) is unreadable as text on vellum, and
+	-- so was a lighter gold than this: the battle pass sets it at thirteen pixels.
+	Premium = { 104, 82, 8 },
 	-- The stroke around a floating number, so it reads over any floor.
-	Outline = { 23, 21, 15 },
+	Outline = CHARCOAL,
 } :: { [string]: Rgb }
 
 -- docs/ART_BIBLE.md: "une romane à empattements pour les titres, une grotesque condensée pour les

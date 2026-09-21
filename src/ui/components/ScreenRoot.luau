@@ -8,7 +8,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -27,11 +26,6 @@ export type ScreenRoot = {
 }
 
 local ScreenRoot = {}
-
--- Rule 3 of docs/ART_BIBLE.md, "rien n'apparaît": a screen that is enabled grows into place from just
--- under its size, about its centre, on the snappy spring. Every screen gets it here rather than ten
--- screens each remembering to.
-local ENTER_SCALE = 0.94
 
 function ScreenRoot.new(props: Props): ScreenRoot
 	local trove = Trove.new()
@@ -53,23 +47,12 @@ function ScreenRoot.new(props: Props): ScreenRoot
 	content.BackgroundTransparency = 1
 	content.BorderSizePixel = 0
 	content.Size = UDim2.fromScale(1, 1)
-	-- Centred, so the entrance scales about the middle of the screen and not its top-left corner.
-	content.AnchorPoint = Vector2.new(0.5, 0.5)
-	content.Position = UDim2.fromScale(0.5, 0.5)
 	content.Parent = gui
 
-	local entrance = Instance.new("UIScale")
-	entrance.Name = "Entrance"
-	entrance.Parent = content
-	trove:Add(function()
-		Motion.cancel(entrance)
-	end)
-	trove:Connect(gui:GetPropertyChangedSignal("Enabled"), function()
-		if gui.Enabled then
-			Motion.set(entrance, { Scale = ENTER_SCALE })
-			Motion.to(entrance, { Scale = 1 }, "UiSnappy")
-		end
-	end)
+	-- No entrance animation here, on purpose. Scaling this frame scales the SAFE AREA, and every screen
+	-- parents its full-screen dim overlay to it: the world showed through an undimmed border all around
+	-- the screen for as long as the spring ran. The card grows instead (src/ui/components/Panel.luau),
+	-- which is the thing that is supposed to arrive.
 
 	local padding = Instance.new("UIPadding")
 	padding.Name = "SafeAreaPadding"

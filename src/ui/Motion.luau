@@ -143,6 +143,10 @@ function Motion.to(instance: Instance, goals: { [string]: any }, preset: Preset?
 			track.From = current
 			track.To = goal
 			track.OnSettled = arrive
+			-- The preset of THIS call, not the one the property happened to be moving on: a bar caught
+			-- mid-regeneration and then hit has to drop on UiSnappy like any other hit.
+			track.Spring.Tension = def.Tension
+			track.Spring.Friction = def.Friction
 			Spring.snap(track.Spring, 0)
 			Spring.setGoal(track.Spring, 1)
 			Spring.impulse(track.Spring, velocity)
@@ -167,47 +171,10 @@ function Motion.set(instance: Instance, values: { [string]: any })
 	end
 end
 
--- Kicks a numeric property away from where it sits and lets the spring bring it back: a chip landing,
--- a counter ticking, a button pressed. `amount` is the velocity, in units of the property per second.
-function Motion.pop(instance: Instance, property: string, amount: number, preset: Preset?)
-	local def = presetOf(preset)
-	local entry = entries[instance]
-	if entry == nil then
-		entry = {}
-		entries[instance] = entry
-	end
-	local track = entry[property]
-	local rest = (instance :: any)[property]
-	if track ~= nil then
-		rest = track.To
-		Spring.impulse(track.Spring, amount / math.max(math.abs(rest - track.From), 1e-3))
-		return
-	end
-	-- From rest to rest, with a velocity: the spring runs 0 -> 1 with From == To, so the impulse is what
-	-- moves it. The interpolation is in units of the property, so the track spans one unit.
-	local spring = Spring.new(1, def.Tension, def.Friction)
-	Spring.setGoal(spring, 1)
-	Spring.impulse(spring, amount)
-	entry[property] = { Spring = spring, From = rest - 1, To = rest, OnSettled = nil }
-	ensureLoop()
-end
-
 -- Forgets every motion on `instance`. A Trove holds this for anything it destroys, so a screen that
 -- closes mid-motion does not keep a spring alive on a dead frame until the next sweep notices.
 function Motion.cancel(instance: Instance)
 	entries[instance] = nil
-end
-
--- How many properties are in motion right now: the number the performance pass (JUICE_PLAN phase 9)
--- will budget.
-function Motion.count(): number
-	local total = 0
-	for _, entry in pairs(entries) do
-		for _ in pairs(entry) do
-			total += 1
-		end
-	end
-	return total
 end
 
 return Motion

@@ -11,6 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -47,6 +48,10 @@ export type Panel = {
 }
 
 local Panel = {}
+
+-- Rule 3 of docs/ART_BIBLE.md, "rien n'apparaît": the card grows into place from just under its size,
+-- about its own centre, whenever the screen it belongs to is enabled.
+local ENTER_SCALE = 0.94
 
 local CLOSE_GLYPH = "✕" -- icon glyph, locale independent
 local DPAD_SCROLL_ROWS = 1 -- canvas step per D-pad press, in list rows
@@ -129,6 +134,13 @@ function Panel.new(props: Props): Panel
 	local sizeConstraint = Instance.new("UISizeConstraint")
 	sizeConstraint.MaxSize = maxSize
 	sizeConstraint.Parent = frame
+
+	local entrance = Instance.new("UIScale")
+	entrance.Name = "Entrance"
+	entrance.Parent = frame
+	trove:Add(function()
+		Motion.cancel(entrance)
+	end)
 
 	if props.AspectRatio ~= nil then
 		local aspect = Instance.new("UIAspectRatioConstraint")
@@ -306,6 +318,18 @@ function Panel.new(props: Props): Panel
 	end)
 
 	frame.Parent = props.Parent
+
+	-- The screen this card belongs to. Screens show themselves by enabling their ScreenGui, so that is
+	-- where the card learns it is being opened; it is resolved after parenting, when the ancestor exists.
+	local screen = frame:FindFirstAncestorWhichIsA("ScreenGui")
+	if screen ~= nil then
+		trove:Connect(screen:GetPropertyChangedSignal("Enabled"), function()
+			if screen.Enabled then
+				Motion.set(entrance, { Scale = ENTER_SCALE })
+				Motion.to(entrance, { Scale = 1 }, "UiSnappy")
+			end
+		end)
+	end
 
 	local function setTitle(_self: Panel, text: string)
 		title.Text = text

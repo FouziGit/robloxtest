@@ -179,7 +179,10 @@ local function buildWalls(def: ArenaDef, parent: Model, floorTop: number)
 			ruleHeight,
 			wall.Size.Z + if wall.Size.Z < wall.Size.X then proud else 0
 		)
-		local rulePosition = Vector3.new(wall.Position.X, floorTop + def.WallHeight - ruleHeight / 2, wall.Position.Z)
+		-- Raised by `proud` as well as widened by it: at the same top height as the wall the two +Y faces
+		-- are coplanar over the whole length of every wall, which is the flicker this is here to avoid.
+		local ruleCenterY = floorTop + def.WallHeight - ruleHeight / 2 + proud
+		local rulePosition = Vector3.new(wall.Position.X, ruleCenterY, wall.Position.Z)
 		newPart(wall.Name .. "Rule", ruleSize, CFrame.new(rulePosition), Palette.world(ARENA.WallRule)).Parent = parent
 	end
 end

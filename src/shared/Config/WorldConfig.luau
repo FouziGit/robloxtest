@@ -45,6 +45,19 @@ WorldConfig.Hub = {
 	Pedestal = "Ink",
 	Board = "Ink",
 	BoardLeg = "Ink",
+	-- The ruling of a manuscript page: one inset rectangle of thin ink lines on the platform. It is what
+	-- makes the hub read as a sheet in a screenshot rather than as a cream floor, and it is geometry, so
+	-- it is there whether or not a texture has been uploaded.
+	Rule = "Ink",
+	RuleInsetStuds = 22,
+	RuleWidthStuds = 0.6,
+	-- Studs above the platform's top face. Every ground mark lifts at least this much more, so a rule
+	-- never covers a burn (VfxTimelineConfig marks lift 0.04 and up).
+	RuleTopStuds = 0.02,
+	-- The emblems of the queue terminal and the shop kiosk: ink, told apart by their bars, never by a
+	-- colour. A saturated emblem standing permanently in the hub is rule 1 of docs/ART_BIBLE.md broken
+	-- by the one thing that is on screen the longest.
+	Emblem = "Ink",
 }
 
 -- An arena: a page walled in bone, with an ink rule drawn along the top of every wall so the box reads
@@ -76,7 +89,9 @@ WorldConfig.Proof = {
 -- phase off the body from thirty studs the way rule 2 asks a pigment to be read. Every part lies inside
 -- the hull, so what looks like the boss is never wider than what hits.
 --
--- The hull itself is drawn invisible: it is the contact shape, not the body.
+-- The hull itself is drawn invisible: it is the contact shape, not the body. It is 8 x 14 x 4.4 -- flat,
+-- because docs/ART_BIBLE.md asks for flat silhouettes and because a hull deeper than the figure is an
+-- invisible wall the player bumps into two studs from anything they can see.
 WorldConfig.Erasure = {
 	Parts = {
 		{ Name = "Core", Color = "Page", Size = { 6, 13, 3.5 }, Offset = { 0, -0.5, 0 } },
@@ -84,6 +99,11 @@ WorldConfig.Erasure = {
 		{ Name = "StrokeLeft", Color = "Ink", Size = { 0.8, 9, 1.2 }, Offset = { -3.6, -1.5, 0 } },
 		{ Name = "StrokeRight", Color = "Ink", Size = { 0.8, 9, 1.2 }, Offset = { 3.6, -1.5, 0 } },
 	} :: { { Name: string, Color: string, Size: Triple, Offset: Triple } },
+	-- What the Erasure leaves ON the page. Its effects are drawn in ink -- a seal, a ring, a blot -- and
+	-- what it has erased is the ghost of what was written, a grey wash. Neither may be the colour of the
+	-- floor: VfxLibrary used the page's own vellum for both, which on a vellum floor is nothing at all.
+	Mark = "Ink",
+	Erased = "Wash",
 	Band = {
 		Name = "Band",
 		Color = "Ink",
@@ -99,15 +119,25 @@ WorldConfig.Erasure = {
 -- (FootprintController). Drawn through VfxTimeline as one Mark layer, so it shares the pool, the ground
 -- probe and the eviction of every other mark.
 WorldConfig.Footprints = {
+	-- Ink, the same role the ruling and the furniture use: one source for one colour.
+	Color = "Ink",
 	-- Studs between two prints of the same character.
 	StrideStuds = 2.4,
-	-- Studs to the side of the root, alternating: a left foot, then a right.
-	FootOffsetStuds = 0.4,
+	-- Studs to the side of the root, alternating: a left foot, then a right. Wider than half a print, so
+	-- the two tracks read as two feet instead of as one dotted line.
+	FootOffsetStuds = 0.62,
 	-- Characters further than this from the camera leave nothing this client draws.
 	RangeStuds = 80,
-	-- Prints alive at once on this client, all characters together. A third of the mark budget at
-	-- most (tests/WorldConfig.spec.luau), so a crowd never evicts a fight's own marks.
+	-- Prints alive at once on this client, all characters together, and per character. One walker at a
+	-- run lays a print every 0.15 s, so without the per-character share a single player would hold every
+	-- slot and nobody else would leave a mark; the nearest walkers are served first.
 	MaxLive = 24,
+	MaxPerCharacter = 8,
+	-- No print is stamped while the timeline already carries this many layers. Eviction is oldest-first
+	-- across every effect, so this -- not MaxLive -- is what keeps a crowd in the hub from pushing a
+	-- fight's own residue off the screen.
+	YieldAboveLayers = 60,
+	-- A print is longer than it is wide and lies along the walk: Size is its width, Span its length.
 	Layer = {
 		Kind = "Mark",
 		At = 0,
@@ -115,8 +145,9 @@ WorldConfig.Footprints = {
 		Ease = "Sine",
 		EaseDirection = "In",
 		Texture = "InkBlot",
-		Size = 1.1,
-		EndSize = 1,
+		Size = 0.7,
+		EndSize = 0.62,
+		Span = 1.3,
 		Transparency = 0.55,
 		EndTransparency = 1,
 	},

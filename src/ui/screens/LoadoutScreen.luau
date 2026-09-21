@@ -147,7 +147,9 @@ local function makeEntryLabel(): (Frame, TextLabel, TextLabel, TextLabel, TextLa
 	local name = makeLine("Name", NAME_HEIGHT, Theme.Sizes.TextLarge, Theme.Colors.Text, true, 1, frame)
 	local combo = makeLine("Combo", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 2, frame)
 	local stats = makeLine("Stats", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 3, frame)
-	local lock = makeLine("Lock", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.Danger, false, 4, frame)
+	-- Muted, not Cinnabar: a locked glyph is information, and thirteen pixels of Cinnabar on the shaded
+	-- sheet measures 2.94 against it (docs/ART_BIBLE.md rule 7, and the contrast floor).
+	local lock = makeLine("Lock", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 4, frame)
 	return frame, name, combo, stats, lock
 end
 
@@ -184,7 +186,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 	headerLayout.Parent = panel.Header
 
 	local slotsLabel = makeStatusLabel("Slots", Theme.Colors.Accent, 1, panel.Header)
-	local fullLabel = makeStatusLabel("Full", Theme.Colors.Danger, 2, panel.Header)
+	local fullLabel = makeStatusLabel("Full", Theme.Colors.TextMuted, 2, panel.Header)
 
 	local equippedHeader = ListRow.new({
 		Left = t("loadout.equipped"),

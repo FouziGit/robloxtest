@@ -37,6 +37,11 @@ export type Context = {
 	Origin: Vector3,
 	Direction: Vector3,
 	Color: Color3,
+	-- The colour of what the effect leaves on the FLOOR, when that is not its own colour. A glyph's burn
+	-- is its pigment and needs none of this; the Erasure's marks do, because its colour is the pale page
+	-- (its light and its dust are the page overexposed) and a pale mark on a vellum floor is nothing at
+	-- all. Mark layers only.
+	Ink: Color3?,
 	-- Multiplies every distance and size in the timeline, so one timeline serves a jab and an ultimate.
 	Scale: number?,
 	-- How long a phase that declared Window lasts: the warning the server is really waiting through
@@ -406,8 +411,10 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame)
 		return
 	end
 	local id = textureOf(layer)
+	-- What is drawn on the page is drawn in the effect's ink where it has one (see Context.Ink).
+	local ink = entry.Context.Ink or entry.Context.Color
 	if id == "" then
-		part.Color = entry.Context.Color
+		part.Color = ink
 		part.Transparency = layer.Transparency or 0.3
 		entry.Primary = part
 		return
@@ -422,7 +429,7 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame)
 	-- markFrame leaves the part's +Z along the ground normal, and Front is the -Z face: the face that
 	-- looks up is Back. Front here pointed every mark in the game into the floor.
 	decal.Face = Enum.NormalId.Back
-	decal.Color3 = entry.Context.Color
+	decal.Color3 = ink
 	decal.Transparency = layer.Transparency or 0.3
 	decal.Parent = part
 	entry.Primary = part

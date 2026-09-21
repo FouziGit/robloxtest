@@ -16,7 +16,6 @@ local function fromRgb(rgb: ThemeConfig.Rgb): Color3
 end
 
 Theme.Colors = {
-	Background = fromRgb(ThemeConfig.Colors.Background),
 	Panel = fromRgb(ThemeConfig.Colors.Panel),
 	PanelRaised = fromRgb(ThemeConfig.Colors.PanelRaised),
 	Border = fromRgb(ThemeConfig.Colors.Border),
@@ -24,7 +23,6 @@ Theme.Colors = {
 	TextMuted = fromRgb(ThemeConfig.Colors.TextMuted),
 	TextInverse = fromRgb(ThemeConfig.Colors.TextInverse),
 	Accent = fromRgb(ThemeConfig.Colors.Accent),
-	AccentSoft = fromRgb(ThemeConfig.Colors.AccentSoft),
 	Success = fromRgb(ThemeConfig.Colors.Success),
 	Danger = fromRgb(ThemeConfig.Colors.Danger),
 	Info = fromRgb(ThemeConfig.Colors.Info),

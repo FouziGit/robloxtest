@@ -45,14 +45,22 @@ local PLATFORM_THICKNESS_STUDS = 4
 local HUB = WorldConfig.Hub
 local PLATFORM_EDGE_WIDTH_STUDS = 6
 local PLATFORM_EDGE_HEIGHT_STUDS = 2
--- The spawn is a chalk seal: a flat disc on an ink rim, the shape a glyph is cast from.
-local SPAWN_DIAMETER_STUDS = 12
-local SPAWN_THICKNESS_STUDS = 1
-local SPAWN_RIM_THICKNESS_STUDS = 0.4
+-- The pad itself: an UPRIGHT BOX, and it has to stay one. EnemyService (its dummy ring) and
+-- teleportToHub below both read `Size.Y` of the first SpawnLocation in the workspace as the height of
+-- its top face; a rolled cylinder reports its 12-stud diameter there, which floated the six proofs 6.5
+-- studs over the platform and dropped every returning player from 5.5 studs up. The seal a player sees
+-- is the two decorative discs on top of it.
+local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
+-- Studs above the pad's top face: the chalk disc sits a hair over the ink rim, and both over the pad.
+local SEAL_TOP_STUDS = SPAWN_SIZE_STUDS.Y + 0.02
+local SEAL_RIM_TOP_STUDS = SPAWN_SIZE_STUDS.Y
+-- Vertical thickness of the page's ruling and of the training ring. Both are sunk into the platform and
+-- show only the sliver WorldConfig asks for, so no ground mark of an effect is ever drawn under them.
+local FLAT_THICKNESS_STUDS = 0.2
+local TRAINING_TOP_STUDS = 0.01
 -- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
 -- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
-local TRAINING_MARKER_THICKNESS_STUDS = 0.2
 local TRAINING_MARKER_TRANSPARENCY = 0.4
 -- Props stand clear of the dummy ring; boards sit a little further out so their panels never touch.
 local PROP_RING_RADIUS_STUDS = TRAINING_RADIUS_STUDS + 16
@@ -175,32 +183,60 @@ local function buildPlatform(parent: Folder)
 	end
 end
 
--- A cylinder's flat faces are on its X axis, so a disc is rolled a quarter turn to lie flat.
-local function flatDisc(diameter: number, thickness: number, centerY: number): (Vector3, CFrame)
-	return Vector3.new(thickness, diameter, diameter), CFrame.new(0, centerY, 0) * CFrame.Angles(0, 0, math.pi / 2)
+-- A cylinder's flat faces are on its X axis, so a disc is rolled a quarter turn to lie flat. `top` is
+-- where its upper face lands, in studs above the platform.
+local function flatDisc(name: string, diameter: number, top: number, color: Color3): Part
+	local part = newPart(
+		name,
+		Vector3.new(FLAT_THICKNESS_STUDS, diameter, diameter),
+		CFrame.new(0, top - FLAT_THICKNESS_STUDS / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		color
+	)
+	part.Shape = Enum.PartType.Cylinder
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	return part
+end
+
+-- The ruling of a manuscript page: one inset rectangle of thin ink lines drawn on the platform.
+local function buildRuling(parent: Folder)
+	local half = PLATFORM_SIZE_STUDS / 2 - HUB.RuleInsetStuds
+	local width = HUB.RuleWidthStuds
+	local centerY = HUB.RuleTopStuds - FLAT_THICKNESS_STUDS / 2
+	local length = half * 2 + width
+	local along = Vector3.new(length, FLAT_THICKNESS_STUDS, width)
+	local across = Vector3.new(width, FLAT_THICKNESS_STUDS, length)
+	local bars = {
+		{ Name = "RuleNorth", Size = along, Position = Vector3.new(0, centerY, -half) },
+		{ Name = "RuleSouth", Size = along, Position = Vector3.new(0, centerY, half) },
+		{ Name = "RuleWest", Size = across, Position = Vector3.new(-half, centerY, 0) },
+		{ Name = "RuleEast", Size = across, Position = Vector3.new(half, centerY, 0) },
+	}
+	for _, bar in ipairs(bars) do
+		local part = newPart(bar.Name, bar.Size, CFrame.new(bar.Position), Palette.world(HUB.Rule))
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Parent = parent
+	end
 end
 
 local function buildSpawn(parent: Folder): SpawnLocation
-	-- The rim first, under the pad and wider than it, so the seal reads as drawn on the page.
-	local rimDiameter = SPAWN_DIAMETER_STUDS + HUB.SpawnRimStuds * 2
-	local rimSize, rimCFrame = flatDisc(rimDiameter, SPAWN_RIM_THICKNESS_STUDS, SPAWN_RIM_THICKNESS_STUDS / 2)
-	local rim = newPart("HubSpawnRim", rimSize, rimCFrame, Palette.world(HUB.SpawnRim))
-	rim.Shape = Enum.PartType.Cylinder
-	rim.CanCollide = false
-	rim.CanQuery = false
-	rim.CanTouch = false
-	rim.Parent = parent
+	-- The seal: an ink rim with a chalk disc inside it, both decoration on top of the pad.
+	flatDisc("HubSpawnRim", SPAWN_SIZE_STUDS.X + HUB.SpawnRimStuds * 2, SEAL_RIM_TOP_STUDS, Palette.world(HUB.SpawnRim)).Parent =
+		parent
+	flatDisc("HubSpawnSeal", SPAWN_SIZE_STUDS.X, SEAL_TOP_STUDS, Palette.world(HUB.Spawn)).Parent = parent
 
 	local spawnPart = Instance.new("SpawnLocation")
 	spawnPart.Name = "HubSpawn"
-	local size, cframe = flatDisc(SPAWN_DIAMETER_STUDS, SPAWN_THICKNESS_STUDS, SPAWN_THICKNESS_STUDS / 2)
-	spawnPart.Shape = Enum.PartType.Cylinder
-	spawnPart.Size = size
-	spawnPart.CFrame = cframe
+	spawnPart.Size = SPAWN_SIZE_STUDS
+	spawnPart.CFrame = CFrame.new(0, SPAWN_SIZE_STUDS.Y / 2, 0)
 	spawnPart.Anchored = true
 	spawnPart.Neutral = true
 	spawnPart.AllowTeamChangeOnTouch = false
-	spawnPart.Color = Palette.world(HUB.Spawn)
+	-- Invisible: the two discs above are what the player sees standing there.
+	spawnPart.Transparency = 1
 	spawnPart.Material = Palette.material()
 	spawnPart.TopSurface = Enum.SurfaceType.Smooth
 	spawnPart.BottomSurface = Enum.SurfaceType.Smooth
@@ -211,20 +247,12 @@ local function buildSpawn(parent: Folder): SpawnLocation
 	return spawnPart
 end
 
+-- The training ground, washed in grey. Sunk into the platform so only TRAINING_TOP_STUDS of it shows:
+-- at its old 0.2 of thickness it stood over every ground mark an effect lifts (0.04 and up), so a burn
+-- inside the ring was drawn under a sixty-percent-opaque disc.
 local function buildTrainingMarker(parent: Folder)
-	local diameter = TRAINING_RADIUS_STUDS * 2
-	-- A cylinder's flat faces are on its X axis, so the disc is rolled a quarter turn to lie flat.
-	local marker = newPart(
-		"TrainingArea",
-		Vector3.new(TRAINING_MARKER_THICKNESS_STUDS, diameter, diameter),
-		CFrame.new(0, TRAINING_MARKER_THICKNESS_STUDS / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		Palette.world(HUB.Training)
-	)
-	marker.Shape = Enum.PartType.Cylinder
+	local marker = flatDisc("TrainingArea", TRAINING_RADIUS_STUDS * 2, TRAINING_TOP_STUDS, Palette.world(HUB.Training))
 	marker.Transparency = TRAINING_MARKER_TRANSPARENCY
-	marker.CanCollide = false
-	marker.CanQuery = false
-	marker.CanTouch = false
 	marker.Parent = parent
 end
 
@@ -413,10 +441,14 @@ function HubService.Start()
 	folder.Name = HUB_FOLDER_NAME
 
 	buildPlatform(folder)
+	buildRuling(folder)
 	local spawnPart = buildSpawn(folder)
 	buildTrainingMarker(folder)
-	buildPedestal(folder, "QueueTerminal", layout.QueueCFrame, Theme.Colors.Info, QUEUE_EMBLEM_BARS)
-	buildPedestal(folder, "ShopKiosk", layout.ShopCFrame, Theme.Colors.Accent, SHOP_EMBLEM_BARS)
+	-- Both emblems are ink and differ only by their bars: a saturated emblem standing in the hub for the
+	-- whole session is rule 1 of docs/ART_BIBLE.md broken by the longest-lived thing on screen.
+	local emblem = Palette.world(HUB.Emblem)
+	buildPedestal(folder, "QueueTerminal", layout.QueueCFrame, emblem, QUEUE_EMBLEM_BARS)
+	buildPedestal(folder, "ShopKiosk", layout.ShopCFrame, emblem, SHOP_EMBLEM_BARS)
 	for _, board in ipairs(layout.Boards) do
 		buildBoard(folder, board)
 	end
@@ -459,6 +491,8 @@ function HubService.teleportToHub(player: Player)
 
 	returnSlot = returnSlot % RETURN_SLOT_COUNT + 1
 	local angle = (returnSlot - 1) * (2 * math.pi / RETURN_SLOT_COUNT)
+	-- Half the pad above its own centre is its top face (it is an upright box, see SPAWN_SIZE_STUDS),
+	-- then half a character: the root of somebody standing on it.
 	local offset = ringPosition(angle, RETURN_RADIUS_STUDS, spawnPart.Size.Y / 2 + CHARACTER_PIVOT_STUDS)
 	local landing = spawnPart.Position + offset
 	character:PivotTo(facingCenter(landing))

@@ -12,6 +12,7 @@ local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local LightingConfig = require("../src/shared/Config/LightingConfig")
+local SoundConfig = require("../src/shared/Config/SoundConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -197,8 +198,104 @@ describe("vfx timelines", function()
 				need(layer.Size ~= nil and layer.Size >= 0, "has no size")
 			elseif layer.Kind == "Shake" or layer.Kind == "Flash" then
 				need(layer.Profile ~= nil, "names no profile")
+			elseif layer.Kind == "Sound" then
+				need((layer.Sfx ~= nil) ~= (layer.Voice ~= nil), "must name exactly one of Sfx and Voice")
 			end
 		end)
+	end)
+
+	it("names only sounds that exist", function()
+		-- The same seam as textures and profiles: a Sound layer names a SoundConfig key or one of the
+		-- four voices, and nothing but this notices when the config renames one.
+		local voices: { [string]: boolean } = {}
+		for _, voice in ipairs(SoundConfig.Voices) do
+			voices[voice] = true
+		end
+		eachLayer(function(id, phase, layer)
+			if layer.Kind ~= "Sound" then
+				return
+			end
+			if layer.Sfx ~= nil and SoundConfig.Sfx[layer.Sfx] == nil then
+				error(
+					("timeline %s / %s plays %s, which SoundConfig does not declare"):format(id, phase.Name, layer.Sfx)
+				)
+			end
+			if layer.Voice ~= nil and not voices[layer.Voice] then
+				error(("timeline %s / %s names voice %s"):format(id, phase.Name, layer.Voice))
+			end
+			if layer.Fit == true and phase.Window ~= true then
+				-- Stretching a sound to a fixed phase is a speed somebody could have written as Speed;
+				-- Fit exists for the one length nobody knows until the packet arrives.
+				error(
+					("timeline %s / %s fits a sound to a phase whose length is not the packet's"):format(id, phase.Name)
+				)
+			end
+			if layer.Duck ~= nil and layer.Duck <= 0 then
+				error(("timeline %s / %s ducks the music for %.2fs"):format(id, phase.Name, layer.Duck))
+			end
+			if layer.Texture ~= nil or layer.Size ~= nil or layer.Rate ~= nil or layer.Burst ~= nil then
+				error(("timeline %s / %s gives a sound a visual field"):format(id, phase.Name))
+			end
+		end)
+	end)
+
+	it("gives every glyph its voices, in the phases it has", function()
+		-- docs/JUICE_PLAN.md phase 5: attack, body, tail, impact. The attack is the shared Cast timeline's
+		-- (every glyph plays it first); the rest belong to the glyph's own phases, and a glyph that has
+		-- a phase without its voice is a spell half of which is silent.
+		local function voiceIn(timeline: VfxTimelineConfig.Timeline, phaseName: string, voice: string): boolean
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Name == phaseName then
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Sound" and layer.Voice == voice then
+							return true
+						end
+					end
+					return false
+				end
+			end
+			-- No such phase: nothing to voice.
+			return true
+		end
+		local cast = TIMELINES.Cast
+		if cast == nil or not voiceIn(cast, "Anticipation", "Attack") then
+			error("the Cast timeline has no Attack voice in its wind-up, so no glyph is heard before it is seen")
+		end
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			local timeline = TIMELINES[def.Id]
+			if timeline ~= nil then
+				for phaseName, voice in pairs({ Cast = "Body", Travel = "Tail", Impact = "Impact" }) do
+					if not voiceIn(timeline, phaseName, voice) then
+						error(("glyph %s has a %s phase with no %s voice"):format(def.Id, phaseName, voice))
+					end
+				end
+			end
+		end
+	end)
+
+	it("makes every windowed warning audible for its whole window", function()
+		-- A boss telegraph is a rule six players read; the ear reads it too, and a warning whose sound
+		-- stops before the hit is a warning that lied to one of the two.
+		for id, timeline in pairs(TIMELINES) do
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Window == true and id ~= "BossEruptionSafe" then
+					local fitted = false
+					for _, layer in ipairs(phase.Layers) do
+						if
+							layer.Kind == "Sound"
+							and layer.Fit == true
+							and layer.At <= 0.0001
+							and layer.At + layer.For >= 0.9999
+						then
+							fitted = true
+						end
+					end
+					if not fitted then
+						error(("timeline %s takes its length from the packet and has no sound fitted to it"):format(id))
+					end
+				end
+			end
+		end
 	end)
 
 	it("leaves a mark wherever something lands", function()

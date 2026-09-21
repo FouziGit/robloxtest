@@ -156,7 +156,6 @@ export type GlyphDef = {
 	Archetype: GlyphArchetype,
 	Effect: string, -- server effect function id
 	VfxId: string,
-	SfxId: string,
 	Unlock: { Kind: "Default" | "Level" | "Pigment", Value: number? },
 	NameKey: string,
 	DescriptionKey: string,

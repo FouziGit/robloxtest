@@ -26,11 +26,12 @@ local AssetIds = require(Shared.Config.AssetIds)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local FeelMath = require(Shared.Pure.FeelMath)
 local Log = require(Shared.Util.Log)
+local SoundConfig = require(Shared.Config.SoundConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 
 local log = Log.new("VfxTimeline")
 
-type Deps = { VfxPool: any, Feel: any, WorldLighting: any }
+type Deps = { VfxPool: any, Feel: any, WorldLighting: any, SoundController: any }
 
 export type Context = {
 	Origin: Vector3,
@@ -46,6 +47,9 @@ export type Context = {
 	-- the renderer did not pass is skipped rather than drawn at the wrong size.
 	Radius: number?,
 	Reach: number?,
+	-- The pigment whose four voices a Sound layer that names a Voice resolves against. A layer naming a
+	-- voice in a play that carries no pigment is not played, and the runtime says so once.
+	Pigment: string?,
 	-- A part the effect rides: a projectile, or the caster's root. Layers that need a moving anchor
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
@@ -100,6 +104,7 @@ local VfxTimeline = {}
 local pool: any
 local feel: any
 local worldLighting: any
+local sound: any
 
 local player = Players.LocalPlayer
 local pending: { Pending } = {}
@@ -111,6 +116,7 @@ local warnedTextures: { [string]: boolean } = {}
 local carriers: { [number]: BasePart } = {}
 local warnedFollow: { [string]: boolean } = {}
 local warnedMeasures: { [string]: boolean } = {}
+local warnedVoices: { [string]: boolean } = {}
 local nextPlayId = 0
 local overBudgetWarned = false
 
@@ -844,6 +850,44 @@ local function activate(item: Pending, now: number)
 		return
 	end
 
+	if layer.Kind == "Sound" then
+		-- Fire and forget, like the two above: the sound owns its own lifetime through SoundController.
+		local key: string? = layer.Sfx
+		if key == nil then
+			local voice = layer.Voice
+			local pigment = context.Pigment
+			if voice ~= nil and pigment ~= nil then
+				key = SoundConfig.voiceKey(pigment, voice)
+			end
+		end
+		if key == nil then
+			if not warnedVoices[id] then
+				warnedVoices[id] = true
+				log.warn("timeline %s has a sound that names a voice, and the renderer passed no pigment", id)
+			end
+			return
+		end
+		-- Placed where the layer would be drawn: on the carrier for a flight, on the body for a zone
+		-- the server moves with the caster, at its offset otherwise. A projectile's tail heard from the
+		-- cast point is a tail that stays behind.
+		local carrier: BasePart? = if layer.Ride == true then carriers[item.PlayId] else nil
+		local body: BasePart? = if layer.Follow == true then context.Follow else nil
+		local position: Vector3
+		if carrier ~= nil and carrier.Parent ~= nil then
+			position = carrier.Position
+		elseif body ~= nil and body.Parent ~= nil then
+			position = body.Position
+		else
+			position = placeOf(frameOf(context), layer, context.Scale or 1).Position
+		end
+		sound.play(key, position, { Fit = if layer.Fit == true then item.Seconds else nil })
+		local duck = layer.Duck
+		if duck ~= nil and duck > 0 then
+			sound.duck(duck)
+		end
+		return
+	end
+
 	if #live >= VfxTimelineConfig.MaxLiveLayers then
 		-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a
 		-- six-player exchange loses effects rather than frames -- but never a warning. A telegraph is
@@ -1058,6 +1102,7 @@ function VfxTimeline.Init(deps: Deps)
 	pool = deps.VfxPool
 	feel = deps.Feel
 	worldLighting = deps.WorldLighting
+	sound = deps.SoundController
 end
 
 function VfxTimeline.Start()

@@ -52,7 +52,25 @@ export type Measure = "Radius" | "Reach"
 --   Mark     a ground decal that fades (the trace rule 5 demands)
 --   Shake    a camera profile, through Feel
 --   Flash    a screen pulse, through the world lighting's post-processing
-export type LayerKind = "Carrier" | "Sprite" | "Emitter" | "Beam" | "Trail" | "Light" | "Mark" | "Shake" | "Flash"
+--   Sound    one play through SoundController, placed like any other layer: on the carrier, on the
+--            body, or at its offset. Fire and forget, like Shake and Flash.
+export type LayerKind =
+	"Carrier"
+	| "Sprite"
+	| "Emitter"
+	| "Beam"
+	| "Trail"
+	| "Light"
+	| "Mark"
+	| "Shake"
+	| "Flash"
+	| "Sound"
+
+-- The four voices every pigment has (SoundConfig.Voices), in the order a glyph spends them. A Sound
+-- layer names a voice and the renderer names the pigment, so twenty glyphs share five matters instead
+-- of carrying eighty sound ids -- a school is a matter (docs/ART_BIBLE.md), and a player should tell
+-- the school with their eyes shut.
+export type Voice = "Attack" | "Body" | "Tail" | "Impact"
 
 export type Layer = {
 	Kind: LayerKind,
@@ -136,6 +154,18 @@ export type Layer = {
 
 	-- Shake and Flash only: the profile name in FeelConfig.Shake.Profiles or LightingConfig's pulses.
 	Profile: string?,
+
+	-- Sound only. Exactly one of Sfx (a SoundConfig.Sfx key, for a sound that is its own -- the kit,
+	-- the boss) and Voice (one of the four every pigment has, resolved against Context.Pigment).
+	Sfx: string?,
+	Voice: Voice?,
+	-- The play is stretched by PlaybackSpeed so the file ends when the layer does. Only meaningful in a
+	-- windowed phase: it is how a two-second warning fits a one-second window and sounds more urgent
+	-- doing it, and a test keeps it there.
+	Fit: boolean?,
+	-- Seconds the music is pulled down for, from this play. The plan's "ducking sur les impacts lourds":
+	-- a boss landing, an ultimate's detonation, not a jab.
+	Duck: number?,
 }
 
 export type Phase = {
@@ -177,6 +207,8 @@ local CAST: Timeline = {
 			Name = "Anticipation",
 			Duration = 0.22,
 			Layers = {
+				-- The pigment's attack: heard before the seal is seen, which is what a wind-up sounds like.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Attack" },
 				-- The seal itself, growing from nothing with a slight overshoot so it lands rather than
 				-- arrives. Back easing is the overshoot.
 				{
@@ -656,6 +688,7 @@ local BRAND: Timeline = {
 			Name = "Cast",
 			Duration = 0.06,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				{
 					Kind = "Emitter",
 					At = 0,
@@ -680,6 +713,7 @@ local BRAND: Timeline = {
 			-- Range: a visual that outflies the spell lies to the player about where they are safe.
 			Duration = 1,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -765,6 +799,7 @@ local EXPLOSION: Timeline = {
 			Name = "Impact",
 			Duration = 0.22,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				{
 					Kind = "Sprite",
 					At = 0,
@@ -958,6 +993,7 @@ local WASH: Timeline = {
 			Name = "Cast",
 			Duration = 0.04,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The pigment leaving the brush, thrown at the floor rather than into the air: a wash is
 				-- laid down, it is not sprayed. There is no Shake here; the Cast timeline playing in
 				-- parallel already fired the Cast profile 0.06 earlier, and firing it twice is two shakes,
@@ -987,6 +1023,7 @@ local WASH: Timeline = {
 			-- other the whole way.
 			Duration = 0.7,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -1172,6 +1209,7 @@ local BLEED: Timeline = {
 			-- tail of a zone that has stopped hurting but has not dried.
 			Duration = 2.2,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The wetting. Exponential/Out puts the full radius down in about a tenth of a second,
 				-- because the zone hurts from frame one and a pool drawn smaller than the damage is the
 				-- lie that costs a player a round. It hands off to the pool at 0.14 rather than
@@ -1419,6 +1457,7 @@ local BINDING: Timeline = {
 			Name = "Cast",
 			Duration = 0.12,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The stitch pulled tight. Quint/In barely moves and then goes all at once, and the spin
 				-- reverses: everything else in this game opens outward, and a knot is the one thing that
 				-- has to close.
@@ -1444,6 +1483,7 @@ local BINDING: Timeline = {
 			-- 1.50 absolute: the frame MovementService gives the legs back.
 			Duration = 1.28,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The binding holding, and the clock. It turns slowly the wrong way and empties over
 				-- exactly the root that is left. When the ink is gone the victim can move, and nothing
 				-- else had to say so.
@@ -1636,6 +1676,7 @@ local MARGIN: Timeline = {
 			Name = "Cast",
 			Duration = 0.5,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The near face, the broad pass: fourteen studs of ink out of the floor line, the
 				-- collision's width exactly. Back/Out overshoots and settles, which is a slab hitting its
 				-- stops. It ends at 0.76 on the nail, where the standing course below starts at the same
@@ -1848,6 +1889,7 @@ local SWEEP: Timeline = {
 			Name = "Cast",
 			Duration = 0.1,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The hand's own stroke, on the brush texture and not as a cone: a cone is a shape and a
 				-- shape is a weapon, a stroke is a gesture. It spins slowly rather than fast, because a
 				-- swipe that spins fast is a propeller.
@@ -1890,6 +1932,7 @@ local SWEEP: Timeline = {
 			Name = "Impact",
 			Duration = 0.18,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The wipe in the air, at the width of the damage. Params.Radius is 12, so the sphere the
 				-- server queries is twenty-four studs across (twenty-three where it crosses the floor,
 				-- being centred at root height), and this is drawn at twenty-four inside a quarter second,
@@ -2069,6 +2112,7 @@ local HAIRLINE: Timeline = {
 			Name = "Cast",
 			Duration = 0.05,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The nib touching down: three studs of brush stroke, dry at both ends, gone before the
 				-- body has cleared the hand.
 				{
@@ -2111,6 +2155,7 @@ local HAIRLINE: Timeline = {
 			-- decides the length of the flight.
 			Duration = 0.46,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -2268,6 +2313,7 @@ local SPIRAL: Timeline = {
 			-- the packet.
 			Duration = 2.4,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- Four rings, closing, one per pull. The anti-shockwave: in every other game a ring on the
 				-- ground means a blast went off, so a ring that runs backwards is the cheapest way to say
 				-- this one takes instead of gives.
@@ -2493,6 +2539,7 @@ local POUNCE: Timeline = {
 			-- Params.Ticks (3) times Params.TickInterval (0.9).
 			Duration = 2.7,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- Three pours. Seven studs of fall at thirteen to twenty-two studs a second lands well
 				-- inside the tick, which is what keeps the powder and the damage on the same beat.
 				{
@@ -2752,6 +2799,7 @@ local SERIF: Timeline = {
 			Name = "Impact",
 			Duration = 0.32,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The five feet. At and Offset are the server's schedule and the server's damage points
 				-- written out -- 0.08 apart, FIVE studs apart, from six to twenty-six. Nothing derives
 				-- them at runtime, which is why a balance change to Spacing has to be made here too and
@@ -3051,6 +3099,7 @@ local STIPPLE: Timeline = {
 			Name = "Cast",
 			Duration = 0.04,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- A tight cone, not a spray. Fourteen degrees says a dart left the hand; Brand's thirty
 				-- says something was lobbed.
 				{
@@ -3083,6 +3132,7 @@ local STIPPLE: Timeline = {
 			Name = "Travel",
 			Duration = 0.64,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -3288,6 +3338,7 @@ local GILDING: Timeline = {
 			Name = "Cast",
 			Duration = 0.22,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The burnish. The halo collapses onto the body: Quint-In barely moves, then goes all at
 				-- once, which is the shape of leaf being pressed down. It does not fold to a point like
 				-- the cast's seal -- it stops at 3.4 studs, on him, because it is not going anywhere.
@@ -3524,6 +3575,7 @@ local RUPTURE: Timeline = {
 			Name = "Impact",
 			Duration = 0.3,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The tear opening, first beat: the nib goes through and the crack runs twenty studs out
 				-- in two frames. Quart-Out throws it and lets it arrive.
 				{
@@ -3744,6 +3796,7 @@ local SCORCH: Timeline = {
 			Name = "Cast",
 			Duration = 0.16,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The radius, written ONCE, on the seal texture rather than the shockwave ring: AssetIds
 				-- calls SealRing "the art direction's signature image", and the boundary of an ink zone is a
 				-- seal burnt into the page. Size is a diameter, so 26 is exactly the 13 studs the server
@@ -3855,6 +3908,7 @@ local SCORCH: Timeline = {
 			-- and 0.8 s of burning drawn over safe ground teaches a rhythm the server does not have.
 			Duration = 1.44,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- Ticks two and three, on the server's own clock, each a fresh curtain caught by the body
 				-- carrying the fire. Two curtains overlap for a moment at every handover and that doubling
 				-- IS the flare: the page catching again, at the centre the server is damaging.
@@ -4075,6 +4129,7 @@ local LIGATURE: Timeline = {
 			-- the foot lands rather than after it.
 			Duration = 0.25,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- Sixteen studs, not twenty: the caster travels 20 but the INK ends at 16, and the ink is
 				-- what burns. Two studs of arc because a joining stroke bows, and sine-in-out because a
 				-- stroke is pressed, carried and lifted -- which is also what puts the nib over each pool at
@@ -4272,6 +4327,7 @@ local LIGATURE: Timeline = {
 			-- that and nothing here outlives it except the char.
 			Duration = 1.44,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- Four flares on the server's own tick times. One light at the line's midpoint with a range
 				-- of 17 reaches both ends of a 16-stud stroke, which reads better and costs less than five
 				-- lights arguing about which pool flared.
@@ -4503,6 +4559,7 @@ local BLOT: Timeline = {
 			Name = "Cast",
 			Duration = 0.08,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- Ink spattered off the hand, not a spark burst: an overloaded nib throws matter, and this
 				-- is the same substance the clot is made of two frames later. It is also what separates the
 				-- school's most expensive release from its cheapest, which shared one burst until now.
@@ -4564,6 +4621,7 @@ local BLOT: Timeline = {
 			Name = "Travel",
 			Duration = 0.92,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- Five studs forward is the server's SpawnOffset; four up is the arc's seam, split (see the
 				-- block comment). Spin makes the clot tumble: every rider takes the carrier's whole CFrame,
 				-- so one field turns four layers.
@@ -4761,6 +4819,7 @@ local STRIKE: Timeline = {
 			Name = "Cast",
 			Duration = 0.12,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The crack of the nib on the page. Short and sharp rather than heavy: this is a
 				-- four-second basic, and it must never feel like the ultimate four inputs away.
 				{ Kind = "Shake", At = 0, For = 0.05, Profile = "Light" },
@@ -4995,6 +5054,7 @@ local CARET: Timeline = {
 			Name = "Cast",
 			Duration = 0.1,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- Travel is the glyph's Range and Arc is the caret's rise. The mark is not drawn ON the
 				-- path; the path IS the mark.
 				{
@@ -5201,6 +5261,7 @@ local WATERMARK: Timeline = {
 			-- The last tick (2.1) plus the press it fires. Not the packet's Duration: see the header.
 			Duration = 2.34,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- The watermark coming up in the light. Circular-out spreads to the rim fast and then
 				-- settles, and the transparency runs the WRONG way on purpose -- from almost invisible to
 				-- half -- because a watermark does not arrive, it becomes visible.
@@ -5506,6 +5567,7 @@ local COLOPHON: Timeline = {
 			Name = "Cast",
 			Duration = 0.16,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The pressure. Size is width AND an eighth of the length: 7.5 draws a sixty-stud stroke
 				-- seven and a half studs wide at its root, tapering to a third of that at the tip, which
 				-- is the wedge a pen makes when it is pressed and lifted. buildBeam fixes the length from
@@ -5571,6 +5633,7 @@ local COLOPHON: Timeline = {
 			Name = "Impact",
 			Duration = 0.2,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- activate() places a Shake at the play's Origin, not at a layer's Offset, so this is
 				-- felt from the muzzle rather than from the body it struck. That is the right end anyway:
 				-- the caster should feel what fifty-five ink bought. Every link's own weight arrives with
@@ -5767,6 +5830,7 @@ local COLOPHON_LINK: Timeline = {
 			Name = "Impact",
 			Duration = 0.14,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
 				-- Spray along the arc, not a sphere at the end of it, and long enough to actually spread.
 				{
 					Kind = "Emitter",
@@ -5895,6 +5959,8 @@ local BOSS_SLAM: Timeline = {
 			Duration = 1.2,
 			Window = true,
 			Layers = {
+				-- The warning, stretched to the window: a shorter warning is the same sound, higher and faster.
+				{ Kind = "Sound", At = 0, For = 1, Sfx = "BossWarn", Fit = true },
 				-- The light is the earliest legible thing at forty studs, so it goes first and spans the
 				-- whole window.
 				{
@@ -5978,6 +6044,7 @@ local BOSS_SLAM: Timeline = {
 			Name = "Impact",
 			Duration = 0.4,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossImpact", Duck = 0.8 },
 				-- The flood is not switched off on the frame the hit lands: it burns off the page, which is
 				-- the hand-off rule 3 asks for.
 				{
@@ -6103,6 +6170,8 @@ local BOSS_FURY: Timeline = {
 			Duration = 2,
 			Window = true,
 			Layers = {
+				-- The warning, stretched to the window: a shorter warning is the same sound, higher and faster.
+				{ Kind = "Sound", At = 0, For = 1, Sfx = "BossWarn", Fit = true },
 				{
 					Kind = "Light",
 					At = 0,
@@ -6194,6 +6263,7 @@ local BOSS_FURY: Timeline = {
 			Name = "Impact",
 			Duration = 0.5,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossImpact", Duck = 0.8 },
 				{
 					Kind = "Mark",
 					At = 0,
@@ -6336,6 +6406,8 @@ local BOSS_SWEEP: Timeline = {
 			Duration = 1,
 			Window = true,
 			Layers = {
+				-- The warning, stretched to the window: a shorter warning is the same sound, higher and faster.
+				{ Kind = "Sound", At = 0, For = 1, Sfx = "BossWarn", Fit = true },
 				{
 					Kind = "Light",
 					At = 0,
@@ -6467,6 +6539,7 @@ local BOSS_SWEEP: Timeline = {
 			Name = "Impact",
 			Duration = 0.4,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossImpact", Duck = 0.8 },
 				-- The blow itself is one stroke down the whole length, narrower than the widest part of
 				-- the wedge: the warning was the shape, this is the weight. The bars end at 0.2 and this
 				-- opens at 0.06, so nothing on the floor is switched off.
@@ -6598,6 +6671,8 @@ local BOSS_ERUPTION: Timeline = {
 			Duration = 1.6,
 			Window = true,
 			Layers = {
+				-- The warning, stretched to the window: a shorter warning is the same sound, higher and faster.
+				{ Kind = "Sound", At = 0, For = 1, Sfx = "BossWarn", Fit = true },
 				{
 					Kind = "Light",
 					At = 0,
@@ -6696,6 +6771,7 @@ local BOSS_ERUPTION: Timeline = {
 			Name = "Impact",
 			Duration = 0.5,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossImpact", Duck = 0.8 },
 				{
 					Kind = "Mark",
 					At = 0,
@@ -7016,6 +7092,7 @@ local BOSS_SPAWN: Timeline = {
 			Name = "Anticipation",
 			Duration = 0.9,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossArrival", Duck = 2.6 },
 				{
 					Kind = "Mark",
 					At = 0,
@@ -7223,6 +7300,7 @@ local BOSS_DEFEATED: Timeline = {
 			Name = "Anticipation",
 			Duration = 0.6,
 			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossDefeat", Duck = 2.2 },
 				{
 					Kind = "Mark",
 					At = 0,

@@ -32,7 +32,7 @@ export type Packet = {
 }
 
 export type Api = {
-	Sound: { play: (sfxId: string, position: Vector3?) -> () },
+	Sound: { play: (sfxId: string, position: Vector3?, options: any?) -> (), duck: (seconds: number) -> () },
 	PigmentColor: (pigment: string) -> Color3,
 	LocalCharacter: () -> Model?,
 	-- The Feel controller, untyped here on purpose: this module is required by the client only, and a
@@ -58,6 +58,7 @@ type TimelineContext = {
 	Window: number?,
 	Radius: number?,
 	Reach: number?,
+	Pigment: string?,
 	Follow: BasePart?,
 }
 
@@ -97,6 +98,9 @@ local GROUND_PROBE_STUDS = 24
 local HEAVY_HIT_DAMAGE = 25
 -- How much of a shake survives for a fight the local player is not in.
 local DISTANT_HIT_SCALE = 0.55
+-- The music dips under a heavy hit for this long (docs/JUICE_PLAN.md phase 5: ducking on the heavy
+-- impacts). Short: a duck that outlives the hit-stop is a mixer move, not a blow.
+local HEAVY_HIT_DUCK_SECONDS = 0.45
 -- Damage you took is red, whatever pigment dealt it (docs/ART_BIBLE.md: red means danger to you).
 local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
 -- Brand's blast radius (GlyphConfig), which the Explosion timeline is authored at. A packet carrying
@@ -341,14 +345,6 @@ local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency:
 	play(trove, shield, seconds, { Transparency = 1, Size = Vector3.one * 7.5 })
 end
 
--- Plays the glyph's own sound when the server attached one to the packet (as the Cast packet does).
-local function playPacketSound(packet: Packet, api: Api)
-	local sfxId = stringParam(packet, "SfxId", "")
-	if sfxId ~= "" then
-		api.Sound.play(sfxId, packet.Origin)
-	end
-end
-
 -- Casting flash at the caster, colored by the glyph pigment, with its cast sound.
 VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	-- What this replaced was one ball that grew and one spark burst, played identically by all twenty
@@ -357,16 +353,14 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	--
 	-- It is now the Cast timeline: a seal drawn in the air, held, and folded into a point that releases.
 	-- The renderer's whole job is to say who cast it, where, and in what pigment.
+	local pigment = stringParam(packet, "Pigment", "")
 	api.Timeline.play("Cast", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(stringParam(packet, "Pigment", "")),
+		Color = api.PigmentColor(pigment),
+		Pigment = pigment,
 		Follow = casterRoot(packet),
 	})
-	local sfxId = stringParam(packet, "SfxId", "")
-	if sfxId ~= "" then
-		api.Sound.play(sfxId, packet.Origin)
-	end
 	-- The field of view and the pad belong to the person who cast it, and to nobody else. The timeline's
 	-- own shake layer is distance-attenuated, so bystanders feel the cast without being punched by it.
 	if packet.Caster == api.LocalUserId then
@@ -386,6 +380,7 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
 		Color = api.PigmentColor("Cinnabar"),
+		Pigment = "Cinnabar",
 	})
 end
 
@@ -395,13 +390,14 @@ end
 -- glyph: a blast drawn smaller than it hurts is the most expensive lie a fighting game can tell.
 VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", numberParam(packet, "BlastRadius", DEFAULT_BLAST_RADIUS))
+	local pigment = stringParam(packet, "Pigment", "")
 	api.Timeline.play("Explosion", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(stringParam(packet, "Pigment", "")),
+		Color = api.PigmentColor(pigment),
+		Pigment = pigment,
 		Scale = radius / DEFAULT_BLAST_RADIUS,
 	})
-	api.Sound.play("ImpactExplosion", packet.Origin)
 end
 
 -- Every glyph's visual is its timeline (Config/VfxTimelineConfig). The renderer's whole job is to say
@@ -417,13 +413,14 @@ end
 -- would otherwise have to remember to make per glyph.
 local function playGlyph(id: string, packet: Packet, api: Api)
 	local def = GlyphConfig.ById[id]
+	local pigment = if def ~= nil then def.Pigment else stringParam(packet, "Pigment", "")
 	api.Timeline.play(id, {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(if def ~= nil then def.Pigment else stringParam(packet, "Pigment", "")),
+		Color = api.PigmentColor(pigment),
+		Pigment = pigment,
 		Follow = casterRoot(packet),
 	})
-	playPacketSound(packet, api)
 end
 
 VfxLibrary.Wash = function(packet: Packet, _trove: TroveType, api: Api)
@@ -524,7 +521,13 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 		if direction.Magnitude < 1e-3 then
 			direction = directionOf(packet)
 		end
-		api.Timeline.play("ColophonLink", { Origin = point, Direction = direction.Unit, Color = color })
+		api.Timeline.play("ColophonLink", {
+			Origin = point,
+			Direction = direction.Unit,
+			Color = color,
+			-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
+			Pigment = "Orpiment",
+		})
 	end
 end
 
@@ -555,6 +558,9 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 		Scale = if heavy then 1.35 else 1,
 	})
 	api.Sound.play("ImpactHit", packet.Origin)
+	if heavy then
+		api.Sound.duck(HEAVY_HIT_DUCK_SECONDS)
+	end
 
 	local feel = api.Feel
 	local dealtByMe = packet.Caster == api.LocalUserId
@@ -718,10 +724,9 @@ end
 -- (Config/VfxTimelineConfig): a radius changed in WorldBossConfig moves the paint with it, and
 -- tests/BossTelegraph.spec.luau samples the shipped numbers to prove the paint covers the damage.
 --
--- The impact sound is scheduled on the same resolved window the visual uses, through
--- VfxTimelineConfig.phaseAt, rather than on the raw parameter. They clamp the same way, so the hit can
--- never be heard before it is seen -- and never heard at all for a timeline that was not drawn.
-local function playBossAttack(id: string, packet: Packet, trove: TroveType, api: Api): TimelineContext?
+-- The sound is the timeline's: BossWarn is a Sound layer fitted to the window, BossImpact one in the
+-- Impact phase, so the ear and the eye are scheduled by the same phase arithmetic and cannot disagree.
+local function playBossAttack(id: string, packet: Packet, api: Api): TimelineContext?
 	local ground = bossGround(packet)
 	local radius = math.max(numberParam(packet, "Radius", 20), 1)
 	local window = numberParam(packet, "Telegraph", 1)
@@ -739,31 +744,25 @@ local function playBossAttack(id: string, packet: Packet, trove: TroveType, api:
 	if not api.Timeline.play(id, context) then
 		return nil
 	end
-	local impactAt = VfxTimelineConfig.phaseAt(id, "Impact", window)
-	if impactAt ~= nil then
-		after(trove, impactAt, function()
-			api.Sound.play("ImpactExplosion", ground)
-		end)
-	end
 	return context
 end
 
 VfxLibrary.BossSlam = function(packet: Packet, trove: TroveType, api: Api)
-	local context = playBossAttack("BossSlam", packet, trove, api)
+	local context = playBossAttack("BossSlam", packet, api)
 	if context ~= nil then
 		scourAfter("BossSlam", context, trove, api, context.Origin, context.Radius or 1)
 	end
 end
 
 VfxLibrary.BossFury = function(packet: Packet, trove: TroveType, api: Api)
-	local context = playBossAttack("BossFury", packet, trove, api)
+	local context = playBossAttack("BossFury", packet, api)
 	if context ~= nil then
 		scourAfter("BossFury", context, trove, api, context.Origin, context.Radius or 1)
 	end
 end
 
 VfxLibrary.BossSweep = function(packet: Packet, trove: TroveType, api: Api)
-	local context = playBossAttack("BossSweep", packet, trove, api)
+	local context = playBossAttack("BossSweep", packet, api)
 	if context ~= nil then
 		-- A blot at mid-stroke: the residue is not the rule, so a disc over a wedge is allowed to spill.
 		local reach = context.Reach or 1
@@ -773,7 +772,7 @@ VfxLibrary.BossSweep = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 VfxLibrary.BossEruption = function(packet: Packet, trove: TroveType, api: Api)
-	local context = playBossAttack("BossEruption", packet, trove, api)
+	local context = playBossAttack("BossEruption", packet, api)
 	if context == nil then
 		return
 	end
@@ -791,7 +790,7 @@ end
 
 -- The arrival and the end. They damage nobody, so they measure nothing: they are authored in studs against
 -- the body the config ships and scaled by the height the packet carries.
-local function playBossEvent(id: string, packet: Packet, trove: TroveType, api: Api)
+local function playBossEvent(id: string, packet: Packet, api: Api)
 	local ground = bossGround(packet)
 	local height = math.max(numberParam(packet, "Height", AUTHORED_BOSS_HEIGHT_STUDS), 1)
 	api.Timeline.play(id, {
@@ -800,20 +799,14 @@ local function playBossEvent(id: string, packet: Packet, trove: TroveType, api: 
 		Color = ERASURE_COLOR,
 		Scale = height / AUTHORED_BOSS_HEIGHT_STUDS,
 	})
-	local impactAt = VfxTimelineConfig.phaseAt(id, "Impact", nil)
-	if impactAt ~= nil then
-		after(trove, impactAt, function()
-			api.Sound.play("ImpactExplosion", ground)
-		end)
-	end
 end
 
-VfxLibrary.BossSpawn = function(packet: Packet, trove: TroveType, api: Api)
-	playBossEvent("BossSpawn", packet, trove, api)
+VfxLibrary.BossSpawn = function(packet: Packet, _trove: TroveType, api: Api)
+	playBossEvent("BossSpawn", packet, api)
 end
 
-VfxLibrary.BossDefeated = function(packet: Packet, trove: TroveType, api: Api)
-	playBossEvent("BossDefeated", packet, trove, api)
+VfxLibrary.BossDefeated = function(packet: Packet, _trove: TroveType, api: Api)
+	playBossEvent("BossDefeated", packet, api)
 end
 
 return VfxLibrary

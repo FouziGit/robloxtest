@@ -286,7 +286,7 @@ local function onCastGlyph(player: Player, sequence: { string })
 		Origin = origin.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { GlyphId = def.Id, SfxId = def.SfxId, Pigment = def.Pigment },
+		Params = { GlyphId = def.Id, Pigment = def.Pigment },
 	})
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
 	notify.send(player, "hud.cast.success", { name = def.NameKey }, "Info")

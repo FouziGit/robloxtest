@@ -137,7 +137,30 @@ une brûlure au sol — n'est simplement pas dessinée plutôt que de laisser un
 La seule exception est un avertissement du boss, qui se dessine nu : une règle ne disparaît pas parce que
 l'art est en retard.
 
-## 8. Assets à remplacer plus tard
+## 8. Téléverser les cinquante-six sons (20 minutes, une seule fois)
+
+Même principe que les textures : les WAV sont dans `assets/audio/`, générés par les scripts de
+`tools/audio/` (`python3 tools/audio/generate_all.py` les réécrit à l'identique), et **tant qu'ils ne sont
+pas en ligne le jeu est silencieux** — pas de son de repli, parce que le seul repli disponible est le
+ping du moteur, et un ping du moteur est le son de tous les autres jeux.
+
+1. Creator Dashboard → **Creations** → **Development Items** → **Audio** → **Upload**.
+2. Téléverse les cinquante-six fichiers de `assets/audio/`. Ce sont des WAV 16 bits mono, 22 050 Hz
+   pour les effets et 16 000 Hz pour les trois boucles ; aucun ne dépasse 900 Ko. Roblox les passe en
+   modération ; compte quelques minutes par fichier, et le compte de l'expérience doit être le tien
+   pour que les sons privés y soient jouables.
+3. Pour chacun, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
+   `src/shared/Config/SoundConfig.luau`. Chaque entrée nomme déjà son fichier source dans `Source`.
+   Les vingt voix des pigments s'appellent `<Pigment><Voix>` (`CinnabarImpact`), les boucles sont
+   dans `SoundConfig.Music`.
+4. Relance `./scripts/check.sh` : `tests/SoundConfig.spec.luau` refuse un identifiant qui n'est pas de
+   la forme `rbxassetid://<nombre>`, et refuse une entrée dont le WAV n'existe pas ou n'a pas la durée,
+   le débit ou le format déclarés.
+
+Tant qu'un identifiant est vide, le client l'annonce **une fois** au démarrage en nommant l'entrée,
+puis se tait pour elle.
+
+## 9. Assets à remplacer plus tard
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).
 

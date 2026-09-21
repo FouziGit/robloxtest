@@ -21,9 +21,12 @@ trace là où il atterrit. `tests/VfxTimeline.spec.luau` refuse le build autreme
 | Un porteur pour chaque passager, un passager pour chaque porteur | `Ride` croisé avec `Carrier` |
 | Aucune couleur dans une timeline | tout champ dont le nom contient « color » est refusé |
 
-**Le son en couches n'est pas là.** La barre de la passe 4 le demande ; la passe 5 le construit en entier,
-avec l'attaque, le corps, la queue, l'impact et la variation de hauteur. Aujourd'hui chaque effet joue un
-son unique depuis son rendu, comme avant. Ce n'est pas fait, et ce n'est pas prétendu fait.
+**Le son en couches est là depuis la passe 5.** Une timeline porte des couches `Sound` comme elle porte
+des lumières : l'attaque dans l'anticipation du `Cast` partagé, le corps dans le `Cast` du glyphe, la
+queue montée sur le porteur en `Travel`, l'impact dans `Impact`. Une couche nomme une **voix** et le rendu
+nomme le pigment, donc cinq matières servent vingt glyphes (`SoundConfig.voiceKey`), et
+`tests/VfxTimeline.spec.luau` refuse un glyphe dont une phase n'a pas sa voix. La hauteur varie de ±5 %
+à chaque jeu ; les sons sont ceux de `tools/audio/`, aucun autre (`docs/ASSETS.md`).
 
 ---
 
@@ -816,9 +819,11 @@ un sens. La page est rendue dans l'autre sens.
 
 ## Ce qui n'est pas fait
 
-**Le son en couches, encore.** Les six effets jouent un seul `ImpactExplosion`, programmé sur la fin de
-l'avertissement par `VfxTimelineConfig.phaseAt` — donc au bon instant, ce qui est le minimum, mais un seul
-son, et le son de toute détonation. La passe 5 le construit en entier, et donne au boss le sien.
+**Le son est le sien, depuis la passe 5.** `BossWarn` est une couche `Sound` ajustée à la fenêtre
+(`Fit`) : le même fichier de deux secondes, joué à la vitesse qui le fait finir sur le coup, donc plus
+haut et plus pressé quand la phase raccourcit l'avertissement. `BossImpact` tombe avec la phase Impact
+et baisse la musique (`Duck`), l'arrivée porte `BossArrival` sur toute la pulsation `Erasure`, la fin
+`BossDefeat`. Tout ça sort de `tools/audio/kit.py`.
 
 **Rien ne remplace le corps du boss.** Ces fiches décrivent ce qu'il **fait** ; le boss lui-même est
 encore un bloc gris de 8 × 14 × 8 studs construit par `WorldBossService`. C'est la passe 7 (« le monde »)

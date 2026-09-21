@@ -5,10 +5,10 @@
 -- initial visual state, so screens build their first page explicitly.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -102,9 +102,7 @@ function Tabs.new(props: Props): Tabs
 				textColor = Theme.Colors.Text
 			end
 			button.TextColor3 = textColor
-			TweenService:Create(button, TweenInfo.new(Theme.Animation.Fast), {
-				BackgroundTransparency = transparency,
-			}):Play()
+			Motion.to(button, { BackgroundTransparency = transparency }, "UiSnappy")
 		end
 	end
 
@@ -126,7 +124,7 @@ function Tabs.new(props: Props): Tabs
 		button.BackgroundColor3 = Theme.Colors.Accent
 		button.BackgroundTransparency = 1
 		button.BorderSizePixel = 0
-		button.Font = Theme.Fonts.Bold
+		button.FontFace = Theme.Fonts.Bold
 		button.TextSize = Theme.Sizes.TextBody
 		button.TextColor3 = Theme.Colors.TextMuted
 		button.Text = item.Text
@@ -135,6 +133,9 @@ function Tabs.new(props: Props): Tabs
 		-- Equal share of the width minus the gaps between tabs.
 		button.Size = UDim2.new(1 / count, -INSET * (count - 1) / count, 1, 0)
 		button.SelectionImageObject = trove:Add(makeSelectionImage())
+		trove:Add(function()
+			Motion.cancel(button)
+		end)
 
 		local buttonCorner = Instance.new("UICorner")
 		buttonCorner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)

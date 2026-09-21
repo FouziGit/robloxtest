@@ -110,7 +110,7 @@ function DailyScreen.new(deps: Deps): Screen
 	streakLabel.Name = "Streak"
 	streakLabel.BackgroundTransparency = 1
 	streakLabel.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
-	streakLabel.Font = Theme.Fonts.Bold
+	streakLabel.FontFace = Theme.Fonts.Bold
 	streakLabel.TextSize = Theme.Sizes.TextBody
 	streakLabel.TextColor3 = Theme.Colors.Accent
 	streakLabel.TextXAlignment = Enum.TextXAlignment.Left

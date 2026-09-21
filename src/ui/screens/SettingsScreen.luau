@@ -184,7 +184,7 @@ function SettingsScreen.new(deps: Deps): Screen
 	status.Name = "Status"
 	status.BackgroundTransparency = 1
 	status.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
-	status.Font = Theme.Fonts.Body
+	status.FontFace = Theme.Fonts.Body
 	status.TextSize = Theme.Sizes.TextSmall
 	status.TextColor3 = Theme.Colors.TextMuted
 	status.TextXAlignment = Enum.TextXAlignment.Left

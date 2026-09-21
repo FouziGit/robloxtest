@@ -158,7 +158,7 @@ local function makeLine(
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, height)
 	label.LayoutOrder = order
-	label.Font = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
+	label.FontFace = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
 	label.TextSize = size
 	label.TextColor3 = color
 	label.TextXAlignment = Enum.TextXAlignment.Left

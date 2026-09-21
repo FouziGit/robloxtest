@@ -96,7 +96,7 @@ local function makeStatusLabel(name: string, color: Color3, order: number, paren
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = color
 	label.TextXAlignment = Enum.TextXAlignment.Left
@@ -120,7 +120,7 @@ local function makeLine(
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, height)
 	label.LayoutOrder = order
-	label.Font = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
+	label.FontFace = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
 	label.TextSize = size
 	label.TextColor3 = color
 	label.TextXAlignment = Enum.TextXAlignment.Left

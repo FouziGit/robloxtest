@@ -149,6 +149,7 @@ hud.ink,Ink,Vellum,,Ink,Encre
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
 hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
+hud.sequence.streak,×{count},Vellum,,×{count},×{count}
 hud.status.bonus,{status}: +{percent}% damage,Vellum,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
 hud.tierUp,Battle pass tier {tier} unlocked!,Vellum,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
 kick.abuse,Disconnected: too many invalid requests.,Vellum,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.

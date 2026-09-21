@@ -128,7 +128,7 @@ local function makeRatingSlot(tierText: string, ratingText: string): Frame
 	tier.Size = UDim2.fromScale(0, 1)
 	tier.AutomaticSize = Enum.AutomaticSize.X
 	tier.LayoutOrder = 1
-	tier.Font = Theme.Fonts.Body
+	tier.FontFace = Theme.Fonts.Body
 	tier.TextSize = Theme.Sizes.TextSmall
 	tier.TextColor3 = Theme.Colors.TextMuted
 	tier.TextXAlignment = Enum.TextXAlignment.Right
@@ -141,7 +141,7 @@ local function makeRatingSlot(tierText: string, ratingText: string): Frame
 	rating.Size = UDim2.fromScale(0, 1)
 	rating.AutomaticSize = Enum.AutomaticSize.X
 	rating.LayoutOrder = 2
-	rating.Font = Theme.Fonts.Bold
+	rating.FontFace = Theme.Fonts.Bold
 	rating.TextSize = Theme.Sizes.TextBody
 	rating.TextColor3 = Theme.Colors.Accent
 	rating.TextXAlignment = Enum.TextXAlignment.Right
@@ -199,7 +199,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	youLabel.BackgroundTransparency = 1
 	youLabel.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
 	youLabel.LayoutOrder = 2
-	youLabel.Font = Theme.Fonts.Bold
+	youLabel.FontFace = Theme.Fonts.Bold
 	youLabel.TextSize = Theme.Sizes.TextBody
 	youLabel.TextColor3 = Theme.Colors.Accent
 	youLabel.TextXAlignment = Enum.TextXAlignment.Left

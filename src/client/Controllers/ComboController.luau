@@ -35,6 +35,10 @@ local DISSIPATE_SFX = "SequenceDissipate"
 local ComboController = {}
 
 ComboController.SequenceChanged = Signal.new() -- (sequence: { string })
+-- A sequence that resolved into a cast, with its length, and one that broke: no glyph matched, or it
+-- dissipated. The HUD counts the first in a row until the second.
+ComboController.SequenceResolved = Signal.new() -- (length: number)
+ComboController.SequenceBroken = Signal.new()
 
 local remoteClient: any
 local soundController: any
@@ -78,9 +82,11 @@ local function armTimer(delay: number)
 			-- here, by the window running out. Their phrase resolves too.
 			soundController.play(RESOLVE_SFX)
 			cast(pending)
+			ComboController.SequenceResolved:Fire(#pending)
 		elseif decision.Action == "Reset" and decision.Reason == "Dissipated" then
 			hudController.showLocalToast("hud.combo.dissipated", nil, "Error")
 			soundController.play(DISSIPATE_SFX)
+			ComboController.SequenceBroken:Fire()
 		end
 		setSequence({})
 	end)
@@ -99,6 +105,7 @@ local function onAction(actionId: string, began: boolean)
 		playNote(actionId, #full)
 		soundController.play(RESOLVE_SFX)
 		cast(full)
+		ComboController.SequenceResolved:Fire(#full)
 		setSequence({})
 	elseif decision.Action == "Wait" then
 		playNote(actionId, #next)
@@ -108,6 +115,7 @@ local function onAction(actionId: string, began: boolean)
 		if decision.Action == "Reset" and decision.Reason == "NoMatch" then
 			hudController.showLocalToast("hud.combo.noMatch", nil, "Error")
 			soundController.play(FAIL_SFX)
+			ComboController.SequenceBroken:Fire()
 		end
 		setSequence({})
 	end

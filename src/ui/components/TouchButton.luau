@@ -6,10 +6,10 @@
 -- from the disc so a localized action name shrinks to fit instead of being cut off.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -36,8 +36,6 @@ local PRESSED_SCALE = 0.9
 local STROKE_THICKNESS = 2
 local STROKE_TRANSPARENCY = 0.5
 local LABEL_STROKE_TRANSPARENCY = 0.35
--- Rec. 709 relative luminance above which a disc counts as light and takes the dark glyph.
-local LIGHT_DISC_LUMINANCE = 0.55
 -- Label size as a fraction of the disc diameter: half a disc is what a single glyph fills without
 -- touching the ring. Localized words are longer than a glyph, so TextScaled shrinks them from there
 -- down to LABEL_MIN_TEXT_SIZE instead of truncating.
@@ -47,11 +45,9 @@ local LABEL_MIN_TEXT_SIZE = 10
 -- Glyph color and its outline for a disc of `color`: the pair is always the light/dark contrast, so a
 -- semi-transparent disc over a bright world stays legible.
 local function labelColors(color: Color3): (Color3, Color3)
-	local luminance = 0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B
-	if luminance > LIGHT_DISC_LUMINANCE then
-		return Theme.Colors.TextInverse, Theme.Colors.Text
-	end
-	return Theme.Colors.Text, Theme.Colors.TextInverse
+	local ink = Theme.inkOn(color)
+	local outline = if ink == Theme.Colors.Text then Theme.Colors.TextInverse else Theme.Colors.Text
+	return ink, outline
 end
 
 function TouchButton.new(props: Props): TouchButton
@@ -89,7 +85,7 @@ function TouchButton.new(props: Props): TouchButton
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Theme.Fonts.Title
+	label.FontFace = Theme.Fonts.Title
 	label.TextColor3 = textColor
 	label.TextStrokeColor3 = outlineColor
 	label.TextStrokeTransparency = LABEL_STROKE_TRANSPARENCY
@@ -105,13 +101,15 @@ function TouchButton.new(props: Props): TouchButton
 	textSize.Parent = label
 
 	local function render()
-		TweenService:Create(frame, TweenInfo.new(Theme.Animation.Fast), {
+		Motion.to(frame, {
 			BackgroundTransparency = if pressed then PRESSED_TRANSPARENCY else IDLE_TRANSPARENCY,
-		}):Play()
-		TweenService:Create(scale, TweenInfo.new(Theme.Animation.Fast), {
-			Scale = if pressed then PRESSED_SCALE else 1,
-		}):Play()
+		}, "UiSnappy")
+		Motion.to(scale, { Scale = if pressed then PRESSED_SCALE else 1 }, "UiSnappy")
 	end
+	trove:Add(function()
+		Motion.cancel(frame)
+		Motion.cancel(scale)
+	end)
 
 	frame.Parent = props.Parent
 

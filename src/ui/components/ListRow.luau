@@ -61,7 +61,7 @@ local function makeLabel(slot: Slot, text: string, isLeft: boolean): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
-	label.Font = if isLeft then Theme.Fonts.Body else Theme.Fonts.Bold
+	label.FontFace = if isLeft then Theme.Fonts.Body else Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = if isLeft then Theme.Colors.Text else Theme.Colors.TextMuted
 	label.TextTruncate = Enum.TextTruncate.AtEnd

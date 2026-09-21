@@ -4,10 +4,10 @@
 -- button at Theme.MinTouchTarget real pixels even where the ScreenRoot UIScale shrinks the layout.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -40,6 +40,8 @@ local Button = {}
 local DISABLED_TRANSPARENCY = 0.55
 local HOVER_SHADE = 0.08
 local PRESSED_SHADE = -0.1
+-- A press squashes the button and the spring brings it back: the overshoot is the click.
+local PRESSED_SCALE = 0.96
 local SELECTION_THICKNESS = 3
 
 local function paletteFor(variant: Variant): Palette
@@ -82,7 +84,7 @@ function Button.new(props: Props): Button
 	button.AutoButtonColor = false
 	button.BackgroundColor3 = palette.Background
 	button.BorderSizePixel = 0
-	button.Font = Theme.Fonts.Bold
+	button.FontFace = Theme.Fonts.Bold
 	button.TextSize = Theme.Sizes.TextBody
 	button.TextColor3 = palette.Text
 	button.Text = props.Text
@@ -92,6 +94,13 @@ function Button.new(props: Props): Button
 	button.Selectable = not disabled
 	button.SelectionImageObject = trove:Add(makeSelectionImage())
 	trove:Add(button)
+	trove:Add(function()
+		Motion.cancel(button)
+	end)
+
+	local scale = Instance.new("UIScale")
+	scale.Name = "Scale"
+	scale.Parent = button
 
 	Theme.minPixelSize(button, Theme.MinTouchTarget)
 
@@ -122,11 +131,12 @@ function Button.new(props: Props): Button
 		local strokeColor = palette.Stroke
 		stroke.Color = strokeColor or palette.Background
 		stroke.Transparency = if strokeColor ~= nil then transparency else 1
-		TweenService:Create(button, TweenInfo.new(Theme.Animation.Fast), {
+		Motion.to(button, {
 			BackgroundColor3 = background,
 			BackgroundTransparency = transparency,
 			TextTransparency = transparency,
-		}):Play()
+		}, "UiSnappy")
+		Motion.to(scale, { Scale = if pressed then PRESSED_SCALE else 1 }, "UiSnappy")
 	end
 
 	trove:Connect(button.MouseEnter, function()

@@ -18,6 +18,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local GameConfig = require(Shared.Config.GameConfig)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local Motion = require(UI.Motion)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressBar = require(UI.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -46,6 +47,13 @@ local DISPLAY_ORDER = Theme.Layers.Hud
 local COLUMN_WIDTH = 300
 local ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local CHIP_SIZE = 36
+-- Chips grow into the row and collapse out of it (rule 3 of docs/ART_BIBLE.md: nothing appears).
+local CHIP_COLLAPSED = UDim2.fromOffset(0, CHIP_SIZE)
+local CHIP_OPEN = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
+-- The sequence counter: casts resolved in a row, shown from the second one, beside the chips.
+local STREAK_ORDER = 100
+local STREAK_MIN_SHOWN = 2
+local STREAK_POP_SCALE = 1.4
 local COMBO_BOTTOM_MARGIN = 110 -- keeps the chips above the touch thumb cluster
 -- On touch the bars sit above the combo row: the bottom-left corner belongs to the engine thumbstick.
 local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.Gap
@@ -90,6 +98,11 @@ local ryoLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
 local inkBar: ProgressBar.ProgressBar
 local comboRow: Frame
+local streakLabel: TextLabel
+local streakScale: UIScale
+local streak = 0
+local chips: { Frame } = {}
+local chipPigments: { string } = {}
 local hintLabel: TextLabel
 local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
@@ -127,7 +140,7 @@ local function makeLabel(name: string, order: number, parent: Instance): TextLab
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = Theme.Colors.Text
 	label.TextStrokeTransparency = 0.6
@@ -145,7 +158,7 @@ local function makeBandLabel(name: string, order: number, height: number, textSi
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, height)
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = textSize
 	label.TextColor3 = Theme.Colors.Text
 	label.TextStrokeTransparency = 0.6
@@ -209,7 +222,9 @@ local function buildMatchBand(parent: Instance)
 	matchRoundLabel.TextColor3 = Theme.Colors.TextMuted
 	matchScoreLabel = makeBandLabel("Score", 2, BAND_ROW_HEIGHT, Theme.Sizes.TextTitle, matchBand)
 	matchScoreLabel.TextColor3 = Theme.Colors.Accent
+	matchScoreLabel.FontFace = Theme.Fonts.Numeric
 	matchTimerLabel = makeBandLabel("Timer", 3, BAND_ROW_HEIGHT, Theme.Sizes.TextLarge, matchBand)
+	matchTimerLabel.FontFace = Theme.Fonts.Numeric
 
 	matchRoster = Instance.new("Frame")
 	matchRoster.Name = "Roster"
@@ -243,7 +258,14 @@ local function build()
 	local barsAnchor = if touch then Vector2.new(0.5, 1) else Vector2.new(0, 1)
 	local barsPosition = if touch then UDim2.new(0.5, 0, 1, -BARS_TOUCH_BOTTOM_MARGIN) else UDim2.new(0, pad, 1, -pad)
 	local bars = makeColumn("Bars", barsAnchor, barsPosition, content)
-	healthBar = ProgressBar.new({ Name = "HealthBar", Color = Theme.Colors.Health, LayoutOrder = 1, Parent = bars })
+	-- What was just lost stays on the bar in Cinnabar and catches up: a hit reads as a chunk taken out.
+	healthBar = ProgressBar.new({
+		Name = "HealthBar",
+		Color = Theme.Colors.Health,
+		Ghost = Theme.Colors.Danger,
+		LayoutOrder = 1,
+		Parent = bars,
+	})
 	inkBar = ProgressBar.new({ Name = "InkBar", Color = Theme.Colors.Ink, LayoutOrder = 2, Parent = bars })
 
 	comboRow = Instance.new("Frame")
@@ -262,13 +284,31 @@ local function build()
 	comboLayout.Parent = comboRow
 	comboRow.Parent = content
 
+	streakLabel = Instance.new("TextLabel")
+	streakLabel.Name = "Streak"
+	streakLabel.BackgroundTransparency = 1
+	streakLabel.LayoutOrder = STREAK_ORDER
+	streakLabel.Size = UDim2.fromOffset(0, CHIP_SIZE)
+	streakLabel.AutomaticSize = Enum.AutomaticSize.X
+	streakLabel.FontFace = Theme.Fonts.Numeric
+	streakLabel.TextSize = Theme.Sizes.TextHero
+	streakLabel.TextColor3 = Theme.Colors.Text
+	streakLabel.TextStrokeColor3 = Theme.Colors.TextInverse
+	streakLabel.TextStrokeTransparency = 0.4
+	streakLabel.Text = ""
+	streakLabel.Visible = false
+	streakScale = Instance.new("UIScale")
+	streakScale.Name = "Scale"
+	streakScale.Parent = streakLabel
+	streakLabel.Parent = comboRow
+
 	hintLabel = Instance.new("TextLabel")
 	hintLabel.Name = "Hint"
 	hintLabel.BackgroundTransparency = 1
 	hintLabel.AnchorPoint = Vector2.new(1, 0)
 	hintLabel.Position = UDim2.new(1, -pad, 0, pad)
 	hintLabel.Size = UDim2.fromOffset(HINT_WIDTH, ROW_HEIGHT)
-	hintLabel.Font = Theme.Fonts.Body
+	hintLabel.FontFace = Theme.Fonts.Body
 	hintLabel.TextSize = Theme.Sizes.TextSmall
 	hintLabel.TextColor3 = Theme.Colors.TextMuted
 	hintLabel.TextStrokeTransparency = 0.6
@@ -304,7 +344,8 @@ local function makeChip(index: number, pigment: string): Frame
 	local chip = Instance.new("Frame")
 	chip.Name = "Chip" .. index
 	chip.LayoutOrder = index
-	chip.Size = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
+	chip.Size = CHIP_COLLAPSED
+	chip.ClipsDescendants = true
 	chip.BackgroundColor3 = Theme.pigmentColor(pigment)
 	chip.BorderSizePixel = 0
 	local corner = Instance.new("UICorner")
@@ -314,23 +355,69 @@ local function makeChip(index: number, pigment: string): Frame
 	glyph.Name = "Glyph"
 	glyph.BackgroundTransparency = 1
 	glyph.Size = UDim2.fromScale(1, 1)
-	glyph.Font = Theme.Fonts.Bold
+	glyph.FontFace = Theme.Fonts.Bold
 	glyph.TextSize = Theme.Sizes.TextLarge
-	glyph.TextColor3 = Theme.Colors.TextInverse
+	-- Charcoal on Orpiment, vellum on Indigo: the ink that reads on this pigment.
+	glyph.TextColor3 = Theme.inkOn(chip.BackgroundColor3)
 	glyph.Text = PigmentConfig.Sigils[pigment :: any] or ""
 	glyph.Parent = chip
 	return chip
 end
 
+-- The chips that still match the new sequence stay; the rest collapse out of the row and the new ones
+-- grow into it, so a fourth press adds one chip and a cast folds the row shut.
 local function refreshCombo(sequence: { string })
-	for _, child in ipairs(comboRow:GetChildren()) do
-		if child:IsA("Frame") then
-			child:Destroy()
-		end
+	local keep = 0
+	while keep < #chipPigments and keep < #sequence and chipPigments[keep + 1] == sequence[keep + 1] do
+		keep += 1
 	end
-	for index, pigment in ipairs(sequence) do
-		makeChip(index, pigment).Parent = comboRow
+	for index = #chipPigments, keep + 1, -1 do
+		local chip = chips[index]
+		chips[index] = nil
+		chipPigments[index] = nil
+		Motion.to(chip, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
+			chip:Destroy()
+		end)
 	end
+	for index = keep + 1, #sequence do
+		local chip = makeChip(index, sequence[index])
+		chip.Parent = comboRow
+		chips[index] = chip
+		chipPigments[index] = sequence[index]
+		Motion.to(chip, { Size = CHIP_OPEN }, "UiSnappy")
+	end
+end
+
+local function refreshStreak()
+	streakLabel.Text = localize.t("hud.sequence.streak", { count = streak })
+	streakLabel.Visible = streak >= STREAK_MIN_SHOWN
+end
+
+local function onSequenceResolved()
+	streak += 1
+	refreshStreak()
+	if streakLabel.Visible then
+		-- The count lands: it drops onto the row from larger than itself and the spring settles it.
+		streakLabel.TextColor3 = Theme.Colors.Text
+		Motion.set(streakScale, { Scale = STREAK_POP_SCALE })
+		Motion.to(streakScale, { Scale = 1 }, "UiSnappy")
+	end
+end
+
+local function onSequenceBroken()
+	if streak == 0 then
+		return
+	end
+	streak = 0
+	if not streakLabel.Visible then
+		return
+	end
+	-- What is lost turns Cinnabar and folds away.
+	streakLabel.TextColor3 = Theme.Colors.Danger
+	Motion.to(streakScale, { Scale = 0 }, "Ui", function()
+		refreshStreak()
+		Motion.set(streakScale, { Scale = 1 })
+	end)
 end
 
 local function refreshProgression(data: Types.ProfileData)
@@ -393,6 +480,10 @@ end
 local function refreshCombat(state: CombatState)
 	refreshBar(healthBar, "hud.health", state.Health, state.MaxHealth)
 	refreshBar(inkBar, "hud.ink", state.Ink, state.MaxInk)
+	if state.Health <= 0 then
+		-- A caster who fell has no sequence in a row any more.
+		onSequenceBroken()
+	end
 end
 
 -- Roster instances are pooled: a match snapshot lands a few times per second, so nothing is rebuilt.
@@ -431,7 +522,7 @@ local function rosterLabel(teamIndex: number, slot: number): TextLabel
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, ROSTER_ROW_HEIGHT)
 	label.LayoutOrder = slot
-	label.Font = Theme.Fonts.Body
+	label.FontFace = Theme.Fonts.Body
 	label.TextSize = Theme.Sizes.TextSmall
 	label.TextStrokeTransparency = 0.6
 	-- Teams read outwards from the middle of the band: odd teams on the left, even teams on the right.
@@ -572,6 +663,8 @@ function HudController.Start()
 		end
 	end)
 	comboController.SequenceChanged:Connect(refreshCombo)
+	comboController.SequenceResolved:Connect(onSequenceResolved)
+	comboController.SequenceBroken:Connect(onSequenceBroken)
 	combatController.StateChanged:Connect(refreshCombat)
 	refreshCombat(combatController.getState())
 	matchController.MatchChanged:Connect(refreshMatch)

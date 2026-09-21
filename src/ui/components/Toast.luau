@@ -4,10 +4,10 @@
 -- in, stays DURATION_SECONDS, fades out and frees its slot. The caller localizes the text.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -37,6 +37,8 @@ local MAX_PENDING = 8 -- older waiting messages are dropped beyond this
 local DURATION_SECONDS = 2.5
 local WIDTH = 360
 local STROKE_THICKNESS = 2
+-- A message lands from just under its size: rule 3 of docs/ART_BIBLE.md, nothing appears.
+local ENTER_SCALE = 0.92
 
 local function colorFor(kind: Kind): Color3
 	if kind == "Success" then
@@ -78,7 +80,7 @@ local function buildItem(entry: Entry): CanvasGroup
 	label.BackgroundTransparency = 1
 	label.AutomaticSize = Enum.AutomaticSize.Y
 	label.Size = UDim2.fromScale(1, 0)
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = Theme.Colors.Text
 	label.TextWrapped = true
@@ -141,13 +143,20 @@ function Toast.new(props: Props): Toast
 			pump()
 		end
 
-		itemTrove:Add(TweenService:Create(item, TweenInfo.new(Theme.Animation.Fast), { GroupTransparency = 0 })):Play()
+		local scale = Instance.new("UIScale")
+		scale.Name = "Scale"
+		scale.Scale = ENTER_SCALE
+		scale.Parent = item
+		itemTrove:Add(function()
+			Motion.cancel(item)
+			Motion.cancel(scale)
+		end)
+		Motion.to(scale, { Scale = 1 }, "UiSnappy")
+		Motion.to(item, { GroupTransparency = 0 }, "Ui")
 
 		itemTrove:Add(task.delay(DURATION_SECONDS, function()
-			local fadeOut =
-				itemTrove:Add(TweenService:Create(item, TweenInfo.new(Theme.Animation.Slow), { GroupTransparency = 1 }))
-			itemTrove:Connect(fadeOut.Completed, release)
-			fadeOut:Play()
+			-- The slot is released once the fade has settled, not on a timer guessed to match it.
+			Motion.to(item, { GroupTransparency = 1 }, "Ui", release)
 		end))
 	end
 

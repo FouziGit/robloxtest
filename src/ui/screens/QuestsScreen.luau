@@ -118,7 +118,7 @@ local function makeQuestLabel(): (Frame, TextLabel, TextLabel)
 	name.BackgroundTransparency = 1
 	name.Size = UDim2.new(1, 0, 0, NAME_HEIGHT)
 	name.LayoutOrder = 1
-	name.Font = Theme.Fonts.Bold
+	name.FontFace = Theme.Fonts.Bold
 	name.TextSize = Theme.Sizes.TextLarge
 	name.TextColor3 = Theme.Colors.Text
 	name.TextXAlignment = Enum.TextXAlignment.Left
@@ -131,7 +131,7 @@ local function makeQuestLabel(): (Frame, TextLabel, TextLabel)
 	progress.BackgroundTransparency = 1
 	progress.Size = UDim2.new(1, 0, 0, PROGRESS_HEIGHT)
 	progress.LayoutOrder = 2
-	progress.Font = Theme.Fonts.Body
+	progress.FontFace = Theme.Fonts.Body
 	progress.TextSize = Theme.Sizes.TextSmall
 	progress.TextColor3 = Theme.Colors.TextMuted
 	progress.TextXAlignment = Enum.TextXAlignment.Left

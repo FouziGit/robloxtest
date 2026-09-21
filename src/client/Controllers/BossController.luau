@@ -91,7 +91,7 @@ local function makeLabel(
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, height)
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = size
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 0.6

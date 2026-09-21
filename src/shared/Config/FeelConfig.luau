@@ -181,6 +181,9 @@ FeelConfig.Haptics = {
 FeelConfig.Springs = {
 	Ui = { Tension = 260, Friction = 24 },
 	UiSnappy = { Tension = 420, Friction = 30 },
+	-- The ghost of a bar: what was just lost, catching up slowly and never overshooting -- an overshoot
+	-- on a health bar reads as health coming back.
+	UiGhost = { Tension = 28, Friction = 11 },
 	Camera = { Tension = 180, Friction = 26 },
 }
 

@@ -74,7 +74,7 @@ local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?)
 	close.BackgroundTransparency = 1
 	close.BorderSizePixel = 0
 	close.AutoButtonColor = false
-	close.Font = Theme.Fonts.Bold
+	close.FontFace = Theme.Fonts.Bold
 	close.TextSize = Theme.Sizes.TextLarge
 	close.TextColor3 = Theme.Colors.TextMuted
 	close.Text = CLOSE_GLYPH
@@ -173,7 +173,7 @@ function Panel.new(props: Props): Panel
 	title.Name = "Title"
 	title.BackgroundTransparency = 1
 	title.Position = UDim2.fromOffset(Theme.Sizes.Padding, 0)
-	title.Font = Theme.Fonts.Title
+	title.FontFace = Theme.Fonts.Title
 	title.TextSize = Theme.Sizes.TextTitle
 	title.TextColor3 = Theme.Colors.Text
 	title.TextXAlignment = Enum.TextXAlignment.Left

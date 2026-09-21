@@ -1,5 +1,7 @@
 --!strict
--- ResultScreen: the end-of-match summary. MenuController opens it on MatchEnded; the outcome itself is
+-- ResultScreen: the end-of-match summary, composed as the card a player screenshots: the outcome in the
+-- roman, the score in the condensed grotesque at display size over a rule of ink, then the rewards, the
+-- rating and the rank. MenuController opens it on MatchEnded; the outcome itself is
 -- read from MatchController, which kept the last payload the server sent. Shows the result, the score,
 -- the rewards, the rating line, the new rank when the tier changed and the first win of the day, then
 -- closes itself after the mode's ResultSeconds or as soon as the player presses the button.
@@ -11,6 +13,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local Motion = require(script.Parent.Parent.Motion)
 local Panel = require(script.Parent.Parent.components.Panel)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Theme = require(script.Parent.Parent.Theme)
@@ -47,6 +50,11 @@ local BUTTON_WIDTH = 150
 local STATUS_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
 local FALLBACK_RESULT_SECONDS = MatchConfig.Modes[MatchConfig.ModeOrder[1]].ResultSeconds
+-- The rule of ink under the score.
+local RULE_WIDTH = 160
+local RULE_HEIGHT = 2
+-- A new rank is stamped: it lands from larger than itself.
+local STAMP_SCALE = 1.5
 
 -- Dimmed backdrop that also swallows clicks so the world under the screen is not interacted with.
 local function makeOverlay(parent: Instance): Frame
@@ -75,7 +83,7 @@ local function makeLine(name: string, order: number, textSize: number, color: Co
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(1, 0, 0, textSize + Theme.Sizes.PaddingSmall)
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = textSize
 	label.TextColor3 = color
 	label.TextXAlignment = Enum.TextXAlignment.Center
@@ -154,7 +162,7 @@ function ResultScreen.new(deps: Deps): Screen
 	status.Name = "Status"
 	status.BackgroundTransparency = 1
 	status.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
-	status.Font = Theme.Fonts.Body
+	status.FontFace = Theme.Fonts.Body
 	status.TextSize = Theme.Sizes.TextSmall
 	status.TextColor3 = Theme.Colors.TextMuted
 	status.TextXAlignment = Enum.TextXAlignment.Center
@@ -162,11 +170,31 @@ function ResultScreen.new(deps: Deps): Screen
 	status.Text = t("match.returning")
 	status.Parent = panel.Header
 
-	local scoreLine = makeLine("Score", 1, Theme.Sizes.TextHero, Theme.Colors.Accent, panel.Content)
-	local rewardLine = makeLine("Rewards", 2, Theme.Sizes.TextLarge, Theme.Colors.Text, panel.Content)
-	local ratingLine = makeLine("Rating", 3, Theme.Sizes.TextLarge, Theme.Colors.Info, panel.Content)
-	local rankLine = makeLine("RankUp", 4, Theme.Sizes.TextLarge, Theme.Colors.Accent, panel.Content)
-	local firstWinLine = makeLine("FirstWin", 5, Theme.Sizes.TextBody, Theme.Colors.Success, panel.Content)
+	local scoreLine = makeLine("Score", 1, Theme.Sizes.TextDisplay, Theme.Colors.Accent, panel.Content)
+	scoreLine.FontFace = Theme.Fonts.Numeric
+
+	local rule = Instance.new("Frame")
+	rule.Name = "Rule"
+	rule.BackgroundColor3 = Theme.Colors.Accent
+	rule.BorderSizePixel = 0
+	rule.Size = UDim2.fromOffset(RULE_WIDTH, RULE_HEIGHT)
+	rule.LayoutOrder = 2
+	rule.Parent = panel.Content
+
+	local rewardLine = makeLine("Rewards", 3, Theme.Sizes.TextLarge, Theme.Colors.Text, panel.Content)
+	local ratingLine = makeLine("Rating", 4, Theme.Sizes.TextLarge, Theme.Colors.Info, panel.Content)
+	ratingLine.FontFace = Theme.Fonts.Numeric
+	local rankLine = makeLine("RankUp", 5, Theme.Sizes.TextTitle, Theme.Colors.Accent, panel.Content)
+	rankLine.FontFace = Theme.Fonts.Title
+	local rankScale = Instance.new("UIScale")
+	rankScale.Name = "Scale"
+	rankScale.Parent = rankLine
+	local firstWinLine = makeLine("FirstWin", 6, Theme.Sizes.TextBody, Theme.Colors.Success, panel.Content)
+
+	trove:Add(function()
+		Motion.cancel(overlay)
+		Motion.cancel(rankScale)
+	end)
 
 	local footerLayout = Instance.new("UIListLayout")
 	footerLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -232,6 +260,14 @@ function ResultScreen.new(deps: Deps): Screen
 		self.Visible = true
 		render(outcome)
 		panel.Content.CanvasPosition = Vector2.zero
+		-- The world dims as the card lands (the card's own entrance is ScreenRoot's), and a new rank is
+		-- stamped on it once it has.
+		Motion.set(overlay, { BackgroundTransparency = 1 })
+		Motion.to(overlay, { BackgroundTransparency = OVERLAY_TRANSPARENCY }, "Ui")
+		if rankLine.Visible then
+			Motion.set(rankScale, { Scale = STAMP_SCALE })
+			Motion.to(rankScale, { Scale = 1 }, "UiSnappy")
+		end
 		root.Instance.Enabled = true
 		panel:FocusForGamepad(okButton.Instance)
 		deps.SoundController.play("UiOpen")

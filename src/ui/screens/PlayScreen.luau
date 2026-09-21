@@ -84,7 +84,7 @@ local function makeStatusLabel(name: string, alignment: Enum.TextXAlignment, ord
 	label.Size = UDim2.fromOffset(0, STATUS_HEIGHT)
 	label.AutomaticSize = Enum.AutomaticSize.X
 	label.LayoutOrder = order
-	label.Font = Theme.Fonts.Body
+	label.FontFace = Theme.Fonts.Body
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = Theme.Colors.TextMuted
 	label.TextXAlignment = alignment
@@ -113,7 +113,7 @@ local function makeModeLabel(nameText: string, sizeText: string): Frame
 	name.BackgroundTransparency = 1
 	name.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall)
 	name.LayoutOrder = 1
-	name.Font = Theme.Fonts.Bold
+	name.FontFace = Theme.Fonts.Bold
 	name.TextSize = Theme.Sizes.TextLarge
 	name.TextColor3 = Theme.Colors.Text
 	name.TextXAlignment = Enum.TextXAlignment.Left
@@ -126,7 +126,7 @@ local function makeModeLabel(nameText: string, sizeText: string): Frame
 	size.BackgroundTransparency = 1
 	size.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall)
 	size.LayoutOrder = 2
-	size.Font = Theme.Fonts.Body
+	size.FontFace = Theme.Fonts.Body
 	size.TextSize = Theme.Sizes.TextSmall
 	size.TextColor3 = Theme.Colors.TextMuted
 	size.TextXAlignment = Enum.TextXAlignment.Left

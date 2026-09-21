@@ -1,40 +1,55 @@
 --!strict
--- Central UI theme: colors, fonts, sizes, spacing. Every component reads from here.
+-- Central UI theme: colors, fonts, sizes, spacing. Every component reads from here, and this reads the
+-- palette and the typography from ThemeConfig, which is pure data a test holds to docs/ART_BIBLE.md and
+-- to a contrast ratio. Nothing in src/ui names a colour or a font that is not here.
 
-local PigmentConfig = require(
-	game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("PigmentConfig")
-)
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
+
+local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
+local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
 
 local Theme = {}
 
+local function fromRgb(rgb: ThemeConfig.Rgb): Color3
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
 Theme.Colors = {
-	Background = Color3.fromRGB(24, 24, 30),
-	Panel = Color3.fromRGB(32, 32, 40),
-	PanelRaised = Color3.fromRGB(42, 42, 52),
-	Border = Color3.fromRGB(60, 60, 74),
-	Text = Color3.fromRGB(240, 240, 245),
-	TextMuted = Color3.fromRGB(170, 170, 185),
-	TextInverse = Color3.fromRGB(20, 20, 24),
-	Accent = Color3.fromRGB(230, 180, 60),
-	AccentSoft = Color3.fromRGB(120, 90, 40),
-	Success = Color3.fromRGB(90, 190, 110),
-	Danger = Color3.fromRGB(225, 90, 80),
-	Info = Color3.fromRGB(90, 160, 240),
-	Ink = Color3.fromRGB(80, 170, 255),
-	Health = Color3.fromRGB(90, 200, 110),
-	Overlay = Color3.fromRGB(0, 0, 0),
-	Premium = Color3.fromRGB(200, 140, 255),
+	Background = fromRgb(ThemeConfig.Colors.Background),
+	Panel = fromRgb(ThemeConfig.Colors.Panel),
+	PanelRaised = fromRgb(ThemeConfig.Colors.PanelRaised),
+	Border = fromRgb(ThemeConfig.Colors.Border),
+	Text = fromRgb(ThemeConfig.Colors.Text),
+	TextMuted = fromRgb(ThemeConfig.Colors.TextMuted),
+	TextInverse = fromRgb(ThemeConfig.Colors.TextInverse),
+	Accent = fromRgb(ThemeConfig.Colors.Accent),
+	AccentSoft = fromRgb(ThemeConfig.Colors.AccentSoft),
+	Success = fromRgb(ThemeConfig.Colors.Success),
+	Danger = fromRgb(ThemeConfig.Colors.Danger),
+	Info = fromRgb(ThemeConfig.Colors.Info),
+	Ink = fromRgb(ThemeConfig.Colors.Ink),
+	Health = fromRgb(ThemeConfig.Colors.Health),
+	Overlay = fromRgb(ThemeConfig.Colors.Overlay),
+	Premium = fromRgb(ThemeConfig.Colors.Premium),
+	Outline = fromRgb(ThemeConfig.Colors.Outline),
 }
 
+-- A Font (FontFace) rather than an Enum.Font: the enum has one weight per family, and the page is set
+-- in one face at two weights. Components write `label.FontFace = Theme.Fonts.X`.
+local function font(def: ThemeConfig.FontDef): Font
+	local family = Font.fromEnum((Enum.Font :: any)[def.Font] :: Enum.Font).Family
+	return Font.new(family, (Enum.FontWeight :: any)[def.Weight] :: Enum.FontWeight)
+end
+
 Theme.Fonts = {
-	Title = Enum.Font.GothamBold,
-	Body = Enum.Font.Gotham,
-	Bold = Enum.Font.GothamBold,
-	Mono = Enum.Font.RobotoMono,
+	Title = font(ThemeConfig.Fonts.Title),
+	Body = font(ThemeConfig.Fonts.Body),
+	Bold = font(ThemeConfig.Fonts.Bold),
 	-- Numbers that fly past the eye: a condensed grotesque, per docs/ART_BIBLE.md. Condensed because a
 	-- four-digit hit has to stay one readable block at arm's length on a phone, and because it has to
 	-- not be the same face as the prose, which is what makes a number read as a number.
-	Numeric = Enum.Font.Oswald,
+	Numeric = font(ThemeConfig.Fonts.Numeric),
 }
 
 -- Base sizes at UIScale 1 (1080p). Screens apply Theme.scaleFor(viewport).
@@ -44,6 +59,8 @@ Theme.Sizes = {
 	TextLarge = 18,
 	TextTitle = 22,
 	TextHero = 30,
+	-- The one number a screenshot is taken for: the score of the result card.
+	TextDisplay = 48,
 	ButtonHeight = 40,
 	RowHeight = 44,
 	CornerRadius = 10,
@@ -54,12 +71,6 @@ Theme.Sizes = {
 	PanelWidth = 560,
 	PanelHeight = 460,
 	TouchButton = 64,
-}
-
-Theme.Animation = {
-	Fast = 0.12,
-	Normal = 0.2,
-	Slow = 0.35,
 }
 
 -- ScreenGui draw order. Roblox leaves the relative order of two ScreenGuis with the same DisplayOrder
@@ -169,7 +180,14 @@ function Theme.pigmentColor(pigmentId: string): Color3
 	if rgb == nil then
 		return Theme.Colors.Accent
 	end
-	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+	return fromRgb(rgb)
+end
+
+-- The ink that reads on `background` (see ThemeConfig.inkOn): a sigil on an Orpiment chip is charcoal,
+-- on an Indigo chip vellum.
+function Theme.inkOn(background: Color3): Color3
+	local rgb = { background.R * 255, background.G * 255, background.B * 255 }
+	return fromRgb(ThemeConfig.inkOn(rgb))
 end
 
 -- Slightly darker/lighter variants for hover/pressed states.

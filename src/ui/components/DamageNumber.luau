@@ -73,7 +73,7 @@ local function build(): Marker
 	label.Name = "Value"
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Theme.Fonts.Numeric
+	label.FontFace = Theme.Fonts.Numeric
 	label.TextScaled = false
 	label.TextSize = FeelConfig.DamageNumbers.BaseTextSize
 	label.Text = ""
@@ -83,7 +83,7 @@ local function build(): Marker
 	-- most needed and least visible.
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = STROKE_THICKNESS
-	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Color = Theme.Colors.Outline
 	stroke.Transparency = 0.15
 	stroke.Parent = label
 

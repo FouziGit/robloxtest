@@ -3,10 +3,10 @@
 -- mouse, touch and gamepad (Activated) all work. OnChange fires on user toggles; SetValue is silent.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
@@ -101,22 +101,22 @@ function Toggle.new(props: Props): Toggle
 		if hovered then
 			pillColor = Theme.shade(pillColor, HOVER_SHADE)
 		end
-		local knobColor = if value then Theme.Colors.Text else Theme.Colors.TextMuted
+		-- Vellum knob on the ink pill, ink knob on the paper pill.
+		local knobColor = if value then Theme.Colors.TextInverse else Theme.Colors.Text
 		local knobOffset = KNOB_INSET + KNOB_SIZE / 2
 		local knobPosition = if value then UDim2.new(1, -knobOffset, 0.5, 0) else UDim2.new(0, knobOffset, 0.5, 0)
 		if animate then
-			TweenService:Create(pill, TweenInfo.new(Theme.Animation.Fast), { BackgroundColor3 = pillColor }):Play()
-			TweenService:Create(
-				knob,
-				TweenInfo.new(Theme.Animation.Fast, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ Position = knobPosition, BackgroundColor3 = knobColor }
-			):Play()
+			Motion.to(pill, { BackgroundColor3 = pillColor }, "UiSnappy")
+			Motion.to(knob, { Position = knobPosition, BackgroundColor3 = knobColor }, "UiSnappy")
 		else
-			pill.BackgroundColor3 = pillColor
-			knob.Position = knobPosition
-			knob.BackgroundColor3 = knobColor
+			Motion.set(pill, { BackgroundColor3 = pillColor })
+			Motion.set(knob, { Position = knobPosition, BackgroundColor3 = knobColor })
 		end
 	end
+	trove:Add(function()
+		Motion.cancel(pill)
+		Motion.cancel(knob)
+	end)
 
 	trove:Connect(button.MouseEnter, function()
 		hovered = true

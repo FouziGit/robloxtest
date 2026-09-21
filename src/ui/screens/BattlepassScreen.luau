@@ -108,7 +108,7 @@ local function tierColumn(parent: Instance, text: string): TextLabel
 	label.Name = "Tier"
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.new(0, TIER_COLUMN_WIDTH, 1, 0)
-	label.Font = Theme.Fonts.Title
+	label.FontFace = Theme.Fonts.Title
 	label.TextSize = Theme.Sizes.TextLarge
 	label.TextColor3 = Theme.Colors.TextMuted
 	label.Text = text
@@ -122,7 +122,7 @@ local function columnHeader(parent: Instance, text: string, color: Color3, layou
 	label.Name = "Column"
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(0, 1)
-	label.Font = Theme.Fonts.Bold
+	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextSmall
 	label.TextColor3 = color
 	label.Text = text
@@ -185,7 +185,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 	tierLabel.Name = "TierLabel"
 	tierLabel.BackgroundTransparency = 1
 	tierLabel.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextLarge)
-	tierLabel.Font = Theme.Fonts.Bold
+	tierLabel.FontFace = Theme.Fonts.Bold
 	tierLabel.TextSize = Theme.Sizes.TextLarge
 	tierLabel.TextColor3 = Theme.Colors.Text
 	tierLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -253,7 +253,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 		label.Name = "Reward"
 		label.BackgroundTransparency = 1
 		label.Size = UDim2.new(1, 0, 0, REWARD_LABEL_HEIGHT)
-		label.Font = Theme.Fonts.Body
+		label.FontFace = Theme.Fonts.Body
 		label.TextSize = Theme.Sizes.TextSmall
 		label.TextColor3 = if track == "Premium" then Theme.Colors.Premium else Theme.Colors.Text
 		label.TextXAlignment = Enum.TextXAlignment.Left

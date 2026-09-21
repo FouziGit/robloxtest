@@ -129,20 +129,22 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 
 ## UI (`src/ui`)
 
-`Theme` : couleurs, polices, tailles, `pigmentColor(id)`, `scaleFor(viewport)` et `activeScale()`. Il possède aussi trois choses que les composants ne doivent plus deviner :
+`Theme` : couleurs, polices, tailles, `pigmentColor(id)`, `inkOn(fond)`, `scaleFor(viewport)` et `activeScale()`. La palette et la typographie viennent de `Config/ThemeConfig` (pur : triples RGB, `{Font, Weight}`, contraste WCAG, `inkOn`), que `tests/Interface.spec.luau` tient à `docs/ART_BIBLE.md` ; `Theme` est le seul module de `src/ui` et `src/client` qui écrive un `Color3` ou construise un `Font` — les composants écrivent `label.FontFace = Theme.Fonts.X` (D-83). Il possède aussi trois choses que les composants ne doivent plus deviner :
 
 - `Theme.Layers` — ordre de dessin des `ScreenGui` (`Hud`, `Screen`, `Result`, espacés de dix). Deux `ScreenGui` de même `DisplayOrder` n'ont pas d'ordre défini sur Roblox, donc chaque calque a sa valeur. Le bandeau du World Boss n'y figure pas : il est enfant de la colonne du HUD (D-35).
 - `Theme.MinTouchTarget` (44) et `Theme.minPixelSize(objet, pixels)` — plancher exprimé en pixels **réels**, posé comme `UISizeConstraint` de valeur `pixels / activeScale()` et rafraîchi quand le viewport change. Sans lui, l'`UIScale` du `ScreenRoot` (0,68 sur un téléphone 812x375) réduisait chaque cible sous le minimum tactile.
 - `Theme.touchTargetHeight(hauteurDesign)` — la hauteur qu'une cible planchée occupe réellement. Tout bandeau construit autour d'une cible (barre de titre, en-têtes, pieds de panneau, rangées de battle pass) se mesure là-dessus, sinon relever le plancher pousserait un bouton à travers son en-tête.
 
+`Motion` (`src/ui/Motion.luau`) : tout mouvement d'interface. `to(instance, buts, preset?, onSettled?)`, `set`, `pop(instance, propriété, vitesse)`, `cancel(instance)`, `count()`. Un ressort scalaire par propriété, interpolé entre départ et cible (nombre, `Color3`, `UDim2`, `UDim`, `Vector2/3`) ; presets `Ui`, `UiSnappy`, `UiGhost` de `FeelConfig.Springs` ; **un seul** `Heartbeat` pour toute l'interface, déconnecté quand plus rien ne bouge. Aucun `TweenService` dans `src/ui` (D-84).
+
 Composants dans `src/ui/components`, chacun `new(props) -> {Instance, Destroy(), …}` et nettoyé par Trove :
 
 | Composant | Props principales |
 |---|---|
-| `ScreenRoot` | `Name` → `ScreenGui` (`ResetOnSpawn=false`, `IgnoreGuiInset=true`) + `UIScale` (Theme) + marge safe-area |
+| `ScreenRoot` | `Name` → `ScreenGui` (`ResetOnSpawn=false`, `IgnoreGuiInset=true`) + `UIScale` (Theme) + marge safe-area ; à chaque `Enabled = true`, le contenu pousse de 0,94 à 1 autour de son centre (D-85) |
 | `Panel` | `Title`, `Size`, `Closable` → cadre centré avec `UIAspectRatioConstraint` optionnel ; `CloseButton`, `FocusForGamepad(target?)` / `ReleaseGamepadFocus()` (sélection manette prise à l'Open, rendue au Close) |
 | `Button` | `Text`, `Variant ("Primary" \| "Secondary" \| "Danger")`, `OnClick`, `Disabled` |
-| `ProgressBar` | `Color`, `SetProgress(0..1)`, `SetLabel(text)` |
+| `ProgressBar` | `Color`, `Ghost` (couleur du fantôme de ce qui vient d'être perdu, qui rattrape sur `UiGhost`), `SetProgress(0..1)`, `SetLabel(text)` |
 | `Tabs` | `Items = {{Id, Text}}`, `OnSelect(id)` |
 | `ListRow` | `Left`, `Right` (instances ou textes) |
 | `Slider` | `Min`, `Max`, `Value`, `OnChange` |

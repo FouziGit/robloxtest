@@ -171,3 +171,14 @@ Ce qui n'a **pas** été vu : l'image elle-même. Aucune texture n'est en ligne,
 ### Phase 5 — ce qui n'est pas fait
 
 Rien n'a été **entendu**. Les WAV ne sont pas téléversés (`docs/STUDIO_SETUP.md` §8) et je n'ai pas d'oreille : les formes ont été vérifiées par profils d'énergie (montée du `BossWarn`, décroissance des pincements, absence d'écrêtage et de clic), pas à l'écoute. Le mixage — volumes relatifs, rolloff — est une première proposition à ajuster en jouant.
+
+### Phase 6 — fait
+
+- **L'interface est une page** (D-83) : `ThemeConfig` pur — Vélin, Charbon, les pigments en encre là où ils sont du texte, Merriweather pour les mots et Oswald pour les nombres, `FontFace` partout (31 sites), `Theme.inkOn` par contraste WCAG. Le thème sombre et l'or sont partis ; aucun composant de `src/ui` ni de `src/client` n'écrit un `Color3` ou une police en dehors de `Theme`.
+- **Tout bouge sur ressort** (D-84) : `src/ui/Motion.luau`, un `Heartbeat` pour toute l'interface ; `Toast`, `TouchButton`, `Toggle`, `Tabs`, `Button` (qui s'écrase à la pression), `ProgressBar`, `ScreenRoot` (entrée de chaque écran) ; `TweenService` et `Theme.Animation` ne sont plus dans `src/ui`.
+- **Le fantôme, les jetons, le compteur, la carte** (D-85) : barre de vie avec fantôme en Cinabre qui rattrape sans jamais dépasser ; jetons de séquence qui poussent et se replient ; compteur `×N` de séquences résolues d'affilée ; carte de résultat composée — score en Oswald à 48 sur un filet d'encre, rang tamponné, monde assombri.
+- **Une porte** (`tests/Interface.spec.luau`, 14 tests) : la page aux hexadécimaux de `ART_BIBLE`, l'accent qui est l'encre, le danger qui est le Cinabre exact, chaque rôle de texte à son contraste sur son papier, l'encre qui se lit sur chaque pigment, les polices hors des défauts du moteur et dans leur famille (romane, condensée), les trois presets et leur amortissement, aucun tween, aucune couleur, aucune police hors de `Theme`, et deux gardes de non-vacuité. Treize mutations, treize prises.
+
+### Phase 6 — ce qui n'est pas fait
+
+Rien n'a été **vu**. Le thème, les polices et les ressorts n'ont pas tourné dans un client : le contraste est calculé, pas regardé, et la disponibilité des graisses de Merriweather et d'Oswald sur le moteur est celle de la documentation. Un écran, un jeton qui pousse, une barre qui perd et son fantôme sont les premières choses à regarder en jeu.

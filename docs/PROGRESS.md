@@ -214,3 +214,15 @@ Rien n'a été **vu**. Le thème, les polices et les ressorts n'ont pas tourné 
 Le point 5 du plan (**social** : spectateur après élimination, emotes, partage) n'est pas livré, à l'exception de la revanche directe qui est la relance en un clic. Le spectateur demande que la caméra suive un coéquipier, donc que `Feel` — qui possède la caméra — apprenne une cible ; les emotes demandent des animations, et le partage une capture. Ce sont trois chantiers séparés, pas une fin de passe : ils sont notés ici plutôt que commencés à moitié. Le point 7 (variable sans être manipulatoire) était déjà tenu par la rotation quotidienne, les quêtes et l'annonce de L'Effacement ; les deux quêtes d'exécution s'y ajoutent.
 
 Rien de la passe 8 n'a été **joué**. Les prix (15 encre pour annuler, 5 rendus par enchaînement, les poids de la note) sont une première proposition : ils sont tenus par des tests d'arithmétique, pas par une main sur un clavier.
+
+### Phase 9 — fait
+
+- **Quatre niveaux graphiques** (D-92) : `QualityConfig` (couches, particules, lumières, post-traitement, empreintes), un onglet **Graphismes** dans les options, le choix stocké dans le profil et validé deux fois (le `Guard` du remote et le service). Le mode **Performance** coupe les cinq effets de post-traitement.
+- **Dégradation automatique** : `QualityController` compte les images et descend d'un niveau sous 40 img/s pendant 3 s, en rend un au-dessus de 55 pendant 12 s, jamais au-dessus du choix du joueur. Un seul propriétaire ; `VfxTimeline`, `WorldLighting` et `FootprintController` lisent le niveau à l'usage.
+- **Le coût de chaque effet, calculé** (D-94) : `scripts/effect-cost.luau` — 35 timelines, 477 couches, pire effet 11 couches simultanées / 201 particules / 51 instances. `docs/PERFORMANCE.md` cite sa sortie, les plafonds de `tests/EffectCost.spec.luau` sont **dérivés** (moitié du budget plancher, quart d'un plafond de pool), et la densité suit les images par seconde plutôt que le nombre de voisins (D-93).
+- **Un duel ne laisse rien derrière lui**, dans la mesure où un test sans moteur peut le prouver : `tests/PoolPolicy.spec.luau` joue 180 effets superposés et exige zéro instance vivante, zéro retour refusé, rien de garé au-dessus du plafond, et plus de 5 000 prêts pour moins de 2 % de créations ; `tests/Loops.spec.luau` déclare les quinze boucles par image du jeu et refuse la seizième.
+- **Portes** : 331 tests, 38 fichiers. Vingt et une mutations pour cette passe, toutes prises — dont deux qui ont montré que la porte des lecteurs était trop lâche (une lecture commentée et un nom de champ homonyme), et qui l'ont resserrée.
+
+### Phase 9 — ce qui n'est pas fait
+
+**Aucun nombre d'images par seconde du dépôt ne vient d'un appareil.** Les coûts sont ce que le rendu *va* emprunter et demander ; ce qu'une image prend sur un téléphone donné est l'autre moitié, et elle demande cet appareil. Les seuils 40/55 sont les valeurs usuelles d'un client Roblox mobile, pas une mesure. La dégradation n'a jamais été **vue** descendre ni remonter, et les quatre niveaux n'ont pas été comparés à l'œil : ce sont des budgets tenus par des tests, pas un réglage éprouvé.

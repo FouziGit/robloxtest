@@ -193,3 +193,24 @@ Rien n'a été **vu**. Le thème, les polices et les ressorts n'ont pas tourné 
 ### Phase 7 — ce qui n'est pas fait
 
 `Lighting`, `Atmosphere` et la brume sont ceux de la passe 3 ; pas de ciel (aucun asset vérifié : la raison est dans `LightingConfig.Atmosphere`, passe 3). L'**annonce** et la **montée** de L'Effacement restent ce que les passes 3 et 5 ont fait (pulsation `Erasure`, musique, bandeau, `BossSpawn`) : cette passe a mis en scène le corps et les phases. Rien n'a été **vu** : le monde recoloré, la figure, ses phases et les empreintes n'ont pas tourné dans un client. La géométrie est tenue par des tests ; l'image ne l'est pas.
+
+### Ce que les deux relectures ont changé (passes 6 et 7)
+
+- **Passe 6** (D-89) : le fantôme de la barre de vie passait devant le remplissage à chaque **gain** — donc une bande de Cinabre à chaque soin, à chaque tic de régénération et sur la première image du HUD ; l'entrée d'écran mettait l'échelle sur la zone sûre et laissait une bordure de monde non assombrie (l'entrée est descendue dans `Panel`) ; l'étiquette de barre était du vélin sur du vélin (1,19) ; les libellés du HUD gardaient le contour noir du moteur ; le compteur comptait des lancers que le serveur refuse ; le Cinabre portait six sens sur le HUD. Trente constats, dont les faux refusés avec leur raison.
+- **Passe 7** (D-90) : le socle du spawn devenu cylindre faisait **flotter les épreuves à 6,5 studs** et lâchait les joueurs de retour **5,5 studs en l'air** ; chaque marque au sol de L'Effacement était peinte dans la couleur du sol ; la coque de contact faisait 8 studs pour une figure de 4,2 ; la bande sautait avant son anticipation ; l'emblème du hub était un Indigo exact, en permanence.
+- Chaque correction a sa porte : contraste de chaque encre contre son papier, figure qui **remplit** sa coque, rôles saturés interdits dans `src/server`, easing des empreintes tenu à ceux des timelines, budget des empreintes qui ne peut plus évincer un résidu de combat, paires de contraste réelles de l'interface.
+
+### Phase 8 — fait
+
+- **Plafond de compétence** (D-91) : annulation de récupération à la ruée (15 encre en plus), enchaînement remboursé (5 encre par lancer d'une chaîne, dans 1,0 s), compteur `×N` **compté par le serveur**, record personnel `Stats.BestChain`, deux quêtes d'exécution (`Chain`, `DashCancel`), et la **matrice outil → contre** des vingt glyphes dans `docs/GAME_DESIGN.md` §5 bis.
+- **Boucle courte** : bouton **Rejouer** sur la carte de résultat, et `MatchmakingService` garde le vœu tant que le match tient encore le joueur — un clic, aucun hub à traverser.
+- **Progression lisible juste après le duel** : la barre de niveau rejoue le gain depuis là où le joueur était (`ProgressionConfig.rewind`), remplit le niveau précédent quand un niveau est passé, et la prochaine récompense est nommée (`GlyphConfig.nextUnlock`).
+- **Note d'exécution** : `Pure/Execution` (précision, échange, bonus de victoire), comptée par `MatchService` depuis `GlyphService.Cast` et `CombatService.Damaged`, tamponnée S/A/B/C sur la carte.
+- **Découverte sans texte** : `OnboardingController` montre la recette du premier glyphe en jetons fantômes jusqu'au premier lancer accepté.
+- **Portes** : `tests/Execution.spec.luau` (la note ne peut pas être achetée par la victoire, chaque lettre est atteignable par la seule précision) et le bloc « the loop » de `tests/Config.spec.luau` (prix de l'annulation, remboursement inférieur au glyphe le moins cher, rewind exact, prochain déblocage toujours le plus proche).
+
+### Phase 8 — ce qui n'est pas fait
+
+Le point 5 du plan (**social** : spectateur après élimination, emotes, partage) n'est pas livré, à l'exception de la revanche directe qui est la relance en un clic. Le spectateur demande que la caméra suive un coéquipier, donc que `Feel` — qui possède la caméra — apprenne une cible ; les emotes demandent des animations, et le partage une capture. Ce sont trois chantiers séparés, pas une fin de passe : ils sont notés ici plutôt que commencés à moitié. Le point 7 (variable sans être manipulatoire) était déjà tenu par la rotation quotidienne, les quêtes et l'annonce de L'Effacement ; les deux quêtes d'exécution s'y ajoutent.
+
+Rien de la passe 8 n'a été **joué**. Les prix (15 encre pour annuler, 5 rendus par enchaînement, les poids de la note) sont une première proposition : ils sont tenus par des tests d'arithmétique, pas par une main sur un clavier.

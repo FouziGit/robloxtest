@@ -125,6 +125,8 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 | `Controllers/SoundController` | tout le son du client depuis `SoundConfig`, par deux `SoundGroup` (Sfx, Music) qui portent les curseurs du joueur ; `play(key, position?, {Pitch?, Fit?})` avec dérive de hauteur ±`Vary`, `duck(seconds)` qui baisse la musique sous un impact lourd, `music(id)`. Les timelines jouent leurs couches `Sound` à travers lui ; `ComboController` y joue la séquence comme une gamme |
 | `Controllers/MatchController` | file (`JoinQueue`/`LeaveQueue`), état depuis `QueueChanged` / `MatchChanged` / `MatchEnded` ; signaux `QueueChanged(snapshot)`, `MatchChanged(snapshot?)`, `MatchEnded(outcome)` ; pilote le HUD de match et l'écran de résultat |
 | `Controllers/BossController` | bandeau d'événement World Boss (PV, phase, temps, contribution, alerte de télégraphe) depuis `BossChanged` ; possède son propre `ScreenRoot` |
+| `Controllers/FootprintController` | tamponne une empreinte d'encre sous chaque personnage qui marche par `VfxTimeline.stamp` ; budget par personnage, priorité au plus proche de la caméra, arrêt au-dessus de `Footprints.YieldAboveLayers` couches vivantes (D-88, D-90) |
+| `Controllers/OnboardingController` | montre la recette du premier glyphe en jetons fantômes tant que `Stats.GlyphsCast` vaut zéro (D-91) |
 | `Controllers/MenuController` | ouvre/ferme les écrans (`Menu`, `Settings`, `Battlepass`, `Play`, `Result`, `Leaderboard`, `Quests`, `Daily`, `Loadout`, `Shop`), suspend `InputController`, écrans depuis `UI/screens` |
 
 ## UI (`src/ui`)
@@ -135,16 +137,16 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 - `Theme.MinTouchTarget` (44) et `Theme.minPixelSize(objet, pixels)` — plancher exprimé en pixels **réels**, posé comme `UISizeConstraint` de valeur `pixels / activeScale()` et rafraîchi quand le viewport change. Sans lui, l'`UIScale` du `ScreenRoot` (0,68 sur un téléphone 812x375) réduisait chaque cible sous le minimum tactile.
 - `Theme.touchTargetHeight(hauteurDesign)` — la hauteur qu'une cible planchée occupe réellement. Tout bandeau construit autour d'une cible (barre de titre, en-têtes, pieds de panneau, rangées de battle pass) se mesure là-dessus, sinon relever le plancher pousserait un bouton à travers son en-tête.
 
-`Motion` (`src/ui/Motion.luau`) : tout mouvement d'interface. `to(instance, buts, preset?, onSettled?)`, `set`, `pop(instance, propriété, vitesse)`, `cancel(instance)`, `count()`. Un ressort scalaire par propriété, interpolé entre départ et cible (nombre, `Color3`, `UDim2`, `UDim`, `Vector2/3`) ; presets `Ui`, `UiSnappy`, `UiGhost` de `FeelConfig.Springs` ; **un seul** `Heartbeat` pour toute l'interface, déconnecté quand plus rien ne bouge. Aucun `TweenService` dans `src/ui` (D-84).
+`Motion` (`src/ui/Motion.luau`) : tout mouvement d'interface. `to(instance, buts, preset?, onSettled?)`, `set`, `cancel(instance)`. Un ressort scalaire par propriété, interpolé entre départ et cible (nombre, `Color3`, `UDim2`, `UDim`, `Vector2/3`) ; presets `Ui`, `UiSnappy`, `UiGhost` de `FeelConfig.Springs` ; **un seul** `Heartbeat` pour toute l'interface, déconnecté quand plus rien ne bouge. Aucun `TweenService` dans `src/ui` (D-84).
 
 Composants dans `src/ui/components`, chacun `new(props) -> {Instance, Destroy(), …}` et nettoyé par Trove :
 
 | Composant | Props principales |
 |---|---|
 | `ScreenRoot` | `Name` → `ScreenGui` (`ResetOnSpawn=false`, `IgnoreGuiInset=true`) + `UIScale` (Theme) + marge safe-area ; à chaque `Enabled = true`, le contenu pousse de 0,94 à 1 autour de son centre (D-85) |
-| `Panel` | `Title`, `Size`, `Closable` → cadre centré avec `UIAspectRatioConstraint` optionnel ; `CloseButton`, `FocusForGamepad(target?)` / `ReleaseGamepadFocus()` (sélection manette prise à l'Open, rendue au Close) |
+| `Panel` | `Title`, `Size`, `Closable` → cadre centré avec `UIAspectRatioConstraint` optionnel, qui **grandit** à l'activation de son `ScreenGui` (D-89 : l'entrée est sur la carte, jamais sur la zone sûre, dont l'assombrissement est un enfant) ; `CloseButton`, `FocusForGamepad(target?)` / `ReleaseGamepadFocus()` (sélection manette prise à l'Open, rendue au Close) |
 | `Button` | `Text`, `Variant ("Primary" \| "Secondary" \| "Danger")`, `OnClick`, `Disabled` |
-| `ProgressBar` | `Color`, `Ghost` (couleur du fantôme de ce qui vient d'être perdu, qui rattrape sur `UiGhost`), `SetProgress(0..1)`, `SetLabel(text)` |
+| `ProgressBar` | `Color`, `Ghost` (couleur du fantôme de ce qui vient d'être perdu, qui rattrape sur `UiGhost` ; à un gain il ride **avec** le remplissage), `SetProgress(0..1, immédiat?)`, `SetLabel(text)` |
 | `Tabs` | `Items = {{Id, Text}}`, `OnSelect(id)` |
 | `ListRow` | `Left`, `Right` (instances ou textes) |
 | `Slider` | `Min`, `Max`, `Value`, `OnChange` |

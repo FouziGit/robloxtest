@@ -17,6 +17,8 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local BIBLE = "docs/ART_BIBLE.md"
 local THEME = "src/ui/Theme.luau"
+-- The engine's own API dump, which is what Theme resolves its faces against at load.
+local GLOBAL_TYPES = "globalTypes.d.luau"
 -- The renderers own their own colours (an effect is not the interface), and WorldLighting converts its
 -- config's triples the way Theme does.
 local COLOR_OWNERS: { [string]: boolean } = {
@@ -208,6 +210,23 @@ describe("the type", function()
 			end
 			if not WEIGHTS[def.Weight] then
 				error(("%s has no such weight: %s"):format(role, def.Weight))
+			end
+		end
+	end)
+
+	it("names faces and weights the engine really has", function()
+		-- Theme turns each name into a Font at LOAD: `Font.fromEnum((Enum.Font :: any)[name])` on a name the
+		-- engine does not have passes nil to fromEnum, which throws -- and a Theme that throws takes the HUD
+		-- and all ten screens with it, silently, the way GuiService.SafeZoneOffsetsChanged once did
+		-- (tests/EngineOnlyApi.spec.luau). Nothing else in the repository can see that: it is valid Luau, it
+		-- type-checks, and no unit test can hold an Enum. The API dump can.
+		local dump = fs.readFile(GLOBAL_TYPES)
+		for role, def in pairs(ThemeConfig.Fonts) do
+			if string.find(dump, "\t" .. def.Font .. ": EnumFont\n", 1, true) == nil then
+				error(("%s is set in %s, which Enum.Font does not have"):format(role, def.Font))
+			end
+			if string.find(dump, "\t" .. def.Weight .. ": EnumFontWeight\n", 1, true) == nil then
+				error(("%s asks for weight %s, which Enum.FontWeight does not have"):format(role, def.Weight))
 			end
 		end
 	end)

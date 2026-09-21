@@ -178,8 +178,9 @@ CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model
 -- event: several players hit the boss in one resumption cycle, so a shared "last attacker" slot
 -- credits them all to whoever wrote it last.
 CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind)
--- Fired once per dash the server actually granted (ink spent, cooldown armed).
-CombatService.Dashed = Signal.new() -- (player: Player)
+-- Fired once per dash the server actually granted (ink spent, cooldown armed). `cancelled` is true when
+-- the dash cut a finisher's recovery short (CombatConfig.Dash.CancelCost).
+CombatService.Dashed = Signal.new() -- (player: Player, cancelled: boolean)
 
 local registry: Registry
 local dataService: DataApi
@@ -1125,8 +1126,15 @@ local function onDash(player: Player, state: State, now: number)
 		return
 	end
 	local dash = CombatConfig.Dash
-	if not CombatService.trySpendInk(player, dash.Cost) then
+	-- Inside the finisher's recovery the dash is a cancel: it costs more, and it ends the recovery. The
+	-- extra ink is what makes it a decision -- a player low on ink dashes out of nothing.
+	local cancelling = now < state.MeleeCooldownUntil
+	local cost = if cancelling then dash.Cost + dash.CancelCost else dash.Cost
+	if not CombatService.trySpendInk(player, cost) then
 		return
+	end
+	if cancelling then
+		state.MeleeCooldownUntil = now
 	end
 	-- I-frames are granted on the server decision alone, independently of the client actually applying
 	-- the Dash MovementCommand: characters are client-simulated, so the displacement is not observable
@@ -1145,9 +1153,9 @@ local function onDash(player: Player, state: State, now: number)
 		Origin = root.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { Distance = dash.Distance, Duration = dash.DurationSeconds },
+		Params = { Distance = dash.Distance, Duration = dash.DurationSeconds, Cancel = cancelling },
 	})
-	CombatService.Dashed:Fire(player)
+	CombatService.Dashed:Fire(player, cancelling)
 end
 
 local function onBlockStart(player: Player, state: State, now: number)
@@ -1308,6 +1316,20 @@ function CombatService.trySpendInk(player: Player, cost: number): boolean
 	end
 	state.Ink -= cost
 	return true
+end
+
+-- Gives ink back, never past the maximum: the chain refund (GlyphService). Refuses a bad amount the
+-- way trySpendInk does.
+function CombatService.addInk(player: Player, amount: number)
+	if not isFiniteNonNegative(amount) then
+		log.warn("addInk rejected for %s: invalid amount %s", player.Name, tostring(amount))
+		return
+	end
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	state.Ink = math.min(CombatConfig.Ink.Max, state.Ink + amount)
 end
 
 function CombatService.isBlocking(player: Player): boolean

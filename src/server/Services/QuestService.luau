@@ -53,7 +53,7 @@ type DamagedSignal = {
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
 }
-type DashedSignal = { Connect: (self: DashedSignal, fn: (player: Player) -> ()) -> any }
+type DashedSignal = { Connect: (self: DashedSignal, fn: (player: Player, cancelled: boolean) -> ()) -> any }
 type CombatApi = { Killed: KilledSignal, Damaged: DamagedSignal, Dashed: DashedSignal }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type Deps = {
@@ -289,8 +289,11 @@ local function onDamaged(sourceUserId: number, _targetModel: Model, applied: num
 	end
 end
 
-local function onDashed(player: Player)
+local function onDashed(player: Player, cancelled: boolean)
 	QuestService.report(player, "Dash", 1)
+	if cancelled then
+		QuestService.report(player, "DashCancel", 1)
+	end
 end
 
 function QuestService.Init(deps: Deps)

@@ -81,6 +81,55 @@ Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 
 - **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Orpiment. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
 - **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les glyphes non équipés ne peuvent pas être lancés.
 
+## 5 bis. Plafond de compétence : annulation, enchaînement, matrice des réponses
+
+Trois règles portent le plafond. Elles sont serveur, mesurables, et toutes les trois coûtent de l'encre :
+il n'y a aucune mécanique d'exécution gratuite.
+
+| Règle | Ce que le joueur fait | Prix | Où c'est décidé |
+|---|---|---|---|
+| **Annulation de récupération** | ruer pendant la récupération du 4ᵉ coup de M1 (1,2 s) : la récupération s'arrête net | coût de la ruée **+ `Dash.CancelCost`** (10 + 15 encre) | `CombatService.onDash` |
+| **Enchaînement** | lancer un glyphe dans les `Combo.ChainWindowSeconds` (1,0 s) qui suivent le précédent **accepté** | rend `Combo.ChainInkRefund` (5 encre), donc une séquence serrée se paie presque elle-même sans jamais être bénéficiaire (le glyphe le moins cher coûte 15) | `GlyphService.onCastGlyph` |
+| **Compteur d'enchaînement** | le HUD affiche `×N` dès deux glyphes ; le profil garde `Stats.BestChain` | — | compté par le serveur, jamais par le client |
+
+L'annulation ne rend ni l'invulnérabilité ni le cooldown de la ruée : elle échange de l'encre contre du
+tempo. Un joueur à court d'encre ne peut pas annuler, ce qui est exactement la décision qu'on veut créer.
+
+### Matrice outil → contre
+
+Chaque glyphe a une réponse explicite. « Réponse » = ce qui annule ou punit l'outil ; « fenêtre » = ce qui
+rend la réponse possible. Rien ici n'est un contre universel : chaque ligne se paie en encre, en cooldown
+ou en position.
+
+| Outil | Réponse principale | Réponse secondaire | Fenêtre |
+|---|---|---|---|
+| Marque (projectile) | Marge (mur) l'arrête | ruée latérale, Dorure (−40 %) | vol visible, trajectoire droite |
+| Ligature (ruée brûlante) | Reliure (racine) la punit à l'arrivée | reculer hors de la traînée | 2 s de traînée fixe au sol |
+| Roussi (anneau anti-mêlée) | rester à distance : c'est un outil de zone, pas de portée | Lavis pour pousser le lanceur hors de son anneau | anneau fixe autour du lanceur |
+| Pâté (ultime, brise la garde) | Insertion / ruée : la cloche est lente et téléphonée | Marge l'absorbe (projectile) | temps de vol le plus long du roster |
+| Lavis (ligne, knockback) | Dorure (immunité au knockback) | ruée perpendiculaire | ligne étroite, instantanée |
+| Bavure (zone ralentissante) | Indigo éteint le Cinabre, mais contre Bavure : Insertion (téléport hors zone) | Dorure pour tanker les ticks | zone persistante, sortie possible |
+| Reliure (contre, racine) | ne pas venir de face : c'est un cône court devant le lanceur | Insertion pendant la racine | 1,5 s de racine, cooldown 12 s |
+| Marge (mur) | Empattement / Rupture : les AoE de contact passent au-dessus du mur | contourner : le mur est un panneau, pas un dôme | 6 s, position fixe |
+| Empattement (ligne, stun) | Dorure (dégâts réduits, stun subi mais knockback nul) | garde : c'est un AoE, pas un ultime | portée courte, faut être devant |
+| Pointillé (projectile ralentissant) | Marge l'arrête | Dorure annule l'usage qu'on veut en faire | vol lent, le plus lisible du roster |
+| Dorure (buff défensif) | attendre : 4 s puis 14 s de cooldown, l'agresseur choisit son moment | pression à l'encre (forcer la dépense) | fenêtre de 10 s sans buff |
+| Rupture (ultime, envol) | Insertion / ruée hors du rayon 18 | Dorure (immunité au knockback : l'envol est annulé) | 2,0 s de télégraphie au sol |
+| Balayage (cône, *Éventé*) | ruée : le cône est large mais court | garde (réduction, pas de brise-garde) | applique *Éventé*, donc annonce un Cinabre derrière |
+| Délié (projectile rapide) | Marge l'arrête | Dorure réduit, mais le vrai contre est la position | portée 60, cooldown 3 s : c'est du poke |
+| Spiral (attire vers le centre) | Insertion (téléport) ou Dorure (immunité au knockback : l'attraction ne prend pas) | sortir avant le 2ᵉ tick | 4 ticks, zone visible |
+| Poncif (brouille la vue) | sortir : la brume est locale, la zone est petite | Rature (hitscan, n'a pas besoin de voir la trajectoire) | 3 ticks, ralentissement 30 % |
+| Rature (hitscan) | **rien ne l'esquive** : la réponse est l'encre — 20 par tir, et 70 studs de portée obligent le lanceur à rester exposé | Marge l'arrête (c'est un projectile instantané, pas un rayon ignorant les murs) | cooldown 4 s, coût 20 |
+| Insertion (téléport) | Reliure à l'arrivée, Filigrane / Spiral sur la zone d'arrivée probable | poursuivre : 0,4 s d'i-frames seulement | cooldown 7 s |
+| Filigrane (micro-stuns) | Dorure, puis sortir : les stuns sont courts mais empilent | Insertion | 4 ticks, zone fixe |
+| Colophon (ultime, chaîne 3 cibles) | se séparer : la chaîne a besoin de cibles proches | Marge pour le premier maillon | combo à 4 touches, 55 encre, 25 s |
+
+**Ce que la matrice garantit.** Aucun glyphe n'a pour seule réponse « avoir le même glyphe ». Les trois
+réponses structurelles — **Marge** (arrêter ce qui vole), **Dorure** (absorber ce qui pousse), **Insertion /
+ruée** (ne plus être là) — couvrent le roster entier, viennent de trois pigments différents, et ont des
+cooldowns (10, 14, 7 s) plus longs que les outils qu'elles répondent, donc une réponse est une ressource
+qu'on dépense et non un état qu'on maintient.
+
 ## 6. Interactions de pigment (simples, lisibles)
 
 | Interaction | Règle serveur (`CombatService` tags) |

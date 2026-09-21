@@ -94,6 +94,7 @@ function DataService.template(): { [string]: any }
 			Deaths = 0,
 			GlyphsCast = 0,
 			GlyphsHit = 0,
+			BestChain = 0,
 			MatchesPlayed = 0,
 			BossKills = 0,
 			PlayTimeSeconds = 0,

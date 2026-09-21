@@ -70,6 +70,9 @@ export type StatsData = {
 	Kills: number,
 	Deaths: number,
 	GlyphsCast: number,
+	-- The longest chain of glyphs this profile has ever cast inside GameConfig.Combo.ChainWindowSeconds:
+	-- the personal best of docs/JUICE_PLAN.md phase 8, counted by the server on accepted casts only.
+	BestChain: number,
 	GlyphsHit: number,
 	MatchesPlayed: number,
 	BossKills: number,
@@ -224,6 +227,13 @@ export type MatchOutcome = {
 	RankKeyBefore: string, -- Strings key of the rank tier
 	RankKeyAfter: string,
 	FirstWinOfDay: boolean,
+	-- The execution: what the server counted for this player over the match, and the grade cut from it
+	-- (Pure/Execution). Grade is a Strings key.
+	Casts: number,
+	Hits: number,
+	DamageDealt: number,
+	DamageTaken: number,
+	Grade: string,
 }
 
 -- Queue state of the local player (QueueChanged); Queued = false means "not in any queue".

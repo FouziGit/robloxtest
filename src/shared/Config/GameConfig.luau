@@ -22,6 +22,10 @@ GameConfig.Combo = {
 	MaxLength = 4, -- longest recipe
 	TimeoutSeconds = 1.2, -- inactivity before a pending sequence resolves or resets
 	ExtendWindowSeconds = 0.35, -- shorter wait when the pending sequence is already a recipe (e.g. Cinnabar Cinnabar → Cinnabar Cinnabar Umber)
+	-- A glyph cast this soon after the previous one is a chain: the server refunds ChainInkRefund. The
+	-- reward for tight execution, measured where it can be trusted (two casts the server accepted).
+	ChainWindowSeconds = 1.0,
+	ChainInkRefund = 5,
 }
 
 GameConfig.Server = {

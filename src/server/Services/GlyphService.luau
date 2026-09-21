@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local ComboResolver = require(Shared.Pure.ComboResolver)
@@ -14,6 +15,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 
 local log = Log.new("GlyphService")
@@ -41,6 +43,7 @@ type CombatApi = {
 	) -> DamageResult,
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	trySpendInk: (player: Player, cost: number) -> boolean,
+	addInk: (player: Player, amount: number) -> (),
 	-- Cast origin the server is willing to believe, corrected back to the last plausible position when
 	-- the client claims an implausible one.
 	trustedOrigin: (player: Player) -> CFrame?,
@@ -107,6 +110,10 @@ local ROOT_PART_NAME = "HumanoidRootPart"
 
 local GlyphService = {}
 
+-- Fired once per accepted cast, after its effect resolved: the glyph and how many targets it hit.
+-- MatchService counts the execution of a duel from it.
+GlyphService.Cast = Signal.new() -- (player: Player, glyphId: string, hits: number)
+
 local registry: Registry
 local dataService: DataApi
 local notify: NotifyApi
@@ -122,6 +129,12 @@ local worldBoss: WorldBossApi
 local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 -- Per player: glyph id -> os.clock timestamp at which it can be cast again.
 local cooldowns: { [Player]: { [string]: number } } = {}
+-- os.clock of each player's last accepted cast, and how many casts that chain is now long: two inside
+-- GameConfig.Combo.ChainWindowSeconds are a chain of two, and every cast from the second on is refunded
+-- ChainInkRefund. Measured here, on casts the server ACCEPTED, which is the only timing of a sequence the
+-- server can trust -- and therefore the only count the HUD may show and the profile may keep.
+local lastCastAt: { [Player]: number } = {}
+local chainLength: { [Player]: number } = {}
 
 -- A developer account testing the roster in the hub: no ink, and cooldowns collapsed to
 -- DeveloperConfig.MinRecastSeconds.
@@ -220,13 +233,17 @@ local function runEffect(player: Player, def: GlyphDef, effect: Effect, origin: 
 	return hits
 end
 
-local function recordCast(player: Player, hits: number)
+local function recordCast(player: Player, glyphId: string, hits: number, chain: number)
+	GlyphService.Cast:Fire(player, glyphId, hits)
 	-- Timed effects yield: the profile may have been released meanwhile.
 	local data = dataService.get(player)
 	if data == nil then
 		return
 	end
 	data.Stats.GlyphsCast += 1
+	if chain > data.Stats.BestChain then
+		data.Stats.BestChain = chain
+	end
 	quest.report(player, "GlyphCast", 1)
 	if hits > 0 then
 		data.Stats.GlyphsHit += hits
@@ -281,18 +298,38 @@ local function onCastGlyph(player: Player, sequence: { string })
 	-- its successor starts.
 	local cooldown = if freeCasting(player) then DeveloperConfig.MinRecastSeconds else def.Cooldown
 	cooldownsOf(player)[def.Id] = now + cooldown
+	local previous = lastCastAt[player]
+	local chain = 1
+	if previous ~= nil and now - previous <= GameConfig.Combo.ChainWindowSeconds then
+		chain = (chainLength[player] or 1) + 1
+	end
+	chainLength[player] = chain
+	lastCastAt[player] = now
 	vfx.emit({
 		Id = "Cast",
 		Origin = origin.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { GlyphId = def.Id, Pigment = def.Pigment },
+		Params = { GlyphId = def.Id, Pigment = def.Pigment, Chain = chain },
 	})
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
-	notify.send(player, "hud.cast.success", { name = def.NameKey }, "Info")
+	if chain > 1 then
+		if not freeCasting(player) then
+			combat.addInk(player, GameConfig.Combo.ChainInkRefund)
+		end
+		quest.report(player, "Chain", 1)
+		notify.send(
+			player,
+			"hud.cast.chain",
+			{ name = def.NameKey, count = chain, ink = GameConfig.Combo.ChainInkRefund },
+			"Info"
+		)
+	else
+		notify.send(player, "hud.cast.success", { name = def.NameKey }, "Info")
+	end
 
 	local hits = runEffect(player, def, effect, origin, direction)
-	recordCast(player, hits)
+	recordCast(player, def.Id, hits, chain)
 end
 
 -- Remaining cooldown per glyph id, only entries still counting down. Expired entries are dropped.
@@ -339,6 +376,8 @@ function GlyphService.Start()
 	end
 	Players.PlayerRemoving:Connect(function(player: Player)
 		cooldowns[player] = nil
+		lastCastAt[player] = nil
+		chainLength[player] = nil
 	end)
 	registry.on("CastGlyph", onCastGlyph)
 	log.info("started (%d glyphs)", #GlyphConfig.Glyphs)

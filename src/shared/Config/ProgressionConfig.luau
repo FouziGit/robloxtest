@@ -11,6 +11,30 @@ function ProgressionConfig.xpForLevel(level: number): number
 	return math.floor(100 + 25 * (level - 1) ^ 1.35)
 end
 
+-- Where a player stood before `gained` XP landed on (level, xp): the result card animates its bar from
+-- there to here, so the gain is SEEN rather than read. Walks the curve back level by level, and never
+-- below the start of the first one.
+function ProgressionConfig.rewind(level: number, xp: number, gained: number): (number, number)
+	local remaining = math.max(0, gained)
+	local currentLevel = math.max(1, level)
+	local currentXp = math.max(0, xp)
+	while remaining > 0 do
+		if currentXp >= remaining then
+			currentXp -= remaining
+			remaining = 0
+		else
+			remaining -= currentXp
+			if currentLevel <= 1 then
+				currentXp = 0
+				break
+			end
+			currentLevel -= 1
+			currentXp = ProgressionConfig.xpForLevel(currentLevel)
+		end
+	end
+	return currentLevel, currentXp
+end
+
 -- XP rewards. Cast XP is only granted when the glyph hit at least one target (see GlyphService).
 ProgressionConfig.XP = {
 	GlyphHit = 8,

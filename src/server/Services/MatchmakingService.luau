@@ -35,6 +35,7 @@ type Registry = {
 type RankingApi = { getRating: (player: Player, modeId: string) -> number }
 type MatchApi = {
 	isInMatch: (player: Player) -> boolean,
+	isFinishing: (player: Player) -> boolean,
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
 type WorldBossApi = { isLive: () -> boolean }
@@ -59,6 +60,9 @@ local match: MatchApi
 local worldBoss: WorldBossApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
+-- userId -> mode asked for from the result screen, honoured by the first scan after the match lets the
+-- player go: the one-click loop (docs/JUICE_PLAN.md phase 8, item 2). Shown to the client as queued.
+local pending: { [number]: string } = {}
 local accumulator = 0
 -- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
 -- stood still and can hand that time back to everybody waiting.
@@ -94,6 +98,16 @@ end
 local function snapshotFor(userId: number, now: number): Types.QueueSnapshot
 	local modeId, queue, entry = queueOf(userId)
 	if modeId == nil or queue == nil or entry == nil then
+		local wanted = pending[userId]
+		if wanted ~= nil and queues[wanted] ~= nil then
+			return {
+				Queued = true,
+				ModeId = (wanted :: any) :: Types.MatchModeId,
+				WaitedSeconds = 0,
+				QueuedCount = MatchmakingCore.size(queues[wanted]),
+				NeededCount = neededFor(MatchConfig.Modes[wanted]),
+			}
+		end
 		return { Queued = false, ModeId = nil, WaitedSeconds = 0, QueuedCount = 0, NeededCount = 0 }
 	end
 	return {
@@ -131,10 +145,19 @@ local function onJoinQueue(player: Player, modeId: string)
 		return
 	end
 	if match.isInMatch(player) then
+		if match.isFinishing(player) then
+			-- The result screen's "play again": the match still holds the player for its result seconds,
+			-- so the wish is kept and honoured by the scan that finds them free.
+			pending[player.UserId] = modeId
+			notify.send(player, "queue.joined", { mode = def.NameKey }, "Success")
+			push(player, now)
+			return
+		end
 		notify.send(player, "queue.inMatch", nil, "Error")
 		push(player, now)
 		return
 	end
+	pending[player.UserId] = nil
 	if queueOf(player.UserId) ~= nil then
 		notify.send(player, "queue.alreadyQueued", nil, "Error")
 		push(player, now)
@@ -153,6 +176,12 @@ end
 
 local function onLeaveQueue(player: Player)
 	local now = os.clock()
+	if pending[player.UserId] ~= nil then
+		pending[player.UserId] = nil
+		notify.send(player, "queue.left", nil, "Info")
+		push(player, now)
+		return
+	end
 	local modeId, queue = queueOf(player.UserId)
 	if queue ~= nil and MatchmakingCore.dequeue(queue, player.UserId) then
 		notify.send(player, "queue.left", nil, "Info")
@@ -223,6 +252,17 @@ local function tick(now: number)
 		pausedSeconds = math.max(0, now - lastTickAt)
 	end
 	lastTickAt = now
+	-- The wishes kept from result screens: every player the match has let go joins now, with a fresh
+	-- wait, the same way a JoinQueue would have.
+	for userId, modeId in pairs(pending) do
+		local player = Players:GetPlayerByUserId(userId)
+		if player == nil then
+			pending[userId] = nil
+		elseif not match.isInMatch(player) then
+			pending[userId] = nil
+			onJoinQueue(player, modeId)
+		end
+	end
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		local def = MatchConfig.Modes[modeId]
 		local queue = queues[modeId]
@@ -263,6 +303,7 @@ local function onHeartbeat(deltaTime: number)
 end
 
 local function onPlayerRemoving(player: Player)
+	pending[player.UserId] = nil
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		local queue = queues[modeId]
 		if queue ~= nil then

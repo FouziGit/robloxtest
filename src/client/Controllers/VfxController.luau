@@ -16,6 +16,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
+local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
 local VfxConfig = require(Shared.Config.VfxConfig)
 -- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
@@ -30,6 +31,13 @@ local TROVE_LIFETIME_SECONDS = GameConfig.Vfx.LifetimeSeconds
 local FALLBACK_COLOR = Color3.fromRGB(255, 245, 220)
 
 local VfxController = {}
+
+-- Fired when the Cast packet of the LOCAL player arrives: the one moment the client knows the server
+-- accepted a sequence, with the length of the chain the server counted (GlyphService). The HUD's chain
+-- counter reads it instead of the client's own resolution, which counted casts the server then refused
+-- for a cooldown or for ink and left the player looking at a number they had not earned.
+VfxController.LocalCast = Signal.new() -- (glyphId: string, chain: number)
+local CAST_ID = "Cast"
 
 local remoteClient: any
 local soundController: any
@@ -127,6 +135,13 @@ local function onPacket(packet: any)
 			log.warn("unknown vfx id %s", typed.Id)
 		end
 		return
+	end
+
+	if typed.Id == CAST_ID and typed.Caster == api.LocalUserId then
+		local params = typed.Params
+		local glyphId = if type(params) == "table" and type(params.GlyphId) == "string" then params.GlyphId else ""
+		local chain = if type(params) == "table" and type(params.Chain) == "number" then params.Chain else 1
+		VfxController.LocalCast:Fire(glyphId, math.max(1, math.floor(chain)))
 	end
 
 	local trove = Trove.new()

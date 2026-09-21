@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Execution = require(Shared.Pure.Execution)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local Signal = require(Packages.Signal)
@@ -170,6 +171,13 @@ local function readOutcome(payload: any): MatchOutcome?
 		RankKeyBefore = stringOr(payload.RankKeyBefore, ""),
 		RankKeyAfter = stringOr(payload.RankKeyAfter, ""),
 		FirstWinOfDay = payload.FirstWinOfDay == true,
+		-- The execution the server counted, and the grade it cut from it. A grade the server did not send
+		-- is the lowest one rather than an empty string: the card always has a letter to stamp.
+		Casts = count(payload.Casts, 0),
+		Hits = count(payload.Hits, 0),
+		DamageDealt = count(payload.DamageDealt, 0),
+		DamageTaken = count(payload.DamageTaken, 0),
+		Grade = stringOr(payload.Grade, Execution.grade(0, 0, 0, 0, false)),
 	}
 end
 

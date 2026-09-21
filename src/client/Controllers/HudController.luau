@@ -41,6 +41,7 @@ type Deps = {
 	ComboController: any,
 	CombatController: any,
 	MatchController: any,
+	VfxController: any,
 }
 
 local DISPLAY_ORDER = Theme.Layers.Hud
@@ -50,10 +51,21 @@ local CHIP_SIZE = 36
 -- Chips grow into the row and collapse out of it (rule 3 of docs/ART_BIBLE.md: nothing appears).
 local CHIP_COLLAPSED = UDim2.fromOffset(0, CHIP_SIZE)
 local CHIP_OPEN = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
--- The sequence counter: casts resolved in a row, shown from the second one, beside the chips.
+-- Two slots per press: the live chip and, just to its right, the chip that is folding away because the
+-- sequence changed under it. Sharing one LayoutOrder left the two in an order Roblox does not define, so
+-- a replacement could render to the LEFT of what it replaced.
+local CHIP_ORDER_STRIDE = 2
+-- The chain counter: glyphs the SERVER accepted in a row inside its chain window, shown from the second
+-- one, beside the chips.
 local STREAK_ORDER = 100
 local STREAK_MIN_SHOWN = 2
 local STREAK_POP_SCALE = 1.4
+-- A band that is shown grows into place: rule 3 of docs/ART_BIBLE.md, nothing appears.
+local BAND_ENTER_SCALE = 0.9
+-- Ghost chips: the recipe a new player is shown before their first cast (OnboardingController), drawn
+-- after the live chips, faint, never counted as a sequence.
+local GHOST_ORDER = 200
+local GHOST_TRANSPARENCY = 0.6
 local COMBO_BOTTOM_MARGIN = 110 -- keeps the chips above the touch thumb cluster
 -- On touch the bars sit above the combo row: the bottom-left corner belongs to the engine thumbstick.
 local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.Gap
@@ -88,6 +100,7 @@ local clientData: any
 local remoteClient: any
 local soundController: any
 local comboController: any
+local vfxController: any
 local combatController: any
 local matchController: any
 
@@ -98,11 +111,15 @@ local ryoLabel: TextLabel
 local healthBar: ProgressBar.ProgressBar
 local inkBar: ProgressBar.ProgressBar
 local comboRow: Frame
+local matchBandScale: UIScale
 local streakLabel: TextLabel
 local streakScale: UIScale
 local streak = 0
+-- Bumped by every change, so the timer that ends a chain cannot end the one that replaced it.
+local streakGeneration = 0
 local chips: { Frame } = {}
 local chipPigments: { string } = {}
+local ghosts: { Frame } = {}
 local hintLabel: TextLabel
 local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
@@ -143,6 +160,7 @@ local function makeLabel(name: string, order: number, parent: Instance): TextLab
 	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = Theme.Sizes.TextBody
 	label.TextColor3 = Theme.Colors.Text
+	label.TextStrokeColor3 = Theme.Colors.TextInverse
 	label.TextStrokeTransparency = 0.6
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -161,6 +179,7 @@ local function makeBandLabel(name: string, order: number, height: number, textSi
 	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = textSize
 	label.TextColor3 = Theme.Colors.Text
+	label.TextStrokeColor3 = Theme.Colors.TextInverse
 	label.TextStrokeTransparency = 0.6
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -241,6 +260,10 @@ local function buildMatchBand(parent: Instance)
 	rosterLayout.Parent = matchRoster
 	matchRoster.Parent = matchBand
 
+	matchBandScale = Instance.new("UIScale")
+	matchBandScale.Name = "Entrance"
+	matchBandScale.Parent = matchBand
+
 	matchBand.Parent = parent
 end
 
@@ -311,6 +334,7 @@ local function build()
 	hintLabel.FontFace = Theme.Fonts.Body
 	hintLabel.TextSize = Theme.Sizes.TextSmall
 	hintLabel.TextColor3 = Theme.Colors.TextMuted
+	hintLabel.TextStrokeColor3 = Theme.Colors.TextInverse
 	hintLabel.TextStrokeTransparency = 0.6
 	hintLabel.TextXAlignment = Enum.TextXAlignment.Right
 	hintLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -343,7 +367,7 @@ end
 local function makeChip(index: number, pigment: string): Frame
 	local chip = Instance.new("Frame")
 	chip.Name = "Chip" .. index
-	chip.LayoutOrder = index
+	chip.LayoutOrder = index * CHIP_ORDER_STRIDE
 	chip.Size = CHIP_COLLAPSED
 	chip.ClipsDescendants = true
 	chip.BackgroundColor3 = Theme.pigmentColor(pigment)
@@ -375,6 +399,8 @@ local function refreshCombo(sequence: { string })
 		local chip = chips[index]
 		chips[index] = nil
 		chipPigments[index] = nil
+		chip.Name = chip.Name .. "Out"
+		chip.LayoutOrder += 1
 		Motion.to(chip, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
 			chip:Destroy()
 		end)
@@ -388,13 +414,62 @@ local function refreshCombo(sequence: { string })
 	end
 end
 
+-- Shows `pigments` as ghost chips, or clears them with nil. The chips grow in and fold out like the
+-- live ones, so the hint obeys the same rule as everything else: nothing appears.
+function HudController.showGhostSequence(pigments: { string }?)
+	for _, ghost in ipairs(ghosts) do
+		Motion.to(ghost, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
+			ghost:Destroy()
+		end)
+	end
+	table.clear(ghosts)
+	if pigments == nil then
+		return
+	end
+	for index, pigment in ipairs(pigments) do
+		local chip = makeChip(index, pigment)
+		chip.Name = "Ghost" .. index
+		chip.LayoutOrder = GHOST_ORDER + index
+		chip.BackgroundTransparency = GHOST_TRANSPARENCY
+		local glyph = chip:FindFirstChild("Glyph")
+		if glyph ~= nil and glyph:IsA("TextLabel") then
+			glyph.TextTransparency = GHOST_TRANSPARENCY
+		end
+		chip.Parent = comboRow
+		table.insert(ghosts, chip)
+		Motion.to(chip, { Size = CHIP_OPEN }, "UiSnappy")
+	end
+end
+
 local function refreshStreak()
 	streakLabel.Text = localize.t("hud.sequence.streak", { count = streak })
 	streakLabel.Visible = streak >= STREAK_MIN_SHOWN
 end
 
-local function onSequenceResolved()
-	streak += 1
+-- The chain is over: it fades rather than vanishing, and the next cast starts again at one.
+local function fadeStreak()
+	if streak == 0 then
+		return
+	end
+	streak = 0
+	streakGeneration += 1
+	if not streakLabel.Visible then
+		return
+	end
+	-- What is lost fades out. Not Cinnabar: nothing is about to hit the player (rule 7).
+	streakLabel.TextColor3 = Theme.Colors.TextMuted
+	Motion.to(streakScale, { Scale = 0 }, "Ui", function()
+		refreshStreak()
+		Motion.set(streakScale, { Scale = 1 })
+	end)
+end
+
+-- One accepted cast, with the chain length the server counted for it. The counter lands on every cast of
+-- a chain and ends itself when the window passes without another one.
+local function onLocalCast(_glyphId: string, chain: number)
+	streak = math.max(1, chain)
+	streakGeneration += 1
+	local generation = streakGeneration
 	refreshStreak()
 	if streakLabel.Visible then
 		-- The count lands: it drops onto the row from larger than itself and the spring settles it.
@@ -402,21 +477,10 @@ local function onSequenceResolved()
 		Motion.set(streakScale, { Scale = STREAK_POP_SCALE })
 		Motion.to(streakScale, { Scale = 1 }, "UiSnappy")
 	end
-end
-
-local function onSequenceBroken()
-	if streak == 0 then
-		return
-	end
-	streak = 0
-	if not streakLabel.Visible then
-		return
-	end
-	-- What is lost turns Cinnabar and folds away.
-	streakLabel.TextColor3 = Theme.Colors.Danger
-	Motion.to(streakScale, { Scale = 0 }, "Ui", function()
-		refreshStreak()
-		Motion.set(streakScale, { Scale = 1 })
+	task.delay(GameConfig.Combo.ChainWindowSeconds, function()
+		if streakGeneration == generation then
+			fadeStreak()
+		end
 	end)
 end
 
@@ -481,8 +545,8 @@ local function refreshCombat(state: CombatState)
 	refreshBar(healthBar, "hud.health", state.Health, state.MaxHealth)
 	refreshBar(inkBar, "hud.ink", state.Ink, state.MaxInk)
 	if state.Health <= 0 then
-		-- A caster who fell has no sequence in a row any more.
-		onSequenceBroken()
+		-- A caster who fell has no chain any more.
+		fadeStreak()
 	end
 end
 
@@ -524,6 +588,7 @@ local function rosterLabel(teamIndex: number, slot: number): TextLabel
 	label.LayoutOrder = slot
 	label.FontFace = Theme.Fonts.Body
 	label.TextSize = Theme.Sizes.TextSmall
+	label.TextStrokeColor3 = Theme.Colors.TextInverse
 	label.TextStrokeTransparency = 0.6
 	-- Teams read outwards from the middle of the band: odd teams on the left, even teams on the right.
 	label.TextXAlignment = if teamIndex % 2 == 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right
@@ -546,7 +611,10 @@ local function refreshRoster(snapshot: Types.MatchSnapshot)
 			elseif teamIndex == snapshot.LocalTeam then
 				label.TextColor3 = Theme.Colors.Success
 			else
-				label.TextColor3 = Theme.Colors.Danger
+				-- Ink, not Cinnabar. Rule 7 of docs/ART_BIBLE.md reserves red for danger that is about to
+				-- land on you, and the roster carried it for the whole match beside a name: six things on
+				-- this HUD were red at once, so none of them meant anything.
+				label.TextColor3 = Theme.Colors.Text
 			end
 		end
 		local labels = rosterLabels[teamIndex]
@@ -591,7 +659,11 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	end
 
 	refreshRoster(snapshot)
-	matchBand.Visible = true
+	if not matchBand.Visible then
+		matchBand.Visible = true
+		Motion.set(matchBandScale, { Scale = BAND_ENTER_SCALE })
+		Motion.to(matchBandScale, { Scale = 1 }, "UiSnappy")
+	end
 end
 
 local function refreshProfile(section: string)
@@ -649,6 +721,7 @@ function HudController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
 	soundController = deps.SoundController
 	comboController = deps.ComboController
+	vfxController = deps.VfxController
 	combatController = deps.CombatController
 	matchController = deps.MatchController
 	build()
@@ -663,8 +736,8 @@ function HudController.Start()
 		end
 	end)
 	comboController.SequenceChanged:Connect(refreshCombo)
-	comboController.SequenceResolved:Connect(onSequenceResolved)
-	comboController.SequenceBroken:Connect(onSequenceBroken)
+	comboController.SequenceBroken:Connect(fadeStreak)
+	vfxController.LocalCast:Connect(onLocalCast)
 	combatController.StateChanged:Connect(refreshCombat)
 	refreshCombat(combatController.getState())
 	matchController.MatchChanged:Connect(refreshMatch)

@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Elo = require(Shared.Pure.Elo)
+local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
 local Log = require(Shared.Util.Log)
@@ -56,6 +57,7 @@ type NotifyApi = {
 }
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type CombatApi = {
+	Damaged: DamagedSignal,
 	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
@@ -75,6 +77,14 @@ type RankingApi = {
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
+type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, hits: number) -> ()) -> any }
+type DamagedSignal = {
+	Connect: (
+		self: DamagedSignal,
+		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+	) -> any,
+}
+type GlyphApi = { Cast: CastSignal }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
@@ -89,8 +99,12 @@ type Deps = {
 	Ranking: RankingApi,
 	Quest: QuestApi,
 	Daily: DailyApi,
+	Glyph: GlyphApi,
 }
 type TroveType = typeof(Trove.new())
+
+-- What one participant did over the match, counted from the signals of the services that saw it.
+type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number }
 
 type Active = {
 	Match: GameModes.Match,
@@ -103,6 +117,7 @@ type Active = {
 	Finished: boolean,
 	Generation: number, -- bumped per round: a stale setup thread drops out
 	Ticks: number,
+	Stats: { [number]: ParticipantStats }, -- user id -> the execution, graded at the result
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -132,6 +147,7 @@ local arenas: ArenaApi
 local ranking: RankingApi
 local quest: QuestApi
 local daily: DailyApi
+local glyph: GlyphApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
@@ -307,6 +323,7 @@ local function award(active: Active, result: Types.MatchResult)
 			quest.report(player, "MatchWin", 1)
 		end
 		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id)
+		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
 			Won = won,
@@ -319,6 +336,11 @@ local function award(active: Active, result: Types.MatchResult)
 			RankKeyBefore = change.RankKeyBefore,
 			RankKeyAfter = change.RankKeyAfter,
 			FirstWinOfDay = firstWin,
+			Casts = stats.Casts,
+			Hits = stats.Hits,
+			DamageDealt = math.floor(stats.DamageDealt + 0.5),
+			DamageTaken = math.floor(stats.DamageTaken + 0.5),
+			Grade = Execution.grade(stats.Casts, stats.Hits, stats.DamageDealt, stats.DamageTaken, won),
 		}
 		registry.fire("MatchEnded", player, outcome)
 	end
@@ -783,6 +805,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Finished = false,
 		Generation = 0,
 		Ticks = 0,
+		Stats = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -802,6 +825,48 @@ end
 
 function MatchService.isInMatch(player: Player): boolean
 	return activeByUserId[player.UserId] ~= nil
+end
+
+-- True while the player's match is on its result screen: over, but not yet let go. MatchmakingService
+-- keeps a queue asked for now and honours it the moment isInMatch turns false.
+function MatchService.isFinishing(player: Player): boolean
+	local active = activeByUserId[player.UserId]
+	return active ~= nil and active.Match.Phase == "Result"
+end
+
+-- The execution counters, fed by GlyphService.Cast and CombatService.Damaged while a match is live.
+local function statsOf(active: Active, userId: number): ParticipantStats
+	local stats = active.Stats[userId]
+	if stats == nil then
+		stats = { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
+		active.Stats[userId] = stats
+	end
+	return stats
+end
+
+local function onCast(player: Player, _glyphId: string, hits: number)
+	local active = activeByUserId[player.UserId]
+	if active == nil or active.Match.Phase == "Result" then
+		return
+	end
+	local stats = statsOf(active, player.UserId)
+	stats.Casts += 1
+	if hits > 0 then
+		stats.Hits += 1
+	end
+end
+
+local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
+	local active = activeByUserId[sourceUserId]
+	if active == nil or active.Match.Phase == "Result" then
+		return
+	end
+	local target = Players:GetPlayerFromCharacter(targetModel)
+	if target == nil or activeByUserId[target.UserId] ~= active then
+		return
+	end
+	statsOf(active, sourceUserId).DamageDealt += applied
+	statsOf(active, target.UserId).DamageTaken += applied
 end
 
 -- Live match of `player`, or nil. Read-only: MatchService owns every field.
@@ -826,6 +891,7 @@ function MatchService.Init(deps: Deps)
 	ranking = deps.Ranking
 	quest = deps.Quest
 	daily = deps.Daily
+	glyph = deps.Glyph
 end
 
 function MatchService.Start()
@@ -833,6 +899,8 @@ function MatchService.Start()
 	-- Before PlayerRemoving: DataService fires BeforeRelease from inside its own PlayerRemoving handler,
 	-- which runs first, so the forfeit is debited while activeByUserId still holds the match.
 	dataService.BeforeRelease:Connect(onBeforeRelease)
+	glyph.Cast:Connect(onCast)
+	combat.Damaged:Connect(onDamaged)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (tick %d Hz, snapshots %d Hz)", GameConfig.Server.TickRate, SNAPSHOT_HZ)

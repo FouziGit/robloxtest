@@ -49,6 +49,8 @@ local ORDER = {
 	"MenuController",
 	"InputController",
 	"ComboController",
+	-- Listens to the combo and draws in the HUD: after both.
+	"OnboardingController",
 	"CombatController",
 	"MovementController",
 }

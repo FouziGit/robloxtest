@@ -37,6 +37,10 @@ CombatConfig.Dash = {
 	CooldownSeconds = 2.5,
 	IFrameSeconds = 0.25,
 	Cost = 10, -- ink
+	-- A dash inside the finisher's recovery (Melee.FinisherCooldownSeconds) ends that recovery on the
+	-- spot: the cancel every fighting game's skill ceiling is made of, bought with ink on top of the
+	-- dash's own cost, so it is a choice and not a free reset.
+	CancelCost = 15,
 }
 
 CombatConfig.Block = {

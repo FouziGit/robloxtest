@@ -457,6 +457,26 @@ function GlyphConfig.unlocksForLevel(level: number): { string }
 end
 
 -- Ids gated by `pigment` (Orpiment): granted with the pigment itself, never before.
+-- The first thing a level past `level` unlocks, or nil when nothing is left: the next reward the result
+-- card names. `orpimentLevel` is ProgressionConfig.OrpimentUnlockLevel, passed in because a config module
+-- requires nothing (tests/Purity.spec.luau).
+function GlyphConfig.nextUnlock(level: number, orpimentLevel: number): { Id: string, NameKey: string, Level: number }?
+	local best: { Id: string, NameKey: string, Level: number }? = nil
+	for _, def in ipairs(GlyphConfig.Glyphs) do
+		local value = def.Unlock.Value
+		if def.Unlock.Kind == "Level" and value ~= nil and value > level then
+			if best == nil or value < best.Level then
+				best = { Id = def.Id, NameKey = def.NameKey, Level = value }
+			end
+		end
+	end
+	if best == nil and level < orpimentLevel then
+		-- Nothing is left at a level; the pigment itself is, and it unlocks four glyphs at once.
+		return { Id = "Orpiment", NameKey = "pigment.orpiment", Level = orpimentLevel }
+	end
+	return best
+end
+
 function GlyphConfig.unlocksForPigment(pigment: string): { string }
 	local ids = {}
 	for _, glyph in ipairs(GlyphConfig.Glyphs) do

@@ -132,7 +132,12 @@ glyph.Wash.desc,A wave surges forward and sweeps enemies away.,Vellum,,A wave su
 glyph.Wash.name,Wash,Vellum,,Wash,Lavis
 glyph.Watermark.desc,A mark pressed into the ground: whoever stays in it is held by the page.,Vellum,,A mark pressed into the ground: whoever stays in it is held by the page.,Une marque pressée dans le sol : qui s'y attarde est retenu par la page.
 glyph.Watermark.name,Watermark,Vellum,,Watermark,Filigrane
+grade.a,A,Vellum,,A,A
+grade.b,B,Vellum,,B,B
+grade.c,C,Vellum,,C,C
+grade.s,S,Vellum,,S,S
 hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
+hud.cast.chain,"{name}! ×{count} chain, +{ink} ink",Vellum,,"{name}! ×{count} chain, +{ink} ink","{name} ! Enchaînement ×{count}, +{ink} encre"
 hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
 hud.cast.failed,{name} failed,Vellum,,{name} failed,{name} a échoué
 hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
@@ -180,10 +185,16 @@ loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {to
 loadout.stats,{damage} damage · {cost} ink · {cooldown}s,Vellum,,{damage} damage · {cost} ink · {cooldown}s,{damage} dégâts · {cost} encre · {cooldown}s
 loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
+match.again,Play again,Vellum,,Play again,Rejouer
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité
+match.execution,{hits} / {casts} glyphs landed · {damage} damage,Vellum,,{hits} / {casts} glyphs landed · {damage} damage,{hits} / {casts} glyphes placés · {damage} dégâts
 match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
+match.grade,Execution {grade},Vellum,,Execution {grade},Exécution {grade}
+match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / {needed} XP,Niveau {level} · {xp} / {needed} XP
+match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
+match.nextUnlock,Next: {name} at level {level},Vellum,,Next: {name} at level {level},Prochain : {name} au niveau {level}
 match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversaire est parti.
 match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
@@ -238,7 +249,9 @@ purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
+quest.cancelRecovery,Cancel {target} recoveries with a dash,Vellum,,Cancel {target} recoveries with a dash,Annule {target} récupérations d'une ruée
 quest.castGlyphs,Cast {target} glyphs,Vellum,,Cast {target} glyphs,Trace {target} glyphes
+quest.chainCasts,Chain {target} glyphs,Vellum,,Chain {target} glyphs,Enchaîne {target} glyphes
 quest.claim,Claim,Vellum,,Claim,Récupérer
 quest.claimed,Claimed,Vellum,,Claimed,Récupérée
 quest.completed,Quest completed: {name},Vellum,,Quest completed: {name},Quête terminée : {name}

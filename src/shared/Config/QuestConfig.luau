@@ -7,8 +7,8 @@ export type QuestDef = { Id: string, Period: Period, Event: string, Target: numb
 
 local QuestConfig = {}
 
--- Events emitted by gameplay services: GlyphCast, GlyphHit, DummyKill, PlayerKill, MatchPlayed,
--- MatchWin, DamageDealt, Dash, MeleeHit, BossParticipation, BossKill.
+-- Events emitted by gameplay services: GlyphCast, GlyphHit, Chain, DummyKill, PlayerKill, MatchPlayed,
+-- MatchWin, DamageDealt, Dash, DashCancel, MeleeHit, BossParticipation, BossKill.
 QuestConfig.Pool = {
 	{ Id = "DailyCastGlyphs", Period = "Daily", Event = "GlyphCast", Target = 30, NameKey = "quest.castGlyphs" },
 	{ Id = "DailyHitGlyphs", Period = "Daily", Event = "GlyphHit", Target = 20, NameKey = "quest.hitGlyphs" },
@@ -18,6 +18,9 @@ QuestConfig.Pool = {
 	{ Id = "DailyDamage", Period = "Daily", Event = "DamageDealt", Target = 1500, NameKey = "quest.dealDamage" },
 	{ Id = "DailyDash", Period = "Daily", Event = "Dash", Target = 15, NameKey = "quest.useDash" },
 	{ Id = "DailyMelee", Period = "Daily", Event = "MeleeHit", Target = 25, NameKey = "quest.landMelee" },
+	-- Execution challenges (docs/JUICE_PLAN.md phase 8): the chain and the cancel, both server-counted.
+	{ Id = "DailyChain", Period = "Daily", Event = "Chain", Target = 10, NameKey = "quest.chainCasts" },
+	{ Id = "DailyCancel", Period = "Daily", Event = "DashCancel", Target = 5, NameKey = "quest.cancelRecovery" },
 	{ Id = "WeeklyWins", Period = "Weekly", Event = "MatchWin", Target = 10, NameKey = "quest.winMatches" },
 	{ Id = "WeeklyKills", Period = "Weekly", Event = "PlayerKill", Target = 25, NameKey = "quest.defeatPlayers" },
 	{ Id = "WeeklyBoss", Period = "Weekly", Event = "BossParticipation", Target = 3, NameKey = "quest.joinBoss" },

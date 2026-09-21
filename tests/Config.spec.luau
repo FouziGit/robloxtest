@@ -619,6 +619,77 @@ describe("WorldBossConfig", function()
 	end)
 end)
 
+-- docs/JUICE_PLAN.md phase 8: the skill ceiling is the dash cancel and the chain, and both are priced.
+-- A price that drifts to nothing turns either one into a thing every player does on every cooldown, which
+-- is the opposite of a ceiling.
+describe("the loop", function()
+	it("prices the dash cancel as a decision", function()
+		local dash = CombatConfig.Dash
+		expect(dash.CancelCost).toBeGreaterThan(0)
+		local total = dash.Cost + dash.CancelCost
+		-- Between a fifth and a third of the bar: affordable in a fight, never free.
+		expect(total).toBeGreaterThanOrEqual(CombatConfig.Ink.Max * 0.2)
+		expect(total).toBeLessThanOrEqual(CombatConfig.Ink.Max * 0.35)
+		-- And it has something to cancel.
+		expect(CombatConfig.Melee.FinisherCooldownSeconds).toBeGreaterThan(0)
+	end)
+
+	it("pays the chain without paying for the glyph", function()
+		local combo = GameConfig.Combo
+		expect(combo.ChainWindowSeconds).toBeGreaterThan(combo.ExtendWindowSeconds)
+		expect(combo.ChainInkRefund).toBeGreaterThan(0)
+		local cheapest = math.huge
+		for _, glyph in ipairs(GlyphConfig.Glyphs) do
+			cheapest = math.min(cheapest, glyph.Cost)
+		end
+		-- A refund larger than a glyph would make a chain pay for itself, and ink would stop being the
+		-- limit docs/GAME_DESIGN.md §3 says it is.
+		expect(combo.ChainInkRefund).toBeLessThan(cheapest)
+	end)
+
+	it("rewinds the level curve exactly as it climbed it", function()
+		-- What the result card animates from. A rewind that lands anywhere else shows a player a bar
+		-- filling from a place they were never at.
+		local level, xp = 7, 240
+		local gained = 900
+		local beforeLevel, beforeXp = ProgressionConfig.rewind(level, xp, gained)
+		local climbed = 0
+		local atLevel, atXp = beforeLevel, beforeXp
+		while atLevel < level do
+			climbed += ProgressionConfig.xpForLevel(atLevel) - atXp
+			atLevel += 1
+			atXp = 0
+		end
+		climbed += xp - atXp
+		expect(climbed).toBe(gained)
+		expect(ProgressionConfig.rewind(3, 50, 0)).toBe(3)
+		-- Nothing rewinds past the start of the first level.
+		local floorLevel, floorXp = ProgressionConfig.rewind(2, 10, 1e9)
+		expect(floorLevel).toBe(1)
+		expect(floorXp).toBe(0)
+	end)
+
+	it("names the next unlock, and stops naming one when there is nothing left", function()
+		local first = GlyphConfig.nextUnlock(1, ProgressionConfig.OrpimentUnlockLevel)
+		expect(first).toBeTruthy()
+		local unlock = first :: { Id: string, NameKey: string, Level: number }
+		expect(unlock.Level).toBeGreaterThan(1)
+		expect(Strings.has(unlock.NameKey)).toBe(true)
+		-- It is always the NEAREST one: no glyph unlocks between the player and what they are promised.
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			local value = def.Unlock.Value
+			if def.Unlock.Kind == "Level" and value ~= nil and value > 1 then
+				expect(value).toBeGreaterThanOrEqual(unlock.Level)
+			end
+		end
+		-- Past every level unlock, the pigment is what is left; past that, nothing is promised.
+		local last =
+			GlyphConfig.nextUnlock(ProgressionConfig.OrpimentUnlockLevel - 1, ProgressionConfig.OrpimentUnlockLevel)
+		expect((last :: any).Id).toBe("Orpiment")
+		expect(GlyphConfig.nextUnlock(ProgressionConfig.MaxLevel, ProgressionConfig.OrpimentUnlockLevel)).toBeNil()
+	end)
+end)
+
 -- FeelConfig is tuning, not balance, so it is free to move -- but docs/JUICE_PLAN.md fixed a few of its
 -- numbers, and a value that drifts outside them stops being polish and becomes a bug the player feels
 -- as input lag or motion sickness.

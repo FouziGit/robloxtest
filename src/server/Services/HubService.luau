@@ -45,19 +45,24 @@ local PLATFORM_THICKNESS_STUDS = 4
 local HUB = WorldConfig.Hub
 local PLATFORM_EDGE_WIDTH_STUDS = 6
 local PLATFORM_EDGE_HEIGHT_STUDS = 2
--- The pad itself: an UPRIGHT BOX, and it has to stay one. EnemyService (its dummy ring) and
--- teleportToHub below both read `Size.Y` of the first SpawnLocation in the workspace as the height of
--- its top face; a rolled cylinder reports its 12-stud diameter there, which floated the six proofs 6.5
--- studs over the platform and dropped every returning player from 5.5 studs up. The seal a player sees
--- is the two decorative discs on top of it.
+-- The pad itself: an UPRIGHT BOX, and it has to stay one, SUNK so its top face is the floor. EnemyService
+-- (its ring of proofs, 22 studs out) and teleportToHub below (its return slots, 9 studs out) both read
+-- `Position.Y + Size.Y / 2` of the first SpawnLocation in the workspace as the height of the hub's ground,
+-- and every point they apply it to is off the pad, where the ground is the platform. A rolled cylinder
+-- reported its 12-stud diameter there and floated the six proofs 6.5 studs up; standing the box ON the
+-- platform still left both of them one stud high. The seal a player sees is the two discs drawn over it.
 local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
--- Studs above the pad's top face: the chalk disc sits a hair over the ink rim, and both over the pad.
-local SEAL_TOP_STUDS = SPAWN_SIZE_STUDS.Y + 0.02
-local SEAL_RIM_TOP_STUDS = SPAWN_SIZE_STUDS.Y
--- Vertical thickness of the page's ruling and of the training ring. Both are sunk into the platform and
--- show only the sliver WorldConfig asks for, so no ground mark of an effect is ever drawn under them.
+-- Vertical thickness of everything drawn flat on the page. All of it is sunk INTO the platform and shows
+-- only its top sliver, so nothing stands proud of the floor a character walks on.
 local FLAT_THICKNESS_STUDS = 0.2
-local TRAINING_TOP_STUDS = 0.01
+-- The ladder, in studs above the platform's top face (y = 0). Every rung is under the 0.03 an effect's
+-- ground mark lifts itself by (src/client/Controllers/VfxTimeline.luau), so a burn is never drawn
+-- underneath a piece of hub decoration -- and each rung clears the one below it, because two coplanar
+-- faces flicker.
+local TRAINING_TOP_STUDS = 0.008
+local RULE_TOP_STUDS = 0.016
+local SEAL_RIM_TOP_STUDS = 0.024
+local SEAL_TOP_STUDS = 0.028
 -- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
 -- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
@@ -203,7 +208,7 @@ end
 local function buildRuling(parent: Folder)
 	local half = PLATFORM_SIZE_STUDS / 2 - HUB.RuleInsetStuds
 	local width = HUB.RuleWidthStuds
-	local centerY = HUB.RuleTopStuds - FLAT_THICKNESS_STUDS / 2
+	local centerY = RULE_TOP_STUDS - FLAT_THICKNESS_STUDS / 2
 	local length = half * 2 + width
 	local along = Vector3.new(length, FLAT_THICKNESS_STUDS, width)
 	local across = Vector3.new(width, FLAT_THICKNESS_STUDS, length)
@@ -231,7 +236,7 @@ local function buildSpawn(parent: Folder): SpawnLocation
 	local spawnPart = Instance.new("SpawnLocation")
 	spawnPart.Name = "HubSpawn"
 	spawnPart.Size = SPAWN_SIZE_STUDS
-	spawnPart.CFrame = CFrame.new(0, SPAWN_SIZE_STUDS.Y / 2, 0)
+	spawnPart.CFrame = CFrame.new(0, -SPAWN_SIZE_STUDS.Y / 2, 0)
 	spawnPart.Anchored = true
 	spawnPart.Neutral = true
 	spawnPart.AllowTeamChangeOnTouch = false

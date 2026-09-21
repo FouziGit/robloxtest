@@ -132,10 +132,10 @@ glyph.Wash.desc,A wave surges forward and sweeps enemies away.,Vellum,,A wave su
 glyph.Wash.name,Wash,Vellum,,Wash,Lavis
 glyph.Watermark.desc,A mark pressed into the ground: whoever stays in it is held by the page.,Vellum,,A mark pressed into the ground: whoever stays in it is held by the page.,Une marque pressée dans le sol : qui s'y attarde est retenu par la page.
 glyph.Watermark.name,Watermark,Vellum,,Watermark,Filigrane
-grade.a,A,Vellum,,A,A
-grade.b,B,Vellum,,B,B
-grade.c,C,Vellum,,C,C
-grade.s,S,Vellum,,S,S
+grade.clean,a clean hand,Vellum,,a clean hand,une main nette
+grade.shaky,a shaking hand,Vellum,,a shaking hand,une main tremblante
+grade.steady,a steady hand,Vellum,,a steady hand,une main sûre
+grade.unsure,an unsure hand,Vellum,,an unsure hand,une main incertaine
 hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.chain,"{name}! ×{count} chain, +{ink} ink",Vellum,,"{name}! ×{count} chain, +{ink} ink","{name} ! Enchaînement ×{count}, +{ink} encre"
 hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
@@ -186,12 +186,13 @@ loadout.stats,{damage} damage · {cost} ink · {cooldown}s,Vellum,,{damage} dama
 loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
 match.again,Play again,Vellum,,Play again,Rejouer
+match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité
 match.execution,{hits} / {casts} glyphs landed · {damage} damage,Vellum,,{hits} / {casts} glyphs landed · {damage} damage,{hits} / {casts} glyphes placés · {damage} dégâts
 match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
-match.grade,Execution {grade},Vellum,,Execution {grade},Exécution {grade}
+match.grade,Execution: {grade},Vellum,,Execution: {grade},Exécution : {grade}
 match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / {needed} XP,Niveau {level} · {xp} / {needed} XP
 match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
 match.nextUnlock,Next: {name} at level {level},Vellum,,Next: {name} at level {level},Prochain : {name} au niveau {level}

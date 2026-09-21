@@ -645,6 +645,19 @@ describe("the loop", function()
 		-- A refund larger than a glyph would make a chain pay for itself, and ink would stop being the
 		-- limit docs/GAME_DESIGN.md §3 says it is.
 		expect(combo.ChainInkRefund).toBeLessThan(cheapest)
+
+		-- And the property that really matters, which comparing a refund to a price does not check: a
+		-- player chaining the cheapest glyph as fast as the chain window allows must still be draining the
+		-- bar. Otherwise ink stops being the limit on spam whatever the refund is worth.
+		local drainPerSecond = (cheapest - combo.ChainInkRefund) / combo.ChainWindowSeconds
+		if drainPerSecond <= CombatConfig.Ink.RegenInCombat then
+			error(
+				("chaining the cheapest glyph drains %.1f ink a second and combat regen gives %.1f back: ink is not the limit"):format(
+					drainPerSecond,
+					CombatConfig.Ink.RegenInCombat
+				)
+			)
+		end
 	end)
 
 	it("rewinds the level curve exactly as it climbed it", function()

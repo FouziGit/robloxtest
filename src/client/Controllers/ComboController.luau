@@ -35,9 +35,9 @@ local DISSIPATE_SFX = "SequenceDissipate"
 local ComboController = {}
 
 ComboController.SequenceChanged = Signal.new() -- (sequence: { string })
--- A sequence that resolved into a cast, with its length, and one that broke: no glyph matched, or it
--- dissipated. The HUD counts the first in a row until the second.
-ComboController.SequenceResolved = Signal.new() -- (length: number)
+-- A sequence that broke: no glyph matched, or it dissipated. The HUD folds its chain counter away on it.
+-- There is no signal for the other half on purpose -- a sequence this client resolved is not a cast, and
+-- everything that counts casts (the counter, the onboarding) reads the server's own confirmation instead.
 ComboController.SequenceBroken = Signal.new()
 
 local remoteClient: any
@@ -82,7 +82,6 @@ local function armTimer(delay: number)
 			-- here, by the window running out. Their phrase resolves too.
 			soundController.play(RESOLVE_SFX)
 			cast(pending)
-			ComboController.SequenceResolved:Fire(#pending)
 		elseif decision.Action == "Reset" and decision.Reason == "Dissipated" then
 			hudController.showLocalToast("hud.combo.dissipated", nil, "Error")
 			soundController.play(DISSIPATE_SFX)
@@ -105,7 +104,6 @@ local function onAction(actionId: string, began: boolean)
 		playNote(actionId, #full)
 		soundController.play(RESOLVE_SFX)
 		cast(full)
-		ComboController.SequenceResolved:Fire(#full)
 		setSequence({})
 	elseif decision.Action == "Wait" then
 		playNote(actionId, #next)

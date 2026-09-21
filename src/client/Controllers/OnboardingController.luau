@@ -19,13 +19,14 @@ local Log = require(Shared.Util.Log)
 
 local log = Log.new("OnboardingController")
 
-type Deps = { ClientData: any, ComboController: any, HudController: any }
+type Deps = { ClientData: any, ComboController: any, HudController: any, VfxController: any }
 
 local OnboardingController = {}
 
 local clientData: any
 local comboController: any
 local hudController: any
+local vfxController: any
 local showing = false
 
 -- The recipe of the first glyph unlocked by default: what a new player can cast at once.
@@ -60,7 +61,10 @@ local function refresh()
 	hudController.showGhostSequence(recipe)
 end
 
-local function onResolved()
+-- The hint has done its job the moment the player presses a pigment: the chips they drew are on the row,
+-- and two ghost squares parked beside them for the rest of the session are two saturated things in the
+-- scenery (rule 1). The profile is what decides whether it comes back next session.
+local function dismiss()
 	if not showing then
 		return
 	end
@@ -68,10 +72,17 @@ local function onResolved()
 	hudController.showGhostSequence(nil)
 end
 
+local function onSequenceChanged(sequence: { string })
+	if #sequence > 0 then
+		dismiss()
+	end
+end
+
 function OnboardingController.Init(deps: Deps)
 	clientData = deps.ClientData
 	comboController = deps.ComboController
 	hudController = deps.HudController
+	vfxController = deps.VfxController
 end
 
 function OnboardingController.Start()
@@ -80,7 +91,10 @@ function OnboardingController.Start()
 			refresh()
 		end
 	end)
-	comboController.SequenceResolved:Connect(onResolved)
+	-- The server's own confirmation of an accepted cast, not the client's resolution of a sequence: a cast
+	-- the server refuses for a cooldown or for ink has taught the player nothing.
+	vfxController.LocalCast:Connect(dismiss)
+	comboController.SequenceChanged:Connect(onSequenceChanged)
 	refresh()
 	log.info("started")
 end

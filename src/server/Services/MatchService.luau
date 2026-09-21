@@ -20,6 +20,7 @@ local Elo = require(Shared.Pure.Elo)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -64,6 +65,7 @@ type CombatApi = {
 type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
 	applyFreeze: (player: Player, seconds: number) -> (),
+	clearStun: (player: Player) -> (),
 	isStunned: (player: Player) -> boolean,
 }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
@@ -77,14 +79,14 @@ type RankingApi = {
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
-type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, hits: number) -> ()) -> any }
+type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, count: number) -> ()) -> any }
 type DamagedSignal = {
 	Connect: (
 		self: DamagedSignal,
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
 }
-type GlyphApi = { Cast: CastSignal }
+type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
@@ -366,7 +368,7 @@ local function finish(active: Active)
 		if activeByUserId[participant.UserId] == active then
 			activeByUserId[participant.UserId] = nil
 		end
-		if isLive(participant) then
+		if isLive(participant) and not participant.Released then
 			registry.fire("MatchChanged", participant.Player, nil)
 			notify.send(participant.Player, "match.returning", nil, "Info")
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
@@ -755,6 +757,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				Team = team,
 				Slot = slot,
 				Present = true,
+				Released = false,
 				Alive = false,
 				Health = 0,
 				MaxHealth = 0,
@@ -844,16 +847,36 @@ local function statsOf(active: Active, userId: number): ParticipantStats
 	return stats
 end
 
-local function onCast(player: Player, _glyphId: string, hits: number)
+-- A cast that could never hit anything -- a wall, a buff, a teleport -- is neither a hit nor a miss.
+local function counts(glyphId: string): boolean
+	return not GlyphConfig.isUtility(glyphId)
+end
+
+local function onCast(player: Player, glyphId: string, _chain: number)
 	local active = activeByUserId[player.UserId]
-	if active == nil or active.Match.Phase == "Result" then
+	if active == nil or active.Match.Phase == "Result" or not counts(glyphId) then
 		return
 	end
-	local stats = statsOf(active, player.UserId)
-	stats.Casts += 1
-	if hits > 0 then
-		stats.Hits += 1
+	statsOf(active, player.UserId).Casts += 1
+end
+
+-- No phase guard: a zone that resolves after the last round ended belongs to the cast that was counted
+-- while the round was still running.
+local function onCastLanded(player: Player, glyphId: string, hits: number)
+	local active = activeByUserId[player.UserId]
+	if active == nil or hits <= 0 or not counts(glyphId) then
+		return
 	end
+	statsOf(active, player.UserId).Hits += 1
+end
+
+local function teamOf(active: Active, userId: number): number?
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.UserId == userId then
+			return participant.Team
+		end
+	end
+	return nil
 end
 
 local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
@@ -865,8 +888,34 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	if target == nil or activeByUserId[target.UserId] ~= active then
 		return
 	end
+	-- Not a teammate. The grade is what a player did to the other side; friendly fire counted as damage
+	-- dealt AND as damage taken, so hitting your own team in a 3v3 raised your letter.
+	if teamOf(active, sourceUserId) == teamOf(active, target.UserId) then
+		return
+	end
 	statsOf(active, sourceUserId).DamageDealt += applied
 	statsOf(active, target.UserId).DamageTaken += applied
+end
+
+-- Lets one participant go while the match is still winding down on its result screen, which is what makes
+-- the rematch of docs/JUICE_PLAN.md phase 8 a click rather than a wait: the plan asks for under ten seconds
+-- between two duels and the result phase alone is eight. The match stays alive for everybody else.
+function MatchService.releaseFromResult(player: Player): boolean
+	local active = activeByUserId[player.UserId]
+	if active == nil or active.Match.Phase ~= "Result" then
+		return false
+	end
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.UserId == player.UserId then
+			participant.Released = true
+			break
+		end
+	end
+	activeByUserId[player.UserId] = nil
+	movement.clearStun(player)
+	registry.fire("MatchChanged", player, nil)
+	log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
+	return true
 end
 
 -- Live match of `player`, or nil. Read-only: MatchService owns every field.
@@ -900,6 +949,7 @@ function MatchService.Start()
 	-- which runs first, so the forfeit is debited while activeByUserId still holds the match.
 	dataService.BeforeRelease:Connect(onBeforeRelease)
 	glyph.Cast:Connect(onCast)
+	glyph.CastLanded:Connect(onCastLanded)
 	combat.Damaged:Connect(onDamaged)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)

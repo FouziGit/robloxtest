@@ -426,6 +426,25 @@ for _, glyph in ipairs(GlyphConfig.Glyphs) do
 end
 
 -- Recipes for ComboResolver ({Id, Combo} pairs).
+local byId: { [string]: GlyphDef } = {}
+for _, def in ipairs(GlyphConfig.Glyphs) do
+	byId[def.Id] = def
+end
+
+-- The definition of `id`, or nil. Built once at load: the grade asks it whether a cast could have hit
+-- anything at all (MatchService), which is a question per cast.
+function GlyphConfig.byId(id: string): GlyphDef?
+	return byId[id]
+end
+
+-- True when a glyph deals no damage at all -- a wall, a buff, a teleport. It cannot land a hit, so it is
+-- neither a hit nor a miss: counting one as a miss made every use of the three structural answers of
+-- docs/GAME_DESIGN.md §5 bis lower the player's execution grade exactly like a whiff.
+function GlyphConfig.isUtility(id: string): boolean
+	local def = byId[id]
+	return def ~= nil and def.Damage <= 0
+end
+
 function GlyphConfig.recipes(): { { Id: string, Combo: { string } } }
 	local recipes = {}
 	for _, glyph in ipairs(GlyphConfig.Glyphs) do

@@ -11,7 +11,7 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 describe("accuracy", function()
 	it("is the share of casts that landed", function()
 		expect(Execution.accuracy(10, 5)).toBeCloseTo(0.5, 6)
-		expect(Execution.accuracy(4, 4)).toBe(1)
+		expect(Execution.accuracy(12, 12)).toBe(1)
 	end)
 
 	it("is nothing when nothing was cast, and never more than everything", function()
@@ -19,7 +19,20 @@ describe("accuracy", function()
 		-- away from being graded on the two melee hits it took.
 		expect(Execution.accuracy(0, 0)).toBe(0)
 		expect(Execution.accuracy(0, 5)).toBe(0)
-		expect(Execution.accuracy(2, 9)).toBe(1)
+		expect(Execution.accuracy(9, 40)).toBe(1)
+	end)
+
+	it("counts a small handful of casts against the floor, not against itself", function()
+		-- Without the floor the best play was to cast ONCE and land it: a single landed glyph scored a
+		-- perfect accuracy, so the player who threw fourteen and landed them graded below the player who
+		-- threw one. The denominator is MinCasts until the player has really cast that many.
+		local floor = Execution.MinCasts
+		expect(floor).toBeGreaterThanOrEqual(4)
+		expect(Execution.accuracy(1, 1)).toBeCloseTo(1 / floor, 6)
+		expect(Execution.accuracy(floor, floor)).toBe(1)
+		-- And the one-cast duel can no longer reach the top grade on a won trade.
+		expect(Execution.grade(1, 1, 100, 40, true)).never.toBe("grade.steady")
+		expect(Execution.grade(14, 14, 100, 40, true)).toBe("grade.steady")
 	end)
 end)
 
@@ -64,8 +77,8 @@ describe("the grade", function()
 	end)
 
 	it("gives S to a duel played well and C to one played badly", function()
-		expect(Execution.grade(12, 11, 420, 90, true)).toBe("grade.s")
-		expect(Execution.grade(12, 2, 80, 400, false)).toBe("grade.c")
+		expect(Execution.grade(12, 11, 420, 90, true)).toBe("grade.steady")
+		expect(Execution.grade(12, 2, 80, 400, false)).toBe("grade.shaky")
 	end)
 
 	it("cannot be bought with the win alone", function()
@@ -73,9 +86,9 @@ describe("the grade", function()
 		-- numbers. It must not be enough to reach the top grade on its own, or the grade says "you won",
 		-- which the title of the card already says.
 		local thresholds = Execution.Thresholds
-		expect(Execution.WinBonus).toBeLessThan(thresholds.S - thresholds.A)
+		expect(Execution.WinBonus).toBeLessThan(thresholds.Steady - thresholds.Clean)
 		-- An average trade, nothing cast, and a win: the floor grade.
-		expect(Execution.grade(0, 0, 200, 200, true)).toBe("grade.c")
+		expect(Execution.grade(0, 0, 200, 200, true)).toBe("grade.shaky")
 		-- The same duel won and lost differs by the bonus, never by more.
 		local won = Execution.score(10, 6, 300, 200, true)
 		local lost = Execution.score(10, 6, 300, 200, false)
@@ -84,16 +97,16 @@ describe("the grade", function()
 
 	it("hands out every grade it declares, in order, and each one is a real key", function()
 		local thresholds = Execution.Thresholds
-		expect(thresholds.S).toBeGreaterThan(thresholds.A)
-		expect(thresholds.A).toBeGreaterThan(thresholds.B)
-		expect(thresholds.B).toBeGreaterThan(0)
+		expect(thresholds.Steady).toBeGreaterThan(thresholds.Clean)
+		expect(thresholds.Clean).toBeGreaterThan(thresholds.Unsure)
+		expect(thresholds.Unsure).toBeGreaterThan(0)
 
 		local seen: { [string]: boolean } = {}
 		-- Accuracy alone spans the scale, which is the point: the grade is mostly what the player hit.
 		for hits = 0, 10 do
 			seen[Execution.grade(10, hits, 200, 200, false)] = true
 		end
-		for _, key in ipairs({ "grade.s", "grade.a", "grade.b", "grade.c" }) do
+		for _, key in ipairs({ "grade.steady", "grade.clean", "grade.unsure", "grade.shaky" }) do
 			if not seen[key] then
 				error(("no execution reachable by accuracy alone is graded %s"):format(key))
 			end

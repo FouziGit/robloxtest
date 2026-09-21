@@ -30,6 +30,9 @@ export type Participant = {
 	Team: number,
 	Slot: number, -- index inside the team, used as the spawn slot
 	Present: boolean,
+	-- Let go early, while the match was still on its result screen, because they asked for another duel
+	-- (MatchService.releaseFromResult). The wind-up must not move them again.
+	Released: boolean,
 	Alive: boolean,
 	Health: number,
 	MaxHealth: number,

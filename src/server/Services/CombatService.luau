@@ -1126,9 +1126,12 @@ local function onDash(player: Player, state: State, now: number)
 		return
 	end
 	local dash = CombatConfig.Dash
-	-- Inside the finisher's recovery the dash is a cancel: it costs more, and it ends the recovery. The
-	-- extra ink is what makes it a decision -- a player low on ink dashes out of nothing.
-	local cancelling = now < state.MeleeCooldownUntil
+	-- Inside the finisher's recovery a dash can also CUT that recovery, for the extra ink -- and only if
+	-- the player can pay for it. Charging every dash in the window and refusing the ones under 25 took the
+	-- escape away exactly when it was needed: a player between 10 and 24 ink who had just thrown a
+	-- finisher could not dash at all, for a second and a fifth, with no message. The cancel is the
+	-- affordable extra, never a toll on the dash itself.
+	local cancelling = now < state.MeleeCooldownUntil and state.Ink >= dash.Cost + dash.CancelCost
 	local cost = if cancelling then dash.Cost + dash.CancelCost else dash.Cost
 	if not CombatService.trySpendInk(player, cost) then
 		return
@@ -1153,7 +1156,7 @@ local function onDash(player: Player, state: State, now: number)
 		Origin = root.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { Distance = dash.Distance, Duration = dash.DurationSeconds, Cancel = cancelling },
+		Params = { Distance = dash.Distance, Duration = dash.DurationSeconds },
 	})
 	CombatService.Dashed:Fire(player, cancelling)
 end

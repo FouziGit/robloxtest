@@ -13,20 +13,28 @@
 
 local Execution = {}
 
-export type Grade = "grade.s" | "grade.a" | "grade.b" | "grade.c"
+-- A hand, not a letter. S / A / B / C is the rank card of every arcade game ever shipped and says nothing
+-- about this one; a duel graded by the steadiness of the hand that drew it needs no legend, and it is the
+-- same vocabulary as the ranks (docs/ART_BIBLE.md: the states of a manuscript).
+export type Grade = "grade.steady" | "grade.clean" | "grade.unsure" | "grade.shaky"
 
 -- Weights and thresholds. Accuracy weighs more than the trade because a player controls it directly.
 Execution.AccuracyWeight = 0.6
 Execution.EfficiencyWeight = 0.4
 Execution.WinBonus = 0.05
-Execution.Thresholds = { S = 0.8, A = 0.6, B = 0.4 }
+Execution.Thresholds = { Steady = 0.8, Clean = 0.6, Unsure = 0.4 }
+-- The denominator never falls below this. A ratio with no floor made the best play "cast once and land
+-- it": one landed glyph scored a perfect accuracy, so a player who threw fourteen and landed them was
+-- graded BELOW a player who threw one. Six is a low bar for a duel of two or three minutes -- pillar 1 of
+-- docs/GAME_DESIGN.md is that the sequence is the skill, so the grade has to reward volume AND precision.
+Execution.MinCasts = 6
 
--- 0..1: the share of casts that hit at least one target.
+-- 0..1: the share of casts that hit at least one target, over at least MinCasts of them.
 function Execution.accuracy(casts: number, hits: number): number
 	if casts <= 0 then
 		return 0
 	end
-	return math.clamp(hits / casts, 0, 1)
+	return math.clamp(hits / math.max(casts, Execution.MinCasts), 0, 1)
 end
 
 -- 0..1: the share of the damage exchanged that the player dealt. Nothing exchanged is a half.
@@ -51,14 +59,14 @@ end
 -- The Strings key of the grade.
 function Execution.grade(casts: number, hits: number, dealt: number, taken: number, won: boolean): Grade
 	local score = Execution.score(casts, hits, dealt, taken, won)
-	if score >= Execution.Thresholds.S then
-		return "grade.s"
-	elseif score >= Execution.Thresholds.A then
-		return "grade.a"
-	elseif score >= Execution.Thresholds.B then
-		return "grade.b"
+	if score >= Execution.Thresholds.Steady then
+		return "grade.steady"
+	elseif score >= Execution.Thresholds.Clean then
+		return "grade.clean"
+	elseif score >= Execution.Thresholds.Unsure then
+		return "grade.unsure"
 	end
-	return "grade.c"
+	return "grade.shaky"
 end
 
 return Execution

@@ -51,9 +51,6 @@ WorldConfig.Hub = {
 	Rule = "Ink",
 	RuleInsetStuds = 22,
 	RuleWidthStuds = 0.6,
-	-- Studs above the platform's top face. Every ground mark lifts at least this much more, so a rule
-	-- never covers a burn (VfxTimelineConfig marks lift 0.04 and up).
-	RuleTopStuds = 0.02,
 	-- The emblems of the queue terminal and the shop kiosk: ink, told apart by their bars, never by a
 	-- colour. A saturated emblem standing permanently in the hub is rule 1 of docs/ART_BIBLE.md broken
 	-- by the one thing that is on screen the longest.

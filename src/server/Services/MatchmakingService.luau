@@ -36,6 +36,7 @@ type RankingApi = { getRating: (player: Player, modeId: string) -> number }
 type MatchApi = {
 	isInMatch: (player: Player) -> boolean,
 	isFinishing: (player: Player) -> boolean,
+	releaseFromResult: (player: Player) -> boolean,
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
 type WorldBossApi = { isLive: () -> boolean }
@@ -145,17 +146,22 @@ local function onJoinQueue(player: Player, modeId: string)
 		return
 	end
 	if match.isInMatch(player) then
-		if match.isFinishing(player) then
-			-- The result screen's "play again": the match still holds the player for its result seconds,
-			-- so the wish is kept and honoured by the scan that finds them free.
+		-- The result screen's "play again". The match lets this player go at once -- it stays alive for
+		-- everybody else -- and they join the queue here and now: waiting out the eight seconds of the
+		-- result phase is what put the plan's ten-second loop out of reach.
+		if match.isFinishing(player) and match.releaseFromResult(player) then
+			pending[player.UserId] = nil
+		elseif match.isFinishing(player) then
+			-- It would not let go (a phase that moved under us): keep the wish for the next scan.
 			pending[player.UserId] = modeId
 			notify.send(player, "queue.joined", { mode = def.NameKey }, "Success")
 			push(player, now)
 			return
+		else
+			notify.send(player, "queue.inMatch", nil, "Error")
+			push(player, now)
+			return
 		end
-		notify.send(player, "queue.inMatch", nil, "Error")
-		push(player, now)
-		return
 	end
 	pending[player.UserId] = nil
 	if queueOf(player.UserId) ~= nil then

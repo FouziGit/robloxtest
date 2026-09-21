@@ -110,9 +110,12 @@ local ROOT_PART_NAME = "HumanoidRootPart"
 
 local GlyphService = {}
 
--- Fired once per accepted cast, after its effect resolved: the glyph and how many targets it hit.
--- MatchService counts the execution of a duel from it.
-GlyphService.Cast = Signal.new() -- (player: Player, glyphId: string, hits: number)
+-- Fired the moment a cast is ACCEPTED, before its effect runs: the glyph and the length of the chain it
+-- belongs to. MatchService counts a duel's casts from it, and it has to be this side of the effect --
+-- a zone that is still ticking when the match ends would otherwise never be counted at all.
+GlyphService.Cast = Signal.new() -- (player: Player, glyphId: string, chain: number)
+-- Fired after the effect resolved, with how many targets it hit.
+GlyphService.CastLanded = Signal.new() -- (player: Player, glyphId: string, hits: number)
 
 local registry: Registry
 local dataService: DataApi
@@ -234,7 +237,7 @@ local function runEffect(player: Player, def: GlyphDef, effect: Effect, origin: 
 end
 
 local function recordCast(player: Player, glyphId: string, hits: number, chain: number)
-	GlyphService.Cast:Fire(player, glyphId, hits)
+	GlyphService.CastLanded:Fire(player, glyphId, hits)
 	-- Timed effects yield: the profile may have been released meanwhile.
 	local data = dataService.get(player)
 	if data == nil then
@@ -305,13 +308,17 @@ local function onCastGlyph(player: Player, sequence: { string })
 	end
 	chainLength[player] = chain
 	lastCastAt[player] = now
+	GlyphService.Cast:Fire(player, def.Id, chain)
+	-- Reliable, unlike every other effect packet: this one is also the only confirmation the CLIENT gets
+	-- that the server accepted a cast, and the HUD counts the chain from it (VfxController.LocalCast). A
+	-- dropped packet on the unreliable channel took the counter to zero in the middle of a chain.
 	vfx.emit({
 		Id = "Cast",
 		Origin = origin.Position,
 		Direction = direction,
 		Caster = player.UserId,
 		Params = { GlyphId = def.Id, Pigment = def.Pigment, Chain = chain },
-	})
+	}, true)
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
 	if chain > 1 then
 		if not freeCasting(player) then

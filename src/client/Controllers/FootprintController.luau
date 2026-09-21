@@ -51,6 +51,10 @@ local FootprintController = {}
 local timeline: any
 local quality: any
 local tracks: { [Model]: Track } = {}
+-- Expiries of prints whose character is gone (a respawn, a round reset, someone leaving). They are still
+-- fading on the floor, so they still count against the budget: dropping them with the track handed out a
+-- full fresh budget over prints that had not faded yet.
+local retired: { number } = {}
 -- The ink is the world's, not the interface's: one source for one colour (WorldConfig.Colors.Ink).
 local inkColor = Palette.world(FOOTPRINTS.Color)
 
@@ -61,8 +65,14 @@ local function prune(track: Track, now: number)
 	end
 end
 
+local function pruneRetired(now: number)
+	while #retired > 0 and retired[1] <= now do
+		table.remove(retired, 1)
+	end
+end
+
 local function liveCount(): number
-	local total = 0
+	local total = #retired
 	for _, track in pairs(tracks) do
 		total += #track.Expiries
 	end
@@ -118,6 +128,7 @@ local function onHeartbeat()
 	local busy = type(stats) == "table" and (stats.Live or 0) >= FOOTPRINTS.YieldAboveLayers
 
 	local now = os.clock()
+	pruneRetired(now)
 	local eye = camera.CFrame.Position
 	local seen: { [Model]: boolean } = {}
 	local candidates: { Candidate } = {}
@@ -167,8 +178,12 @@ local function onHeartbeat()
 		end
 	end
 
-	for character in pairs(tracks) do
+	for character, track in pairs(tracks) do
 		if not seen[character] then
+			for _, expiry in ipairs(track.Expiries) do
+				table.insert(retired, expiry)
+			end
+			table.sort(retired)
 			tracks[character] = nil
 		end
 	end

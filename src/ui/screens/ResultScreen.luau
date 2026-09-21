@@ -218,8 +218,12 @@ function ResultScreen.new(deps: Deps): Screen
 	})
 	own(trove, levelBar)
 	local nextLine = makeLine("NextUnlock", 7, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, panel.Content)
+	-- The personal best of docs/JUICE_PLAN.md phase 8, item 4. It comes from the profile rather than the
+	-- outcome: the server counts it on every accepted cast (Stats.BestChain), so the card only has to read
+	-- it -- and until it did, the record was written and shown to nobody.
+	local bestChainLine = makeLine("BestChain", 8, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, panel.Content)
 
-	local ratingLine = makeLine("Rating", 8, Theme.Sizes.TextLarge, Theme.Colors.Info, panel.Content)
+	local ratingLine = makeLine("Rating", 9, Theme.Sizes.TextLarge, Theme.Colors.Info, panel.Content)
 	ratingLine.FontFace = Theme.Fonts.Numeric
 
 	-- The rank is stamped, and it is stamped inside a row of its own fixed height: a UIScale on a child of
@@ -229,7 +233,7 @@ function ResultScreen.new(deps: Deps): Screen
 	rankRow.Name = "RankUp"
 	rankRow.BackgroundTransparency = 1
 	rankRow.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextTitle + Theme.Sizes.PaddingSmall)
-	rankRow.LayoutOrder = 9
+	rankRow.LayoutOrder = 10
 	rankRow.Parent = panel.Content
 
 	local rankLine = makeLine("Rank", 1, Theme.Sizes.TextTitle, Theme.Colors.Accent, rankRow)
@@ -240,7 +244,7 @@ function ResultScreen.new(deps: Deps): Screen
 	rankScale.Name = "Scale"
 	rankScale.Parent = rankLine
 
-	local firstWinLine = makeLine("FirstWin", 10, Theme.Sizes.TextBody, Theme.Colors.Success, panel.Content)
+	local firstWinLine = makeLine("FirstWin", 11, Theme.Sizes.TextBody, Theme.Colors.Success, panel.Content)
 
 	trove:Add(function()
 		Motion.cancel(overlay)
@@ -334,6 +338,10 @@ function ResultScreen.new(deps: Deps): Screen
 				showLevel(levelAfter, xpAfter)
 			end)
 		end
+
+		local best = data.Stats.BestChain
+		bestChainLine.Visible = best >= 2
+		bestChainLine.Text = t("match.bestChain", { count = best })
 
 		local unlock = GlyphConfig.nextUnlock(levelAfter, ProgressionConfig.OrpimentUnlockLevel)
 		nextLine.Visible = unlock ~= nil

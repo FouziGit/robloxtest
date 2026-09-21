@@ -41,7 +41,10 @@ local ProgressBar = {}
 
 local DEFAULT_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local TRACK_EDGE_TRANSPARENCY = 0.55
-local LABEL_HALO_TRANSPARENCY = 0.15
+-- Opaque, because the halo IS the mechanism: over the ink that is left, charcoal glyphs are drawn by their
+-- vellum outline, and over the empty paper the charcoal itself carries them. A translucent halo would
+-- leave the number at the contrast of ink on ink, which is nothing.
+local LABEL_HALO_TRANSPARENCY = 0
 
 local function roundCorners(parent: Instance)
 	local corner = Instance.new("UICorner")
@@ -131,6 +134,12 @@ function ProgressBar.new(props: Props): ProgressBar
 			if shadow ~= nil then
 				Motion.set(shadow, { Size = goal })
 			end
+		elseif clamped == current then
+			-- Nothing moved. The combat state is pushed five times a second whether or not it changed, so
+			-- treating "the same" as a gain is what wiped the ghost 200 ms after every hit: the damage band
+			-- the whole feature exists for lasted one push out of a spring of a second and a half. The fill
+			-- is already where it belongs; the ghost, if it is still catching up, is left alone.
+			return
 		elseif shadow ~= nil then
 			if clamped < current then
 				-- Lost: the fill drops now, the ghost stays and catches up.

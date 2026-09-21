@@ -49,6 +49,13 @@ local TEXT_PAIRS = {
 	-- set large -- the rating line when it falls, and a Danger button -- and only on the page itself.
 	{ Ink = "Danger", On = "Panel", Ratio = ACCENT_CONTRAST, Where = "a rating that fell" },
 	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "the label of a Danger button" },
+	-- A progress bar's number crosses the boundary between the ink that is left and the empty paper, so
+	-- neither colour alone can carry it: it is ink with an opaque halo of page, and what has to be legible
+	-- is the HALO against the fill. Charcoal on charcoal is 1.00, which is why the halo is the mechanism
+	-- and not a decoration -- and why it is measured here.
+	{ Ink = "TextInverse", On = "Health", Ratio = BODY_CONTRAST, Where = "the halo of a bar's number on its fill" },
+	{ Ink = "TextInverse", On = "Ink", Ratio = BODY_CONTRAST, Where = "the halo of the ink bar's number" },
+	{ Ink = "Text", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a bar's number over its empty track" },
 }
 
 -- The engine's defaults, which docs/ART_BIBLE.md says are replaced.

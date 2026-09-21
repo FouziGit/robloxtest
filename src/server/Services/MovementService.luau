@@ -346,6 +346,23 @@ function MovementService.applyFreeze(player: Player, seconds: number)
 	MovementService.command(player, { Kind = "Stun", Seconds = state.StunUntil - now })
 end
 
+-- Ends a stun or a freeze now. The result screen's freeze lasts as long as the screen, and a player who
+-- asks for another duel from that screen is let go before it (MatchService.releaseFromResult): without
+-- this they would walk into the next match still frozen.
+function MovementService.clearStun(player: Player)
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	state.StunUntil = 0
+	local humanoid = state.Humanoid
+	if humanoid ~= nil then
+		humanoid:SetAttribute(STUN_ATTRIBUTE, 0)
+	end
+	applyStats(state, os.clock())
+	MovementService.command(player, { Kind = "Stun", Seconds = 0 })
+end
+
 function MovementService.isStunned(player: Player): boolean
 	local state = states[player]
 	return state ~= nil and state.StunUntil > os.clock()

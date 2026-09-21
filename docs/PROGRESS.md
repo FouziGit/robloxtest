@@ -229,10 +229,11 @@ Rien de la passe 8 n'a été **joué**. Les prix (15 encre pour annuler, 5 rendu
 
 ### Après les neuf passes — le dernier mot emprunté
 
-La monnaie s'appelait **Ryo**, le nom de la licence que la passe 1 devait quitter, et le lexique de
-`ART_BIBLE` n'avait pas de ligne pour l'argent : le mot a traversé les neuf passes dans chaque
-notification de récompense, sans qu'aucune porte le voie. Elle s'appelle le **Folio** (D-95), dans le code,
-dans les textes, dans les trois produits, dans les cinq documents et dans le README ; le profil passe en
-version 4 et `upgradeToV4` porte le solde d'un joueur sauvegardé dans la nouvelle clé. `ryo` est ajouté à
-la liste d'interdits de `tests/Lexicon.spec.luau` — la même leçon que D-66 : une liste d'interdits ne
-contient que les mots auxquels quelqu'un a pensé.
+La monnaie portait encore le nom de la licence que la passe 1 devait quitter : le lexique de `ART_BIBLE`
+n'avait pas de ligne pour l'argent, donc le mot a traversé les neuf passes dans chaque notification de
+récompense sans qu'aucune porte le voie. Elle s'appelle le **Folio** (D-95, qui cite l'ancien nom), dans le
+code, dans les textes, dans les trois produits, dans les cinq documents et dans le README ; le profil passe
+en version 4 et `upgradeToV4` porte le solde d'un joueur sauvegardé dans la nouvelle clé. L'ancien mot est
+ajouté à la liste d'interdits de `tests/Lexicon.spec.luau` — la même leçon que D-66 : une liste d'interdits
+ne contient que les mots auxquels quelqu'un a pensé. Ce document n'a donc plus le droit de l'écrire, ce qui
+est exactement comme ça doit être : la porte a attrapé ce paragraphe avant la relecture.

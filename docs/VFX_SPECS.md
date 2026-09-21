@@ -800,6 +800,24 @@ est plus fort qu'elles.
 
 ---
 
+## `BossPhase` — la bande s'élargit
+
+**Ce qu'il doit faire sentir.** Que ça vient de changer, et dans quel sens : le boss est plus dangereux,
+pas moins. Il ne blesse personne.
+
+**Ce qu'il a remplacé.** Rien : une phase était une ligne de journal serveur et un chiffre dans le
+bandeau. Le corps ne changeait pas.
+
+**Comment il est construit.** Le grain de la page est aspiré vers le corps sur quatre dixièmes, de plus
+près et plus vite que pour l'arrivée — c'est une propagation, pas une venue —, la lumière monte en
+`Exponential` entrant ; puis le coup de page, la secousse `Heavy`, l'anneau lancé à quarante-huit studs en
+`Exponential` sortant, vingt-huit pâtés d'encre jetés du niveau de la bande, et un résidu de deux secondes
+et demie sous le corps. `BossImpact` avec un duck court : une phase est un coup porté au boss. Ce que le
+monde lit ensuite n'est pas dans la timeline : la bande d'encre du corps a pris la hauteur de la phase
+(`WorldConfig.Erasure.Band.Heights`, D-87).
+
+---
+
 ## `BossDefeated` — la fin
 
 **Ce qu'il doit faire sentir.** Que c'est rendu. Le seul temps du combat qui appartient aux joueurs qui
@@ -825,9 +843,9 @@ haut et plus pressé quand la phase raccourcit l'avertissement. `BossImpact` tom
 et baisse la musique (`Duck`), l'arrivée porte `BossArrival` sur toute la pulsation `Erasure`, la fin
 `BossDefeat`. Tout ça sort de `tools/audio/kit.py`.
 
-**Rien ne remplace le corps du boss.** Ces fiches décrivent ce qu'il **fait** ; le boss lui-même est
-encore un bloc gris de 8 × 14 × 8 studs construit par `WorldBossService`. C'est la passe 7 (« le monde »)
-qui le met en scène, et aucune timeline ne peut le faire à sa place.
+**Le corps du boss est celui de la passe 7** (D-87) : une figure blanche à bande d'encre dans la coque
+de 8 × 14 × 8 que ces fiches supposent, construite par `WorldBossService` depuis `WorldConfig.Erasure`.
+Aucune timeline ne le dessine ; `BossPhase` ci-dessus dessine ce qui lui arrive.
 
 **Les huit timelines ont tourné dans un client vivant, mais pas avec leurs textures.** Émises par le vrai
 chemin serveur depuis un place de travail (D-76) : zéro erreur, et les sondes ont lu les barres du

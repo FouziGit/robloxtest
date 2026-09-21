@@ -182,3 +182,14 @@ Rien n'a été **entendu**. Les WAV ne sont pas téléversés (`docs/STUDIO_SETU
 ### Phase 6 — ce qui n'est pas fait
 
 Rien n'a été **vu**. Le thème, les polices et les ressorts n'ont pas tourné dans un client : le contraste est calculé, pas regardé, et la disponibilité des graisses de Merriweather et d'Oswald sur le moteur est celle de la documentation. Un écran, un jeton qui pousse, une barre qui perd et son fantôme sont les premières choses à regarder en jeu.
+
+### Phase 7 — fait
+
+- **Le monde est la page** (D-86) : `WorldConfig` pur, cinq teintes et un matériau, `Util/Palette` pour la conversion ; hub, arènes et épreuves rebâtis en vélin, os, craie et encre — sceau de craie pour le spawn, filet d'encre au sommet des murs, croix de repérage sur les épreuves. Aucun `Color3` ni `Enum.Material` dans `src/server`.
+- **L'Effacement a un corps** (D-87) : figure blanche dans sa coque de contact, bande d'encre dont la hauteur est la phase, `BossPhase` émis et rendu à chaque franchissement (timeline de huit couches), déplacement par `PivotTo`.
+- **La page se souvient** (D-88) : empreintes d'encre sous chaque pas, `VfxTimeline.stamp`, budget propre.
+- **Une porte** (`tests/WorldConfig.spec.luau`, 12 tests) : teintes jamais colorées, monde clair et encre sombre, la page aux hexadécimaux de la bible, chaque rôle résolu, un matériau, la figure dans la coque, une hauteur de bande par phase et croissante, empreinte qui s'efface sur une texture existante et sous le tiers du budget, aucune couleur ni matériau nommé par un bâtisseur, garde de non-vacuité. Quatorze mutations, quatorze prises ; `EffectCoverage` et `BossTelegraph` étendus à `BossPhase`.
+
+### Phase 7 — ce qui n'est pas fait
+
+`Lighting`, `Atmosphere` et la brume sont ceux de la passe 3 ; pas de ciel (aucun asset vérifié : la raison est dans `LightingConfig.Atmosphere`, passe 3). L'**annonce** et la **montée** de L'Effacement restent ce que les passes 3 et 5 ont fait (pulsation `Erasure`, musique, bandeau, `BossSpawn`) : cette passe a mis en scène le corps et les phases. Rien n'a été **vu** : le monde recoloré, la figure, ses phases et les empreintes n'ont pas tourné dans un client. La géométrie est tenue par des tests ; l'image ne l'est pas.

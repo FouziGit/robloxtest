@@ -57,6 +57,15 @@ jobs:
           fi
           python3 tools/textures/check_ink.py
 
+      - name: Audio reproduces from its generators
+        run: |
+          python3 tools/audio/generate_all.py > /dev/null
+          if ! git diff --quiet -- assets/audio; then
+            echo "assets/audio does not match what tools/audio/ generates:"
+            git --no-pager diff --stat -- assets/audio
+            exit 1
+          fi
+
       - name: Lune tests
         run: lune run tests/run
 

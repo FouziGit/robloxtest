@@ -60,6 +60,18 @@ fi
 echo "▶ ink reach matches AssetIds"
 python3 tools/textures/check_ink.py
 
+# The same proof for the sound: every WAV is written by tools/audio and the bytes on disk are the
+# bytes the generators write. A generator that picked up a libm call on a per-sample path shows up
+# here as a diff on the machine whose libm disagrees.
+echo "▶ audio reproduces from its generators"
+python3 tools/audio/generate_all.py >/dev/null
+if ! git diff --quiet -- assets/audio; then
+	echo "✖ assets/audio does not match what tools/audio/ generates:"
+	git --no-pager diff --stat -- assets/audio
+	echo "  Run python3 tools/audio/generate_all.py and commit the result."
+	exit 1
+fi
+
 echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/Vellum.rbxl

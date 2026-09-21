@@ -34,6 +34,7 @@ type Deps = {
 	HudController: HudApi,
 	RemoteClient: any,
 	WorldLighting: any,
+	SoundController: any,
 }
 
 type Announcement = { Key: string, Kind: string }
@@ -70,6 +71,7 @@ local timeLabel: TextLabel
 local shareLabel: TextLabel
 local warningLabel: TextLabel
 
+local soundController: any
 local snapshot: Types.BossSnapshot? = nil
 local lastPhase: string? = nil
 local worldLighting: any
@@ -277,12 +279,21 @@ local function announce(current: Types.BossSnapshot)
 	if current.Phase == "Announced" and worldLighting ~= nil then
 		worldLighting.pulse("Erasure")
 	end
+
+	-- The music follows the event for everyone on the server: the boss is a server-wide event and the
+	-- hub is where the announcement is heard.
+	if current.Phase == "Announced" or current.Phase == "Fighting" then
+		soundController.music("Boss")
+	else
+		soundController.music("Hub")
+	end
 end
 
 local function onBossChanged(payload: any)
 	if payload == nil then
 		snapshot = nil
 		lastPhase = nil -- the next event announces itself from its first phase again
+		soundController.music("Hub")
 		refresh()
 		return
 	end
@@ -300,6 +311,7 @@ local function onBossChanged(payload: any)
 end
 
 function BossController.Init(deps: Deps)
+	soundController = deps.SoundController
 	localize = deps.Localize
 	hudController = deps.HudController
 	remoteClient = deps.RemoteClient

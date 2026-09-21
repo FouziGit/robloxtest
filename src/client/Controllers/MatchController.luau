@@ -21,9 +21,11 @@ export type QueueSnapshot = Types.QueueSnapshot
 export type MatchSnapshot = Types.MatchSnapshot
 export type MatchOutcome = Types.MatchOutcome
 
-type Deps = { RemoteClient: any }
+type Deps = { RemoteClient: any, SoundController: any }
 
 local PHASES: { [string]: boolean } = { Countdown = true, Playing = true, RoundOver = true, Result = true }
+local COUNTDOWN_PHASE = "Countdown"
+local PLAYING_PHASE = "Playing"
 
 local MatchController = {}
 
@@ -32,6 +34,7 @@ MatchController.MatchChanged = Signal.new() -- (snapshot: MatchSnapshot?)
 MatchController.MatchEnded = Signal.new() -- (outcome: MatchOutcome)
 
 local remoteClient: any
+local soundController: any
 
 -- A fresh table per call: the state below is handed to listeners, never shared with a constant.
 local function idleQueue(): QueueSnapshot
@@ -180,10 +183,43 @@ local function onQueueChanged(payload: any)
 	MatchController.QueueChanged:Fire(snapshot)
 end
 
--- Single Cinnabar site so the signal carries an optional snapshot: nil means "the match is over".
+-- Single site so the signal carries an optional snapshot: nil means "the match is over".
 local function fireMatch(snapshot: MatchSnapshot?)
 	match = snapshot
 	MatchController.MatchChanged:Fire(snapshot)
+end
+
+-- What the match sounds like, from its snapshots: the music switches when one begins and ends, the
+-- countdown ticks on every whole second it loses, and the round opening is the one beat played when
+-- the count reaches zero. All of it from the snapshot the HUD already draws, so the ear and the eye
+-- cannot disagree about when the round started.
+local lastCountdownSecond = -1
+local lastPhase: string? = nil
+
+local function soundMatch(previous: MatchSnapshot?, current: MatchSnapshot?)
+	if current == nil then
+		if previous ~= nil then
+			soundController.music("Hub")
+		end
+		lastPhase = nil
+		lastCountdownSecond = -1
+		return
+	end
+	if previous == nil or previous.MatchId ~= current.MatchId then
+		soundController.music("Match")
+		lastPhase = nil
+		lastCountdownSecond = -1
+	end
+	if current.Phase == COUNTDOWN_PHASE then
+		local second = math.ceil(current.SecondsLeft)
+		if second ~= lastCountdownSecond and second > 0 then
+			soundController.play("Countdown")
+		end
+		lastCountdownSecond = second
+	elseif current.Phase == PLAYING_PHASE and lastPhase == COUNTDOWN_PHASE then
+		soundController.play("MatchStart")
+	end
+	lastPhase = current.Phase
 end
 
 local function onMatchChanged(payload: any)
@@ -191,6 +227,7 @@ local function onMatchChanged(payload: any)
 		if match == nil then
 			return
 		end
+		soundMatch(match, nil)
 		fireMatch(nil)
 		return
 	end
@@ -199,6 +236,7 @@ local function onMatchChanged(payload: any)
 		warnOnce("MatchChanged", payload)
 		return
 	end
+	soundMatch(match, snapshot)
 	fireMatch(snapshot)
 end
 
@@ -209,6 +247,12 @@ local function onMatchEnded(payload: any)
 		return
 	end
 	lastOutcome = outcome
+	-- A draw is neither phrase: the page stays as it was.
+	if outcome.Won then
+		soundController.play("MatchWin")
+	elseif not outcome.Draw then
+		soundController.play("MatchLose")
+	end
 	MatchController.MatchEnded:Fire(outcome)
 end
 
@@ -246,6 +290,7 @@ end
 
 function MatchController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
+	soundController = deps.SoundController
 end
 
 function MatchController.Start()

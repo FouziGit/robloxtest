@@ -3,6 +3,11 @@
 -- inactivity timer (short extend window when the pending sequence is already a recipe), sends
 -- `CastGlyph` with the pigment sequence and reports resets to the HUD. The server re-validates
 -- every sequence; this controller only decides when to send it.
+--
+-- It also plays the sequence. Each press is that pigment's note, and the notes climb a pentatonic as
+-- the sequence grows, so a sequence that resolves is a phrase that resolves and one that breaks is a
+-- clash (docs/JUICE_PLAN.md phase 5: "la séquence devient musicale"). The scale is the one the music
+-- loops are written in (tools/audio/music.py), so a sequence over the music is in tune with it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,7 +25,12 @@ local log = Log.new("ComboController")
 
 type Deps = { RemoteClient: any, SoundController: any, InputController: any, HudController: any }
 
-local PUSH_SFX = "UiClick"
+-- Semitones above the root for the first, second, third... press of a sequence: a pentatonic, so any
+-- two consecutive notes agree, and the root an octave up sits where a fifth press would land.
+local SCALE = { 0, 2, 4, 7, 9, 12, 14, 16 }
+local RESOLVE_SFX = "SequenceResolve"
+local FAIL_SFX = "SequenceFail"
+local DISSIPATE_SFX = "SequenceDissipate"
 
 local ComboController = {}
 
@@ -44,6 +54,12 @@ local function cancelTimer()
 	generation += 1
 end
 
+-- The pigment's own note, at the scale degree of its place in the sequence.
+local function playNote(pigment: string, position: number)
+	local steps = SCALE[math.clamp(position, 1, #SCALE)]
+	soundController.play("Note" .. pigment, nil, { Pitch = 2 ^ (steps / 12) })
+end
+
 local function cast(pigments: { string })
 	remoteClient.fire("CastGlyph", pigments)
 end
@@ -61,6 +77,7 @@ local function armTimer(delay: number)
 			cast(pending)
 		elseif decision.Action == "Reset" and decision.Reason == "Dissipated" then
 			hudController.showLocalToast("hud.combo.dissipated", nil, "Error")
+			soundController.play(DISSIPATE_SFX)
 		end
 		setSequence({})
 	end)
@@ -74,17 +91,20 @@ local function onAction(actionId: string, began: boolean)
 	table.insert(full, actionId)
 	local next, decision = ComboResolver.push(resolver, sequence, actionId)
 	cancelTimer()
-	soundController.play(PUSH_SFX)
 
 	if decision.Action == "Cast" then
+		playNote(actionId, #full)
+		soundController.play(RESOLVE_SFX)
 		cast(full)
 		setSequence({})
 	elseif decision.Action == "Wait" then
+		playNote(actionId, #next)
 		setSequence(next)
 		armTimer(if decision.Castable then GameConfig.Combo.ExtendWindowSeconds else GameConfig.Combo.TimeoutSeconds)
 	else
 		if decision.Action == "Reset" and decision.Reason == "NoMatch" then
 			hudController.showLocalToast("hud.combo.noMatch", nil, "Error")
+			soundController.play(FAIL_SFX)
 		end
 		setSequence({})
 	end

@@ -8,12 +8,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("SettingsService")
 
 export type BindKind = "Keyboard" | "Gamepad"
-export type SettingsPayload = { MusicVolume: number, SfxVolume: number, CameraShake: boolean }
+export type SettingsPayload = { MusicVolume: number, SfxVolume: number, CameraShake: boolean, Quality: string }
 
 type ProfileData = Types.ProfileData
 type KeybindMap = Types.KeybindMap
@@ -108,6 +109,11 @@ local function onUpdateSettings(player: Player, settings: SettingsPayload)
 	data.Settings.MusicVolume = settings.MusicVolume
 	data.Settings.SfxVolume = settings.SfxVolume
 	data.Settings.CameraShake = settings.CameraShake
+	-- The remote's Guard already refuses anything that is not a tier name (Shared/Remotes), so this is
+	-- the belt to that brace: a profile is never written a tier the renderer cannot resolve.
+	if QualityConfig.isTier(settings.Quality) then
+		data.Settings.Quality = settings.Quality
+	end
 	dataService.push(player, "Settings")
 end
 

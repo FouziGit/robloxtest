@@ -19,6 +19,7 @@ local Log = require(Shared.Util.Log)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProfileStore = require(script.Parent.Parent.Vendor.ProfileStore)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local Signal = require(Packages.Signal)
 local Strings = require(Shared.Strings)
 local Types = require(Shared.Types)
@@ -81,6 +82,7 @@ function DataService.template(): { [string]: any }
 			MusicVolume = 0.5,
 			SfxVolume = 1,
 			CameraShake = true,
+			Quality = QualityConfig.Default,
 		},
 		Progression = { Level = 1, XP = 0, TotalXP = 0 },
 		Currency = { Ryo = 0 },

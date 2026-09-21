@@ -8,6 +8,7 @@ local Guard = require(script.Parent.Util.Guard)
 local InputConfig = require(script.Parent.Config.InputConfig)
 local MatchConfig = require(script.Parent.Config.MatchConfig)
 local PigmentConfig = require(script.Parent.Config.PigmentConfig)
+local QualityConfig = require(script.Parent.Config.QualityConfig)
 local RankingConfig = require(script.Parent.Config.RankingConfig)
 
 export type Kind = "RemoteEvent" | "RemoteFunction" | "UnreliableRemoteEvent"
@@ -55,6 +56,7 @@ Remotes.Definitions = {
 				MusicVolume = Guard.number({ min = 0, max = 1 }),
 				SfxVolume = Guard.number({ min = 0, max = 1 }),
 				CameraShake = Guard.boolean(),
+				Quality = Guard.oneOf((QualityConfig.Order :: any) :: { any }),
 			}),
 		},
 		Rate = { Capacity = 3, Refill = 0.5 },

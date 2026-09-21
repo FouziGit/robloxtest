@@ -32,6 +32,9 @@ local ORDER = {
 	"ClientData",
 	"Localize",
 	"SoundController",
+	-- Before every system that asks it what it may draw: WorldLighting, VfxTimeline and the footprints
+	-- all read the tier at Start (Config/QualityConfig).
+	"QualityController",
 	-- Before anything that pulses it: WorldLighting builds the five post-processing effects at Start, and
 	-- a pulse fired against effects that do not exist yet is a pulse nobody sees.
 	"WorldLighting",

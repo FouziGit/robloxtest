@@ -13,6 +13,9 @@ export type SettingsData = {
 	MusicVolume: number,
 	SfxVolume: number,
 	CameraShake: boolean,
+	-- A QualityConfig tier name: the ceiling on what this player's client draws. The client may draw
+	-- BELOW it when the frame rate asks (QualityController), never above.
+	Quality: string,
 }
 
 export type ProgressionData = {

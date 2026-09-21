@@ -206,6 +206,105 @@ describe("PoolPolicy accounting", function()
 	end)
 end)
 
+-- docs/JUICE_PLAN.md phase 9: "vérification qu'un duel complet ne laisse aucune instance ni aucune
+-- connexion derrière lui". The connections are held by tests/Loops.spec.luau; the instances are here. A
+-- duel is minutes of borrows and releases through the shipped ceilings, and the only thing that proves it
+-- left nothing behind is the accounting coming back to zero -- which is exactly what a client cannot tell
+-- you, because a leaked part is invisible until the frame rate is gone.
+describe("a duel's worth of borrows", function()
+	-- The heaviest effect measured by scripts/effect-cost.luau (Ligature: 25 parts, 11 decals, 7 emitters,
+	-- 2 attachments, 1 trail, 5 lights), which is the row that reaches a ceiling first.
+	local HEAVIEST: { [string]: number } = {
+		Part = 25,
+		Decal = 11,
+		ParticleEmitter = 7,
+		Attachment = 2,
+		Trail = 1,
+		PointLight = 5,
+	}
+	-- A three-minute duel at roughly one cast a second, with four effects overlapping at the peak.
+	local EFFECTS = 180
+	local OVERLAP = 4
+
+	it("comes back to nothing live, with nothing unowned", function()
+		local policy = PoolPolicy.new(PoolPolicy.Limits)
+		-- Rolling window of what is still out, so the peak really is OVERLAP effects deep.
+		local outstanding: { { { className: string, held: number } } } = {}
+		for effect = 1, EFFECTS do
+			local borrowed: { { className: string, held: number } } = {}
+			for className, count in pairs(HEAVIEST) do
+				local held = 0
+				for _ = 1, count do
+					local decision = policy:borrow(className)
+					if decision ~= "Refuse" then
+						held += 1
+					end
+				end
+				table.insert(borrowed, { className = className, held = held })
+			end
+			table.insert(outstanding, borrowed)
+			if #outstanding > OVERLAP then
+				local finished = table.remove(outstanding, 1)
+				if finished ~= nil then
+					for _, entry in ipairs(finished) do
+						for _ = 1, entry.held do
+							expect(policy:release(entry.className)).never.toBe("Refuse")
+						end
+					end
+				end
+			end
+			expect(effect).toBeGreaterThan(0)
+		end
+		for _, finished in ipairs(outstanding) do
+			for _, entry in ipairs(finished) do
+				for _ = 1, entry.held do
+					expect(policy:release(entry.className)).never.toBe("Refuse")
+				end
+			end
+		end
+
+		expect(policy:outstanding()).toBe(0)
+		for className, state in pairs(policy:report()) do
+			if state.Live ~= 0 then
+				error(("%s still holds %d instance(s) after the duel"):format(className, state.Live))
+			end
+			if state.Unowned ~= 0 then
+				error(("%s refused %d release(s): the accounting drifted"):format(className, state.Unowned))
+			end
+			-- And the pool did not grow: what it keeps between effects is its parked ceiling, not its peak.
+			expect(state.Parked).toBeLessThanOrEqual(PoolPolicy.Limits[className].Parked)
+			expect(state.PeakLive).toBeLessThanOrEqual(PoolPolicy.Limits[className].Live)
+		end
+	end)
+
+	it("creates far fewer instances than it hands out", function()
+		-- What the pool is for. Four overlapping copies of the heaviest effect are held at once, so the
+		-- steady state cannot be zero creations -- but a hundred and eighty effects must not cost a
+		-- hundred and eighty times anything.
+		local policy = PoolPolicy.new(PoolPolicy.Limits)
+		local handouts = 0
+		for _ = 1, EFFECTS do
+			for className, count in pairs(HEAVIEST) do
+				for _ = 1, count do
+					if policy:borrow(className) ~= "Refuse" then
+						handouts += 1
+					end
+				end
+				for _ = 1, count do
+					policy:release(className)
+				end
+			end
+		end
+		local created = 0
+		for _, state in pairs(policy:report()) do
+			created += state.Created
+		end
+		expect(handouts).toBeGreaterThan(5000)
+		-- One creation per class per depth, and nothing after that: the ratio is the pooling.
+		expect(created).toBeLessThan(handouts / 50)
+	end)
+end)
+
 describe("PoolPolicy shipped ceilings", function()
 	it("cover every class the VFX layer builds per effect", function()
 		-- A class VfxPool can build but this table has no row for refuses every borrow of it, and the only

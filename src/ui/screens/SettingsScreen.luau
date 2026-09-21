@@ -18,6 +18,7 @@ local Button = require(script.Parent.Parent.components.Button)
 local InputConfig = require(Shared.Config.InputConfig)
 local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local Remotes = require(Shared.Remotes)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Slider = require(script.Parent.Parent.components.Slider)
@@ -50,15 +51,19 @@ export type Screen = {
 
 type ActionId = InputConfig.ActionId
 type BindKind = "Keyboard" | "Gamepad"
-type TabId = "Keyboard" | "Gamepad" | "Audio"
+type TabId = "Keyboard" | "Gamepad" | "Audio" | "Graphics"
 type KeybindMap = Types.KeybindMap
-type AudioState = { MusicVolume: number, SfxVolume: number, CameraShake: boolean }
+-- Everything this screen sends through UpdateSettings, which is one remote: the audio the Audio page
+-- edits and the tier the Graphics page does.
+type AudioState = { MusicVolume: number, SfxVolume: number, CameraShake: boolean, Quality: string }
 type Destroyable = { Destroy: (self: any) -> () }
 
 local SettingsScreen = {}
 
 local OVERLAY_TRANSPARENCY = 0.45
 local AUDIO_DEBOUNCE_SECONDS = 0.5
+-- Four tiers side by side: wide enough that each label fits without truncating on a phone.
+local QUALITY_STRIP_WIDTH = 320
 local UPDATE_SETTINGS_RATE = Remotes.Definitions.UpdateSettings.Rate
 -- Minimum spacing between two UpdateSettings calls: one per refilled token, so a long tweaking session
 -- never outruns the remote bucket (the registry drops a rate-limited call and the change would be lost).
@@ -135,11 +140,15 @@ function SettingsScreen.new(deps: Deps): Screen
 	local keyButtons: { [string]: Button.Button } = {}
 
 	-- Audio state (neutral fallback until the profile is loaded; syncAudio overwrites it)
-	local audio: AudioState = { MusicVolume = 1, SfxVolume = 1, CameraShake = true }
+	local audio: AudioState = { MusicVolume = 1, SfxVolume = 1, CameraShake = true, Quality = QualityConfig.Default }
 	local audioTimer: thread? = nil
 	local audioInFlight = false
 	local audioPending = false
 	local audioLastSentAt = 0
+	local qualityStrip: Tabs.Tabs? = nil
+	-- True while the screen is adopting a Settings push. Tabs.Select fires OnSelect exactly like a click,
+	-- so without this the adoption of a value that came FROM the server would send it straight back.
+	local adoptingSettings = false
 	local musicSlider: Slider.Slider? = nil
 	local sfxSlider: Slider.Slider? = nil
 	local shakeToggle: Toggle.Toggle? = nil
@@ -384,6 +393,15 @@ function SettingsScreen.new(deps: Deps): Screen
 		audio.MusicVolume = data.Settings.MusicVolume
 		audio.SfxVolume = data.Settings.SfxVolume
 		audio.CameraShake = data.Settings.CameraShake
+		audio.Quality = if QualityConfig.isTier(data.Settings.Quality)
+			then data.Settings.Quality
+			else QualityConfig.Default
+		local strip = qualityStrip
+		if strip ~= nil then
+			adoptingSettings = true
+			strip:Select(audio.Quality)
+			adoptingSettings = false
+		end
 		local music = musicSlider
 		if music ~= nil then
 			music:SetValue(audio.MusicVolume)
@@ -420,12 +438,16 @@ function SettingsScreen.new(deps: Deps): Screen
 			MusicVolume = audio.MusicVolume,
 			SfxVolume = audio.SfxVolume,
 			CameraShake = audio.CameraShake,
+			Quality = audio.Quality,
 		})
 	end
 
 	-- Debounces a burst of drags and keeps two sends at least one remote token apart. The timer outlives
 	-- Close on purpose, so a change made just before closing is still sent.
 	local function scheduleAudio()
+		if adoptingSettings then
+			return
+		end
 		audioPending = true
 		cancelAudioTimer()
 		local delay = math.max(AUDIO_DEBOUNCE_SECONDS, AUDIO_MIN_INTERVAL_SECONDS - (os.clock() - audioLastSentAt))
@@ -574,6 +596,59 @@ function SettingsScreen.new(deps: Deps): Screen
 		setStatus("")
 	end
 
+	-- The graphics page: the four tiers of Config/QualityConfig, and a line saying that the game lowers
+	-- the setting by itself when the frame rate falls. The chosen tier is a ceiling, so the strip shows
+	-- what the player asked for and never what the frame rate has currently forced -- a strip that moved
+	-- on its own would read as the game overriding the choice rather than protecting it.
+	local function buildGraphicsPage()
+		local items: { Tabs.Item } = {}
+		for _, name in ipairs(QualityConfig.Order) do
+			local tier = QualityConfig.tier(name)
+			table.insert(items, { Id = name, Text = t(tier.NameKey) })
+		end
+		local strip = Tabs.new({
+			Name = "Quality",
+			Items = items,
+			Selected = audio.Quality,
+			Size = UDim2.fromOffset(QUALITY_STRIP_WIDTH, Theme.Sizes.RowHeight),
+			OnSelect = function(id: string)
+				deps.SoundController.play("UiClick")
+				audio.Quality = id
+				scheduleAudio()
+			end,
+		})
+		own(pageTrove, strip)
+		qualityStrip = strip
+		pageTrove:Add(function()
+			qualityStrip = nil
+		end)
+		local qualityRow = ListRow.new({
+			Left = t("settings.quality"),
+			Right = strip.Instance,
+			LayoutOrder = 1,
+			Parent = panel.Content,
+		})
+		own(pageTrove, qualityRow)
+
+		local hint = Instance.new("TextLabel")
+		hint.Name = "QualityHint"
+		hint.BackgroundTransparency = 1
+		hint.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextSmall * 3)
+		hint.LayoutOrder = 2
+		hint.FontFace = Theme.Fonts.Body
+		hint.TextSize = Theme.Sizes.TextSmall
+		hint.TextColor3 = Theme.Colors.TextMuted
+		hint.TextXAlignment = Enum.TextXAlignment.Left
+		hint.TextYAlignment = Enum.TextYAlignment.Top
+		hint.TextWrapped = true
+		hint.Text = t("settings.qualityHint")
+		hint.Parent = panel.Content
+		pageTrove:Add(hint)
+
+		setFooterVisible(false)
+		setStatus("")
+	end
+
 	local function showTab(id: TabId)
 		abortCapture()
 		pageTrove:Clean()
@@ -582,6 +657,8 @@ function SettingsScreen.new(deps: Deps): Screen
 		panel.Content.CanvasPosition = Vector2.zero
 		if id == "Audio" then
 			buildAudioPage()
+		elseif id == "Graphics" then
+			buildGraphicsPage()
 		else
 			buildBindPage(id)
 		end
@@ -616,6 +693,7 @@ function SettingsScreen.new(deps: Deps): Screen
 			table.insert(items, { Id = "Gamepad", Text = t("settings.tab.gamepad") })
 		end
 		table.insert(items, { Id = "Audio", Text = t("settings.tab.audio") })
+		table.insert(items, { Id = "Graphics", Text = t("settings.tab.graphics") })
 
 		-- The open page may be the one that just disappeared: fall back to the default for the new hardware.
 		if not tabExists(currentTab) then

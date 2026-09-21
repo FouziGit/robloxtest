@@ -26,12 +26,13 @@ local AssetIds = require(Shared.Config.AssetIds)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local FeelMath = require(Shared.Pure.FeelMath)
 local Log = require(Shared.Util.Log)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local SoundConfig = require(Shared.Config.SoundConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 
 local log = Log.new("VfxTimeline")
 
-type Deps = { VfxPool: any, Feel: any, WorldLighting: any, SoundController: any }
+type Deps = { VfxPool: any, Feel: any, WorldLighting: any, SoundController: any, QualityController: any }
 
 export type Context = {
 	Origin: Vector3,
@@ -108,6 +109,7 @@ local VfxTimeline = {}
 
 local pool: any
 local feel: any
+local quality: any
 local worldLighting: any
 local sound: any
 
@@ -511,11 +513,16 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
 	end
 
+	-- Art bible rule 8: the density falls with the graphics setting. A burst that asked for particles
+	-- never rounds to none -- an impact with no grit at all reads as a missing effect rather than as a
+	-- thin one -- so the floor is one.
+	local tier: QualityConfig.TierDef = quality.def()
+	local density = tier.ParticleScale
 	if layer.Burst ~= nil then
-		emitter:Emit(math.floor(layer.Burst))
+		emitter:Emit(math.max(1, math.floor(layer.Burst * density)))
 	end
 	if layer.Rate ~= nil then
-		emitter.Rate = layer.Rate
+		emitter.Rate = layer.Rate * density
 		emitter.Enabled = true
 	end
 	entry.Primary = emitter
@@ -901,7 +908,18 @@ local function activate(item: Pending, now: number)
 		return
 	end
 
-	if #live >= VfxTimelineConfig.MaxLiveLayers then
+	-- What this client may hold right now: the player's graphics setting, lowered by the frame rate if it
+	-- has had to be (Config/QualityConfig). Read per layer, so a tier that changes mid-fight thins the
+	-- next layer rather than the next effect.
+	local tier: QualityConfig.TierDef = quality.def()
+	if layer.Kind == "Light" and not tier.Lights then
+		-- A light is the first thing a struggling client stops paying for: Roblox pays for a local light
+		-- whether or not it ends up lit. Nothing a player has to READ is a light -- every telegraph is a
+		-- mark -- so dropping them thins the picture without touching a rule.
+		return
+	end
+
+	if #live >= tier.Layers then
 		-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a
 		-- six-player exchange loses effects rather than frames -- but never a warning. A telegraph is
 		-- laid at the start of a two-second window and is the longest-lived thing on screen, so "oldest
@@ -925,7 +943,7 @@ local function activate(item: Pending, now: number)
 		end
 		if not overBudgetWarned then
 			overBudgetWarned = true
-			log.warn("vfx layer budget of %d reached; oldest layers are retired early", VfxTimelineConfig.MaxLiveLayers)
+			log.warn("vfx layer budget of %d reached; oldest layers are retired early", tier.Layers)
 		end
 	end
 
@@ -1135,6 +1153,7 @@ end
 function VfxTimeline.Init(deps: Deps)
 	pool = deps.VfxPool
 	feel = deps.Feel
+	quality = deps.QualityController
 	worldLighting = deps.WorldLighting
 	sound = deps.SoundController
 end

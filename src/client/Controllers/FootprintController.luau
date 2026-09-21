@@ -28,11 +28,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("FootprintController")
 
-type Deps = { VfxTimeline: any }
+type Deps = { VfxTimeline: any, QualityController: any }
 
 -- Where a character last left a print, which foot is next, and when each of its own prints expires.
 type Track = { Last: Vector3, Side: number, Expiries: { number } }
@@ -48,6 +49,7 @@ local MOVING_STUDS_PER_SECOND = 1
 local FootprintController = {}
 
 local timeline: any
+local quality: any
 local tracks: { [Model]: Track } = {}
 -- The ink is the world's, not the interface's: one source for one colour (WorldConfig.Colors.Ink).
 local inkColor = Palette.world(FOOTPRINTS.Color)
@@ -103,6 +105,15 @@ local function onHeartbeat()
 	end
 	-- A fight owns the layer budget: while the timeline is busy, the floor stops taking prints rather
 	-- than pushing an effect's residue out of the pool.
+	-- The tier's share of the print budget: the two lowest tiers take none at all, and the floor of the
+	-- timeline's own budget moves with them, so a client that cannot hold a fight does not spend a layer
+	-- on a footstep.
+	local tier: QualityConfig.TierDef = quality.def()
+	local share = tier.Footprints
+	local allowed = math.floor(FOOTPRINTS.MaxLive * share)
+	if allowed <= 0 then
+		return
+	end
 	local stats = timeline.stats()
 	local busy = type(stats) == "table" and (stats.Live or 0) >= FOOTPRINTS.YieldAboveLayers
 
@@ -144,7 +155,7 @@ local function onHeartbeat()
 	table.sort(candidates, function(a: Candidate, b: Candidate): boolean
 		return a.Distance < b.Distance
 	end)
-	local remaining = FOOTPRINTS.MaxLive - liveCount()
+	local remaining = allowed - liveCount()
 	for _, candidate in ipairs(candidates) do
 		if remaining <= 0 then
 			break
@@ -165,6 +176,7 @@ end
 
 function FootprintController.Init(deps: Deps)
 	timeline = deps.VfxTimeline
+	quality = deps.QualityController
 end
 
 function FootprintController.Start()

@@ -28,11 +28,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local LightingConfig = require(Shared.Config.LightingConfig)
 local Log = require(Shared.Util.Log)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local Spring = require(Shared.Pure.Spring)
 
 local log = Log.new("WorldLighting")
 
-type Deps = { ClientData: any }
+type Deps = { ClientData: any, QualityController: any }
 
 type SpringType = typeof(Spring.new(0, 1, 1))
 
@@ -65,6 +66,7 @@ local CREATED_PREFIX = "Vellum"
 local WorldLighting = {}
 
 local clientData: any
+local quality: any
 
 -- False only when the player has asked for less motion on screen. Absent data means yes: a pulse
 -- suppressed because a profile had not loaded yet would make the first impact of a session feel
@@ -205,11 +207,33 @@ local function buildEffects()
 	end
 end
 
+-- Whether this client is drawing post-processing at all (QualityConfig's lowest tier cuts it).
+local function postProcessing(): boolean
+	if quality == nil then
+		return true
+	end
+	local tier: QualityConfig.TierDef = quality.def()
+	return tier.PostProcessing == true
+end
+
 -- Writes rest plus whatever is currently in the buckets. The only writer of the five effects.
 local function applyPlan()
 	for _, entry in ipairs(plan) do
 		local value = math.clamp(entry.Rest + entry.Bucket[entry.Property], entry.Min, entry.Max);
 		(entry.Target :: any)[entry.Property] = value
+	end
+end
+
+-- The five effects, on or off as a whole. Off is the Performance tier: every effect disabled, so the
+-- client pays for none of them, and the world is still lit high and pale because that is Lighting itself
+-- and not these. Re-enabling compiles shaders, which is why QualityController gives a tier back slowly.
+local function setEffectsEnabled(enabled: boolean)
+	for _, name in ipairs(LightingConfig.EffectOrder) do
+		local def = LightingConfig.Effects[name]
+		local target = Lighting:FindFirstChildOfClass(def.ClassName)
+		if target ~= nil then
+			assign(target, "Enabled", enabled)
+		end
 	end
 end
 
@@ -238,7 +262,7 @@ end
 -- A stronger pulse re-arming a weaker one wins; a weaker one arriving mid-pulse does not pull it down,
 -- because a far explosion must not soften the near one that is already playing.
 function WorldLighting.pulse(name: string, strength: number?)
-	if not motionAllowed() then
+	if not motionAllowed() or not postProcessing() then
 		return
 	end
 	local profile = LightingConfig.Pulses[name]
@@ -354,6 +378,7 @@ end
 -- reworks the settings screen and can widen its label to what it now governs.
 function WorldLighting.Init(deps: Deps)
 	clientData = deps.ClientData
+	quality = deps.QualityController
 	for property, rgb in pairs(LightingConfig.Lighting.Colors) do
 		lightingColors[property] = toColor(rgb)
 	end
@@ -377,6 +402,16 @@ function WorldLighting.Start()
 	applyAtmosphere()
 	buildEffects()
 	applyPlan()
+	setEffectsEnabled(postProcessing())
+	quality.Changed:Connect(function()
+		local on = postProcessing()
+		if on then
+			-- Back from the floor: the buckets are already zero (nothing can pulse while it is off), so
+			-- writing the plan puts every effect at its resting value before it is shown again.
+			applyPlan()
+		end
+		setEffectsEnabled(on)
+	end)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started, %d driven effect properties", #plan)
 end

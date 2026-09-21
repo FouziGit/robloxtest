@@ -99,6 +99,16 @@ Strings.Table = {
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
 	["settings.sfx"] = { en = "Effects volume", fr = "Volume effets" },
 	["settings.cameraShake"] = { en = "Camera shake", fr = "Secousses de caméra" },
+	["settings.tab.graphics"] = { en = "Graphics", fr = "Graphismes" },
+	["settings.quality"] = { en = "Quality", fr = "Qualité" },
+	["settings.qualityHint"] = {
+		en = "Lower it if the game stutters. The game lowers it by itself when your frame rate drops, and gives it back when it recovers.",
+		fr = "Baisse-la si le jeu saccade. Le jeu la baisse tout seul quand tes images par seconde tombent, et la rend quand elles remontent.",
+	},
+	["quality.high"] = { en = "High", fr = "Élevée" },
+	["quality.medium"] = { en = "Medium", fr = "Moyenne" },
+	["quality.low"] = { en = "Low", fr = "Basse" },
+	["quality.performance"] = { en = "Performance", fr = "Performance" },
 	["settings.resetPending"] = {
 		en = "Defaults restored. Don't forget to save!",
 		fr = "Touches par défaut restaurées. N'oublie pas de sauvegarder !",

@@ -4,6 +4,12 @@ Battleground PvP Roblox où les glyphes se lancent en **tapant des séquences de
 
 Modes : hub d'entraînement, **1v1 classé**, **3v3**, **World Boss**. Mobile, manette et clavier. Anglais par défaut, français inclus.
 
+**À quoi ça ressemble.** Le monde est une page : vélin, charbon, rien de saturé dans le décor. La seule
+couleur vive à l'écran est un glyphe, et sa couleur est son école — Cinabre, Indigo, Terre d'Ombre,
+Vert-de-gris, Orpiment. Un pouvoir ne sort pas d'un personnage, il **se dessine** ; un impact blanchit
+l'écran comme une page surexposée et laisse une brûlure d'encre qui s'efface. Le sol garde vos pas.
+Direction complète : **[docs/ART_BIBLE.md](docs/ART_BIBLE.md)**.
+
 ---
 
 ## Démarrer en 10 minutes
@@ -47,7 +53,17 @@ Pour que les sauvegardes fonctionnent : publier la place et cocher *Game Setting
 
 Toutes les touches sont réassignables (clavier **et** manette) dans les Options. Aucune touche par défaut n'entre en conflit avec WASD (QWERTY) ou ZQSD (AZERTY).
 
-Le **encre** (100, régénération plus lente en combat) est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même glyph. Design complet : **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)**.
+L'**encre** (100, régénération plus lente en combat) est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même glyph.
+
+Deux règles portent le plafond de compétence, et les deux se paient en encre : une **ruée pendant la
+récupération** du 4ᵉ coup de mêlée la coupe net (15 encre en plus), et deux glyphes lancés en moins d'une
+seconde sont un **enchaînement** qui rend 5 encre — le HUD compte la chaîne (`×N`) et le profil garde la
+plus longue. Chaque glyphe a une réponse explicite : la matrice outil → contre est dans le design.
+
+Les options ont un onglet **Graphismes** à quatre niveaux ; le client descend d'un niveau tout seul quand
+les images par seconde tombent, et le rend quand elles remontent (**[docs/PERFORMANCE.md](docs/PERFORMANCE.md)**).
+
+Design complet : **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)**.
 
 ---
 
@@ -73,15 +89,20 @@ Le **encre** (100, régénération plus lente en combat) est la vraie limite au 
   │   src/ui (Theme + composants)        │        │ CombatService.ApplyDamage  ← UNIQUE     │
   │                                      │        │   PvP policy, spawn protection,         │
   │ VfxController ◀── Vfx / VfxReliable ─┼────────│   i-frames, garde, stun, knockback      │
-  │   VfxLibrary (particules, shake,     │        │        │                                │
-  │   hit-stop) — le serveur n'affiche   │        │        ▼                                │
-  │   AUCUN visuel                       │        │ Progression / Currency / Battlepass     │
+  │   VfxLibrary → VfxTimeline (une      │        │        │                                │
+  │   boucle pour toutes les couches de  │        │        ▼                                │
+  │   tous les effets) + VfxPool         │        │ Progression / Currency / Battlepass     │
+  │   Feel (caméra, hit-stop, secousses) │        │        │                                │
+  │   WorldLighting (post-traitement)    │        │        │                                │
+  │   QualityController (ce que ce       │        │        │                                │
+  │   client a le droit de dessiner)     │        │        │                                │
+  │   — le serveur n'affiche AUCUN visuel│        │        │                                │
   │                                      │        │        │                                │
   │ MovementController ◀ MovementCommand─┼────────│ MovementService (WalkSpeed serveur)     │
   └──────────────────────────────────────┘        │        ▼                                │
                                                   │ DataService ──▶ ProfileStore ──▶ DataStore
                                                   │   1 profil / joueur, verrou de session, │
-                                                  │   migration V1→V2 versionnée            │
+                                                  │   migration V1→V3 versionnée            │
                                                   └─────────────────────────────────────────┘
                   PARTAGÉ (src/shared) : Config/*, Strings (EN/FR), Remotes typés,
                   Util/{Guard,TokenBucket,Log}, Pure/* (modules sans Roblox, testés sous Lune)
@@ -134,9 +155,18 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 | Tests | `lune run tests/run` |
 | Chaînes en dur | `lune run scripts/check-strings` |
 | Localisation à jour | `lune run scripts/export-strings -- --check` |
+| Textures reproductibles | `python3 tools/textures/generate_all.py` + `git diff --quiet` |
+| Portée d'encre des textures | `python3 tools/textures/check_ink.py` |
+| Audio reproductible | `python3 tools/audio/generate_all.py` + `git diff --quiet` |
 | Build | `rojo build default.project.json -o build/Vellum.rbxl` |
 
-126 tests sur 20 fichiers de spécification. Cinq d'entre eux ne testent pas du code mais des invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de localisation morte ni manquante, un producteur serveur pour chaque événement de quête, aucune touche d'annulation qui soit aussi assignable, et le coût borné d'une charge utile rejetée.
+331 tests sur 38 fichiers de spécification. Une bonne part d'entre eux ne testent pas du code mais des
+invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de
+localisation morte ni manquante, un producteur serveur pour chaque événement de quête, la caméra écrite par
+un seul module, aucune couleur ni police hors du thème, le décor jamais saturé, la figure du boss qui
+remplit la coque où elle prend les coups, le coût de chaque effet sous des plafonds **dérivés** d'autres
+nombres du dépôt, et une seule boucle par image et par système. Chaque porte ajoutée a été vue échouer sur
+le défaut qu'elle garde, réintroduit exprès.
 
 ---
 
@@ -149,5 +179,10 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) | roster, combos, interactions, modes, arènes |
 | [docs/ECONOMY.md](docs/ECONOMY.md) | prix, flux de Ryo, prompts, KPIs, DevEx |
 | [docs/STUDIO_SETUP.md](docs/STUDIO_SETUP.md) | checklist manuelle Studio / Creator Dashboard |
-| [docs/AUDIT.md](docs/AUDIT.md) | audit de la V1 (68 constats) |
+| [docs/ART_BIBLE.md](docs/ART_BIBLE.md) | l'identité : palette, formes, lumière, son, lexique, les huit règles non négociables |
+| [docs/VFX_SPECS.md](docs/VFX_SPECS.md) | une fiche par effet : ce qu'il doit faire sentir, ce qu'il a remplacé, comment il est construit |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | niveaux graphiques, dégradation automatique, coût calculé de chaque effet, pooling |
+| [docs/ASSETS.md](docs/ASSETS.md) | chaque texture et chaque son, son générateur et sa licence |
+| [docs/AUDIT.md](docs/AUDIT.md) · [docs/JUICE_AUDIT.md](docs/JUICE_AUDIT.md) | audit de la V1 (68 constats) et audit du game feel qui a lancé la passe d'identité |
+| [docs/JUICE_PLAN.md](docs/JUICE_PLAN.md) | le plan en neuf passes de cette identité |
 | [docs/PLAN.md](docs/PLAN.md) · [docs/PROGRESS.md](docs/PROGRESS.md) · [docs/DECISIONS.md](docs/DECISIONS.md) | feuille de route, état, décisions |

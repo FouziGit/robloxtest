@@ -237,3 +237,21 @@ en version 4 et `upgradeToV4` porte le solde d'un joueur sauvegardé dans la nou
 ajouté à la liste d'interdits de `tests/Lexicon.spec.luau` — la même leçon que D-66 : une liste d'interdits
 ne contient que les mots auxquels quelqu'un a pensé. Ce document n'a donc plus le droit de l'écrire, ce qui
 est exactement comme ça doit être : la porte a attrapé ce paragraphe avant la relecture.
+
+### Ce que la relecture de la passe 8 a changé (D-96)
+
+Vingt agents, quarante constats. Les graves, tous réels : le socle du spawn **corrigé à moitié** dans la
+passe précédente (six épreuves suspendues d'un stud, chaque retour lâché d'un stud et demi) ; le fantôme de
+la barre de vie effacé 200 ms après chaque coup par un état poussé cinq fois par seconde ; la note
+d'exécution qui punissait les trois réponses structurelles de sa propre matrice ; une précision sans
+plancher de volume, donc un seul lancer réussi valait 100 % ; l'annulation qui prenait la ruée d'esquive
+entre 10 et 24 encre, sans message ; la relance à treize secondes au lieu de dix, dont sept gelées derrière
+une carte déjà fermée.
+
+Tout est corrigé, chaque correction a sa porte quand une porte est possible (cinq nouvelles, cinq mutations
+prises), et trois erreurs de la matrice §5 bis sont réécrites — dont deux qui étaient des **dettes
+d'équilibrage** déguisées en garanties : deux des trois réponses structurelles sont du même pigment, et
+l'Insertion répond à cinq outils dont la recharge est plus longue que la sienne.
+
+La leçon : trois des constats confirmés portaient sur du code écrit dans la passe précédente **pour
+corriger une relecture**. Une correction n'est pas finie parce qu'elle a changé le nombre qu'on regardait.

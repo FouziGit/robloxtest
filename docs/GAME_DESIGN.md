@@ -58,7 +58,7 @@ Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · 
 | Indigo | I I | Lavis | AoE | 22 | 5 | 18 | ligne, knockback |
 | Indigo | I C | Bavure | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
 | Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
-| Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s |
+| Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s ; **pigment Terre d'Ombre** (le mur est la moitié Ombre du §6), combo Indigo |
 | Terre d'Ombre | U U | Empattement | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
 | Terre d'Ombre | U I | Pointillé | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
 | Terre d'Ombre | U V | Dorure | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
@@ -83,12 +83,13 @@ Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 
 
 ## 5 bis. Plafond de compétence : annulation, enchaînement, matrice des réponses
 
-Trois règles portent le plafond. Elles sont serveur, mesurables, et toutes les trois coûtent de l'encre :
-il n'y a aucune mécanique d'exécution gratuite.
+Trois règles portent le plafond. Elles sont serveur et mesurables, et **une seule coûte de l'encre** : la
+seconde en **rend** (moins que le glyphe le moins cher, donc un enchaînement ne se paie jamais lui-même) et
+la troisième est un affichage. C'est la première qui porte la décision.
 
 | Règle | Ce que le joueur fait | Prix | Où c'est décidé |
 |---|---|---|---|
-| **Annulation de récupération** | ruer pendant la récupération du 4ᵉ coup de M1 (1,2 s) : la récupération s'arrête net | coût de la ruée **+ `Dash.CancelCost`** (10 + 15 encre) | `CombatService.onDash` |
+| **Annulation de récupération** | ruer pendant la récupération du 4ᵉ coup de M1 (1,2 s) : la récupération s'arrête net | coût de la ruée **+ `Dash.CancelCost`** (10 + 15 encre) — et seulement si le joueur peut payer les 25 : en dessous, la ruée part normalement à 10 et la récupération continue, parce qu'une ruée d'esquive ne doit jamais disparaître | `CombatService.onDash` |
 | **Enchaînement** | lancer un glyphe dans les `Combo.ChainWindowSeconds` (1,0 s) qui suivent le précédent **accepté** | rend `Combo.ChainInkRefund` (5 encre), donc une séquence serrée se paie presque elle-même sans jamais être bénéficiaire (le glyphe le moins cher coûte 15) | `GlyphService.onCastGlyph` |
 | **Compteur d'enchaînement** | le HUD affiche `×N` dès deux glyphes ; le profil garde `Stats.BestChain` | — | compté par le serveur, jamais par le client |
 
@@ -112,9 +113,9 @@ ou en position.
 | Reliure (contre, racine) | ne pas venir de face : c'est un cône court devant le lanceur | Insertion pendant la racine | 1,5 s de racine, cooldown 12 s |
 | Marge (mur) | Empattement / Rupture : les AoE de contact passent au-dessus du mur | contourner : le mur est un panneau, pas un dôme | 6 s, position fixe |
 | Empattement (ligne, stun) | Dorure (dégâts réduits, stun subi mais knockback nul) | garde : c'est un AoE, pas un ultime | portée courte, faut être devant |
-| Pointillé (projectile ralentissant) | Marge l'arrête | Dorure annule l'usage qu'on veut en faire | vol lent, le plus lisible du roster |
+| Pointillé (projectile ralentissant) | Marge l'arrête | Dorure annule l'usage qu'on veut en faire | 110 studs/s sur 70 studs : ~0,64 s de vol, donc une Marge **prévue**, pas une réaction |
 | Dorure (buff défensif) | attendre : 4 s puis 14 s de cooldown, l'agresseur choisit son moment | pression à l'encre (forcer la dépense) | fenêtre de 10 s sans buff |
-| Rupture (ultime, envol) | Insertion / ruée hors du rayon 18 | Dorure (immunité au knockback : l'envol est annulé) | 2,0 s de télégraphie au sol |
+| Rupture (ultime, envol) | Dorure (immunité au knockback : l'envol est annulé) ; **préventif**, pas réactif | tenir plus de 18 studs, ou punir les 15 s de recharge | **aucune** : les dégâts tombent sur l'image du lancer (`GlyphEffects.Rupture`), donc rien ne s'esquive après coup |
 | Balayage (cône, *Éventé*) | ruée : le cône est large mais court | garde (réduction, pas de brise-garde) | applique *Éventé*, donc annonce un Cinabre derrière |
 | Délié (projectile rapide) | Marge l'arrête | Dorure réduit, mais le vrai contre est la position | portée 60, cooldown 3 s : c'est du poke |
 | Spiral (attire vers le centre) | Insertion (téléport) ou Dorure (immunité au knockback : l'attraction ne prend pas) | sortir avant le 2ᵉ tick | 4 ticks, zone visible |
@@ -124,11 +125,24 @@ ou en position.
 | Filigrane (micro-stuns) | Dorure, puis sortir : les stuns sont courts mais empilent | Insertion | 4 ticks, zone fixe |
 | Colophon (ultime, chaîne 3 cibles) | se séparer : la chaîne a besoin de cibles proches | Marge pour le premier maillon | combo à 4 touches, 55 encre, 25 s |
 
-**Ce que la matrice garantit.** Aucun glyphe n'a pour seule réponse « avoir le même glyphe ». Les trois
-réponses structurelles — **Marge** (arrêter ce qui vole), **Dorure** (absorber ce qui pousse), **Insertion /
-ruée** (ne plus être là) — couvrent le roster entier, viennent de trois pigments différents, et ont des
-cooldowns (10, 14, 7 s) plus longs que les outils qu'elles répondent, donc une réponse est une ressource
-qu'on dépense et non un état qu'on maintient.
+**Ce que la matrice garantit, et ce qu'elle ne garantit pas.** Aucun glyphe n'a pour seule réponse « avoir
+le même glyphe » : les trois réponses structurelles — **Marge** (arrêter ce qui vole), **Dorure** (absorber
+ce qui pousse), **Insertion / ruée** (ne plus être là) — couvrent le roster entier, et chacune est une
+ressource qu'on dépense (10, 14, 7 s de recharge) et non un état qu'on maintient.
+
+Deux choses qu'elle ne garantit **pas**, et qui sont des dettes d'équilibrage plutôt que des erreurs de
+document :
+
+- **Marge et Dorure sont toutes deux de la Terre d'Ombre** (`GlyphConfig.Pigment`), donc deux des trois
+  réponses structurelles viennent du même pigment — un joueur sans Terre d'Ombre équipée n'a que
+  l'Insertion, et l'Insertion demande l'Orpiment (niveau 40 ou pass). La ruée de base reste la réponse
+  universelle gratuite, mais c'est elle qui porte alors tout le poids.
+- **Une recharge de réponse n'est pas toujours plus longue que l'outil** : l'Insertion (7 s) répond à la
+  Bavure (8), au Spiral (12), au Filigrane (12), à la Rupture (15) et au Pâté (20). C'est la réponse la
+  moins chère et la plus disponible du roster, et elle couvre six outils.
+
+Les deux sont à corriger par les données (un second mur ou un second buff dans un autre pigment, une
+recharge d'Insertion plus longue), pas par cette page.
 
 ## 6. Interactions de pigment (simples, lisibles)
 

@@ -209,6 +209,12 @@ end
 ----------------------------------------------------------------
 
 local function pushSnapshots(active: Active, now: number)
+	-- Not while a round is being prepared: PhaseEndsAt is reset when the preparation finishes, so a
+	-- countdown pushed before that counts down, restarts, and counts down again -- which the clients
+	-- now tick aloud.
+	if active.Preparing then
+		return
+	end
 	local snapshot = GameModes.snapshot(active.Match, math.max(0, math.ceil(active.PhaseEndsAt - now)))
 	for _, participant in ipairs(active.Match.Participants) do
 		if isLive(participant) then

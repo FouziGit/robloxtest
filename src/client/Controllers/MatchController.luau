@@ -199,14 +199,14 @@ local lastPhase: string? = nil
 local function soundMatch(previous: MatchSnapshot?, current: MatchSnapshot?)
 	if current == nil then
 		if previous ~= nil then
-			soundController.music("Hub")
+			soundController.wantMusic("Match", nil)
 		end
 		lastPhase = nil
 		lastCountdownSecond = -1
 		return
 	end
 	if previous == nil or previous.MatchId ~= current.MatchId then
-		soundController.music("Match")
+		soundController.wantMusic("Match", "Match")
 		lastPhase = nil
 		lastCountdownSecond = -1
 	end

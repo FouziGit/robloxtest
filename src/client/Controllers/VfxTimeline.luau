@@ -872,15 +872,21 @@ local function activate(item: Pending, now: number)
 		-- cast point is a tail that stays behind.
 		local carrier: BasePart? = if layer.Ride == true then carriers[item.PlayId] else nil
 		local body: BasePart? = if layer.Follow == true then context.Follow else nil
+		local anchor: BasePart? = nil
 		local position: Vector3
 		if carrier ~= nil and carrier.Parent ~= nil then
+			anchor = carrier
 			position = carrier.Position
 		elseif body ~= nil and body.Parent ~= nil then
+			anchor = body
 			position = body.Position
 		else
 			position = placeOf(frameOf(context), layer, context.Scale or 1).Position
 		end
-		sound.play(key, position, { Fit = if layer.Fit == true then item.Seconds else nil })
+		-- Anchored to the part rather than to a point, so a tail flies with the body it is the tail of.
+		-- The Sound is parented to a pooled part; SoundController's Debris net destroys the Sound itself,
+		-- so the part goes back to the pool clean.
+		sound.play(key, position, { Fit = if layer.Fit == true then item.Seconds else nil, Anchor = anchor })
 		local duck = layer.Duck
 		if duck ~= nil and duck > 0 then
 			sound.duck(duck)

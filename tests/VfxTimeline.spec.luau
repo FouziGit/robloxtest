@@ -12,6 +12,7 @@ local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local LightingConfig = require("../src/shared/Config/LightingConfig")
+local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 
@@ -268,6 +269,75 @@ describe("vfx timelines", function()
 					if not voiceIn(timeline, phaseName, voice) then
 						error(("glyph %s has a %s phase with no %s voice"):format(def.Id, phaseName, voice))
 					end
+				end
+			end
+		end
+	end)
+
+	it("lists a riding sound after the carrier it rides", function()
+		-- A Sound layer is fire-and-forget: it reads the carrier when it activates, and a carrier listed
+		-- after it does not exist yet, so the tail would be heard from the cast point while the body flew.
+		for id, timeline in pairs(TIMELINES) do
+			for _, phase in ipairs(timeline.Phases) do
+				local carrierAt: number? = nil
+				for index, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Carrier" then
+						carrierAt = index
+					elseif layer.Kind == "Sound" and layer.Ride == true then
+						if carrierAt == nil or carrierAt > index then
+							error(
+								("timeline %s / %s rides a sound on a carrier listed after it"):format(id, phase.Name)
+							)
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	it("lands every glyph, and can play every voice it configures", function()
+		-- Two directions of the same seam. A glyph whose timeline never voices Impact is a spell whose
+		-- landing is silent, since the Hit packet plays the page slap for the melee only. And a voice in
+		-- SoundConfig that no timeline played with that pigment can reach is a file the player is asked to
+		-- upload for nothing -- Orpiment's tail was one.
+		local function voices(timeline: VfxTimelineConfig.Timeline): { [string]: boolean }
+			local found: { [string]: boolean } = {}
+			for _, phase in ipairs(timeline.Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Sound" and layer.Voice ~= nil then
+						found[layer.Voice] = true
+					end
+				end
+			end
+			return found
+		end
+		local reachable: { [string]: boolean } = {}
+		local shared = voices(TIMELINES.Cast)
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			local timeline = TIMELINES[def.Id]
+			if timeline == nil then
+				error(("glyph %s has no timeline"):format(def.Id))
+			end
+			local own = voices(timeline)
+			if not own.Impact and not (def.VfxId == "Brand" or def.VfxId == "Blot") then
+				error(("glyph %s never voices its landing"):format(def.Id))
+			end
+			for voice in pairs(own) do
+				reachable[SoundConfig.voiceKey(def.Pigment, voice)] = true
+			end
+			for voice in pairs(shared) do
+				reachable[SoundConfig.voiceKey(def.Pigment, voice)] = true
+			end
+		end
+		-- The detonation is played with the pigment of whatever blew up; Brand and Blot are Cinnabar.
+		for voice in pairs(voices(TIMELINES.Explosion)) do
+			reachable[SoundConfig.voiceKey("Cinnabar", voice)] = true
+		end
+		for _, pigment in ipairs(PigmentConfig.Order) do
+			for _, voice in ipairs(SoundConfig.Voices) do
+				local key = SoundConfig.voiceKey(pigment, voice)
+				if SoundConfig.Sfx[key] ~= nil and not reachable[key] then
+					error(("%s is configured and no timeline played with %s can reach it"):format(key, pigment))
 				end
 			end
 		end

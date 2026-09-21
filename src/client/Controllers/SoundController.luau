@@ -39,18 +39,27 @@ local HUB_MUSIC_ID = "Hub"
 -- asked to fit a tenth of a second would be a chirp, and one asked to fit ten seconds a groan.
 local FIT_SPEED_MIN = 0.5
 local FIT_SPEED_MAX = 4
--- Ducking: how far the music drops under a heavy impact, how fast it goes, and the way it comes back.
--- The drop is immediate and the return is eased, because a dip that returns as fast as it fell reads
--- as a glitch in the music rather than as the impact having weight.
+-- Ducking: how far the music drops under a heavy impact, how long the dip is held before it starts
+-- back, and the curve it comes back on. The drop is immediate and the return is eased, because a dip
+-- that returns as fast as it fell reads as a glitch in the music rather than as the impact having weight.
 local DUCK_VOLUME = 0.35
-local DUCK_IN_SECONDS = 0.04
-local DUCK_OUT_EASE = TweenInfo.new(0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local DUCK_HOLD_SECONDS = 0.04
+local DUCK_OUT_STYLE = Enum.EasingStyle.Quad
+local DUCK_OUT_DIRECTION = Enum.EasingDirection.Out
+
+-- Who is asking for music, highest first. A ranked match and the Erasure can overlap on one server,
+-- and a duelist must not lose the match loop because a boss was announced in the hub: the loop that
+-- plays is the highest source that has asked for one, and the hub is what plays when nobody has.
+local MUSIC_SOURCES = { "Match", "Boss" }
 
 export type PlayOptions = {
 	-- Multiplies the entry's speed, on top of the wander: the sequence's notes climb a scale with it.
 	Pitch: number?,
 	-- Seconds the sound has to last. The speed is set so the file ends exactly then, within the clamps.
 	Fit: number?,
+	-- A part to play from instead of a fixed point: the sound moves with it. A projectile's tail heard
+	-- from the launch point is a tail that stayed behind.
+	Anchor: BasePart?,
 }
 
 type Deps = { ClientData: any }
@@ -63,6 +72,7 @@ local sfxGroup: SoundGroup
 local musicGroup: SoundGroup
 local music: Sound? = nil
 local musicId: string? = nil
+local musicWanted: { [string]: string? } = {}
 local duckUntil = 0
 local duckTween: Tween? = nil
 local random = Random.new()
@@ -102,7 +112,7 @@ local function speedFor(entry: SoundConfig.SoundEntry, options: PlayOptions?): n
 	if fit ~= nil and fit > 0 and entry.Seconds > 0 then
 		return math.clamp(entry.Seconds / fit, FIT_SPEED_MIN, FIT_SPEED_MAX)
 	end
-	local speed = entry.Speed
+	local speed = 1
 	if entry.Vary > 0 then
 		speed *= 1 + random:NextNumber(-entry.Vary, entry.Vary)
 	end
@@ -134,7 +144,14 @@ function SoundController.play(sfxId: string, position: Vector3?, options: PlayOp
 	sound.SoundGroup = sfxGroup
 
 	local holder: Instance
-	if position ~= nil then
+	local anchor = if options ~= nil then options.Anchor else nil
+	if anchor ~= nil and anchor.Parent ~= nil then
+		sound.RollOffMode = Enum.RollOffMode.InverseTapered
+		sound.RollOffMinDistance = ROLLOFF_MIN_STUDS
+		sound.RollOffMaxDistance = ROLLOFF_MAX_STUDS
+		sound.Parent = anchor
+		holder = sound
+	elseif position ~= nil then
 		local emitter = Instance.new("Part")
 		emitter.Name = sfxId
 		emitter.Anchored = true
@@ -163,34 +180,44 @@ function SoundController.play(sfxId: string, position: Vector3?, options: PlayOp
 	sound:Play()
 end
 
--- Pulls the music down for `seconds` and eases it back. Overlapping ducks extend rather than stack: the
--- dip is a fixed depth, and the return waits for the last impact.
-function SoundController.duck(seconds: number)
-	if seconds <= 0 then
-		return
-	end
-	local now = os.clock()
-	local releaseAt = now + seconds
-	if releaseAt <= duckUntil then
-		return
-	end
-	duckUntil = releaseAt
+-- Starts (or restarts) the return from a dip, toward whatever the player's music volume is now, over
+-- what is left of the duck. One place builds the tween, so a slider moved mid-duck and a second impact
+-- mid-duck both end at the right volume.
+local function releaseDuck()
 	local tween = duckTween
 	if tween ~= nil then
 		tween:Cancel()
 	end
-	musicGroup.Volume = musicVolume() * DUCK_VOLUME
+	local remaining = duckUntil - os.clock()
+	if remaining <= 0 then
+		duckTween = nil
+		musicGroup.Volume = musicVolume()
+		return
+	end
 	local release = TweenService:Create(
 		musicGroup,
-		TweenInfo.new(seconds, DUCK_OUT_EASE.EasingStyle, DUCK_OUT_EASE.EasingDirection, 0, false, DUCK_IN_SECONDS),
+		TweenInfo.new(remaining, DUCK_OUT_STYLE, DUCK_OUT_DIRECTION, 0, false, DUCK_HOLD_SECONDS),
 		{ Volume = musicVolume() }
 	)
 	duckTween = release
 	release:Play()
 end
 
--- Switches the looping music track. An entry with no id yet means silence, said once at startup.
-function SoundController.music(id: string)
+-- Pulls the music down for `seconds` and eases it back. Every heavy impact dips, even one landing in the
+-- tail of a longer duck; overlapping ducks extend the return rather than stacking depth.
+function SoundController.duck(seconds: number)
+	if seconds <= 0 then
+		return
+	end
+	duckUntil = math.max(duckUntil, os.clock() + DUCK_HOLD_SECONDS + seconds)
+	musicGroup.Volume = musicVolume() * DUCK_VOLUME
+	releaseDuck()
+end
+
+-- Plays the loop `id`, replacing whatever plays. An entry with no id yet means silence, said once at
+-- startup. Not public: a caller says what it WANTS through SoundController.wantMusic, and the highest
+-- source decides.
+local function switchMusic(id: string)
 	local entry = SoundConfig.Music[id]
 	if entry == nil then
 		log.warn("unknown music %s", tostring(id))
@@ -214,7 +241,6 @@ function SoundController.music(id: string)
 	sound.Name = "Music_" .. id
 	sound.SoundId = entry.Id
 	sound.Volume = entry.Volume
-	sound.PlaybackSpeed = entry.Speed
 	sound.Looped = true
 	sound.SoundGroup = musicGroup
 	sound.Parent = SoundService
@@ -222,11 +248,35 @@ function SoundController.music(id: string)
 	music = sound
 end
 
+-- What plays: the highest source that wants a loop, or the hub. Match outranks Boss, because a player
+-- in a ranked match is in the match; everyone else hears the event.
+local function resolveMusic()
+	for _, source in ipairs(MUSIC_SOURCES) do
+		-- Typed optional explicitly: Luau reads a table index as non-optional, and the nil guard below
+		-- would otherwise be dead to the analyser.
+		local wanted: string? = musicWanted[source]
+		if wanted ~= nil then
+			switchMusic(wanted)
+			return
+		end
+	end
+	switchMusic(HUB_MUSIC_ID)
+end
+
+-- `source` (Match or Boss) asks for loop `id`, or withdraws with nil. Two systems can want music at once
+-- and neither has to know about the other.
+function SoundController.wantMusic(source: string, id: string?)
+	musicWanted[source] = id
+	resolveMusic()
+end
+
 local function applyVolumes()
 	sfxGroup.Volume = sfxVolume()
-	-- Not during a duck: the release tween is heading for the right volume already, and setting it here
-	-- would snap the music up under the impact.
-	if os.clock() >= duckUntil then
+	if os.clock() < duckUntil then
+		-- Mid-duck: rebuild the return toward the new volume instead of snapping the music up under the
+		-- impact, or leaving the old target in the tween.
+		releaseDuck()
+	else
 		musicGroup.Volume = musicVolume()
 	end
 end
@@ -256,7 +306,7 @@ function SoundController.Start()
 			table.concat(missing, ", ")
 		)
 	end
-	SoundController.music(HUB_MUSIC_ID)
+	resolveMusic()
 	log.info("started")
 end
 

@@ -214,7 +214,9 @@ local function defeat(live: Boss, current: State, now: number)
 	WorldBossMode.setHealth(current, 0)
 	WorldBossMode.endAttack(current)
 	phaseEndsAt = now + SCHEDULE.CleanupSeconds
-	deps.Notify.sendAll("boss.defeated", nil, "Success", "MatchWin")
+	-- No sound on the toast: the BossDefeated timeline is the sound of this, and the match's fanfare on
+	-- top of it was two endings at once.
+	deps.Notify.sendAll("boss.defeated", nil, "Success")
 	deps.Vfx.emit({
 		Id = Context.DefeatVfxId,
 		Origin = live.Body.Position,

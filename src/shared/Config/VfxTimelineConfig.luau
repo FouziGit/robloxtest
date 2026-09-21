@@ -164,7 +164,8 @@ export type Layer = {
 	-- doing it, and a test keeps it there.
 	Fit: boolean?,
 	-- Seconds the music is pulled down for, from this play. The plan's "ducking sur les impacts lourds":
-	-- a boss landing, an ultimate's detonation, not a jab.
+	-- a boss landing and an ultimate's own landing here; a hit past VfxLibrary's DUCK_HIT_DAMAGE there.
+	-- Not a jab, and not Brand.
 	Duck: number?,
 }
 
@@ -713,7 +714,6 @@ local BRAND: Timeline = {
 			-- Range: a visual that outflies the spell lies to the player about where they are safe.
 			Duration = 1,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -725,6 +725,8 @@ local BRAND: Timeline = {
 					-- reads as thrown rather than fired.
 					Arc = 3,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				{
 					Kind = "Trail",
 					At = 0,
@@ -1023,7 +1025,8 @@ local WASH: Timeline = {
 			-- other the whole way.
 			Duration = 0.7,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.65, For = 0.05, Voice = "Impact" },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -1037,6 +1040,8 @@ local WASH: Timeline = {
 					-- sphere forgives.
 					Arc = 1.6,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- The leading edge, the signature layer: a stroke facing whoever it is about to reach,
 				-- widening to the full sixteen-stud hit diameter and diluting as it goes. It ends half a
 				-- stud wider than the sphere that hurts, never narrower.
@@ -1676,6 +1681,8 @@ local MARGIN: Timeline = {
 			Name = "Cast",
 			Duration = 0.5,
 			Layers = {
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.45, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The near face, the broad pass: fourteen studs of ink out of the floor line, the
 				-- collision's width exactly. Back/Out overshoots and settles, which is a slab hitting its
@@ -2155,7 +2162,8 @@ local HAIRLINE: Timeline = {
 			-- decides the length of the flight.
 			Duration = 0.46,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.41, For = 0.05, Voice = "Impact" },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -2165,6 +2173,8 @@ local HAIRLINE: Timeline = {
 					Offset = { 0, 0.35, 4 },
 					Travel = 60,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- The core of the stroke. The thinnest trail in the game: 0.55 studs against the Marque's
 				-- 2.2.
 				{
@@ -3132,7 +3142,8 @@ local STIPPLE: Timeline = {
 			Name = "Travel",
 			Duration = 0.64,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.59, For = 0.05, Voice = "Impact" },
 				{
 					Kind = "Carrier",
 					At = 0,
@@ -3147,6 +3158,8 @@ local STIPPLE: Timeline = {
 					-- dead-flat flight and it is written down as one rather than sold as physics.
 					Arc = 1.2,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- The dot itself: an irregular blot, not the radial gradient -- a soft round glow sprite
 				-- is the single most borrowed image in the genre, and an off-centre blot is ink.
 				--
@@ -3338,6 +3351,8 @@ local GILDING: Timeline = {
 			Name = "Cast",
 			Duration = 0.22,
 			Layers = {
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.17, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The burnish. The halo collapses onto the body: Quint-In barely moves, then goes all at
 				-- once, which is the shape of leaf being pressed down. It does not fold to a point like
@@ -3575,7 +3590,7 @@ local RUPTURE: Timeline = {
 			Name = "Impact",
 			Duration = 0.3,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact", Duck = 0.5 },
 				-- The tear opening, first beat: the nib goes through and the crack runs twenty studs out
 				-- in two frames. Quart-Out throws it and lets it arrive.
 				{
@@ -4129,7 +4144,6 @@ local LIGATURE: Timeline = {
 			-- the foot lands rather than after it.
 			Duration = 0.25,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- Sixteen studs, not twenty: the caster travels 20 but the INK ends at 16, and the ink is
 				-- what burns. Two studs of arc because a joining stroke bows, and sine-in-out because a
 				-- stroke is pressed, carried and lifted -- which is also what puts the nib over each pool at
@@ -4144,6 +4158,8 @@ local LIGATURE: Timeline = {
 					Travel = 16,
 					Arc = 2,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- Wet ink. It outlives the stroke by a tenth, so the line is still glistening once the body
 				-- has stopped.
 				{
@@ -4621,7 +4637,6 @@ local BLOT: Timeline = {
 			Name = "Travel",
 			Duration = 0.92,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- Five studs forward is the server's SpawnOffset; four up is the arc's seam, split (see the
 				-- block comment). Spin makes the clot tumble: every rider takes the carrier's whole CFrame,
 				-- so one field turns four layers.
@@ -4636,6 +4651,8 @@ local BLOT: Timeline = {
 					Arc = 20,
 					Spin = 2.2,
 				},
+				-- After the carrier, so it exists when the tail starts riding it.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
 				-- The body. A dense clump of ink billets with almost no speed of its own, so it holds
 				-- together as a ragged mass instead of resolving into a ball.
 				{
@@ -4819,6 +4836,8 @@ local STRIKE: Timeline = {
 			Name = "Cast",
 			Duration = 0.12,
 			Layers = {
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.07, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The crack of the nib on the page. Short and sharp rather than heavy: this is a
 				-- four-second basic, and it must never feel like the ultimate four inputs away.
@@ -5054,6 +5073,8 @@ local CARET: Timeline = {
 			Name = "Cast",
 			Duration = 0.1,
 			Layers = {
+				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				{ Kind = "Sound", At = 0.05, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- Travel is the glyph's Range and Arc is the caret's rise. The mark is not drawn ON the
 				-- path; the path IS the mark.
@@ -5633,7 +5654,7 @@ local COLOPHON: Timeline = {
 			Name = "Impact",
 			Duration = 0.2,
 			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact", Duck = 0.5 },
 				-- activate() places a Shake at the play's Origin, not at a layer's Offset, so this is
 				-- felt from the muzzle rather than from the body it struck. That is the right end anyway:
 				-- the caster should feel what fifty-five ink bought. Every link's own weight arrives with

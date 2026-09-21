@@ -74,6 +74,9 @@ local function armTimer(delay: number)
 		local pending = sequence
 		local decision = ComboResolver.timeout(resolver, pending)
 		if decision.Action == "Cast" then
+			-- The five two-press glyphs are each a prefix of a longer recipe, so they only ever resolve
+			-- here, by the window running out. Their phrase resolves too.
+			soundController.play(RESOLVE_SFX)
 			cast(pending)
 		elseif decision.Action == "Reset" and decision.Reason == "Dissipated" then
 			hudController.showLocalToast("hud.combo.dissipated", nil, "Error")

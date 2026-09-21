@@ -99,8 +99,11 @@ local HEAVY_HIT_DAMAGE = 25
 -- How much of a shake survives for a fight the local player is not in.
 local DISTANT_HIT_SCALE = 0.55
 -- The music dips under a heavy hit for this long (docs/JUICE_PLAN.md phase 5: ducking on the heavy
--- impacts). Short: a duck that outlives the hit-stop is a mixer move, not a blow.
+-- impacts). Short: a duck that outlives the hit-stop is a mixer move, not a blow. The bar is above the
+-- shake's: Brand is heavy enough to shake the camera and not heavy enough to be a mixer event, or the
+-- music would dip on the most-thrown projectile in the game.
 local HEAVY_HIT_DUCK_SECONDS = 0.45
+local DUCK_HIT_DAMAGE = 35
 -- Damage you took is red, whatever pigment dealt it (docs/ART_BIBLE.md: red means danger to you).
 local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
 -- Brand's blast radius (GlyphConfig), which the Explosion timeline is authored at. A packet carrying
@@ -557,8 +560,13 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 		-- what keeps the roster's visual language consistent as it grows.
 		Scale = if heavy then 1.35 else 1,
 	})
-	api.Sound.play("ImpactHit", packet.Origin)
-	if heavy then
+	-- The page slap is the melee kit's. A glyph's landing is its pigment's Impact voice, played by its
+	-- own timeline once at the point it landed; playing the slap here as well put two thumps under every
+	-- glyph hit, and the one that names no school on top of the one that does.
+	if pigment == "" then
+		api.Sound.play("ImpactHit", packet.Origin)
+	end
+	if amount >= DUCK_HIT_DAMAGE then
 		api.Sound.duck(HEAVY_HIT_DUCK_SECONDS)
 	end
 

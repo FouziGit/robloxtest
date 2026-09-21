@@ -280,12 +280,13 @@ local function announce(current: Types.BossSnapshot)
 		worldLighting.pulse("Erasure")
 	end
 
-	-- The music follows the event for everyone on the server: the boss is a server-wide event and the
-	-- hub is where the announcement is heard.
+	-- The event asks for its loop for everyone on the server -- the boss is server-wide and the hub is
+	-- where the announcement is heard -- and SoundController decides: a player inside a ranked match
+	-- keeps the match's loop, because Match outranks Boss there.
 	if current.Phase == "Announced" or current.Phase == "Fighting" then
-		soundController.music("Boss")
+		soundController.wantMusic("Boss", "Boss")
 	else
-		soundController.music("Hub")
+		soundController.wantMusic("Boss", nil)
 	end
 end
 
@@ -293,7 +294,7 @@ local function onBossChanged(payload: any)
 	if payload == nil then
 		snapshot = nil
 		lastPhase = nil -- the next event announces itself from its first phase again
-		soundController.music("Hub")
+		soundController.wantMusic("Boss", nil)
 		refresh()
 		return
 	end

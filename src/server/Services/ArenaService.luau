@@ -22,6 +22,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local Palette = require(Shared.Util.Palette)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("ArenaService")
 
@@ -76,9 +78,8 @@ local COVER_WALL_OFFSET_FRACTION = 0.15
 local RING_MARGIN_STUDS = 10
 local RING_SPAWN_CAP = 50
 local BOSS_SPAWN_NAME = "BossSpawn"
-local FLOOR_COLOR = Color3.fromRGB(64, 66, 78)
-local WALL_COLOR = Color3.fromRGB(44, 46, 56)
-local COVER_WALL_COLOR = Color3.fromRGB(54, 56, 68)
+-- Every colour is a role of WorldConfig.Arena (D-86): a page walled in bone, ruled in ink.
+local ARENA = WorldConfig.Arena
 
 local arenaDefs = (MatchConfig.Arenas :: any) :: { [string]: ArenaDef }
 
@@ -100,7 +101,7 @@ local function newPart(name: string, size: Vector3, cframe: CFrame, color: Color
 	part.CFrame = cframe
 	part.Anchored = true
 	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
+	part.Material = Palette.material()
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	return part
@@ -167,8 +168,19 @@ local function buildWalls(def: ArenaDef, parent: Model, floorTop: number)
 		{ Name = "WallWest", Size = across, Position = Vector3.new(-offset, centerY, 0) },
 		{ Name = "WallEast", Size = across, Position = Vector3.new(offset, centerY, 0) },
 	}
+	-- The ink rule along the top of each wall: the border of the sheet. A hair thicker than the wall,
+	-- because a coplanar face flickers.
+	local ruleHeight = ARENA.WallRuleStuds
+	local proud = ARENA.WallRuleProudStuds
 	for _, wall in ipairs(walls) do
-		newPart(wall.Name, wall.Size, CFrame.new(wall.Position), WALL_COLOR).Parent = parent
+		newPart(wall.Name, wall.Size, CFrame.new(wall.Position), Palette.world(ARENA.Wall)).Parent = parent
+		local ruleSize = Vector3.new(
+			wall.Size.X + if wall.Size.X < wall.Size.Z then proud else 0,
+			ruleHeight,
+			wall.Size.Z + if wall.Size.Z < wall.Size.X then proud else 0
+		)
+		local rulePosition = Vector3.new(wall.Position.X, floorTop + def.WallHeight - ruleHeight / 2, wall.Position.Z)
+		newPart(wall.Name .. "Rule", ruleSize, CFrame.new(rulePosition), Palette.world(ARENA.WallRule)).Parent = parent
 	end
 end
 
@@ -178,7 +190,7 @@ local function buildCoverWalls(def: ArenaDef, parent: Model, floorTop: number)
 	local centerY = floorTop + COVER_WALL_HEIGHT_STUDS / 2
 	for index, sign in ipairs({ -1, 1 }) do
 		local position = Vector3.new(offset * sign, centerY, offset * -sign)
-		newPart("CoverWall" .. index, size, CFrame.new(position), COVER_WALL_COLOR).Parent = parent
+		newPart("CoverWall" .. index, size, CFrame.new(position), Palette.world(ARENA.CoverWall)).Parent = parent
 	end
 end
 
@@ -188,7 +200,7 @@ local function buildKillZone(def: ArenaDef, parent: Model, floorTop: number): Ba
 		KILL_ZONE_NAME,
 		Vector3.new(span, KILL_ZONE_THICKNESS_STUDS, span),
 		CFrame.new(0, floorTop + def.KillZoneDepth, 0),
-		WALL_COLOR
+		Palette.world(ARENA.Floor)
 	)
 	part.CanCollide = false
 	part.CanQuery = false
@@ -198,7 +210,7 @@ local function buildKillZone(def: ArenaDef, parent: Model, floorTop: number): Ba
 end
 
 local function buildMarker(name: string, cframe: CFrame, parent: Instance)
-	local marker = newPart(name, SPAWN_MARKER_SIZE_STUDS, cframe, FLOOR_COLOR)
+	local marker = newPart(name, SPAWN_MARKER_SIZE_STUDS, cframe, Palette.world(ARENA.Floor))
 	marker.Transparency = 1
 	marker.CanCollide = false
 	marker.CanQuery = false
@@ -210,8 +222,12 @@ local function buildTemplate(arenaId: string, def: ArenaDef): Template
 	local model = Instance.new("Model")
 	model.Name = arenaId
 
-	local floor =
-		newPart(FLOOR_NAME, Vector3.new(def.Size, FLOOR_THICKNESS_STUDS, def.Size), CFrame.new(0, 0, 0), FLOOR_COLOR)
+	local floor = newPart(
+		FLOOR_NAME,
+		Vector3.new(def.Size, FLOOR_THICKNESS_STUDS, def.Size),
+		CFrame.new(0, 0, 0),
+		Palette.world(ARENA.Floor)
+	)
 	floor.Parent = model
 	-- The floor is the pivot, so PivotTo(CFrame.new(0, altitude, 0)) places the whole arena.
 	model.PrimaryPart = floor

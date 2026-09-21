@@ -7314,6 +7314,106 @@ local BOSS_SPAWN: Timeline = {
 -- The end of the fight, and the mirror of the arrival: what it took in comes back out, and what it wrote
 -- over is given back. The collapse is Quint-in, so the seal gathers, hesitates, and then goes -- the one
 -- beat in the whole fight that belongs to the players watching it rather than to the boss.
+local BOSS_PHASE: Timeline = {
+	Intent = "The erasure spreads: the band across its face widens, and the page around it takes the blow",
+	Phases = {
+		{
+			-- The ink is drawn in before it is laid down: the page's grain converges on the body from a
+			-- shell, the way the arrival did, but from closer and faster -- this is a spreading, not a
+			-- coming.
+			Name = "Anticipation",
+			Duration = 0.4,
+			Layers = {
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.4,
+					Texture = "DustMote",
+					Offset = { 0, 6, 0 },
+					Rate = 60,
+					Speed = { -30, -18 },
+					Lifetime = { 0.25, 0.4 },
+					Spread = 180,
+					Drag = 1.2,
+					Size = 0.7,
+					EndSize = 0.05,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					At = 0,
+					For = 0.4,
+					Ease = "Exponential",
+					EaseDirection = "In",
+					Offset = { 0, 5, 0 },
+					Range = 20,
+					Brightness = 0.1,
+					EndBrightness = 3.5,
+				},
+			},
+		},
+		{
+			Name = "Impact",
+			Duration = 0.5,
+			Layers = {
+				{ Kind = "Sound", At = 0, For = 0.05, Sfx = "BossImpact", Duck = 0.8 },
+				{ Kind = "Shake", At = 0, For = 0.16, Profile = "Heavy" },
+				{ Kind = "Flash", At = 0, For = 0.14, Profile = "PageFlash" },
+				-- The band's own width, thrown out over the floor as a ring.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.5,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Texture = "TelegraphRing",
+					Size = 6,
+					EndSize = 48,
+					Offset = { 0, 0.1, 0 },
+					Transparency = 0.08,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.5,
+					Texture = "InkBlot",
+					Offset = { 0, 3.4, 0 },
+					Burst = 28,
+					Speed = { 24, 48 },
+					Lifetime = { 0.4, 0.8 },
+					Spread = 180,
+					Drag = 2,
+					Size = 1,
+					EndSize = 0,
+				},
+			},
+		},
+		{
+			-- What the phase took from the page stays under the body a moment: the floor, darker where
+			-- the erasure stands.
+			Name = "Residue",
+			Duration = 2.4,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.4,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "InkBlot",
+					Size = 14,
+					EndSize = 16,
+					Offset = { 0, 0.06, 0 },
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
 local BOSS_DEFEATED: Timeline = {
 	Intent = "The erasure folds into itself and gives the page back",
 	Phases = {
@@ -7537,6 +7637,7 @@ VfxTimelineConfig.Timelines = {
 	BossEruptionSafe = BOSS_ERUPTION_SAFE,
 	BossScour = BOSS_SCOUR,
 	BossFury = BOSS_FURY,
+	BossPhase = BOSS_PHASE,
 	BossDefeated = BOSS_DEFEATED,
 } :: { [string]: Timeline }
 

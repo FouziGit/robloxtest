@@ -1087,6 +1087,27 @@ function VfxTimeline.play(id: string, context: Context): boolean
 	return true
 end
 
+-- Queues ONE layer that belongs to no timeline -- a footprint, drawn by FootprintController -- through
+-- the same pool, ground probe, budget and eviction as every timeline layer. `id` names it in the
+-- runtime's warnings. A layer that is not a Mark is refused: everything else is an effect, and effects
+-- are timelines.
+function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
+	if layer.Kind ~= "Mark" then
+		return false
+	end
+	nextPlayId += 1
+	table.insert(pending, {
+		Id = id,
+		Layer = layer,
+		Context = context,
+		At = os.clock() + layer.At,
+		Seconds = layer.For,
+		Warning = false,
+		PlayId = nextPlayId,
+	})
+	return true
+end
+
 -- Everything on screen, released. Called when the local character goes away: a layer adorned to a part of
 -- the previous life would otherwise follow the player into the next one.
 function VfxTimeline.clear()

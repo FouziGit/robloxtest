@@ -103,7 +103,8 @@ export type Boss = {
 	Arena: Arena,
 	Model: Model,
 	Humanoid: Humanoid,
-	Body: BasePart,
+	Body: BasePart, -- the contact hull, drawn invisible; the figure inside it is built from WorldConfig
+	Band: BasePart, -- the ink band across the face, whose height says the phase
 	Center: Vector3, -- middle of the arena: what "still in the fight" is measured from
 	GroundY: number, -- top of the arena floor, so the clients paint the telegraphs on it
 	Facing: Vector3,
@@ -126,8 +127,9 @@ Context.ArenaReachStuds = MatchConfig.Arenas.Boss.Size
 -- WorldBossConfig.Boss.ContactDamage is per second: one tick per participant and per second.
 Context.ContactIntervalSeconds = 1
 Context.ContactTags = { "BossContact" }
-Context.BodyColor = Color3.fromRGB(78, 58, 92)
 Context.SpawnVfxId = "BossSpawn"
+-- Played at the boss when it enters a new phase: the band widening is what the world sees.
+Context.PhaseVfxId = "BossPhase"
 Context.DefeatVfxId = "BossDefeated"
 Context.Epsilon = 1e-3
 

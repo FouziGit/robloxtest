@@ -817,4 +817,9 @@ VfxLibrary.BossDefeated = function(packet: Packet, _trove: TroveType, api: Api)
 	playBossEvent("BossDefeated", packet, api)
 end
 
+-- A new phase: the band widened on the body, and the page around it takes the blow.
+VfxLibrary.BossPhase = function(packet: Packet, _trove: TroveType, api: Api)
+	playBossEvent("BossPhase", packet, api)
+end
+
 return VfxLibrary

@@ -142,12 +142,12 @@ describe("world boss effect coverage", function()
 		end
 	end)
 
-	it("declares the spawn and the defeat", function()
+	it("declares the spawn, the phase change and the defeat", function()
 		-- Read out of the server module's source: it touches Roblox services, so it cannot be required
 		-- here, and hard-coding the two strings would be a test that cannot notice a rename.
 		local source = fs.readFile("src/server/Services/WorldBossService/Context.luau")
 		local found = 0
-		for _, field in ipairs({ "SpawnVfxId", "DefeatVfxId" }) do
+		for _, field in ipairs({ "SpawnVfxId", "PhaseVfxId", "DefeatVfxId" }) do
 			local id = string.match(source, "Context%." .. field .. ' = "([%w_]+)"')
 			if id == nil then
 				error(("WorldBossService Context has no %s; this test is checking nothing"):format(field))
@@ -160,6 +160,6 @@ describe("world boss effect coverage", function()
 				error(("Context.%s is %s, and VfxLibrary has no renderer for it"):format(field, id))
 			end
 		end
-		expect(found).toBe(2)
+		expect(found).toBe(3)
 	end)
 end)

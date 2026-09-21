@@ -307,11 +307,11 @@ describe("the Erasure's telegraphs", function()
 		end
 	end)
 
-	it("keep the two bookends out of the measuring", function()
+	it("keep the bookends and the phase change out of the measuring", function()
 		-- The spawn and the defeat damage nobody, so their renderer passes no shape and no window. A layer
 		-- in one of them that measured itself against a radius would simply not be drawn -- the runtime
 		-- skips it and warns once -- and the effect would look thinner for a reason nobody could see.
-		for _, id in ipairs({ "BossSpawn", "BossDefeated" }) do
+		for _, id in ipairs({ "BossSpawn", "BossPhase", "BossDefeated" }) do
 			for _, phase in ipairs(timelineOf(id).Phases) do
 				if phase.Window == true then
 					error(("%s takes a window its renderer does not pass"):format(id))

@@ -331,11 +331,28 @@ end
 -- Tick
 ----------------------------------------------------------------
 
+-- The boss entering a new phase: the band widened on the body (Encounter.dress), and the world sees it
+-- happen. Emitted once per phase, by the tick that crossed the threshold.
+local function phaseChanged(live: Boss, current: State)
+	deps.Vfx.emit({
+		Id = Context.PhaseVfxId,
+		Origin = live.Body.Position,
+		Direction = live.Facing,
+		Params = {
+			Height = WorldBossMode.bodySize().Y,
+			Radius = WorldBossMode.contactRadius(),
+			Ground = live.GroundY,
+			Phase = current.PhaseIndex,
+		},
+	}, true)
+end
+
 local function tickFight(live: Boss, current: State, now: number)
 	if now >= phaseEndsAt then
 		expire(current, now)
 		return
 	end
+	local phaseBefore = current.PhaseIndex
 	local ok, outcome, dirty = pcall(Encounter.step, live, current, participants, now, TICK_SECONDS)
 	if not ok then
 		log.warn("fight tick failed: %s", tostring(outcome))
@@ -347,6 +364,9 @@ local function tickFight(live: Boss, current: State, now: number)
 		log.info("no participant left in the arena")
 		expire(current, now)
 	elseif dirty == true then
+		if current.PhaseIndex ~= phaseBefore then
+			phaseChanged(live, current)
+		end
 		pushSnapshot(now)
 	end
 end

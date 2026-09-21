@@ -15,8 +15,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local Context = require(script.Parent.Context)
 local Log = require(Shared.Util.Log)
+local Palette = require(Shared.Util.Palette)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.Parent.GameModes.WorldBossMode)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("WorldBoss.Encounter")
 
@@ -29,6 +31,7 @@ type Arena = Context.Arena
 type Boss = Context.Boss
 
 local BOSS = WorldBossConfig.Boss
+local ERASURE = WorldConfig.Erasure
 
 local Encounter = {}
 
@@ -68,10 +71,29 @@ local function centerOf(arena: Arena): Vector3
 	return total / count
 end
 
--- One anchored body part carrying the Humanoid: the boss is stepped by CFrame, never simulated, and
--- every visual beyond the block comes from VfxLibrary. No nameplate — the server cannot localize one,
--- so the HUD names and bars the boss from BossChanged.
-local function buildBody(position: Vector3, facing: Vector3, health: number): (Model, Humanoid, BasePart)
+-- One anchored part of the figure, placed in the hull's frame. Decoration only: no collision, no query,
+-- so a projectile that reaches the boss reaches the hull, which is the shape the damage is measured on.
+local function figurePart(name: string, color: string, size: Vector3, hull: BasePart, offset: Vector3): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Material = Palette.material()
+	part.Color = Palette.world(color)
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.CFrame = hull.CFrame * CFrame.new(offset)
+	part.Parent = hull.Parent
+	return part
+end
+
+-- The hull carrying the Humanoid, invisible, and the figure WorldConfig.Erasure describes inside it: the
+-- boss is stepped by PivotTo, never simulated, and every visual beyond the figure comes from VfxLibrary.
+-- No nameplate — the server cannot localize one, so the HUD names and bars the boss from BossChanged.
+local function buildBody(position: Vector3, facing: Vector3, health: number): (Model, Humanoid, BasePart, BasePart)
 	local model = Instance.new("Model")
 	model.Name = BOSS.Name
 
@@ -79,12 +101,24 @@ local function buildBody(position: Vector3, facing: Vector3, health: number): (M
 	body.Name = Context.RootPartName
 	body.Size = WorldBossMode.bodySize()
 	body.Anchored = true
-	body.Material = Enum.Material.Slate
-	body.Color = Context.BodyColor
+	body.Transparency = 1
+	body.Material = Palette.material()
 	body.TopSurface = Enum.SurfaceType.Smooth
 	body.BottomSurface = Enum.SurfaceType.Smooth
 	body.CFrame = CFrame.lookAt(position, position + facing)
 	body.Parent = model
+
+	for _, def in ipairs(ERASURE.Parts) do
+		figurePart(def.Name, def.Color, Palette.vector(def.Size), body, Palette.vector(def.Offset))
+	end
+	local bandDef = ERASURE.Band
+	local band = figurePart(
+		bandDef.Name,
+		bandDef.Color,
+		Vector3.new(bandDef.Width, bandDef.Heights[1], bandDef.Depth),
+		body,
+		Palette.vector(bandDef.Offset)
+	)
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.MaxHealth = health
@@ -97,7 +131,14 @@ local function buildBody(position: Vector3, facing: Vector3, health: number): (M
 	humanoid.Parent = model
 
 	model.PrimaryPart = body
-	return model, humanoid, body
+	return model, humanoid, body, band
+end
+
+-- Sets the band to the phase's height: what a player reads the phase off, from anywhere in the arena.
+function Encounter.dress(boss: Boss, phaseIndex: number)
+	local bandDef = ERASURE.Band
+	local height = bandDef.Heights[math.clamp(phaseIndex, 1, #bandDef.Heights)]
+	boss.Band.Size = Vector3.new(bandDef.Width, height, bandDef.Depth)
 end
 
 -- Spawns the boss with `health` in `arena` and returns it, parented and ready to be ticked. The caller
@@ -108,13 +149,14 @@ function Encounter.build(arena: Arena, health: number): Boss
 	local floorY = groundY(arena, center.Y)
 	local position = Vector3.new(center.X, floorY + size.Y / 2, center.Z)
 	local facing = Vector3.new(0, 0, -1)
-	local model, humanoid, body = buildBody(position, facing, health)
+	local model, humanoid, body, band = buildBody(position, facing, health)
 	model.Parent = arena.Instance
 	return {
 		Arena = arena,
 		Model = model,
 		Humanoid = humanoid,
 		Body = body,
+		Band = band,
 		Center = position,
 		GroundY = floorY,
 		Facing = facing,
@@ -250,7 +292,8 @@ local function walk(boss: Boss, state: WorldBossMode.State, roots: { BasePart },
 	if offset.Magnitude > Context.Epsilon then
 		boss.Facing = offset.Unit
 	end
-	boss.Body.CFrame = CFrame.lookAt(position, position + boss.Facing)
+	-- The whole figure moves with the hull: PivotTo carries every anchored part of the model.
+	boss.Model:PivotTo(CFrame.lookAt(position, position + boss.Facing))
 end
 
 -- One tick: death first, then the phase, the walk, the contact damage and the attack rotation. The
@@ -273,6 +316,7 @@ function Encounter.step(
 	local dirty = WorldBossMode.setHealth(state, boss.Humanoid.Health)
 	if dirty then
 		log.info("phase %d at %d / %d health", state.PhaseIndex, math.floor(state.Health), state.MaxHealth)
+		Encounter.dress(boss, state.PhaseIndex)
 	end
 	state.Participants = #roots
 	-- A wind-up is the body standing still. The rule that keeps the hit where the warning was painted is

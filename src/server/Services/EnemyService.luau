@@ -13,9 +13,11 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local Palette = require(Shared.Util.Palette)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("EnemyService")
 
@@ -41,8 +43,9 @@ local LAST_ATTACKER_ATTRIBUTE = "LastAttackerUserId"
 local ROOT_SIZE = Vector3.new(2, 3, 1)
 local HEAD_SIZE = Vector3.new(1.4, 1.4, 1.4)
 local HEAD_OFFSET = Vector3.new(0, 2.2, 0)
-local ROOT_COLOR = Color3.fromRGB(90, 70, 70)
-local HEAD_COLOR = Color3.fromRGB(215, 185, 150)
+-- A proof (docs/ART_BIBLE.md: Épreuve): a blank figure wearing a registration cross, roles of
+-- WorldConfig.Proof (D-86).
+local PROOF = WorldConfig.Proof
 
 local EnemyService = {}
 
@@ -104,8 +107,8 @@ local function buildDummy(rootCFrame: CFrame): (Model, Humanoid)
 	root.Name = "HumanoidRootPart"
 	root.Size = ROOT_SIZE
 	root.Anchored = true
-	root.Material = Enum.Material.SmoothPlastic
-	root.Color = ROOT_COLOR
+	root.Material = Palette.material()
+	root.Color = Palette.world(PROOF.Body)
 	root.TopSurface = Enum.SurfaceType.Smooth
 	root.BottomSurface = Enum.SurfaceType.Smooth
 	root.CFrame = rootCFrame
@@ -115,12 +118,31 @@ local function buildDummy(rootCFrame: CFrame): (Model, Humanoid)
 	head.Name = "Head"
 	head.Size = HEAD_SIZE
 	head.Anchored = true
-	head.Material = Enum.Material.SmoothPlastic
-	head.Color = HEAD_COLOR
+	head.Material = Palette.material()
+	head.Color = Palette.world(PROOF.Head)
 	head.TopSurface = Enum.SurfaceType.Smooth
 	head.BottomSurface = Enum.SurfaceType.Smooth
 	head.CFrame = rootCFrame * CFrame.new(HEAD_OFFSET)
 	head.Parent = model
+
+	-- The registration cross on the chest: two ink bars, the thing a printer aims at on a proof.
+	local arm = PROOF.MarkStuds
+	local markCFrame = rootCFrame * CFrame.new(Palette.vector(PROOF.MarkOffset))
+	for index, size in ipairs({ Vector3.new(arm[1], arm[2], arm[3]), Vector3.new(arm[2], arm[1], arm[3]) }) do
+		local bar = Instance.new("Part")
+		bar.Name = "Mark" .. index
+		bar.Size = size
+		bar.Anchored = true
+		bar.CanCollide = false
+		bar.CanQuery = false
+		bar.CanTouch = false
+		bar.Material = Palette.material()
+		bar.Color = Palette.world(PROOF.Mark)
+		bar.TopSurface = Enum.SurfaceType.Smooth
+		bar.BottomSurface = Enum.SurfaceType.Smooth
+		bar.CFrame = markCFrame
+		bar.Parent = model
+	end
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.MaxHealth = GameConfig.Enemy.DummyHealth

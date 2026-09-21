@@ -41,6 +41,8 @@ local ORDER = {
 	"VfxPool",
 	"VfxTimeline",
 	"VfxController",
+	-- Stamps through VfxTimeline, so after it.
+	"FootprintController",
 	"MatchController",
 	"HudController",
 	"BossController",

@@ -21,8 +21,10 @@ local Ui = ReplicatedStorage:WaitForChild("UI")
 
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local Palette = require(Shared.Util.Palette)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Theme = require(Ui.Theme)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("HubService")
 
@@ -39,12 +41,14 @@ local HUB_FOLDER_NAME = "Hub"
 -- docs/GAME_DESIGN.md §8: 200×200 platform, spawn at the centre.
 local PLATFORM_SIZE_STUDS = 200
 local PLATFORM_THICKNESS_STUDS = 4
-local PLATFORM_COLOR = Color3.fromRGB(58, 62, 72)
-local PLATFORM_EDGE_COLOR = Color3.fromRGB(38, 40, 48)
+-- Every colour is a role of WorldConfig.Hub (D-86): the page, its ink border, a chalk seal.
+local HUB = WorldConfig.Hub
 local PLATFORM_EDGE_WIDTH_STUDS = 6
 local PLATFORM_EDGE_HEIGHT_STUDS = 2
-local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
-local SPAWN_COLOR = Color3.fromRGB(96, 104, 124)
+-- The spawn is a chalk seal: a flat disc on an ink rim, the shape a glyph is cast from.
+local SPAWN_DIAMETER_STUDS = 12
+local SPAWN_THICKNESS_STUDS = 1
+local SPAWN_RIM_THICKNESS_STUDS = 0.4
 -- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
 -- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
@@ -66,7 +70,6 @@ local PEDESTAL_BASE_SIZE_STUDS = Vector3.new(7, 1, 7)
 local PEDESTAL_COLUMN_SIZE_STUDS = Vector3.new(2.5, 4, 2.5)
 local PEDESTAL_PANEL_SIZE_STUDS = Vector3.new(6, 4, 0.5)
 local PEDESTAL_PANEL_TILT_DEGREES = 18
-local PEDESTAL_COLOR = Color3.fromRGB(46, 48, 58)
 local EMBLEM_PIXELS_PER_STUD = 64
 local EMBLEM_STROKE_PIXELS = 6
 -- Rotations (degrees) of the bars inside the emblem ring: a pair of crossed blades for the queue
@@ -125,7 +128,7 @@ local function newPart(name: string, size: Vector3, cframe: CFrame, color: Color
 	part.CFrame = cframe
 	part.Anchored = true
 	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
+	part.Material = Palette.material()
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	return part
@@ -137,7 +140,7 @@ local function buildPlatform(parent: Folder)
 		"HubPlatform",
 		Vector3.new(PLATFORM_SIZE_STUDS, PLATFORM_THICKNESS_STUDS, PLATFORM_SIZE_STUDS),
 		CFrame.new(0, -PLATFORM_THICKNESS_STUDS / 2, 0),
-		PLATFORM_COLOR
+		Palette.world(HUB.Platform)
 	)
 	platform.Parent = parent
 
@@ -168,20 +171,37 @@ local function buildPlatform(parent: Folder)
 		},
 	}
 	for _, side in ipairs(sides) do
-		newPart(side.Name, side.Size, CFrame.new(side.Position), PLATFORM_EDGE_COLOR).Parent = parent
+		newPart(side.Name, side.Size, CFrame.new(side.Position), Palette.world(HUB.Kerb)).Parent = parent
 	end
 end
 
+-- A cylinder's flat faces are on its X axis, so a disc is rolled a quarter turn to lie flat.
+local function flatDisc(diameter: number, thickness: number, centerY: number): (Vector3, CFrame)
+	return Vector3.new(thickness, diameter, diameter), CFrame.new(0, centerY, 0) * CFrame.Angles(0, 0, math.pi / 2)
+end
+
 local function buildSpawn(parent: Folder): SpawnLocation
+	-- The rim first, under the pad and wider than it, so the seal reads as drawn on the page.
+	local rimDiameter = SPAWN_DIAMETER_STUDS + HUB.SpawnRimStuds * 2
+	local rimSize, rimCFrame = flatDisc(rimDiameter, SPAWN_RIM_THICKNESS_STUDS, SPAWN_RIM_THICKNESS_STUDS / 2)
+	local rim = newPart("HubSpawnRim", rimSize, rimCFrame, Palette.world(HUB.SpawnRim))
+	rim.Shape = Enum.PartType.Cylinder
+	rim.CanCollide = false
+	rim.CanQuery = false
+	rim.CanTouch = false
+	rim.Parent = parent
+
 	local spawnPart = Instance.new("SpawnLocation")
 	spawnPart.Name = "HubSpawn"
-	spawnPart.Size = SPAWN_SIZE_STUDS
-	spawnPart.CFrame = CFrame.new(0, SPAWN_SIZE_STUDS.Y / 2, 0)
+	local size, cframe = flatDisc(SPAWN_DIAMETER_STUDS, SPAWN_THICKNESS_STUDS, SPAWN_THICKNESS_STUDS / 2)
+	spawnPart.Shape = Enum.PartType.Cylinder
+	spawnPart.Size = size
+	spawnPart.CFrame = cframe
 	spawnPart.Anchored = true
 	spawnPart.Neutral = true
 	spawnPart.AllowTeamChangeOnTouch = false
-	spawnPart.Color = SPAWN_COLOR
-	spawnPart.Material = Enum.Material.Metal
+	spawnPart.Color = Palette.world(HUB.Spawn)
+	spawnPart.Material = Palette.material()
 	spawnPart.TopSurface = Enum.SurfaceType.Smooth
 	spawnPart.BottomSurface = Enum.SurfaceType.Smooth
 	-- The engine ForceField lasts exactly as long as the protection CombatService enforces itself,
@@ -198,7 +218,7 @@ local function buildTrainingMarker(parent: Folder)
 		"TrainingArea",
 		Vector3.new(TRAINING_MARKER_THICKNESS_STUDS, diameter, diameter),
 		CFrame.new(0, TRAINING_MARKER_THICKNESS_STUDS / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		Theme.Colors.AccentSoft
+		Palette.world(HUB.Training)
 	)
 	marker.Shape = Enum.PartType.Cylinder
 	marker.Transparency = TRAINING_MARKER_TRANSPARENCY
@@ -267,19 +287,24 @@ local function buildPedestal(parent: Folder, name: string, baseCFrame: CFrame, a
 		"Base",
 		PEDESTAL_BASE_SIZE_STUDS,
 		baseCFrame * CFrame.new(0, PEDESTAL_BASE_SIZE_STUDS.Y / 2, 0),
-		PEDESTAL_COLOR
+		Palette.world(HUB.Pedestal)
 	)
 	base.Parent = model
 
 	local columnY = PEDESTAL_BASE_SIZE_STUDS.Y + PEDESTAL_COLUMN_SIZE_STUDS.Y / 2
-	local column = newPart("Column", PEDESTAL_COLUMN_SIZE_STUDS, baseCFrame * CFrame.new(0, columnY, 0), PEDESTAL_COLOR)
+	local column = newPart(
+		"Column",
+		PEDESTAL_COLUMN_SIZE_STUDS,
+		baseCFrame * CFrame.new(0, columnY, 0),
+		Palette.world(HUB.Pedestal)
+	)
 	column.Parent = model
 
 	local panelY = PEDESTAL_BASE_SIZE_STUDS.Y + PEDESTAL_COLUMN_SIZE_STUDS.Y + PEDESTAL_PANEL_SIZE_STUDS.Y / 2
 	local panelCFrame = baseCFrame
 		* CFrame.new(0, panelY, 0)
 		* CFrame.Angles(math.rad(PEDESTAL_PANEL_TILT_DEGREES), 0, 0)
-	local panel = newPart("Panel", PEDESTAL_PANEL_SIZE_STUDS, panelCFrame, PEDESTAL_COLOR)
+	local panel = newPart("Panel", PEDESTAL_PANEL_SIZE_STUDS, panelCFrame, Palette.world(HUB.Pedestal))
 	panel.Parent = model
 
 	buildEmblem(panel, accent, bars)
@@ -339,7 +364,7 @@ local function buildBoard(parent: Folder, board: BoardLayout)
 	local model = Instance.new("Model")
 	model.Name = "LeaderboardBoard_" .. board.BoardId
 
-	local panel = newPart("Panel", BOARD_PANEL_SIZE_STUDS, board.PanelCFrame, Theme.Colors.Background)
+	local panel = newPart("Panel", BOARD_PANEL_SIZE_STUDS, board.PanelCFrame, Palette.world(HUB.Board))
 	panel.Parent = model
 
 	local legOffsetX = BOARD_PANEL_SIZE_STUDS.X / 2 - BOARD_LEG_INSET_STUDS
@@ -349,7 +374,7 @@ local function buildBoard(parent: Folder, board: BoardLayout)
 			"Leg" .. index,
 			Vector3.new(BOARD_LEG_THICKNESS_STUDS, BOARD_LEG_HEIGHT_STUDS, BOARD_LEG_THICKNESS_STUDS),
 			board.PanelCFrame * CFrame.new(legOffsetX * sign, legOffsetY, 0),
-			PEDESTAL_COLOR
+			Palette.world(HUB.BoardLeg)
 		)
 		leg.Parent = model
 	end

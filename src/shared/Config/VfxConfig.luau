@@ -59,6 +59,8 @@ VfxConfig.BossIds = {
 	"BossSweep",
 	"BossEruption",
 	"BossFury",
+	-- The boss entering a new phase: the band across its face widening.
+	"BossPhase",
 	"BossDefeated",
 } :: { string }
 

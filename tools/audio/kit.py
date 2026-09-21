@@ -29,9 +29,10 @@ from vellum_wav import (
     env_hold,
     env_swell,
     highpass,
+    knock,
     lowpass,
     noise,
-    normalize,
+    normalize_rms,
     output_dir,
     pluck,
     report,
@@ -43,6 +44,13 @@ from vellum_wav import (
 )
 
 SEED = 0x1C_17
+
+# RMS targets per class, in linear full scale. The mix lives here and in SoundConfig's Volumes.
+LOUDNESS = {"kit": 0.2, "impact": 0.25, "boss": 0.22, "note": 0.14, "ui": 0.1, "feedback": 0.15}
+
+
+def finish(buf: Buf, kind: str) -> Buf:
+    return declick(normalize_rms(buf, LOUDNESS[kind]))
 
 # The root of every note in the game, and of the loops: A3. The sequence climbs a pentatonic from it.
 ROOT = 220.0
@@ -56,7 +64,7 @@ def brush_swipe(rng: Rng, seconds: float, low: float, high: float, weight: float
     underneath scaled by `weight`."""
     stroke = bandpass(noise(rng, R, seconds), low, 1.1, high).apply(env_ad(R, seconds, 0.01, seconds * 0.35))
     body = lowpass(noise(rng, R, seconds), 400.0).apply(env_ad(R, seconds, 0.005, seconds * 0.25))
-    return declick(normalize(stroke.add(body, 0.0, weight)))
+    return finish(stroke.add(body, 0.0, weight), "kit")
 
 
 def melee(rng: Rng, variant: int) -> Buf:
@@ -66,43 +74,44 @@ def melee(rng: Rng, variant: int) -> Buf:
 
 def melee_finisher(rng: Rng) -> Buf:
     swipe = brush_swipe(rng, 0.32, 300.0, 1400.0, 0.6)
-    thump = tone(R, 0.32, 130.0, 50.0).apply(env_ad(R, 0.32, 0.002, 0.07))
-    return declick(normalize(soft_clip(swipe.add(thump, 0.03, 0.8), 1.5)))
+    body = knock(rng, R, 0.32, 140.0, 2.5, 0.07)
+    return finish(soft_clip(swipe.add(body, 0.03, 0.8), 1.5), "kit")
 
 
 def dash(rng: Rng) -> Buf:
-    whoosh = bandpass(noise(rng, R, 0.36), 500.0, 0.9, 2600.0).apply(env_ad(R, 0.36, 0.02, 0.1))
-    air = lowpass(noise(rng, R, 0.36), 1500.0).apply(env_ad(R, 0.36, 0.01, 0.12))
-    return declick(normalize(whoosh.add(air, 0.0, 0.5)))
+    """A dash in Vellum is a stroke, so it is the brush and not a whoosh: the generic swoosh is the
+    one sound every game shares, and it would also have been Verdigris's attack a second time."""
+    return brush_swipe(rng, 0.36, 400.0, 1800.0, 0.3)
 
 
 def impact_hit(rng: Rng) -> Buf:
     """Ink slapped onto the page: a short broadband burst with a wet band under it."""
     slap = noise(rng, R, 0.26).apply(env_ad(R, 0.26, 0.001, 0.02))
     wet = bandpass(noise(rng, R, 0.26), 700.0, 1.0, 250.0).apply(env_ad(R, 0.26, 0.003, 0.06))
-    thud = tone(R, 0.26, 150.0, 70.0).apply(env_ad(R, 0.26, 0.002, 0.05))
-    return declick(normalize(soft_clip(slap.add(wet, 0.0, 0.8).add(thud, 0.0, 0.6), 1.4)))
+    page = knock(rng, R, 0.26, 170.0, 2.5, 0.05)
+    return finish(soft_clip(slap.add(wet, 0.0, 0.8).add(page, 0.0, 0.6), 1.4), "impact")
 
 
 def block_start(rng: Rng) -> Buf:
     """Paper stiffening: a short dry rustle and a tone that sets."""
     rustle = highpass(crackle(rng, R, 0.26, 500.0, 0.002, 0.3), 800.0).apply(env_ad(R, 0.26, 0.005, 0.08))
     set_ = tone(R, 0.26, 330.0, 440.0, ((1.0, 1.0), (2.0, 0.25))).apply(env_ad(R, 0.26, 0.02, 0.09))
-    return declick(normalize(rustle.add(set_, 0.02, 0.45)))
+    return finish(rustle.add(set_, 0.02, 0.45), "kit")
 
 
 def impact_block(rng: Rng) -> Buf:
-    thud = tone(R, 0.3, 200.0, 90.0, ((1.0, 1.0), (3.0, 0.15))).apply(env_ad(R, 0.3, 0.002, 0.06))
-    knock = bandpass(noise(rng, R, 0.3), 1200.0, 2.0).apply(env_ad(R, 0.3, 0.001, 0.015))
-    return declick(normalize(soft_clip(thud.add(knock, 0.0, 0.6), 1.3)))
+    body = knock(rng, R, 0.3, 200.0, 3.0, 0.06)
+    tap = bandpass(noise(rng, R, 0.3), 1200.0, 2.0).apply(env_ad(R, 0.3, 0.001, 0.015))
+    return finish(soft_clip(body.add(tap, 0.0, 0.6), 1.3), "impact")
 
 
 def guard_break(rng: Rng) -> Buf:
     """Paper tearing: noise chopped by a fast, irregular tremolo, then the two halves falling."""
-    tear = bandpass(noise(rng, R, 0.48), 1500.0, 0.7, 600.0).apply(env_hold(R, 0.48, 0.005, 0.25)).apply(tremolo(R, 0.48, 47.0, 0.9))
-    fibres = crackle(rng, R, 0.48, 900.0, 0.0015, 0.8).apply(env_ad(R, 0.48, 0.01, 0.15))
+    # Two gates at rates that share no period, so the tear is irregular: paper does not tear at 47 Hz.
+    tear = bandpass(noise(rng, R, 0.48), 1500.0, 0.7, 600.0).apply(env_hold(R, 0.48, 0.005, 0.25)).apply(tremolo(R, 0.48, 47.0, 0.9)).apply(tremolo(R, 0.48, 11.0, 0.5))
+    fibres = crackle(rng, R, 0.48, 60.0, 0.006, 0.8).apply(env_ad(R, 0.48, 0.01, 0.15))
     fall = tone(R, 0.48, 240.0, 90.0).apply(env_ad(R, 0.48, 0.05, 0.12))
-    return declick(normalize(tear.add(fibres, 0.0, 0.5).add(fall, 0.12, 0.4)))
+    return finish(tear.add(fibres, 0.0, 0.5).add(fall, 0.12, 0.4), "kit")
 
 
 # --- The Erasure ------------------------------------------------------------------------------------
@@ -116,35 +125,46 @@ def boss_arrival(rng: Rng) -> Buf:
     crack = noise(rng, R, 2.6).apply(env_ad(R, 2.6, 0.0005, 0.03))
     out = drone.add(pull, 0.0, 0.5)
     out.add(crack, 2.1, 0.9)
-    return declick(normalize(soft_clip(echo(out, 0.11, 0.3, 0.5), 1.4)))
+    return finish(soft_clip(echo(out, 0.11, 0.3, 0.5), 1.4), "boss")
 
 
 def boss_warn(rng: Rng) -> Buf:
-    """The telegraph, two seconds long: a tone rising a fifth with a pulse that quickens. The runtime
+    """The telegraph, two seconds long: a tone rising a fifth over intakes of air that come closer and
+    closer together -- the Erasure takes in, and a warning that quickens is a warning. The runtime
     stretches it to the window with PlaybackSpeed, so a shorter warning is the same shape, higher and
     faster -- more urgent, which is what a shorter warning is."""
-    rise = tone(R, 2.0, 110.0, 165.0, ((1.0, 1.0), (2.0, 0.35), (3.0, 0.15))).apply(env_swell(R, 2.0))
-    pulse = tone(R, 2.0, 55.0, 82.0).apply(env_swell(R, 2.0)).apply(tremolo(R, 2.0, 4.0, 0.8))
-    grain = crackle(rng, R, 2.0, 120.0, 0.003, -0.8).apply(env_swell(R, 2.0))
-    return declick(normalize(rise.add(pulse, 0.0, 0.7).add(grain, 0.0, 0.35)))
+    rise = tone(R, 2.0, 110.0, 165.0, ((1.0, 1.0), (2.0, 0.35), (3.0, 0.15), (4.0, 0.1))).apply(env_swell(R, 2.0))
+    out = Buf(R, 2.0).add(rise, 0.0, 1.0)
+    gap = 0.32
+    t = 0.0
+    while t < 1.9:
+        intake = bandpass(noise(rng, R, 0.12), 2600.0, 0.9, 500.0).apply(env_ad(R, 0.12, 0.02, 0.04))
+        out.add(intake, t, 0.5 + 0.3 * (t / 1.9))
+        t += gap
+        gap = max(0.08, gap * 0.82)
+    return finish(out, "boss")
 
 
 def boss_impact(rng: Rng) -> Buf:
-    boom = tone(R, 0.9, 90.0, 24.0, ((1.0, 1.0), (2.0, 0.3))).apply(env_ad(R, 0.9, 0.003, 0.2))
-    tear = bandpass(noise(rng, R, 0.9), 1200.0, 0.7, 300.0).apply(env_ad(R, 0.9, 0.002, 0.12)).apply(tremolo(R, 0.9, 38.0, 0.7))
-    debris = crackle(rng, R, 0.9, 260.0, 0.003, 0.95).apply(env_ad(R, 0.9, 0.04, 0.25))
-    return declick(normalize(soft_clip(echo(boom.add(tear, 0.0, 0.8).add(debris, 0.06, 0.5), 0.047, 0.35, 0.5), 2.0)))
+    """The landing: a struck floor you can hear on a phone, the page tearing irregularly, and then the
+    air pulled into the hole -- the Erasure's own gesture, not gravel, which is Umber's."""
+    floor = knock(rng, R, 0.9, 95.0, 2.5, 0.2)
+    boom = tone(R, 0.9, 90.0, 24.0, ((1.0, 1.0), (2.0, 0.3), (4.0, 0.15))).apply(env_ad(R, 0.9, 0.003, 0.2))
+    tear = bandpass(noise(rng, R, 0.9), 1200.0, 0.7, 300.0).apply(env_ad(R, 0.9, 0.002, 0.12)).apply(tremolo(R, 0.9, 38.0, 0.7)).apply(tremolo(R, 0.9, 9.0, 0.5))
+    pull = bandpass(noise(rng, R, 0.9), 3000.0, 0.8, 200.0).apply(env_ad(R, 0.9, 0.05, 0.3))
+    return finish(soft_clip(echo(floor.add(boom, 0.0, 0.6).add(tear, 0.0, 0.8).add(pull, 0.06, 0.5), 0.047, 0.35, 0.5), 2.0), "boss")
 
 
 def boss_defeat(rng: Rng) -> Buf:
     """The mirror of the arrival: the drone gathers upward, breaks, and what it took is let go."""
     gather = tone(R, 2.2, 55.0, 220.0, ((1.0, 1.0), (1.5, 0.4), (2.0, 0.3))).apply(env_swell(R, 1.1))
     crack = noise(rng, R, 2.2).apply(env_ad(R, 2.2, 0.0005, 0.04))
-    release = lowpass(noise(rng, R, 2.2), 2400.0, 300.0).apply(env_ad(R, 2.2, 0.01, 0.4))
+    # The release OPENS: the cutoff rises, the opposite of the arrival's pull. What was taken in goes out.
+    release = lowpass(noise(rng, R, 2.2), 300.0, 2400.0).apply(env_ad(R, 2.2, 0.01, 0.4))
     out = Buf(R, 2.2).add(gather, 0.0, 1.0)
     out.add(crack, 1.1, 0.9)
     out.add(release, 1.1, 0.7)
-    return declick(normalize(soft_clip(echo(out, 0.09, 0.3, 0.5), 1.4)))
+    return finish(soft_clip(echo(out, 0.09, 0.3, 0.5), 1.4), "boss")
 
 
 # --- The sequence -----------------------------------------------------------------------------------
@@ -163,6 +183,9 @@ def sequence_note(rng: Rng, pigment: str) -> Buf:
     brightness, matter = PIGMENT_NOTE[pigment]
     note = pluck(R, 0.7, ROOT, brightness, rng).apply(env_ad(R, 0.7, 0.001, 0.22))
     out = Buf(R, 0.7).add(note, 0.0, 1.0)
+    # The quill, before the string speaks: a twelve-millisecond scratch of nib on paper, the same for
+    # all five, so a note is a stroke and the matter under it is the school.
+    out.add(bandpass(noise(rng, R, 0.7), 1200.0, 3.0, 3500.0).apply(env_ad(R, 0.7, 0.001, 0.004)), 0.0, 0.3)
     if matter == "embers":
         out.add(crackle(rng, R, 0.7, 120.0, 0.002, 0.9).apply(env_ad(R, 0.7, 0.005, 0.1)), 0.0, 0.25)
     elif matter == "water":
@@ -173,7 +196,7 @@ def sequence_note(rng: Rng, pigment: str) -> Buf:
         out.add(bandpass(noise(rng, R, 0.7), 1800.0, 1.0, 600.0).apply(env_ad(R, 0.7, 0.01, 0.1)), 0.0, 0.25)
     else:
         out.add(noise(rng, R, 0.7).apply(env_ad(R, 0.7, 0.0005, 0.004)), 0.0, 0.5)
-    return declick(normalize(echo(out, 0.09, 0.2, 0.3)))
+    return finish(echo(out, 0.09, 0.2, 0.3), "note")
 
 
 def sequence_resolve(rng: Rng) -> Buf:
@@ -181,7 +204,7 @@ def sequence_resolve(rng: Rng) -> Buf:
     out = Buf(R, 1.0)
     for steps, gain in ((0, 1.0), (7, 0.7), (12, 0.5)):
         out.add(pluck(R, 1.0, ROOT * semitone(steps), 0.6, rng).apply(env_ad(R, 1.0, 0.001, 0.3)), 0.0, gain)
-    return declick(normalize(echo(out, 0.12, 0.3, 0.4)))
+    return finish(echo(out, 0.12, 0.3, 0.4), "note")
 
 
 def sequence_fail(rng: Rng) -> Buf:
@@ -190,49 +213,52 @@ def sequence_fail(rng: Rng) -> Buf:
     out.add(pluck(R, 0.5, ROOT, 0.3, rng).apply(env_ad(R, 0.5, 0.001, 0.09)), 0.0, 1.0)
     out.add(pluck(R, 0.5, ROOT * semitone(1), 0.3, rng).apply(env_ad(R, 0.5, 0.001, 0.09)), 0.0, 0.9)
     out.add(lowpass(noise(rng, R, 0.5), 500.0).apply(env_ad(R, 0.5, 0.002, 0.05)), 0.0, 0.3)
-    return declick(normalize(out))
+    return finish(out, "note")
 
 
 def sequence_dissipate(rng: Rng) -> Buf:
-    """A sequence that was never finished: the last note bending down and drying out."""
-    fall = tone(R, 0.6, ROOT, ROOT * 0.66, ((1.0, 1.0), (2.0, 0.3))).apply(env_ad(R, 0.6, 0.01, 0.16))
+    """A sequence that was never finished: a dead pluck in the same instrument -- a note that dried out
+    -- rather than a sine powering down."""
+    dead = pluck(R, 0.6, ROOT * 0.66, 0.1, rng).apply(env_ad(R, 0.6, 0.001, 0.16))
     dry = highpass(noise(rng, R, 0.6), 2500.0).apply(env_ad(R, 0.6, 0.05, 0.12))
-    return declick(normalize(fall.add(dry, 0.1, 0.3)))
+    return finish(dead.add(dry, 0.1, 0.3), "note")
 
 
 # --- Interface and personal feedback ------------------------------------------------------------------
 
 
 def ui_click(rng: Rng) -> Buf:
+    """A nib tapped on paper: no tone in it, because a tone is the tick-blip of every menu."""
     tick = highpass(noise(rng, R, 0.07), 1800.0).apply(env_ad(R, 0.07, 0.0005, 0.008))
-    tap = tone(R, 0.07, 1400.0, 900.0).apply(env_ad(R, 0.07, 0.0005, 0.012))
-    return declick(normalize(tick.add(tap, 0.0, 0.5)))
+    paper = lowpass(noise(rng, R, 0.07), 900.0).apply(env_ad(R, 0.07, 0.0005, 0.006))
+    return finish(tick.add(paper, 0.0, 0.5), "ui")
 
 
 def ui_open(rng: Rng) -> Buf:
     """A page turned: a rustle that sweeps up and a soft settle."""
     turn = bandpass(noise(rng, R, 0.3), 900.0, 0.8, 2600.0).apply(env_ad(R, 0.3, 0.02, 0.08))
     settle = lowpass(noise(rng, R, 0.3), 700.0).apply(env_ad(R, 0.3, 0.1, 0.05))
-    return declick(normalize(turn.add(settle, 0.15, 0.5)))
+    return finish(turn.add(settle, 0.15, 0.5), "ui")
 
 
 def ui_close(rng: Rng) -> Buf:
     turn = bandpass(noise(rng, R, 0.26), 2400.0, 0.8, 700.0).apply(env_ad(R, 0.26, 0.01, 0.07))
     settle = lowpass(noise(rng, R, 0.26), 500.0).apply(env_ad(R, 0.26, 0.001, 0.03))
-    return declick(normalize(turn.add(settle, 0.16, 0.7)))
+    return finish(turn.add(settle, 0.16, 0.7), "ui")
 
 
 def ui_error(rng: Rng) -> Buf:
-    dull = tone(R, 0.3, 180.0, 150.0, ((1.0, 1.0), (1.5, 0.5))).apply(env_ad(R, 0.3, 0.005, 0.07))
-    knock = lowpass(noise(rng, R, 0.3), 600.0).apply(env_ad(R, 0.3, 0.002, 0.03))
-    return declick(normalize(dull.add(knock, 0.0, 0.5)))
+    """A dull knock on the desk, not the error buzz."""
+    desk = knock(rng, R, 0.3, 170.0, 3.0, 0.07)
+    rustle = lowpass(noise(rng, R, 0.3), 600.0).apply(env_ad(R, 0.3, 0.002, 0.03))
+    return finish(desk.add(rustle, 0.0, 0.5), "ui")
 
 
 def claim(rng: Rng) -> Buf:
     """A drop of ink landing in the well: a bright pluck an octave up and a small wet body."""
     drop = pluck(R, 0.34, ROOT * 2.0, 0.85, rng).apply(env_ad(R, 0.34, 0.001, 0.09))
     wet = lowpass(noise(rng, R, 0.34), 1200.0).apply(env_ad(R, 0.34, 0.003, 0.03))
-    return declick(normalize(drop.add(wet, 0.0, 0.35)))
+    return finish(drop.add(wet, 0.0, 0.35), "feedback")
 
 
 def motif(rng: Rng, steps: tuple[int, ...], gap: float, seconds: float, brightness: float = 0.6) -> Buf:
@@ -241,7 +267,7 @@ def motif(rng: Rng, steps: tuple[int, ...], gap: float, seconds: float, brightne
     for index, step in enumerate(steps):
         note = pluck(R, seconds - index * gap, ROOT * semitone(step), brightness, rng).apply(env_ad(R, seconds - index * gap, 0.001, 0.25))
         out.add(note, index * gap, 0.8)
-    return declick(normalize(echo(out, 0.12, 0.25, 0.35)))
+    return finish(echo(out, 0.12, 0.25, 0.35), "feedback")
 
 
 def level_up(rng: Rng) -> Buf:
@@ -255,8 +281,8 @@ def tier_up(rng: Rng) -> Buf:
 def kill(rng: Rng) -> Buf:
     """The finishing stroke: a heavy brush and the page taking it."""
     stroke = brush_swipe(rng, 0.5, 250.0, 1600.0, 0.7)
-    settle = tone(R, 0.5, 110.0, 70.0, ((1.0, 1.0), (2.0, 0.2))).apply(env_ad(R, 0.5, 0.01, 0.14))
-    return declick(normalize(soft_clip(stroke.add(settle, 0.06, 0.8), 1.4)))
+    settle = knock(rng, R, 0.5, 110.0, 2.5, 0.14)
+    return finish(soft_clip(stroke.add(settle, 0.06, 0.8), 1.4), "feedback")
 
 
 def match_start(rng: Rng) -> Buf:
@@ -272,9 +298,8 @@ def match_lose(rng: Rng) -> Buf:
 
 
 def countdown(rng: Rng) -> Buf:
-    tick = tone(R, 0.16, 880.0, 870.0).apply(env_ad(R, 0.16, 0.001, 0.03))
-    wood = bandpass(noise(rng, R, 0.16), 1500.0, 2.5).apply(env_ad(R, 0.16, 0.0005, 0.01))
-    return declick(normalize(tick.add(wood, 0.0, 0.6)))
+    """A woodblock, the bible's dry percussion -- not the 880 Hz beep of every countdown."""
+    return finish(knock(rng, R, 0.16, 1900.0, 9.0, 0.025), "feedback")
 
 
 BUILDERS = {

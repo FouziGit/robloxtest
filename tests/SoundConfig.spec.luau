@@ -90,7 +90,6 @@ describe("SoundConfig", function()
 	it("keeps every number usable", function()
 		eachEntry(function(_, entry, music)
 			expect(entry.Volume > 0 and entry.Volume <= 1).toBe(true)
-			expect(entry.Speed > 0).toBe(true)
 			-- The plan's five percent is the ceiling: past it a repeat stops sounding like the same thing.
 			expect(entry.Vary >= 0 and entry.Vary <= 0.05).toBe(true)
 			if music then
@@ -100,11 +99,12 @@ describe("SoundConfig", function()
 		end)
 	end)
 
-	it("has all four voices for every pigment", function()
-		-- A timeline names a voice and the renderer names the pigment; a pigment missing one voice is a
-		-- glyph whose landing is silent, found only by casting it.
+	it("gives every pigment its wind-up, its release, its landing and its note", function()
+		-- The tail is the one voice a pigment may lack, because a tail is the voice of a flight and not
+		-- every school flies; tests/VfxTimeline.spec.luau holds each configured tail to a timeline that
+		-- plays it. The other three, every pigment spends.
 		for _, pigment in ipairs(PigmentConfig.Order) do
-			for _, voice in ipairs(SoundConfig.Voices) do
+			for _, voice in ipairs({ "Attack", "Body", "Impact" }) do
 				local key = SoundConfig.voiceKey(pigment, voice)
 				if SoundConfig.Sfx[key] == nil then
 					error(("pigment %s has no %s voice (%s)"):format(pigment, voice, key))

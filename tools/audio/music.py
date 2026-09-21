@@ -28,7 +28,7 @@ from vellum_wav import (
     loopable,
     lowpass,
     noise,
-    normalize,
+    normalize_rms,
     output_dir,
     pluck,
     report,
@@ -43,17 +43,21 @@ SEED = 0x30_5E
 ROOT = 220.0
 LENGTH = 26.0
 CROSSFADE = 2.0
+# RMS target of a loop, in linear full scale (-17 dB): quiet by design, they sit under everything.
+LOUDNESS = 0.14
 
 # The pentatonic the sequence climbs, as semitones from the root, over two octaves.
 PENTATONIC = (0, 2, 4, 7, 9, 12, 14, 16, 19, 21)
 
 
 def drone(seconds: float, freq: float, gain: float, breadth: float) -> Buf:
-    """Three detuned partial stacks, so the drone moves without anything in it moving."""
+    """Three detuned partial stacks, so the drone moves without anything in it moving. The fourth and
+    sixth partials are there for the phone: a 55 Hz drone is silence on a phone speaker, and 220 and
+    330 Hz are where it is heard."""
     out = Buf(R, seconds)
     for detune, g in ((1.0, 1.0), (1.0 + breadth, 0.6), (1.0 - breadth, 0.6)):
-        out.add(tone(R, seconds, freq * detune, freq * detune, ((1.0, 1.0), (2.0, 0.35), (3.0, 0.12), (0.5, 0.5))), 0.0, g)
-    return lowpass(out, 900.0).scale(gain)
+        out.add(tone(R, seconds, freq * detune, freq * detune, ((1.0, 1.0), (2.0, 0.35), (3.0, 0.12), (4.0, 0.12), (6.0, 0.06), (0.5, 0.5))), 0.0, g)
+    return lowpass(out, 1400.0).scale(gain)
 
 
 def sparse_plucks(rng: Rng, seconds: float, count: int, octave: int, brightness: float, gain: float, low: float = 0.0) -> Buf:
@@ -81,7 +85,7 @@ def hub(rng: Rng) -> Buf:
     breath = lowpass(noise(rng, R, LENGTH), 500.0).apply(tremolo(R, LENGTH, 0.09, 0.85))
     out.add(breath, 0.0, 0.06)
     out.add(sparse_plucks(rng, LENGTH, 9, 1, 0.45, 0.35, 0.3), 0.0, 1.0)
-    return normalize(loopable(echo(out, 0.37, 0.35, 0.3), CROSSFADE), 0.8)
+    return normalize_rms(loopable(echo(out, 0.37, 0.35, 0.3), CROSSFADE), LOUDNESS)
 
 
 def match(rng: Rng) -> Buf:
@@ -89,17 +93,23 @@ def match(rng: Rng) -> Buf:
     plucks that come closer together."""
     out = Buf(R, LENGTH)
     out.add(drone(LENGTH, ROOT * 0.5 * semitone(7), 0.4, 0.006), 0.0, 1.0)
+    # A heart, not a drum machine: it skips a beat now and then, the second stroke drifts and its weight
+    # wanders, and the skips stay out of the crossfade so the seam is clean. Pitched where a phone can
+    # hear it, with the 40 Hz under it for anyone with a woofer.
     beat = 0.6
     t = 0.0
     while t < LENGTH - 0.3:
-        thump = tone(R, 0.25, 62.0, 40.0).apply(env_ad(R, 0.25, 0.002, 0.06))
+        if CROSSFADE < t < LENGTH - CROSSFADE and rng.random() < 0.1:
+            t += beat
+            continue
+        thump = tone(R, 0.25, 95.0, 55.0, ((1.0, 1.0), (2.0, 0.4), (0.5, 0.5))).apply(env_ad(R, 0.25, 0.002, 0.06))
         out.add(thump, t, 0.55)
-        out.add(thump, t + 0.17, 0.3)
+        out.add(thump, t + 0.17 + rng.uniform(-0.012, 0.012), 0.3 * rng.uniform(0.7, 1.0))
         t += beat
     out.add(sparse_plucks(rng, LENGTH, 16, 1, 0.65, 0.3), 0.0, 1.0)
     grain = crackle(rng, R, LENGTH, 6.0, 0.003, 0.0)
     out.add(bandpass(grain, 1800.0, 1.0), 0.0, 0.25)
-    return normalize(loopable(echo(out, 0.3, 0.3, 0.25), CROSSFADE), 0.8)
+    return normalize_rms(loopable(echo(out, 0.3, 0.3, 0.25), CROSSFADE), LOUDNESS)
 
 
 def boss(rng: Rng) -> Buf:
@@ -113,7 +123,7 @@ def boss(rng: Rng) -> Buf:
     dry = crackle(rng, R, LENGTH, 14.0, 0.004, 0.0)
     out.add(bandpass(dry, 1200.0, 1.2), 0.0, 0.3)
     out.add(sparse_plucks(rng, LENGTH, 5, 0, 0.2, 0.3, 0.6), 0.0, 1.0)
-    return normalize(soft_clip(loopable(echo(out, 0.5, 0.4, 0.35), CROSSFADE), 1.2), 0.8)
+    return normalize_rms(soft_clip(loopable(echo(out, 0.5, 0.4, 0.35), CROSSFADE), 1.2), LOUDNESS)
 
 
 def generate() -> list[Path]:

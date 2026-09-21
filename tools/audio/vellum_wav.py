@@ -40,7 +40,7 @@ MAX_BYTES = 900 * 1024
 PI = 3.141592653589793
 TWO_PI = 6.283185307179586
 
-# 2 ** (k / 12) for k in 0..24, as literals, so a note is the same note on every machine.
+# 2 ** (k / 12) for k in 0..36, as literals, so a note is the same note on every machine.
 SEMITONE = (
     1.0,
     1.0594630943592953,
@@ -67,14 +67,30 @@ SEMITONE = (
     3.563594872561357,
     3.775497250726774,
     4.0,
+    4.237852377437181,
+    4.489848193237491,
+    4.756828460010884,
+    5.039684199579493,
+    5.339359416680137,
+    5.656854249492381,
+    5.993228307506727,
+    6.349604207872798,
+    6.727171322029716,
+    7.127189745122714,
+    7.550994501453547,
+    8.0,
 )
 
 
 def semitone(steps: int) -> float:
-    """Frequency ratio for `steps` semitones, negative allowed, within two octaves either way."""
+    """Frequency ratio for `steps` semitones, negative allowed, within three octaves either way. Past the
+    table it raises: a clamp here once folded the top of a pentatonic onto one note, and the byte gate was
+    happy because the wrong notes reproduced."""
+    if abs(steps) >= len(SEMITONE):
+        raise ValueError(f"{steps} semitones is outside the table (+/-{len(SEMITONE) - 1})")
     if steps >= 0:
-        return SEMITONE[min(steps, 24)]
-    return 1.0 / SEMITONE[min(-steps, 24)]
+        return SEMITONE[steps]
+    return 1.0 / SEMITONE[-steps]
 
 
 class Rng:
@@ -177,13 +193,16 @@ def tone(rate: int, seconds: float, freq: float, freq_end: float | None = None, 
     data = buf.data
     n = len(data)
     end = freq if freq_end is None else freq_end
+    # The accumulator is never wrapped. Wrapping it at 2*pi and then multiplying by a partial's ratio
+    # makes every non-integer partial jump at the wrap -- a 0.5 sub-octave came out as a half-wave
+    # buzz with a mean of 0.64, and the three loops shipped with a large DC offset. sin() range-reduces
+    # any argument itself, and thirty seconds at four kilohertz is under a million radians, where a
+    # float still has better than a microradian.
     phase = 0.0
     step_base = TWO_PI / rate
     for i in range(n):
         f = freq + (end - freq) * (i / n)
         phase += f * step_base
-        if phase > TWO_PI:
-            phase -= TWO_PI
         v = 0.0
         for mult, amp in partials:
             v += amp * sin(phase * mult)
@@ -215,6 +234,14 @@ def crackle(rng: Rng, rate: int, seconds: float, density: float, burst: float = 
     return buf
 
 
+def knock(rng: Rng, rate: int, seconds: float, freq: float, q: float, tau: float) -> Buf:
+    """A resonant body struck once: an impulse of noise through a narrow band, ringing down over `tau`.
+    A frame drum, a woodblock, a desk -- the art bible's "percussion sèche". This is what an impact is
+    made of here; a sine gliding into the sub-bass is the stock hit of every other game and is not."""
+    body = bandpass(noise(rng, rate, seconds).apply(env_ad(rate, seconds, 0.0005, 0.003)), freq, q)
+    return body.apply(env_ad(rate, seconds, 0.0005, tau))
+
+
 def pluck(rate: int, seconds: float, freq: float, brightness: float = 0.5, rng: Rng | None = None) -> Buf:
     """Karplus-Strong: a burst of noise through a short feedback delay tuned to the pitch. The one
     synthesis that sounds like something struck rather than something switched on, which is what a
@@ -227,6 +254,11 @@ def pluck(rate: int, seconds: float, freq: float, brightness: float = 0.5, rng: 
     burst_rng = rng if rng is not None else Rng(0x5EED_5EED)
     for i in range(period):
         ring[i] = burst_rng.signed()
+    # The loop filter has unit gain at DC, so whatever mean the burst has survives at 0.996 a period
+    # while the harmonics die: a note plus a slow thump. Take the mean out before the string speaks.
+    mean = sum(ring) / period
+    for i in range(period):
+        ring[i] -= mean
     a = 0.5 + 0.5 * brightness
     index = 0
     prev = 0.0
@@ -278,27 +310,34 @@ def env_hold(rate: int, seconds: float, attack: float, release: float) -> list[f
     return env
 
 
+# Where a swell starts. Zero would make the first third of a wind-up inaudible, and a wind-up that is
+# not heard before it is seen is not a wind-up.
+SWELL_FLOOR = 0.15
+
+
 def env_swell(rate: int, seconds: float) -> list[float]:
-    """Zero to one over the whole length, accelerating (a wind-up), and cut to zero on the last
-    twenty milliseconds so the file ends without a click."""
+    """From SWELL_FLOOR to one over the whole length, accelerating (a wind-up), and cut to zero on the
+    last twenty milliseconds so the file ends without a click."""
     n = max(1, int(rate * seconds + 0.5))
     env = [0.0] * n
     tail = max(1, int(0.02 * rate))
     for i in range(n):
         t = i / n
-        env[i] = t * t
+        env[i] = SWELL_FLOOR + (1.0 - SWELL_FLOOR) * t * t
     for i in range(min(tail, n)):
         env[n - 1 - i] *= i / tail
     return env
 
 
-def tremolo(rate: int, seconds: float, hz: float, depth: float) -> list[float]:
+def tremolo(rate: int, seconds: float, hz: float, depth: float, hz_end: float | None = None) -> list[float]:
+    """An amplitude wobble at `hz`, gliding to `hz_end` when given: a pulse that quickens is a pulse
+    whose rate glides, not a fixed one described as quickening."""
     n = max(1, int(rate * seconds + 0.5))
     env = [0.0] * n
+    end = hz if hz_end is None else hz_end
     phase = 0.0
-    step = TWO_PI * hz / rate
     for i in range(n):
-        phase += step
+        phase += TWO_PI * (hz + (end - hz) * (i / n)) / rate
         env[i] = 1.0 - depth * 0.5 * (1.0 + sin(phase))
     return env
 
@@ -343,12 +382,15 @@ def bandpass(buf: Buf, centre: float, q: float, centre_end: float | None = None)
     low = 0.0
     band = 0.0
     damp = 1.0 / max(0.5, q)
+    # The Chamberlin form is stable while f*f + 2*f*damp < 4; 2 / (damp + 1) sits inside that for every
+    # damp, where a flat clamp at 1.0 did not at the q floor and could ship a full-scale square.
+    limit = 2.0 / (damp + 1.0)
     k = TWO_PI / buf.rate
     for i in range(n):
         fc = centre + (end - centre) * (i / n)
         f = fc * k
-        if f > 1.0:
-            f = 1.0
+        if f > limit:
+            f = limit
         high = data[i] - low - damp * band
         band += f * high
         low += f * band
@@ -377,6 +419,35 @@ def soft_clip(buf: Buf, drive: float = 1.0) -> Buf:
         elif v < -1.5:
             v = -1.5
         data[i] = v - v * v * v / 6.75
+    return buf
+
+
+def normalize_rms(buf: Buf, target: float, peak: float = 0.95) -> Buf:
+    """Scales to an RMS of `target` (in linear units of full scale), then bends anything above `peak`
+    with the soft clip rather than cutting it. Peak normalisation equalises peaks, and a tonal sub and a
+    noisy tail with the same peak differ by twenty decibels to the ear; this is what lets one Volume per
+    voice in SoundConfig mean the same thing for every file. sqrt is correctly rounded by IEEE 754, so
+    one call per file is as deterministic as the arithmetic."""
+    total = 0.0
+    for v in buf.data:
+        total += v * v
+    rms = (total / max(1, len(buf.data))) ** 0.5
+    if rms > 0.0:
+        buf.scale(target / rms)
+    top = 0.0
+    for v in buf.data:
+        a = v if v >= 0.0 else -v
+        if a > top:
+            top = a
+    if top > peak:
+        soft_clip(buf, 1.0)
+        top = 0.0
+        for v in buf.data:
+            a = v if v >= 0.0 else -v
+            if a > top:
+                top = a
+        if top > peak:
+            buf.scale(peak / top)
     return buf
 
 

@@ -23,44 +23,46 @@ export type SoundEntry = {
 	-- Length of that file. A layer that has to fit a window (a boss warning) is stretched from this.
 	Seconds: number,
 	Volume: number,
-	Speed: number,
-	-- Half-width of the pitch variation, as a fraction of Speed. 0.05 is five percent either way.
+	-- Half-width of the pitch variation, as a fraction of the play speed. 0.05 is five percent either
+	-- way. The generators loudness-normalise every file (RMS per voice), so Volume is a mix decision
+	-- and not a correction for a quiet file.
 	Vary: number,
 }
 
 local SoundConfig = {}
 
 local function sound(source: string, seconds: number, volume: number, vary: number): SoundEntry
-	return { Id = "", Source = "assets/audio/" .. source, Seconds = seconds, Volume = volume, Speed = 1, Vary = vary }
+	return { Id = "", Source = "assets/audio/" .. source, Seconds = seconds, Volume = volume, Vary = vary }
 end
 
--- The four voices every pigment has, in the order a glyph spends them: the wind-up, the release, the
--- flight, the landing. A timeline names a voice and the renderer names the pigment; the key is the two
+-- The four voices a pigment can have, in the order a glyph spends them: the wind-up, the release, the
+-- flight, the landing. A pigment only has the tail if something of it flies: Orpiment, the school that
+-- strikes at once, has no Travel phase anywhere and so no tail (tests/VfxTimeline.spec.luau holds every
+-- configured voice to a timeline that can play it). A timeline names a voice and the renderer names the pigment; the key is the two
 -- joined (SoundConfig.voiceKey), which is what keeps a school's matter its own without twenty glyphs
 -- carrying eighty sound ids.
 SoundConfig.Voices = { "Attack", "Body", "Tail", "Impact" } :: { string }
 
 SoundConfig.Sfx = {
 	-- The five matters, four voices each (tools/audio/pigments.py).
-	CinnabarAttack = sound("cinnabar_attack.wav", 0.34, 0.55, 0.05),
+	CinnabarAttack = sound("cinnabar_attack.wav", 0.22, 0.55, 0.05),
 	CinnabarBody = sound("cinnabar_body.wav", 0.55, 0.5, 0.05),
 	CinnabarTail = sound("cinnabar_tail.wav", 0.90, 0.4, 0.05),
 	CinnabarImpact = sound("cinnabar_impact.wav", 0.55, 0.7, 0.05),
-	IndigoAttack = sound("indigo_attack.wav", 0.36, 0.55, 0.05),
+	IndigoAttack = sound("indigo_attack.wav", 0.22, 0.55, 0.05),
 	IndigoBody = sound("indigo_body.wav", 0.60, 0.5, 0.05),
 	IndigoTail = sound("indigo_tail.wav", 0.90, 0.4, 0.05),
 	IndigoImpact = sound("indigo_impact.wav", 0.50, 0.7, 0.05),
-	UmberAttack = sound("umber_attack.wav", 0.40, 0.55, 0.05),
+	UmberAttack = sound("umber_attack.wav", 0.22, 0.55, 0.05),
 	UmberBody = sound("umber_body.wav", 0.60, 0.5, 0.05),
 	UmberTail = sound("umber_tail.wav", 0.90, 0.4, 0.05),
 	UmberImpact = sound("umber_impact.wav", 0.50, 0.7, 0.05),
-	VerdigrisAttack = sound("verdigris_attack.wav", 0.30, 0.55, 0.05),
+	VerdigrisAttack = sound("verdigris_attack.wav", 0.22, 0.55, 0.05),
 	VerdigrisBody = sound("verdigris_body.wav", 0.60, 0.5, 0.05),
 	VerdigrisTail = sound("verdigris_tail.wav", 0.90, 0.4, 0.05),
 	VerdigrisImpact = sound("verdigris_impact.wav", 0.40, 0.7, 0.05),
-	OrpimentAttack = sound("orpiment_attack.wav", 0.26, 0.55, 0.05),
+	OrpimentAttack = sound("orpiment_attack.wav", 0.22, 0.55, 0.05),
 	OrpimentBody = sound("orpiment_body.wav", 0.16, 0.5, 0.05),
-	OrpimentTail = sound("orpiment_tail.wav", 0.60, 0.4, 0.05),
 	OrpimentImpact = sound("orpiment_impact.wav", 0.40, 0.7, 0.05),
 
 	-- The melee kit and the guard (tools/audio/kit.py).

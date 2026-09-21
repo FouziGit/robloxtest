@@ -7,14 +7,21 @@ each glyph names which of its pigment's layers plays in which phase, and pitch v
 at play time, so two casts of the same glyph are never the same file.
 
 The matters, and what each is made of:
-  Cinnabar   what consumes -- embers: crackle over a hiss that gathers, a low boom at the end
-  Indigo     what contains -- water: a wet swell, bubbling, drips, a splash
-  Umber      what resists  -- stone: grinding, a rumble, gravel settling, a dead thud
-  Verdigris  what displaces -- air: an intake, a gust, a wake, a slap
-  Orpiment   what strikes  -- the quill's crack: a charge, a snap, a fizzle, a crack
+  Cinnabar   what consumes -- fire: a low roar that does not move, sparse pops, a dry drum at the end
+  Indigo     what contains -- water: a wet swell, bubbling, drips, a splash on a skin
+  Umber      what resists  -- stone: grinding in the mids, a rumble, gravel settling, a dead knock
+  Verdigris  what displaces -- air: the one matter whose band MOVES -- an intake, a gust, a wake, a slap
+  Orpiment   what strikes  -- the quill: a nib dragged faster, a snap, a fizzle, a crack
 
-Nothing is a sampled instrument and nothing is an engine sound. A player should tell the school from
-the matter with their eyes shut, which is free legibility in a six-way fight.
+Nothing is a sampled instrument and nothing is an engine sound, and no impact is a sine gliding into the
+sub-bass -- that is the stock hit of every other game, and on a phone speaker it is silence. Impacts are
+struck bodies (vellum_wav.knock), in the mid band where a phone can play them. A player should tell the
+school from the matter with their eyes shut, which is free legibility in a six-way fight.
+
+Every attack is exactly the Cast timeline's wind-up long (0.22 s), so it is loudest on the fold and not
+after it. Every file is loudness-normalised per voice (RMS), not peak-normalised: a sub and a hiss with
+the same peak are twenty decibels apart to the ear, and the one Volume per voice in SoundConfig has to
+mean the same thing for all five matters.
 
     python3 tools/audio/pigments.py
 """
@@ -35,9 +42,10 @@ from vellum_wav import (
     env_hold,
     env_swell,
     highpass,
+    knock,
     lowpass,
     noise,
-    normalize,
+    normalize_rms,
     output_dir,
     report,
     soft_clip,
@@ -47,42 +55,59 @@ from vellum_wav import (
 )
 
 SEED = 0xA0_D10
+ATTACK = 0.22
+
+# RMS targets per voice, in linear full scale (-16, -15, -19, -12 dB). The mix lives here and in
+# SoundConfig's one Volume per voice; a builder never sets its own level.
+LOUDNESS = {"attack": 0.16, "body": 0.18, "tail": 0.11, "impact": 0.25}
+
+
+def finish(buf: Buf, layer: str) -> Buf:
+    return declick(normalize_rms(buf, LOUDNESS[layer]))
 
 
 # --- Cinnabar ---------------------------------------------------------------------------------------
 
 
+def embers(rng: Rng, seconds: float, density: float, decay: float) -> Buf:
+    """Sparse pops in the upper mids. Sparse is the point: past forty a second the pops overlap into a
+    hiss and the fire is any other noise."""
+    return bandpass(crackle(rng, R, seconds, density, 0.006, decay), 2400.0, 1.2)
+
+
 def cinnabar_attack(rng: Rng) -> Buf:
-    hiss = bandpass(noise(rng, R, 0.34), 300.0, 2.0, 2200.0).apply(env_swell(R, 0.34))
-    sub = tone(R, 0.34, 70.0, 95.0).apply(env_swell(R, 0.34))
-    return declick(normalize(hiss.add(sub, 0.0, 0.5)))
+    # The draw of a fire: low, and it does not move. Air moves; fire does not.
+    roar = lowpass(noise(rng, R, ATTACK), 500.0).apply(env_swell(R, ATTACK))
+    pops = embers(rng, ATTACK, 40.0, 0.0).apply(env_swell(R, ATTACK))
+    return finish(roar.add(pops, 0.0, 0.6), "attack")
 
 
 def cinnabar_body(rng: Rng) -> Buf:
-    embers = crackle(rng, R, 0.55, 260.0, 0.003, 0.3)
-    bed = lowpass(noise(rng, R, 0.55), 900.0).apply(env_hold(R, 0.55, 0.03, 0.15))
-    return declick(normalize(embers.add(bed, 0.0, 0.35)))
+    pops = embers(rng, 0.55, 28.0, 0.3)
+    roar = lowpass(noise(rng, R, 0.55), 600.0).apply(env_hold(R, 0.55, 0.03, 0.15))
+    return finish(pops.add(roar, 0.0, 0.45), "body")
 
 
 def cinnabar_tail(rng: Rng) -> Buf:
-    embers = crackle(rng, R, 0.9, 140.0, 0.003, 0.9).apply(env_ad(R, 0.9, 0.01, 0.35))
-    hiss = bandpass(noise(rng, R, 0.9), 1800.0, 1.5, 700.0).apply(env_ad(R, 0.9, 0.01, 0.3))
-    return declick(normalize(embers.add(hiss, 0.0, 0.3)))
+    pops = embers(rng, 0.9, 18.0, 0.9).apply(env_ad(R, 0.9, 0.01, 0.35))
+    roar = lowpass(noise(rng, R, 0.9), 600.0).apply(env_ad(R, 0.9, 0.01, 0.3))
+    return finish(pops.add(roar, 0.0, 0.2), "tail")
 
 
 def cinnabar_impact(rng: Rng) -> Buf:
-    boom = tone(R, 0.55, 110.0, 38.0, ((1.0, 1.0), (2.0, 0.3))).apply(env_ad(R, 0.55, 0.004, 0.14))
-    burst = bandpass(noise(rng, R, 0.55), 1400.0, 0.8, 500.0).apply(env_ad(R, 0.55, 0.002, 0.06))
-    embers = crackle(rng, R, 0.55, 200.0, 0.003, 0.9).apply(env_ad(R, 0.55, 0.02, 0.2))
-    return declick(normalize(soft_clip(boom.add(burst, 0.0, 0.7).add(embers, 0.05, 0.4), 1.6)))
+    # A dry drum, then the pops of what it lit.
+    drum = knock(rng, R, 0.55, 190.0, 4.0, 0.1)
+    burst = bandpass(noise(rng, R, 0.55), 1400.0, 0.8, 500.0).apply(env_ad(R, 0.55, 0.002, 0.05))
+    pops = embers(rng, 0.55, 40.0, 0.9).apply(env_ad(R, 0.55, 0.02, 0.2))
+    return finish(echo(soft_clip(drum.add(burst, 0.0, 0.5).add(pops, 0.04, 0.5), 1.5), 0.031, 0.25, 0.4), "impact")
 
 
 # --- Indigo -----------------------------------------------------------------------------------------
 
 
 def indigo_attack(rng: Rng) -> Buf:
-    swell = lowpass(lowpass(noise(rng, R, 0.36), 200.0, 1600.0), 400.0, 2400.0).apply(env_swell(R, 0.36))
-    return declick(normalize(swell))
+    swell = lowpass(lowpass(noise(rng, R, ATTACK), 200.0, 1600.0), 400.0, 2400.0).apply(env_swell(R, ATTACK))
+    return finish(swell, "attack")
 
 
 def indigo_body(rng: Rng) -> Buf:
@@ -93,7 +118,7 @@ def indigo_body(rng: Rng) -> Buf:
         f = rng.uniform(500.0, 1500.0)
         blip = tone(R, 0.07, f, f * 1.8).apply(env_ad(R, 0.07, 0.002, 0.015))
         out.add(blip, at, 0.35)
-    return declick(normalize(out))
+    return finish(out, "body")
 
 
 def indigo_tail(rng: Rng) -> Buf:
@@ -104,106 +129,117 @@ def indigo_tail(rng: Rng) -> Buf:
         f = rng.uniform(700.0, 1900.0)
         drip = tone(R, 0.09, f, f * 2.2).apply(env_ad(R, 0.09, 0.002, 0.02))
         out.add(drip, at, 0.3)
-    return declick(normalize(out))
+    return finish(out, "tail")
 
 
 def indigo_impact(rng: Rng) -> Buf:
+    # Water landing on a stretched skin: a wet band, a low struck body, spray.
     splash = bandpass(noise(rng, R, 0.5), 900.0, 0.9, 300.0).apply(env_ad(R, 0.5, 0.003, 0.1))
-    thud = tone(R, 0.5, 120.0, 55.0).apply(env_ad(R, 0.5, 0.003, 0.09))
+    skin = knock(rng, R, 0.5, 150.0, 3.0, 0.09)
     spray = highpass(noise(rng, R, 0.5), 3000.0).apply(env_ad(R, 0.5, 0.01, 0.12))
-    return declick(normalize(splash.add(thud, 0.0, 0.7).add(spray, 0.02, 0.3)))
+    return finish(echo(splash.add(skin, 0.0, 0.7).add(spray, 0.02, 0.3), 0.031, 0.25, 0.4), "impact")
 
 
 # --- Umber ------------------------------------------------------------------------------------------
 
 
+def gravel(rng: Rng, seconds: float, density: float, decay: float) -> Buf:
+    """Sparse low pops: stones settling, never a hiss."""
+    return lowpass(crackle(rng, R, seconds, density, 0.008, decay), 700.0)
+
+
 def umber_attack(rng: Rng) -> Buf:
-    grind = bandpass(noise(rng, R, 0.4), 90.0, 1.4, 220.0).apply(env_swell(R, 0.4))
-    grit = crackle(rng, R, 0.4, 180.0, 0.002, 0.0).apply(env_swell(R, 0.4))
-    return declick(normalize(soft_clip(grind.add(grit, 0.0, 0.5), 1.4)))
+    grind = bandpass(noise(rng, R, ATTACK), 180.0, 1.6, 320.0).apply(env_swell(R, ATTACK))
+    grit = gravel(rng, ATTACK, 40.0, 0.0).apply(env_swell(R, ATTACK))
+    return finish(soft_clip(grind.add(grit, 0.0, 0.6), 1.4), "attack")
 
 
 def umber_body(rng: Rng) -> Buf:
-    rumble = tone(R, 0.6, 52.0, 48.0, ((1.0, 1.0), (1.5, 0.3), (2.0, 0.2))).apply(env_hold(R, 0.6, 0.05, 0.15))
+    # The grinding is in the mids -- that is what a phone hears -- and the rumble sits under it.
+    grind = bandpass(noise(rng, R, 0.6), 260.0, 1.6).apply(env_hold(R, 0.6, 0.05, 0.15))
+    rumble = tone(R, 0.6, 52.0, 48.0, ((1.0, 1.0), (1.5, 0.3), (2.0, 0.2), (4.0, 0.15))).apply(env_hold(R, 0.6, 0.05, 0.15))
     dust = lowpass(noise(rng, R, 0.6), 300.0).apply(env_hold(R, 0.6, 0.05, 0.15))
-    return declick(normalize(soft_clip(rumble.add(dust, 0.0, 0.5), 1.3)))
+    return finish(soft_clip(grind.add(rumble, 0.0, 0.7).add(dust, 0.0, 0.35), 1.3), "body")
 
 
 def umber_tail(rng: Rng) -> Buf:
-    gravel = crackle(rng, R, 0.9, 90.0, 0.004, 0.95).apply(env_ad(R, 0.9, 0.01, 0.3))
+    stones = gravel(rng, 0.9, 22.0, 0.95).apply(env_ad(R, 0.9, 0.01, 0.3))
     settle = lowpass(noise(rng, R, 0.9), 240.0).apply(env_ad(R, 0.9, 0.01, 0.2))
-    return declick(normalize(gravel.add(settle, 0.0, 0.4)))
+    return finish(stones.add(settle, 0.0, 0.4), "tail")
 
 
 def umber_impact(rng: Rng) -> Buf:
-    thud = tone(R, 0.5, 75.0, 28.0, ((1.0, 1.0), (2.0, 0.2))).apply(env_ad(R, 0.5, 0.002, 0.11))
+    # A dead knock on stone, and what it shook loose.
+    stone = knock(rng, R, 0.5, 120.0, 2.5, 0.11)
     click = bandpass(noise(rng, R, 0.5), 2000.0, 1.2).apply(env_ad(R, 0.5, 0.001, 0.008))
-    debris = crackle(rng, R, 0.5, 240.0, 0.003, 0.95).apply(env_ad(R, 0.5, 0.03, 0.12))
-    return declick(normalize(soft_clip(thud.add(click, 0.0, 0.5).add(debris, 0.04, 0.4), 1.8)))
+    debris = gravel(rng, 0.5, 45.0, 0.95).apply(env_ad(R, 0.5, 0.03, 0.12))
+    return finish(echo(soft_clip(stone.add(click, 0.0, 0.5).add(debris, 0.04, 0.5), 1.6), 0.031, 0.25, 0.4), "impact")
 
 
 # --- Verdigris --------------------------------------------------------------------------------------
 
 
 def verdigris_attack(rng: Rng) -> Buf:
-    intake = highpass(bandpass(noise(rng, R, 0.3), 600.0, 1.2, 3200.0), 400.0).apply(env_swell(R, 0.3))
-    return declick(normalize(intake))
+    intake = highpass(bandpass(noise(rng, R, ATTACK), 600.0, 1.2, 3200.0), 400.0).apply(env_swell(R, ATTACK))
+    return finish(intake, "attack")
 
 
 def verdigris_body(rng: Rng) -> Buf:
     gust = bandpass(noise(rng, R, 0.6), 700.0, 0.9, 1400.0).apply(env_hold(R, 0.6, 0.06, 0.18)).apply(tremolo(R, 0.6, 6.0, 0.35))
     air = lowpass(noise(rng, R, 0.6), 1800.0).apply(env_hold(R, 0.6, 0.06, 0.18))
-    return declick(normalize(gust.add(air, 0.0, 0.4)))
+    return finish(gust.add(air, 0.0, 0.4), "body")
 
 
 def verdigris_tail(rng: Rng) -> Buf:
     wake = bandpass(noise(rng, R, 0.9), 1600.0, 0.8, 400.0).apply(env_ad(R, 0.9, 0.01, 0.3))
-    return declick(normalize(wake))
+    return finish(wake, "tail")
 
 
 def verdigris_impact(rng: Rng) -> Buf:
+    # A slap of air on the page: the band still moves, downward now, over a shallow struck skin.
     slap = highpass(noise(rng, R, 0.4), 900.0).apply(env_ad(R, 0.4, 0.001, 0.03))
     whoosh = bandpass(noise(rng, R, 0.4), 2200.0, 1.0, 500.0).apply(env_ad(R, 0.4, 0.004, 0.1))
-    thump = tone(R, 0.4, 140.0, 60.0).apply(env_ad(R, 0.4, 0.002, 0.05))
-    return declick(normalize(slap.add(whoosh, 0.01, 0.8).add(thump, 0.0, 0.5)))
+    skin = knock(rng, R, 0.4, 240.0, 2.0, 0.05)
+    return finish(echo(slap.add(whoosh, 0.01, 0.8).add(skin, 0.0, 0.5), 0.031, 0.25, 0.4), "impact")
 
 
 # --- Orpiment ---------------------------------------------------------------------------------------
 
 
 def orpiment_attack(rng: Rng) -> Buf:
-    charge = tone(R, 0.26, 420.0, 3100.0, ((1.0, 1.0), (2.01, 0.4), (3.02, 0.2))).apply(env_swell(R, 0.26))
-    fizz = crackle(rng, R, 0.26, 700.0, 0.0015, 0.0).apply(env_swell(R, 0.26))
-    return declick(normalize(charge.add(fizz, 0.0, 0.5)))
+    # The nib dragged faster and faster: a resonant scrape that climbs. Noisy, so it is a scratch and
+    # not the sci-fi charge-up a rising sine would be.
+    scrape = bandpass(noise(rng, R, ATTACK), 900.0, 6.0, 3600.0).apply(env_swell(R, ATTACK))
+    fizz = crackle(rng, R, ATTACK, 700.0, 0.0015, 0.0).apply(env_swell(R, ATTACK))
+    return finish(scrape.add(fizz, 0.0, 0.5), "attack")
 
 
 def orpiment_body(rng: Rng) -> Buf:
+    # The snap, and a dry knock where a metal ping would have been. No metal on the page.
     snap = noise(rng, R, 0.16).apply(env_ad(R, 0.16, 0.0005, 0.006))
     click = tone(R, 0.16, 2600.0, 900.0).apply(env_ad(R, 0.16, 0.0005, 0.01))
-    ring = tone(R, 0.16, 1900.0, 1850.0).apply(env_ad(R, 0.16, 0.002, 0.04))
-    return declick(normalize(soft_clip(snap.add(click, 0.0, 0.8).add(ring, 0.004, 0.3), 1.5)))
-
-
-def orpiment_tail(rng: Rng) -> Buf:
-    fizz = crackle(rng, R, 0.6, 900.0, 0.0012, 0.95).apply(env_ad(R, 0.6, 0.005, 0.16))
-    whine = tone(R, 0.6, 4200.0, 2600.0).apply(env_ad(R, 0.6, 0.005, 0.1))
-    return declick(normalize(highpass(fizz.add(whine, 0.0, 0.15), 1200.0)))
+    dry = knock(rng, R, 0.16, 1900.0, 7.0, 0.012)
+    return finish(soft_clip(snap.add(click, 0.0, 0.8).add(dry, 0.004, 0.4), 1.5), "body")
 
 
 def orpiment_impact(rng: Rng) -> Buf:
+    # The crack itself, a struck body under it, and the electrical fizz -- the one place a continuous
+    # crackle is right, because a fizz is continuous.
     crack = noise(rng, R, 0.4).apply(env_ad(R, 0.4, 0.0005, 0.012))
-    thump = tone(R, 0.4, 160.0, 45.0).apply(env_ad(R, 0.4, 0.002, 0.07))
+    body = knock(rng, R, 0.4, 320.0, 3.0, 0.06)
     fizz = crackle(rng, R, 0.4, 600.0, 0.0015, 0.95).apply(env_ad(R, 0.4, 0.01, 0.09))
-    return declick(normalize(soft_clip(crack.add(thump, 0.003, 0.9).add(fizz, 0.02, 0.4), 1.7)))
+    return finish(echo(soft_clip(crack.add(body, 0.003, 0.8).add(fizz, 0.02, 0.4), 1.7), 0.031, 0.25, 0.4), "impact")
 
 
 LAYERS = ("attack", "body", "tail", "impact")
+# Orpiment has no tail. A tail is the voice of a flight, and nothing of the school that strikes at once
+# ever flies: its four glyphs have no Travel phase, so a tail for it would be a file nothing can play.
 MATTERS = {
     "cinnabar": (cinnabar_attack, cinnabar_body, cinnabar_tail, cinnabar_impact),
     "indigo": (indigo_attack, indigo_body, indigo_tail, indigo_impact),
     "umber": (umber_attack, umber_body, umber_tail, umber_impact),
     "verdigris": (verdigris_attack, verdigris_body, verdigris_tail, verdigris_impact),
-    "orpiment": (orpiment_attack, orpiment_body, orpiment_tail, orpiment_impact),
+    "orpiment": (orpiment_attack, orpiment_body, None, orpiment_impact),
 }
 
 
@@ -212,10 +248,11 @@ def generate() -> list[Path]:
     paths: list[Path] = []
     for index, (matter, builders) in enumerate(MATTERS.items()):
         for layer_index, (layer, build) in enumerate(zip(LAYERS, builders)):
+            if build is None:
+                continue
             # One stream per file, so editing one sound never moves the bytes of another.
             rng = Rng(SEED + index * 16 + layer_index)
-            buf = build(rng)
-            paths.append(write_wav(out / f"{matter}_{layer}.wav", echo(buf, 0.031, 0.25, 0.4) if layer == "impact" else buf))
+            paths.append(write_wav(out / f"{matter}_{layer}.wav", build(rng)))
     return paths
 
 

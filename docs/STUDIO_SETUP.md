@@ -137,7 +137,7 @@ une brûlure au sol — n'est simplement pas dessinée plutôt que de laisser un
 La seule exception est un avertissement du boss, qui se dessine nu : une règle ne disparaît pas parce que
 l'art est en retard.
 
-## 8. Téléverser les cinquante-six sons (20 minutes, une seule fois)
+## 8. Téléverser les cinquante-cinq sons (20 minutes, une seule fois)
 
 Même principe que les textures : les WAV sont dans `assets/audio/`, générés par les scripts de
 `tools/audio/` (`python3 tools/audio/generate_all.py` les réécrit à l'identique), et **tant qu'ils ne sont
@@ -145,10 +145,12 @@ pas en ligne le jeu est silencieux** — pas de son de repli, parce que le seul 
 ping du moteur, et un ping du moteur est le son de tous les autres jeux.
 
 1. Creator Dashboard → **Creations** → **Development Items** → **Audio** → **Upload**.
-2. Téléverse les cinquante-six fichiers de `assets/audio/`. Ce sont des WAV 16 bits mono, 22 050 Hz
+2. Téléverse les cinquante-cinq fichiers de `assets/audio/`. Ce sont des WAV 16 bits mono, 22 050 Hz
    pour les effets et 16 000 Hz pour les trois boucles ; aucun ne dépasse 900 Ko. Roblox les passe en
-   modération ; compte quelques minutes par fichier, et le compte de l'expérience doit être le tien
-   pour que les sons privés y soient jouables.
+   modération. Les limites documentées au moment d'écrire : 20 Mo et 7 minutes par fichier, et un
+   quota de 100 téléversements audio par 30 jours pour un compte non vérifié (2 000 avec une pièce
+   d'identité) — les cinquante-cinq tiennent dans le premier. Un son est privé à l'expérience de celui
+   qui l'a téléversé : le compte doit être celui de l'expérience.
 3. Pour chacun, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
    `src/shared/Config/SoundConfig.luau`. Chaque entrée nomme déjà son fichier source dans `Source`.
    Les vingt voix des pigments s'appellent `<Pigment><Voix>` (`CinnabarImpact`), les boucles sont
@@ -164,7 +166,7 @@ puis se tait pour elle.
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).
 
-## 9. Dépannage
+## 10. Dépannage
 
 ### Je lance Play, les mannequins apparaissent mais il n'y a aucune interface
 

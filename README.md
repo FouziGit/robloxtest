@@ -101,7 +101,7 @@ Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/A
 
 ### Un glyph
 
-1. Une entrée dans `src/shared/Config/GlyphConfig.luau` (`Id`, `Pigment`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `SfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`).
+1. Une entrée dans `src/shared/Config/GlyphConfig.luau` (`Id`, `Pigment`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`). Le son du glyphe est celui de son pigment, par les couches `Sound` de sa timeline (`docs/VFX_SPECS.md`).
 2. La fonction d'effet correspondante dans `src/server/Effects/GlyphEffects.luau` : `function(ctx) -> hitCount`, dégâts **uniquement** via `ctx.Combat.ApplyDamage`, aucun visuel.
 3. Le rendu dans `src/client/Controllers/VfxLibrary.luau`, indexé par `VfxId`.
 4. Les clés `glyph.<Id>.name` / `.desc` dans `src/shared/Strings.luau` (EN + FR).

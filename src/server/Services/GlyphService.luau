@@ -320,6 +320,10 @@ local function onCastGlyph(player: Player, sequence: { string })
 		Params = { GlyphId = def.Id, Pigment = def.Pigment, Chain = chain },
 	}, true)
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
+	-- Only a chain says anything. A line per cast filled the toast column for the whole of every fight --
+	-- one a second, three visible, two and a half seconds each -- so the messages that matter (a refused
+	-- purchase, a claimed quest) queued behind a stream of the player's own glyph names. What confirms an
+	-- ordinary cast is the cast: its effect, its sound and the ink leaving the bar.
 	if chain > 1 then
 		if not freeCasting(player) then
 			combat.addInk(player, GameConfig.Combo.ChainInkRefund)
@@ -331,8 +335,6 @@ local function onCastGlyph(player: Player, sequence: { string })
 			{ name = def.NameKey, count = chain, ink = GameConfig.Combo.ChainInkRefund },
 			"Info"
 		)
-	else
-		notify.send(player, "hud.cast.success", { name = def.NameKey }, "Info")
 	end
 
 	local hits = runEffect(player, def, effect, origin, direction)

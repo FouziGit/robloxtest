@@ -143,7 +143,6 @@ hud.cast.failed,{name} failed,Vellum,,{name} failed,{name} a échoué
 hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
 hud.cast.notEnoughInk,Not enough ink,Vellum,,Not enough ink,Plus d'encre
 hud.cast.notEquipped,{name} is not in your loadout,Vellum,,{name} is not in your loadout,{name} n'est pas dans ton équipement
-hud.cast.success,{name}!,Vellum,,{name}!,{name} !
 hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
 hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
 hud.currency,{amount} {currency},Vellum,,{amount} {currency},{amount} {currency}

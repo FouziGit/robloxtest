@@ -39,7 +39,6 @@ Strings.Table = {
 	["hud.combo.dissipated"] = { en = "The sequence dissipated…", fr = "La séquence s'est dissipée…" },
 	["hud.sequence.streak"] = { en = "×{count}", fr = "×{count}" },
 	["hud.cast.cooldown"] = { en = "{name}: {seconds}s left", fr = "{name} : encore {seconds}s" },
-	["hud.cast.success"] = { en = "{name}!", fr = "{name} !" },
 	["hud.cast.chain"] = {
 		en = "{name}! ×{count} chain, +{ink} ink",
 		fr = "{name} ! Enchaînement ×{count}, +{ink} encre",

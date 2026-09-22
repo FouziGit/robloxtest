@@ -169,8 +169,29 @@ function Toast.new(props: Props): Toast
 
 	container.Parent = props.Parent
 
+	-- Which message goes when the queue is full. A fight can post a line a second, and a refused purchase
+	-- or a claimed quest must not be the thing that falls off the end behind them: the oldest INFO goes
+	-- first, and only when there is none does the oldest of anything. A new Info arriving into a queue of
+	-- nothing but Success and Error is simply not queued.
+	local function dropOne(incoming: Kind): boolean
+		for index, entry in ipairs(pending) do
+			if entry.Kind == "Info" then
+				table.remove(pending, index)
+				return true
+			end
+		end
+		if incoming == "Info" then
+			return false
+		end
+		table.remove(pending, 1)
+		return true
+	end
+
 	local function show(_self: Toast, text: string, kind: Kind)
 		if destroyed then
+			return
+		end
+		if #pending >= MAX_PENDING and not dropOne(kind) then
 			return
 		end
 		table.insert(pending, { Text = text, Kind = kind })

@@ -47,6 +47,7 @@ type Deps = {
 	InputController: any,
 	SoundController: any,
 	MatchController: any,
+	HudController: any,
 }
 
 local SCREENS_FOLDER = "screens"
@@ -190,6 +191,7 @@ function MenuController.Init(deps: Deps)
 		RemoteClient = deps.RemoteClient,
 		InputController = deps.InputController,
 		SoundController = deps.SoundController,
+		HudController = deps.HudController,
 		-- Queue and match state for the Play and Result screens; they never touch those remotes directly.
 		MatchController = deps.MatchController,
 		OnClose = MenuController.close,

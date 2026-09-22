@@ -3,7 +3,9 @@
 -- screens. Hidden until Open(); refreshes from ClientData on Open and whenever a relevant section
 -- changes. The close button hides the screen and notifies the controller through OnClose.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SocialService = game:GetService("SocialService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -24,6 +26,9 @@ export type Deps = {
 	RemoteClient: { fire: (name: string, ...any) -> () },
 	InputController: { captureNext: (kind: string, callback: (keyName: string?) -> ()) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
+	-- The menu is a panel, not a surface for messages: the one line it can need (an invite the platform
+	-- refuses) goes through the HUD's own toast column.
+	HudController: { showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> () },
 	OnClose: () -> (),
 	OnNavigate: (id: string) -> (),
 }
@@ -189,6 +194,32 @@ function MenuScreen.new(deps: Deps): Screen
 		end,
 	})
 	own(trove, shopButton)
+
+	-- Sharing, which on Roblox is the platform's own invite prompt: the player picks who from their own
+	-- friends list, inside the client's UI, and nothing about them ever reaches this game.
+	-- CanSendGameInviteAsync yields and can throw (an unsupported device, a policy that forbids it), so it
+	-- runs in its own thread behind a pcall and says so rather than doing nothing.
+	local inviteButton = Button.new({
+		Text = t("menu.invite"),
+		Variant = "Secondary",
+		LayoutOrder = 11,
+		Parent = panel.Content,
+		OnClick = function()
+			task.spawn(function()
+				local ok, allowed = pcall(function()
+					return SocialService:CanSendGameInviteAsync(Players.LocalPlayer)
+				end)
+				if not ok or allowed ~= true then
+					deps.HudController.showLocalToast("menu.inviteUnavailable", nil, "Error")
+					return
+				end
+				pcall(function()
+					SocialService:PromptGameInvite(Players.LocalPlayer)
+				end)
+			end)
+		end,
+	})
+	own(trove, inviteButton)
 
 	local function refresh()
 		local data = deps.ClientData.get()

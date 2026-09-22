@@ -406,6 +406,27 @@ end
 
 -- A spring with one of FeelConfig's named constants, for the HUD and the screens. Handed out rather
 -- than required directly so every spring in the game is tuned from the same file.
+-- Watches `humanoid`, or the local character again when it is nil. It is the camera's SUBJECT, not its
+-- CFrame: the engine keeps orbiting and framing, the shakes above keep working on top, and this stays the
+-- one module in the game that touches the camera at all (tests/FeelOwnership.spec.luau).
+--
+-- Used by SpectateController when the local player is eliminated and their team is still fighting: a
+-- camera left on a corpse for the rest of a round is a player who has stopped watching the match.
+function Feel.watch(humanoid: Humanoid?)
+	local camera = Workspace.CurrentCamera
+	if camera == nil then
+		return
+	end
+	local subject = humanoid
+	if subject == nil then
+		local character = player.Character
+		subject = if character ~= nil then character:FindFirstChildOfClass("Humanoid") else nil
+	end
+	if subject ~= nil then
+		camera.CameraSubject = subject
+	end
+end
+
 function Feel.newSpring(name: string, value: number?): SpringType
 	local preset = FeelConfig.Springs[name]
 	if preset == nil then

@@ -260,3 +260,10 @@ Une dette d'équilibrage de plus, trouvée par la même relecture et corrigée p
 retirait 56 points de vie sur une cible marquée, au-dessus du plafond absolu des ultimes (D-97). Il passe à
 40, et la porte tient désormais chaque ultime — et la fenêtre de hit-stop — au coup **amplifié** plutôt
 qu'au nombre brut.
+
+### Le social de la passe 8, deux points sur quatre de plus
+
+`SpectateController` : un joueur éliminé suit un coéquipier vivant (sujet de caméra posé par `Feel`, jamais
+un adversaire), et le menu propose l'invitation native de la plateforme (D-99). Avec la revanche en un clic
+déjà livrée, il reste les **emotes** — et elles sont bloquées par les assets, pas reportées : elles
+demandent des animations, que ce dépôt ne peut ni produire ni emprunter.

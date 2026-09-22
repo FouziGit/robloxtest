@@ -207,7 +207,10 @@ match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.score,{ours} - {theirs},Vellum,,{ours} - {theirs},{ours} - {theirs}
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.victory,Victory!,Vellum,,Victory!,Victoire !
+match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
 menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
+menu.invite,Invite a friend,Vellum,,Invite a friend,Inviter un ami
+menu.inviteUnavailable,Invites are not available here.,Vellum,,Invites are not available here.,Les invitations ne sont pas disponibles ici.
 menu.loadout,Loadout,Vellum,,Loadout,Équipement
 menu.quests,Quests,Vellum,,Quests,Quêtes
 menu.settings,Settings,Vellum,,Settings,Options

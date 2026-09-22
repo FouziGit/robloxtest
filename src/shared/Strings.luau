@@ -425,6 +425,12 @@ Strings.Table = {
 	},
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.again"] = { en = "Play again", fr = "Rejouer" },
+	["match.watching"] = { en = "Watching {name}", fr = "Tu regardes {name}" },
+	["menu.invite"] = { en = "Invite a friend", fr = "Inviter un ami" },
+	["menu.inviteUnavailable"] = {
+		en = "Invites are not available here.",
+		fr = "Les invitations ne sont pas disponibles ici.",
+	},
 	["match.grade"] = { en = "Execution: {grade}", fr = "Exécution : {grade}" },
 	["match.execution"] = {
 		en = "{hits} / {casts} glyphs landed · {damage} damage",

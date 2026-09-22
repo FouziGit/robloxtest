@@ -48,6 +48,8 @@ local ORDER = {
 	"FootprintController",
 	"MatchController",
 	"HudController",
+	-- Reads the match snapshots and toasts through the HUD: after both.
+	"SpectateController",
 	"BossController",
 	"MenuController",
 	"InputController",

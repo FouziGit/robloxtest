@@ -1173,7 +1173,12 @@ local function onBlockStart(player: Player, state: State, now: number)
 	end
 	state.Blocking = true
 	state.BlockStartedAt = now
-	movement.applySlow(player, BLOCK_SLOW_KEY, CombatConfig.Block.WalkSpeedFactor, CombatConfig.Block.MaxHoldSeconds)
+	movement.applySlow(
+		player,
+		BLOCK_SLOW_KEY,
+		CombatConfig.Block.WalkSpeedFactor,
+		CombatConfig.Block.SlowRefreshSeconds
+	)
 	humanoid:SetAttribute(BLOCK_ATTRIBUTE, true)
 	vfx.emit({ Id = "BlockStart", Origin = root.Position, Caster = player.UserId })
 end
@@ -1262,8 +1267,15 @@ local function tickPlayer(player: Player, state: State, now: number, elapsed: nu
 	end
 
 	if state.Blocking then
-		if not alive or now - state.BlockStartedAt >= CombatConfig.Block.MaxHoldSeconds then
+		-- The stance is paid for by the tick, over the real interval, like every other rate in here. It
+		-- ends when the player lets go, when they die, or when the ink runs out -- never on a timer.
+		local block = CombatConfig.Block
+		state.Ink = math.max(0, state.Ink - block.InkPerSecond * elapsed)
+		if not alive or state.Ink <= 0 then
 			releaseBlock(state, now)
+		else
+			-- Re-armed every tick so the slow can never outlive the guard, whatever ends it.
+			movement.applySlow(player, BLOCK_SLOW_KEY, block.WalkSpeedFactor, block.SlowRefreshSeconds)
 		end
 	end
 

@@ -45,10 +45,25 @@ CombatConfig.Dash = {
 
 CombatConfig.Block = {
 	DamageReduction = 0.7, -- 70% of incoming damage removed
-	MaxHoldSeconds = 4,
-	CooldownSeconds = 1.5,
+	-- The guard has NO timer. It is held for exactly as long as the key is held and paid for in ink --
+	-- the same pool a glyph and a dash come out of -- so turtling costs offence, which is the trade a
+	-- guard is supposed to be. What was here before was a four-second cut that dropped the stance while
+	-- the key was still down, with nothing on screen to say why: the player read it as the guard being
+	-- broken by nothing.
+	--
+	-- Net of Ink.RegenInCombat (4/s) this drains 8/s, so a full pool buys about twelve seconds of
+	-- unbroken guard and leaves the player with nothing to cast when it ends. Raising it above the
+	-- regeneration rate is what makes the stance finite at all; it must stay above it.
+	InkPerSecond = 12,
+	-- Long enough that a guard cannot be flickered on and off between two frames to eat one hit each
+	-- time, short enough that letting go to answer and guarding again is a rhythm rather than a
+	-- punishment. The 1.5 s this used to be made re-guarding feel broken.
+	CooldownSeconds = 0.4,
 	BreakStunSeconds = 1.0,
 	WalkSpeedFactor = 0.5,
+	-- The walk-speed slow is re-applied every server tick while the stance is held, so it carries no
+	-- duration of its own and cannot outlive the guard. Any value comfortably above one tick works.
+	SlowRefreshSeconds = 0.5,
 	-- Damage sources that break a guard instead of being reduced.
 	BrokenBy = { Ultimate = true, MeleeFinisher = true },
 }

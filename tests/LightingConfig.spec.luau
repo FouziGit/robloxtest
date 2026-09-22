@@ -94,26 +94,44 @@ describe("LightingConfig", function()
 		end
 	end)
 
-	it("keeps the world light, not dark", function()
+	it("keeps the world light, and keeps it from burning out", function()
 		local numbers = LightingConfig.Lighting.Numbers
 		-- These thresholds are written here, not read from LightingConfig.Bands, and that is the whole
-		-- point of them. A gate whose threshold lives in the file it guards is not a gate: the darkening
-		-- edit it advertises stopping can widen the band on its way past, and the test still passes.
+		-- point of them. A gate whose threshold lives in the file it guards is not a gate: the edit it
+		-- advertises stopping can widen the band on its way past, and the test still passes.
 		--
-		-- 2.0 of Roblox's own 0-to-5 Brightness, and 128 of 255 on an ambient channel, are the midpoints
-		-- of the ENGINE's ranges. Below either one this is a dark world with bright magic, which is the
-		-- genre's default look and the reason docs/JUICE_AUDIT.md was written.
-		local BRIGHTNESS_FLOOR = 2.0
-		local AMBIENT_FLOOR = 128
-		expect(numbers.Brightness).toBeGreaterThan(BRIGHTNESS_FLOOR)
-		expect(numbers.Brightness).toBeLessThanOrEqual(LightingConfig.Bands.Brightness[2])
-		-- Ambient is what fills a shadow, so it, not the brightness, is what decides between a page and a
-		-- dungeon.
-		expect(average(LightingConfig.Lighting.Colors.Ambient)).toBeGreaterThan(AMBIENT_FLOOR)
-		expect(average(LightingConfig.Lighting.Colors.OutdoorAmbient)).toBeGreaterThan(AMBIENT_FLOOR)
-		-- And the band the config declares for itself has to contain the floor, or it is describing a
-		-- different world than the one this test is checking for.
-		expect(LightingConfig.Bands.Brightness[2]).toBeGreaterThan(BRIGHTNESS_FLOOR)
+		-- Both ends are real, and this test only learned the second one from a screenshot. It used to
+		-- demand the upper half of the engine's own ranges -- Brightness above 2.0, an ambient channel
+		-- above 128 -- on the reasoning that anything less is a dark world with bright magic, which is
+		-- the genre's default and the reason docs/JUICE_AUDIT.md was written. That reasoning is right
+		-- and it was half a rule. At Brightness 2.8 over an ambient of 146 a vellum surface
+		-- (232, 224, 206) reaches the screen as pure white: the hub shipped as a white floor under white
+		-- walls with white characters on it, no cream anywhere, and every shadow washed out of the
+		-- frame. "Not a dungeon" was satisfied by a white void.
+		local BRIGHTNESS_FLOOR = 1.2
+		local BRIGHTNESS_CEILING = 2.2
+		local AMBIENT_FLOOR = 88
+		-- 125 and not a round 128: the ambient this shipped with averaged 138, and a ceiling that does
+		-- not sit BELOW the defect it was written for catches nothing. Checked by reintroducing it.
+		local AMBIENT_CEILING = 125
+		expect(numbers.Brightness).toBeGreaterThanOrEqual(BRIGHTNESS_FLOOR)
+		expect(numbers.Brightness).toBeLessThanOrEqual(BRIGHTNESS_CEILING)
+		-- Ambient is what fills a shadow, so it, not the brightness, is what decides both whether this is
+		-- a dungeon and whether there is a shadow left to see.
+		for _, name in ipairs({ "Ambient", "OutdoorAmbient" }) do
+			local channel = average(LightingConfig.Lighting.Colors[name])
+			expect(channel).toBeGreaterThanOrEqual(AMBIENT_FLOOR)
+			expect(channel).toBeLessThanOrEqual(AMBIENT_CEILING)
+		end
+		-- The exposure push is not a way back to the old look by another property: whatever the
+		-- brightness is, the frame may not be lifted past a hair on top of it.
+		expect(math.abs(numbers.ExposureCompensation)).toBeLessThanOrEqual(0.05)
+		-- And the band the config declares for itself has to agree with the one enforced here, or it is
+		-- describing a different world than the one this test is checking for.
+		expect(LightingConfig.Bands.Brightness[1]).toBeGreaterThanOrEqual(BRIGHTNESS_FLOOR)
+		expect(LightingConfig.Bands.Brightness[2]).toBeLessThanOrEqual(BRIGHTNESS_CEILING)
+		expect(LightingConfig.Bands.AmbientChannel[1]).toBeGreaterThanOrEqual(AMBIENT_FLOOR)
+		expect(LightingConfig.Bands.AmbientChannel[2]).toBeLessThanOrEqual(AMBIENT_CEILING)
 		-- And the sun is up. A high-key world at four in the morning is a contradiction the numbers above
 		-- cannot catch on their own.
 		expect(numbers.ClockTime).toBeGreaterThan(7)

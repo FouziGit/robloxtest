@@ -8,8 +8,9 @@
 -- and the only saturated thing on screen is a glyph. A player who sees a colour is seeing a threat.
 -- That inversion is the whole identity, so it is encoded here rather than described:
 -- tests/LightingConfig.spec.luau converts every colour below to HSV and fails the build if one of them
--- is a colour rather than a tint, and checks that the ambient and the brightness sit in the upper half
--- of their stated bands. A later "let us make it pop" edit has to argue with a test.
+-- is a colour rather than a tint, and holds the ambient and the brightness inside their stated bands --
+-- both ends of them, since this file has already been wrong at the bright end. A later "let us make it
+-- pop" edit, or a later "let us tone it down" one, has to argue with a test.
 --
 -- Pure data: no require and no Roblox global, so it loads under Lune (tests/Purity.spec.luau). Colours
 -- are {r, g, b} triples in 0-255 and the lighting technology is a plain string; the client converts both
@@ -44,22 +45,33 @@ export type PulseProfile = {
 
 local LightingConfig = {}
 
--- The bands this direction tunes inside, stated so that a later edit has something to be in the upper
--- half OF. They are not engine limits: Brightness accepts far more than 4 and an ambient of 255 is legal.
--- They are the range in which this is still a lit page rather than a dark room or a white void.
+-- The bands this direction tunes inside. They are not engine limits: Brightness accepts far more than 4
+-- and an ambient of 255 is legal. They are the range in which this is still a lit page -- and BOTH ends
+-- of each one are a real failure.
+--
+-- These used to be {0, 4} and {0, 255}, with the test demanding the upper half of each. That rule was
+-- written to keep the page from becoming a dungeon, and it worked; what nobody checked is what the upper
+-- half does. At Brightness 2.8 over an ambient of 146, a vellum surface (232, 224, 206) clips to pure
+-- white: the first screenshot of the finished hub was white floor, white walls, white characters, with
+-- the cream the whole direction is built on nowhere on screen and every shadow washed flat. A white void
+-- is exactly the failure the old band named and then sat inside.
+--
+-- So the bands are TIGHTER now, not looser, and they are bounded above for the first time: below the
+-- floor this is a dark room, above the ceiling the paper burns out and the world has no colour at all.
 LightingConfig.Bands = {
-	Brightness = { 0, 4 },
-	AmbientChannel = { 0, 255 },
+	Brightness = { 1.2, 2.2 },
+	AmbientChannel = { 88, 125 },
 }
 
 LightingConfig.Lighting = {
 	Colors = {
-		-- Ambient is what fills a shadow, and it is the single property that decides whether this reads
-		-- as a page or as a dungeon. High, and barely warm: on vellum a shadow is a grey wash, not a
-		-- hole. Everything else here is mixed down from the same cream.
-		Ambient = { 146, 140, 128 },
+		-- Ambient is what fills a shadow, and it is the single property that decides whether a shadow
+		-- reads as a wash or as a hole. Warm, and high enough that nothing in this world goes black --
+		-- but no longer high enough to fill the shadow in completely, which is what it was doing at 146:
+		-- with the sun and the fill that close together there was no shadow left to see.
+		Ambient = { 104, 99, 89 },
 		-- A little more outdoors, so stepping out of cover brightens rather than only changing hue.
-		OutdoorAmbient = { 163, 157, 142 },
+		OutdoorAmbient = { 118, 113, 102 },
 		-- Legacy distance fog, superseded by the Atmosphere below wherever one exists. Set anyway, and
 		-- set pale: on a client where the Atmosphere could not be created, the alternative showing at the
 		-- horizon is Roblox's default blue-grey.
@@ -72,16 +84,18 @@ LightingConfig.Lighting = {
 		ColorShift_Bottom = { 18, 20, 26 },
 	},
 	Numbers = {
-		Brightness = 2.8,
+		-- 1.55, not the 2.8 this shipped with. Brightness multiplies the sun on top of the ambient, and
+		-- the two together decide whether a cream surface stays cream. At 2.8 it did not: the page read
+		-- as #FFFFFF and the only way to tell a wall from a floor was the thin ink rule between them.
+		Brightness = 1.55,
 		-- Early afternoon at a near-equatorial latitude: the sun sits high, so shadows are short enough
 		-- that the ground still reads as a flat page, and far enough off vertical that a wall has a lit
 		-- side and a shaded one.
 		ClockTime = 14.2,
 		GeographicLatitude = 8,
-		-- A push, not a look. The cream should sit near the top of the range without clipping, and
-		-- anything larger here would be a permanent post-processing effect wearing the name of a Lighting
-		-- property to get past the rule against them.
-		ExposureCompensation = 0.1,
+		-- Zero. A push on top of a correct exposure is a look; a push on top of an exposure that was
+		-- already clipping was a second reason the page had no tone left.
+		ExposureCompensation = 0,
 		FogStart = 180,
 		FogEnd = 860,
 		EnvironmentDiffuseScale = 1,
@@ -91,7 +105,7 @@ LightingConfig.Lighting = {
 		EnvironmentSpecularScale = 0.05,
 	},
 	Flags = {
-		-- Shadows stay on. Against an ambient this high they land as pale washes instead of black
+		-- Shadows stay on. Against this ambient they land as warm grey washes instead of black
 		-- cutouts, and they are the only thing giving volume to a world made of primitives.
 		GlobalShadows = true,
 	},
@@ -101,15 +115,16 @@ LightingConfig.Lighting = {
 	Technology = "Future",
 }
 
--- The Atmosphere, which in this configuration is also the sky.
+-- The Atmosphere: what the distance fades into.
 --
--- There is no Sky here and no asset id anywhere in this file. A solid pale field would beat a borrowed
--- skybox, but a Sky needs six texture assets, this repository has none it has verified, and a Sky created
--- with its default faces would trade an unconfigured sky for somebody else's clouds: the same defect with
--- a different author. So the clear-sky properties carry it instead. Under Future lighting the
--- Atmosphere's Color, Decay and Haze are what recolour the horizon, and the two colour shifts above tint
--- the gradient above it. Glare is zero on purpose: a lens flare around the sun is the most borrowed thing
--- in the genre.
+-- This used to end with "and it is also the sky", on the reasoning that a Sky object needs six uploaded
+-- textures, that borrowing somebody else's is forbidden, and that the Atmosphere would therefore carry
+-- the horizon on its own. Every step of that is true and the conclusion was still wrong: leaving the Sky
+-- alone does not give you no sky, it gives you ROBLOX's sky. The first screenshot of the finished hub
+-- has a cream page under a stock blue sky with stock clouds -- the single most interchangeable thing in
+-- the frame, in a direction whose whole premise is not being interchangeable.
+--
+-- LightingConfig.Sky below is the answer, and it needs no asset either: see it.
 LightingConfig.Atmosphere = {
 	Numbers = {
 		-- Enough to lift the distance toward paper and separate a far silhouette from a near one. Past
@@ -126,6 +141,35 @@ LightingConfig.Atmosphere = {
 		-- What light decays toward. Roblox's default decays warm brown; a page has no brown distance.
 		Decay = { 186, 182, 170 },
 	},
+}
+
+-- The sky, made of six slabs instead of six textures.
+--
+-- A hollow cube of parts is re-centred on the camera every frame (src/client/Controllers/WorldLighting)
+-- and hides Roblox's skybox behind it in every direction. It carries no texture and no asset id, so it
+-- is complete today rather than complete once somebody uploads something.
+--
+-- Why a cube of slabs and not a sphere: a Roblox primitive is back-face culled, so from inside a Ball you
+-- see straight through it. Each face of this shell is a separate slab whose INNER surface is a real
+-- outward-facing face, which renders.
+--
+-- Half-extent is inside the engine's 2048-stud part limit and beyond the useful draw distance, so the
+-- shell is always further away than anything the player is looking at. The Atmosphere above hazes it
+-- toward its own colour, which is what welds the horizon shut: the shell is not doing the colour work,
+-- it is stopping the default sky from doing it.
+LightingConfig.Sky = {
+	-- Distance from the camera to each face. 900: the shell's corners land at about 1560 studs, far
+	-- enough into the haze that the cube reads as a field rather than as a room.
+	HalfExtentStuds = 900,
+	ThicknessStuds = 8,
+	-- Neon is the one material that ignores the light entirely, which is exactly what a sky must do: a
+	-- lit shell would have a bright face and a dark face and the horizon would have a seam in it. It is
+	-- also the one place in this project where Neon is allowed, because this is not scenery -- nothing
+	-- in the world is made of it, and the rule against it (Config/WorldConfig) is about the world.
+	Material = "Neon",
+	-- The Atmosphere's own colour. The haze is already carrying the far distance to this value, so the
+	-- shell meeting it exactly is what makes the join invisible.
+	Color = { 226, 220, 204 },
 }
 
 -- The five post-processing effects. None of them is ever a look: docs/JUICE_PLAN.md phase 3 requires them
@@ -155,7 +199,12 @@ local effects: { [string]: EffectDef } = {
 		Rest = {
 			Brightness = 0,
 			-- A hair of contrast against an ambient this high, which otherwise flattens into mush.
-			Contrast = 0.06,
+			-- 0.1, which is the most a resting post-processing value may sit from neutral in this project
+			-- (tests/LightingConfig.spec.luau). With the ambient down there is finally a dark end for it
+			-- to act on; at the old exposure it was doing nothing, because everything was already at the
+			-- top of the range. It stops at the rule rather than arguing with it: the exposure above is
+			-- the honest lever, and a contrast that needs to go further is hiding a bad exposure.
+			Contrast = 0.1,
 			-- And a hair off the saturation: rule 1 applied to the whole frame at once. It costs the
 			-- scenery almost nothing and a glyph nothing at all, since a glyph is saturated far past what
 			-- this takes back.

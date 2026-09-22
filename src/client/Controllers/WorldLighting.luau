@@ -23,6 +23,7 @@
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
@@ -32,6 +33,13 @@ local QualityConfig = require(Shared.Config.QualityConfig)
 local Spring = require(Shared.Pure.Spring)
 
 local log = Log.new("WorldLighting")
+
+-- One face of the sky shell and where it sits relative to the camera.
+type SkyFace = { Part: Part, Offset: Vector3 }
+
+local skyFaces: { SkyFace } = {}
+local skyCenter: Vector3? = nil
+local SKY_FOLLOW_SLACK_STUDS = 1
 
 type Deps = { ClientData: any, QualityController: any }
 
@@ -155,6 +163,76 @@ local function findOrCreate(className: string): Instance?
 	created.Name = CREATED_PREFIX .. className
 	created.Parent = Lighting
 	return created
+end
+
+-- The sky shell (LightingConfig.Sky): six slabs around the camera, hiding Roblox's skybox.
+--
+-- Everything about these parts is defensive, and each flag is load-bearing:
+--   * CastShadow false -- a shell that casts shadow puts the entire world in shadow, permanently;
+--   * CanQuery false -- VfxTimeline's ground probe raycasts downward and the floor slab is the first
+--     thing under the map, so a queryable shell would make every mark land 900 studs below the player;
+--   * CanCollide and CanTouch false -- nothing may ever stand on or trigger the sky.
+local function buildSky()
+	local sky = LightingConfig.Sky
+	local half = sky.HalfExtentStuds
+	-- A hair wider than the gap it closes, so the corners overlap instead of meeting on a hairline.
+	local span = half * 2 + sky.ThicknessStuds
+	local named = (Enum.Material :: any)[sky.Material]
+	if typeof(named) ~= "EnumItem" then
+		log.warn("unknown sky material %s", tostring(sky.Material))
+		return
+	end
+	local material = named :: Enum.Material
+	local folder = Instance.new("Folder")
+	folder.Name = CREATED_PREFIX .. "Sky"
+	folder.Parent = Workspace
+
+	local color = toColor(sky.Color)
+	for index, axis in ipairs({ Vector3.xAxis, Vector3.yAxis, Vector3.zAxis }) do
+		-- Thin along its own axis, full span across the other two.
+		local size = Vector3.new(
+			if axis.X > 0 then sky.ThicknessStuds else span,
+			if axis.Y > 0 then sky.ThicknessStuds else span,
+			if axis.Z > 0 then sky.ThicknessStuds else span
+		)
+		for _, sign in ipairs({ 1, -1 }) do
+			local part = Instance.new("Part")
+			part.Name = ("Face%d%s"):format(index, if sign > 0 then "Plus" else "Minus")
+			part.Size = size
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+			part.Locked = true
+			part.Material = material
+			part.Color = color
+			part.Parent = folder
+			table.insert(skyFaces, { Part = part, Offset = axis * (sign * half) })
+		end
+	end
+end
+
+-- Re-centres the shell on the camera. Called from the one Heartbeat, before its early return, because
+-- the sky has to follow whether or not a pulse is live.
+local function followSky()
+	if #skyFaces == 0 then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	if camera == nil then
+		return
+	end
+	local center = camera.CFrame.Position
+	-- The shell is 900 studs away, so a stud of slack is four thousandths of the distance to it: below
+	-- this, moving six parts buys nothing a player could see.
+	if skyCenter ~= nil and (center - skyCenter).Magnitude < SKY_FOLLOW_SLACK_STUDS then
+		return
+	end
+	skyCenter = center
+	for _, face in ipairs(skyFaces) do
+		face.Part.CFrame = CFrame.new(center + face.Offset)
+	end
 end
 
 local function applyAtmosphere()
@@ -328,6 +406,8 @@ end
 --------------------------------------------------------------------------------------------------
 
 local function onHeartbeat(deltaTime: number)
+	followSky()
+
 	if liveCount == 0 and not offset then
 		return
 	end
@@ -403,6 +483,8 @@ end
 function WorldLighting.Start()
 	applyLighting()
 	applyAtmosphere()
+	buildSky()
+	followSky()
 	buildEffects()
 	applyPlan()
 	setEffectsEnabled(postProcessing())

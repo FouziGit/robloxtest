@@ -46,6 +46,8 @@ local ORDER = {
 	"VfxController",
 	-- Stamps through VfxTimeline, so after it.
 	"FootprintController",
+	-- Poses bodies from the packets VfxController receives: after it, for the signal.
+	"Posture",
 	"MatchController",
 	"HudController",
 	-- Reads the match snapshots and toasts through the HUD: after both.

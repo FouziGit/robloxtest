@@ -50,6 +50,7 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/client/Controllers/VfxTimeline.luau"] = { Count = 1, Why = "every layer of every effect" },
 	["src/client/Controllers/WorldLighting.luau"] = { Count = 1, Why = "the post-processing pulses" },
 	["src/client/Controllers/FootprintController.luau"] = { Count = 1, Why = "the prints of every character" },
+	["src/client/Controllers/Posture.luau"] = { Count = 1, Why = "the joints of every character" },
 	["src/client/Controllers/QualityController.luau"] = { Count = 1, Why = "the frame rate it decides the tier from" },
 	-- Interface: one, opened when something moves and closed when nothing does.
 	["src/ui/Motion.luau"] = { Count = 1, Why = "every spring in the interface" },

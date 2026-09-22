@@ -39,6 +39,12 @@ local VfxController = {}
 VfxController.LocalCast = Signal.new() -- (glyphId: string, chain: number)
 local CAST_ID = "Cast"
 
+-- Fired for every validated packet, before it is rendered: the id, the caster's user id (0 when the
+-- packet names none) and the packet's own params. It exists so that a system which needs to know WHAT a
+-- character just did -- Posture moves its body with it -- reads the packets this controller already
+-- receives instead of opening a second reader on the same remote.
+VfxController.Acted = Signal.new() -- (id: string, casterUserId: number, params: { [string]: any }?)
+
 local remoteClient: any
 local soundController: any
 local feel: any
@@ -143,6 +149,8 @@ local function onPacket(packet: any)
 		local chain = if type(params) == "table" and type(params.Chain) == "number" then params.Chain else 1
 		VfxController.LocalCast:Fire(glyphId, math.max(1, math.floor(chain)))
 	end
+
+	VfxController.Acted:Fire(typed.Id, typed.Caster or 0, typed.Params)
 
 	local trove = Trove.new()
 	task.delay(TROVE_LIFETIME_SECONDS, function()

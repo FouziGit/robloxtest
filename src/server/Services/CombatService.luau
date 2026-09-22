@@ -800,7 +800,9 @@ local function applyGuard(
 	if breaksGuard(kind, tags) then
 		releaseBlock(targetState, now)
 		movement.applyStun(targetPlayer, CombatConfig.Block.BreakStunSeconds)
-		vfx.emit({ Id = "GuardBreak", Origin = origin })
+		-- Target, like the Hit packet: the body that is thrown open is the target's, and without
+		-- naming it the clients could only guess which of the two characters to pose.
+		vfx.emit({ Id = "GuardBreak", Origin = origin, Params = { Target = targetPlayer.UserId } })
 		return damage, false
 	end
 	vfx.emit({ Id = "BlockHit", Origin = origin })

@@ -255,3 +255,8 @@ l'Insertion répond à cinq outils dont la recharge est plus longue que la sienn
 
 La leçon : trois des constats confirmés portaient sur du code écrit dans la passe précédente **pour
 corriger une relecture**. Une correction n'est pas finie parce qu'elle a changé le nombre qu'on regardait.
+
+Une dette d'équilibrage de plus, trouvée par la même relecture et corrigée plutôt que notée : le Pâté
+retirait 56 points de vie sur une cible marquée, au-dessus du plafond absolu des ultimes (D-97). Il passe à
+40, et la porte tient désormais chaque ultime — et la fenêtre de hit-stop — au coup **amplifié** plutôt
+qu'au nombre brut.

@@ -35,6 +35,30 @@ local function isFinite(value: number): boolean
 	return value == value and value ~= math.huge and value ~= -math.huge
 end
 
+-- The biggest multiplier each pigment's damage can pick up from a live mark (docs/GAME_DESIGN.md §6). Both
+-- the ultimate ceiling and the hit-stop window are about the damage really APPLIED, and the interactions
+-- are flat and visible by design, so they belong in both numbers.
+local function markAmplifiers(): { [string]: number }
+	local amplifier: { [string]: number } = {}
+	for _, mark in pairs(CombatConfig.Status) do
+		if type(mark) == "table" and mark.AmplifiesPigment ~= nil then
+			local pigment = mark.AmplifiesPigment
+			amplifier[pigment] = math.max(amplifier[pigment] or 1, mark.DamageMultiplier)
+		end
+	end
+	return amplifier
+end
+
+-- The heaviest single hit the roster can land, marks included.
+local function heaviestHit(): number
+	local amplifier = markAmplifiers()
+	local heaviest = 0
+	for _, def in ipairs(GlyphConfig.Glyphs) do
+		heaviest = math.max(heaviest, def.Damage * (amplifier[def.Pigment] or 1))
+	end
+	return heaviest
+end
+
 -- Damage one target takes from a single full cast: zones and trails tick, everything else hits once.
 local function castDamage(glyph: GlyphConfig.GlyphDef): number
 	local hits = glyph.Params.MaxHitsPerTarget or glyph.Params.Ticks or 1
@@ -174,10 +198,22 @@ describe("GlyphConfig", function()
 				expect(stun * (glyph.Params.Ticks or 1)).toBeLessThanOrEqual(CombatConfig.Hit.StunMaxSeconds)
 			end
 		end
+		-- Checked against the AMPLIFIED hit, not the raw number: a Cinnabar ultimate on a Fanned target is
+		-- multiplied by 1.25, and that is what the player loses.
+		local amplifier = markAmplifiers()
 		for _, glyph in ipairs(GlyphConfig.Glyphs) do
 			if glyph.Archetype == "Ultimate" then
 				-- long combo, big cost, big impact — and it always out-bursts every basic
-				expect(glyph.Damage).toBeLessThanOrEqual(ULTIMATE_HIT_MAX)
+				local amplified = glyph.Damage * (amplifier[glyph.Pigment] or 1)
+				if amplified > ULTIMATE_HIT_MAX then
+					error(
+						("%s removes %.1f from a marked target and an ultimate may remove %d"):format(
+							glyph.Id,
+							amplified,
+							ULTIMATE_HIT_MAX
+						)
+					)
+				end
 				expect(glyph.Damage).toBeGreaterThan(basicBestHit)
 				expect(CombatConfig.Block.BrokenBy[glyph.Archetype]).toBe(true)
 			end
@@ -715,13 +751,10 @@ describe("FeelConfig", function()
 	end)
 
 	it("spans the damage the roster can actually deal", function()
-		-- If MaxDamage sat above every glyph in the game, no hit would ever reach the top of the window
-		-- and the heaviest ultimate would feel the same as a mid-tier spell.
-		local heaviest = 0
-		for _, def in ipairs(GlyphConfig.Glyphs) do
-			heaviest = math.max(heaviest, def.Damage)
-		end
-		expect(FeelConfig.HitStop.MaxDamage).toBeLessThanOrEqual(heaviest)
+		-- If MaxDamage sat above every hit in the game, none would ever reach the top of the window and the
+		-- heaviest ultimate would feel the same as a mid-tier spell. Marks included: the hit-stop is derived
+		-- from the damage CombatService really applied.
+		expect(FeelConfig.HitStop.MaxDamage).toBeLessThanOrEqual(heaviestHit())
 		expect(FeelConfig.HitStop.MinDamage).toBeLessThanOrEqual(CombatConfig.Melee.Damage[1])
 	end)
 

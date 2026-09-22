@@ -212,7 +212,11 @@ GlyphConfig.Glyphs = {
 		Combo = { "Cinnabar", "Cinnabar", "Umber" },
 		Cost = 50,
 		Cooldown = 20,
-		Damage = 45,
+		-- Forty, not forty-five: a Cinnabar hit on a Fanned target is multiplied by 1.25
+		-- (CombatConfig.Status.Fanned), and forty-five became fifty-six -- over the ceiling
+		-- docs/GAME_DESIGN.md §5 states for an ultimate. Forty lands at exactly fifty on a marked target,
+		-- which is the ceiling, and tests/Config.spec.luau now holds every ultimate to its AMPLIFIED hit.
+		Damage = 40,
 		Range = 75,
 		Archetype = "Ultimate",
 		Effect = "Blot",

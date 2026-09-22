@@ -54,7 +54,7 @@ Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · 
 | Cinabre | C C | Marque | Projectile | 20 | 4 | 25 | poke fiable, explose (rayon 7) |
 | Cinabre | C V | Ligature | Mobilité | 15 | 6 | 6 | dash court qui laisse une traînée brûlante 2 s |
 | Cinabre | C C V | Roussi | Zone | 35 | 12 | 10 ×3 | anneau autour de soi, zone anti-mêlée |
-| Cinabre | C C U | Pâté | Ultime | 50 | 20 | 45 | projectile lourd en cloche, AoE 10, brise la garde |
+| Cinabre | C C U | Pâté | Ultime | 50 | 20 | 40 | projectile lourd en cloche, AoE 10, brise la garde (40 × 1,25 sur cible *Éventée* = 50, le plafond) |
 | Indigo | I I | Lavis | AoE | 22 | 5 | 18 | ligne, knockback |
 | Indigo | I C | Bavure | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
 | Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |

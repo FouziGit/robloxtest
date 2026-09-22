@@ -1,5 +1,13 @@
 # Plan V2 — Vellum
 
+**État.** Les huit phases de ce plan sont faites et poussées, et la passe qui a suivi — identité et game
+feel, neuf passes, `docs/JUICE_PLAN.md` — l'est aussi. Ce document reste la carte de l'architecture et des
+contrats de la V2 ; pour savoir où en est le jeu, lire `docs/PROGRESS.md`, et pour ce qui vient ensuite, la
+fin de `PROGRESS` (ce qui n'est pas fait) et `docs/JUICE_PLAN.md` §8 item 5 (le social, volontairement non
+livré). Ce qu'aucun des deux plans ne couvre encore : rien n'a été **vu** dans un client vivant, et les
+identifiants Roblox (textures, sons, game passes, produits) attendent le téléversement décrit dans
+`docs/STUDIO_SETUP.md`.
+
 Adapté aux constats de `docs/AUDIT.md`. Chaque phase se termine par : quality gates verts → commits Conventional Commits → `git push origin main` → `docs/PROGRESS.md` à jour. Le jeu reste `rojo build`-able et les tests verts à chaque commit.
 
 Quality gates (`scripts/check.sh`) : `stylua --check src tests` · `selene src tests` · `luau-lsp analyze` strict sur tout `src` · `lune run tests/run` · `rojo build default.project.json -o build/Vellum.rbxl`.

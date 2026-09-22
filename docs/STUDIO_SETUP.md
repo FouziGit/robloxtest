@@ -37,6 +37,16 @@ La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y t
 | Chat | texte activé (le VIP a un tag) | Game Settings → Communication |
 | Genre / âge | Combat (fantasy), tous publics, violence légère | Game Settings → Basic Info |
 
+## 2 bis. Type d'avatar : R6 (obligatoire, sinon aucun corps ne bouge)
+
+Creator Dashboard → ton expérience → **Avatar** → *Avatar Type* → **R6**. Dans Studio, File → Avatar Settings n'est accessible qu'une fois la place publiée.
+
+Ce n'est pas une préférence esthétique, c'est ce qui décide si le jeu a des animations. `Posture` pose les corps en écrivant sur les articulations `Motor6D` du personnage. Un avatar Roblox moderne n'en a **plus aucune** : c'est un rig physique (`AnimationConstraint` + `BallSocketConstraint`) qui porte les mêmes noms d'articulations et qu'aucun de ses leviers ne permet de poser (mesuré : déplacement de la main sous 0,2 stud dans les quatre approches essayées — voir `docs/DECISIONS.md` D-101). Un rig R6 porte exactement les six `Motor6D` que `PostureConfig` nomme.
+
+R6 est par ailleurs ce qu'utilisent les jeux de combat Roblox : une silhouette plus lisible à distance de combat, et des hitboxes plus simples à lire pour l'adversaire.
+
+Tant que le réglage n'est pas fait, le client écrit **une fois** au démarrage `[Posture] R15 characters carry no Motor6D on this client, so no body will move…` et ne pose rien — il ne bouge jamais un corps à moitié.
+
 ## 3. Game passes (Creator Dashboard → Monetization → Passes)
 
 Créer chaque pass avec ce nom et ce prix, puis coller l'ID dans `MonetizationConfig.Passes.<Clé>.Id`.

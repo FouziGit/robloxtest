@@ -130,46 +130,46 @@ LightingConfig.Atmosphere = {
 		-- Enough to lift the distance toward paper and separate a far silhouette from a near one. Past
 		-- roughly 0.45 the far half of an arena stops being readable, which is a gameplay cost, not a
 		-- taste one.
-		Density = 0.32,
-		Offset = 0.25,
+		Density = 0.38,
+		Offset = 0.45,
 		Glare = 0,
-		Haze = 1.4,
+		-- 4.2, measured against the screen rather than chosen: the Haze is what tints the CLEAR SKY toward
+		-- the atmosphere's own colour, and with the skybox blanked below it is the only thing standing
+		-- between a page world and a page world under a blue-grey gradient. At 1.4 the sky was still
+		-- daylight blue.
+		Haze = 4.2,
 	},
 	Colors = {
 		-- Very close to vellum itself, so distance fades into the page rather than into weather.
 		Color = { 226, 220, 204 },
 		-- What light decays toward. Roblox's default decays warm brown; a page has no brown distance.
-		Decay = { 186, 182, 170 },
+		Decay = { 196, 188, 170 },
 	},
 }
 
--- The sky, made of six slabs instead of six textures.
+-- The sky: a Sky object with no faces at all.
 --
--- A hollow cube of parts is re-centred on the camera every frame (src/client/Controllers/WorldLighting)
--- and hides Roblox's skybox behind it in every direction. It carries no texture and no asset id, so it
--- is complete today rather than complete once somebody uploads something.
+-- Verified in a running client, which is the only reason this file says it. The first attempt here was
+-- six Neon slabs re-centred on the camera every frame, on the reasoning that a Sky needs six uploaded
+-- textures. The slabs were built, opaque and correctly placed at 900 studs -- and invisible: past a few
+-- hundred studs the renderer drops them, and the distance at which it does depends on the player's
+-- graphics quality. The same shell brought to 200 studs rendered perfectly, which is how the cause was
+-- pinned down. A sky whose existence depends on a quality setting is not a sky.
 --
--- Why a cube of slabs and not a sphere: a Roblox primitive is back-face culled, so from inside a Ball you
--- see straight through it. Each face of this shell is a separate slab whose INNER surface is a real
--- outward-facing face, which renders.
+-- A Sky whose six faces are the empty string costs nothing, is always drawn, and is the same on every
+-- machine. It does not render black, which was the fear that kept this file from trying it: it hands
+-- the sky back to the clear-sky gradient, which the Atmosphere above then recolours -- which is what
+-- the Atmosphere was configured to do all along. What leaves with it are Roblox's stock clouds, the
+-- single most interchangeable thing that can be in a frame.
 --
--- Half-extent is inside the engine's 2048-stud part limit and beyond the useful draw distance, so the
--- shell is always further away than anything the player is looking at. The Atmosphere above hazes it
--- toward its own colour, which is what welds the horizon shut: the shell is not doing the colour work,
--- it is stopping the default sky from doing it.
+-- CelestialBodiesShown is false for the same reason Glare is zero: a sun disc and a moon are the most
+-- borrowed objects in the genre, and neither belongs on a page.
 LightingConfig.Sky = {
-	-- Distance from the camera to each face. 900: the shell's corners land at about 1560 studs, far
-	-- enough into the haze that the cube reads as a field rather than as a room.
-	HalfExtentStuds = 900,
-	ThicknessStuds = 8,
-	-- Neon is the one material that ignores the light entirely, which is exactly what a sky must do: a
-	-- lit shell would have a bright face and a dark face and the horizon would have a seam in it. It is
-	-- also the one place in this project where Neon is allowed, because this is not scenery -- nothing
-	-- in the world is made of it, and the rule against it (Config/WorldConfig) is about the world.
-	Material = "Neon",
-	-- The Atmosphere's own colour. The haze is already carrying the far distance to this value, so the
-	-- shell meeting it exactly is what makes the join invisible.
-	Color = { 226, 220, 204 },
+	CelestialBodiesShown = false,
+	-- The six face properties, named so the client writes exactly these and a seventh cannot appear by
+	-- accident. Empty on purpose: this project uploads the textures it uses and has verified none for a
+	-- skybox, and borrowing somebody else's is forbidden outright (docs/ART_BIBLE.md).
+	Faces = { "SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp" },
 }
 
 -- The five post-processing effects. None of them is ever a look: docs/JUICE_PLAN.md phase 3 requires them

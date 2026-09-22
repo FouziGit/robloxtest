@@ -19,6 +19,18 @@
 --     the weights SUM. A player who dashes out of a finisher gets both, composed, rather than the
 --     second cancelling the first.
 --
+-- WHAT THIS NEEDS, and it is not negotiable: a Motor6D rig. Verified in a running client -- a modern
+-- Roblox avatar is no longer built from Motor6D at all. It is a physically driven rig of
+-- AnimationConstraint plus BallSocketConstraint, with the same joint NAMES (RightShoulder, Waist, Neck)
+-- and none of the joints. Neither attachment frame nor the constraint's own Transform moves a limb on
+-- it, written once or written every frame after the character step; all three were measured against the
+-- hand's position and all three moved it by under two tenths of a stud.
+--
+-- The fix is a universe setting, not code: Avatar Type set to R6 (docs/STUDIO_SETUP.md). An R6 rig has
+-- exactly the six Motor6Ds Config/PostureConfig names, and R6 is what this genre uses anyway -- a
+-- silhouette that reads at fighting distance. Until it is set, this controller says so once and poses
+-- nothing, which is the honest behaviour: it never half-moves a body.
+--
 -- C0 is written on this client only: Motor6D.C0 does not replicate from a client. That is not a
 -- limitation, it is the design -- every client runs this controller against the same replicated state
 -- (the guard attribute) and the same broadcast packets, so everyone sees everyone's body move, and the
@@ -77,6 +89,9 @@ local Posture = {}
 
 local entries: { [Model]: Entry } = {}
 local vfxController: any
+-- Rig types already reported as unposeable. Once each, never per character and never per frame: a
+-- twelve-player server on the wrong avatar setting would otherwise print seven hundred lines a second.
+local warnedRigs: { [string]: boolean } = {}
 
 -- The critically damped spring that covers a declared phase, by the conversion PostureConfig.Envelope
 -- states: within 2% of the goal after `seconds`.
@@ -123,6 +138,15 @@ end
 local function track(character: Model, humanoid: Humanoid): Entry?
 	local motors = findMotors(character, humanoid)
 	if motors == nil then
+		local rig = humanoid.RigType.Name
+		if not warnedRigs[rig] then
+			warnedRigs[rig] = true
+			log.warn(
+				"%s characters carry no Motor6D on this client, so no body will move. "
+					.. "Set the experience's Avatar Type to R6 (docs/STUDIO_SETUP.md)",
+				rig
+			)
+		end
 		return nil
 	end
 	local originals: { [string]: CFrame } = {}

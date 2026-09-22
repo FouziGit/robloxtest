@@ -250,6 +250,17 @@ describe("the controller", function()
 		expect(code:find("Animator", 1, true)).toBe(nil)
 	end)
 
+	it("says so, once, when the rig carries no joint it can pose", function()
+		-- Measured in a running client: a modern Roblox avatar is an AnimationConstraint rig with no
+		-- Motor6D anywhere, and nothing here can pose it. Silence in that case is the worst outcome --
+		-- the game looks exactly as broken as it did before this file existed and nothing says why. The
+		-- warning has to name the rig and it has to fire once, not once per character per frame.
+		expect(code:find("warnedRigs", 1, true)).never.toBe(nil)
+		expect(code:find("RigType", 1, true)).never.toBe(nil)
+		expect(code:find("Avatar Type", 1, true)).never.toBe(nil)
+		expect(code:find("log.warn", 1, true)).never.toBe(nil)
+	end)
+
 	it("puts every joint back exactly as it found it", function()
 		-- Without this a character that stops being posed keeps the last offset for the rest of its
 		-- life, and the engine's idle plays on top of a body that is already mid-swing.

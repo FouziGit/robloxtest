@@ -160,7 +160,7 @@ Ajouter `en` + `fr` à la clé dans `src/shared/Strings.luau`, puis `lune run sc
 | Audio reproductible | `python3 tools/audio/generate_all.py` + `git diff --quiet` |
 | Build | `rojo build default.project.json -o build/Vellum.rbxl` |
 
-335 tests sur 38 fichiers de spécification. Une bonne part d'entre eux ne testent pas du code mais des
+338 tests sur 38 fichiers de spécification. Une bonne part d'entre eux ne testent pas du code mais des
 invariants que rien d'autre ne peut attraper : aucun global Roblox dans les modules purs, aucune clé de
 localisation morte ni manquante, un producteur serveur pour chaque événement de quête, la caméra écrite par
 un seul module, aucune couleur ni police hors du thème, le décor jamais saturé, la figure du boss qui

@@ -221,7 +221,7 @@ Rien de la passe 8 n'a été **joué**. Les prix (15 encre pour annuler, 5 rendu
 - **Dégradation automatique** : `QualityController` compte les images et descend d'un niveau sous 40 img/s pendant 3 s, en rend un au-dessus de 55 pendant 12 s, jamais au-dessus du choix du joueur. Un seul propriétaire ; `VfxTimeline`, `WorldLighting` et `FootprintController` lisent le niveau à l'usage.
 - **Le coût de chaque effet, calculé** (D-94) : `scripts/effect-cost.luau` — 35 timelines, 477 couches, pire effet 11 couches simultanées / 201 particules / 51 instances. `docs/PERFORMANCE.md` cite sa sortie, les plafonds de `tests/EffectCost.spec.luau` sont **dérivés** (moitié du budget plancher, quart d'un plafond de pool), et la densité suit les images par seconde plutôt que le nombre de voisins (D-93).
 - **Un duel ne laisse rien derrière lui**, dans la mesure où un test sans moteur peut le prouver : `tests/PoolPolicy.spec.luau` joue 180 effets superposés et exige zéro instance vivante, zéro retour refusé, rien de garé au-dessus du plafond, et plus de 5 000 prêts pour moins de 2 % de créations ; `tests/Loops.spec.luau` déclare les quinze boucles par image du jeu et refuse la seizième.
-- **Portes** : 331 tests, 38 fichiers. Vingt et une mutations pour cette passe, toutes prises — dont deux qui ont montré que la porte des lecteurs était trop lâche (une lecture commentée et un nom de champ homonyme), et qui l'ont resserrée.
+- **Portes** : 338 tests, 38 fichiers. Vingt et une mutations pour cette passe, toutes prises — dont deux qui ont montré que la porte des lecteurs était trop lâche (une lecture commentée et un nom de champ homonyme), et qui l'ont resserrée.
 
 ### Phase 9 — ce qui n'est pas fait
 

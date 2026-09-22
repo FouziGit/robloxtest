@@ -383,6 +383,7 @@ Strings.Table = {
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
 	["shop.rotation"] = { en = "Today's selection", fr = "Sélection du jour" },
 	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
+	["shop.balance"] = { en = "You have {amount} Folios", fr = "Tu as {amount} Folios" },
 	["shop.buyRobux"] = { en = "Buy with Robux", fr = "Acheter en Robux" },
 	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },

@@ -16,10 +16,13 @@ local process = require("@lune/process")
 
 type Cost = {
 	Id: string,
-	Layers: number,
-	Peak: number,
+	Layers: number, -- every layer, including the three kinds that occupy no slot
+	Drawn: number, -- the layers that take a slot of the live budget
+	Peak: number, -- the most of those alive at the same instant
 	Seconds: number,
 	Particles: number,
+	-- Peak CONCURRENT borrows per pool class, which is what a pool ceiling is about: a lifetime total
+	-- compared against a concurrency ceiling compares two different things.
 	Instances: { [string]: number },
 }
 
@@ -32,13 +35,27 @@ local BORROWS: { [string]: { [string]: number } } = {
 	Mark = { Part = 1, Decal = 1 },
 	Emitter = { Part = 1, ParticleEmitter = 1 },
 	Trail = { Part = 1, Attachment = 2, Trail = 1 },
-	Beam = { Part = 1, Attachment = 2, Beam = 1 },
+	-- Two parts: a beam is drawn between an attachment at each end, and each end is its own host.
+	Beam = { Part = 2, Attachment = 2, Beam = 1 },
 	Light = { Part = 1, PointLight = 1 },
 	Carrier = { Part = 1 },
-	-- A shake, a flash and a sound borrow nothing: they are a camera, a post-processing pulse and a Sound.
+	-- A shake, a flash and a sound borrow nothing and never enter the live list: they are handed to Feel,
+	-- WorldLighting and SoundController and never come back (VfxTimeline.activate returns early).
 	Shake = {},
 	Flash = {},
 	Sound = {},
+}
+
+-- The kinds that occupy a slot of the live-layer budget. Counting the other three in a peak overstated
+-- twenty-six of the thirty-five timelines against the very budget the peak is compared to.
+local OCCUPIES: { [string]: boolean } = {
+	Sprite = true,
+	Mark = true,
+	Emitter = true,
+	Trail = true,
+	Beam = true,
+	Light = true,
+	Carrier = true,
 }
 
 local function phaseSeconds(phase: any): number
@@ -47,12 +64,14 @@ local function phaseSeconds(phase: any): number
 	return VfxTimelineConfig.phaseSeconds(phase, VfxTimelineConfig.MaxWindowSeconds)
 end
 
+type Span = { At: number, Until: number, Kind: string }
+
 local function costOf(id: string, timeline: any): Cost
-	local instances: { [string]: number } = {}
 	local particles = 0
 	local layers = 0
-	-- (start, finish) of every layer in the timeline's own clock, to find the peak overlap.
-	local spans: { { number } } = {}
+	-- Every layer that takes a slot, in the timeline's own clock, so the peak and the borrows at the peak
+	-- are measured at the same instants.
+	local spans: { Span } = {}
 	local offset = 0
 
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
@@ -64,9 +83,8 @@ local function costOf(id: string, timeline: any): Cost
 					layers += 1
 					local at = offset + layer.At * factor
 					local for_ = layer.For * factor
-					table.insert(spans, { at, at + for_ })
-					for class, count in pairs(BORROWS[layer.Kind] or {}) do
-						instances[class] = (instances[class] or 0) + count
+					if OCCUPIES[layer.Kind] then
+						table.insert(spans, { At = at, Until = at + for_, Kind = layer.Kind })
 					end
 					if layer.Burst ~= nil then
 						particles += layer.Burst
@@ -80,22 +98,43 @@ local function costOf(id: string, timeline: any): Cost
 		end
 	end
 
-	-- Peak overlap: walk every start and count how many spans contain it.
+	-- The peak, and what is borrowed there: walk every start and measure the set alive at that instant.
 	local peak = 0
+	local instances: { [string]: number } = {}
 	for _, span in ipairs(spans) do
 		local alive = 0
+		local borrowed: { [string]: number } = {}
 		for _, other in ipairs(spans) do
-			if other[1] <= span[1] and other[2] > span[1] then
+			if other.At <= span.At and other.Until > span.At then
 				alive += 1
+				for class, count in pairs(BORROWS[other.Kind] or {}) do
+					borrowed[class] = (borrowed[class] or 0) + count
+				end
 			end
 		end
 		peak = math.max(peak, alive)
+		for class, count in pairs(borrowed) do
+			instances[class] = math.max(instances[class] or 0, count)
+		end
 	end
 
-	return { Id = id, Layers = layers, Peak = peak, Seconds = offset, Particles = particles, Instances = instances }
+	return {
+		Id = id,
+		Layers = layers,
+		Drawn = #spans,
+		Peak = peak,
+		Seconds = offset,
+		Particles = particles,
+		Instances = instances,
+	}
 end
 
 local CostReport = {}
+
+-- Exposed so tests/EffectCost.spec.luau can hold this set against the renderer's own early returns: a kind
+-- listed here that the renderer hands off (or missing here while the renderer draws it) makes every peak in
+-- the report wrong in one direction or the other.
+CostReport.Occupies = OCCUPIES
 
 -- Every timeline's cost, sorted by id.
 function CostReport.all(): { Cost }
@@ -124,13 +163,14 @@ local CLASSES = { "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Be
 local function report()
 	local costs = CostReport.all()
 	print(
-		"| Effet | Couches | Pic simultané | Durée (s) | Particules | Instances | Part | Decal | Emitter | Attach | Trail | Beam | Light |"
+		"| Effet | Couches | Dessinées | Pic simultané | Durée (s) | Particules | Instances au pic | Part | Decal | Emitter | Attach | Trail | Beam | Light |"
 	)
-	print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+	print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 	local worstLayers, worstParticles, worstInstances = 0, 0, 0
 	local totalLayers = 0
+	local totalDrawn = 0
 	for _, cost in ipairs(costs) do
-		local row = { cost.Id, tostring(cost.Layers), tostring(cost.Peak) }
+		local row = { cost.Id, tostring(cost.Layers), tostring(cost.Drawn), tostring(cost.Peak) }
 		table.insert(row, string.format("%.2f", cost.Seconds))
 		table.insert(row, string.format("%d", math.floor(cost.Particles + 0.5)))
 		table.insert(row, tostring(CostReport.instanceTotal(cost)))
@@ -142,18 +182,25 @@ local function report()
 		worstParticles = math.max(worstParticles, cost.Particles)
 		worstInstances = math.max(worstInstances, CostReport.instanceTotal(cost))
 		totalLayers += cost.Layers
+		totalDrawn += cost.Drawn
 	end
 	print("")
-	print(("%d timelines, %d layers in total."):format(#costs, totalLayers))
 	print(
-		("Worst effect: %d layers alive at once, %d particles, %d instances borrowed."):format(
+		("%d timelines et %d couches, dont %d qui prennent une place du budget."):format(
+			#costs,
+			totalLayers,
+			totalDrawn
+		)
+	)
+	print(
+		("Pire effet : %d couches vivantes au même instant, %d particules, %d instances empruntées au pic."):format(
 			worstLayers,
 			math.floor(worstParticles + 0.5),
 			worstInstances
 		)
 	)
 	print(
-		("Layer budget: %d (QualityConfig.Tiers.High.Layers), so %.1f of the worst effect at once."):format(
+		("Budget de couches : %d (QualityConfig.Tiers.High.Layers), soit %.1f fois le pire effet à la fois."):format(
 			VfxTimelineConfig.MaxLiveLayers,
 			VfxTimelineConfig.MaxLiveLayers / math.max(worstLayers, 1)
 		)

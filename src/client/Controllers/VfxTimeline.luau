@@ -441,6 +441,14 @@ end
 -- radius of the shell an inward emitter spawns on, so a particle born at the edge of it arrives at the
 -- centre as it dies -- which is what "pulled inward" has to mean, and what forty layers in the data ask
 -- for with a negative speed.
+-- How many particles a layer really asks for at `density`: its burst (floored at one when it asked for
+-- any) plus its rate over its own life. Under one, the layer is invisible and is not drawn at all.
+local function expectedParticles(layer: Layer, seconds: number, density: number): number
+	local burst = if layer.Burst ~= nil then math.max(1, math.floor(layer.Burst * density)) else 0
+	local rate = if layer.Rate ~= nil then layer.Rate * density * math.max(seconds, 0) else 0
+	return burst + rate
+end
+
 local function convergeRadius(speed: { number }, lifetime: { number }, scale: number): number
 	local meanSpeed = (math.abs(speed[1]) + math.abs(speed[2])) * 0.5 * scale
 	local meanLife = (lifetime[1] + lifetime[2]) * 0.5
@@ -513,9 +521,11 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
 	end
 
-	-- Art bible rule 8: the density falls with the graphics setting. A burst that asked for particles
-	-- never rounds to none -- an impact with no grit at all reads as a missing effect rather than as a
-	-- thin one -- so the floor is one.
+	-- Art bible rule 8: the density falls with the graphics setting. A burst that asked for particles never
+	-- rounds to none -- an impact with no grit reads as a missing effect rather than as a thin one -- so a
+	-- burst floors at one. A RATE has no such floor, and a thin rate scaled to a fifth emitted nothing at
+	-- all while still costing a part, an emitter and a layer of the budget: those layers are skipped
+	-- outright now (see expectedParticles), which is what a graphics tier is supposed to do.
 	local tier: QualityConfig.TierDef = quality.def()
 	local density = tier.ParticleScale
 	if layer.Burst ~= nil then
@@ -912,6 +922,11 @@ local function activate(item: Pending, now: number)
 	-- has had to be (Config/QualityConfig). Read per layer, so a tier that changes mid-fight thins the
 	-- next layer rather than the next effect.
 	local tier: QualityConfig.TierDef = quality.def()
+	if layer.Kind == "Emitter" and expectedParticles(layer, item.Seconds, tier.ParticleScale) < 1 then
+		-- At this density the layer would emit nothing: a part, an emitter and a slot of the budget spent
+		-- on no particles at all. Not drawn, which is the whole point of a tier.
+		return
+	end
 	if layer.Kind == "Light" and not tier.Lights then
 		-- A light is the first thing a struggling client stops paying for: Roblox pays for a local light
 		-- whether or not it ends up lit. Nothing a player has to READ is a light -- every telegraph is a
@@ -926,9 +941,15 @@ local function activate(item: Pending, now: number)
 		-- first" would retire exactly the layers six players are reading, in the fight that fills the
 		-- budget. The oldest ordinary layer goes instead; if there is none, an ordinary newcomer is the
 		-- one not drawn, and a warning is drawn over budget.
+		-- Never a warning, and never a CARRIER. A carrier is an invisible part that flies, and everything
+		-- visible about a projectile is some other layer riding it: retiring the carrier frees one layer of
+		-- budget, keeps every instance it was carrying, and leaves the trail and the smoke frozen at the
+		-- cast point while the server's projectile flies on. It is also the oldest layer of its own play,
+		-- so "oldest first" chose it first -- which never mattered while the budget was ninety and became
+		-- routine the moment the lower tiers arrived.
 		local victim: number? = nil
 		for index, entry in ipairs(live) do
-			if not entry.Warning then
+			if not entry.Warning and entry.Layer.Kind ~= "Carrier" then
 				victim = index
 				break
 			end

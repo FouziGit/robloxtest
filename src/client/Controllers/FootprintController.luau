@@ -121,17 +121,17 @@ local function onHeartbeat()
 	local tier: QualityConfig.TierDef = quality.def()
 	local share = tier.Footprints
 	local allowed = math.floor(FOOTPRINTS.MaxLive * share)
-	if allowed <= 0 then
-		return
-	end
 	local stats = timeline.stats()
-	local busy = type(stats) == "table" and (stats.Live or 0) >= FOOTPRINTS.YieldAboveLayers
+	local ceiling = tier.Layers * FOOTPRINTS.YieldAboveBudget
+	local busy = type(stats) == "table" and (stats.Live or 0) >= ceiling
 
 	local now = os.clock()
 	pruneRetired(now)
 	local eye = camera.CFrame.Position
 	local seen: { [Model]: boolean } = {}
 	local candidates: { Candidate } = {}
+	-- A tier that draws no prints at all still has to sweep: returning early here pinned the Model of
+	-- every character that ever walked past, for the whole session.
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		local character = player.Character
@@ -166,7 +166,7 @@ local function onHeartbeat()
 	table.sort(candidates, function(a: Candidate, b: Candidate): boolean
 		return a.Distance < b.Distance
 	end)
-	local remaining = allowed - liveCount()
+	local remaining = if allowed > 0 then allowed - liveCount() else 0
 	for _, candidate in ipairs(candidates) do
 		if remaining <= 0 then
 			break

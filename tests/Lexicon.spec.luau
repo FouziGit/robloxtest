@@ -16,6 +16,8 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local ROOTS = { "src", "tests", "docs" }
+-- The front door is a page a player reads before anything else.
+local EXTRA_FILES = { "README.md" }
 
 -- Lowercased; the scan lowercases the source, so each entry covers every capitalisation.
 local BORROWED: { [string]: string } = {
@@ -117,7 +119,7 @@ end
 
 describe("lexicon", function()
 	it("never uses a borrowed name", function()
-		local files: { string } = {}
+		local files: { string } = table.clone(EXTRA_FILES)
 		for _, root in ipairs(ROOTS) do
 			collect(root, files)
 		end

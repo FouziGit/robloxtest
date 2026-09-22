@@ -2,9 +2,11 @@
 -- What the client is allowed to draw, in four tiers, and when it drops one on its own.
 --
 -- docs/JUICE_PLAN.md phase 9: three graphics settings plus a Performance mode that cuts post-processing,
--- and automatic degradation if the frame rate falls. Art bible rule 8 says the same thing from the other
--- side: "la densité de particules est plafonnée et diminue avec le réglage graphique. Un effet qu'on ne
--- peut pas afficher est un effet qu'on ne joue pas."
+-- and automatic degradation if the frame rate falls. Art bible rule 8, in full: "La densité de particules
+-- est plafonnée et diminue avec le nombre de joueurs proches et le réglage graphique. Un effet qu'on ne
+-- peut pas afficher est un effet qu'on ne joue pas." The graphics setting is here; the number of nearby
+-- players is NOT counted anywhere, and the frame rate stands in for it on purpose (D-93) -- six players
+-- casting at once is what the counter would have measured, and the frame rate is its consequence.
 --
 -- One tier is one row, and every field of that row has exactly one reader:
 --   Layers          -- src/client/Controllers/VfxTimeline (the live-layer ceiling, oldest retired first)

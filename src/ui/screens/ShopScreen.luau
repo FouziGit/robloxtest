@@ -408,9 +408,8 @@ function ShopScreen.new(deps: Deps): Screen
 
 	local function refresh()
 		local data = deps.ClientData.get()
-		balanceLabel.Text = if data ~= nil
-			then t("shop.buyFolios", { price = math.floor(data.Currency.Folios) })
-			else ""
+		-- Its own line, not the buy button's: the balance is not a price.
+		balanceLabel.Text = if data ~= nil then t("shop.balance", { amount = math.floor(data.Currency.Folios) }) else ""
 		local wanted = signatureOf(snapshot)
 		if wanted ~= signature then
 			signature = wanted

@@ -6,13 +6,15 @@
 -- the ceilings below are checked against the real thing on every run of the gates rather than against a
 -- table somebody updated by hand.
 --
--- Every ceiling here is DERIVED from another number in the repository, never chosen:
+-- Two of the three ceilings here are DERIVED from another number in the repository:
 --   * an effect's peak layers must fit twice inside the lowest tier's budget, so the worst machine in the
 --     game can still show two effects at once;
 --   * CONCURRENT_EFFECTS of any single effect must fit inside every pool ceiling of PoolPolicy, so the
---     heaviest effect in the game cannot exhaust a class on its own;
---   * the particle ceiling is the one number with a device behind it rather than a config: two of the
---     worst effect at the top tier, which is what docs/PERFORMANCE.md records as tested.
+--     heaviest effect in the game cannot exhaust a class on its own.
+-- The third -- the particle ceiling -- is CHOSEN, and nothing in this repository has measured it. No device
+-- has run this game. It is set at roughly twice the heaviest effect the data asks for, which is a
+-- ratchet against drift and not a statement about any phone: it is the first number to replace with a
+-- measurement (docs/PERFORMANCE.md says the same).
 local EffectCost = require("../scripts/effect-cost")
 local Harness = require("./harness")
 local PoolPolicy = require("../src/shared/Pure/PoolPolicy")
@@ -36,7 +38,13 @@ end
 -- everybody casts the same thing in the same second, which is the worst case a class ceiling has to
 -- survive without refusing a borrow.
 local CONCURRENT_EFFECTS = 4
+-- Chosen, not measured. See the header.
 local PARTICLE_CEILING = 400
+-- Every class the renderer borrows, so the cost model cannot silently miss one.
+local BORROWED_CLASSES = { "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Beam", "PointLight" }
+local RENDERER = "src/client/Controllers/VfxTimeline.luau"
+-- The three kinds the renderer hands to another system and never puts in the live list.
+local HANDED_OFF = { "Shake", "Flash", "Sound" }
 -- Where each tier field is read, and the gate is the reader's own source: a field nothing reads is a
 -- promise to the player that nothing keeps. Each reader holds its row in a local named `tier` and the
 -- search is for `tier.<Field>` in the source with its comments stripped -- a looser search matched a
@@ -100,10 +108,69 @@ describe("the cost of an effect", function()
 		end
 	end)
 
-	it("asks for no more particles than a device was measured holding", function()
+	it("asks for no more particles than the ceiling this repository chose", function()
 		for _, cost in ipairs(costs) do
 			if cost.Particles > PARTICLE_CEILING then
 				error(("%s asks for %d particles; the ceiling is %d"):format(cost.Id, cost.Particles, PARTICLE_CEILING))
+			end
+		end
+	end)
+
+	it("counts every kind that takes a slot, and no kind that does not", function()
+		-- A shake, a flash and a sound are handed to Feel, WorldLighting and SoundController and never enter
+		-- the live list, so counting them in a peak overstated twenty-six of the thirty-five timelines
+		-- against the very budget the peak is compared to. The other direction is worse: a kind the
+		-- renderer DOES draw and this set forgets would understate every peak.
+		local renderer = fs.readFile(RENDERER)
+		for _, kind in ipairs(HANDED_OFF) do
+			if string.find(renderer, 'layer.Kind == "' .. kind .. '"', 1, true) == nil then
+				error(("the renderer no longer hands %s off: the cost model's OCCUPIES set is stale"):format(kind))
+			end
+			if EffectCost.Occupies[kind] then
+				error(("%s takes no slot of the budget and the cost model counts it"):format(kind))
+			end
+		end
+		-- Every kind the data really uses is one or the other, so a new kind cannot be silently dropped.
+		local used: { [string]: boolean } = {}
+		for _, timeline in pairs(VfxTimelineConfig.Timelines) do
+			for _, phase in ipairs(timeline.Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					used[layer.Kind] = true
+				end
+			end
+		end
+		for kind in pairs(used) do
+			local handed = table.find(HANDED_OFF, kind) ~= nil
+			if handed == (EffectCost.Occupies[kind] == true) then
+				error(("%s is neither drawn nor handed off, or it is both"):format(kind))
+			end
+		end
+		for _, cost in ipairs(costs) do
+			expect(cost.Drawn).toBeLessThanOrEqual(cost.Layers)
+			expect(cost.Peak).toBeLessThanOrEqual(cost.Drawn)
+		end
+	end)
+
+	it("borrows the classes the renderer really borrows", function()
+		-- The model is a copy of what the renderer does, and a copy drifts. This does not prove the counts
+		-- (only an engine could), but it proves the SET: a class the renderer borrows and the model never
+		-- names would make every pool comparison below optimistic.
+		local renderer = fs.readFile(RENDERER)
+		local named: { [string]: boolean } = {}
+		for class in string.gmatch(renderer, 'borrow%(entry, "([%a]+)"%)') do
+			named[class] = true
+		end
+		-- `host` is itself a Part borrow, which is why Part is not in the matches above.
+		named.Part = true
+		expect(next(named)).never.toBeNil()
+		for class in pairs(named) do
+			if not table.find(BORROWED_CLASSES, class) then
+				error(("the renderer borrows a %s and the cost model does not know the class"):format(class))
+			end
+		end
+		for _, class in ipairs(BORROWED_CLASSES) do
+			if not named[class] then
+				error(("the cost model counts %s and the renderer never borrows one"):format(class))
 			end
 		end
 	end)

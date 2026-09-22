@@ -130,10 +130,12 @@ WorldConfig.Footprints = {
 	-- slot and nobody else would leave a mark; the nearest walkers are served first.
 	MaxLive = 24,
 	MaxPerCharacter = 8,
-	-- No print is stamped while the timeline already carries this many layers. Eviction is oldest-first
-	-- across every effect, so this -- not MaxLive -- is what keeps a crowd in the hub from pushing a
-	-- fight's own residue off the screen.
-	YieldAboveLayers = 60,
+	-- No print is stamped once the timeline is carrying this FRACTION of the budget of the tier being drawn
+	-- (QualityConfig). Eviction is oldest-first across every effect, so this -- not MaxLive -- is what
+	-- keeps a crowd in the hub from pushing a fight's own residue off the screen. It has to be a fraction:
+	-- as an absolute sixty it equalled the Medium tier's whole budget, so on that tier it only became true
+	-- once the timeline was already full and already evicting, which is exactly what it exists to prevent.
+	YieldAboveBudget = 0.66,
 	-- A print is longer than it is wide and lies along the walk: Size is its width, Span its length.
 	Layer = {
 		Kind = "Mark",

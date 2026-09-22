@@ -267,3 +267,21 @@ qu'au nombre brut.
 un adversaire), et le menu propose l'invitation native de la plateforme (D-99). Avec la revanche en un clic
 déjà livrée, il reste les **emotes** — et elles sont bloquées par les assets, pas reportées : elles
 demandent des animations, que ce dépôt ne peut ni produire ni emprunter.
+
+### Ce que la relecture de la passe 9 a changé (D-100)
+
+Quatre graves, tous réels, et la moitié d'entre eux n'existaient que parce que la passe 9 a rendu
+**variable** ce qui était constant : l'éviction pouvait retirer un porteur et figer un projectile entier
+(inatteignable à 90 couches, courant à 24) ; le seuil de retenue des empreintes valait le budget entier du
+niveau Moyen ; un seul gel de trois secondes coûtait un niveau ; et choisir un niveau plus bas en étant
+déjà rétrogradé faisait **remonter**.
+
+Le modèle de coût a été refait : il comptait des couches qui ne prennent aucune place du budget et sommait
+les instances sur la vie de l'effet pour les comparer à un plafond de simultanéité. Le pire effet passe de
+11 couches / 51 instances à **10 / 27**, une porte relit les emprunts dans la source du rendu, et le
+plafond de particules est désormais dit **choisi** et non mesuré — parce qu'aucun appareil n'a fait tourner
+ce jeu, et que le test l'affirmait mesuré.
+
+`docs/PERFORMANCE.md` dit maintenant **comment** mesurer (Performance Stats, MicroProfiler, l'application
+sur un vrai téléphone) et dans quel ordre corriger : c'est le document qu'une personne prendra le premier
+jour.

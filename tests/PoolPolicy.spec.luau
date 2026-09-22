@@ -6,6 +6,7 @@
 --
 -- So the policy is driven here through the sequences a real fight produces, with no engine anywhere near
 -- it: borrow, release, reuse, overflow, double release, and the bound that says the thing cannot grow.
+local EffectCost = require("../scripts/effect-cost")
 local Harness = require("./harness")
 local PoolPolicy = require("../src/shared/Pure/PoolPolicy")
 local fs = require("@lune/fs")
@@ -212,16 +213,21 @@ end)
 -- left nothing behind is the accounting coming back to zero -- which is exactly what a client cannot tell
 -- you, because a leaked part is invisible until the frame rate is gone.
 describe("a duel's worth of borrows", function()
-	-- The heaviest effect measured by scripts/effect-cost.luau (Ligature: 25 parts, 11 decals, 7 emitters,
-	-- 2 attachments, 1 trail, 5 lights), which is the row that reaches a ceiling first.
-	local HEAVIEST: { [string]: number } = {
-		Part = 25,
-		Decal = 11,
-		ParticleEmitter = 7,
-		Attachment = 2,
-		Trail = 1,
-		PointLight = 5,
-	}
+	-- The heaviest effect in the game, taken from the same measurement the gates use rather than copied out
+	-- of its output by hand: a hand-copied row is a number that stops being true the day an effect changes.
+	local HEAVIEST: { [string]: number } = (function(): { [string]: number }
+		local worst: { [string]: number } = {}
+		local worstTotal = 0
+		for _, cost in ipairs(EffectCost.all()) do
+			local total = EffectCost.instanceTotal(cost)
+			if total > worstTotal then
+				worstTotal = total
+				worst = cost.Instances
+			end
+		end
+		assert(worstTotal > 0, "no effect borrows anything: the cost report is empty")
+		return worst
+	end)()
 	-- A three-minute duel at roughly one cast a second, with four effects overlapping at the peak.
 	local EFFECTS = 180
 	local OVERLAP = 4
@@ -299,7 +305,9 @@ describe("a duel's worth of borrows", function()
 		for _, state in pairs(policy:report()) do
 			created += state.Created
 		end
-		expect(handouts).toBeGreaterThan(5000)
+		-- A duel's worth of borrows, whatever the heaviest effect happens to be today (the number moved when
+		-- the cost model started measuring borrows at the peak instead of over a lifetime).
+		expect(handouts).toBeGreaterThan(EFFECTS * 20)
 		-- One creation per class per depth, and nothing after that: the ratio is the pooling.
 		expect(created).toBeLessThan(handouts / 50)
 	end)

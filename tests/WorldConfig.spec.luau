@@ -5,6 +5,7 @@
 -- src/server may name a Color3 or a Material of its own.
 local AssetIds = require("../src/shared/Config/AssetIds")
 local Harness = require("./harness")
+local QualityConfig = require("../src/shared/Config/QualityConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
@@ -310,15 +311,33 @@ describe("the footprints", function()
 		expect(layer.Span).toBeGreaterThan(layer.Size)
 	end)
 
-	it("can never push an effect's residue out of the pool", function()
+	it("can never push an effect's residue out of the pool, at any tier", function()
 		-- MaxLive alone was never the guarantee the config claimed: eviction inside the timeline is
-		-- oldest-first across every effect, so a print stamped at the cap removes whatever is oldest,
-		-- which in a fight is the fight's own residue. YieldAboveLayers is the real bound -- prints stop
-		-- being stamped before the pool can fill -- and this is the arithmetic that says so.
+		-- oldest-first across every effect, so a print stamped at the cap removes whatever is oldest, which
+		-- in a fight is the fight's own residue. The real bound is the yield threshold -- prints stop being
+		-- stamped before the pool can fill -- and it has to hold at EVERY tier, not just the one the
+		-- timeline's own ceiling belongs to: as an absolute number it equalled the Medium tier's whole
+		-- budget, so on that tier it only became true once the pool was already full.
 		expect(footprints.MaxLive).toBeGreaterThan(0)
 		expect(footprints.MaxPerCharacter).toBeGreaterThan(0)
 		expect(footprints.MaxPerCharacter).toBeLessThanOrEqual(footprints.MaxLive)
-		expect(footprints.YieldAboveLayers + footprints.MaxLive).toBeLessThanOrEqual(VfxTimelineConfig.MaxLiveLayers)
+		expect(footprints.YieldAboveBudget).toBeGreaterThan(0)
+		expect(footprints.YieldAboveBudget).toBeLessThan(1)
+		for _, name in ipairs(QualityConfig.Order) do
+			local tier = QualityConfig.Tiers[name]
+			local yieldAt = math.floor(tier.Layers * footprints.YieldAboveBudget)
+			local prints = math.floor(footprints.MaxLive * tier.Footprints)
+			if yieldAt + prints > tier.Layers then
+				error(
+					("at %s the floor can hold %d layers, and %d prints on top of a yield at %d does not fit"):format(
+						name,
+						tier.Layers,
+						prints,
+						yieldAt
+					)
+				)
+			end
+		end
 		expect(footprints.StrideStuds).toBeGreaterThan(0)
 		expect(footprints.RangeStuds).toBeGreaterThan(footprints.StrideStuds)
 	end)

@@ -313,6 +313,7 @@ settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
 settings.tab.graphics,Graphics,Vellum,,Graphics,Graphismes
 settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
 settings.title,Settings,Vellum,,Settings,Options
+shop.balance,You have {amount} Folios,Vellum,,You have {amount} Folios,Tu as {amount} Folios
 shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
 shop.buyRobux,Buy with Robux,Vellum,,Buy with Robux,Acheter en Robux
 shop.equip,Equip,Vellum,,Equip,Équiper

@@ -50,10 +50,11 @@ type PolicyImpl = typeof(setmetatable({} :: Policy, PoolPolicy))
 
 -- Shipped ceilings, one row per class the VFX layer builds.
 --
--- These are NOT what enforces art bible rule 8. VfxTimelineConfig.MaxLiveLayers is: ninety layers alive
--- at once across every effect on screen, past which the runtime retires the oldest early. A layer borrows
--- between one and five instances, so the timeline runs out of layer budget long before it runs out of any
--- row below, and most of these ceilings are deliberately out of reach of it.
+-- These are NOT what enforces art bible rule 8. The live-layer budget of the graphics tier being drawn is
+-- (Config/QualityConfig: ninety at the top, twenty-four at the floor), past which the runtime retires the
+-- oldest ordinary layer early. A layer borrows between one and five instances, so the timeline runs out of
+-- layer budget long before it runs out of any row below, and most of these ceilings are deliberately out
+-- of reach of it.
 --
 -- What they are is the backstop, and it has two jobs a layer budget cannot do. The thirty renderers phase
 -- 4 has not converted yet still call Instance.new directly and will come through here one at a time as

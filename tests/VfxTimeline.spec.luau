@@ -15,6 +15,7 @@ local LightingConfig = require("../src/shared/Config/LightingConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -512,6 +513,23 @@ describe("vfx timelines", function()
 					)
 				)
 			end
+		end
+	end)
+
+	it("never retires a carrier out from under the layers riding it", function()
+		-- A source check, because it is the only kind available: nothing in Lune can fill a live list and
+		-- watch an eviction. A carrier is an invisible part that flies, and everything visible about a
+		-- projectile is some other layer riding it -- so retiring the carrier frees one slot of budget, keeps
+		-- every instance it was carrying, and leaves the trail and the smoke frozen at the cast point while
+		-- the server's projectile flies on. It was unreachable while the budget was ninety for everyone, and
+		-- became routine the moment the graphics tiers brought the floor down to twenty-four.
+		local source = fs.readFile("src/client/Controllers/VfxTimeline.luau")
+		local victim = string.match(source, "local victim: number%? = nil.-\n\t\tend")
+		if victim == nil then
+			error("VfxTimeline has no eviction victim search; this test is checking nothing")
+		end
+		if string.find(victim, '~= "Carrier"', 1, true) == nil then
+			error("the eviction can pick a Carrier: every layer riding it would freeze at the cast point")
 		end
 	end)
 

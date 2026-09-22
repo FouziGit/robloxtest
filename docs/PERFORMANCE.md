@@ -54,11 +54,20 @@ personne ne lit est une promesse faite au joueur que rien ne tient.
 | entre les deux | rien ne bouge |
 
 L'écart entre 40 et 55 est ce qui empêche un client posé à cinquante images de descendre et remonter sans
-fin. Remonter est **quatre fois plus lent** que descendre, parce que chaque changement rallume le
-post-traitement, ce qui compile des shaders : un niveau qui oscille coûte plus cher que le niveau qu'il
-essayait de quitter. La mesure est volontairement bête — des images comptées sur une seconde — parce que
-la décision qu'elle nourrit est grossière ; un estimateur plus fin bougerait le niveau sur un seul
-à-coup.
+fin. Remonter est **quatre fois plus lent** que descendre, parce que la transition qui traverse le niveau
+Performance rallume les cinq effets de post-traitement, ce qui compile des shaders : un niveau qui oscille
+là-dessus coûte plus cher que celui qu'il essayait de quitter.
+
+Un échantillon ne compte **au plus que sa propre durée**. Sans ce plafond, un seul gel de trois secondes —
+un niveau qui charge, un téléport, un personnage qui apparaît — arrivait comme un échantillon de trois
+secondes à un tiers d'image par seconde et satisfaisait « trois secondes sous quarante » à lui tout seul :
+un à-coup coûtait un niveau. Il faut maintenant trois **échantillons** mauvais, c'est-à-dire trois secondes
+à être vraiment lent.
+
+Trois valeurs, pas deux : le choix du joueur est un **plafond**, ce que les images par seconde ont décidé
+est un second niveau tenu à part, et ce qui est dessiné est le **pire des deux**. C'est ce qui fait qu'un
+joueur déjà rétrogradé qui choisit un niveau plus bas obtient bien le plus bas — écrire son choix
+directement dans le niveau dessiné le faisait **remonter**.
 
 ## Ce que coûte chaque effet
 
@@ -67,56 +76,67 @@ en même temps au pire instant de l'effet — c'est ce que le budget ci-dessus d
 que l'effet emprunte au pool. Les phases à fenêtre sont mesurées à la fenêtre la plus longue que la
 configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 
-| Effet | Couches | Pic simultané | Durée (s) | Particules | Instances | Part | Decal | Emitter | Attach | Trail | Beam | Light |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Binding | 13 | 6 | 2.70 | 53 | 25 | 10 | 8 | 3 | 2 | 0 | 1 | 1 |
-| Bleed | 13 | 6 | 4.60 | 52 | 28 | 11 | 3 | 2 | 6 | 0 | 3 | 3 |
-| Blot | 17 | 8 | 2.70 | 136 | 29 | 13 | 1 | 7 | 4 | 1 | 1 | 2 |
-| BossDefeated | 16 | 7 | 3.30 | 123 | 24 | 12 | 6 | 4 | 0 | 0 | 0 | 2 |
-| BossEruption | 20 | 10 | 4.30 | 156 | 30 | 15 | 6 | 7 | 0 | 0 | 0 | 2 |
-| BossEruptionSafe | 4 | 3 | 3.80 | 22 | 8 | 4 | 3 | 1 | 0 | 0 | 0 | 0 |
-| BossFury | 20 | 8 | 4.50 | 146 | 28 | 14 | 8 | 4 | 0 | 0 | 0 | 2 |
-| BossPhase | 8 | 5 | 3.30 | 52 | 10 | 5 | 2 | 2 | 0 | 0 | 0 | 1 |
-| BossScour | 4 | 4 | 1.60 | 11 | 8 | 4 | 2 | 1 | 0 | 0 | 0 | 1 |
-| BossSlam | 17 | 8 | 4.00 | 103 | 24 | 12 | 6 | 4 | 0 | 0 | 0 | 2 |
-| BossSpawn | 17 | 8 | 3.30 | 130 | 26 | 13 | 6 | 5 | 0 | 0 | 0 | 2 |
-| BossSweep | 20 | 10 | 4.00 | 98 | 30 | 15 | 9 | 4 | 0 | 0 | 0 | 2 |
-| Brand | 10 | 5 | 1.80 | 47 | 17 | 8 | 0 | 4 | 2 | 1 | 0 | 2 |
-| Caret | 15 | 9 | 1.08 | 76 | 27 | 12 | 6 | 4 | 2 | 1 | 0 | 2 |
-| Cast | 9 | 4 | 0.84 | 32 | 18 | 7 | 4 | 3 | 2 | 0 | 1 | 1 |
-| Colophon | 16 | 7 | 2.38 | 64 | 31 | 12 | 8 | 3 | 4 | 0 | 2 | 2 |
-| ColophonLink | 11 | 7 | 1.91 | 48 | 23 | 9 | 4 | 3 | 4 | 0 | 2 | 1 |
-| Dash | 5 | 3 | 0.87 | 12 | 12 | 5 | 1 | 2 | 2 | 1 | 0 | 1 |
-| Explosion | 10 | 7 | 3.22 | 44 | 15 | 7 | 4 | 3 | 0 | 0 | 0 | 1 |
-| Gilding | 17 | 4 | 4.00 | 42 | 44 | 14 | 5 | 3 | 14 | 7 | 0 | 1 |
-| Hairline | 12 | 6 | 1.11 | 27 | 23 | 9 | 0 | 3 | 6 | 2 | 1 | 2 |
-| Hit | 6 | 4 | 2.58 | 20 | 11 | 5 | 3 | 2 | 0 | 0 | 0 | 1 |
-| Ligature | 27 | 10 | 3.06 | 108 | 51 | 25 | 11 | 7 | 2 | 1 | 0 | 5 |
-| Margin | 14 | 6 | 5.46 | 39 | 28 | 11 | 14 | 2 | 0 | 0 | 0 | 1 |
-| Melee | 5 | 3 | 0.46 | 14 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
-| Pounce | 14 | 6 | 4.82 | 201 | 26 | 13 | 5 | 7 | 0 | 0 | 0 | 1 |
-| Rupture | 13 | 7 | 3.27 | 112 | 20 | 10 | 4 | 4 | 0 | 0 | 0 | 2 |
-| Scorch | 20 | 9 | 3.36 | 62 | 44 | 17 | 5 | 4 | 10 | 5 | 0 | 3 |
-| Serif | 19 | 11 | 2.30 | 80 | 36 | 16 | 5 | 7 | 4 | 0 | 2 | 2 |
-| Spiral | 16 | 7 | 4.70 | 109 | 22 | 11 | 6 | 4 | 0 | 0 | 0 | 1 |
-| Stipple | 12 | 8 | 2.36 | 53 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
-| Strike | 12 | 8 | 0.91 | 56 | 19 | 9 | 1 | 4 | 2 | 1 | 0 | 2 |
-| Sweep | 12 | 7 | 1.24 | 65 | 20 | 9 | 6 | 4 | 0 | 0 | 0 | 1 |
-| Wash | 15 | 9 | 3.00 | 50 | 26 | 12 | 6 | 4 | 2 | 1 | 0 | 1 |
-| Watermark | 18 | 5 | 4.34 | 115 | 26 | 13 | 3 | 5 | 0 | 0 | 0 | 5 |
+| Effet | Couches | Dessinées | Pic simultané | Durée (s) | Particules | Instances au pic | Part | Decal | Emitter | Attach | Trail | Beam | Light |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Binding | 13 | 10 | 5 | 2.70 | 53 | 15 | 6 | 4 | 1 | 2 | 0 | 1 | 1 |
+| Bleed | 13 | 11 | 4 | 4.60 | 52 | 11 | 5 | 1 | 1 | 2 | 0 | 1 | 1 |
+| Blot | 17 | 13 | 7 | 2.70 | 136 | 18 | 8 | 1 | 2 | 4 | 1 | 1 | 1 |
+| BossDefeated | 16 | 12 | 5 | 3.30 | 123 | 10 | 5 | 2 | 2 | 0 | 0 | 0 | 1 |
+| BossEruption | 20 | 15 | 7 | 4.30 | 156 | 14 | 7 | 3 | 3 | 0 | 0 | 0 | 1 |
+| BossEruptionSafe | 4 | 4 | 3 | 3.80 | 22 | 6 | 3 | 2 | 1 | 0 | 0 | 0 | 0 |
+| BossFury | 20 | 14 | 6 | 4.50 | 146 | 13 | 6 | 4 | 2 | 0 | 0 | 0 | 1 |
+| BossPhase | 8 | 5 | 2 | 3.30 | 52 | 5 | 2 | 1 | 1 | 0 | 0 | 0 | 1 |
+| BossScour | 4 | 4 | 4 | 1.60 | 11 | 8 | 4 | 2 | 1 | 0 | 0 | 0 | 1 |
+| BossSlam | 17 | 12 | 5 | 4.00 | 103 | 11 | 5 | 3 | 2 | 0 | 0 | 0 | 1 |
+| BossSpawn | 17 | 13 | 6 | 3.30 | 130 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
+| BossSweep | 20 | 15 | 8 | 4.00 | 98 | 17 | 8 | 6 | 2 | 0 | 0 | 0 | 1 |
+| Brand | 10 | 8 | 4 | 1.80 | 47 | 9 | 4 | 0 | 1 | 2 | 1 | 0 | 1 |
+| Caret | 15 | 12 | 8 | 1.08 | 76 | 19 | 8 | 4 | 3 | 2 | 1 | 0 | 1 |
+| Cast | 9 | 7 | 4 | 0.84 | 32 | 15 | 5 | 4 | 2 | 2 | 0 | 1 | 1 |
+| Colophon | 16 | 12 | 7 | 2.38 | 64 | 24 | 8 | 6 | 2 | 4 | 0 | 2 | 2 |
+| ColophonLink | 11 | 9 | 6 | 1.91 | 48 | 20 | 7 | 4 | 2 | 4 | 0 | 2 | 1 |
+| Dash | 5 | 5 | 3 | 0.87 | 12 | 9 | 3 | 1 | 1 | 2 | 1 | 0 | 1 |
+| Explosion | 10 | 7 | 5 | 3.22 | 44 | 12 | 5 | 4 | 2 | 0 | 0 | 0 | 1 |
+| Gilding | 17 | 14 | 4 | 4.00 | 42 | 16 | 4 | 4 | 1 | 4 | 2 | 0 | 1 |
+| Hairline | 12 | 9 | 5 | 1.11 | 27 | 17 | 6 | 0 | 1 | 6 | 2 | 1 | 1 |
+| Hit | 6 | 5 | 3 | 2.58 | 20 | 8 | 3 | 3 | 1 | 0 | 0 | 0 | 1 |
+| Ligature | 27 | 25 | 10 | 3.06 | 108 | 23 | 10 | 6 | 3 | 2 | 1 | 0 | 1 |
+| Margin | 14 | 11 | 5 | 5.46 | 39 | 12 | 5 | 5 | 1 | 0 | 0 | 0 | 1 |
+| Melee | 5 | 5 | 3 | 0.46 | 14 | 7 | 3 | 2 | 1 | 0 | 0 | 0 | 1 |
+| Pounce | 14 | 13 | 6 | 4.82 | 201 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
+| Rupture | 13 | 10 | 4 | 3.27 | 112 | 11 | 4 | 3 | 2 | 0 | 0 | 0 | 2 |
+| Scorch | 20 | 17 | 8 | 3.36 | 62 | 26 | 8 | 3 | 1 | 8 | 4 | 0 | 2 |
+| Serif | 19 | 16 | 10 | 2.30 | 80 | 27 | 12 | 5 | 2 | 4 | 0 | 2 | 2 |
+| Spiral | 16 | 11 | 5 | 4.70 | 109 | 10 | 5 | 2 | 2 | 0 | 0 | 0 | 1 |
+| Stipple | 12 | 9 | 6 | 2.36 | 53 | 14 | 6 | 2 | 2 | 2 | 1 | 0 | 1 |
+| Strike | 12 | 9 | 6 | 0.91 | 56 | 15 | 6 | 1 | 3 | 2 | 1 | 0 | 2 |
+| Sweep | 12 | 9 | 5 | 1.24 | 65 | 12 | 5 | 5 | 1 | 0 | 0 | 0 | 1 |
+| Wash | 15 | 12 | 8 | 3.00 | 50 | 18 | 8 | 5 | 1 | 2 | 1 | 0 | 1 |
+| Watermark | 18 | 13 | 4 | 4.34 | 115 | 9 | 4 | 2 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 35 timelines, 477 layers in total. Worst effect: 11 layers alive at once, 201 particles, 51 instances borrowed. Le budget du niveau le plus élevé tient donc huit fois le
+**Lecture.** 35 timelines et 477 couches, dont 376 qui prennent une place du budget. Pire effet : 10 couches vivantes au même instant, 201 particules, 27 instances empruntées au pic. Le budget du niveau le plus élevé tient donc neuf fois le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.
 
-Les trois plafonds que la porte dérive au lieu de les choisir :
+Trois colonnes valent une explication. « Couches » compte tout ce que la timeline déclare ; « Dessinées »
+n'en garde que ce qui occupe une place du budget — une secousse, un éclair d'écran et un son sont remis à
+`Feel`, `WorldLighting` et `SoundController` et n'y reviennent jamais ; « Instances au pic » est ce que
+l'effet emprunte **au même instant**, pas sur sa vie entière, parce qu'un plafond de pool est une limite de
+simultanéité.
 
-| Plafond | Dérivé de | Valeur aujourd'hui |
+Trois plafonds, dont **deux dérivés** d'un autre nombre du dépôt et un **choisi** :
+
+| Plafond | D'où il vient | Valeur aujourd'hui |
 |---|---|---|
-| pic de couches d'un effet | moitié du budget du niveau plancher | ≤ 12 (pire : 11, `Serif`) |
-| instances d'un effet par classe | quatre copies doivent tenir sous chaque plafond de `PoolPolicy` | pire : 5 lumières (`Ligature`, `Watermark`) contre 24/4 = 6 |
-| particules d'un effet | deux fois le pire effet au niveau le plus élevé | ≤ 400 (pire : 201, `Poncif`) |
+| pic de couches d'un effet | moitié du budget du niveau plancher (24) | ≤ 12 (pire : 10, `Serif`) |
+| instances d'un effet par classe, au pic | quatre copies doivent tenir sous chaque plafond de `PoolPolicy` | pire : 3 lumières (`Ligature`) contre 24/4 = 6 |
+| particules d'un effet | **choisi** : environ deux fois ce que le pire effet demande | ≤ 400 (pire : 201, `Pounce`) |
+
+Le troisième est un cliquet contre la dérive, pas une mesure : **aucun appareil n'a fait tourner ce jeu**,
+et c'est le premier nombre à remplacer par une mesure. Une porte tient aussi le modèle de coût au rendu
+lui-même : si une couche empruntait une classe que le modèle ne connaît pas, chaque comparaison ci-dessus
+serait optimiste, donc le test relit les emprunts dans la source du rendu.
 
 ## Le pooling
 
@@ -150,6 +170,8 @@ l'école précédente — ce que la règle 2 de la bible ne survit pas.
 | le pool crée bien moins qu'il ne prête | idem : plus de 5 000 prêts pour moins de 2 % de créations |
 | **un duel ne laisse aucune connexion derrière lui** | `tests/Loops.spec.luau` : une boucle par système, quinze en tout, chacune déclarée avec sa raison ; une seconde boucle dans un système qui en a déjà une échoue |
 | la densité plafonnée (règle 8) | `VfxTimelineConfig.MaxLiveLayers` = niveau Élevé, et la porte ci-dessus |
+| les empreintes ne peuvent évincer un résidu **à aucun niveau** | `tests/WorldConfig.spec.luau` : le seuil de retenue est une **fraction** du budget du niveau dessiné (0,66), et la somme seuil + empreintes tient dans le budget de chacun des quatre |
+| le modèle de coût emprunte ce que le rendu emprunte | `tests/EffectCost.spec.luau` relit les emprunts dans la source de `VfxTimeline` |
 
 ## Ce qui n'est pas mesuré
 
@@ -158,6 +180,18 @@ rendu **va** emprunter et demander, ce que le dépôt peut savoir exactement ; c
 sur un téléphone donné est l'autre moitié, et elle demande cet appareil. Les seuils de 40 et 55 images/s
 sont les valeurs usuelles d'un client Roblox mobile, pas une mesure : ce sont les deux nombres à corriger
 en premier avec un appareil en main.
+
+**Comment les mesurer.** Dans Studio : `View → Performance Stats` (ou `Ctrl+Shift+F2`) pour les images par
+seconde et la mémoire, et le **MicroProfiler** (`Ctrl+F6`, `Ctrl+P` pour une capture) pour voir où part une
+image — chercher `Render/Prepare/Particles`, `Lighting` et le nombre de `RenderJob`. Sur un vrai téléphone :
+publier la place, l'ouvrir dans l'application Roblox, et lire le compteur de l'application
+(`Roblox menu → Settings → Performance Stats`). Ce qu'il faut regarder, dans cet ordre : les images par
+seconde pendant un échange à six joueurs au niveau **Élevé** (si ça tient, rien à faire), puis au niveau
+**Performance** (si ça ne tient pas, les seuils 40/55 sont trop hauts pour cet appareil et le plancher doit
+descendre), puis la consommation quand `QualityController` change de niveau en plein combat (un à-coup à ce
+moment veut dire que la remontée est encore trop rapide). Les nombres à corriger en premier sont
+`QualityConfig.Auto.DropBelowFps` et `RaiseAboveFps`, puis `PARTICLE_CEILING` dans
+`tests/EffectCost.spec.luau`.
 
 Rien de la passe 9 n'a tourné dans un client. La dégradation n'a donc jamais été **vue** descendre ni
 remonter, et les quatre niveaux n'ont pas été comparés à l'œil : ce sont des budgets tenus par des tests,

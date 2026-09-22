@@ -8,9 +8,11 @@
 --
 -- docs/JUICE_PLAN.md phase 9, and art bible rule 8: an effect we cannot afford to draw is an effect we do
 -- not draw. The measurement is deliberately dumb -- frames counted over a second, averaged -- because the
--- decision it feeds is coarse: one step down after three bad seconds, one step back after twelve good
--- ones. A cleverer estimator would move the tier on a single hitch, and a tier that oscillates costs more
--- than the tier it was trying to leave (every change re-enables post-processing, which compiles shaders).
+-- decision it feeds is coarse: one step down after three bad samples, one step back after twelve good
+-- ones. A sample credits at most its own length, so a single long frame cannot BE three bad seconds.
+-- Recovering is slower than dropping because the one transition that crosses Performance re-enables the
+-- five post-processing effects, which compiles shaders, and a tier that oscillates over that costs more
+-- than the tier it was trying to leave.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")

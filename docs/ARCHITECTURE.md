@@ -103,7 +103,7 @@ Serveur → client :
 
 ## Client (`src/client`)
 
-`Bootstrap.client.luau` : trois passes distinctes sur l'ordre `ClientData`, `Localize`, `SoundController`, `VfxController`, `HudController`, `MenuController`, `InputController`, `ComboController`, `CombatController`, `MovementController`.
+`Bootstrap.client.luau` : trois passes distinctes sur l'ordre `ClientData`, `Localize`, `SoundController`, `QualityController`, `WorldLighting`, `Feel`, `VfxPool`, `VfxTimeline`, `VfxController`, `FootprintController`, `MatchController`, `HudController`, `SpectateController`, `BossController`, `MenuController`, `InputController`, `ComboController`, `OnboardingController`, `CombatController`, `MovementController`. L'ordre ne contraint que le comportement installé au `Start` ; chaque `Init` peut lire n'importe quel module.
 
 1. `require` de tous les modules : `deps` est complet et l'état construit au chargement (Signals, table d'état par défaut) existe pour tous avant le premier `Init`.
 2. `Init(deps)` de chacun : peut référencer n'importe quel contrôleur, quel que soit son rang, et le stocker ; ne dépend d'aucun autre `Init`.

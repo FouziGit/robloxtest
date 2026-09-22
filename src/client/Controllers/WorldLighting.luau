@@ -83,6 +83,8 @@ local function motionAllowed(): boolean
 end
 
 local plan: { Plan } = {}
+-- The five instances buildEffects resolved, in EffectOrder. Held so the tier can switch exactly those.
+local effectTargets: { Instance } = {}
 local buckets: { [string]: { [string]: number } } = {}
 local live: { [string]: ActivePulse } = {}
 local liveCount = 0
@@ -176,6 +178,7 @@ local function buildEffects()
 		local def = LightingConfig.Effects[name]
 		local target = findOrCreate(def.ClassName)
 		if target ~= nil then
+			table.insert(effectTargets, target)
 			assign(target, "Enabled", true)
 			local colors = effectColors[name]
 			if colors ~= nil then
@@ -227,13 +230,13 @@ end
 -- The five effects, on or off as a whole. Off is the Performance tier: every effect disabled, so the
 -- client pays for none of them, and the world is still lit high and pale because that is Lighting itself
 -- and not these. Re-enabling compiles shaders, which is why QualityController gives a tier back slowly.
+--
+-- It toggles the instances buildEffects resolved, not whatever FindFirstChildOfClass returns now: a place
+-- can hold a second ColorCorrectionEffect somebody else owns, and disabling theirs -- or missing ours --
+-- is a look nobody chose.
 local function setEffectsEnabled(enabled: boolean)
-	for _, name in ipairs(LightingConfig.EffectOrder) do
-		local def = LightingConfig.Effects[name]
-		local target = Lighting:FindFirstChildOfClass(def.ClassName)
-		if target ~= nil then
-			assign(target, "Enabled", enabled)
-		end
+	for _, target in ipairs(effectTargets) do
+		assign(target, "Enabled", enabled)
 	end
 end
 

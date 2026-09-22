@@ -23,6 +23,10 @@ local CAMERA_WRITES = {
 	"%.FieldOfView%s*=",
 	"CurrentCamera%.CFrame%s*=",
 	"camera%.CFrame%s*=",
+	-- Who the camera is looking at is the camera too. SpectateController asks Feel to change it (Feel.watch)
+	-- rather than setting it: a second writer would fight the respawn the engine performs on its own, and
+	-- the player would end a round watching a corpse or a stranger.
+	"CameraSubject%s*=",
 }
 
 -- Hit-stop, shake and the field of view are one mechanism with one owner. A controller that reaches for
@@ -92,5 +96,6 @@ describe("camera ownership", function()
 		local owner = stripComments(fs.readFile(OWNER))
 		expect(string.find(owner, "%.FieldOfView%s*=") ~= nil).toBe(true)
 		expect(string.find(owner, "camera%.CFrame%s*=") ~= nil).toBe(true)
+		expect(string.find(owner, "CameraSubject%s*=") ~= nil).toBe(true)
 	end)
 end)

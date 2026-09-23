@@ -21,6 +21,7 @@ local FeelConfig = require(Shared.Config.FeelConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
 local Trove = require(Packages.Trove)
+local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
@@ -273,7 +274,10 @@ local function newPart(trove: TroveType, name: string, props: PartProps): Part
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Shape = props.Shape or Enum.PartType.Block
-	part.Material = props.Material or Enum.Material.Neon
+	-- The page's one material by default (docs/ART_BIBLE.md: no metal, no glass, no neon). Neon and
+	-- ForceField add light, and on a cream page added light is the one colour that cannot be seen --
+	-- the same finding as VfxConfig.LightEmission.
+	part.Material = props.Material or Palette.material()
 	part.Color = props.Color or WHITE
 	part.Size = props.Size or Vector3.one
 	part.Transparency = props.Transparency or 0
@@ -312,7 +316,7 @@ local function newEmitter(parent: Instance, props: EmitterProps): ParticleEmitte
 	emitter.Transparency = props.Transparency or NumberSequence.new(0.2, 1)
 	emitter.SpreadAngle = props.Spread or Vector2.new(180, 180)
 	emitter.Acceleration = props.Acceleration or Vector3.zero
-	emitter.LightEmission = 0.6
+	emitter.LightEmission = VfxConfig.LightEmission
 	emitter.EmissionDirection = Enum.NormalId.Top
 	emitter.Parent = parent
 	return emitter
@@ -349,7 +353,6 @@ end
 local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency: number, seconds: number)
 	local shield = newPart(trove, "Shield", {
 		Shape = Enum.PartType.Ball,
-		Material = Enum.Material.ForceField,
 		Color = SHIELD_COLOR,
 		Size = Vector3.one * 6,
 		Transparency = startTransparency,

@@ -7,6 +7,15 @@
 
 local VfxConfig = {}
 
+-- How much of an effect's colour is ADDED as light rather than laid down as ink, for every particle,
+-- beam and trail the renderers build. Zero, because this world is a page: ink darkens the paper, it does
+-- not light it. The renderers used to hard-code 0.35, 0.4, 0.3 and 0.6 -- the glowing-magic defaults --
+-- and on a cream page additive light is the one colour that cannot be seen. Measured side by side in a
+-- live client: the same Umber smoke at 0.35 came out pale and orange and at 0 dense and brown, and the
+-- developer's report that the spells had faded to smudges was the rest of the evidence. A glow that is
+-- really wanted is a Light layer, which lights the page around it instead of bleaching the ink.
+VfxConfig.LightEmission = 0
+
 -- Emitted by GlyphEffects: one per glyph, plus the shared detonation ("Explosion", reused by
 -- Brand and Blot when they blow up).
 VfxConfig.GlyphIds = {

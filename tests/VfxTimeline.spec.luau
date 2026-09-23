@@ -493,7 +493,9 @@ describe("vfx timelines", function()
 			-- Inside a windowed phase these are fractions of the longest window the packet can carry, so
 			-- the backstop is checked against what they resolve to in the worst case.
 			local factor = if phase.Window == true then VfxTimelineConfig.MaxWindowSeconds else 1
-			if (layer.At + layer.For) * factor > VfxTimelineConfig.MaxLayerSeconds then
+			-- An emitter is kept past its For by the life of its particles (VfxTimelineConfig.layerSeconds).
+			local lives = VfxTimelineConfig.layerSeconds(layer, layer.For * factor)
+			if layer.At * factor + lives > VfxTimelineConfig.MaxLayerSeconds then
 				error(("timeline %s / %s has a layer outliving the force-release backstop"):format(id, phase.Name))
 			end
 		end)

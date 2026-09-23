@@ -57,6 +57,24 @@ WorldConfig.Hub = {
 	Emblem = "Ink",
 }
 
+-- A glyph that leaves something standing in the world. Its collision is the server's, so its look is too:
+-- the Margin's slab used to be invisible (Transparency 1) and trusted the client's effect to show where it
+-- stood. That effect is a thin brush stroke centred on the floor line -- half of it underground -- and it
+-- is one of the layers the lower quality tiers are allowed to drop, so on some screens a nine-stud wall
+-- that stops shots and bodies was drawn as a smear, or as nothing. A thing that blocks must be seen by
+-- everyone it blocks, on every tier, for exactly as long as it blocks. The client's ink still rules the
+-- margin and marks the faces; this is the wall under it.
+WorldConfig.Glyphs = {
+	-- Charcoal: the ink the margin is ruled in, and the colour with the most contrast on the page.
+	Wall = "Ink",
+	-- See-through enough to read an opponent behind it, solid enough to read as a wall at once.
+	WallTransparency = 0.3,
+	-- It appears with its collision, over a few frames, and leaves over the last moments of it rather
+	-- than blinking out when Debris takes it.
+	WallFadeInSeconds = 0.12,
+	WallFadeOutSeconds = 0.4,
+}
+
 -- An arena: a page walled in bone, with an ink rule drawn along the top of every wall so the box reads
 -- as a bordered sheet rather than as a cream room, and ink blocks for cover.
 WorldConfig.Arena = {

@@ -132,6 +132,11 @@ export type Layer = {
 
 	Transparency: number?,
 	EndTransparency: number?,
+	-- Sprite, Mark and Beam. A layer that fades out does so no faster than ink dries (FeelMath.inkFade),
+	-- whatever ease its size was given. True when the fade IS the gesture and rides the size's own curve:
+	-- a print that lightens as it spreads, ink shoved to a rim and gone. Only for a mark that states no
+	-- danger once drawn -- held on the page, it would read as ground that still hurts.
+	FadesWithSize: boolean?,
 
 	-- Emitter only.
 	Rate: number?,
@@ -1058,9 +1063,10 @@ local WASH: Timeline = {
 					Transparency = 0.22,
 					EndTransparency = 0.72,
 				},
-				-- The wet curtain. buildTrail spans its ribbon vertically about its anchor, so this is a
-				-- five-stud sheet standing on the page, not a stroke lying on it -- the Offset lifts it so
-				-- its lower edge meets the floor instead of half of it being buried. The stroke on the
+				-- The wet curtain: a five-stud ribbon riding the front, tapering to 1.4 at its tail. A
+				-- riding trail turns its face to the camera (buildTrail), because a sheet standing along
+				-- the line of travel is seen edge-on by the caster and by whoever the wave is sweeping
+				-- toward -- the two people it is for. The Offset lifts it off the floor. The stroke ON the
 				-- floor is the business of the three marks below; Mark is the only layer kind that lies
 				-- flat.
 				{
@@ -1111,8 +1117,9 @@ local WASH: Timeline = {
 				-- brush crossed it and the strip reads as dragged rather than dropped. EndSize 11 against
 				-- an 11-stud spacing makes them abut instead of overlap: two marks sharing a patch of
 				-- floor share the same 0.03 ground lift and z-fight, which reads as flicker. Narrower than
-				-- the sixteen that hurt, and that is the safe side -- by the time these are legible the
-				-- front is gone and nothing about them is a warning.
+				-- the sixteen that hurt, and that is the safe side: each is laid behind the front, on floor
+				-- the damage has already crossed, so nothing about them is a warning. They hold dark while
+				-- the front is still travelling -- ink dries, it does not flash (FeelMath.inkFade).
 				{
 					Kind = "Mark",
 					At = 0.08,
@@ -1612,13 +1619,14 @@ local BINDING: Timeline = {
 -- right, which is why it survives here; everything around it was not. Mud is a stock material, the slab
 -- arrived with no warning, and the floor it stood in for six seconds kept nothing.
 --
--- How it is built: the margin is RULED FIRST. A stroke is drawn on the floor before anything rises, so an
--- opponent gets a quarter of a second to read a wall coming and an ally gets the same to stop running at
--- it. Then two courses of ink grow out of that line -- and they are NOT coplanar. The packet's Origin is
--- the slab's centre, so the courses sit on either face of it, 0.9 studs fore and aft inside its 2.5 of
--- thickness: two coplanar textured quads fight for the same pixel as long as they both live, and a wall
--- that flickers for five seconds is worse than no wall. On the leaf's two faces they read as recto and
--- verso, ruled in two passes by a hand rather than extruded by a machine.
+-- How it is built: the margin is RULED FIRST, a stroke on the floor before anything rises. It is not a
+-- warning, and must not be read as one: the collision stands from the packet's first frame, so the
+-- server's slab is drawn from its first frame too (WorldConfig.Glyphs, D-108), and this ink marks the faces
+-- of a wall already there. Then two courses of ink grow out of that line -- and they are NOT coplanar. The
+-- packet's Origin is the slab's centre, so the courses sit on either face of it, 0.9 studs fore and aft
+-- inside its 2.5 of thickness: two coplanar textured quads fight for the same pixel as long as they both
+-- live, and a wall that flickers for five seconds is worse than no wall. On the leaf's two faces they read
+-- as recto and verso, ruled in two passes by a hand rather than extruded by a machine.
 --
 -- Both are centred ON the floor line, which is forced and is also correct. buildSprite draws Size x Size
 -- and a sprite can only grow about its own centre, so a course centred anywhere above the floor would have
@@ -1962,7 +1970,7 @@ local SWEEP: Timeline = {
 				-- The ink already on the page, shoved outward to the rim in a quarter second and gone. It
 				-- states the hitbox on the ground, where a zone is read from, and it is the only mark in
 				-- the game that grows to its full width and then stops existing rather than fading in
-				-- place: the ink was not burnt, it was moved.
+				-- place: the ink was not burnt, it was moved. FadesWithSize keeps it that way.
 				{
 					Kind = "Mark",
 					At = 0,
@@ -1974,6 +1982,7 @@ local SWEEP: Timeline = {
 					EndSize = 24,
 					Transparency = 0.3,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				-- Torn off the floor, upward: Params.Lift is thirty studs and this is the only layer that
 				-- shows it. Emitted from below the centre, where a host part's own up axis is the one
@@ -2824,6 +2833,8 @@ local SERIF: Timeline = {
 				-- Seven studs across is a half-diagonal of 4.95 against a HitRadius of five: the print
 				-- never claims a corner of ground the sphere did not. The line's longer memory is the
 				-- Beam drying in Residue, not these -- the feet are the strikes, the stroke is the trace.
+				-- Hence FadesWithSize: under the ink-drying fade every other mark follows, five dark prints
+				-- held for a second look like Ligature's burning pools, and Serif's damage is already over.
 				{
 					Kind = "Mark",
 					At = 0,
@@ -2836,6 +2847,7 @@ local SERIF: Timeline = {
 					Offset = { 0, 0, 6 },
 					Transparency = 0.1,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				{
 					Kind = "Mark",
@@ -2849,6 +2861,7 @@ local SERIF: Timeline = {
 					Offset = { 0, 0, 11 },
 					Transparency = 0.1,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				{
 					Kind = "Mark",
@@ -2862,6 +2875,7 @@ local SERIF: Timeline = {
 					Offset = { 0, 0, 16 },
 					Transparency = 0.1,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				{
 					Kind = "Mark",
@@ -2875,6 +2889,7 @@ local SERIF: Timeline = {
 					Offset = { 0, 0, 21 },
 					Transparency = 0.1,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				-- The terminal. Same print, held longer, because that is where the stroke stops and it is
 				-- the one a target at the end of the line is standing next to. Heavier by its LIFE and
@@ -2891,6 +2906,7 @@ local SERIF: Timeline = {
 					Offset = { 0, 0, 26 },
 					Transparency = 0.1,
 					EndTransparency = 1,
+					FadesWithSize = true,
 				},
 				-- Grit off the split page, one burst per damaged point, on the server's own schedule. An
 				-- emitter is fixed where it is built and cannot walk down the line, so five of them at
@@ -2898,6 +2914,11 @@ local SERIF: Timeline = {
 				-- spheres, five beats. An emitter's default direction is its host part's up, so a narrow
 				-- spread is a short column rather than a spray, which is right for a glyph whose server
 				-- stuns and does not launch.
+				--
+				-- The first four are short on purpose. A burst lives out its particles (VfxTimelineConfig.layerSeconds),
+				-- and five columns of 0.6 s grit overlapping with the five prints held Serif at thirteen live layers,
+				-- past half of the lowest tier's budget. Released at For, they used to be on screen for 0.1 s; a fifth of
+				-- a second of grit is still twice that, and the finisher keeps its longer fall.
 				{
 					Kind = "Emitter",
 					At = 0,
@@ -2906,7 +2927,7 @@ local SERIF: Timeline = {
 					Offset = { 0, -2.4, 6 },
 					Burst = 12,
 					Speed = { 14, 30 },
-					Lifetime = { 0.3, 0.6 },
+					Lifetime = { 0.12, 0.22 },
 					Spread = 55,
 					Drag = 3.5,
 					Squash = 0.35,
@@ -2921,7 +2942,7 @@ local SERIF: Timeline = {
 					Offset = { 0, -2.4, 11 },
 					Burst = 12,
 					Speed = { 14, 30 },
-					Lifetime = { 0.3, 0.6 },
+					Lifetime = { 0.12, 0.22 },
 					Spread = 55,
 					Drag = 3.5,
 					Squash = 0.35,
@@ -2936,7 +2957,7 @@ local SERIF: Timeline = {
 					Offset = { 0, -2.4, 16 },
 					Burst = 12,
 					Speed = { 14, 30 },
-					Lifetime = { 0.3, 0.6 },
+					Lifetime = { 0.12, 0.22 },
 					Spread = 55,
 					Drag = 3.5,
 					Squash = 0.35,
@@ -2951,7 +2972,7 @@ local SERIF: Timeline = {
 					Offset = { 0, -2.4, 21 },
 					Burst = 12,
 					Speed = { 14, 30 },
-					Lifetime = { 0.3, 0.6 },
+					Lifetime = { 0.12, 0.22 },
 					Spread = 55,
 					Drag = 3.5,
 					Squash = 0.35,
@@ -3848,11 +3869,12 @@ local SCORCH: Timeline = {
 					Transparency = 0.3,
 					EndTransparency = 0.42,
 				},
-				-- And the char it holds as. Two layers, because stepMark lerps transparency off the SAME
-				-- eased alpha as size: one layer cannot spread fast and fade slowly, and a single
-				-- Circular-out stain is 90 % transparent within half a second -- which is when the zone
-				-- still has two ticks to go. The handover is invisible, this starting at the transparency
-				-- the spread ended on and ending at the one the Residue char begins with.
+				-- And the char it holds as. Two layers, because when this was written stepMark drove
+				-- transparency off the SAME eased alpha as size, and a single Circular-out stain was 90 %
+				-- transparent within half a second -- when the zone still has two ticks to go. Fades now
+				-- follow the ink (D-108), but the pair still says two things: a spread, then a hold. The
+				-- handover is invisible, this starting at the transparency the spread ended on and ending
+				-- at the one the Residue char begins with.
 				{
 					Kind = "Mark",
 					At = 0.48,
@@ -4085,12 +4107,12 @@ local SCORCH: Timeline = {
 -- pools are Mark layers offset forward by the server's own spacing, and their start times are where the
 -- carrier's eased curve puts the nib over each one -- the ink lands UNDER the nib, not near it.
 --
--- Each pool is TWO marks, and that is not decoration: stepMark drives size and transparency off the same
--- eased alpha, so the single Circular-out stain this replaced was 75 % transparent within 0.6 s of a
--- 2.3 s life while the server went on damaging those exact points at 0.8, 1.2 and 1.6. The wick lands
--- fast (Circular/Out to the full ten studs, which is twice TrailRadius, so the stain IS the hitbox) and
--- hands over at its own transparency to a burn that holds through the last tick on Quint/In and only then
--- chars away.
+-- Each pool is TWO marks, and that is not decoration: stepMark used to drive size and transparency off
+-- the same eased alpha (D-108 decoupled them), so the single Circular-out stain this replaced was 75 %
+-- transparent within 0.6 s of a 2.3 s life while the server went on damaging those exact points at 0.8,
+-- 1.2 and 1.6. The wick lands fast (Circular/Out to the full ten studs, which is twice TrailRadius, so the
+-- stain IS the hitbox) and hands over at its own transparency to a burn that holds through the last tick
+-- on Quint/In and only then chars away.
 --
 -- The offsets 0/4/8/12/16 are GlyphConfig's TrailSegments and TrailSpacing spelled out, because data
 -- cannot read Params: changing either there, or passing a Scale other than 1, de-registers every stain
@@ -4863,9 +4885,9 @@ local STRIKE: Timeline = {
 				-- is no stepTrail at all. An EndTransparency of 1 therefore erases the line from the hand
 				-- end and leaves a bright head fading behind it, which is what Brand and Dash correctly
 				-- use it for and is the most generic projectile visual on the platform. 0.1 to 0.42 keeps
-				-- all seventy studs legible with the oldest end the drier one, which is a stroke. EndSize
-				-- is gone because buildTrail reads only Size: a Trail's width cannot change here, and data
-				-- that looks load-bearing and is not is worse than no data.
+				-- all seventy studs legible with the oldest end the drier one, which is a stroke. No
+				-- EndSize: buildTrail tapers a ribbon from Size to EndSize when one is given, and a stroke
+				-- ruled by a nib keeps its width from end to end.
 				{
 					Kind = "Trail",
 					At = 0,
@@ -7651,6 +7673,23 @@ VfxTimelineConfig.PhaseOrder = { "Anticipation", "Cast", "Travel", "Impact", "Re
 -- impossible rather than unlikely.
 VfxTimelineConfig.MaxLayerSeconds = 6
 
+-- {min, max} seconds a particle lives when its Emitter layer declares no Lifetime.
+VfxTimelineConfig.DefaultParticleLifetime = { 0.3, 0.6 }
+
+-- How long a layer stays on screen once it starts, given `drawn`: its For, times its window factor. An
+-- emitter's For is how long it EMITS; its particles then live out their Lifetime, and the layer is kept
+-- until the last of them can have died. Released at For, it took every particle in the air with it: 35 of
+-- the 60 burst emitters lived shorter than their particles' SHORTEST life, and the Wash cast's puffs were
+-- on screen for two frames of their half second. The renderer, the cost model and duration() all ask
+-- this, so what is drawn, what is budgeted and what the packet lifetime is checked against agree.
+function VfxTimelineConfig.layerSeconds(layer: Layer, drawn: number): number
+	if layer.Kind ~= "Emitter" then
+		return drawn
+	end
+	local lifetime = layer.Lifetime or VfxTimelineConfig.DefaultParticleLifetime
+	return drawn + math.max(lifetime[2] or 0, 0)
+end
+
 -- Art bible rule 8: particle density is capped. This is the cap. It is a hard ceiling on layers alive at
 -- once across every effect on screen; past it the oldest is released early, so a six-player exchange
 -- degrades into fewer effects rather than into a frame rate.
@@ -7718,7 +7757,8 @@ function VfxTimelineConfig.duration(timeline: Timeline): number
 				local seconds = VfxTimelineConfig.phaseSeconds(phase, VfxTimelineConfig.MaxWindowSeconds)
 				local factor = if phase.Window == true then seconds else 1
 				for _, layer in ipairs(phase.Layers) do
-					longest = math.max(longest, phaseStart + (layer.At + layer.For) * factor)
+					local lives = VfxTimelineConfig.layerSeconds(layer, layer.For * factor)
+					longest = math.max(longest, phaseStart + layer.At * factor + lives)
 				end
 				phaseStart += seconds
 			end

@@ -1,9 +1,11 @@
 --!strict
 -- GlyphEffects: server-side hit detection for every glyph, keyed by GlyphConfig `Effect` id.
--- Effects build NO visuals: they detect targets (spatial queries, stepped raycasts, invisible
--- collision parts for walls), deal damage through CombatService.ApplyDamage only, and broadcast Vfx
--- packets that each client renders, under the glyph's own `VfxId` and carrying its `Pigment`. Timed
--- effects step inline in the caller's thread (the remote handler runs in its own thread) and stop
+-- Effects build NO visual effects: they detect targets (spatial queries, stepped raycasts, collision
+-- parts for walls), deal damage through CombatService.ApplyDamage only, and broadcast Vfx packets that
+-- each client renders, under the glyph's own `VfxId` and carrying its `Pigment`. The one look set here
+-- is the Margin slab's own colour and transparency: a thing that blocks must be seen by everyone it
+-- blocks, on every quality tier, so its geometry carries it (WorldConfig.Glyphs, docs/DECISIONS.md D-108).
+-- Timed effects step inline in the caller's thread (the remote handler runs in its own thread) and stop
 -- early when the caster dies, leaves, raises guard or is stunned.
 -- Every effect returns the number of distinct models it damaged.
 --
@@ -16,12 +18,15 @@ local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
+local Palette = require(Shared.Util.Palette)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 export type GlyphDef = GlyphConfig.GlyphDef
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
@@ -89,7 +94,7 @@ type Ranked = { Model: Model, Distance: number }
 -- Where a stepped projectile stopped, and the live model it stopped on (nil = geometry, fuse, range).
 type ProjectileStop = { Point: Vector3, Model: Model? }
 
--- Invisible server collision geometry (walls) carries this tag so spatial queries skip it.
+-- Server collision geometry (walls) carries this tag so spatial queries skip it.
 local COLLISION_TAG = "GlyphCollision"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local WALL_NAME = "Margin"
@@ -592,12 +597,12 @@ function GlyphEffects.Bleed(ctx: Context): number
 end
 
 ----------------------------------------------------------------
--- Margin: invisible collision wall in front of the caster (clients render the visual)
+-- Margin: a collision wall in front of the caster, drawn by its own slab (clients add the ink)
 ----------------------------------------------------------------
 
 -- Live walls per caster. Their only bound used to be arithmetic: the wall lasts Params.Duration (6 s) and
 -- the glyph recharges in Cooldown (10 s), so one could exist at a time. Nothing stated that, and anything
--- that shortens the cooldown turns an invisible, solid, 14 by 9 stud slab into something the caster can
+-- that shortens the cooldown turns a solid 14 by 9 stud slab into something the caster can
 -- stack until the hub is a maze. The cap makes the invariant explicit and independent of the cooldown.
 local MAX_WALLS_PER_CASTER = 2
 local wallsByCaster: { [Player]: { BasePart } } = {}
@@ -643,11 +648,30 @@ function GlyphEffects.Margin(ctx: Context): number
 	wall.CanQuery = true
 	wall.CanTouch = false
 	wall.CastShadow = false
+	-- Seen for exactly as long as it blocks (WorldConfig.Glyphs): the slab carries the look, and the
+	-- client's ink only rules the margin and marks the faces over it.
+	local look = WorldConfig.Glyphs
+	wall.Color = Palette.world(look.Wall)
+	wall.Material = Palette.material()
 	wall.Transparency = 1
 	CollectionService:AddTag(wall, COLLISION_TAG)
 	wall.Parent = Workspace
 	Debris:AddItem(wall, params.Duration)
 	retireOldestWall(ctx.Caster, wall)
+	TweenService:Create(
+		wall,
+		TweenInfo.new(look.WallFadeInSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Transparency = look.WallTransparency }
+	):Play()
+	task.delay(math.max(0, params.Duration - look.WallFadeOutSeconds), function()
+		if wall.Parent ~= nil then
+			TweenService:Create(
+				wall,
+				TweenInfo.new(look.WallFadeOutSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{ Transparency = 1 }
+			):Play()
+		end
+	end)
 
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,

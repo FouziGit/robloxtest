@@ -133,3 +133,81 @@ describe("FeelMath.holdThenFade", function()
 		end
 	end)
 end)
+
+describe("FeelMath.inkFade", function()
+	-- Exponential Out, the ease the Wash stains give their size: 85 % spread a fifth of the way in.
+	local function exponentialOut(t: number): number
+		return if t >= 1 then 1 else 1 - 2 ^ (-10 * t)
+	end
+
+	it("keeps a stain that spreads in a flash on the page for most of its life", function()
+		-- The defect measured in a live client: a Wash stain, 0.32 -> 1 over 2.4 s, spread on Exponential
+		-- Out and faded on the same curve, was 73 % transparent a third of a second in.
+		local elapsed = 0.32 / 2.4
+		local fade = FeelMath.inkFade(elapsed, exponentialOut(elapsed))
+		expect(0.32 + (1 - 0.32) * fade).toBeLessThan(0.4)
+		-- Still readable (under 0.6) at the half of its life, where it used to be gone after an eighth.
+		local half = FeelMath.inkFade(0.5, exponentialOut(0.5))
+		expect(0.32 + (1 - 0.32) * half).toBeLessThan(0.6)
+	end)
+
+	it("never fades faster than ink dries, nor faster than the layer's own ease", function()
+		for index = 0, 100 do
+			local elapsed = index / 100
+			local drying = 1 - math.cos(elapsed * math.pi / 2)
+			for _, shaped in ipairs({ 0, elapsed * elapsed, elapsed, exponentialOut(elapsed), 1 }) do
+				local fade = FeelMath.inkFade(elapsed, shaped)
+				expect(fade).toBeLessThanOrEqual(drying + 1e-9)
+				expect(fade).toBeLessThanOrEqual(shaped + 1e-9)
+				expect(fade).toBeGreaterThanOrEqual(0)
+			end
+		end
+	end)
+
+	it("does fade: it dries on its own curve, continuously, whenever the layer's ease is ahead of it", function()
+		-- Upper bounds alone let a law that holds and then pops pass; this pins the curve from below and
+		-- forbids a jump between two frames of the shortest fading layer in the game (0.12 s).
+		local frame = (1 / 60) / 0.12
+		local previous = 0
+		for index = 0, 100 do
+			local elapsed = index / 100
+			local drying = 1 - math.cos(elapsed * math.pi / 2)
+			local fade = FeelMath.inkFade(elapsed, exponentialOut(elapsed))
+			expect(fade).toBeGreaterThanOrEqual(math.min(drying, exponentialOut(elapsed)) - 1e-9)
+			expect(fade).toBeGreaterThanOrEqual(previous - 1e-9)
+			previous = fade
+		end
+		local steepest = 0
+		local elapsed = 0
+		while elapsed < 1 do
+			local nextElapsed = math.min(elapsed + frame, 1)
+			steepest = math.max(steepest, FeelMath.inkFade(nextElapsed, 1) - FeelMath.inkFade(elapsed, 1))
+			elapsed = nextElapsed
+		end
+		expect(steepest).toBeLessThan(0.25)
+	end)
+
+	it("starts untouched, ends gone, and keeps an ease that overshoots inside the two", function()
+		expect(FeelMath.inkFade(0, 0)).toBe(0)
+		expect(FeelMath.inkFade(1, 1)).toBeCloseTo(1, 9)
+		-- Back Out overshoots past one; Back In dips below zero first.
+		expect(FeelMath.inkFade(0.6, 1.08)).toBeLessThanOrEqual(1)
+		expect(FeelMath.inkFade(0.2, -0.05)).toBe(0)
+		expect(FeelMath.inkFade(0 / 0, 0.5)).toBe(0)
+	end)
+end)
+
+describe("FeelMath.layerFade", function()
+	it("dries a fading layer, and leaves a darkening one or a gesture on its own ease", function()
+		local elapsed, shaped = 0.2, 0.9
+		local drying = FeelMath.inkFade(elapsed, shaped)
+		expect(drying).toBeLessThan(shaped)
+		-- Fading out: the ink's clock.
+		expect(FeelMath.layerFade(0.3, 1, elapsed, shaped, false)).toBe(drying)
+		-- Darkening -- a warning gathering -- or holding: the author's ease, untouched.
+		expect(FeelMath.layerFade(1, 0.2, elapsed, shaped, false)).toBe(shaped)
+		expect(FeelMath.layerFade(0.4, 0.4, elapsed, shaped, false)).toBe(shaped)
+		-- A fade that is the gesture itself (VfxTimelineConfig.Layer.FadesWithSize).
+		expect(FeelMath.layerFade(0.1, 1, elapsed, shaped, true)).toBe(shaped)
+	end)
+end)

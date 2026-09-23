@@ -84,7 +84,10 @@ local function costOf(id: string, timeline: any): Cost
 					local at = offset + layer.At * factor
 					local for_ = layer.For * factor
 					if OCCUPIES[layer.Kind] then
-						table.insert(spans, { At = at, Until = at + for_, Kind = layer.Kind })
+						-- Occupied for as long as the renderer keeps it, which for an emitter includes the life
+						-- of the particles it leaves in the air.
+						local lives = VfxTimelineConfig.layerSeconds(layer, for_)
+						table.insert(spans, { At = at, Until = at + lives, Kind = layer.Kind })
 					end
 					if layer.Burst ~= nil then
 						particles += layer.Burst

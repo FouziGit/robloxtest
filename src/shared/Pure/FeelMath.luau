@@ -89,4 +89,26 @@ function FeelMath.holdThenFade(alpha: number, holdFraction: number): number
 	return 1 - (a - hold) / (1 - hold)
 end
 
+-- How far a drawn effect has faded at `elapsed` of its life (0 to 1), given how far its own ease has
+-- carried it (`shaped`). Ink dries: it lands dark, stays, and goes at the end -- a quarter sine, slow
+-- then fast. A layer's ease is how fast it spreads, and it used to be how fast it faded too: a Wash stain
+-- that spreads in a flash (Exponential Out) and is authored to last 2.4 s was 73 % transparent a third of
+-- a second in, measured in a live client. A fade therefore never runs ahead of drying; a layer whose
+-- author asked for an even slower one keeps it.
+function FeelMath.inkFade(elapsed: number, shaped: number): number
+	local drying = 1 - math.cos(clamp01(elapsed) * math.pi / 2)
+	return math.min(clamp01(shaped), drying)
+end
+
+-- How far a drawn layer's transparency has travelled from `from` toward `to`. A layer that fades OUT
+-- follows inkFade. One that darkens -- a warning gathering -- keeps its own ease (`shaped`), because its
+-- author chose that curve to say when the danger arrives; so does one whose author tied the fade to its
+-- size (`withSize`), a print that lightens as it spreads.
+function FeelMath.layerFade(from: number, to: number, elapsed: number, shaped: number, withSize: boolean): number
+	if withSize or to <= from then
+		return shaped
+	end
+	return FeelMath.inkFade(elapsed, shaped)
+end
+
 return FeelMath

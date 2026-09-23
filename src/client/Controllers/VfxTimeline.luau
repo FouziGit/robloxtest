@@ -28,6 +28,7 @@ local FeelMath = require(Shared.Pure.FeelMath)
 local Log = require(Shared.Util.Log)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local SoundConfig = require(Shared.Config.SoundConfig)
+local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 
 local log = Log.new("VfxTimeline")
@@ -458,7 +459,7 @@ end
 local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	local scale = entry.Scales.Effect
 	local speed = layer.Speed or { 0, 0 }
-	local lifetime = layer.Lifetime or { 0.3, 0.6 }
+	local lifetime = layer.Lifetime or VfxTimelineConfig.DefaultParticleLifetime
 	-- Negative speed is written as "pulls inward", and from a point-sized host that is not what happens:
 	-- a particle born at the point and sent the opposite way is still a particle leaving the point. So
 	-- an inward layer emits from the surface of a sphere, facing in, and its particles run toward the
@@ -510,7 +511,7 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	emitter.Squash = NumberSequence.new(layer.Squash or 0)
 	-- Wind drags the residue with the world instead of leaving it hanging in still air.
 	emitter.WindAffectsDrag = true
-	emitter.LightEmission = 0.35
+	emitter.LightEmission = VfxConfig.LightEmission
 	emitter.Rate = 0
 	emitter.Enabled = false
 	emitter.Parent = part
@@ -586,7 +587,7 @@ local function buildBeam(entry: Live, layer: Layer, place: CFrame)
 	beam.Width1 = (layer.Size or 1) * scale * 0.35
 	beam.Transparency = NumberSequence.new(layer.Transparency or 0.2)
 	beam.FaceCamera = true
-	beam.LightEmission = 0.4
+	beam.LightEmission = VfxConfig.LightEmission
 	local id = textureOf(layer)
 	if id ~= "" then
 		beam.Texture = id
@@ -639,7 +640,19 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0.3),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
-	trail.LightEmission = 0.3
+	trail.LightEmission = VfxConfig.LightEmission
+	-- A thrown ribbon turns its face to whoever is looking. Spanned between two attachments one above the
+	-- other, it is a sheet standing along the flight line -- seen edge-on, as a hairline, by exactly the two
+	-- people who matter: the one who threw it and the one it is flying at. Beams already face the camera.
+	-- A ribbon on the caster's own body stays the standing curtain it was authored as: turned to a chase
+	-- camera it would lie flat, a band across the caster's legs and the floor behind them.
+	trail.FaceCamera = layer.Follow ~= true
+	-- Size at the head, EndSize at the tail: the taper the timelines declare, which a ribbon of constant
+	-- width read as a band rather than a thing moving.
+	local tail = layer.EndSize
+	if tail ~= nil and (layer.Size or 1) > 0 then
+		trail.WidthScale = NumberSequence.new(1, math.max(tail / (layer.Size or 1), 0))
+	end
 	local id = textureOf(layer)
 	if id ~= "" then
 		trail.Texture = id
@@ -654,7 +667,14 @@ end
 -- Per-frame update
 --------------------------------------------------------------------------------------------------
 
-local function stepSprite(entry: Live, alpha: number, deltaTime: number)
+-- How far a layer's transparency has travelled (FeelMath.layerFade): no faster than ink dries when it
+-- fades out, on its own ease when it darkens or when its author tied the fade to its size.
+local function fadeOf(layer: Layer, elapsed: number, alpha: number, fallback: number): number
+	local from = layer.Transparency or fallback
+	return FeelMath.layerFade(from, layer.EndTransparency or from, elapsed, alpha, layer.FadesWithSize == true)
+end
+
+local function stepSprite(entry: Live, alpha: number, elapsed: number, deltaTime: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -662,7 +682,8 @@ local function stepSprite(entry: Live, alpha: number, deltaTime: number)
 	local part = primary :: BasePart
 	local layer = entry.Layer
 	part.Size = planeSize(entry, alpha)
-	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0), 0, 1)
+	local transparency =
+		math.clamp(lerp(layer.Transparency, layer.EndTransparency, fadeOf(layer, elapsed, alpha, 0), 0), 0, 1)
 	for _, child in ipairs(part:GetChildren()) do
 		if child:IsA("Decal") then
 			child.Transparency = transparency
@@ -675,7 +696,7 @@ local function stepSprite(entry: Live, alpha: number, deltaTime: number)
 	end
 end
 
-local function stepMark(entry: Live, alpha: number)
+local function stepMark(entry: Live, alpha: number, elapsed: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -683,7 +704,8 @@ local function stepMark(entry: Live, alpha: number)
 	local part = primary :: BasePart
 	local layer = entry.Layer
 	part.Size = planeSize(entry, alpha)
-	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0.3), 0, 1)
+	local transparency =
+		math.clamp(lerp(layer.Transparency, layer.EndTransparency, fadeOf(layer, elapsed, alpha, 0.3), 0.3), 0, 1)
 	local children = part:GetChildren()
 	for _, child in ipairs(children) do
 		if child:IsA("Decal") then
@@ -707,7 +729,7 @@ local function stepLight(entry: Live, alpha: number)
 	light.Brightness = math.max(lerp(layer.Brightness, layer.EndBrightness or 0, alpha, 1), 0)
 end
 
-local function stepBeam(entry: Live, alpha: number)
+local function stepBeam(entry: Live, alpha: number, elapsed: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -717,8 +739,8 @@ local function stepBeam(entry: Live, alpha: number)
 	local width = lerp(layer.Size, layer.EndSize, alpha, 1) * entry.Scales.Size
 	beam.Width0 = math.max(width, 0)
 	beam.Width1 = math.max(width * 0.35, 0)
-	beam.Transparency =
-		NumberSequence.new(math.clamp(lerp(layer.Transparency, layer.EndTransparency, alpha, 0.2), 0, 1))
+	local fade = fadeOf(layer, elapsed, alpha, 0.2)
+	beam.Transparency = NumberSequence.new(math.clamp(lerp(layer.Transparency, layer.EndTransparency, fade, 0.2), 0, 1))
 end
 
 -- Flight. The body travels its declared distance over its own duration, eased, and rises and falls by
@@ -800,15 +822,17 @@ local function followBody(entry: Live)
 	end
 end
 
-local function stepEmitter(entry: Live, alpha: number)
+local function stepEmitter(entry: Live, now: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
 	end
 	local emitter = primary :: ParticleEmitter
-	-- A continuous emitter is switched off before its layer ends so the particles already in the air have
-	-- time to finish, instead of the whole cloud disappearing with its emitter.
-	if entry.Layer.Rate ~= nil and alpha > 0.85 then
+	-- A continuous emitter emits for exactly the life its layer declares. The entry itself is kept until
+	-- its last particle can have died (VfxTimelineConfig.layerSeconds), so the cloud thins out by itself
+	-- instead of vanishing with its emitter. It used to stop at 85 % of the layer -- read off the eased
+	-- value, 65 % for 26 of them -- and was released at 100 % with the cloud still in the air.
+	if entry.Layer.Rate ~= nil and now - entry.StartedAt >= entry.Seconds then
 		emitter.Enabled = false
 	end
 end
@@ -999,6 +1023,8 @@ local function activate(item: Pending, now: number)
 	end
 	local place = placeOf(base, layer, scales.Offset)
 	local seconds = math.min(item.Seconds, VfxTimelineConfig.MaxLayerSeconds)
+	-- Kept past its drawn life by whatever it leaves in the air (an emitter's particles), up to the backstop.
+	local lives = math.min(VfxTimelineConfig.layerSeconds(layer, item.Seconds), VfxTimelineConfig.MaxLayerSeconds)
 	local entry: Live = {
 		Layer = layer,
 		Context = context,
@@ -1006,7 +1032,7 @@ local function activate(item: Pending, now: number)
 		Frame = place,
 		StartedAt = now,
 		Seconds = seconds,
-		EndsAt = now + seconds,
+		EndsAt = now + lives,
 		Warning = item.Warning,
 		Instances = {},
 		Primary = nil,
@@ -1040,7 +1066,11 @@ end
 
 local function stepLive(entry: Live, now: number, deltaTime: number)
 	local span = entry.EndsAt - entry.StartedAt
-	local alpha = if span > 0 then eased(entry.Layer, (now - entry.StartedAt) / span) else 1
+	-- Two clocks. `elapsed` is how much of the layer's life has passed; `alpha` is where its ease has
+	-- carried its shape. Whatever is about time -- how far a fade has got, when an emitter stops -- reads
+	-- `elapsed`: an Exponential Out layer is 85 % grown a fifth of the way in, not 85 % over.
+	local elapsed = if span > 0 then math.clamp((now - entry.StartedAt) / span, 0, 1) else 1
+	local alpha = eased(entry.Layer, elapsed)
 	local kind = entry.Layer.Kind
 	if kind == "Carrier" then
 		stepCarrier(entry, alpha)
@@ -1052,15 +1082,15 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 		followBody(entry)
 	end
 	if kind == "Sprite" then
-		stepSprite(entry, alpha, deltaTime)
+		stepSprite(entry, alpha, elapsed, deltaTime)
 	elseif kind == "Mark" then
-		stepMark(entry, alpha)
+		stepMark(entry, alpha, elapsed)
 	elseif kind == "Light" then
 		stepLight(entry, alpha)
 	elseif kind == "Beam" then
-		stepBeam(entry, alpha)
+		stepBeam(entry, alpha, elapsed)
 	elseif kind == "Emitter" then
-		stepEmitter(entry, alpha)
+		stepEmitter(entry, now)
 	end
 end
 

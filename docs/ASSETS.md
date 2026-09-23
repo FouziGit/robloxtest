@@ -51,6 +51,45 @@ mono, déterministe — aucune fonction de la libm sur le chemin par échantillo
 Déclarées dans `src/shared/Config/SoundConfig.luau` avec leur durée (lue dans l'en-tête par
 `tests/SoundConfig.spec.luau`). Téléversement : `docs/STUDIO_SETUP.md` §8.
 
+## Sources tierces : ce qui pourra entrer, et pourquoi si peu
+
+Rien de tiers n'est dans le dépôt aujourd'hui ; cette section fixe la règle **avant** que quelque chose y
+entre. Vérifiée le 2026-09-23 par huit agents, dont trois contradicteurs chargés de trouver la clause qui
+interdit ; le détail est dans `docs/DECISIONS.md` D-104.
+
+Le critère qui tranche n'est pas « gratuit » ni « usage commercial autorisé » : **téléverser un fichier
+sur Roblox, c'est accorder à Roblox une licence perpétuelle, sous-licenciable à tout utilisateur, qui
+couvre l'entraînement de modèles d'apprentissage** (Conditions d'utilisation du 2026-05-19, accord de
+licence d'upload audio). On ne peut accorder que ce qu'on a. Une licence qui interdit la sous-licence,
+la redistribution isolée ou l'usage pour l'IA rend donc l'upload impossible, même quand elle autorise
+les jeux vidéo.
+
+| Retenu | Pourquoi |
+|---|---|
+| Quaternius *Universal Animation Library* 1 et 2 (versions Standard sur OpenGameArt) | CC0 ; combos de 3 et 4 coups découpés coup par coup. Quaternius publie depuis le 2026-08-28 une licence maison (QAL) qui interdit la redistribution isolée ; les animations Roblox sont de toute façon **Restricted** et ne peuvent plus être en usage libre, ce qui la respecte. Conserver la page et l'empreinte SHA-256 du zip au jour du téléchargement. |
+| CMU Graphics Lab Motion Capture Database | « Libre pour tous usages », y compris dans un produit vendu ; seule la revente directe des données est interdite. Surtout de la locomotion et un peu de boxe. |
+| Kenney (sons, *Splat Pack*, *Particle Pack*) | CC0, attribution facultative, logo réservé. |
+| *100 grunge brushstrokes and splatters* (Dino0040, OpenGameArt) | CC0, aquarelles scannées par l'auteur : le meilleur accord avec la direction encre-sur-vélin. |
+| Freesound, **filtré sur CC0** | Idéal pour papier, plume, pinceau. Tenir un journal de provenance par fichier (URL, auteur, date) : le site ne vérifie pas que l'auteur détient les droits. |
+| Capture d'animation Roblox (se filmer, moins de 15 s) | La performance du développeur lui-même ; seul moyen d'avoir un geste de sort signature. R15 uniquement. |
+
+| Écarté | Clause bloquante |
+|---|---|
+| Mixamo | Licence non sous-licenciable, usage pour l'IA interdit. |
+| Sonniss GDC, ZapSplat, Mixkit, Soundsnap, Epidemic Sound | Sous-licence et/ou IA interdites. |
+| Musique Mixkit, BBC Sound Effects | Jeux vidéo exclus / non commercial. |
+| Unity Asset Store, Fab, contenu Epic | Sous-licence et IA interdites ; extraction à empêcher ; contenu réservé à Unreal. |
+| Reallusion ActorCore, MoCap Online | Upload vers un tiers interdit ; distribution « binaire uniquement ». |
+| Bandai Namco, Ubisoft La Forge, SFU | Non commerciaux, et issus de studios de jeu. |
+| Truebones | Distribue gratuitement des contenus extraits de jeux commerciaux : provenance indéfendable. |
+| ACCAD (CC BY 3.0) | Meilleure mocap de combat trouvée, mais CC BY 3.0 interdit la sous-licence et les mesures techniques de restriction ; les deux contradicteurs n'ont pas tranché pareil. Écarté tant que le risque n'est pas accepté explicitement. |
+| ambientCG, Poly Haven | Légaux (CC0), mais photoréalistes : hors direction artistique. |
+
+Deux contraintes Roblox à connaître avant tout upload : le **quota audio** mensuel dépend de la
+vérification d'identité (les pages officielles se contredisent, de 10 à 2 000 ; le lire par l'API avant
+d'envoyer les 55 sons), et une image envoyée comme *Decal* renvoie un identifiant de décalque, pas celui
+de l'image que `ParticleEmitter.Texture` attend.
+
 ## Ce qui n'est pas un asset
 
 Les polices sont celles du moteur. Le corps du boss est un bloc construit par `WorldBossService`. Les

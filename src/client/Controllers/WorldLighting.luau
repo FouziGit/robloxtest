@@ -28,6 +28,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local LightingConfig = require(Shared.Config.LightingConfig)
 local Log = require(Shared.Util.Log)
+local PulseEnvelope = require(Shared.Pure.PulseEnvelope)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local Spring = require(Shared.Pure.Spring)
 
@@ -37,13 +38,11 @@ type Deps = { ClientData: any, QualityController: any }
 
 type SpringType = typeof(Spring.new(0, 1, 1))
 
--- One live envelope. Phase is where it is in attack -> hold -> release; the weight is a spring whose
--- position is the 0-to-1 fraction of the profile's offsets currently applied.
+-- One live pulse: the profile it applies, and its envelope (Pure/PulseEnvelope), whose weight is the
+-- 0-to-1 fraction of the profile's offsets currently applied.
 type ActivePulse = {
 	Profile: LightingConfig.PulseProfile,
-	Weight: SpringType,
-	Phase: "Attack" | "Hold" | "Release",
-	HoldRemaining: number,
+	Envelope: PulseEnvelope.Envelope,
 }
 
 -- One property of one effect, resolved once at Start: the instance to write, the resting value, the band
@@ -260,7 +259,7 @@ end
 -- Turns a phase duration into the critically damped spring that covers it (see Envelope in the config).
 -- Critical rather than under-damped: an overshoot here would push a value past the peak the config
 -- declares and into its clamp, which is a safety net and not a look.
-local function shape(spring: SpringType, seconds: number)
+local function shape(spring: any, seconds: number)
 	local frequency = LightingConfig.Envelope.Settle / math.max(seconds, LightingConfig.Envelope.MinPhaseSeconds)
 	spring.Tension = frequency * frequency
 	spring.Friction = Spring.criticalFriction(spring.Tension)
@@ -296,44 +295,16 @@ function WorldLighting.pulse(name: string, strength: number?)
 
 	local existing = live[name]
 	if existing ~= nil then
-		shape(existing.Weight, profile.AttackSeconds)
-		existing.Weight:setGoal(math.max(goal, existing.Weight.Goal))
-		existing.Phase = "Attack"
-		existing.HoldRemaining = profile.HoldSeconds
+		PulseEnvelope.rearm(existing.Envelope, goal)
 		offset = true
 		return
 	end
 
-	local weight = Spring.new(0, 1, 1)
-	shape(weight, profile.AttackSeconds)
-	weight:setGoal(goal)
-	live[name] = { Profile = profile, Weight = weight, Phase = "Attack", HoldRemaining = profile.HoldSeconds }
+	local envelope =
+		PulseEnvelope.new(Spring.new(0, 1, 1) :: any, shape, profile, goal, LightingConfig.Envelope.SettleEpsilon)
+	live[name] = { Profile = profile, Envelope = envelope }
 	liveCount += 1
 	offset = true
-end
-
--- Advances one envelope. The phase ends on the spring's POSITION rather than on a timer, so the peak a
--- pulse reaches is the offset the config declares and not whatever the spring happened to be passing when
--- a timer expired.
-local function advance(pulse: ActivePulse, deltaTime: number)
-	local epsilon = LightingConfig.Envelope.SettleEpsilon
-	local weight = pulse.Weight
-	if pulse.Phase == "Attack" then
-		weight:step(deltaTime)
-		if weight.Position >= 1 - epsilon then
-			weight:snap(1)
-			pulse.Phase = "Hold"
-		end
-	elseif pulse.Phase == "Hold" then
-		pulse.HoldRemaining -= deltaTime
-		if pulse.HoldRemaining <= 0 then
-			shape(weight, pulse.Profile.ReleaseSeconds)
-			weight:setGoal(0)
-			pulse.Phase = "Release"
-		end
-	else
-		weight:step(deltaTime)
-	end
 end
 
 --------------------------------------------------------------------------------------------------
@@ -346,8 +317,7 @@ local function onHeartbeat(deltaTime: number)
 	end
 
 	for name, pulse in pairs(live) do
-		advance(pulse, deltaTime)
-		if pulse.Phase == "Release" and pulse.Weight.Position <= LightingConfig.Envelope.SettleEpsilon then
+		if PulseEnvelope.step(pulse.Envelope, deltaTime) then
 			live[name] = nil
 			liveCount -= 1
 		end
@@ -359,7 +329,7 @@ local function onHeartbeat(deltaTime: number)
 		entry.Bucket[entry.Property] = 0
 	end
 	for _, pulse in pairs(live) do
-		local weight = pulse.Weight.Position
+		local weight = pulse.Envelope.Weight.Position
 		for effectName, deltas in pairs(pulse.Profile.Deltas) do
 			local bucket = buckets[effectName]
 			if bucket ~= nil then

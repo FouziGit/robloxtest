@@ -4,12 +4,11 @@
 -- arms down and dashed standing upright, while the damage, the ink and the screen shake all behaved. A
 -- player reads the body before they read the numbers, so the game looked like a tech demo that hurts.
 --
--- No animation asset and no Animator here, on purpose and permanently. An Animation needs an uploaded
--- asset id, and the only ids available to borrow are other studios' -- which docs/ART_BIBLE.md forbids
--- outright, and which is how every Roblox battleground ends up sharing four animations. This is
--- procedural instead: an ADDITIVE rotation written onto each joint's C0, composed on top of whatever
--- the engine's own idle and walk are doing through Motor6D.Transform. The two never fight, because they
--- write different properties.
+-- No animation asset here. An Animation needs an uploaded asset id, and the only ids available to
+-- borrow are other studios' -- which docs/ART_BIBLE.md forbids outright, and which is how every Roblox
+-- battleground ends up sharing four animations. This is procedural instead: an ADDITIVE rotation
+-- multiplied into each joint's Transform right after the Animator has written the frame's pose, so the
+-- engine's own idle and walk keep running underneath (src/client/Controllers/Posture.luau).
 --
 -- Angles are DEGREES, applied in the parent part's space, about the joint's own pivot. Parent space is
 -- the one thing an R6 torso and an R15 UpperTorso agree on (X right, Y up, Z back), so a pose written
@@ -19,12 +18,16 @@
 -- Pure data: no require and no Roblox global, so it loads under Lune (tests/Purity.spec.luau).
 
 -- The joints a pose may name. Semantic, not per-rig: "the right arm", not "RightShoulder", because the
--- Motor6D that swings a right arm is called two different things on the two rigs and lives under two
+-- joint that swings a right arm is called two different things on the two rigs and lives under two
 -- different parents.
-export type Joint = "RightArm" | "LeftArm" | "Torso" | "Head"
+export type Joint = "RightArm" | "LeftArm" | "RightForearm" | "LeftForearm" | "Torso" | "Head"
 
--- Degrees about X, Y, Z in parent space. X swings a limb forward, Y turns it outward, Z lifts it
--- sideways.
+-- Degrees about X, Y, Z in parent space, and the signs were MEASURED, not assumed: in a live client the
+-- right hand was tracked against the upper torso while each axis was driven to +-90 on its own. X+
+-- swings a limb forward and up (the right hand went from the hip to shoulder height in front). Z+ carries
+-- the RIGHT arm away from the body and Z- across it; the left arm mirrors, so Z+ brings it across. Y
+-- turns a hanging arm about its own length, which barely moves the hand. On a forearm, X+ folds it
+-- forward at the elbow.
 export type Angles = { number }
 
 -- A transient pose: it arrives, holds, and leaves. The three phases are the same envelope the lighting
@@ -39,15 +42,26 @@ export type PoseDef = {
 
 local PostureConfig = {}
 
--- The four joints, in the order the controller walks them.
-PostureConfig.JointOrder = { "RightArm", "LeftArm", "Torso", "Head" } :: { string }
+-- The joints, in the order the controller walks them.
+--
+-- The forearms are here because nothing reads without them. A live session drove the old four-joint
+-- guard (shoulders, waist, neck) and the difference between guard up and guard down was hard to see from
+-- the front and invisible from behind, which is where the camera is: a straight arm swung forward points
+-- AWAY from a camera behind the character. Folding the elbow is what puts the fists up by the head, and
+-- that silhouette is what says "guard" from every side.
+PostureConfig.JointOrder = { "RightArm", "LeftArm", "RightForearm", "LeftForearm", "Torso", "Head" } :: { string }
 
--- Semantic joint -> the Motor6D that carries it, per rig type.
+-- Semantic joint -> the NAME of the joint that carries it, per rig type. A name and not a class,
+-- because the class changed under this project's feet: on R15 the joint is a Motor6D in experiences
+-- that opted out of Roblox's Avatar Joint Upgrade and an AnimationConstraint everywhere else (the
+-- default since May 2026, and the opt-out is scheduled to disappear). Both carry the names below and a
+-- Transform the Animator rewrites every frame, which is all the controller needs. R6 is not touched by
+-- the upgrade and keeps Motor6D.
 --
 -- R6 has no waist, so its torso lean is taken at the RootJoint and moves the legs with it. That is the
 -- rig's limitation, not a shortcut: an R6 character leaning is a whole character leaning, and it still
 -- reads.
-PostureConfig.Motors = {
+PostureConfig.JointNames = {
 	R6 = {
 		RightArm = "Right Shoulder",
 		LeftArm = "Left Shoulder",
@@ -57,10 +71,19 @@ PostureConfig.Motors = {
 	R15 = {
 		RightArm = "RightShoulder",
 		LeftArm = "LeftShoulder",
+		RightForearm = "RightElbow",
+		LeftForearm = "LeftElbow",
 		Torso = "Waist",
 		Head = "Neck",
 	},
 } :: { [string]: { [string]: string } }
+
+-- The joints a rig physically does not have. R6 arms are one part each, so there is no elbow to fold:
+-- its guard is the shoulders alone, which reads less well and is the rig's limit, not a missing entry.
+-- tests/Posture.spec.luau holds every other joint to being named on every rig.
+PostureConfig.AbsentOnRig = {
+	R6 = { RightForearm = true, LeftForearm = true },
+} :: { [string]: { [string]: boolean } }
 
 -- How far a character is still worth animating, and how many at once. Posture is cheap -- four CFrame
 -- writes per character per frame, no instances created, nothing allocated -- so this is a sanity bound
@@ -86,37 +109,49 @@ PostureConfig.Envelope = {
 -- the finisher and commits the whole body. That escalation is the only thing telling a player, without
 -- a number, that the fourth hit is the one that launches.
 local poses: { [string]: PoseDef } = {
+	-- A right jab: the striking arm straight out, the other hand coming up by the face, the shoulders
+	-- turning into it. From behind, which is where the camera is, a straight arm points away and hides
+	-- behind the body; what reads is the turn of the torso and the off hand rising.
 	Melee1 = {
 		AttackSeconds = 0.07,
 		HoldSeconds = 0.03,
 		ReleaseSeconds = 0.16,
 		Angles = {
-			RightArm = { 96, -14, 10 },
-			LeftArm = { -22, 0, 0 },
-			Torso = { 4, -16, 0 },
-			Head = { 5, -8, 0 },
+			RightArm = { 96, 0, -12 },
+			RightForearm = { 8, 0, 0 },
+			LeftArm = { 60, 0, 22 },
+			LeftForearm = { 84, 0, 0 },
+			Torso = { 6, -24, 0 },
+			Head = { 6, -10, 0 },
 		},
 	},
+	-- The left jab, mirrored.
 	Melee2 = {
 		AttackSeconds = 0.07,
 		HoldSeconds = 0.03,
 		ReleaseSeconds = 0.16,
 		Angles = {
-			RightArm = { -22, 0, 0 },
-			LeftArm = { 96, 14, -10 },
-			Torso = { 4, 16, 0 },
-			Head = { 5, 8, 0 },
+			RightArm = { 60, 0, -22 },
+			RightForearm = { 84, 0, 0 },
+			LeftArm = { 96, 0, 12 },
+			LeftForearm = { 8, 0, 0 },
+			Torso = { 6, 24, 0 },
+			Head = { 6, 10, 0 },
 		},
 	},
+	-- A right hook: the elbow bent square and the arm carried ACROSS the body, with the whole torso
+	-- turning behind it. The sideways travel is what a camera behind the character can actually see.
 	Melee3 = {
 		AttackSeconds = 0.08,
 		HoldSeconds = 0.04,
 		ReleaseSeconds = 0.18,
 		Angles = {
-			RightArm = { 118, -26, 22 },
-			LeftArm = { -34, 0, -8 },
-			Torso = { 9, -26, 0 },
-			Head = { 9, -12, 0 },
+			RightArm = { 86, 0, -52 },
+			RightForearm = { 78, 0, 0 },
+			LeftArm = { 60, 0, 22 },
+			LeftForearm = { 84, 0, 0 },
+			Torso = { 8, -38, 0 },
+			Head = { 8, -14, 0 },
 		},
 	},
 	-- The finisher: both arms come over the top and the body follows them down. Twice the attack of a
@@ -127,22 +162,28 @@ local poses: { [string]: PoseDef } = {
 		HoldSeconds = 0.06,
 		ReleaseSeconds = 0.34,
 		Angles = {
-			RightArm = { 142, -10, 26 },
-			LeftArm = { 142, 10, -26 },
-			Torso = { 26, 0, 0 },
-			Head = { 16, 0, 0 },
+			RightArm = { 150, 0, -22 },
+			RightForearm = { 36, 0, 0 },
+			LeftArm = { 150, 0, 22 },
+			LeftForearm = { 36, 0, 0 },
+			Torso = { 30, 0, 0 },
+			Head = { 18, 0, 0 },
 		},
 	},
-	-- A glyph leaving the hand: the arm comes up and forward, palm out, and the torso opens rather than
-	-- twisting. Nothing here mirrors the melee chain -- casting and punching must not look alike, or the
-	-- opponent cannot read which one is coming.
+	-- A glyph leaving the hand: the arm swings up and OUT to the side, nearly straight, and the torso
+	-- opens rather than twisting. Nothing here mirrors the melee chain -- casting and punching must not
+	-- look alike, or the opponent cannot read which one is coming.
 	Cast = {
 		AttackSeconds = 0.09,
 		HoldSeconds = 0.08,
 		ReleaseSeconds = 0.26,
 		Angles = {
-			RightArm = { 104, -34, 30 },
-			LeftArm = { 28, 0, -16 },
+			-- Out and UP to the side, arm nearly straight: the one pose in this file whose hand travels
+			-- away from the body sideways, which is what separates it from every punch from behind.
+			RightArm = { 70, 0, 58 },
+			RightForearm = { 14, 0, 0 },
+			LeftArm = { 28, 0, 16 },
+			LeftForearm = { 40, 0, 0 },
 			Torso = { -8, -10, 0 },
 			Head = { -6, -6, 0 },
 		},
@@ -201,11 +242,18 @@ PostureConfig.MeleeChain = { "Melee1", "Melee2", "Melee3", "Melee4" } :: { strin
 PostureConfig.Guard = {
 	RiseSeconds = 0.1,
 	FallSeconds = 0.16,
+	-- Chosen on screen, in a live client, from the front and from behind, over four versions. The first
+	-- (shoulders only, 74 degrees forward, arms carried outward) was indistinguishable from guard down.
+	-- Elbows folded with the arms spread framed the face like a surrender. Brought together, the fists
+	-- met under the chin and vanished behind the body when seen from the camera. These values keep the
+	-- elbows out just far enough that, from behind, a fist shows either side of the head.
 	Angles = {
-		RightArm = { 74, -52, 30 },
-		LeftArm = { 74, 52, -30 },
+		RightArm = { 104, 0, -36 },
+		LeftArm = { 104, 0, 36 },
+		RightForearm = { 118, 0, 0 },
+		LeftForearm = { 118, 0, 0 },
 		Torso = { 10, 0, 0 },
-		Head = { 6, 0, 0 },
+		Head = { 14, 0, 0 },
 	} :: { [string]: Angles },
 }
 

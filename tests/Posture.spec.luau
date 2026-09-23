@@ -42,14 +42,21 @@ describe("the joints", function()
 			seen[joint] = true
 		end
 		for _, rig in ipairs(RIGS) do
-			local motors = PostureConfig.Motors[rig]
+			local motors = PostureConfig.JointNames[rig]
 			if motors == nil then
-				error(("no motor map for rig %s"):format(rig))
+				error(("no joint map for rig %s"):format(rig))
 			end
+			local absent = PostureConfig.AbsentOnRig[rig] or {}
 			for _, joint in ipairs(PostureConfig.JointOrder) do
 				local name = motors[joint]
-				if type(name) ~= "string" or name == "" then
-					error(("rig %s has no motor for %s"):format(rig, joint))
+				if absent[joint] then
+					-- A joint the rig does not have must not be named either: a name there would be
+					-- looked for on every character, every time one is tracked, and never found.
+					if name ~= nil then
+						error(("rig %s names %s, which it declares it does not have"):format(rig, joint))
+					end
+				elseif type(name) ~= "string" or name == "" then
+					error(("rig %s has no joint for %s"):format(rig, joint))
 				end
 			end
 			-- And nothing else: a motor named here for a joint no pose can reach is dead config.
@@ -66,7 +73,7 @@ describe("the joints", function()
 		-- identical for both would mean one of them was copied and never checked against a real rig.
 		local same = 0
 		for _, joint in ipairs(PostureConfig.JointOrder) do
-			if PostureConfig.Motors.R6[joint] == PostureConfig.Motors.R15[joint] then
+			if PostureConfig.JointNames.R6[joint] == PostureConfig.JointNames.R15[joint] then
 				same += 1
 			end
 		end
@@ -153,12 +160,17 @@ describe("the melee chain", function()
 
 	it("alternates arms, so the chain is a combination and not one arm four times", function()
 		local chain = PostureConfig.MeleeChain
+		-- The lead is the arm that is thrown: raised at the shoulder AND straighter at the elbow than the
+		-- other one, which is held folded up by the face.
 		local leadingRight: { boolean } = {}
 		for _, id in ipairs(chain) do
 			local angles = PostureConfig.Poses[id].Angles
-			local right = angles.RightArm ~= nil and angles.RightArm[1] or 0
-			local left = angles.LeftArm ~= nil and angles.LeftArm[1] or 0
-			table.insert(leadingRight, right > left)
+			local function reach(arm: string, forearm: string): number
+				local shoulder = angles[arm] ~= nil and angles[arm][1] or 0
+				local elbow = angles[forearm] ~= nil and angles[forearm][1] or 0
+				return shoulder - elbow
+			end
+			table.insert(leadingRight, reach("RightArm", "RightForearm") > reach("LeftArm", "LeftForearm"))
 		end
 		local alternations = 0
 		for index = 2, #leadingRight do
@@ -209,6 +221,22 @@ describe("the guard", function()
 		expect(angles.RightArm[1]).toBeGreaterThan(40)
 		expect(angles.LeftArm[1]).toBeGreaterThan(40)
 	end)
+
+	it("folds both elbows and brings the arms in, which is what made it readable on screen", function()
+		-- Measured in a live client: with the shoulders alone, guard up and guard down could not be told
+		-- apart from behind. The fists only rise beside the head when the elbows fold, and the arms have
+		-- to come IN (Z- on the right arm, Z+ on the left) -- the first guard carried them outward.
+		local angles = PostureConfig.Guard.Angles
+		expect(angles.RightForearm).never.toBe(nil)
+		expect(angles.LeftForearm).never.toBe(nil)
+		expect(angles.RightForearm[1]).toBeGreaterThan(90)
+		expect(angles.LeftForearm[1]).toBeGreaterThan(90)
+		expect(angles.RightArm[3]).toBeLessThan(0)
+		expect(angles.LeftArm[3]).toBeGreaterThan(0)
+		-- Symmetric: a guard that favours one side is a different stance.
+		expect(angles.RightArm[1]).toBe(angles.LeftArm[1])
+		expect(angles.RightArm[3]).toBe(-angles.LeftArm[3])
+	end)
 end)
 
 describe("the controller", function()
@@ -241,31 +269,60 @@ describe("the controller", function()
 		expect(code:find("Spring", 1, true)).never.toBe(nil)
 	end)
 
-	it("adds to the engine's own animation instead of replacing it", function()
-		-- C0 is the additive channel; Transform is what an animation track writes. Writing Transform
-		-- here would fight the idle and the walk every frame and win half of them.
-		expect(code:find("%.C0%s*=")).never.toBe(nil)
-		expect(code:find("%.Transform%s*=")).toBe(nil)
+	it("layers onto the pose the Animator has just written, at the one moment that works", function()
+		-- Roblox's documented pattern for a procedural layer: multiply into Transform inside
+		-- RunService.PreSimulation, after the Animator has written this frame's pose. Everything this file
+		-- tried before is one of the ways that does nothing on a modern avatar, and each is held out here:
+		-- C0 (a read-only alias on an AnimationConstraint, which throws), a rig attachment's CFrame (which
+		-- Roblox asks never be moved, since retargeting depends on it), and Transform written from
+		-- Heartbeat or the render step (replaced by the Animator's next write before anyone sees it --
+		-- the mistake that made a live test conclude the rig could not be posed at all).
+		expect(code:find("PreSimulation:Connect", 1, true)).never.toBe(nil)
+		expect(code:find("Heartbeat:Connect", 1, true)).toBe(nil)
+		expect(code:find("RenderStepped", 1, true)).toBe(nil)
+		expect(code:find("BindToRenderStep", 1, true)).toBe(nil)
+		expect(code:find("%.Transform%s*=")).never.toBe(nil)
+		expect(code:find("%.C0%s*=")).toBe(nil)
+		expect(code:find("%.C1%s*=")).toBe(nil)
+		expect(code:find("Attachment0%.CFrame%s*=")).toBe(nil)
+		expect(code:find("Attachment1%.CFrame%s*=")).toBe(nil)
+		-- Multiplied into the engine's pose, never assigned over it: an assignment replaces the idle.
+		expect(code:find("%*%s*base")).never.toBe(nil)
 		expect(code:find("LoadAnimation", 1, true)).toBe(nil)
-		expect(code:find("Animator", 1, true)).toBe(nil)
+	end)
+
+	it("finds a joint whatever its class", function()
+		-- The same R15 joint is a Motor6D in one experience and an AnimationConstraint in the next
+		-- (Roblox's Avatar Joint Upgrade). Looking for one class poses nobody on the other, which is
+		-- exactly how this controller first shipped.
+		expect(code:find('IsA("Motor6D")', 1, true)).never.toBe(nil)
+		expect(code:find('IsA("AnimationConstraint")', 1, true)).never.toBe(nil)
+	end)
+
+	it("never compounds an offset when nothing rewrote the joint", function()
+		-- Multiplying into Transform is only additive if something rewrites Transform every frame. When
+		-- the Animator's evaluation is throttled, or a character has no Animator, last frame's result is
+		-- still there, and multiplying again turns the limb a little further every frame, forever.
+		expect(code:find("current == state.Written", 1, true)).never.toBe(nil)
+		expect(code:find("state.Base", 1, true)).never.toBe(nil)
 	end)
 
 	it("says so, once, when the rig carries no joint it can pose", function()
-		-- Measured in a running client: a modern Roblox avatar is an AnimationConstraint rig with no
-		-- Motor6D anywhere, and nothing here can pose it. Silence in that case is the worst outcome --
-		-- the game looks exactly as broken as it did before this file existed and nothing says why. The
-		-- warning has to name the rig and it has to fire once, not once per character per frame.
+		-- Silence in that case is the worst outcome: the game looks exactly as broken as it did before
+		-- this file existed and nothing says why. Once per rig, never per character per frame.
 		expect(code:find("warnedRigs", 1, true)).never.toBe(nil)
 		expect(code:find("RigType", 1, true)).never.toBe(nil)
-		expect(code:find("Avatar Type", 1, true)).never.toBe(nil)
 		expect(code:find("log.warn", 1, true)).never.toBe(nil)
+		-- And it no longer sends anyone to switch the game to R6. That advice was wrong: every combat
+		-- animation source is an R15 skeleton and R6 has no elbows or knees (docs/DECISIONS.md D-103).
+		expect(code:find("Avatar Type", 1, true)).toBe(nil)
 	end)
 
-	it("puts every joint back exactly as it found it", function()
-		-- Without this a character that stops being posed keeps the last offset for the rest of its
-		-- life, and the engine's idle plays on top of a body that is already mid-swing.
-		expect(code:find("Originals", 1, true)).never.toBe(nil)
+	it("hands every joint back to the engine when it stops posing it", function()
+		-- Without this a character that stops being posed, and has no Animator to overwrite it, keeps
+		-- the last offset for the rest of its life.
 		expect(code:find("local function restore", 1, true)).never.toBe(nil)
 		expect(code:find("restore(entry)", 1, true)).never.toBe(nil)
+		expect(code:find("setTransform(state.Instance, state.Base", 1, true)).never.toBe(nil)
 	end)
 end)

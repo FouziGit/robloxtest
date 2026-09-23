@@ -7,37 +7,41 @@
 -- did not, so the game read as a spreadsheet with particles.
 --
 -- How it works, and why it needs no asset:
---   * A Roblox animation track writes Motor6D.Transform. This writes Motor6D.C0. They compose, so the
---     engine's own idle and walk keep running underneath and a swing is ADDED on top of them instead of
---     replacing them. There is no Animator here and no animation asset id, which is the point: the only
---     ids available to borrow belong to other studios (docs/ART_BIBLE.md).
---   * Angles are declared in Config/PostureConfig in PARENT space and converted here, once, per joint.
---     An R6 "Right Shoulder" and an R15 "RightShoulder" sit at different orientations, so applying a
---     raw rotation to either one gives two different poses; applying it about the joint's pivot in the
---     torso's space gives the same pose on both rigs.
+--   * Every joint the engine animates has a Transform that the Animator rewrites once per frame,
+--     between RunService.PreAnimation and RunService.PreSimulation. This controller runs IN
+--     PreSimulation, reads the pose the Animator just wrote, and multiplies an offset into it. The
+--     engine's own idle and walk therefore keep running underneath and a swing is ADDED on top of them.
+--     That is Roblox's documented pattern for procedural layers (the AnimationConstraint reference and
+--     the Avatar Joint Upgrade migration notes), and it is the same on both joint classes below.
+--   * The joint may be a Motor6D (R6, and R15 in experiences that opted out) or an AnimationConstraint
+--     (R15 under the Avatar Joint Upgrade, the default for experiences since May 2026, with the opt-out
+--     scheduled to disappear). They carry the same NAMES and neither can be posed through its frames:
+--     an AnimationConstraint's C0 is a read-only alias that throws, and Roblox asks that rig attachments
+--     never be moved, because retargeting depends on them.
+--   * Angles are declared in Config/PostureConfig in PARENT space and converted here, per joint, by
+--     conjugating with the rotation of the joint's parent-side frame (Motor6D.C0, or the constraint's
+--     Attachment0). An R6 "Right Shoulder" and an R15 "RightShoulder" sit at orientations ninety
+--     degrees apart, so a raw rotation gives two different poses; the conjugated one gives the same pose
+--     on both.
 --   * Every pose is a weight between 0 and 1 carried by the same spring the camera and the HUD use, and
 --     the weights SUM. A player who dashes out of a finisher gets both, composed, rather than the
 --     second cancelling the first.
+--   * There is no Animator call and no animation asset id here, which is the point: the only ids
+--     available to borrow belong to other studios (docs/ART_BIBLE.md).
 --
--- WHAT THIS NEEDS, and it is not negotiable: a Motor6D rig. Verified in a running client -- a modern
--- Roblox avatar is no longer built from Motor6D at all. It is a physically driven rig of
--- AnimationConstraint plus BallSocketConstraint, with the same joint NAMES (RightShoulder, Waist, Neck)
--- and none of the joints. Neither attachment frame nor the constraint's own Transform moves a limb on
--- it, written once or written every frame after the character step; all three were measured against the
--- hand's position and all three moved it by under two tenths of a stud.
+-- What went wrong the first time, so it is not done again: this file used to write Motor6D.C0 from a
+-- Heartbeat, and a live session showed a modern avatar has no Motor6D at all. The follow-up measurement
+-- then wrote the constraint's Transform from a render-step binding -- a point in the frame where the
+-- Animator's next write simply replaces it -- and concluded, wrongly, that the rig could not be posed.
+-- The timing was the bug. tests/Posture.spec.luau now holds the controller to PreSimulation.
 --
--- The fix is a universe setting, not code: Avatar Type set to R6 (docs/STUDIO_SETUP.md). An R6 rig has
--- exactly the six Motor6Ds Config/PostureConfig names, and R6 is what this genre uses anyway -- a
--- silhouette that reads at fighting distance. Until it is set, this controller says so once and poses
--- nothing, which is the honest behaviour: it never half-moves a body.
+-- Transform does not replicate. That is not a limitation, it is the design: every client runs this
+-- controller against the same replicated state (the guard attribute) and the same broadcast packets,
+-- so everyone sees everyone's body move and the server spends nothing -- which is also what Roblox
+-- recommends for procedural joints.
 --
--- C0 is written on this client only: Motor6D.C0 does not replicate from a client. That is not a
--- limitation, it is the design -- every client runs this controller against the same replicated state
--- (the guard attribute) and the same broadcast packets, so everyone sees everyone's body move, and the
--- server spends nothing.
---
--- One Heartbeat for every character, like FootprintController: characters are read from Players each
--- frame, so a respawn or a leave costs nothing to track.
+-- One PreSimulation connection for every character: characters are read from Players each frame, so a
+-- respawn or a leave costs nothing to track.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -65,16 +69,27 @@ type Pulse = {
 	Releasing: boolean,
 }
 
+-- The two joint classes that carry a Transform the Animator rewrites every frame.
+type JointInstance = Motor6D | AnimationConstraint
+
+-- One posed joint.
+type JointState = {
+	Instance: JointInstance,
+	-- Rotation of the joint's parent-side frame: what a parent-space angle is conjugated by.
+	Frame: CFrame,
+	-- The Transform the engine produced this frame, before the offset.
+	Base: CFrame?,
+	-- The Transform this file wrote last frame, or nil when it wrote nothing.
+	Written: CFrame?,
+}
+
 -- Everything known about one character being posed.
 type Entry = {
 	Humanoid: Humanoid,
-	-- Semantic joint name -> the Motor6D carrying it, and the C0 it had before this file touched it.
-	Motors: { [string]: Motor6D },
-	Originals: { [string]: CFrame },
+	-- Semantic joint name -> the joint carrying it.
+	Joints: { [string]: JointState },
 	Pulses: { Pulse },
 	Guard: SpringHandle,
-	-- True while at least one joint is displaced, so a character standing still costs no CFrame writes.
-	Displaced: boolean,
 }
 
 local GUARD_ATTRIBUTE = CombatConfig.Status.BlockAttribute
@@ -90,7 +105,7 @@ local Posture = {}
 local entries: { [Model]: Entry } = {}
 local vfxController: any
 -- Rig types already reported as unposeable. Once each, never per character and never per frame: a
--- twelve-player server on the wrong avatar setting would otherwise print seven hundred lines a second.
+-- twelve-player server of an unknown rig would otherwise print seven hundred lines a second.
 local warnedRigs: { [string]: boolean } = {}
 
 -- The critically damped spring that covers a declared phase, by the conversion PostureConfig.Envelope
@@ -107,23 +122,54 @@ local function retune(handle: SpringHandle, seconds: number)
 	handle.Friction = friction
 end
 
--- The Motor6D carrying a semantic joint, or nil when this rig has no such joint. Searched by name
--- across the character because the two rigs park the same joint under different parents.
-local function findMotors(character: Model, humanoid: Humanoid): { [string]: Motor6D }?
+-- Writes a joint's Transform. One branch per class because the type checker cannot assign through a
+-- union of two engine classes, even to a property both of them declare.
+local function setTransform(instance: JointInstance, value: CFrame)
+	if instance:IsA("Motor6D") then
+		(instance :: Motor6D).Transform = value
+	else
+		(instance :: AnimationConstraint).Transform = value
+	end
+end
+
+-- The parent-side frame of a joint: Motor6D.C0, or the constraint's Attachment0 (the attachment on the
+-- parent part -- on a right shoulder, the one inside the torso). Rotation only: the offset turns the
+-- limb about its pivot and never moves the pivot.
+local function frameOf(instance: JointInstance): CFrame?
+	if instance:IsA("Motor6D") then
+		return (instance :: Motor6D).C0.Rotation
+	end
+	local attachment = (instance :: AnimationConstraint).Attachment0
+	if attachment == nil then
+		return nil
+	end
+	return attachment.CFrame.Rotation
+end
+
+-- The joints carrying each semantic joint on this rig, by name, whatever their class. Searched across
+-- the character because the two rigs park the same joint under different parents.
+local function findJoints(character: Model, humanoid: Humanoid): { [string]: JointState }?
 	local rig = if humanoid.RigType == Enum.HumanoidRigType.R6 then "R6" else "R15"
-	local names = PostureConfig.Motors[rig]
+	local names = PostureConfig.JointNames[rig]
 	if names == nil then
 		return nil
 	end
-	local found: { [string]: Motor6D } = {}
+	local found: { [string]: JointState } = {}
 	local any = false
 	for _, joint in ipairs(JOINTS) do
-		local motorName = names[joint]
-		if motorName ~= nil then
+		local jointName = names[joint]
+		if jointName ~= nil then
 			for _, descendant in ipairs(character:GetDescendants()) do
-				if descendant:IsA("Motor6D") and descendant.Name == motorName then
-					found[joint] = descendant
-					any = true
+				if
+					descendant.Name == jointName
+					and (descendant:IsA("Motor6D") or descendant:IsA("AnimationConstraint"))
+				then
+					local instance = descendant :: JointInstance
+					local frame = frameOf(instance)
+					if frame ~= nil then
+						found[joint] = { Instance = instance, Frame = frame, Base = nil, Written = nil }
+						any = true
+					end
 					break
 				end
 			end
@@ -136,46 +182,41 @@ local function findMotors(character: Model, humanoid: Humanoid): { [string]: Mot
 end
 
 local function track(character: Model, humanoid: Humanoid): Entry?
-	local motors = findMotors(character, humanoid)
-	if motors == nil then
+	local joints = findJoints(character, humanoid)
+	if joints == nil then
 		local rig = humanoid.RigType.Name
 		if not warnedRigs[rig] then
 			warnedRigs[rig] = true
 			log.warn(
-				"%s characters carry no Motor6D on this client, so no body will move. "
-					.. "Set the experience's Avatar Type to R6 (docs/STUDIO_SETUP.md)",
+				"%s characters carry neither a Motor6D nor an AnimationConstraint under the joint names "
+					.. "PostureConfig expects, so their bodies will not move",
 				rig
 			)
 		end
 		return nil
 	end
-	local originals: { [string]: CFrame } = {}
-	for joint, motor in pairs(motors) do
-		originals[joint] = motor.C0
-	end
 	local rise, riseFriction = springFor(PostureConfig.Guard.RiseSeconds)
 	local entry: Entry = {
 		Humanoid = humanoid,
-		Motors = motors,
-		Originals = originals,
+		Joints = joints,
 		Pulses = {},
 		Guard = Spring.new(0, rise, riseFriction),
-		Displaced = false,
 	}
 	entries[character] = entry
 	return entry
 end
 
--- Puts every joint back exactly as it was found. Called when a character stops being posed, so the
--- engine's own animation is never left standing on an offset this file forgot to take off.
+-- Hands every joint back to the engine exactly as the engine last posed it. Called when a character
+-- stops being posed, so no offset is left standing on a body this file no longer tracks. Where an
+-- Animator is running this is overwritten on the next frame anyway; where none is, it is the only thing
+-- that takes the offset off.
 local function restore(entry: Entry)
-	for joint, motor in pairs(entry.Motors) do
-		local original: CFrame? = entry.Originals[joint]
-		if original ~= nil and motor.Parent ~= nil then
-			motor.C0 = original
+	for _, state in pairs(entry.Joints) do
+		if state.Written ~= nil and state.Instance.Parent ~= nil then
+			setTransform(state.Instance, state.Base or CFrame.identity)
 		end
+		state.Written = nil
 	end
-	entry.Displaced = false
 end
 
 local function forget(character: Model)
@@ -183,9 +224,7 @@ local function forget(character: Model)
 	if entry == nil then
 		return
 	end
-	if entry.Displaced then
-		restore(entry)
-	end
+	restore(entry)
 	entries[character] = nil
 end
 
@@ -250,13 +289,12 @@ local function step(entry: Entry, deltaTime: number)
 	end
 	Spring.step(entry.Guard, deltaTime)
 
-	-- Compose every live weight into one rotation per joint.
+	-- Compose every live weight into one rotation per joint, and multiply it into the pose the Animator
+	-- has just written.
 	local guardWeight = entry.Guard.Position
-	local displaced = false
 	for _, joint in ipairs(JOINTS) do
-		local motor: Motor6D? = entry.Motors[joint]
-		local original: CFrame? = entry.Originals[joint]
-		if motor ~= nil and original ~= nil and motor.Parent ~= nil then
+		local state = entry.Joints[joint]
+		if state ~= nil and state.Instance.Parent ~= nil then
 			local x, y, z = 0, 0, 0
 			for _, pulse in ipairs(entry.Pulses) do
 				local def = PostureConfig.Poses[pulse.PoseId]
@@ -274,24 +312,31 @@ local function step(entry: Entry, deltaTime: number)
 				y += guardAngles[2] * guardWeight
 				z += guardAngles[3] * guardWeight
 			end
+
+			local current = state.Instance.Transform
+			-- The Animator rewrites Transform every frame it evaluates. If what is there is still exactly
+			-- what this file wrote last frame, nothing rewrote it -- the evaluation was throttled, or the
+			-- character has no Animator -- and multiplying again would compound the offset frame after
+			-- frame into a spinning limb. Rebuild from the last pose the engine actually produced instead.
+			local base = if state.Written ~= nil and current == state.Written then state.Base or current else current
+			state.Base = base
+
 			if math.abs(x) + math.abs(y) + math.abs(z) > EPSILON_DEGREES then
-				displaced = true
-				-- The pivot is kept and the rotation is applied in the PARENT's space, before the
-				-- joint's own orientation. This is the line that makes one declared pose read the same
-				-- on an R6 shoulder and an R15 one.
-				local position = original.Position
-				local rotation = original - position
-				local offset = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
-				motor.C0 = CFrame.new(position) * offset * rotation
-			elseif entry.Displaced then
-				motor.C0 = original
+				-- A parent-space rotation about the pivot, carried into the joint's own frame by
+				-- conjugation. This is the line that makes one declared pose read the same on every rig.
+				local rotation = CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+				local written = state.Frame:Inverse() * rotation * state.Frame * base
+				setTransform(state.Instance, written)
+				state.Written = written
+			elseif state.Written ~= nil then
+				setTransform(state.Instance, base)
+				state.Written = nil
 			end
 		end
 	end
-	entry.Displaced = displaced
 end
 
-local function onHeartbeat(deltaTime: number)
+local function onPreSimulation(deltaTime: number)
 	local camera = Workspace.CurrentCamera
 	local origin = if camera ~= nil then camera.CFrame.Position else Vector3.zero
 
@@ -396,7 +441,10 @@ end
 
 function Posture.Start()
 	vfxController.Acted:Connect(onAction)
-	RunService.Heartbeat:Connect(onHeartbeat)
+	-- PreSimulation and nothing else: it is the one point in the frame after the Animator has written
+	-- this frame's pose and before the joints are solved. Heartbeat and the render step both come after
+	-- the next Animator write has replaced anything written there.
+	RunService.PreSimulation:Connect(onPreSimulation)
 	Players.PlayerRemoving:Connect(function(player: Player)
 		local character = player.Character
 		if character ~= nil then

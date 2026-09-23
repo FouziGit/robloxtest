@@ -82,8 +82,10 @@ type Deps = {
 	Currency: CurrencyApi,
 	AntiCheat: AntiCheatApi,
 	Glyph: GlyphApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
+	Cosmetic: CosmeticApi,
 }
 type TroveType = typeof(Trove.new())
+type CosmeticApi = { skinShade: (player: Player, glyphId: string) -> number }
 -- One pigment interaction of docs/GAME_DESIGN.md §6, as CombatConfig.Status declares it: damage of
 -- AppliedByPigment writes the mark, damage of AmplifiesPigment is multiplied while it lasts.
 type PigmentMark = {
@@ -190,6 +192,7 @@ local antiCheat: AntiCheatApi
 local vfx: VfxApi
 local progression: ProgressionApi
 local currency: CurrencyApi
+local cosmetic: CosmeticApi
 local glyph: GlyphApi? = nil
 local deps: Deps
 
@@ -599,11 +602,18 @@ end
 -- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
 -- last attacker while the fight is still fresh, so leaving the fight is never a free escape. The
 -- attribute is cleared afterwards so a later unrelated death cannot re-credit the same attacker.
+--
+-- "Fresh" holds for both branches. It used to gate only the death with no recorded attacker, so an
+-- attacker recorded at the end of a match was credited whenever the survivor next died: the winner of a
+-- duel, teleported back to the hub on the same character, pressed Reset minutes later and handed the
+-- loser a kill, its XP and Folios -- and, once kill effects were drawn, the loser's finisher at the
+-- winner's feet in the hub (D-109, found by review).
 local function creditDeath(state: State, character: Model, now: number)
 	local attribute = character:GetAttribute(LAST_ATTACKER_ATTRIBUTE)
 	local attackerId: number? = if typeof(attribute) == "number" then attribute :: number else nil
 	local inCombat = state.LastDamageTakenAt > 0 and now - state.LastDamageTakenAt < CombatConfig.Ink.InCombatSeconds
-	if attackerId == nil and not inCombat then
+	if not inCombat then
+		character:SetAttribute(LAST_ATTACKER_ATTRIBUTE, nil)
 		return
 	end
 	local attacker: Player? = nil
@@ -907,6 +917,14 @@ function CombatService.ApplyDamage(
 	local hitParams: { [string]: any } = { Amount = applied, Kind = kind }
 	if pigment ~= nil then
 		hitParams.Pigment = pigment
+	end
+	-- A skinned glyph lands in its skin: the ring, the burn and the number of its hit are part of the
+	-- cast. Glyph damage carries its glyph id as tags[1] (GlyphEffects' tracker).
+	if kind == "Glyph" and source ~= nil and tags[1] ~= nil then
+		local shade = cosmetic.skinShade(source, tags[1])
+		if shade ~= 0 then
+			hitParams.Shade = shade
+		end
 	end
 	-- Who dealt it and who took it. Without these the client could only guess from the impact position,
 	-- and it guessed badly: every player standing near a hit got the hit-stop and the camera shake meant
@@ -1385,6 +1403,7 @@ function CombatService.Init(injected: Deps)
 	vfx = injected.Vfx
 	progression = injected.Progression
 	currency = injected.Currency
+	cosmetic = injected.Cosmetic
 end
 
 function CombatService.Start()

@@ -25,6 +25,11 @@ MonetizationConfig.Passes = {
 	SkinPack = { Id = 0, PriceRobux = 249, NameKey = "pass.skinPack", DescKey = "pass.skinPack.desc" },
 } :: { [string]: PassDef }
 
+-- Cosmetics granted by the Vip pass: its exclusive aura (pass.vip.desc promises one).
+MonetizationConfig.VipCosmetics = {
+	"VipAura",
+} :: { string }
+
 -- Cosmetics granted by the SkinPack pass.
 MonetizationConfig.SkinPackCosmetics = {
 	"SkinBrandAzure",

@@ -1,9 +1,28 @@
 --!strict
--- Cosmetic catalog. Pure data. Cosmetics never affect gameplay; VfxLibrary reads the visual params.
+-- Cosmetic catalog. Pure data. Cosmetics never affect gameplay.
 -- Slots: Aura | Trail | KillEffect | Title | Skin (Skin applies to one glyph id via Target).
+--
+-- Every look obeys docs/ART_BIBLE.md, and that is a constraint on what a cosmetic may BE, not a style:
+--   * rule 1, every saturated colour on screen belongs to a glyph -- so an aura, a trail or a kill effect
+--     is drawn in the page's own inks (Tones below), never in a colour a player would read as a school;
+--   * rule 2, a glyph is one pigment -- so a skin is a SHADE of its glyph's pigment (darker toward ink,
+--     paler toward the page), never another hue: a blue Brand would be read as Indigo from thirty studs;
+--   * rule 7, white means invulnerable -- so no tone is chalk-white.
+-- Rarity is carried by craft: how many styles are layered and how they move, not by colour.
+-- Ids are storage keys (profiles, passes, rewards) and keep their historical names; what a player sees
+-- is the NameKey and the Look (docs/DECISIONS.md D-109).
 
 export type Slot = "Aura" | "Trail" | "KillEffect" | "Title" | "Skin"
 export type Rarity = "Common" | "Rare" | "Epic" | "Legendary"
+export type Tone = "Ink" | "Graphite" | "Wash"
+-- Styles are named in AuraStyles and TrailStyles below; CosmeticController owns what each one looks like.
+export type Look = {
+	Styles: { string }?, -- Aura, Trail: layered, most visible first
+	Tone: Tone?, -- Aura, Trail
+	Timeline: string?, -- KillEffect: a VfxTimelineConfig timeline
+	TextKey: string?, -- Title: the words shown above the head
+	Shade: number?, -- Skin: -1 toward ink .. +1 toward the page, inside ShadeRange
+}
 export type CosmeticDef = {
 	Id: string,
 	Slot: Slot,
@@ -11,14 +30,10 @@ export type CosmeticDef = {
 	NameKey: string,
 	Sellable: boolean, -- false = reward only (battle pass, season, pack)
 	Target: string?, -- glyph id for skins
-	Visual: { [string]: number }, -- colors as R/G/B components or numeric parameters
+	Look: Look,
 }
 
 local CosmeticConfig = {}
-
-local function rgb(prefix: string, r: number, g: number, b: number): { [string]: number }
-	return { [prefix .. "R"] = r, [prefix .. "G"] = g, [prefix .. "B"] = b }
-end
 
 CosmeticConfig.Items = {
 	-- Battle pass free track
@@ -28,7 +43,7 @@ CosmeticConfig.Items = {
 		Rarity = "Common",
 		NameKey = "cosmetic.BlankHeadband",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.BlankHeadband" },
 	},
 	{
 		Id = "SteelStylus",
@@ -36,7 +51,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.SteelStylus",
 		Sellable = false,
-		Visual = rgb("Color", 200, 200, 210),
+		Look = { Styles = { "Hairline" }, Tone = "Graphite" },
 	},
 	{
 		Id = "PalimpsestCape",
@@ -44,7 +59,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.PalimpsestCape",
 		Sellable = false,
-		Visual = rgb("Color", 180, 200, 220),
+		Look = { Styles = { "Pages" }, Tone = "Wash" },
 	},
 	{
 		Id = "FrisketMask",
@@ -52,7 +67,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.FrisketMask",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.FrisketMask" },
 	},
 	{
 		Id = "BlueInkAura",
@@ -60,7 +75,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.BlueInkAura",
 		Sellable = false,
-		Visual = rgb("Color", 80, 160, 255),
+		Look = { Styles = { "Drips", "Motes" }, Tone = "Ink" },
 	},
 	{
 		Id = "ScriptoriumRobe",
@@ -68,7 +83,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.ScriptoriumRobe",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.ScriptoriumRobe" },
 	},
 	{
 		Id = "VioletInkAura",
@@ -76,7 +91,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.VioletInkAura",
 		Sellable = false,
-		Visual = rgb("Color", 170, 90, 255),
+		Look = { Styles = { "Wisps", "Motes" }, Tone = "Graphite" },
 	},
 	{
 		Id = "ScribeCloak",
@@ -84,7 +99,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.ScribeCloak",
 		Sellable = false,
-		Visual = rgb("Color", 230, 150, 60),
+		Look = { Styles = { "Stroke" }, Tone = "Ink" },
 	},
 	{
 		Id = "GoldenInkAura",
@@ -92,7 +107,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.GoldenInkAura",
 		Sellable = false,
-		Visual = rgb("Color", 255, 215, 90),
+		Look = { Styles = { "Orbit", "Motes" }, Tone = "Ink" },
 	},
 	{
 		Id = "CodexCloak",
@@ -100,7 +115,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.CodexCloak",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.CodexCloak" },
 	},
 	-- Battle pass premium track
 	{
@@ -109,7 +124,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.TrailEmber",
 		Sellable = false,
-		Visual = rgb("Color", 255, 120, 40),
+		Look = { Styles = { "Stroke", "Soot" }, Tone = "Ink" },
 	},
 	{
 		Id = "AuraCrimson",
@@ -117,7 +132,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.AuraCrimson",
 		Sellable = false,
-		Visual = rgb("Color", 220, 40, 60),
+		Look = { Styles = { "Wisps" }, Tone = "Ink" },
 	},
 	{
 		Id = "KillEffectShatter",
@@ -125,7 +140,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.KillEffectShatter",
 		Sellable = false,
-		Visual = rgb("Color", 200, 230, 255),
+		Look = { Timeline = "KillTear" },
 	},
 	{
 		Id = "TitleShadow",
@@ -133,7 +148,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.TitleShadow",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleShadow" },
 	},
 	{
 		Id = "SkinBrandAzure",
@@ -142,7 +157,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinBrandAzure",
 		Sellable = false,
 		Target = "Brand",
-		Visual = rgb("Color", 60, 140, 255),
+		Look = { Shade = -0.25 },
 	},
 	{
 		Id = "TrailStorm",
@@ -150,7 +165,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.TrailStorm",
 		Sellable = false,
-		Visual = rgb("Color", 120, 200, 255),
+		Look = { Styles = { "Scrawl" }, Tone = "Graphite" },
 	},
 	{
 		Id = "SkinRuptureMagma",
@@ -159,7 +174,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinRuptureMagma",
 		Sellable = false,
 		Target = "Rupture",
-		Visual = rgb("Color", 255, 90, 20),
+		Look = { Shade = -0.25 },
 	},
 	{
 		Id = "KillEffectRedaction",
@@ -167,7 +182,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.KillEffectRedaction",
 		Sellable = false,
-		Visual = rgb("Color", 255, 240, 120),
+		Look = { Timeline = "KillRedaction" },
 	},
 	{
 		Id = "TitleCodex",
@@ -175,7 +190,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.TitleCodex",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleCodex" },
 	},
 	{
 		Id = "AuraCodex",
@@ -183,7 +198,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.AuraCodex",
 		Sellable = false,
-		Visual = rgb("Color", 255, 180, 60),
+		Look = { Styles = { "Orbit", "Pages" }, Tone = "Ink" },
 	},
 	-- Season rewards
 	{
@@ -192,7 +207,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.TitleScript",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleScript" },
 	},
 	{
 		Id = "TitleIllumination",
@@ -200,7 +215,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.TitleIllumination",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleIllumination" },
 	},
 	{
 		Id = "TitleCodexSeason",
@@ -208,7 +223,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.TitleCodexSeason",
 		Sellable = false,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleCodexSeason" },
 	},
 	-- Skin pack (game pass)
 	{
@@ -218,7 +233,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinWashJade",
 		Sellable = false,
 		Target = "Wash",
-		Visual = rgb("Color", 60, 220, 160),
+		Look = { Shade = -0.25 },
 	},
 	{
 		Id = "SkinSerifObsidian",
@@ -227,7 +242,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinSerifObsidian",
 		Sellable = false,
 		Target = "Serif",
-		Visual = rgb("Color", 40, 30, 50),
+		Look = { Shade = -0.25 },
 	},
 	{
 		Id = "SkinSweepSilver",
@@ -236,7 +251,16 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinSweepSilver",
 		Sellable = false,
 		Target = "Sweep",
-		Visual = rgb("Color", 220, 225, 235),
+		Look = { Shade = 0.2 },
+	},
+	-- VIP game pass: the aura docs/ECONOMY.md and the pass description promise (MonetizationConfig.VipCosmetics).
+	{
+		Id = "VipAura",
+		Slot = "Aura",
+		Rarity = "Legendary",
+		NameKey = "cosmetic.VipAura",
+		Sellable = false,
+		Look = { Styles = { "Orbit", "Wisps", "Motes" }, Tone = "Ink" },
 	},
 	-- Shop catalog (Folios or Robux)
 	{
@@ -245,7 +269,7 @@ CosmeticConfig.Items = {
 		Rarity = "Common",
 		NameKey = "cosmetic.TrailFolio",
 		Sellable = true,
-		Visual = rgb("Color", 110, 200, 90),
+		Look = { Styles = { "Scraps" }, Tone = "Wash" },
 	},
 	{
 		Id = "TrailSand",
@@ -253,7 +277,7 @@ CosmeticConfig.Items = {
 		Rarity = "Common",
 		NameKey = "cosmetic.TrailSand",
 		Sellable = true,
-		Visual = rgb("Color", 225, 200, 140),
+		Look = { Styles = { "Dust" }, Tone = "Wash" },
 	},
 	{
 		Id = "TitleRookie",
@@ -261,7 +285,7 @@ CosmeticConfig.Items = {
 		Rarity = "Common",
 		NameKey = "cosmetic.TitleRookie",
 		Sellable = true,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleRookie" },
 	},
 	{
 		Id = "TitleWanderer",
@@ -269,7 +293,7 @@ CosmeticConfig.Items = {
 		Rarity = "Common",
 		NameKey = "cosmetic.TitleWanderer",
 		Sellable = true,
-		Visual = {},
+		Look = { TextKey = "cosmetic.title.TitleWanderer" },
 	},
 	{
 		Id = "AuraFrost",
@@ -277,7 +301,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.AuraFrost",
 		Sellable = true,
-		Visual = rgb("Color", 170, 220, 255),
+		Look = { Styles = { "Motes" }, Tone = "Graphite" },
 	},
 	{
 		Id = "AuraEmber",
@@ -285,7 +309,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.AuraEmber",
 		Sellable = true,
-		Visual = rgb("Color", 255, 140, 60),
+		Look = { Styles = { "Soot" }, Tone = "Ink" },
 	},
 	{
 		Id = "TrailViolet",
@@ -293,7 +317,7 @@ CosmeticConfig.Items = {
 		Rarity = "Rare",
 		NameKey = "cosmetic.TrailViolet",
 		Sellable = true,
-		Visual = rgb("Color", 180, 100, 255),
+		Look = { Styles = { "Stroke", "Hairline" }, Tone = "Ink" },
 	},
 	{
 		Id = "SkinBrandEmerald",
@@ -302,7 +326,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinBrandEmerald",
 		Sellable = true,
 		Target = "Brand",
-		Visual = rgb("Color", 60, 200, 120),
+		Look = { Shade = 0.2 },
 	},
 	{
 		Id = "KillEffectPetals",
@@ -310,7 +334,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.KillEffectPetals",
 		Sellable = true,
-		Visual = rgb("Color", 255, 170, 200),
+		Look = { Timeline = "KillScraps", Tone = "Wash" },
 	},
 	{
 		Id = "AuraStorm",
@@ -318,7 +342,7 @@ CosmeticConfig.Items = {
 		Rarity = "Epic",
 		NameKey = "cosmetic.AuraStorm",
 		Sellable = true,
-		Visual = rgb("Color", 90, 150, 255),
+		Look = { Styles = { "Orbit" }, Tone = "Graphite" },
 	},
 	{
 		Id = "SkinScorchAzure",
@@ -327,7 +351,7 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinScorchAzure",
 		Sellable = true,
 		Target = "Scorch",
-		Visual = rgb("Color", 60, 140, 255),
+		Look = { Shade = -0.25 },
 	},
 	{
 		Id = "AuraVoid",
@@ -335,7 +359,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.AuraVoid",
 		Sellable = true,
-		Visual = rgb("Color", 40, 20, 60),
+		Look = { Styles = { "Wisps", "Drips" }, Tone = "Ink" },
 	},
 	{
 		Id = "KillEffectSupernova",
@@ -343,7 +367,7 @@ CosmeticConfig.Items = {
 		Rarity = "Legendary",
 		NameKey = "cosmetic.KillEffectSupernova",
 		Sellable = true,
-		Visual = rgb("Color", 255, 230, 150),
+		Look = { Timeline = "KillOverexposure" },
 	},
 	{
 		Id = "SkinRuptureCrystal",
@@ -352,9 +376,44 @@ CosmeticConfig.Items = {
 		NameKey = "cosmetic.SkinRuptureCrystal",
 		Sellable = true,
 		Target = "Rupture",
-		Visual = rgb("Color", 150, 230, 255),
+		Look = { Shade = 0.2 },
 	},
 } :: { CosmeticDef }
+
+-- The page's inks, as RGB 0-255. Tints, never colours (tests/Cosmetics.spec.luau measures them), and
+-- none of them white. Ink is WorldConfig.Colors.Ink; Graphite and Wash are the two greys between it and
+-- the page, dark enough to be read on vellum.
+CosmeticConfig.Tones = {
+	Ink = { 23, 21, 15 },
+	Graphite = { 74, 70, 63 },
+	Wash = { 128, 120, 104 },
+} :: { [string]: { number } }
+
+-- What an aura or a trail may be made of. CosmeticController draws each one; tests/Cosmetics.spec.luau
+-- holds the two lists, the catalogue and the renderer to each other.
+CosmeticConfig.AuraStyles = { "Motes", "Wisps", "Drips", "Pages", "Soot", "Orbit" }
+CosmeticConfig.TrailStyles = { "Stroke", "Hairline", "Scrawl", "Soot", "Scraps", "Dust" }
+
+-- How far a skin may move its pigment. Measured, not chosen by eye: at these ends every pigment stays
+-- within three quarters of its own distance to the nearest other pigment, the ink or the page
+-- (tests/Cosmetics.spec.luau). At -0.35 a darkened Cinnabar was already closer to Umber than to itself,
+-- and at +0.25 a paled Indigo drifted toward Verdigris.
+CosmeticConfig.ShadeRange = { -0.25, 0.2 }
+
+-- The pigment `rgb` moved by `shade` toward `ink` (negative) or `page` (positive), clamped to ShadeRange.
+-- Numbers in, numbers out, so the client and the tests compute the same colour.
+function CosmeticConfig.shade(rgb: { number }, shade: number, ink: { number }, page: { number }): { number }
+	local amount = if shade ~= shade
+		then 0
+		else math.clamp(shade, CosmeticConfig.ShadeRange[1], CosmeticConfig.ShadeRange[2])
+	local toward = if amount < 0 then ink else page
+	local t = math.abs(amount)
+	return {
+		math.floor(rgb[1] + (toward[1] - rgb[1]) * t + 0.5),
+		math.floor(rgb[2] + (toward[2] - rgb[2]) * t + 0.5),
+		math.floor(rgb[3] + (toward[3] - rgb[3]) * t + 0.5),
+	}
+end
 
 CosmeticConfig.ById = {} :: { [string]: CosmeticDef }
 for _, item in ipairs(CosmeticConfig.Items) do

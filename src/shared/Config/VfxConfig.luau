@@ -52,6 +52,8 @@ VfxConfig.CombatIds = {
 	"BlockStart",
 	"BlockHit",
 	"GuardBreak",
+	-- A killer's KillEffect cosmetic, drawn where the victim fell (CosmeticService).
+	"KillEffect",
 } :: { string }
 
 -- Emitted by the World Boss encounter. The four attacks name themselves in WorldBossConfig, and the two

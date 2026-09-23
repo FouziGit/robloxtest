@@ -33,9 +33,9 @@ VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Fol
 | Rareté | Prix Folios | Heures de jeu ≈ | Exemples |
 |---|---|---|---|
 | Commun | 600 | 1 h | traînée simple, titre |
-| Rare | 1 800 | 2,5 h | aura colorée, skin de glyphe 1 palette |
+| Rare | 1 800 | 2,5 h | aura ou traînée à l'encre (un style), skin de glyphe (une nuance de son pigment) |
 | Épique | 4 000 | 6 h | effet de kill, aura animée |
-| Légendaire | 8 000 | 11 h | skin de glyphe complet (palette + forme), aura Codex |
+| Légendaire | 8 000 | 11 h | aura à plusieurs styles superposés (aura du Codex), effet de kill |
 
 Rotation quotidienne : 6 articles (2 communs, 2 rares, 1 épique, 1 légendaire) tirés de façon déterministe par jour (`ShopRotation`, seed = jour UTC). Chaque article peut être acheté en Folios **ou** via un developer product Robux équivalent (jamais de tirage aléatoire payant : boutique directe, conforme aux politiques Roblox sans `PolicyService` d'aléatoire payant).
 

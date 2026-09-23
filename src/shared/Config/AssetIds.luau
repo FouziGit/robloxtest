@@ -58,6 +58,7 @@ local UPLOADED: { [string]: string } = {
 	["assets/textures/gradient_radial.png"] = "rbxassetid://107271909193136",
 	["assets/textures/ink_blot.png"] = "rbxassetid://73894677941580",
 	["assets/textures/paper_grain.png"] = "rbxassetid://127023824364504",
+	["assets/textures/paper_scrap.png"] = "rbxassetid://82591519572234",
 	["assets/textures/seal_ring.png"] = "rbxassetid://101561475000641",
 	["assets/textures/shockwave_ring.png"] = "rbxassetid://80296968876762",
 	["assets/textures/smoke_soft.png"] = "rbxassetid://108342464159696",
@@ -117,6 +118,9 @@ AssetIds.Textures = {
 	BrushStroke = texture("assets/textures/brush_stroke.png", 512, 128),
 	-- Ambient motes, for the residue that hangs after a zone ends.
 	DustMote = texture("assets/textures/dust_mote.png", 64, 64, 0.688, 0.719),
+	-- A scrap of torn paper: straight cut sides and one torn edge, so it reads as paper and not as a
+	-- petal. What a page sheds when it is struck or erased -- the kill effects and the paper cosmetics.
+	PaperScrap = texture("assets/textures/paper_scrap.png", 128, 128, 0.344, 0.930),
 	GradientRadial = texture("assets/textures/gradient_radial.png", 256, 256, 0.836, 0.848),
 	GradientLinear = texture("assets/textures/gradient_linear.png", 256, 256, 0.688, 1.414),
 	-- L'Effacement's warnings, and the only textures whose edge is a rule: the plane is sized to the

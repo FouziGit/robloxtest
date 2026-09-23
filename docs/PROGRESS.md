@@ -285,3 +285,25 @@ ce jeu, et que le test l'affirmait mesuré.
 `docs/PERFORMANCE.md` dit maintenant **comment** mesurer (Performance Stats, MicroProfiler, l'application
 sur un vrai téléphone) et dans quel ordre corriger : c'est le document qu'une personne prendra le premier
 jour.
+
+## Passe « Production » (D-109)
+
+Après la comparaison avec les meilleurs battlegrounds. Directive du développeur : « fais tout toi-même » ; la musique et les sons sont les siens. Plan en huit phases dans `docs/PLAN.md`.
+
+| Phase | Statut | Commit |
+|---|---|---|
+| 1 — Les cosmétiques s'affichent | ✅ | voir le journal git |
+| 2 — Artisanat des particules | ⬜ | — |
+| 3 — Le coup se sent (images d'impact, ragdoll) | ⬜ | — |
+| 4 — Des volumes (meshes générés, pièce témoin : la Marque) | ⬜ | — |
+| 5 — Flipbooks procéduraux | ⬜ | — |
+| 6 — Le monde réagit | ⬜ | — |
+| 7 — Animations | ⬜ | — |
+| 8 — Interface et découverte | ⬜ | — |
+
+### Phase 1 — fait
+
+- **Aucun des quarante cosmétiques n'était dessiné**, et le catalogue enfreignait la bible (aura violette, Marque bleue). Redessiné dans les encres de la page, rareté portée par l'artisanat ; un skin est une nuance **mesurée** du pigment de son glyphe (-0,25 à +0,2).
+- `CosmeticController` (auras, traînées, titres), la nuance écrite par le serveur dans le lancer, l'effet et le coup, quatre effets de kill en encre sur une nouvelle texture (`paper_scrap.png`, téléversée), l'aura VIP que le pass promettait.
+- Un défaut plus ancien corrigé au passage : un attaquant périmé était crédité à la mort suivante du survivant.
+- `tests/Cosmetics.spec.luau` ; 24 mutations, 24 échecs. Reste à voir en jeu : la vérification visuelle attend le serveur MCP de Studio (redémarrage de session).

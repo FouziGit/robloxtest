@@ -20,9 +20,10 @@ local log = Log.new("MonetizationService")
 
 type Deps = Context.Deps
 
--- Pass keys of MonetizationConfig.Passes whose effect is applied here. Vip needs nothing: CurrencyService
--- and ProgressionService read Passes.Vip themselves.
+-- Pass keys of MonetizationConfig.Passes whose effect is applied here. Vip's XP and Folios bonuses are read
+-- by CurrencyService and ProgressionService themselves; its exclusive aura is granted here.
 local PASS_LIGHTNING = "Orpiment"
+local PASS_VIP = "Vip"
 local PASS_LOADOUT_SLOTS = "LoadoutSlots"
 local PASS_SKIN_PACK = "SkinPack"
 -- The Orpiment pass grants the Orpiment pigment (PigmentConfig.Unlockable).
@@ -73,10 +74,13 @@ function Passes.apply(player: Player, passKey: string)
 		log.try("grantPigment " .. ORPIMENT_PIGMENT, deps.Loadout.grantPigment, player, ORPIMENT_PIGMENT)
 	elseif passKey == PASS_LOADOUT_SLOTS then
 		log.try("setExtraSlots", deps.Loadout.setExtraSlots, player, ProgressionConfig.Loadout.PassExtraSlots)
-	elseif passKey == PASS_SKIN_PACK then
-		for _, cosmeticId in ipairs(MonetizationConfig.SkinPackCosmetics) do
+	elseif passKey == PASS_SKIN_PACK or passKey == PASS_VIP then
+		local list = if passKey == PASS_VIP
+			then MonetizationConfig.VipCosmetics
+			else MonetizationConfig.SkinPackCosmetics
+		for _, cosmeticId in ipairs(list) do
 			if CosmeticConfig.ById[cosmeticId] == nil then
-				log.error("SkinPackCosmetics holds unknown cosmetic %s", cosmeticId)
+				log.error("%s pass holds unknown cosmetic %s", passKey, cosmeticId)
 				continue
 			end
 			log.try("cosmetic grant " .. cosmeticId, deps.Cosmetic.grant, player, cosmeticId)

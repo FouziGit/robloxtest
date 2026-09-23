@@ -3,7 +3,7 @@
     python3 tools/textures/generate_all.py
 
 Each generator is also runnable on its own; this exists so that a change to vellum_png.py can be
-checked against all sixteen textures in one go, and so that the report below can be diffed between two
+checked against every texture in one go, and so that the report below can be diffed between two
 runs. That diff is the determinism test: the digests come from the written bytes, so if any generator
 has picked up an unseeded source of randomness, two consecutive runs disagree and it shows here.
 
@@ -19,6 +19,7 @@ import explosion
 import gradients
 import ink
 import paper
+import scrap
 import seal
 import shockwave
 import smoke
@@ -26,7 +27,7 @@ import sparks
 import telegraph
 from vellum_png import MAX_BYTES, report
 
-MODULES = (smoke, sparks, ink, gradients, cracks, shockwave, paper, seal, brush, telegraph, explosion)
+MODULES = (smoke, sparks, ink, scrap, gradients, cracks, shockwave, paper, seal, brush, telegraph, explosion)
 
 
 def main() -> int:

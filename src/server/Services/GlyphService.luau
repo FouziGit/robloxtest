@@ -102,6 +102,8 @@ type Deps = {
 	Quest: QuestApi,
 	Match: MatchApi,
 	WorldBoss: WorldBossApi,
+	-- The skin a caster wears on a glyph, written into the packets of that cast (D-109).
+	Cosmetic: { skinShade: (player: Player, glyphId: string) -> number },
 }
 
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
@@ -123,6 +125,7 @@ local notify: NotifyApi
 local combat: CombatApi
 local effects: { [string]: Effect }
 local vfx: VfxApi
+local cosmetic: { skinShade: (player: Player, glyphId: string) -> number }
 local movement: MovementApi
 local progression: ProgressionApi
 local quest: QuestApi
@@ -215,8 +218,33 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 	return def
 end
 
+-- The broadcaster, with the caster's skin shade written into every packet the effect sends: its own
+-- visual and whatever it detonates (Brand's Explosion), so a skinned cast is skinned end to end.
+local function shadedVfx(shade: number): VfxApi
+	if shade == 0 then
+		return vfx
+	end
+	return {
+		emit = function(packet: VfxPacket, reliable: boolean?)
+			local params: { [string]: any } = table.clone(packet.Params or {})
+			if params.Shade == nil then
+				params.Shade = shade
+			end
+			packet.Params = params
+			vfx.emit(packet, reliable)
+		end,
+	}
+end
+
 -- Runs the effect in the handler thread (timed effects yield inline). Returns distinct models hit.
-local function runEffect(player: Player, def: GlyphDef, effect: Effect, origin: CFrame, direction: Vector3): number
+local function runEffect(
+	player: Player,
+	def: GlyphDef,
+	effect: Effect,
+	origin: CFrame,
+	direction: Vector3,
+	shade: number
+): number
 	local hits = 0
 	local ctx: EffectContext = {
 		Caster = player,
@@ -224,7 +252,7 @@ local function runEffect(player: Player, def: GlyphDef, effect: Effect, origin: 
 		Origin = origin,
 		Direction = direction,
 		Combat = combat,
-		Vfx = vfx,
+		Vfx = shadedVfx(shade),
 		Movement = movement,
 	}
 	xpcall(function()
@@ -312,12 +340,13 @@ local function onCastGlyph(player: Player, sequence: { string })
 	-- Reliable, unlike every other effect packet: this one is also the only confirmation the CLIENT gets
 	-- that the server accepted a cast, and the HUD counts the chain from it (VfxController.LocalCast). A
 	-- dropped packet on the unreliable channel took the counter to zero in the middle of a chain.
+	local shade = cosmetic.skinShade(player, def.Id)
 	vfx.emit({
 		Id = "Cast",
 		Origin = origin.Position,
 		Direction = direction,
 		Caster = player.UserId,
-		Params = { GlyphId = def.Id, Pigment = def.Pigment, Chain = chain },
+		Params = { GlyphId = def.Id, Pigment = def.Pigment, Chain = chain, Shade = shade },
 	}, true)
 	-- Confirmed before the effect runs: zones and projectiles yield for seconds.
 	-- Only a chain says anything. A line per cast filled the toast column for the whole of every fight --
@@ -337,7 +366,7 @@ local function onCastGlyph(player: Player, sequence: { string })
 		)
 	end
 
-	local hits = runEffect(player, def, effect, origin, direction)
+	local hits = runEffect(player, def, effect, origin, direction, shade)
 	recordCast(player, def.Id, hits, chain)
 end
 
@@ -367,6 +396,7 @@ function GlyphService.Init(deps: Deps)
 	combat = deps.Combat
 	effects = deps.Effects
 	vfx = deps.Vfx
+	cosmetic = deps.Cosmetic
 	movement = deps.Movement
 	progression = deps.Progression
 	quest = deps.Quest

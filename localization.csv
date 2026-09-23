@@ -43,45 +43,57 @@ common.ok,OK,Vellum,,OK,OK
 common.reset,Reset,Vellum,,Reset,Réinitialiser
 common.save,Save,Vellum,,Save,Sauvegarder
 cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
-cosmetic.AuraCrimson,Crimson Aura,Vellum,,Crimson Aura,Aura Pourpre
-cosmetic.AuraEmber,Ember Aura,Vellum,,Ember Aura,Aura de Braise
-cosmetic.AuraFrost,Frost Aura,Vellum,,Frost Aura,Aura de Givre
-cosmetic.AuraStorm,Storm Aura,Vellum,,Storm Aura,Aura de Tempête
+cosmetic.AuraCrimson,Smoke Aura,Vellum,,Smoke Aura,Aura de Fumée
+cosmetic.AuraEmber,Soot Aura,Vellum,,Soot Aura,Aura de Suie
+cosmetic.AuraFrost,Graphite Aura,Vellum,,Graphite Aura,Aura de Graphite
+cosmetic.AuraStorm,Scrawl Aura,Vellum,,Scrawl Aura,Aura de Griffonnage
 cosmetic.AuraVoid,Void Aura,Vellum,,Void Aura,Aura du Néant
-cosmetic.BlankHeadband,Blank Headband,Vellum,,Blank Headband,Tranchefile Vierge
-cosmetic.BlueInkAura,Blue Ink Aura,Vellum,,Blue Ink Aura,Aura d'Encre Bleue
-cosmetic.CodexCloak,Codex Cloak,Vellum,,Codex Cloak,Manteau du Codex
-cosmetic.FrisketMask,Frisket Mask,Vellum,,Frisket Mask,Masque de Frisquette
-cosmetic.GoldenInkAura,Golden Ink Aura,Vellum,,Golden Ink Aura,Aura d'Encre Dorée
-cosmetic.KillEffectPetals,Petal Finisher,Vellum,,Petal Finisher,Finisher Pétales
+cosmetic.BlankHeadband,Title: Apprentice,Vellum,,Title: Apprentice,Titre : Apprenti
+cosmetic.BlueInkAura,Wet Ink Aura,Vellum,,Wet Ink Aura,Aura d'Encre Fraîche
+cosmetic.CodexCloak,Title: Keeper of the Codex,Vellum,,Title: Keeper of the Codex,Titre : Gardien du Codex
+cosmetic.FrisketMask,Title: Frisket,Vellum,,Title: Frisket,Titre : Frisquette
+cosmetic.GoldenInkAura,Illuminated Aura,Vellum,,Illuminated Aura,Aura Enluminée
+cosmetic.KillEffectPetals,Paper Petals Finisher,Vellum,,Paper Petals Finisher,Finisher Pétales de Papier
 cosmetic.KillEffectRedaction,Redaction Finisher,Vellum,,Redaction Finisher,Finisher Caviardage
-cosmetic.KillEffectShatter,Shatter Finisher,Vellum,,Shatter Finisher,Finisher Éclat
-cosmetic.KillEffectSupernova,Supernova Finisher,Vellum,,Supernova Finisher,Finisher Supernova
-cosmetic.PalimpsestCape,Palimpsest Cape,Vellum,,Palimpsest Cape,Cape de Palimpseste
-cosmetic.ScribeCloak,Scribe Cloak,Vellum,,Scribe Cloak,Manteau du Scribe
-cosmetic.ScriptoriumRobe,Scriptorium Robe,Vellum,,Scriptorium Robe,Robe du Scriptorium
-cosmetic.SkinBrandAzure,Azure Brand Skin,Vellum,,Azure Brand Skin,Skin Marque Azur
-cosmetic.SkinBrandEmerald,Emerald Brand Skin,Vellum,,Emerald Brand Skin,Skin Marque Émeraude
-cosmetic.SkinRuptureCrystal,Crystal Rupture Skin,Vellum,,Crystal Rupture Skin,Skin Rupture Cristal
-cosmetic.SkinRuptureMagma,Magma Rupture Skin,Vellum,,Magma Rupture Skin,Skin Rupture Magma
-cosmetic.SkinScorchAzure,Azure Scorch Skin,Vellum,,Azure Scorch Skin,Skin Roussi Azur
+cosmetic.KillEffectShatter,Torn Page Finisher,Vellum,,Torn Page Finisher,Finisher Page Déchirée
+cosmetic.KillEffectSupernova,Seal Finisher,Vellum,,Seal Finisher,Finisher Sceau
+cosmetic.PalimpsestCape,Palimpsest Aura,Vellum,,Palimpsest Aura,Aura de Palimpseste
+cosmetic.ScribeCloak,Scribe's Stroke,Vellum,,Scribe's Stroke,Trait du Scribe
+cosmetic.ScriptoriumRobe,Title: Scriptorium Hand,Vellum,,Title: Scriptorium Hand,Titre : Main du Scriptorium
+cosmetic.SkinBrandAzure,Charred Brand Skin,Vellum,,Charred Brand Skin,Skin Marque Calcinée
+cosmetic.SkinBrandEmerald,Vermilion Brand Skin,Vellum,,Vermilion Brand Skin,Skin Marque Vermillon
+cosmetic.SkinRuptureCrystal,Sandstone Rupture Skin,Vellum,,Sandstone Rupture Skin,Skin Rupture de Grès
+cosmetic.SkinRuptureMagma,Bedrock Rupture Skin,Vellum,,Bedrock Rupture Skin,Skin Rupture du Socle
+cosmetic.SkinScorchAzure,Smouldering Scorch Skin,Vellum,,Smouldering Scorch Skin,Skin Roussi Couvant
 cosmetic.SkinSerifObsidian,Obsidian Serif Skin,Vellum,,Obsidian Serif Skin,Skin Empattement Obsidienne
-cosmetic.SkinSweepSilver,Silver Sweep Skin,Vellum,,Silver Sweep Skin,Skin Balayage Argent
-cosmetic.SkinWashJade,Jade Wash Skin,Vellum,,Jade Wash Skin,Skin Lavis Jade
-cosmetic.SteelStylus,Steel Stylus,Vellum,,Steel Stylus,Stylet d'Acier
-cosmetic.TitleCodex,Title: Codex,Vellum,,Title: Codex,Titre : Codex
+cosmetic.SkinSweepSilver,Faded Sweep Skin,Vellum,,Faded Sweep Skin,Skin Balayage Passé
+cosmetic.SkinWashJade,Deep Wash Skin,Vellum,,Deep Wash Skin,Skin Lavis Profond
+cosmetic.SteelStylus,Stylus Trail,Vellum,,Stylus Trail,Traînée de Stylet
+cosmetic.TitleCodex,Title: Bound in Vellum,Vellum,,Title: Bound in Vellum,Titre : Relié de Vélin
 cosmetic.TitleCodexSeason,Title: Codex of the Volume,Vellum,,Title: Codex of the Volume,Titre : Codex du volume
 cosmetic.TitleIllumination,Title: Illumination,Vellum,,Title: Illumination,Titre : Enluminure
 cosmetic.TitleRookie,Title: Rookie,Vellum,,Title: Rookie,Titre : Recrue
 cosmetic.TitleScript,Title: Script,Vellum,,Title: Script,Titre : Écriture
-cosmetic.TitleShadow,Title: Shadow,Vellum,,Title: Shadow,Titre : Ombre
+cosmetic.TitleShadow,Title: Silent Hand,Vellum,,Title: Silent Hand,Titre : Main Silencieuse
 cosmetic.TitleWanderer,Title: Wanderer,Vellum,,Title: Wanderer,Titre : Vagabond
-cosmetic.TrailEmber,Ember Trail,Vellum,,Ember Trail,Traînée de Braises
+cosmetic.TrailEmber,Soot Trail,Vellum,,Soot Trail,Traînée de Suie
 cosmetic.TrailFolio,Folio Trail,Vellum,,Folio Trail,Traînée de Folios
-cosmetic.TrailSand,Sand Trail,Vellum,,Sand Trail,Traînée de Sable
-cosmetic.TrailStorm,Storm Trail,Vellum,,Storm Trail,Traînée de Tempête
-cosmetic.TrailViolet,Violet Trail,Vellum,,Violet Trail,Traînée Violette
-cosmetic.VioletInkAura,Violet Ink Aura,Vellum,,Violet Ink Aura,Aura d'Encre Violette
+cosmetic.TrailSand,Pumice Trail,Vellum,,Pumice Trail,Traînée de Ponce
+cosmetic.TrailStorm,Scrawl Trail,Vellum,,Scrawl Trail,Traînée de Griffonnage
+cosmetic.TrailViolet,Iron-Gall Trail,Vellum,,Iron-Gall Trail,Traînée Ferro-Gallique
+cosmetic.VioletInkAura,Iron-Gall Aura,Vellum,,Iron-Gall Aura,Aura Ferro-Gallique
+cosmetic.VipAura,Patron's Aura,Vellum,,Patron's Aura,Aura du Mécène
+cosmetic.title.BlankHeadband,Apprentice,Vellum,,Apprentice,Apprenti
+cosmetic.title.CodexCloak,Keeper of the Codex,Vellum,,Keeper of the Codex,Gardien du Codex
+cosmetic.title.FrisketMask,Frisket,Vellum,,Frisket,Frisquette
+cosmetic.title.ScriptoriumRobe,Scriptorium Hand,Vellum,,Scriptorium Hand,Main du Scriptorium
+cosmetic.title.TitleCodex,Bound in Vellum,Vellum,,Bound in Vellum,Relié de Vélin
+cosmetic.title.TitleCodexSeason,Codex of the Volume,Vellum,,Codex of the Volume,Codex du volume
+cosmetic.title.TitleIllumination,Illumination,Vellum,,Illumination,Enluminure
+cosmetic.title.TitleRookie,Rookie,Vellum,,Rookie,Recrue
+cosmetic.title.TitleScript,Script,Vellum,,Script,Écriture
+cosmetic.title.TitleShadow,Silent Hand,Vellum,,Silent Hand,Main Silencieuse
+cosmetic.title.TitleWanderer,Wanderer,Vellum,,Wanderer,Vagabond
 cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,Vellum,,None,Aucun
 cosmetics.notOwned,You do not own this cosmetic.,Vellum,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.

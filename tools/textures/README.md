@@ -17,6 +17,7 @@ sur ce projet.
 | `crack_web.png` | 512×512 | Marque d'impact lourd au sol. Fissures qui poussent et se ramifient, jamais des rayons réguliers. |
 | `shockwave_ring.png` | 512×512 | Onde de choc, agrandie image par image. Le fondu intérieur est trois fois plus long que l'extérieur : c'est ce qui donne un sens de déplacement au sprite lui-même. |
 | `paper_grain.png` | 512×512 | Grain des surfaces du monde. **Seule texture qui se répète** : périodique par construction, flou circulaire, aucune couture. |
+| `paper_scrap.png` | 128×128 | Un morceau de papier arraché : côtés coupés nets et **un seul bord déchiré**, avec ses fibres, pour qu'il se lise comme du papier et non comme un pétale. Effets de kill et cosmétiques de papier. |
 | `seal_ring.png` | 512×512 | Le sceau tracé sous le lanceur pendant l'Anticipation. Deux anneaux et des graduations, dessinés au trait et non au compas. |
 | `brush_stroke.png` | 512×128 | Coup de pinceau : épais au milieu, sec aux deux bouts. C'est ce qui texture les `Beam` quand un glyphe se dessine. |
 | `gradient_radial.png` | 256×256 | Dégradé blanc centre → transparent bord. Brique de base des lueurs et des halos. |

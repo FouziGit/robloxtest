@@ -7625,6 +7625,320 @@ local BOSS_DEFEATED: Timeline = {
 	},
 }
 
+-- The four KillEffect cosmetics (CosmeticConfig, D-109): what a killer's page does where the victim fell.
+-- They are the one family of timelines that is never a pigment. A kill is not a spell, and a kill effect
+-- drawn in a school's colour would put a fifth attack on screen that hurts nobody (docs/ART_BIBLE.md
+-- rule 1), so VfxLibrary.KillEffect tints them in the page's inks only (CosmeticConfig.Tones). No light,
+-- because a light tinted with ink lights nothing; no sound of their own yet, because the killer already
+-- hears the kill confirmation and the recorded kit is the developer's (docs/DECISIONS.md D-109). And no
+-- shake and no screen flash: those land on the cameras of everyone nearby, and a cosmetic somebody paid
+-- for must never reach into the screen of a player still fighting (found by review).
+--
+-- Torn Page: the page is ripped across the body -- a tear drawn in the air, scraps thrown off it, and the
+-- tear left on the floor.
+local KILL_TEAR: Timeline = {
+	Intent = "The page is torn across where they stood: a rip in the air, scraps flung off it, the tear on the floor",
+	Phases = {
+		{
+			Name = "Impact",
+			Duration = 0.24,
+			Layers = {
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.55,
+					Ease = "Quint",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 1.5,
+					EndSize = 7.5,
+					Transparency = 0.05,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.06,
+					Texture = "PaperScrap",
+					Burst = 16,
+					Speed = { 9, 20 },
+					Lifetime = { 0.9, 1.5 },
+					Spread = 75,
+					Drag = 2.4,
+					Size = 0.9,
+					EndSize = 0.5,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2.4,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.4,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "CrackWeb",
+					Size = 4,
+					EndSize = 7,
+					Transparency = 0.25,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.7,
+					Texture = "PaperScrap",
+					Rate = 7,
+					Speed = { 1, 3 },
+					Lifetime = { 1.2, 1.9 },
+					Spread = 160,
+					Drag = 1.4,
+					Size = 0.55,
+					EndSize = 0.35,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Redaction: three bars of ink struck through where they stood, one after the other, like a censor's
+-- pen through a name -- and the last of them left on the floor.
+local KILL_REDACTION: Timeline = {
+	Intent = "Their name is struck out: three ink bars drawn through the air in turn, one left on the page",
+	Phases = {
+		{
+			Name = "Impact",
+			Duration = 0.3,
+			Layers = {
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 1.1,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Size = 1,
+					EndSize = 8,
+					Span = 1,
+					Offset = { 0, 1.3, 0 },
+					Transparency = 0.02,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					At = 0.07,
+					For = 1.1,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Size = 1,
+					EndSize = 8.5,
+					Span = 1.1,
+					Offset = { 0, 0, 0 },
+					Transparency = 0.02,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					At = 0.14,
+					For = 1.1,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Size = 1,
+					EndSize = 7.5,
+					Span = 1,
+					Offset = { 0, -1.3, 0 },
+					Transparency = 0.02,
+					EndTransparency = 1,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2.6,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.6,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Size = 3,
+					EndSize = 8,
+					Span = 1.4,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Paper Petals: the page comes apart into a slow cloud of scraps that hang in the air and dry away.
+local KILL_SCRAPS: Timeline = {
+	Intent = "The page comes apart into scraps that rise, hang and dry away, over a stain where they fell",
+	Phases = {
+		{
+			Name = "Impact",
+			Duration = 0.2,
+			Layers = {
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.08,
+					Texture = "PaperScrap",
+					Burst = 24,
+					Speed = { 6, 15 },
+					Lifetime = { 1.6, 2.4 },
+					Spread = 65,
+					Drag = 1.3,
+					Size = 0.8,
+					EndSize = 0.55,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.5,
+					Ease = "Quint",
+					EaseDirection = "Out",
+					Texture = "ShockwaveRing",
+					Size = 1,
+					EndSize = 9,
+					Transparency = 0.2,
+					EndTransparency = 1,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2.2,
+			Layers = {
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1.1,
+					Texture = "PaperScrap",
+					Rate = 9,
+					Speed = { 1.5, 4 },
+					Lifetime = { 1.4, 2.1 },
+					Spread = 180,
+					Drag = 0.9,
+					Size = 0.6,
+					EndSize = 0.4,
+					Transparency = 0.15,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.2,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "InkBlot",
+					Size = 2,
+					EndSize = 4.5,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
+-- Seal: a seal is struck where they stood -- a ring, a seal drawn open and spun shut -- and leaves its
+-- scorch on the floor. (The id says Overexposure: it used to pulse every nearby screen white.)
+local KILL_OVEREXPOSURE: Timeline = {
+	Intent = "A seal is struck where they stood: a ring, a seal drawn open and spun shut, its scorch left on the page",
+	Phases = {
+		{
+			Name = "Impact",
+			Duration = 0.3,
+			Layers = {
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.5,
+					Ease = "Quint",
+					EaseDirection = "Out",
+					Texture = "ShockwaveRing",
+					Size = 1,
+					EndSize = 15,
+					Transparency = 0.05,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					At = 0.04,
+					For = 0.8,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "SealRing",
+					Size = 1,
+					EndSize = 8,
+					Spin = 2.4,
+					Transparency = 0.1,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.06,
+					Texture = "DustMote",
+					Burst = 30,
+					Speed = { 12, 26 },
+					Lifetime = { 0.4, 0.8 },
+					Spread = 180,
+					Drag = 3,
+					Size = 0.45,
+					EndSize = 0,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 2.6,
+			Layers = {
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.6,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "SealRing",
+					Size = 3,
+					EndSize = 8,
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 2.2,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "InkBlot",
+					Size = 2,
+					EndSize = 5,
+					Offset = { 0, 0.02, 0 },
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
 VfxTimelineConfig.Timelines = {
 	Cast = CAST,
 	Hit = HIT,
@@ -7661,6 +7975,10 @@ VfxTimelineConfig.Timelines = {
 	BossFury = BOSS_FURY,
 	BossPhase = BOSS_PHASE,
 	BossDefeated = BOSS_DEFEATED,
+	KillTear = KILL_TEAR,
+	KillRedaction = KILL_REDACTION,
+	KillScraps = KILL_SCRAPS,
+	KillOverexposure = KILL_OVEREXPOSURE,
 } :: { [string]: Timeline }
 
 -- Phases always play in this order, whichever subset a timeline declares. The runtime reads it rather

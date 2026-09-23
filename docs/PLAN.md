@@ -129,3 +129,18 @@ Passe §4 complète (Guard/rate limit/kick sur chaque remote, anti-teleport/spee
 ## Définition de fini (rappel)
 
 Voir la mission §9 ; suivi ligne par ligne dans `docs/PROGRESS.md`.
+
+---
+
+## Passe « Production » (D-109)
+
+Demandée après la comparaison avec les meilleurs battlegrounds (recherche du 2026-09-23, rapport dans la conversation) : le jeu est lisible, il lui manque le niveau de production. Le développeur a tranché « fais tout toi-même » : aucune commande à un artiste, aucune capture de mouvement de sa part ; **la musique et les sons restent à lui** et sont branchés quand ils arrivent. Chaque phase se termine par une relecture adversariale, les portes vertes, un commit et un push.
+
+1. **Les cosmétiques s'affichent.** Rendu des auras, traînées, titres, effets de kill et skins ; catalogue redessiné dans les encres de la page (la bible l'imposait avant même le rendu).
+2. **Artisanat des particules.** Rampes de valeur à l'intérieur d'un pigment sur la vie de chaque particule, faisceaux qui défilent (`TextureSpeed`), formes d'émission partielles, flipbooks nets.
+3. **Le coup se sent.** Images d'impact à l'encre sur les coups lourds, ragdoll et relevé sur le finisher (`RagdollSeconds` existe sans code), réglage des flashs et respect de `ReducedMotion`.
+4. **Des volumes.** Meshes plats générés par script dans Blender, téléversés par Open Cloud, couche `Mesh` de la timeline (interpolation Début → Fin), images rémanentes et débris de papier. La pièce témoin est la Marque. Amende la règle « zéro modèle » de la bible : zéro modèle *sculpté ou fait à la main*.
+5. **Flipbooks procéduraux.** Floraison d'encre, trait qui se dessine, fumée de pinceau sec, éclaboussure, papier déchiré.
+6. **Le monde réagit.** Grain de papier sur les surfaces, accessoires d'arène destructibles, impacts contre les murs.
+7. **Animations.** Plus de mouvements CC0 (garde de combat, course, un geste de lancer par école) et marqueurs d'animation.
+8. **Interface et découverte.** Icônes générées (glyphes, pigments, monnaie), icône du jeu, écran de chargement et préchargement.

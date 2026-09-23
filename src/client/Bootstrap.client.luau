@@ -46,6 +46,8 @@ local ORDER = {
 	"VfxController",
 	-- Stamps through VfxTimeline, so after it.
 	"FootprintController",
+	-- Draws what bodies wear; reads the tier (QualityController) and the language (Localize).
+	"CosmeticController",
 	-- Poses bodies from the packets VfxController receives: after it, for the signal.
 	"Posture",
 	-- Plays the local character's clips from the same packets, and Posture stands aside for them.

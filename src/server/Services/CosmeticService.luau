@@ -5,9 +5,11 @@
 -- The server builds no visual. The slots other players must see (Aura, Trail, KillEffect, Title) are
 -- published as one replicated string attribute per slot on the character model, named
 -- "Cosmetic<Slot>" and holding a CosmeticConfig id (or cleared when the slot is empty); each client
--- reads them and renders through VfxLibrary. Glyph skins ("Skin:<glyphId>") stay out of the character:
--- they colour the caster's own VFX and travel with the Vfx packet.
+-- reads them and renders them (CosmeticController). A kill effect is an event, not a state: on a kill
+-- this service sends the killer's KillEffect as a Vfx packet at the victim. Glyph skins
+-- ("Skin:<glyphId>") stay out of the character: GlyphService writes their shade into the cast's packets.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -15,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local Signal = require(Packages.Signal)
@@ -36,8 +39,22 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
+type VfxPacket = {
+	Id: string,
+	Origin: Vector3,
+	Direction: Vector3?,
+	Caster: number?,
+	Params: { [string]: any }?,
+}
+type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
+type KilledSignal = {
+	Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any,
+}
+type CombatApi = { Killed: KilledSignal }
 type Deps = {
 	Registry: Registry,
+	Vfx: VfxApi,
+	Combat: CombatApi,
 	DataService: DataApi,
 	Notify: NotifyApi,
 }
@@ -56,6 +73,8 @@ CosmeticService.Granted = Signal.new() -- (player: Player, cosmeticId: string)
 local registry: Registry
 local dataService: DataApi
 local notify: NotifyApi
+local vfx: VfxApi
+local combat: CombatApi
 
 -- Character connections, one Trove per player.
 local troves: { [Player]: TroveType } = {}
@@ -164,6 +183,70 @@ function CosmeticService.grant(player: Player, cosmeticId: string): boolean
 	return true
 end
 
+-- The shade of the skin `player` wears on `glyphId`, or 0. Read from the profile, never from a client: a
+-- skin is something the player owns, and the packets it tints are what every other client draws. The one
+-- source for GlyphService (the cast and its effect) and CombatService (the hit it lands).
+function CosmeticService.skinShade(player: Player, glyphId: string): number
+	local data = dataService.get(player)
+	if data == nil then
+		return 0
+	end
+	local equipped = (data.Cosmetics.Equipped :: any) :: { [string]: string? }
+	local id = equipped[SKIN_PREFIX .. glyphId]
+	local item = if id ~= nil then CosmeticConfig.ById[id] else nil
+	if item == nil or item.Slot ~= "Skin" or item.Target ~= glyphId then
+		return 0
+	end
+	return item.Look.Shade or 0
+end
+
+-- A kill by a player who wears a KillEffect: the effect is drawn where the victim fell, facing away from
+-- the killer. Only a player's character or a training proof: the World Boss is killed by the whole raid,
+-- and its last hit already ends on BossDefeated -- one player's cosmetic over it is two endings at once.
+-- Training proofs count, because the hub is where a player sees what they bought.
+local function onKilled(sourceUserId: number, victimModel: Model)
+	if sourceUserId == 0 then
+		return
+	end
+	if
+		Players:GetPlayerFromCharacter(victimModel) == nil
+		and not CollectionService:HasTag(victimModel, GameConfig.Enemy.Tag)
+	then
+		return
+	end
+	local killer = Players:GetPlayerByUserId(sourceUserId)
+	local data = if killer ~= nil then dataService.get(killer) else nil
+	if data == nil then
+		return
+	end
+	local equipped = (data.Cosmetics.Equipped :: any) :: { [string]: string? }
+	local id = equipped.KillEffect
+	local item = if id ~= nil then CosmeticConfig.ById[id] else nil
+	if item == nil or item.Slot ~= "KillEffect" then
+		return
+	end
+	local root = victimModel:FindFirstChild("HumanoidRootPart") or victimModel.PrimaryPart
+	if root == nil or not root:IsA("BasePart") then
+		return
+	end
+	local direction = root.CFrame.LookVector
+	local killerCharacter = if killer ~= nil then killer.Character else nil
+	local killerRoot = if killerCharacter ~= nil then killerCharacter:FindFirstChild("HumanoidRootPart") else nil
+	if killerRoot ~= nil and killerRoot:IsA("BasePart") then
+		local away = (root.Position - killerRoot.Position) * Vector3.new(1, 0, 1)
+		if away.Magnitude > 1e-3 then
+			direction = away.Unit
+		end
+	end
+	vfx.emit({
+		Id = "KillEffect",
+		Origin = root.Position,
+		Direction = direction,
+		Caster = sourceUserId,
+		Params = { Effect = item.Id },
+	}, true)
+end
+
 local function onPlayerAdded(player: Player)
 	if troves[player] ~= nil then
 		return
@@ -191,12 +274,15 @@ function CosmeticService.Init(deps: Deps)
 	registry = deps.Registry
 	dataService = deps.DataService
 	notify = deps.Notify
+	vfx = deps.Vfx
+	combat = deps.Combat
 end
 
 function CosmeticService.Start()
 	dataService.ProfileLoaded:Connect(function(player: Player)
 		applyAttributes(player)
 	end)
+	combat.Killed:Connect(onKilled)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

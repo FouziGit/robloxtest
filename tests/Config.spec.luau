@@ -408,6 +408,9 @@ describe("cosmetic references", function()
 			end
 		end
 		local seen = 0
+		for _, cosmeticId in ipairs(MonetizationConfig.VipCosmetics) do
+			check("MonetizationConfig.VipCosmetics", cosmeticId)
+		end
 		for _, cosmeticId in ipairs(MonetizationConfig.SkinPackCosmetics) do
 			check("MonetizationConfig.SkinPackCosmetics", cosmeticId)
 			seen += 1

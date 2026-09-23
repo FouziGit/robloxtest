@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
+local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
@@ -191,6 +192,22 @@ local function stringParam(packet: Packet, key: string, default: string): string
 		return value
 	end
 	return default
+end
+
+local INK_RGB = WorldConfig.Colors.Ink
+local PAGE_RGB = WorldConfig.Colors.Page
+
+-- A glyph's colour as its caster wears it: the pigment, moved by the skin shade the server wrote into the
+-- packet (GlyphService). CosmeticConfig.shade clamps it to the measured range, so even a packet with an
+-- absurd shade cannot move a spell out of its school (docs/ART_BIBLE.md rule 2).
+local function glyphColor(pigment: string, packet: Packet, api: Api): Color3
+	local base = api.PigmentColor(pigment)
+	local shade = numberParam(packet, "Shade", 0)
+	if shade == 0 then
+		return base
+	end
+	local rgb = CosmeticConfig.shade({ base.R * 255, base.G * 255, base.B * 255 }, shade, INK_RGB, PAGE_RGB)
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
 
 local function directionOf(packet: Packet): Vector3
@@ -373,7 +390,7 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Cast", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(pigment),
+		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
 		Follow = casterRoot(packet),
 	})
@@ -395,7 +412,7 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Brand", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor("Cinnabar"),
+		Color = glyphColor("Cinnabar", packet, api),
 		Pigment = "Cinnabar",
 	})
 end
@@ -410,7 +427,7 @@ VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Explosion", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(pigment),
+		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
 		Scale = radius / DEFAULT_BLAST_RADIUS,
 	})
@@ -433,7 +450,7 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 	api.Timeline.play(id, {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor(pigment),
+		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
 		Follow = casterRoot(packet),
 	})
@@ -527,7 +544,7 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 		return
 	end
 	local def = GlyphConfig.ById.Colophon
-	local color = api.PigmentColor(if def ~= nil then def.Pigment else "Orpiment")
+	local color = glyphColor(if def ~= nil then def.Pigment else "Orpiment", packet, api)
 	for index, point in ipairs(points) do
 		-- Aimed at the next link, or along the cast for the last one, which has nowhere further to go.
 		-- Typed optional explicitly: Luau reads a list index as non-optional, so the guard below would be
@@ -559,7 +576,8 @@ end
 -- camera jolted for fights the player was not in and stayed calm for the one they were.
 VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local pigment = stringParam(packet, "Pigment", "")
-	local color = api.PigmentColor(pigment)
+	-- In the caster's skin when the hit came from a skinned glyph (CombatService writes the shade).
+	local color = glyphColor(pigment, packet, api)
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
 	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
@@ -693,6 +711,24 @@ VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
 		Acceleration = Vector3.new(0, -30, 0),
 	})
 	burst(shards, 24)
+end
+
+-- A killer's KillEffect cosmetic, where the victim fell (CosmeticService). Tinted in the page's inks,
+-- never a pigment (docs/ART_BIBLE.md rule 1): a kill is not a spell and must not be read as one. An id
+-- this client does not know, or that is not a kill effect, draws nothing.
+VfxLibrary.KillEffect = function(packet: Packet, _trove: TroveType, api: Api)
+	local item = CosmeticConfig.ById[stringParam(packet, "Effect", "")]
+	if item == nil or item.Slot ~= "KillEffect" or item.Look.Timeline == nil then
+		return
+	end
+	local tone = CosmeticConfig.Tones[(item.Look.Tone or "Ink") :: string] or CosmeticConfig.Tones.Ink
+	local color = Color3.fromRGB(tone[1], tone[2], tone[3])
+	api.Timeline.play(item.Look.Timeline, {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = color,
+		Ink = color,
+	})
 end
 
 ----------------------------------------------------------------

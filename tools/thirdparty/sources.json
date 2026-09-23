@@ -1,0 +1,75 @@
+{
+  "_comment": "Third-party packs Vellum may draw from. Only licences that allow a Roblox upload (sublicensable, ML-inclusive) are admissible -- in practice CC0 (docs/ASSETS.md, docs/DECISIONS.md D-104). fetch.py downloads each archive into .cache/thirdparty/ (gitignored), re-reads the listing page to confirm the licence line is still there, and pins the archive's SHA-256 on first download.",
+  "sources": [
+    {
+      "name": "quaternius-ual1",
+      "what": "Universal Animation Library (Standard), Quaternius",
+      "listing": "https://opengameart.org/content/universal-animation-library",
+      "url": "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "quaternius-ual2",
+      "what": "Universal Animation Library 2 (Standard), Quaternius",
+      "listing": "https://opengameart.org/content/universal-animation-library-2",
+      "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "ec0e40d6d78fe9aaad59e322f40865a8675c22f0745e291622e54520391a9217",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "kenney-impact-sounds",
+      "what": "Impact Sounds, Kenney",
+      "listing": "https://kenney.nl/assets/impact-sounds",
+      "url": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+      "license": "CC0",
+      "licenseEvidence": "CC0",
+      "sha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "kenney-interface-sounds",
+      "what": "Interface Sounds, Kenney",
+      "listing": "https://opengameart.org/content/interface-sounds",
+      "url": "https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "dino0040-grunge-brushes",
+      "what": "100 grunge brushstrokes and splatters set, Dino0040 (scans of the author's own watercolours)",
+      "listing": "https://opengameart.org/content/100-grunge-brushstrokes-and-splatters-set",
+      "url": "https://opengameart.org/sites/default/files/grunge_brushes.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "ce17c54ed6ca8b3ecfb92e46a68a46b1c0d52f77fcdae5bfa310fc3afc092d2a",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "kenney-splat-pack",
+      "what": "Splat Pack, Kenney",
+      "listing": "https://opengameart.org/content/splat-pack",
+      "url": "https://opengameart.org/sites/default/files/kenney_splatpack.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "cf50b2671c48fd5b957e249447c9b0dff63c878a538c8e38af282b51f1571925",
+      "downloaded": "2026-09-23"
+    },
+    {
+      "name": "kenney-particle-pack",
+      "what": "Particle Pack, Kenney",
+      "listing": "https://opengameart.org/content/particle-pack-80-sprites",
+      "url": "https://opengameart.org/sites/default/files/kenney_particlePack.zip",
+      "license": "CC0",
+      "licenseEvidence": "License(s): CC0",
+      "sha256": "163b839ba7f62f8a420da93a62beaa80013588d5d6b1eb30841e1a553635ad70",
+      "downloaded": "2026-09-23"
+    }
+  ]
+}

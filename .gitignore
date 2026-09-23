@@ -30,3 +30,6 @@ Thumbs.db
 # nowhere else: it has write access to the account's assets, so it must never reach the repository.
 .env
 .env.*
+
+# Third-party archives fetched by tools/thirdparty/fetch.py: large, and pinned by hash in sources.json.
+.cache/

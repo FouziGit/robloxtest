@@ -314,7 +314,7 @@ local function textureOf(layer: Layer): string
 	if id == "" and not warnedTextures[key] then
 		warnedTextures[key] = true
 		local asset = AssetIds.Textures[key]
-		log.warn("texture %s has no id yet: upload %s and paste it into AssetIds", key, asset.Source)
+		log.warn("texture %s has no id yet: upload %s with python3 scripts/upload_assets.py upload", key, asset.Source)
 	end
 	return id
 end

@@ -14,7 +14,7 @@ Deux façons d'avoir le jeu dans Studio. La première ne peut pas échouer et ne
 
 `rojo build` écrit un fichier de place complet : serveur, client, interface et paquets sont déjà dedans. Studio l'ouvre comme n'importe quelle place, et **Play** fonctionne immédiatement. Rien à connecter. À refaire après chaque modification du code, car ce fichier est une copie figée.
 
-**B. Synchronisation vive (pour développer).** `rojo serve` plus **Connect** dans le plugin Rojo. Le code suit les fichiers en direct, mais la synchronisation n'atteint que la place ouverte **et connectée** : c'est la source d'erreur numéro un, voir §8.
+**B. Synchronisation vive (pour développer).** `rojo serve` plus **Connect** dans le plugin Rojo. Le code suit les fichiers en direct, mais la synchronisation n'atteint que la place ouverte **et connectée** : c'est la source d'erreur numéro un, voir §9.
 
 La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y trouver la V2 : les deux n'ont aucun script en commun.
 
@@ -118,63 +118,45 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 Lancer ensuite le workflow « Publish to Roblox » depuis l'onglet Actions (`Saved` pour un brouillon, `Published` pour mettre en ligne).
 
-## 7. Téléverser les seize textures (15 minutes, une seule fois)
+## 7. Téléverser les textures et les sons (une commande, une seule fois)
 
-C'est la seule étape manuelle que le code ne peut pas faire à ta place, et tant qu'elle n'est pas faite
-les effets se dessinent **sans texture** : ils fonctionnent, mais ils sont plats.
+Les 16 PNG de `assets/textures/` et les 55 WAV de `assets/audio/` sont générés par les scripts de `tools/` ; Roblox ne les affiche et ne les joue qu'une fois téléversés sur un compte. `scripts/upload_assets.py` le fait par l'API Open Cloud et **écrit lui-même les identifiants** dans `AssetIds.luau` et `SoundConfig.luau` — plus aucun copier-coller.
 
-Les PNG sont dans `assets/textures/`. Ils sont générés par les scripts de `tools/textures/` — aucun ne
-vient de la boîte à outils, et ils se régénèrent à l'identique avec `python3 tools/textures/generate_all.py`.
+**La clé, une fois.** [create.roblox.com/dashboard/credentials](https://create.roblox.com/dashboard/credentials) → **Create API Key** → *Access Permissions* : `assets`, **Read** et **Write**, *Restrict by Experience* désactivé → **Save**. Roblox n'affiche la clé complète qu'à ce moment-là (sinon : **Edit** → **Regenerate Key**). Puis, dans le terminal :
 
-1. Creator Dashboard → **Creations** → **Development Items** → **Images** → **Add Image**.
-2. Téléverse les seize fichiers de `assets/textures/`. Roblox les passe en modération ; compte quelques
-   minutes par image. Les quatre `telegraph_*.png` sont les avertissements de L'Effacement : ce sont les
-   seules textures dont le bord est une règle (leur encre atteint le bord du plan, `AssetIds.Ink`), et
-   tant qu'elles ne sont pas en ligne le boss prévient avec des **plaques teintées sans texture** — un
-   carré rouge au sol dit encore où ne pas se tenir, mais un carré déborde d'un disque dans les coins.
-3. Pour chacune, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
-   `src/shared/Config/AssetIds.luau`. Chaque entrée nomme déjà son fichier source dans son champ
-   `Source`, donc l'appariement est mécanique.
-4. Relance `./scripts/check.sh` : `tests/AssetIds.spec.luau` refuse un identifiant qui n'est pas de la
-   forme `rbxassetid://<nombre>`, et refuse une entrée dont le PNG n'existe pas ou n'a pas les
-   dimensions déclarées.
+```bash
+read -rs "k?Clé Open Cloud : " && echo "ASPHALT_API_KEY=$k" > ~/Desktop/robloxtest/.env.local && unset k
+```
 
-Tant qu'un identifiant est vide, le client l'annonce **une fois** au démarrage en nommant le fichier à
-téléverser, puis l'effet se joue quand même. Une couche qui ne sert qu'à porter une texture — un sceau,
-une brûlure au sol — n'est simplement pas dessinée plutôt que de laisser un rectangle de couleur en l'air.
-La seule exception est un avertissement du boss, qui se dessine nu : une règle ne disparaît pas parce que
-l'art est en retard.
+Au message `Clé Open Cloud :`, colle **la clé** — rien ne s'affiche, c'est voulu — puis Entrée. `.env.local` est ignoré par git ; la clé n'est jamais affichée par le script.
 
-## 8. Téléverser les cinquante-cinq sons (20 minutes, une seule fois)
+**L'envoi.**
 
-Même principe que les textures : les WAV sont dans `assets/audio/`, générés par les scripts de
-`tools/audio/` (`python3 tools/audio/generate_all.py` les réécrit à l'identique), et **tant qu'ils ne sont
-pas en ligne le jeu est silencieux** — pas de son de repli, parce que le seul repli disponible est le
-ping du moteur, et un ping du moteur est le son de tous les autres jeux.
+```bash
+python3 scripts/upload_assets.py quota
+```
 
-1. Creator Dashboard → **Creations** → **Development Items** → **Audio** → **Upload**.
-2. Téléverse les cinquante-cinq fichiers de `assets/audio/`. Ce sont des WAV 16 bits mono, 22 050 Hz
-   pour les effets et 16 000 Hz pour les trois boucles ; aucun ne dépasse 900 Ko. Roblox les passe en
-   modération. Les limites documentées au moment d'écrire : 20 Mo et 7 minutes par fichier, et un
-   quota de 100 téléversements audio par 30 jours pour un compte non vérifié (2 000 avec une pièce
-   d'identité) — les cinquante-cinq tiennent dans le premier. Un son est privé à l'expérience de celui
-   qui l'a téléversé : le compte doit être celui de l'expérience.
-3. Pour chacun, copie l'identifiant (`rbxassetid://…`) et colle-le dans l'entrée correspondante de
-   `src/shared/Config/SoundConfig.luau`. Chaque entrée nomme déjà son fichier source dans `Source`.
-   Les vingt voix des pigments s'appellent `<Pigment><Voix>` (`CinnabarImpact`), les boucles sont
-   dans `SoundConfig.Music`.
-4. Relance `./scripts/check.sh` : `tests/SoundConfig.spec.luau` refuse un identifiant qui n'est pas de
-   la forme `rbxassetid://<nombre>`, et refuse une entrée dont le WAV n'existe pas ou n'a pas la durée,
-   le débit ou le format déclarés.
+```bash
+python3 scripts/upload_assets.py upload
+```
 
-Tant qu'un identifiant est vide, le client l'annonce **une fois** au démarrage en nommant l'entrée,
-puis se tait pour elle.
+`quota` lit le nombre d'envois audio restants ce mois-ci (2 000 avec vérification d'identité, 100 ou 10 sans, selon la page officielle qu'on lit). `upload` n'envoie que ce qui ne l'a jamais été : chaque envoi est consigné avec l'empreinte SHA-256 du fichier dans `assets/roblox-assets.lock.json`, commité avec le reste. Les images partent comme **Image** (l'identifiant que `ParticleEmitter.Texture` attend, pas celui d'un décalque) et l'envoi refuse toute somme en Robux.
 
-## 9. Assets à remplacer plus tard
+**Si un générateur change un fichier**, son identifiant pointe encore sur l'ancien envoi et `tests/UploadedAssets.spec.luau` fait échouer le build. Un fichier audio ou image ne se met pas à jour sur Roblox : il faut le renvoyer, ce qui crée un nouvel identifiant et consomme un envoi.
+
+```bash
+python3 scripts/upload_assets.py upload --reupload
+```
+
+**La modération.** Chaque envoi passe une modération Roblox, de quelques minutes à quelques heures ; tant qu'il est en revue, il reste invisible ou muet en jeu. Le fichier de verrou note l'état au moment de l'envoi.
+
+**Sans le script** (dernier recours) : Creator Dashboard → *Creations* → *Development Items* → *Images* ou *Audio* → upload, puis ajouter à la main dans le bloc `-- BEGIN UPLOADED` du module concerné une ligne `["<chemin du fichier>"] = "rbxassetid://<id>",` — et la même entrée dans le fichier de verrou, faute de quoi la porte refuse le bloc.
+
+## 8. Assets à remplacer plus tard
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).
 
-## 10. Dépannage
+## 9. Dépannage
 
 ### Je lance Play, les mannequins apparaissent mais il n'y a aucune interface
 

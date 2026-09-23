@@ -49,7 +49,7 @@ mono, déterministe — aucune fonction de la libm sur le chemin par échantillo
 | `music_hub.wav`, `music_match.wav`, `music_boss.wav` | `music.py` | les trois boucles, 16 kHz, couture par fondu |
 
 Déclarées dans `src/shared/Config/SoundConfig.luau` avec leur durée (lue dans l'en-tête par
-`tests/SoundConfig.spec.luau`). Téléversement : `docs/STUDIO_SETUP.md` §8.
+`tests/SoundConfig.spec.luau`). Téléversement : `docs/STUDIO_SETUP.md` §7.
 
 ## Sources tierces : ce qui pourra entrer, et pourquoi si peu
 

@@ -301,7 +301,7 @@ function SoundController.Start()
 	local missing = SoundConfig.missing()
 	if #missing > 0 then
 		log.warn(
-			"%d sound(s) not uploaded yet, they are silent until they are (docs/STUDIO_SETUP.md §8): %s",
+			"%d sound(s) not uploaded yet, they are silent until they are (python3 scripts/upload_assets.py upload, docs/STUDIO_SETUP.md §7): %s",
 			#missing,
 			table.concat(missing, ", ")
 		)

@@ -1,0 +1,504 @@
+{
+  "creator": {
+    "userId": "3721321390"
+  },
+  "assets": {
+    "assets/audio/block_start.wav": {
+      "assetId": "120764790598855",
+      "assetType": "Audio",
+      "sha256": "916bf1769419e66859e3ee0b8da8596be6a2b7510dcb2bc8d181afbec987ff81",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:39+00:00"
+    },
+    "assets/audio/boss_arrival.wav": {
+      "assetId": "129179521053603",
+      "assetType": "Audio",
+      "sha256": "17cbee93df4cb5d75425c48c57edbc87fddbb6e3fecc562509e017d6f01c310c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:42+00:00"
+    },
+    "assets/audio/boss_defeat.wav": {
+      "assetId": "127092689170506",
+      "assetType": "Audio",
+      "sha256": "8766415a644d502acb3df56e0da8ec74a30ce2f1823f70e47da328534a9b0ecf",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:45+00:00"
+    },
+    "assets/audio/boss_impact.wav": {
+      "assetId": "83435591872024",
+      "assetType": "Audio",
+      "sha256": "409203a231a1fabfdb335c6847f426582c0904956e560e851750eb53a1717e93",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:48+00:00"
+    },
+    "assets/audio/boss_warn.wav": {
+      "assetId": "134945883661073",
+      "assetType": "Audio",
+      "sha256": "bb1d8f17ba05526b12950ad8443245fe38871624ad4c4a43c2c9c460bf0340a4",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:52+00:00"
+    },
+    "assets/audio/cinnabar_attack.wav": {
+      "assetId": "96125288611914",
+      "assetType": "Audio",
+      "sha256": "fcd2d7e5cc39bdca2f909fdf502a246ed9644ac56380c607eb30f2f0cde49136",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:55+00:00"
+    },
+    "assets/audio/cinnabar_body.wav": {
+      "assetId": "130445613209895",
+      "assetType": "Audio",
+      "sha256": "d3e455608dc4015fbffcd6d5d3856ffd7f14ad4cd41f67757c099fea0a7e7346",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:58+00:00"
+    },
+    "assets/audio/cinnabar_impact.wav": {
+      "assetId": "138620912990282",
+      "assetType": "Audio",
+      "sha256": "fa7d2e6ff98cf85f8de878d51cfbd81e1c39d9f2878a373b6ff2c8c14c50d7c9",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:01+00:00"
+    },
+    "assets/audio/cinnabar_tail.wav": {
+      "assetId": "74503927987442",
+      "assetType": "Audio",
+      "sha256": "2dbcf96a4e819f9fc2f8d63bae9790cfca3721a19bc6a9add58473848c4ad116",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:04+00:00"
+    },
+    "assets/audio/claim.wav": {
+      "assetId": "88100509745314",
+      "assetType": "Audio",
+      "sha256": "1c40a3757b0e621fe2585cb8ccfc3209cb6b1aa78480a7bfa2ab59de99f9c8f5",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:07+00:00"
+    },
+    "assets/audio/countdown.wav": {
+      "assetId": "84111931326495",
+      "assetType": "Audio",
+      "sha256": "91b5dd07ce55d1199c86fbbc30d9a95bec8275f55893f881d7a7eee5d0fb832c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:10+00:00"
+    },
+    "assets/audio/dash.wav": {
+      "assetId": "83677975239124",
+      "assetType": "Audio",
+      "sha256": "8d8c517d6cf96731b92dd8d3799d5f5bfc0165def7a42e500d02b188555ce91e",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:13+00:00"
+    },
+    "assets/audio/guard_break.wav": {
+      "assetId": "101953248386163",
+      "assetType": "Audio",
+      "sha256": "24cd7066e7f9f37946c1bc991f16d461c47daece2b98cd6798c45551e6f1b125",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:16+00:00"
+    },
+    "assets/audio/impact_block.wav": {
+      "assetId": "85533522824238",
+      "assetType": "Audio",
+      "sha256": "4c43c1fa75ef1656487b3052fde80945dd9eb0d54bc3991180aaf24b51953568",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:19+00:00"
+    },
+    "assets/audio/impact_hit.wav": {
+      "assetId": "121906743333205",
+      "assetType": "Audio",
+      "sha256": "592da688aa01baa726d20f84d9060b01e441123f2a8bb60e89117f3399d29ed3",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:22+00:00"
+    },
+    "assets/audio/indigo_attack.wav": {
+      "assetId": "102942422480520",
+      "assetType": "Audio",
+      "sha256": "35ccca11b918a50e3b27e2136688fcfe0f293393af0ef48c6cdfb60fbbe1439f",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:25+00:00"
+    },
+    "assets/audio/indigo_body.wav": {
+      "assetId": "83890064622856",
+      "assetType": "Audio",
+      "sha256": "ca01c379fd6adfb371ea8f728b2a896d50e42a8be52bf2c7b89b031f0855c2cd",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:28+00:00"
+    },
+    "assets/audio/indigo_impact.wav": {
+      "assetId": "137571321646947",
+      "assetType": "Audio",
+      "sha256": "6324c00b32cb2023b13b07d1c90b204c6ef614cd15d0ab135f004ebbf879470b",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:31+00:00"
+    },
+    "assets/audio/indigo_tail.wav": {
+      "assetId": "85052957747690",
+      "assetType": "Audio",
+      "sha256": "d8eeb85585add65bd8ae7d88bcb9ffa74cb41dc20a5d050a928f93e07068f3d7",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:34+00:00"
+    },
+    "assets/audio/kill.wav": {
+      "assetId": "109635507700412",
+      "assetType": "Audio",
+      "sha256": "20b290c74d95ea2a5ec093d064ae52ca5e47080127ed1ff182485cd9e0d4af19",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:37+00:00"
+    },
+    "assets/audio/level_up.wav": {
+      "assetId": "85049377253308",
+      "assetType": "Audio",
+      "sha256": "f09a43e9beb21702a9a2cbb01fccc4ec8f067d817192ca006b995309ace5598f",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:57:40+00:00"
+    },
+    "assets/audio/match_lose.wav": {
+      "assetId": "130723255437619",
+      "assetType": "Audio",
+      "sha256": "fd8d595a34a9d4a75be4947b628380f82f6a9b68e381fe68a02edba4668ce054",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:43+00:00"
+    },
+    "assets/audio/match_start.wav": {
+      "assetId": "83812466293218",
+      "assetType": "Audio",
+      "sha256": "50f3c9b4180cce9998fb363b44676c316b609c7c9383bdf6be6cb5c8b04703bb",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:46+00:00"
+    },
+    "assets/audio/match_win.wav": {
+      "assetId": "136310759235150",
+      "assetType": "Audio",
+      "sha256": "595a5f74fab894dc029b604374c98d392482544bae182288d17030c2306c4d27",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:49+00:00"
+    },
+    "assets/audio/melee_1.wav": {
+      "assetId": "101756335783817",
+      "assetType": "Audio",
+      "sha256": "1820a43715a4cdb5b6b748d34f975eda81ba782fbc8ae8c7aacdc74597a5730b",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:52+00:00"
+    },
+    "assets/audio/melee_2.wav": {
+      "assetId": "79624246067084",
+      "assetType": "Audio",
+      "sha256": "f17232ada11527a2ab731b4f3eed4300847022ad4d89a28413ee7ed2cc70cfa2",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:55+00:00"
+    },
+    "assets/audio/melee_3.wav": {
+      "assetId": "81962627922269",
+      "assetType": "Audio",
+      "sha256": "64a59e93c63d47ad179c232931b57ea6ff5c799aa48317bef6212dedecda209d",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:57:58+00:00"
+    },
+    "assets/audio/melee_finisher.wav": {
+      "assetId": "104980222950278",
+      "assetType": "Audio",
+      "sha256": "e702cafcde4e06aa91fd5754b401a6c3b257d75084384d496f3ce547030e7f9a",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:01+00:00"
+    },
+    "assets/audio/music_boss.wav": {
+      "assetId": "72119967115766",
+      "assetType": "Audio",
+      "sha256": "dec25232250ca294cc8805dcabac1d0b89e2040d84870a07cf94d5b88a206b02",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:04+00:00"
+    },
+    "assets/audio/music_hub.wav": {
+      "assetId": "126181385818298",
+      "assetType": "Audio",
+      "sha256": "7b7778208c6d8b5e3774c3a7a1a7af8a5acd8ec034f9536c93116c47a7042ab5",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:08+00:00"
+    },
+    "assets/audio/music_match.wav": {
+      "assetId": "102373118431286",
+      "assetType": "Audio",
+      "sha256": "85e343ed6e661ad65bd2a408f0b7bd6a9e841acc0ca579846446686cda1d6990",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:11+00:00"
+    },
+    "assets/audio/note_cinnabar.wav": {
+      "assetId": "99905567528264",
+      "assetType": "Audio",
+      "sha256": "e41c83820584e0d8d196a0c563c2f58064a23fb1ce5f2350d31416b819a8ca3f",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:14+00:00"
+    },
+    "assets/audio/note_indigo.wav": {
+      "assetId": "99548383257653",
+      "assetType": "Audio",
+      "sha256": "3c17ae642257de8eb432a588ec7f15276a08aea5d94e6719640ecef52752af55",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:19+00:00"
+    },
+    "assets/audio/note_orpiment.wav": {
+      "assetId": "131474183723461",
+      "assetType": "Audio",
+      "sha256": "3f6872333fb631ee6511392dafdb01a2c4a332eee94d37897d1199eec5c82ead",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:22+00:00"
+    },
+    "assets/audio/note_umber.wav": {
+      "assetId": "86700904986138",
+      "assetType": "Audio",
+      "sha256": "a79784ae33e0e5c4fc3371fff30e12ca318d95a2af6840917ce1733b6c7aba53",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:25+00:00"
+    },
+    "assets/audio/note_verdigris.wav": {
+      "assetId": "84793415774922",
+      "assetType": "Audio",
+      "sha256": "12050c8c147247a32b729158c0c71b2479b8842d506c0b228dca87da389dd3d5",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:28+00:00"
+    },
+    "assets/audio/orpiment_attack.wav": {
+      "assetId": "106797654943467",
+      "assetType": "Audio",
+      "sha256": "73f6620d33779e72e8cf4f71d2b744ab685ca030069e08feb07563ffc0e34217",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:31+00:00"
+    },
+    "assets/audio/orpiment_body.wav": {
+      "assetId": "86527486874375",
+      "assetType": "Audio",
+      "sha256": "8751e6bb9f41bf92d46fa96b0d0cd2fd1adf94d11fbd54833378805dfbf1d2e0",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:34+00:00"
+    },
+    "assets/audio/orpiment_impact.wav": {
+      "assetId": "137965416870782",
+      "assetType": "Audio",
+      "sha256": "6caaf06187efd49a4dba9ee445d7f0e8a79241fe14e9d4b336731285397c293f",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:37+00:00"
+    },
+    "assets/audio/sequence_dissipate.wav": {
+      "assetId": "76321860752032",
+      "assetType": "Audio",
+      "sha256": "6238cb2dfff94cbe5223fd336a84db5604895918de8b750bfbbc3fa6d435eff1",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:40+00:00"
+    },
+    "assets/audio/sequence_fail.wav": {
+      "assetId": "76519651775131",
+      "assetType": "Audio",
+      "sha256": "e6816ac7d7931d0e3055560662befdf8fdc3c64a077ba0f53c098644d259abd2",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:43+00:00"
+    },
+    "assets/audio/sequence_resolve.wav": {
+      "assetId": "87091910476782",
+      "assetType": "Audio",
+      "sha256": "3f03419396ee1737953fd9fd7584b6465e8811243229136b6292359aa365d953",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:46+00:00"
+    },
+    "assets/audio/tier_up.wav": {
+      "assetId": "73866684148076",
+      "assetType": "Audio",
+      "sha256": "fc253bcc435a814e78b47100d44f6b42f1f3d8e187a6b0fbb58fa8d825d62045",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:49+00:00"
+    },
+    "assets/audio/ui_click.wav": {
+      "assetId": "129185082422595",
+      "assetType": "Audio",
+      "sha256": "9e0131a98e052d406b904795290091f9a2a51c01e8f23b6c0d8568c64b5a0e48",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:52+00:00"
+    },
+    "assets/audio/ui_close.wav": {
+      "assetId": "100346506024528",
+      "assetType": "Audio",
+      "sha256": "8572e2bd4da06d1f1de202235b786ff366f1d70617bf09900390c695c112bd0c",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:55+00:00"
+    },
+    "assets/audio/ui_error.wav": {
+      "assetId": "77923744544750",
+      "assetType": "Audio",
+      "sha256": "8b685daeec42e53a37e9ecbcff8e4ff2c3420aa88010c4cffc5ba10d142b9afd",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:58:58+00:00"
+    },
+    "assets/audio/ui_open.wav": {
+      "assetId": "131676293430805",
+      "assetType": "Audio",
+      "sha256": "07e7c7f0e388e9d340fa6d5ec9c44096e1ad42bd0bd2894069154b031903c276",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:01+00:00"
+    },
+    "assets/audio/umber_attack.wav": {
+      "assetId": "91251406303178",
+      "assetType": "Audio",
+      "sha256": "c945daa93ab81b83d9bb6692e282a051b0a79410a5ecb1dc46f1395255384b39",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:04+00:00"
+    },
+    "assets/audio/umber_body.wav": {
+      "assetId": "75471301866892",
+      "assetType": "Audio",
+      "sha256": "3d811c19c98703c590f1c7e02a99a94326c0ffcf2d913407b8a6a1095af44bc5",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:07+00:00"
+    },
+    "assets/audio/umber_impact.wav": {
+      "assetId": "95385042538888",
+      "assetType": "Audio",
+      "sha256": "e920c0460aabd7ad3741bbade33e02ef93e325942b3d9deaf23ed9d904da1f92",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:10+00:00"
+    },
+    "assets/audio/umber_tail.wav": {
+      "assetId": "74362166319129",
+      "assetType": "Audio",
+      "sha256": "87d570462966506a181ae9d68c7cb4e8692beb43494c17f881e190b2d2c4bd9f",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:13+00:00"
+    },
+    "assets/audio/verdigris_attack.wav": {
+      "assetId": "75910501629758",
+      "assetType": "Audio",
+      "sha256": "c7a09bb4cdca941c435d73cedd4387f2e34a2b57ce6e843dd4b8c3add0410cb7",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:16+00:00"
+    },
+    "assets/audio/verdigris_body.wav": {
+      "assetId": "104113528775200",
+      "assetType": "Audio",
+      "sha256": "237af6327020386544bf3087fb0049dbdf3472b21c56f28f4ef04d4ca52f9d44",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:19+00:00"
+    },
+    "assets/audio/verdigris_impact.wav": {
+      "assetId": "138552929845549",
+      "assetType": "Audio",
+      "sha256": "288e6bf7f57004699df0c0a1d8d4c2467ca02fcf0f64b3e75b2a828f211813ef",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:22+00:00"
+    },
+    "assets/audio/verdigris_tail.wav": {
+      "assetId": "114022726087632",
+      "assetType": "Audio",
+      "sha256": "fe24cee7b6f3d716aa792f6ff884ffab9db86300762cc32ff6326a6d87c95fc3",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-23T14:59:25+00:00"
+    },
+    "assets/textures/brush_stroke.png": {
+      "assetId": "86444840583183",
+      "assetType": "Image",
+      "sha256": "890592bf94b6fd0bb2458df020d034ba0c0ff83ccb2ebd8b94bb8bbcdb68e8bd",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:55:52+00:00"
+    },
+    "assets/textures/crack_web.png": {
+      "assetId": "109963232583770",
+      "assetType": "Image",
+      "sha256": "8765c09a181fa99c94211360575018a687fe7dae3e0feb07b3161daa3f2d363e",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:55:55+00:00"
+    },
+    "assets/textures/dust_mote.png": {
+      "assetId": "135616436571861",
+      "assetType": "Image",
+      "sha256": "4b35b7c34660941ab009ff8599c650a29d90266c8632a1f9e07e1457318d1a7d",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:55:42+00:00"
+    },
+    "assets/textures/explosion_flipbook.png": {
+      "assetId": "112524424027614",
+      "assetType": "Image",
+      "sha256": "2b0f69800848335867cceef5bf83163710d388743b4553fd8e85e10f8d749d95",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:55:58+00:00"
+    },
+    "assets/textures/gradient_linear.png": {
+      "assetId": "111708517818955",
+      "assetType": "Image",
+      "sha256": "80ec1d384620a86d4fba87324be460e8ce206203b4520eaba79b856a63bb5fd1",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:01+00:00"
+    },
+    "assets/textures/gradient_radial.png": {
+      "assetId": "107271909193136",
+      "assetType": "Image",
+      "sha256": "fc031ebb02fa300896d80d2efdf43d170008e83fa321a7df33eab5b3d667b99a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:04+00:00"
+    },
+    "assets/textures/ink_blot.png": {
+      "assetId": "73894677941580",
+      "assetType": "Image",
+      "sha256": "3a9ca6b4c992c758a108b35ad0fea22369aae14f2d9d9d5e2be8a49eefb0c35d",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:07+00:00"
+    },
+    "assets/textures/paper_grain.png": {
+      "assetId": "127023824364504",
+      "assetType": "Image",
+      "sha256": "38df04293b13c84bd8d6d4a066d9d4bb3ad6ac8bf804dcfebad9d05c4cae64ee",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:12+00:00"
+    },
+    "assets/textures/seal_ring.png": {
+      "assetId": "101561475000641",
+      "assetType": "Image",
+      "sha256": "441308ab7feea0430ef395727e8f66b045320400333464758e0c5e668a3d908f",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:15+00:00"
+    },
+    "assets/textures/shockwave_ring.png": {
+      "assetId": "80296968876762",
+      "assetType": "Image",
+      "sha256": "f3e4ff4c11e68806e27405d1d901f0c0df652920cbd1435b852a9c81956a1d52",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:18+00:00"
+    },
+    "assets/textures/smoke_soft.png": {
+      "assetId": "108342464159696",
+      "assetType": "Image",
+      "sha256": "00c4878ea6ca7e43285d6f96f982e0f86dbce6624b76f05b3395b7c5f7c0b7ae",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:21+00:00"
+    },
+    "assets/textures/spark_streak.png": {
+      "assetId": "84878236280705",
+      "assetType": "Image",
+      "sha256": "c1b154b3a9d655b2cc80be9dcfbd281a67916d81e54750a4fa9a01a679a38883",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:24+00:00"
+    },
+    "assets/textures/telegraph_bar.png": {
+      "assetId": "93590001410469",
+      "assetType": "Image",
+      "sha256": "0b92008dddf6cb53a9c48e067882b7b3fc3bfa329f8e1e4b6c30fee99305e5a1",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:27+00:00"
+    },
+    "assets/textures/telegraph_disc.png": {
+      "assetId": "130043464666920",
+      "assetType": "Image",
+      "sha256": "8ca545b4d01644084dadb1b44e261f8eb93445b789d404543e47cc1d3cb11e04",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:30+00:00"
+    },
+    "assets/textures/telegraph_page.png": {
+      "assetId": "88424550504238",
+      "assetType": "Image",
+      "sha256": "6c9d030ad060303ec074b5fd85bae0183bf741da5273c1010c3084727d854812",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:33+00:00"
+    },
+    "assets/textures/telegraph_ring.png": {
+      "assetId": "78927750663153",
+      "assetType": "Image",
+      "sha256": "cb183a077df3805dd83c6d3803eeddc83cf85186551798d18896c335778d2d98",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T14:56:36+00:00"
+    }
+  }
+}

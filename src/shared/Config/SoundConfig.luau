@@ -7,7 +7,7 @@
 -- how much its pitch may wander: five percent either way for anything heard in a fight, so two casts of
 -- the same glyph are never the same sound; nothing for the loops.
 --
--- Id is "" until the file is uploaded (docs/STUDIO_SETUP.md §8). A sound with no id is not played and
+-- Id is "" until the file is uploaded (scripts/upload_assets.py, docs/STUDIO_SETUP.md §7). A sound with no id is not played and
 -- the client says so once at startup, naming the file. There is no fallback: what was here before was
 -- the engine's own ping at nine different speeds, and a placeholder that sounds like every other game is
 -- worse than silence while the real thing is being uploaded.
@@ -31,8 +31,73 @@ export type SoundEntry = {
 
 local SoundConfig = {}
 
+-- Written by scripts/upload_assets.py from assets/roblox-assets.lock.json: the source file of every
+-- uploaded asset, and its id. Never edited by hand -- tests/UploadedAssets.spec.luau holds this block to
+-- the lock file, and the lock file to the bytes of each file, so a regenerated asset whose id went stale
+-- fails the build instead of rendering the old upload.
+-- BEGIN UPLOADED
+local UPLOADED: { [string]: string } = {
+	["assets/audio/block_start.wav"] = "rbxassetid://120764790598855",
+	["assets/audio/boss_arrival.wav"] = "rbxassetid://129179521053603",
+	["assets/audio/boss_defeat.wav"] = "rbxassetid://127092689170506",
+	["assets/audio/boss_impact.wav"] = "rbxassetid://83435591872024",
+	["assets/audio/boss_warn.wav"] = "rbxassetid://134945883661073",
+	["assets/audio/cinnabar_attack.wav"] = "rbxassetid://96125288611914",
+	["assets/audio/cinnabar_body.wav"] = "rbxassetid://130445613209895",
+	["assets/audio/cinnabar_impact.wav"] = "rbxassetid://138620912990282",
+	["assets/audio/cinnabar_tail.wav"] = "rbxassetid://74503927987442",
+	["assets/audio/claim.wav"] = "rbxassetid://88100509745314",
+	["assets/audio/countdown.wav"] = "rbxassetid://84111931326495",
+	["assets/audio/dash.wav"] = "rbxassetid://83677975239124",
+	["assets/audio/guard_break.wav"] = "rbxassetid://101953248386163",
+	["assets/audio/impact_block.wav"] = "rbxassetid://85533522824238",
+	["assets/audio/impact_hit.wav"] = "rbxassetid://121906743333205",
+	["assets/audio/indigo_attack.wav"] = "rbxassetid://102942422480520",
+	["assets/audio/indigo_body.wav"] = "rbxassetid://83890064622856",
+	["assets/audio/indigo_impact.wav"] = "rbxassetid://137571321646947",
+	["assets/audio/indigo_tail.wav"] = "rbxassetid://85052957747690",
+	["assets/audio/kill.wav"] = "rbxassetid://109635507700412",
+	["assets/audio/level_up.wav"] = "rbxassetid://85049377253308",
+	["assets/audio/match_lose.wav"] = "rbxassetid://130723255437619",
+	["assets/audio/match_start.wav"] = "rbxassetid://83812466293218",
+	["assets/audio/match_win.wav"] = "rbxassetid://136310759235150",
+	["assets/audio/melee_1.wav"] = "rbxassetid://101756335783817",
+	["assets/audio/melee_2.wav"] = "rbxassetid://79624246067084",
+	["assets/audio/melee_3.wav"] = "rbxassetid://81962627922269",
+	["assets/audio/melee_finisher.wav"] = "rbxassetid://104980222950278",
+	["assets/audio/music_boss.wav"] = "rbxassetid://72119967115766",
+	["assets/audio/music_hub.wav"] = "rbxassetid://126181385818298",
+	["assets/audio/music_match.wav"] = "rbxassetid://102373118431286",
+	["assets/audio/note_cinnabar.wav"] = "rbxassetid://99905567528264",
+	["assets/audio/note_indigo.wav"] = "rbxassetid://99548383257653",
+	["assets/audio/note_orpiment.wav"] = "rbxassetid://131474183723461",
+	["assets/audio/note_umber.wav"] = "rbxassetid://86700904986138",
+	["assets/audio/note_verdigris.wav"] = "rbxassetid://84793415774922",
+	["assets/audio/orpiment_attack.wav"] = "rbxassetid://106797654943467",
+	["assets/audio/orpiment_body.wav"] = "rbxassetid://86527486874375",
+	["assets/audio/orpiment_impact.wav"] = "rbxassetid://137965416870782",
+	["assets/audio/sequence_dissipate.wav"] = "rbxassetid://76321860752032",
+	["assets/audio/sequence_fail.wav"] = "rbxassetid://76519651775131",
+	["assets/audio/sequence_resolve.wav"] = "rbxassetid://87091910476782",
+	["assets/audio/tier_up.wav"] = "rbxassetid://73866684148076",
+	["assets/audio/ui_click.wav"] = "rbxassetid://129185082422595",
+	["assets/audio/ui_close.wav"] = "rbxassetid://100346506024528",
+	["assets/audio/ui_error.wav"] = "rbxassetid://77923744544750",
+	["assets/audio/ui_open.wav"] = "rbxassetid://131676293430805",
+	["assets/audio/umber_attack.wav"] = "rbxassetid://91251406303178",
+	["assets/audio/umber_body.wav"] = "rbxassetid://75471301866892",
+	["assets/audio/umber_impact.wav"] = "rbxassetid://95385042538888",
+	["assets/audio/umber_tail.wav"] = "rbxassetid://74362166319129",
+	["assets/audio/verdigris_attack.wav"] = "rbxassetid://75910501629758",
+	["assets/audio/verdigris_body.wav"] = "rbxassetid://104113528775200",
+	["assets/audio/verdigris_impact.wav"] = "rbxassetid://138552929845549",
+	["assets/audio/verdigris_tail.wav"] = "rbxassetid://114022726087632",
+}
+-- END UPLOADED
+
 local function sound(source: string, seconds: number, volume: number, vary: number): SoundEntry
-	return { Id = "", Source = "assets/audio/" .. source, Seconds = seconds, Volume = volume, Vary = vary }
+	local path = "assets/audio/" .. source
+	return { Id = UPLOADED[path] or "", Source = path, Seconds = seconds, Volume = volume, Vary = vary }
 end
 
 -- The four voices a pigment can have, in the order a glyph spends them: the wind-up, the release, the

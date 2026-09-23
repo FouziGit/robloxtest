@@ -44,13 +44,53 @@ export type Asset = {
 
 local AssetIds = {}
 
+-- Written by scripts/upload_assets.py from assets/roblox-assets.lock.json: the source file of every
+-- uploaded asset, and its id. Never edited by hand -- tests/UploadedAssets.spec.luau holds this block to
+-- the lock file, and the lock file to the bytes of each file, so a regenerated asset whose id went stale
+-- fails the build instead of rendering the old upload.
+-- BEGIN UPLOADED
+local UPLOADED: { [string]: string } = {
+	["assets/textures/brush_stroke.png"] = "rbxassetid://86444840583183",
+	["assets/textures/crack_web.png"] = "rbxassetid://109963232583770",
+	["assets/textures/dust_mote.png"] = "rbxassetid://135616436571861",
+	["assets/textures/explosion_flipbook.png"] = "rbxassetid://112524424027614",
+	["assets/textures/gradient_linear.png"] = "rbxassetid://111708517818955",
+	["assets/textures/gradient_radial.png"] = "rbxassetid://107271909193136",
+	["assets/textures/ink_blot.png"] = "rbxassetid://73894677941580",
+	["assets/textures/paper_grain.png"] = "rbxassetid://127023824364504",
+	["assets/textures/seal_ring.png"] = "rbxassetid://101561475000641",
+	["assets/textures/shockwave_ring.png"] = "rbxassetid://80296968876762",
+	["assets/textures/smoke_soft.png"] = "rbxassetid://108342464159696",
+	["assets/textures/spark_streak.png"] = "rbxassetid://84878236280705",
+	["assets/textures/telegraph_bar.png"] = "rbxassetid://93590001410469",
+	["assets/textures/telegraph_disc.png"] = "rbxassetid://130043464666920",
+	["assets/textures/telegraph_page.png"] = "rbxassetid://88424550504238",
+	["assets/textures/telegraph_ring.png"] = "rbxassetid://78927750663153",
+}
+-- END UPLOADED
+
 local function texture(source: string, width: number, height: number, least: number?, most: number?): Asset
 	local ink = if least ~= nil and most ~= nil then { Least = least, Most = most } else nil
-	return { Id = "", Source = source, Width = width, Height = height, Columns = 1, Rows = 1, Ink = ink }
+	return {
+		Id = UPLOADED[source] or "",
+		Source = source,
+		Width = width,
+		Height = height,
+		Columns = 1,
+		Rows = 1,
+		Ink = ink,
+	}
 end
 
 local function flipbook(source: string, size: number, columns: number, rows: number): Asset
-	return { Id = "", Source = source, Width = size, Height = size, Columns = columns, Rows = rows }
+	return {
+		Id = UPLOADED[source] or "",
+		Source = source,
+		Width = size,
+		Height = size,
+		Columns = columns,
+		Rows = rows,
+	}
 end
 
 AssetIds.Textures = {

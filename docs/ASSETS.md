@@ -51,10 +51,33 @@ mono, déterministe — aucune fonction de la libm sur le chemin par échantillo
 Déclarées dans `src/shared/Config/SoundConfig.luau` avec leur durée (lue dans l'en-tête par
 `tests/SoundConfig.spec.luau`). Téléversement : `docs/STUDIO_SETUP.md` §7.
 
-## Sources tierces : ce qui pourra entrer, et pourquoi si peu
+## Animations — `tools/animations/` → `assets/animations/` (tierces, CC0)
 
-Rien de tiers n'est dans le dépôt aujourd'hui ; cette section fixe la règle **avant** que quelque chose y
-entre. Vérifiée le 2026-09-23 par huit agents, dont trois contradicteurs chargés de trouver la clause qui
+Les huit clips de combat sont les **seuls** assets tiers du jeu. Source : *Universal Animation Library* 1
+et 2 de Quaternius, versions Standard, **CC0 1.0** (le `License.txt` de chaque archive le dit, et la page
+OpenGameArt aussi au jour du téléchargement). Les archives sont épinglées par empreinte dans
+`tools/thirdparty/sources.json` et ne sont pas commitées ; `tools/animations/retarget.py` (Blender en ligne
+de commande) les transpose sur le squelette R15 de Roblox et écrit des `KeyframeSequence` déterministes —
+même archive, mêmes octets.
+
+| Fichier | Clip source | Rôle |
+|---|---|---|
+| `punch_jab.rbxmx` | UAL1 `Punch_Jab` | 1er coup de la chaîne |
+| `punch_cross.rbxmx` | UAL1 `Punch_Cross` | 2e coup |
+| `melee_hook.rbxmx` | UAL2 `Melee_Hook` | 3e coup |
+| `overhand_throw.rbxmx` | UAL2 `OverhandThrow` | coup final |
+| `spell_shoot.rbxmx` | UAL1 `Spell_Simple_Shoot` | lancer un glyphe |
+| `guard_loop.rbxmx` | UAL2 `Idle_Shield_Loop` | garde tenue |
+| `guard_break.rbxmx` | UAL2 `Idle_Shield_Break` | garde brisée |
+| `hit_chest.rbxmx` | UAL1 `Hit_Chest` | coup encaissé |
+
+Crédit facultatif (CC0) et donné quand même : animations de combat d'après Quaternius (quaternius.com).
+Les animations Roblox sont **Restricted** et ne peuvent pas être mises en usage libre, ce qui respecte
+aussi la licence maison que Quaternius publie depuis le 2026-08-28 (pas de redistribution isolée).
+
+## Sources tierces : ce qui peut entrer, et pourquoi si peu
+
+Cette section fixe la règle de tout ce qui entre de l'extérieur. Vérifiée le 2026-09-23 par huit agents, dont trois contradicteurs chargés de trouver la clause qui
 interdit ; le détail est dans `docs/DECISIONS.md` D-104.
 
 Le critère qui tranche n'est pas « gratuit » ni « usage commercial autorisé » : **téléverser un fichier

@@ -1,0 +1,50 @@
+{
+  "_comment": "Which source clip becomes which file. Libraries are the pinned CC0 archives of tools/thirdparty/sources.json, unpacked under .cache/thirdparty/. generate_all.py runs tools/animations/retarget.py in Blender for each entry.",
+  "libraries": {
+    "ual1": "quaternius-ual1/unpacked/Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb",
+    "ual2": "quaternius-ual2/unpacked/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb"
+  },
+  "clips": [
+    {
+      "file": "punch_jab.rbxmx",
+      "library": "ual1",
+      "action": "Punch_Jab"
+    },
+    {
+      "file": "punch_cross.rbxmx",
+      "library": "ual1",
+      "action": "Punch_Cross"
+    },
+    {
+      "file": "melee_hook.rbxmx",
+      "library": "ual2",
+      "action": "Melee_Hook"
+    },
+    {
+      "file": "overhand_throw.rbxmx",
+      "library": "ual2",
+      "action": "OverhandThrow"
+    },
+    {
+      "file": "spell_shoot.rbxmx",
+      "library": "ual1",
+      "action": "Spell_Simple_Shoot"
+    },
+    {
+      "file": "guard_loop.rbxmx",
+      "library": "ual2",
+      "action": "Idle_Shield_Loop",
+      "loop": true
+    },
+    {
+      "file": "guard_break.rbxmx",
+      "library": "ual2",
+      "action": "Idle_Shield_Break"
+    },
+    {
+      "file": "hit_chest.rbxmx",
+      "library": "ual1",
+      "action": "Hit_Chest"
+    }
+  ]
+}

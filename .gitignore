@@ -9,6 +9,9 @@ build/
 *.rbxlx
 *.rbxm
 *.rbxmx
+# ...except the animation clips, which are generated art like the textures and the sounds, and committed
+# for the same reason: CI has no Blender to regenerate them, and the tests read them.
+!assets/animations/*.rbxmx
 sourcemap.json
 
 # luau-lsp Roblox type definitions (downloaded by scripts/setup.sh)

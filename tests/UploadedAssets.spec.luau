@@ -10,6 +10,7 @@
 --   * a block is edited by hand, or copied from another branch -- an id points at a file it is not;
 --   * a file is renamed -- its id sits in the block under a name no config entry reads.
 -- This file closes all three.
+local AnimationConfig = require("../src/shared/Config/AnimationConfig")
 local AssetIds = require("../src/shared/Config/AssetIds")
 local Harness = require("./harness")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
@@ -22,6 +23,11 @@ local LOCK_PATH = "assets/roblox-assets.lock.json"
 local TARGETS = {
 	{ Module = "src/shared/Config/AssetIds.luau", Prefix = "assets/textures/", Config = AssetIds :: any },
 	{ Module = "src/shared/Config/SoundConfig.luau", Prefix = "assets/audio/", Config = SoundConfig :: any },
+	{
+		Module = "src/shared/Config/AnimationConfig.luau",
+		Prefix = "assets/animations/",
+		Config = AnimationConfig :: any,
+	},
 }
 
 type Record = { assetId: string, sha256: string, assetType: string? }

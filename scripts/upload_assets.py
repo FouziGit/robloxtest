@@ -62,6 +62,15 @@ KINDS = {
         "target": ROOT / "src" / "shared" / "Config" / "AssetIds.luau",
         "quota_type": "DECAL",
     },
+    "animation": {
+        "dir": ROOT / "assets" / "animations",
+        "glob": "*.rbxmx",
+        # The content type the Assets API documents for both .rbxm and .rbxmx.
+        "asset_type": "Animation",
+        "content_type": "model/x-rbxm",
+        "target": ROOT / "src" / "shared" / "Config" / "AnimationConfig.luau",
+        "quota_type": "ANIMATION",
+    },
     "sound": {
         "dir": ROOT / "assets" / "audio",
         "glob": "*.wav",

@@ -48,6 +48,8 @@ local ORDER = {
 	"FootprintController",
 	-- Poses bodies from the packets VfxController receives: after it, for the signal.
 	"Posture",
+	-- Plays the local character's clips from the same packets, and Posture stands aside for them.
+	"Moves",
 	"MatchController",
 	"HudController",
 	-- Reads the match snapshots and toasts through the HUD: after both.

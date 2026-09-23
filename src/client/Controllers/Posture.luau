@@ -50,6 +50,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local AnimationConfig = require(Shared.Config.AnimationConfig)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local Log = require(Shared.Util.Log)
 local PostureConfig = require(Shared.Config.PostureConfig)
@@ -281,7 +282,8 @@ local function step(entry: Entry, deltaTime: number)
 
 	-- The guard, which is a state and not a pulse: it follows the attribute and nothing else can make
 	-- it leave early.
-	local guarding = entry.Humanoid:GetAttribute(GUARD_ATTRIBUTE) == true
+	-- A guard with a real clip is held by Moves on the guarding player's own client and replicated.
+	local guarding = entry.Humanoid:GetAttribute(GUARD_ATTRIBUTE) == true and AnimationConfig.clipFor("Guard") == nil
 	local guardGoal = if guarding then 1 else 0
 	if entry.Guard.Goal ~= guardGoal then
 		retune(entry.Guard, if guarding then PostureConfig.Guard.RiseSeconds else PostureConfig.Guard.FallSeconds)
@@ -405,6 +407,11 @@ local function onAction(id: string, userId: number, params: { [string]: any }?)
 		end
 		local chain = PostureConfig.MeleeChain
 		local index = if type(params) == "table" and type(params.Index) == "number" then params.Index else 1
+		-- A hit with a real clip is animated by Moves on the attacker's own client and replicated to
+		-- everyone; posing it here as well would move the same arm twice.
+		if AnimationConfig.clipFor("Melee", math.max(1, math.floor(index))) ~= nil then
+			return
+		end
 		local pose = chain[math.clamp(math.floor(index), 1, #chain)]
 		if pose ~= nil then
 			play(character, pose)
@@ -416,7 +423,7 @@ local function onAction(id: string, userId: number, params: { [string]: any }?)
 		end
 	elseif id == "Cast" then
 		local character = characterOf(userId)
-		if character ~= nil then
+		if character ~= nil and AnimationConfig.clipFor("Cast") == nil then
 			play(character, "Cast")
 		end
 	elseif id == "Hit" then
@@ -424,12 +431,12 @@ local function onAction(id: string, userId: number, params: { [string]: any }?)
 		-- pose is held by the attribute and the flinch adds to it, which is what a blow landing on a
 		-- raised guard should look like.
 		local character = characterOf(targetOf(params))
-		if character ~= nil then
+		if character ~= nil and AnimationConfig.clipFor("Flinch") == nil then
 			play(character, "Flinch")
 		end
 	elseif id == "GuardBreak" then
 		local character = characterOf(targetOf(params))
-		if character ~= nil then
+		if character ~= nil and AnimationConfig.clipFor("GuardBreak") == nil then
 			play(character, "GuardBreak")
 		end
 	end

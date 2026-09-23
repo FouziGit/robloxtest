@@ -3,6 +3,62 @@
     "userId": "3721321390"
   },
   "assets": {
+    "assets/animations/guard_break.rbxmx": {
+      "assetId": "79441446612897",
+      "assetType": "Animation",
+      "sha256": "7942b80fab1f4afc641851d38c6f8634605d113e7e9b8852c04640e7ffea38e4",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:13:54+00:00"
+    },
+    "assets/animations/guard_loop.rbxmx": {
+      "assetId": "124143306345974",
+      "assetType": "Animation",
+      "sha256": "8973796ad218da56106277d969c701bdc167cd66fae7987892da039ab328b3a7",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:13:57+00:00"
+    },
+    "assets/animations/hit_chest.rbxmx": {
+      "assetId": "91485351933599",
+      "assetType": "Animation",
+      "sha256": "1e0ebd5618dd34ffa0fb0e4c3036776773337488d5cddcd983ea9d94849dc526",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:14:00+00:00"
+    },
+    "assets/animations/melee_hook.rbxmx": {
+      "assetId": "100104040643654",
+      "assetType": "Animation",
+      "sha256": "934782d7f4ba03fdd6166c343a074df7ea2702faeec6a14c706d5699c5d99c35",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:14:03+00:00"
+    },
+    "assets/animations/overhand_throw.rbxmx": {
+      "assetId": "89530976835853",
+      "assetType": "Animation",
+      "sha256": "2b8bc250847b9d79846cf23c188db72308173d8b59e1e8a51f45c84402d1a7d3",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:14:06+00:00"
+    },
+    "assets/animations/punch_cross.rbxmx": {
+      "assetId": "94991981929453",
+      "assetType": "Animation",
+      "sha256": "5347c889def3a780984fdac2a4807c3ec30073091c4b859c02df405e3e6c8192",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:14:09+00:00"
+    },
+    "assets/animations/punch_jab.rbxmx": {
+      "assetId": "136529039918121",
+      "assetType": "Animation",
+      "sha256": "47202b913e124bc16f5b4682f16f3dc8f335ce16d9cae10f32b8e7c7e2185064",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:08:05+00:00"
+    },
+    "assets/animations/spell_shoot.rbxmx": {
+      "assetId": "73297736196794",
+      "assetType": "Animation",
+      "sha256": "580d0b0587adf76a6e4be5b69f5d7a1f72556320c5c3755b4c4082ebdc97c666",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-23T15:14:15+00:00"
+    },
     "assets/audio/block_start.wav": {
       "assetId": "120764790598855",
       "assetType": "Audio",
@@ -154,238 +210,238 @@
       "assetId": "130723255437619",
       "assetType": "Audio",
       "sha256": "fd8d595a34a9d4a75be4947b628380f82f6a9b68e381fe68a02edba4668ce054",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:43+00:00"
     },
     "assets/audio/match_start.wav": {
       "assetId": "83812466293218",
       "assetType": "Audio",
       "sha256": "50f3c9b4180cce9998fb363b44676c316b609c7c9383bdf6be6cb5c8b04703bb",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:46+00:00"
     },
     "assets/audio/match_win.wav": {
       "assetId": "136310759235150",
       "assetType": "Audio",
       "sha256": "595a5f74fab894dc029b604374c98d392482544bae182288d17030c2306c4d27",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:49+00:00"
     },
     "assets/audio/melee_1.wav": {
       "assetId": "101756335783817",
       "assetType": "Audio",
       "sha256": "1820a43715a4cdb5b6b748d34f975eda81ba782fbc8ae8c7aacdc74597a5730b",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:52+00:00"
     },
     "assets/audio/melee_2.wav": {
       "assetId": "79624246067084",
       "assetType": "Audio",
       "sha256": "f17232ada11527a2ab731b4f3eed4300847022ad4d89a28413ee7ed2cc70cfa2",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:55+00:00"
     },
     "assets/audio/melee_3.wav": {
       "assetId": "81962627922269",
       "assetType": "Audio",
       "sha256": "64a59e93c63d47ad179c232931b57ea6ff5c799aa48317bef6212dedecda209d",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:57:58+00:00"
     },
     "assets/audio/melee_finisher.wav": {
       "assetId": "104980222950278",
       "assetType": "Audio",
       "sha256": "e702cafcde4e06aa91fd5754b401a6c3b257d75084384d496f3ce547030e7f9a",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:01+00:00"
     },
     "assets/audio/music_boss.wav": {
       "assetId": "72119967115766",
       "assetType": "Audio",
       "sha256": "dec25232250ca294cc8805dcabac1d0b89e2040d84870a07cf94d5b88a206b02",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:04+00:00"
     },
     "assets/audio/music_hub.wav": {
       "assetId": "126181385818298",
       "assetType": "Audio",
       "sha256": "7b7778208c6d8b5e3774c3a7a1a7af8a5acd8ec034f9536c93116c47a7042ab5",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:08+00:00"
     },
     "assets/audio/music_match.wav": {
       "assetId": "102373118431286",
       "assetType": "Audio",
       "sha256": "85e343ed6e661ad65bd2a408f0b7bd6a9e841acc0ca579846446686cda1d6990",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:11+00:00"
     },
     "assets/audio/note_cinnabar.wav": {
       "assetId": "99905567528264",
       "assetType": "Audio",
       "sha256": "e41c83820584e0d8d196a0c563c2f58064a23fb1ce5f2350d31416b819a8ca3f",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:14+00:00"
     },
     "assets/audio/note_indigo.wav": {
       "assetId": "99548383257653",
       "assetType": "Audio",
       "sha256": "3c17ae642257de8eb432a588ec7f15276a08aea5d94e6719640ecef52752af55",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:19+00:00"
     },
     "assets/audio/note_orpiment.wav": {
       "assetId": "131474183723461",
       "assetType": "Audio",
       "sha256": "3f6872333fb631ee6511392dafdb01a2c4a332eee94d37897d1199eec5c82ead",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:22+00:00"
     },
     "assets/audio/note_umber.wav": {
       "assetId": "86700904986138",
       "assetType": "Audio",
       "sha256": "a79784ae33e0e5c4fc3371fff30e12ca318d95a2af6840917ce1733b6c7aba53",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:25+00:00"
     },
     "assets/audio/note_verdigris.wav": {
       "assetId": "84793415774922",
       "assetType": "Audio",
       "sha256": "12050c8c147247a32b729158c0c71b2479b8842d506c0b228dca87da389dd3d5",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:28+00:00"
     },
     "assets/audio/orpiment_attack.wav": {
       "assetId": "106797654943467",
       "assetType": "Audio",
       "sha256": "73f6620d33779e72e8cf4f71d2b744ab685ca030069e08feb07563ffc0e34217",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:31+00:00"
     },
     "assets/audio/orpiment_body.wav": {
       "assetId": "86527486874375",
       "assetType": "Audio",
       "sha256": "8751e6bb9f41bf92d46fa96b0d0cd2fd1adf94d11fbd54833378805dfbf1d2e0",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:34+00:00"
     },
     "assets/audio/orpiment_impact.wav": {
       "assetId": "137965416870782",
       "assetType": "Audio",
       "sha256": "6caaf06187efd49a4dba9ee445d7f0e8a79241fe14e9d4b336731285397c293f",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:37+00:00"
     },
     "assets/audio/sequence_dissipate.wav": {
       "assetId": "76321860752032",
       "assetType": "Audio",
       "sha256": "6238cb2dfff94cbe5223fd336a84db5604895918de8b750bfbbc3fa6d435eff1",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:40+00:00"
     },
     "assets/audio/sequence_fail.wav": {
       "assetId": "76519651775131",
       "assetType": "Audio",
       "sha256": "e6816ac7d7931d0e3055560662befdf8fdc3c64a077ba0f53c098644d259abd2",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:43+00:00"
     },
     "assets/audio/sequence_resolve.wav": {
       "assetId": "87091910476782",
       "assetType": "Audio",
       "sha256": "3f03419396ee1737953fd9fd7584b6465e8811243229136b6292359aa365d953",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:46+00:00"
     },
     "assets/audio/tier_up.wav": {
       "assetId": "73866684148076",
       "assetType": "Audio",
       "sha256": "fc253bcc435a814e78b47100d44f6b42f1f3d8e187a6b0fbb58fa8d825d62045",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:49+00:00"
     },
     "assets/audio/ui_click.wav": {
       "assetId": "129185082422595",
       "assetType": "Audio",
       "sha256": "9e0131a98e052d406b904795290091f9a2a51c01e8f23b6c0d8568c64b5a0e48",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:52+00:00"
     },
     "assets/audio/ui_close.wav": {
       "assetId": "100346506024528",
       "assetType": "Audio",
       "sha256": "8572e2bd4da06d1f1de202235b786ff366f1d70617bf09900390c695c112bd0c",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:55+00:00"
     },
     "assets/audio/ui_error.wav": {
       "assetId": "77923744544750",
       "assetType": "Audio",
       "sha256": "8b685daeec42e53a37e9ecbcff8e4ff2c3420aa88010c4cffc5ba10d142b9afd",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:58:58+00:00"
     },
     "assets/audio/ui_open.wav": {
       "assetId": "131676293430805",
       "assetType": "Audio",
       "sha256": "07e7c7f0e388e9d340fa6d5ec9c44096e1ad42bd0bd2894069154b031903c276",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:01+00:00"
     },
     "assets/audio/umber_attack.wav": {
       "assetId": "91251406303178",
       "assetType": "Audio",
       "sha256": "c945daa93ab81b83d9bb6692e282a051b0a79410a5ecb1dc46f1395255384b39",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:04+00:00"
     },
     "assets/audio/umber_body.wav": {
       "assetId": "75471301866892",
       "assetType": "Audio",
       "sha256": "3d811c19c98703c590f1c7e02a99a94326c0ffcf2d913407b8a6a1095af44bc5",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:07+00:00"
     },
     "assets/audio/umber_impact.wav": {
       "assetId": "95385042538888",
       "assetType": "Audio",
       "sha256": "e920c0460aabd7ad3741bbade33e02ef93e325942b3d9deaf23ed9d904da1f92",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:10+00:00"
     },
     "assets/audio/umber_tail.wav": {
       "assetId": "74362166319129",
       "assetType": "Audio",
       "sha256": "87d570462966506a181ae9d68c7cb4e8692beb43494c17f881e190b2d2c4bd9f",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:13+00:00"
     },
     "assets/audio/verdigris_attack.wav": {
       "assetId": "75910501629758",
       "assetType": "Audio",
       "sha256": "c7a09bb4cdca941c435d73cedd4387f2e34a2b57ce6e843dd4b8c3add0410cb7",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:16+00:00"
     },
     "assets/audio/verdigris_body.wav": {
       "assetId": "104113528775200",
       "assetType": "Audio",
       "sha256": "237af6327020386544bf3087fb0049dbdf3472b21c56f28f4ef04d4ca52f9d44",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:19+00:00"
     },
     "assets/audio/verdigris_impact.wav": {
       "assetId": "138552929845549",
       "assetType": "Audio",
       "sha256": "288e6bf7f57004699df0c0a1d8d4c2467ca02fcf0f64b3e75b2a828f211813ef",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:22+00:00"
     },
     "assets/audio/verdigris_tail.wav": {
       "assetId": "114022726087632",
       "assetType": "Audio",
       "sha256": "fe24cee7b6f3d716aa792f6ff884ffab9db86300762cc32ff6326a6d87c95fc3",
-      "moderationState": "Reviewing",
+      "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:25+00:00"
     },
     "assets/textures/brush_stroke.png": {

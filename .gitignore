@@ -25,3 +25,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.swp
+
+# Secrets. The Open Cloud API key used to upload assets (asphalt reads ASPHALT_API_KEY) lives here and
+# nowhere else: it has write access to the account's assets, so it must never reach the repository.
+.env
+.env.*

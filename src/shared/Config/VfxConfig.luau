@@ -35,8 +35,10 @@ VfxConfig.InkRamp = { Wet = 0.12, Dry = -0.2, Seconds = 2.5 }
 --
 -- A print is laid when the body has really covered its share of the dash (the layer's Along), on each
 -- screen as that screen sees it move -- the dasher's own a moment after the push, everyone else's after
--- the latency that shows it moving -- and given up after WaitSeconds (a dash stopped by a wall). It
--- shrinks away over the last ShrinkShare of its life. The dasher's own is drawn in the paler OwnTone, and
+-- the latency that shows it moving -- exactly at that share of the path, however far the body got in the
+-- frame it was noticed. It is given up WaitSeconds after the body started moving (more than MoveStuds)
+-- without getting there, a dash stopped by a wall, or CeilingSeconds after its time if the body never
+-- moved at all. It shrinks away as one body, about its root, over the last ShrinkShare of its life. The dasher's own is drawn in the paler OwnTone, and
 -- not at all when the dash runs within OwnHiddenWithinDegrees of the camera's aim or the camera is
 -- inside the character (first person): there it would stand between the player and what they run at.
 -- At most MaxAlive at once: each is fifteen parts and meshes and one of the engine's 31 highlights.
@@ -62,6 +64,8 @@ VfxConfig.Afterimage = {
 	OwnTone = "Wash",
 	OwnHiddenWithinDegrees = 45,
 	WaitSeconds = 0.5,
+	CeilingSeconds = 1,
+	MoveStuds = 0.5,
 	ShrinkShare = 0.5,
 	MaxAlive = 4,
 }

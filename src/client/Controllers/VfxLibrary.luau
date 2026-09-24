@@ -124,10 +124,12 @@ local WHITE = Color3.fromRGB(255, 245, 220)
 -- charcoal (D-114, the developer's choice): white was nearly invisible on vellum and is the colour art
 -- bible rule 7 keeps for "cannot be hurt", and the dodge's Verdigris named a school it is not.
 local KIT_INK = Palette.rgb(WorldConfig.Colors.Ink)
--- What a fist's hit tells the two people in it -- the outline through a crowd, the number -- in the
--- page's vellum: charcoal on its charcoal stroke was no number at all, and vanished on the ink cover
--- walls it is meant to read through (review).
-local KIT_FEEDBACK = Palette.rgb(WorldConfig.Colors.Page)
+-- What a fist's hit tells the two people in it. The number in the page's vellum, on its charcoal
+-- stroke: charcoal on charcoal was no number at all (review). The outline through a crowd in the wash
+-- between the two: vellum vanished against the page behind the target and turned it white, charcoal
+-- against the ink cover walls (review).
+local KIT_NUMBER = Palette.rgb(WorldConfig.Colors.Page)
+local KIT_OUTLINE = Palette.rgb(CosmeticConfig.Tones.Wash)
 local SHIELD_COLOR = Color3.fromRGB(120, 190, 255)
 local GUARD_BREAK_COLOR = Color3.fromRGB(255, 120, 90)
 
@@ -690,9 +692,12 @@ end
 VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local pigment = stringParam(packet, "Pigment", "")
 	-- In the caster's skin when the hit came from a skinned glyph (CombatService writes the shade); in the
-	-- kit's charcoal when it came from a fist, told to the two people in it in vellum.
-	local color = if pigment ~= "" then glyphColor(pigment, packet, api) else KIT_INK
-	local feedback = if pigment ~= "" then color else KIT_FEEDBACK
+	-- kit's charcoal when it came from a fist -- the server names the kind -- told to the two people in it
+	-- in vellum and wash.
+	local fist = stringParam(packet, "Kind", "") == "Melee"
+	local color = if fist then KIT_INK else glyphColor(pigment, packet, api)
+	local number = if fist then KIT_NUMBER else color
+	local outline = if fist then KIT_OUTLINE else color
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
 	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
@@ -709,7 +714,7 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 		-- what keeps the roster's visual language consistent as it grows.
 		Scale = if heavy then 1.35 else 1,
 		-- Ink does not shine: a fist's hit lights nothing (D-116).
-		Unlit = pigment == "",
+		Unlit = fist,
 	})
 	-- The page slap is the melee kit's. A glyph's landing is its pigment's Impact voice, played by its
 	-- own timeline once at the point it landed; playing the slap here as well put two thumps under every
@@ -749,7 +754,7 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 			then victim
 			else api.CharacterOf(targetUserId)
 		if targetModel ~= nil then
-			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else feedback)
+			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else outline)
 			-- A heavy hit or the end of a chain prints both bodies in ink for a few frames, over the outline
 			-- (D-112). A finisher is a light hit and a heavy moment, so the server names it.
 			local finisher = packet.Params ~= nil and packet.Params.Finisher == true
@@ -762,7 +767,7 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 				feel.impactFrame(bodies)
 			end
 		end
-		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else feedback, amplified)
+		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else number, amplified)
 	end
 end
 

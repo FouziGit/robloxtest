@@ -99,6 +99,29 @@ function VolumeMath.sketchShrink(elapsed: number, share: number): number
 	return 1 - into * into
 end
 
+-- What a dash's print waiting for its body does now (D-116): "Lay" once the body has covered `target`
+-- studs of its path; "Drop" once it has been moving for `wait` seconds without getting there (a dash
+-- stopped by a wall), or has not moved at all within `ceiling` of the print's time -- counted from the
+-- moment it moved, not from the packet, because another screen sees a dasher move only a round trip
+-- later; otherwise "Wait". `movedAt` is nil until the body has moved.
+function VolumeMath.printDecision(
+	travelled: number,
+	target: number,
+	now: number,
+	at: number,
+	movedAt: number?,
+	wait: number,
+	ceiling: number
+): string
+	if travelled >= target then
+		return "Lay"
+	end
+	if movedAt ~= nil then
+		return if now >= movedAt + wait then "Drop" else "Wait"
+	end
+	return if now >= at + ceiling then "Drop" else "Wait"
+end
+
 -- How far below where a scrap was thrown it lands, or nil when it has nowhere to land: no floor under
 -- the blast, or a "floor" above it (the probe starts a stud up). A scrap with nowhere to land fades in
 -- the air rather than lying flat on nothing.

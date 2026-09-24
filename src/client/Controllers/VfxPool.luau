@@ -248,6 +248,7 @@ local function resetHighlight(highlight: Highlight)
 	highlight.FillTransparency = 0
 	highlight.OutlineColor = BLANK_COLOR
 	highlight.OutlineTransparency = 0
+	highlight.Adornee = nil
 end
 
 local function resetAttachment(attachment: Attachment)
@@ -298,7 +299,8 @@ end
 type ClassOps = {
 	create: () -> Instance,
 	reset: (Instance) -> (),
-	mute: (Instance) -> (),
+	-- Absent for a class that draws nothing of its own (a Model).
+	mute: ((Instance) -> ())?,
 }
 
 -- The classes the VFX layer builds per effect. A class that is not here cannot be pooled, because the
@@ -388,8 +390,7 @@ local CLASSES: { [string]: ClassOps } = {
 		reset = function(instance: Instance)
 			resetModel(instance :: Model)
 		end,
-		-- Nothing of its own is drawn: its limbs go back to the pool before it does.
-		mute = function(_instance: Instance) end,
+		-- No mute: nothing of its own is drawn, and its limbs are parts of their own.
 	},
 	Highlight = {
 		create = function(): Instance
@@ -544,7 +545,10 @@ function VfxPool.release(instance: Instance): boolean
 
 	local ops = CLASSES[className]
 	if ops ~= nil then
-		ops.mute(instance)
+		local mute = ops.mute
+		if mute ~= nil then
+			mute(instance)
+		end
 	end
 	instance.Parent = home
 	table.insert(stackOf(className), instance)

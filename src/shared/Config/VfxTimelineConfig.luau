@@ -531,6 +531,34 @@ local DASH: Timeline = {
 					Transparency = 0.6,
 					EndTransparency = 1,
 				},
+				-- The body leaves its sketch (D-116): twice, printed flat in graphite where it was a third of
+				-- the way into the dash and again two thirds along, each bleeding a little and shrinking away.
+				-- Here and not in Travel: a print waits for its body from the push itself, and the push on the
+				-- dasher's own screen starts with this phase -- from Travel, the first was laid at half way.
+				{
+					Kind = "Afterimage",
+					At = 0,
+					For = 0.22,
+					Print = 1,
+					Along = 0.3,
+					Tone = "Graphite",
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Size = 1,
+					EndSize = 1.04,
+				},
+				{
+					Kind = "Afterimage",
+					At = 0,
+					For = 0.2,
+					Print = 2,
+					Along = 0.7,
+					Tone = "Graphite",
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Size = 1,
+					EndSize = 1.04,
+				},
 			},
 		},
 		{
@@ -574,32 +602,6 @@ local DASH: Timeline = {
 				-- dodge feel like a stumble. Nobody else needs to feel a dodge: it is not an impact. Nor a
 				-- light: the kit is charcoal ink (D-114), and ink is laid on the page, it does not shine.
 				--
-				-- The body leaves its sketch (D-116): twice, printed flat in graphite where it was a third of
-				-- the way into the dash and again two thirds along, each bleeding a little and shrinking away.
-				{
-					Kind = "Afterimage",
-					At = 0,
-					For = 0.22,
-					Print = 1,
-					Along = 0.3,
-					Tone = "Graphite",
-					Ease = "Quad",
-					EaseDirection = "Out",
-					Size = 1,
-					EndSize = 1.04,
-				},
-				{
-					Kind = "Afterimage",
-					At = 0,
-					For = 0.2,
-					Print = 2,
-					Along = 0.7,
-					Tone = "Graphite",
-					Ease = "Quad",
-					EaseDirection = "Out",
-					Size = 1,
-					EndSize = 1.04,
-				},
 			},
 		},
 		{

@@ -32,6 +32,7 @@ local QualityConfig = require(Shared.Config.QualityConfig)
 local SoundConfig = require(Shared.Config.SoundConfig)
 local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
+local VolumeMath = require(Shared.Pure.VolumeMath)
 local WorldConfig = require(Shared.Config.WorldConfig)
 -- A sibling, not a controller: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind).
 local VfxVolumes = require(script.Parent:WaitForChild("VfxVolumes"))
@@ -144,6 +145,8 @@ type Pending = {
 	-- The first link of its Chain in its play (false for a layer with no Chain): the only link that may
 	-- draw its volume from nothing.
 	ChainHead: boolean,
+	-- A dash print waiting for its body (VolumeMath.printDecision): when that body was first seen moving.
+	MovedAt: number?,
 }
 
 local VfxTimeline = {}
@@ -1400,14 +1403,29 @@ local function onHeartbeat(deltaTime: number)
 	local index = 1
 	while index <= #pending do
 		local item = pending[index]
-		if now >= item.At and item.Layer.Kind == "Afterimage" and not VfxVolumes.reached(item.Layer, item.Context) then
-			-- A sketch waits for the body to get where it is laid (D-116), and is given up if it never does.
-			if now >= item.At + VfxConfig.Afterimage.WaitSeconds then
-				table.remove(pending, index)
-			else
-				index += 1
+		local decision = "Lay"
+		if now >= item.At and item.Layer.Kind == "Afterimage" then
+			-- A print waits for its body to get where it is laid (D-116), and is given up if it never does.
+			local travelled, target = VfxVolumes.pathOf(item.Layer, item.Context)
+			if travelled ~= nil and target ~= nil then
+				local config = VfxConfig.Afterimage
+				if item.MovedAt == nil and travelled > config.MoveStuds then
+					item.MovedAt = now
+				end
+				decision = VolumeMath.printDecision(
+					travelled,
+					target,
+					now,
+					item.At,
+					item.MovedAt,
+					config.WaitSeconds,
+					config.CeilingSeconds
+				)
 			end
-		elseif now >= item.At then
+		end
+		if decision == "Drop" then
+			table.remove(pending, index)
+		elseif decision == "Lay" and now >= item.At then
 			table.remove(pending, index)
 			activate(item, now)
 		else

@@ -11,6 +11,7 @@
 -- (a burst, plus a rate over the layer's own life), and the peak number of layers alive at the same time,
 -- which is what the live-layer budget of QualityConfig is spent on.
 
+local VfxConfig = require("../src/shared/Config/VfxConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local process = require("@lune/process")
 
@@ -98,6 +99,11 @@ local function costOf(id: string, timeline: any): Cost
 						-- Occupied for as long as the renderer keeps it, which for an emitter includes the life
 						-- of the particles it leaves in the air.
 						local lives = VfxTimelineConfig.layerSeconds(layer, for_)
+						if layer.Kind == "Afterimage" then
+							-- A print waits for its body before it is laid (D-116): counted from its earliest
+							-- possible start to its latest possible end, so the peak is the worst case.
+							lives += VfxConfig.Afterimage.CeilingSeconds
+						end
 						table.insert(
 							spans,
 							{ At = at, Until = at + lives, Kind = layer.Kind, Count = layer.Count or 1 }

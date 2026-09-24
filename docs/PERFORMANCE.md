@@ -95,7 +95,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Cast | 9 | 7 | 5 | 0.84 | 32 | 17 | 6 | 4 | 3 | 2 | 0 | 1 | 1 |
 | Colophon | 16 | 12 | 7 | 2.38 | 64 | 24 | 8 | 6 | 2 | 4 | 0 | 2 | 2 |
 | ColophonLink | 11 | 9 | 6 | 1.91 | 48 | 21 | 8 | 4 | 2 | 4 | 0 | 2 | 1 |
-| Dash | 6 | 6 | 5 | 0.87 | 12 | 73 | 33 | 1 | 2 | 2 | 1 | 0 | 0 |
+| Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
 | Explosion | 14 | 11 | 10 | 3.22 | 44 | 34 | 17 | 2 | 3 | 0 | 0 | 0 | 1 |
 | Gilding | 17 | 14 | 5 | 4.00 | 42 | 18 | 5 | 4 | 2 | 4 | 2 | 0 | 1 |
 | Hairline | 12 | 9 | 7 | 1.11 | 27 | 20 | 8 | 0 | 2 | 6 | 2 | 1 | 1 |
@@ -118,7 +118,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Wash | 15 | 12 | 9 | 3.00 | 50 | 21 | 9 | 5 | 3 | 2 | 1 | 0 | 1 |
 | Watermark | 18 | 13 | 5 | 4.34 | 115 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 39 timelines et 502 couches, dont 401 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 201 particules, 73 instances empruntées au pic (l'esquive : ses deux esquisses sont quinze membres, un modèle et un contour chacune, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 39 timelines et 502 couches, dont 401 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 201 particules, 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

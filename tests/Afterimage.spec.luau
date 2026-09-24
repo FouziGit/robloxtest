@@ -196,6 +196,45 @@ describe("a dash's sketch", function()
 		end
 	end)
 
+	it("waits for its body by the body's own clock, and gives up on one that never gets there", function()
+		local config = VfxConfig.Afterimage
+		expect(VolumeMath.printDecision(7, 6.6, 1, 1, nil, 0.5, 1)).toBe("Lay")
+		expect(VolumeMath.printDecision(3, 6.6, 1, 1, nil, 0.5, 1)).toBe("Wait")
+		-- Not a stud short of its place: exactly there, or it is laid on the wrong part of the path.
+		expect(VolumeMath.printDecision(6.5, 6.6, 1, 1, 0.9, 0.5, 1)).toBe("Wait")
+		expect(VolumeMath.printDecision(6.6, 6.6, 1, 1, 0.9, 0.5, 1)).toBe("Lay")
+		-- Not moved yet: another screen sees a dasher move a round trip late, so it waits to the ceiling.
+		expect(VolumeMath.printDecision(0, 6.6, 1.9, 1, nil, 0.5, 1)).toBe("Wait")
+		expect(VolumeMath.printDecision(0, 6.6, 2, 1, nil, 0.5, 1)).toBe("Drop")
+		-- Moving: the wait counts from the move -- a dash stopped by a wall is given up, a late one is not.
+		expect(VolumeMath.printDecision(3, 6.6, 1.7, 1, 1.5, 0.5, 1)).toBe("Wait")
+		expect(VolumeMath.printDecision(3, 6.6, 2, 1, 1.5, 0.5, 1)).toBe("Drop")
+		expect(config.CeilingSeconds > config.WaitSeconds).toBe(true)
+		-- And the cost model counts a print over the whole window it may wait in, not just its drawn life.
+		local cost = strip(fs.readFile("scripts/effect-cost.luau")):gsub("%s+", " ")
+		expect(has(cost, 'if layer.Kind == "Afterimage" then lives += VfxConfig.Afterimage.CeilingSeconds end')).toBe(
+			true
+		)
+		expect(config.MoveStuds > 0 and config.MoveStuds < CombatConfig.Dash.Distance * 0.1).toBe(true)
+	end)
+
+	it("is waiting for its body before the push gets it there, on the dasher's own screen", function()
+		-- The push follows FeelMath.impulseSpeed: covered share = 1 - (1 - t/T)^(1 + e). A print scheduled
+		-- after its body passed its share is laid late, bunched with the next (review: half way, not 30 %).
+		local seconds = CombatConfig.Dash.DurationSeconds
+		local exponent = FeelConfig.Impulse.DashExponent
+		for _, placed in ipairs(layersOf("Afterimage")) do
+			local layer = placed.Layer
+			local scheduled = (VfxTimelineConfig.phaseAt(placed.Id, placed.Phase.Name, nil) or 0) + layer.At
+			local reaches = seconds * (1 - (1 - layer.Along) ^ (1 / (1 + exponent)))
+			if scheduled > reaches then
+				error(
+					("print %d waits from %.3f s, its body is there at %.3f s"):format(layer.Print, scheduled, reaches)
+				)
+			end
+		end
+	end)
+
 	it("waits for the body, is decided before the budget, and is drawn whole or not at all", function()
 		local build = functionIn(VOLUMES, "function VfxVolumes.buildAfterimage(")
 		for _, line in ipairs({
@@ -203,11 +242,15 @@ describe("a dash's sketch", function()
 			"local own = body == Players.LocalPlayer.Character",
 			'local toneName: string = if own then config.OwnTone else entry.Layer.Tone or ""',
 			'local modelInstance = kit.borrow(entry, "Model") local highlightInstance = kit.borrow(entry, "Highlight") if modelInstance == nil or highlightInstance == nil then return end',
-			'local instance = kit.borrow(entry, "SpecialMesh") if instance == nil then return end local part = kit.host(entry, limb.CFrame, limb.Size) if part == nil then return end',
+			"local outline = CosmeticConfig.Tones[config.Outline] or CosmeticConfig.Tones.Ink",
+			-- Exactly at its share of the path, however far past it the body got in the frame that noticed.
+			"local pivot = root.CFrame local travelled, target = VfxVolumes.pathOf(entry.Layer, entry.Context) if travelled ~= nil and target ~= nil and travelled > target then local flat = (entry.Context.Direction * Vector3.new(1, 0, 1)).Unit pivot = pivot - flat * (travelled - target) end",
+			"local offset = root.CFrame:ToObjectSpace(limb.CFrame)",
+			'local instance = kit.borrow(entry, "SpecialMesh") if instance == nil then return end local part = kit.host(entry, pivot * offset, limb.Size) if part == nil then return end',
 			"special.MeshId = limb.MeshId special.Parent = part part.Color = Palette.rgb(tone) part.Parent = model",
-			"table.insert(copies, { Part = part, Mesh = special, Scale = limb.Size / limb.MeshSize })",
-			"highlight.FillColor = Palette.rgb(tone) highlight.FillTransparency = 0 highlight.OutlineColor = Palette.rgb(outline) highlight.OutlineTransparency = 0 highlight.DepthMode = Enum.HighlightDepthMode.Occluded highlight.Adornee = model highlight.Parent = model model.Parent = Workspace",
-			"entry.Afterimage = { Limbs = copies } entry.Primary = copies[1].Part",
+			"table.insert(copies, { Part = part, Mesh = special, Scale = limb.Size / limb.MeshSize, Offset = offset })",
+			"highlight.Enabled = true highlight.FillColor = Palette.rgb(tone) highlight.FillTransparency = 0 highlight.OutlineColor = Palette.rgb(outline) highlight.OutlineTransparency = 0 highlight.DepthMode = Enum.HighlightDepthMode.Occluded highlight.Adornee = model highlight.Parent = model model.Parent = Workspace",
+			"entry.Afterimage = { Limbs = copies, Pivot = pivot } entry.Primary = copies[1].Part",
 		}) do
 			if not has(build, line) then
 				error("buildAfterimage no longer does: " .. line)
@@ -239,8 +282,8 @@ describe("a dash's sketch", function()
 		).toBe(true)
 		expect(
 			has(
-				functionIn(VOLUMES, "function VfxVolumes.reached("),
-				"return (root.Position - context.Origin):Dot(flat.Unit) >= (layer.Along or 0) * reach"
+				functionIn(VOLUMES, "function VfxVolumes.pathOf("),
+				"return (root.Position - context.Origin):Dot(flat.Unit), (layer.Along or 0) * reach"
 			)
 		).toBe(true)
 		local step = functionIn(VOLUMES, "function VfxVolumes.stepAfterimage(")
@@ -256,8 +299,16 @@ describe("a dash's sketch", function()
 				"for _, limb in ipairs(sketch.Limbs) do if limb.Part.Parent ~= nil then limb.Mesh.Scale = limb.Scale * size"
 			)
 		).toBe(true)
-		-- Where the body was: nothing moves or fades a print after it is laid.
-		expect(has(step, "CFrame")).toBe(false)
+		-- One body: every limb drawn in about the root with its mesh, never each about its own centre.
+		expect(
+			has(
+				step,
+				"table.insert(frames, sketch.Pivot * CFrame.new(limb.Offset.Position * size) * limb.Offset.Rotation)"
+			)
+		).toBe(true)
+		expect(has(step, "Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)")).toBe(true)
+		-- Where the body was: the print's root never moves, and nothing fades it.
+		expect(has(step, "sketch.Pivot =")).toBe(false)
 		expect(has(step, "Transparency")).toBe(false)
 		local activate = functionIn(TIMELINE, "local function activate(")
 		local gate = activate:find(
@@ -272,38 +323,54 @@ describe("a dash's sketch", function()
 		expect(
 			has(activate, 'elseif layer.Kind == "Afterimage" then VfxVolumes.buildAfterimage(entry, context.Follow)')
 		).toBe(true)
-		expect(
-			has(
-				functionIn(TIMELINE, "local function onHeartbeat("),
-				'if now >= item.At and item.Layer.Kind == "Afterimage" and not VfxVolumes.reached(item.Layer, item.Context) then if now >= item.At + VfxConfig.Afterimage.WaitSeconds then table.remove(pending, index) else index += 1 end'
-			)
-		).toBe(true)
+		local beat = functionIn(TIMELINE, "local function onHeartbeat(")
+		for _, line in ipairs({
+			'local decision = "Lay" if now >= item.At and item.Layer.Kind == "Afterimage" then local travelled, target = VfxVolumes.pathOf(item.Layer, item.Context) if travelled ~= nil and target ~= nil then',
+			"if item.MovedAt == nil and travelled > config.MoveStuds then item.MovedAt = now end",
+			"decision = VolumeMath.printDecision( travelled, target, now, item.At, item.MovedAt, config.WaitSeconds, config.CeilingSeconds )",
+			'if decision == "Drop" then table.remove(pending, index) elseif decision == "Lay" and now >= item.At then table.remove(pending, index) activate(item, now) else index += 1 end',
+		}) do
+			if not has(beat, line) then
+				error("the pending loop no longer does: " .. line)
+			end
+		end
 		expect(
 			has(
 				functionIn(TIMELINE, "local function stepLive("),
 				'elseif kind == "Afterimage" then VfxVolumes.stepAfterimage(entry, alpha, elapsed)'
 			)
 		).toBe(true)
+		-- Measured from where this screen shows the body, along the dash's own direction.
 		local dash = functionIn(LIBRARY, "VfxLibrary.Dash = function(")
+		expect(has(dash, "Origin = if root ~= nil then root.Position else packet.Origin,")).toBe(true)
+		expect(has(dash, "Direction = directionOf(packet),")).toBe(true)
 		expect(has(dash, "Follow = root,")).toBe(true)
 		expect(has(dash, "Reach = CombatConfig.Dash.Distance,")).toBe(true)
+		-- The pool hands a highlight out drawing, and adorning nothing.
+		local reset = functionIn("src/client/Controllers/VfxPool.luau", "local function resetHighlight(")
+		expect(has(reset, "highlight.Enabled = true")).toBe(true)
+		expect(has(reset, "highlight.Adornee = nil")).toBe(true)
 	end)
 end)
 
 describe("the kit", function()
-	it("is drawn in the page's charcoal, and its hit told to the two people in it in vellum", function()
+	it("is drawn in the page's charcoal, and its hit told to the two people in it in vellum and wash", function()
 		local library = strip(fs.readFile(LIBRARY)):gsub("%s+", " ")
 		expect(has(library, "local KIT_INK = Palette.rgb(WorldConfig.Colors.Ink)")).toBe(true)
-		expect(has(library, "local KIT_FEEDBACK = Palette.rgb(WorldConfig.Colors.Page)")).toBe(true)
+		expect(has(library, "local KIT_NUMBER = Palette.rgb(WorldConfig.Colors.Page)")).toBe(true)
+		expect(has(library, "local KIT_OUTLINE = Palette.rgb(CosmeticConfig.Tones.Wash)")).toBe(true)
 		expect(has(functionIn(LIBRARY, "VfxLibrary.Melee = function("), "Color = KIT_INK,")).toBe(true)
 		expect(has(functionIn(LIBRARY, "VfxLibrary.Dash = function("), "Color = KIT_INK,")).toBe(true)
 		local hit = functionIn(LIBRARY, "VfxLibrary.Hit = function(")
 		for _, line in ipairs({
-			'local color = if pigment ~= "" then glyphColor(pigment, packet, api) else KIT_INK',
-			'local feedback = if pigment ~= "" then color else KIT_FEEDBACK',
-			'Unlit = pigment == "",',
-			"feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else feedback)",
-			"feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else feedback, amplified)",
+			-- The kit is the server's Melee kind: a boss's or a glyph's hit keeps its own look and light.
+			'local fist = stringParam(packet, "Kind", "") == "Melee"',
+			"local color = if fist then KIT_INK else glyphColor(pigment, packet, api)",
+			"local number = if fist then KIT_NUMBER else color",
+			"local outline = if fist then KIT_OUTLINE else color",
+			"Unlit = fist,",
+			"feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else outline)",
+			"feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else number, amplified)",
 		}) do
 			if not has(hit, line) then
 				error("the Hit renderer no longer does: " .. line)
@@ -314,6 +381,11 @@ describe("the kit", function()
 		local outline = ThemeConfig.Colors.Outline
 		expect(page[1] ~= outline[1] or page[2] ~= outline[2] or page[3] ~= outline[3]).toBe(true)
 		expect(luminance(page) - luminance(outline)).toBeGreaterThan(120)
+		-- The outline through a crowd reads against the page behind the target and the ink walls alike,
+		-- and is not the white rule 7 keeps for "cannot be hurt".
+		local wash = CosmeticConfig.Tones.Wash
+		expect(luminance(page) - luminance(wash)).toBeGreaterThan(60)
+		expect(luminance(wash) - luminance(WorldConfig.Colors.Ink)).toBeGreaterThan(60)
 	end)
 
 	it("lays ink rather than shining, and strokes each swing with a volume inside its reach", function()

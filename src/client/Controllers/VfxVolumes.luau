@@ -59,12 +59,12 @@ type Scrap = {
 -- have nowhere to land: then no scrap has a Lands).
 export type Debris = { Origin: Vector3, Depth: number, Scraps: { Scrap } }
 
--- One limb of a sketch (an Afterimage layer): its part and mesh, and the scale that fits the mesh to the
--- limb it copies.
-type Limb = { Part: BasePart, Mesh: SpecialMesh, Scale: Vector3 }
+-- One limb of a sketch (an Afterimage layer): its part and mesh, the scale that fits the mesh to the limb
+-- it copies, and where it sits from the body's root.
+type Limb = { Part: BasePart, Mesh: SpecialMesh, Scale: Vector3, Offset: CFrame }
 
--- An Afterimage layer's limbs.
-export type Afterimage = { Limbs: { Limb } }
+-- An Afterimage layer's limbs, and the frame they are drawn about: the body's root where it passed.
+export type Afterimage = { Limbs: { Limb }, Pivot: CFrame }
 
 -- What the runtime hands over (VfxTimeline.Init): its own helpers, so there is one of each.
 export type Kit = {
@@ -445,31 +445,33 @@ function VfxVolumes.canSketch(context: any): boolean
 	return body ~= Players.LocalPlayer.Character or not inOwnWay(body, context.Direction)
 end
 
--- Whether the body in `context` has covered `layer.Along` of its dash, as this screen sees it move: a
--- print laid by the clock landed on the still body on every other screen, whose copy of the dasher
--- starts moving only after the latency (review).
-function VfxVolumes.reached(layer: any, context: any): boolean
+-- How far along its dash the body in `context` is, as this screen sees it move, and how far along
+-- `layer` asks for its print: nil when the play carries no path (then a print is laid at once). A print
+-- laid by the clock landed on the still body on every other screen, whose copy of the dasher starts
+-- moving only after the latency (review).
+function VfxVolumes.pathOf(layer: any, context: any): (number?, number?)
 	local root: BasePart? = context.Follow
 	local reach: number? = context.Reach
 	if root == nil or reach == nil then
-		return true
+		return nil, nil
 	end
 	local flat = context.Direction * Vector3.new(1, 0, 1)
 	if flat.Magnitude < 1e-3 then
-		return true
+		return nil, nil
 	end
-	return (root.Position - context.Origin):Dot(flat.Unit) >= (layer.Along or 0) * reach
+	return (root.Position - context.Origin):Dot(flat.Unit), (layer.Along or 0) * reach
 end
 
--- A print of the body `root` belongs to (an Afterimage layer, D-116): each of its limbs copied once where
--- it stands -- its mesh, its size, its frame -- into one Model, drawn flat by one Highlight: a fill in the
--- layer's Tone and an outline in ink, an ink print rather than a translucent copy, which read as a ghost
--- (review). Never moved again: a print is where the body WAS. The limb's mesh is already loaded by the
--- avatar, so nothing pops in. All or nothing: a print the pool cannot give every limb to is not drawn,
--- never drawn missing its legs.
+-- A print of the body `root` belongs to (an Afterimage layer, D-116): each of its limbs copied once --
+-- its mesh, its size, its pose about the root -- into one Model, drawn flat by one Highlight: a fill in
+-- the layer's Tone and an outline in ink, an ink print rather than a translucent copy, which read as a
+-- ghost (review). Laid exactly at its share of the path, however far past it the body got in the frame
+-- that noticed, and never moved from there: a print is where the body WAS. The limb's mesh is already
+-- loaded by the avatar, so nothing pops in. All or nothing: a print the pool cannot give every limb to is
+-- not drawn, never drawn missing its legs.
 function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 	local body = if root ~= nil then root.Parent else nil
-	if body == nil then
+	if root == nil or body == nil then
 		return
 	end
 	local config = VfxConfig.Afterimage
@@ -481,6 +483,12 @@ function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 	local toneName: string = if own then config.OwnTone else entry.Layer.Tone or ""
 	local tone = CosmeticConfig.Tones[toneName] or CosmeticConfig.Tones.Graphite
 	local outline = CosmeticConfig.Tones[config.Outline] or CosmeticConfig.Tones.Ink
+	local pivot = root.CFrame
+	local travelled, target = VfxVolumes.pathOf(entry.Layer, entry.Context)
+	if travelled ~= nil and target ~= nil and travelled > target then
+		local flat = (entry.Context.Direction * Vector3.new(1, 0, 1)).Unit
+		pivot = pivot - flat * (travelled - target)
+	end
 	local modelInstance = kit.borrow(entry, "Model")
 	local highlightInstance = kit.borrow(entry, "Highlight")
 	if modelInstance == nil or highlightInstance == nil then
@@ -489,12 +497,13 @@ function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 	local model = modelInstance :: Model
 	local copies: { Limb } = {}
 	for _, limb in ipairs(limbs) do
+		local offset = root.CFrame:ToObjectSpace(limb.CFrame)
 		-- The mesh first, as for the scraps: a part refused its mesh would be a bare block.
 		local instance = kit.borrow(entry, "SpecialMesh")
 		if instance == nil then
 			return
 		end
-		local part = kit.host(entry, limb.CFrame, limb.Size)
+		local part = kit.host(entry, pivot * offset, limb.Size)
 		if part == nil then
 			return
 		end
@@ -503,9 +512,10 @@ function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 		special.Parent = part
 		part.Color = Palette.rgb(tone)
 		part.Parent = model
-		table.insert(copies, { Part = part, Mesh = special, Scale = limb.Size / limb.MeshSize })
+		table.insert(copies, { Part = part, Mesh = special, Scale = limb.Size / limb.MeshSize, Offset = offset })
 	end
 	local highlight = highlightInstance :: Highlight
+	highlight.Enabled = true
 	highlight.FillColor = Palette.rgb(tone)
 	highlight.FillTransparency = 0
 	highlight.OutlineColor = Palette.rgb(outline)
@@ -514,14 +524,15 @@ function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 	highlight.Adornee = model
 	highlight.Parent = model
 	model.Parent = Workspace
-	entry.Afterimage = { Limbs = copies }
+	entry.Afterimage = { Limbs = copies, Pivot = pivot }
 	entry.Primary = copies[1].Part
 	VfxVolumes.stepAfterimage(entry, 0, 0)
 end
 
--- One frame of a print: its limbs bleed from Size to EndSize, then shrink away (VolumeMath.sketchShrink).
--- Never moved, and never faded: a highlight is not drawn over a part that is at all transparent, so a
--- print goes by its size.
+-- One frame of a print: it bleeds from Size to EndSize, then shrinks away (VolumeMath.sketchShrink) as one
+-- body, every limb drawn in about the root with its mesh: shrunk each about its own centre, the print
+-- broke into fifteen outlined pieces (review). Its root never moves, and it is never faded: a highlight
+-- is not drawn over a part that is at all transparent, so a print goes by its size.
 function VfxVolumes.stepAfterimage(entry: Entry, alpha: number, elapsed: number)
 	local sketch = entry.Afterimage
 	if sketch == nil then
@@ -530,10 +541,17 @@ function VfxVolumes.stepAfterimage(entry: Entry, alpha: number, elapsed: number)
 	local layer = entry.Layer
 	local size = kit.lerp(layer.Size, layer.EndSize, alpha, 1)
 		* VolumeMath.sketchShrink(elapsed, VfxConfig.Afterimage.ShrinkShare)
+	local parts: { BasePart } = {}
+	local frames: { CFrame } = {}
 	for _, limb in ipairs(sketch.Limbs) do
 		if limb.Part.Parent ~= nil then
 			limb.Mesh.Scale = limb.Scale * size
+			table.insert(parts, limb.Part)
+			table.insert(frames, sketch.Pivot * CFrame.new(limb.Offset.Position * size) * limb.Offset.Rotation)
 		end
+	end
+	if #parts > 0 then
+		Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
 	end
 end
 

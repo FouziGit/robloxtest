@@ -3,7 +3,8 @@
 -- charcoal ink edged in vellum, so it reads over the page and over a dark body alike, floating above the
 -- target's head and drawn over everything: a lock that cannot be seen behind a wall is a lock nobody
 -- trusts. It clamps down onto the target when a lock is taken and lifts off when it is let go, on the
--- interface's springs (Motion); it never simply appears or vanishes.
+-- interface's springs (Motion); it never simply appears or vanishes. One for the session: built once by
+-- LockOnController and re-aimed at each new target, so it has nothing to destroy.
 
 local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
@@ -11,7 +12,6 @@ local Theme = require(script.Parent.Parent.Theme)
 export type LockMarker = {
 	Show: (self: LockMarker, adornee: BasePart, lift: number) -> (),
 	Hide: (self: LockMarker) -> (),
-	Destroy: (self: LockMarker) -> (),
 }
 
 local LockMarker = {}
@@ -121,14 +121,7 @@ function LockMarker.new(parent: Instance, size: number): LockMarker
 		end)
 	end
 
-	local function destroy(_self: LockMarker)
-		for _, instance in ipairs({ scale, ink, edge, dot } :: { Instance }) do
-			Motion.cancel(instance)
-		end
-		billboard:Destroy()
-	end
-
-	return { Show = show, Hide = hide, Destroy = destroy }
+	return { Show = show, Hide = hide }
 end
 
 return LockMarker

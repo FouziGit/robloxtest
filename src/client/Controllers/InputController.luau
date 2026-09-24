@@ -330,7 +330,7 @@ local function clearJump(point: Vector2, jump: Rect, clearance: number, bounds: 
 end
 
 -- Resolves InputConfig.Touch to absolute screen centres: the pigment ring above and left of the engine
--- jump button, Melee/Block/Dash in a row left of it, Menu in the top-right corner. Every centre stays
+-- jump button, Melee/Block/Dash/LockOn in a row left of it, Menu in the top-right corner. Every centre stays
 -- inside the safe area, at least (diameter + gap) from its neighbours and clear of the jump button.
 local function touchLayout(scale: number): { [string]: Vector2 }
 	local config = InputConfig.Touch

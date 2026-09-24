@@ -130,20 +130,16 @@ local function opponents(): { Lock }
 end
 
 -- Whether nothing but bodies stands between the camera and `lock`: a wall hides a target from a lock as
--- it hides it from the eye. Bodies do not: a teammate in the way is not a reason to lock someone else.
-local function inSight(from: Vector3, lock: Lock): boolean
-	local exclude: { Instance } = { lock.Model }
-	for _, other in ipairs(Players:GetPlayers()) do
-		if other.Character ~= nil then
-			table.insert(exclude, other.Character)
-		end
-	end
-	sightParams.FilterDescendantsInstances = exclude
+-- it hides it from the eye. A body does not -- a teammate in the way, or a proof in front of the one you
+-- aim at, is not a reason to lock someone else -- so every character and every opponent (`bodies`) is
+-- left out of the ray.
+local function inSight(from: Vector3, lock: Lock, bodies: { Instance }): boolean
+	sightParams.FilterDescendantsInstances = bodies
 	return Workspace:Raycast(from, lock.Root.Position - from, sightParams) == nil
 end
 
 -- The opponent the camera is looking at: inside the cone around its aim, within reach of the character,
--- in sight, and not lying on the floor; the one nearest the aim first.
+-- in sight, and not lying on the floor; the one nearest the aim first (LockOnMath.order).
 local function acquire(): Lock?
 	local _, root = localBody()
 	local camera = Workspace.CurrentCamera
@@ -152,26 +148,28 @@ local function acquire(): Lock?
 	end
 	local eye = camera.CFrame.Position
 	local look = camera.CFrame.LookVector
-	local ranked: { { Lock: Lock, Score: number } } = {}
-	for _, lock in ipairs(opponents()) do
-		if lock.Model:GetAttribute(RAGDOLL) == nil then
-			local toward = lock.Root.Position - eye
-			local angle = LockOnMath.angle(look.X, look.Y, look.Z, toward.X, toward.Y, toward.Z)
-			local distance = (lock.Root.Position - root.Position).Magnitude
-			local score = if angle ~= nil
-				then LockOnMath.rank(angle, distance, LockOnConfig.AcquireStuds, LockOnConfig.ConeDegrees)
-				else nil
-			if score ~= nil then
-				table.insert(ranked, { Lock = lock, Score = score })
-			end
+	local standing: { Lock } = {}
+	local candidates: { LockOnMath.Candidate } = {}
+	local bodies: { Instance } = {}
+	for _, other in ipairs(Players:GetPlayers()) do
+		if other.Character ~= nil then
+			table.insert(bodies, other.Character)
 		end
 	end
-	table.sort(ranked, function(a, b)
-		return a.Score < b.Score
-	end)
-	for _, entry in ipairs(ranked) do
-		if inSight(eye, entry.Lock) then
-			return entry.Lock
+	for _, lock in ipairs(opponents()) do
+		table.insert(bodies, lock.Model)
+		if lock.Model:GetAttribute(RAGDOLL) == nil then
+			local toward = lock.Root.Position - eye
+			table.insert(standing, lock)
+			table.insert(candidates, {
+				Angle = LockOnMath.angle(look.X, look.Y, look.Z, toward.X, toward.Y, toward.Z),
+				Distance = (lock.Root.Position - root.Position).Magnitude,
+			})
+		end
+	end
+	for _, index in ipairs(LockOnMath.order(candidates, LockOnConfig.AcquireStuds, LockOnConfig.ConeDegrees)) do
+		if inSight(eye, standing[index], bodies) then
+			return standing[index]
 		end
 	end
 	return nil

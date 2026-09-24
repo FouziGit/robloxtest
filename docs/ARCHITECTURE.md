@@ -26,7 +26,7 @@ Requires : `local Shared = ReplicatedStorage:WaitForChild("Shared")` puis `requi
 | `Util/TokenBucket` | rate limit | `new(capacity, refill, now)`, `tryTake(bucket, now, cost?)` |
 | `Util/Log` | logs préfixés | `Log.new(prefix) -> {info, warn, error, try}` |
 | `Pure/ComboResolver` | combos | `new(recipes, maxLength)`, `push(resolver, seq, pigment) -> (seq, decision)`, `timeout(resolver, seq)`, `resolve(resolver, seq) -> glyphId?` |
-| `Pure/DataMigration` | schéma | `migrate(raw, template, seasonId) -> (data, info)` |
+| `Pure/DataMigration` | schéma | `migrate(raw, template, seasonId) -> (data, info)` ; `settleKeybinds(map, defaults, allowed, order) -> bool` (une touche par défaut qui entre en collision avec le choix du joueur cède la place, D-115) |
 
 ## Remotes (`src/shared/Remotes.luau`)
 
@@ -72,7 +72,7 @@ Serveur → client :
 | Service | API publique |
 |---|---|
 | `RemoteRegistry` | `create(reporter) -> {on(name, handler), setCallback(name, fn), fire(name, player, ...), fireAll(name, ...), fireExcept(name, player, ...), get(name), removePlayer(player)}` ; `reporter(player, remoteName, reason, kind)` avec `kind = "Schema"` (direction, arité ou payload refusé par Guard) ou `"RateLimit"` (débordement du token bucket) — les deux ne partagent jamais le même compteur |
-| `DataService` | `template()`, `get(player) -> ProfileData?` (table vivante), `waitFor(player, timeout?)`, `snapshot(player)`, `push(player, section \| "*")`, `recordReceipt(player, id) -> bool`, `saveNow(player)`, `isActive(player)`, signaux `ProfileLoaded(player, data)`, `ProfileReleased(player)` |
+| `DataService` | `template()`, `get(player) -> ProfileData?` (table vivante), `waitFor(player, timeout?)`, `snapshot(player)`, `push(player, section \| "*")`, `recordReceipt(player, id) -> bool`, `saveNow(player)`, `isActive(player)`, signaux `ProfileLoaded(player, data)`, `ProfileReleased(player)` ; à chaque chargement, les touches sont réglées par `DataMigration.settleKeybinds` (D-115) |
 | `AntiCheatService` | `strike(player, source, reason, kind: "Schema" \| "RateLimit"?)` — un compteur et un seuil par `kind` dans `AbuseWindowSeconds` : `Schema` (défaut) kick à `GameConfig.Server.AbuseKickThreshold`, `RateLimit` à son propre seuil, bien plus haut (une rafale d'input légitime en produit) ; `Init`, `Start` |
 | `NotifyService` | `send(player, key, params?, kind?, sfx?)`, `sendAll(key, params?, kind?, sfx?)` |
 | `CurrencyService` | `get(player) -> number`, `add(player, amount, reason) -> number` (retourne le Folios réellement crédité ; multiplicateur VIP), `trySpend(player, amount, reason) -> bool` ; pousse `Currency` |
@@ -103,7 +103,7 @@ Serveur → client :
 
 ## Client (`src/client`)
 
-`Bootstrap.client.luau` : trois passes distinctes sur l'ordre `ClientData`, `Localize`, `SoundController`, `QualityController`, `WorldLighting`, `Feel`, `VfxPool`, `VfxTimeline`, `VfxController`, `FootprintController`, `MatchController`, `HudController`, `SpectateController`, `BossController`, `MenuController`, `InputController`, `ComboController`, `OnboardingController`, `CombatController`, `LockOnController`, `MovementController`. L'ordre ne contraint que le comportement installé au `Start` ; chaque `Init` peut lire n'importe quel module.
+`Bootstrap.client.luau` : trois passes distinctes sur l'ordre `ClientData`, `Localize`, `SoundController`, `QualityController`, `WorldLighting`, `Feel`, `VfxPool`, `VfxTimeline`, `VfxController`, `FootprintController`, `CosmeticController`, `Posture`, `Moves`, `MatchController`, `HudController`, `SpectateController`, `BossController`, `MenuController`, `InputController`, `ComboController`, `OnboardingController`, `CombatController`, `LockOnController`, `MovementController`. L'ordre ne contraint que le comportement installé au `Start` ; chaque `Init` peut lire n'importe quel module.
 
 1. `require` de tous les modules : `deps` est complet et l'état construit au chargement (Signals, table d'état par défaut) existe pour tous avant le premier `Init`.
 2. `Init(deps)` de chacun : peut référencer n'importe quel contrôleur, quel que soit son rang, et le stocker ; ne dépend d'aucun autre `Init`.
@@ -116,7 +116,7 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 | `RemoteClient` | `get(name)`, `fire(name, ...)`, `on(name, handler)`, `invoke(name, timeout, ...) -> (ok, ...)` |
 | `Controllers/ClientData` | `get() -> ProfileData?`, `waitForLoad()`, signaux `Loaded`, `Changed(section)` |
 | `Controllers/Localize` | `t(key, params?)` (locale via `LocalizationService.RobloxLocaleId`), `locale()` |
-| `Controllers/InputController` | `ContextActionService` : clavier (+ souris), manette, tactile (boutons colorés par pigment, haptique ; layout résolu en pixels écran à partir de `InputConfig.Touch` — anneau de pigments au-dessus et à gauche du bouton de saut du moteur, rangée Melee/Block/Dash à sa gauche, Menu en haut à droite, distance minimale entre centres = diamètre + gap, recalculé si le viewport change ou si le bouton de saut apparaît ; diamètre planché à `InputConfig.Touch.MinButtonSize` = 44 px réels, libellés courts `InputConfig.ActionShortKeys` pour tenir dans le disque) ; signal `Action(actionId, began: boolean)` ; `captureNext(kind, callback)` / `cancelCapture()` pour le rebind (suspend les actions ; annulation par `InputConfig.CaptureCancelKeys` (Échap, `ButtonA` en manette — aucune n'est assignable, un test l'exige) ou le menu Roblox → `callback(nil)`) ; `setSuspended(bool)`, `isSuspended()`, signal `SuspendedChanged(bool)` (menus) ; `rebuild()` après changement de `Settings` |
+| `Controllers/InputController` | `ContextActionService` : clavier (+ souris), manette, tactile (boutons colorés par pigment, haptique ; layout résolu en pixels écran à partir de `InputConfig.Touch` — anneau de pigments au-dessus et à gauche du bouton de saut du moteur, rangée Melee/Block/Dash/LockOn à sa gauche, Menu en haut à droite, distance minimale entre centres = diamètre + gap, recalculé si le viewport change ou si le bouton de saut apparaît ; diamètre planché à `InputConfig.Touch.MinButtonSize` = 44 px réels, libellés courts `InputConfig.ActionShortKeys` pour tenir dans le disque) ; signal `Action(actionId, began: boolean)` ; `captureNext(kind, callback)` / `cancelCapture()` pour le rebind (suspend les actions ; annulation par `InputConfig.CaptureCancelKeys` (Échap, `ButtonA` en manette — aucune n'est assignable, un test l'exige) ou le menu Roblox → `callback(nil)`) ; `setSuspended(bool)`, `isSuspended()`, signal `SuspendedChanged(bool)` (menus) ; `rebuild()` après changement de `Settings` |
 | `Controllers/ComboController` | consomme `Action` des 5 pigments, `ComboResolver`, timeout `GameConfig.Combo.TimeoutSeconds`, `RemoteClient.fire("CastGlyph", seq)` ; signal `SequenceChanged(seq)` pour le HUD |
 | `Controllers/CombatController` | `Melee` / `Dash` / `Block` → `CombatAction`, throttlé sur l'intervalle d'acceptation du serveur (`CombatConfig.Melee.HitIntervalSeconds`, `CombatConfig.Dash.CooldownSeconds`, garde coalescée sur les vrais changements d'état) pour qu'un joueur légitime ne déborde jamais le token bucket ; état local depuis `CombatState` ; signal `StateChanged(state)` |
 | `Controllers/LockOnController` | verrou sur un adversaire (D-115) : l'action `LockOn` prend l'adversaire le plus proche du centre de l'écran, à portée et en vue (en match l'équipe adverse selon l'instantané, hors match les mannequins et le boss) ; `Feel.lockOn` tourne la caméra vers lui, une boucle `PreSimulation` tourne le personnage vers lui ; relâché à la mort, au départ, hors de portée, à l'ouverture d'un menu ; marqueur `UI/components/LockMarker` ; `isLocked()` |
@@ -156,6 +156,7 @@ Composants dans `src/ui/components`, chacun `new(props) -> {Instance, Destroy(),
 | `Toggle` | `Value`, `OnChange` |
 | `Toast` | file d'attente de messages `Show(text, kind)` |
 | `TouchButton` | `Label`, `Color`, `Position` → bouton rond pour `ContextActionService` |
+| `LockMarker` | exception : `new(parent, taille)` → `{Show(adornee, hauteur), Hide()}`, un seul pour la session, construit par `LockOnController` et ré-orienté à chaque cible, jamais détruit (D-115) |
 
 Écrans dans `src/ui/screens` : `MenuScreen`, `SettingsScreen`, `BattlepassScreen` (Phase 1), puis `LoadoutScreen`, `ShopScreen`, `LeaderboardScreen`, `QuestsScreen`, `MatchScreen`.
 

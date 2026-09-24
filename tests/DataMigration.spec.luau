@@ -249,12 +249,15 @@ end)
 
 describe("DataMigration.settleKeybinds", function()
 	local ORDER = { "Cinnabar", "Melee", "Dash", "Block", "LockOn", "Menu" }
+	local DEFAULTS =
+		{ Cinnabar = "J", Melee = "MouseButton1", Dash = "LeftShift", Block = "F", LockOn = "MouseButton3", Menu = "M" }
 	local ALLOWED = {
 		J = true,
 		F = true,
 		M = true,
 		B = true,
 		C = true,
+		K = true,
 		LeftShift = true,
 		MouseButton1 = true,
 		MouseButton3 = true,
@@ -274,29 +277,39 @@ describe("DataMigration.settleKeybinds", function()
 	it("keeps the player's key and moves the new default off it", function()
 		-- Saved before LockOn existed, with the wheel's click on Block: the template's LockOn default
 		-- arrives with the same key.
-		local saved = { Cinnabar = "J", Melee = "MouseButton1", Dash = "LeftShift", Block = "MouseButton3", Menu = "M" }
-		local map = table.clone(saved) :: { [string]: string }
-		map.LockOn = "MouseButton3"
-		expect(DataMigration.settleKeybinds(map, saved, ALLOWED, ORDER)).toBe(true)
+		local map = table.clone(DEFAULTS) :: { [string]: string }
+		map.Block = "MouseButton3"
+		expect(DataMigration.settleKeybinds(map, DEFAULTS, ALLOWED, ORDER)).toBe(true)
 		expect(map.Block).toBe("MouseButton3")
 		-- The first free allowed key, sorted: B.
 		expect(map.LockOn).toBe("B")
 		expect(unique(map)).toBe(true)
 		-- Settled once, it stays settled.
 		local again = table.clone(map)
-		expect(DataMigration.settleKeybinds(again, map, ALLOWED, ORDER)).toBe(false)
+		expect(DataMigration.settleKeybinds(again, DEFAULTS, ALLOWED, ORDER)).toBe(false)
 		expect(again.LockOn).toBe("B")
 	end)
 
-	it("moves nothing when nothing clashes, saved or fresh", function()
-		local saved = { Cinnabar = "J", Melee = "MouseButton1", Dash = "LeftShift", Block = "F", Menu = "M" }
-		local map = table.clone(saved) :: { [string]: string }
-		map.LockOn = "MouseButton3"
-		expect(DataMigration.settleKeybinds(map, saved, ALLOWED, ORDER)).toBe(false)
+	it("moves nothing when nothing clashes", function()
+		local map = table.clone(DEFAULTS) :: { [string]: string }
+		expect(DataMigration.settleKeybinds(map, DEFAULTS, ALLOWED, ORDER)).toBe(false)
 		expect(map.LockOn).toBe("MouseButton3")
-		local fresh = table.clone(map)
-		expect(DataMigration.settleKeybinds(fresh, nil, ALLOWED, ORDER)).toBe(false)
-		expect(fresh.LockOn).toBe("MouseButton3")
+		map.Cinnabar = "C"
+		expect(DataMigration.settleKeybinds(map, DEFAULTS, ALLOWED, ORDER)).toBe(false)
+		expect(map.Cinnabar).toBe("C")
+	end)
+
+	it("keeps the key a player chose in the first version, whatever brought it", function()
+		-- A V1 record bound Feu -- Cinnabar now -- to K, which is today's default of another action. The
+		-- imported choice keeps K; the action on its default moves (review: it was the other way round).
+		local defaults = table.clone(DEFAULTS) :: { [string]: string }
+		defaults.Menu = "K"
+		local map = table.clone(defaults) :: { [string]: string }
+		map.Cinnabar = "K"
+		expect(DataMigration.settleKeybinds(map, defaults, ALLOWED, ORDER)).toBe(true)
+		expect(map.Cinnabar).toBe("K")
+		expect(map.Menu).toBe("B")
+		expect(unique(map)).toBe(true)
 	end)
 
 	it("settles a profile loaded over a template that grew an action", function()
@@ -316,7 +329,7 @@ describe("DataMigration.settleKeybinds", function()
 		allowed.G = true
 		local order =
 			{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block", "LockOn", "Menu" }
-		expect(DataMigration.settleKeybinds(migrated.Settings.Keyboard, raw.Settings.Keyboard, allowed, order)).toBe(
+		expect(DataMigration.settleKeybinds(migrated.Settings.Keyboard, grown.Settings.Keyboard, allowed, order)).toBe(
 			true
 		)
 		expect(migrated.Settings.Keyboard.Block).toBe("MouseButton3")

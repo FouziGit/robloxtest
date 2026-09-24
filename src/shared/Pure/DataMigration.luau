@@ -274,13 +274,14 @@ end
 -- key while the player's own action still has it. Left alone, the new action silently took the key from
 -- the old one on the client, and the server refused every keybind save after it ("bound twice").
 --
--- The player's own choice keeps the key; the action that only has its default yields and takes the
--- first allowed key nobody holds, in sorted order, so every load settles the same way. `chosen` is the
--- map as the player saved it (nil for a fresh profile), `allowed` the whitelist of its kind, `order`
--- every action. Returns whether anything moved.
+-- The player's own choice keeps the key; the action still on its default yields and takes the first
+-- allowed key nobody holds, in sorted order, so every load settles the same way. A key is the player's
+-- own when it differs from its action's default -- whatever path brought it (a save, a V1 import) --
+-- and two defaults never clash with each other. `defaults` is the template map of its kind, `allowed`
+-- its whitelist, `order` every action. Returns whether anything moved.
 function DataMigration.settleKeybinds(
 	map: { [string]: string },
-	chosen: { [string]: any }?,
+	defaults: { [string]: string },
 	allowed: { [string]: boolean },
 	order: { string }
 ): boolean
@@ -290,7 +291,7 @@ function DataMigration.settleKeybinds(
 	for _, own in ipairs({ true, false }) do
 		for _, action in ipairs(order) do
 			local key = map[action]
-			if key ~= nil and (chosen ~= nil and chosen[action] == key) == own then
+			if key ~= nil and (key ~= defaults[action]) == own then
 				if held[key] == nil then
 					held[key] = action
 				else

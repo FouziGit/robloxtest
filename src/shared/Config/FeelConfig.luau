@@ -198,17 +198,23 @@ FeelConfig.Springs = {
 	Camera = { Tension = 180, Friction = 26 },
 }
 
--- The camera of a lock (D-115, Feel.lockOn). It turns toward the locked opponent at Turn per second --
--- most of the way in a fifth of a second, never a snap. It keeps the character at the centre and looks
--- at the opponent from PitchBiasDegrees above: the camera orbits its own character, so looking straight
+-- The camera of a lock (D-115, Feel.lockOn). It keeps the character at the centre and looks toward the
+-- locked opponent from PitchBiasDegrees above: the camera orbits its own character, so looking straight
 -- across put the opponent exactly behind the character's head (seen in Studio); from above, they stand
--- over it, the further the higher. Never past PitchMinDegrees and PitchMaxDegrees: a target on a ledge
--- or a boss fourteen studs tall does not swing the camera into the sky, nor one below it into the floor.
+-- over it. It turns across at Turn per second -- most of the way in a fifth of a second, never a snap --
+-- and up and down only at PitchTurn, and only for a difference in the two fighters' footing beyond
+-- HeightDeadbandStuds: a jump, even a double one, swung the view by forty degrees and put it through the
+-- floor (review), and a fourteen-stud boss standing on your floor is not above you. Never past
+-- PitchMinDegrees and PitchMaxDegrees. Pulled in CameraMarginStuds short of whatever stands between the
+-- camera and the character in the direction it has been turned to.
 FeelConfig.LockOn = {
 	Turn = 12,
+	PitchTurn = 3,
 	PitchBiasDegrees = -17,
 	PitchMinDegrees = -40,
 	PitchMaxDegrees = 25,
+	HeightDeadbandStuds = 13,
+	CameraMarginStuds = 0.3,
 }
 
 return FeelConfig

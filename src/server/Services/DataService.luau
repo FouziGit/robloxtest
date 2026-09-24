@@ -28,10 +28,18 @@ type ProfileData = Types.ProfileData
 
 local log = Log.new("DataService")
 
--- Every action, as the plain strings the pure migration reads (DataMigration.settleKeybinds).
+-- Every action and both default maps, as the plain strings the pure migration reads
+-- (DataMigration.settleKeybinds).
 local ACTION_ORDER: { string } = {}
+local DEFAULT_KEYS: { [string]: { [string]: string } } = { Keyboard = {}, Gamepad = {} }
 for _, action in ipairs(InputConfig.Actions) do
 	table.insert(ACTION_ORDER, action)
+end
+for action, key in pairs(InputConfig.DefaultKeyboard) do
+	DEFAULT_KEYS.Keyboard[action] = key
+end
+for action, key in pairs(InputConfig.DefaultGamepad) do
+	DEFAULT_KEYS.Gamepad[action] = key
 end
 
 -- These two strings are DataStore names, not identifiers, and they are the only place in the codebase
@@ -243,19 +251,8 @@ local function loadProfile(player: Player)
 
 	-- A default key added to the template after the player bound it elsewhere (D-115): their key stays
 	-- theirs, and the new action takes a free one, or the server would refuse every save after it.
-	local saved = if type(profile.Data) == "table" and type(profile.Data.Settings) == "table"
-		then profile.Data.Settings
-		else {}
 	for kind, allowed in pairs({ Keyboard = InputConfig.AllowedKeyboard, Gamepad = InputConfig.AllowedGamepad }) do
-		local chosen = saved[kind]
-		if
-			DataMigration.settleKeybinds(
-				migrated.Settings[kind],
-				if type(chosen) == "table" then chosen else nil,
-				allowed,
-				ACTION_ORDER
-			)
-		then
+		if DataMigration.settleKeybinds(migrated.Settings[kind], DEFAULT_KEYS[kind], allowed, ACTION_ORDER) then
 			log.info("%s keybinds of %s settled around a new default", kind, player.Name)
 		end
 	end

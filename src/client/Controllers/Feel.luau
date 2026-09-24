@@ -516,34 +516,55 @@ end
 -- The one render loop
 --------------------------------------------------------------------------------------------------
 
+-- Keeps a turned camera out of what stands behind the character: rays that ignore the two fighters.
+local lockSight = RaycastParams.new()
+lockSight.FilterType = Enum.RaycastFilterType.Exclude
+lockSight.IgnoreWater = true
+local lockSightOwner: Instance? = nil
+local lockSightTarget: Instance? = nil
+
+-- The height a body stands at: the bottom of its model, whatever the height of its root. A boss's root is
+-- the middle of a fourteen-stud hull and a player's is three studs up, so roots compared put a boss on
+-- your own floor four studs above you.
+local function footOf(part: BasePart): number
+	local model = part.Parent
+	if model ~= nil and model:IsA("Model") then
+		local frame, size = model:GetBoundingBox()
+		return frame.Position.Y - size.Y / 2
+	end
+	return part.Position.Y - part.Size.Y / 2
+end
+
 -- Turns the camera toward the locked target, about the point the default camera orbits (its Focus,
--- which carries the shoulder offset), at the distance it is at. Turned by a share of the way per frame
--- (FeelConfig.LockOn.Turn), never snapped; the default camera starts from this direction next frame, so
--- zoom, occlusion and the release all go on from it.
+-- which carries the shoulder offset), at the distance it is at: across at Turn, up and down at PitchTurn
+-- and only for a real difference in footing (FeelConfig.LockOn), never snapped. Rotated, the camera is
+-- pulled in short of anything now between it and the character -- the default camera's own occlusion
+-- measured the direction it had before. It starts from this direction next frame, so zoom, occlusion
+-- and the release all go on from it.
 local function aimAtLock(camera: Camera, deltaTime: number)
 	local target = lockTarget
 	if target == nil then
 		return
 	end
-	if target.Parent == nil then
+	local targetModel = target.Parent
+	if targetModel == nil then
 		lockTarget = nil
 		return
 	end
 	local own = localRoot()
-	if own == nil then
+	local ownModel = if own ~= nil then own.Parent else nil
+	if own == nil or ownModel == nil then
 		return
 	end
 	local config = FeelConfig.LockOn
 	local focus = camera.Focus.Position
 	local distance = (camera.CFrame.Position - focus).Magnitude
-	-- Level with level: the point on the target as high above its root as the pivot is above ours, so an
-	-- opponent on the same floor is looked at straight across and only a real difference in height tilts
-	-- the view. The tilt that frames them is the bias's alone.
-	local toward = target.Position + Vector3.yAxis * (focus.Y - own.Position.Y) - focus
+	local across = target.Position - focus
+	local rise = LockOnMath.lift(footOf(target) - footOf(own), config.HeightDeadbandStuds)
 	local x, y, z = LockOnMath.look(
-		toward.X,
-		toward.Y,
-		toward.Z,
+		across.X,
+		rise,
+		across.Z,
 		config.PitchBiasDegrees,
 		config.PitchMinDegrees,
 		config.PitchMaxDegrees
@@ -551,9 +572,21 @@ local function aimAtLock(camera: Camera, deltaTime: number)
 	if x == nil or y == nil or z == nil then
 		return
 	end
-	local from = CFrame.lookAlong(Vector3.zero, camera.CFrame.LookVector)
-	local to = CFrame.lookAlong(Vector3.zero, Vector3.new(x, y, z))
-	local look = from:Lerp(to, LockOnMath.turnShare(config.Turn, deltaTime)).LookVector
+	local current = camera.CFrame.LookVector
+	local yaw, pitch = LockOnMath.yawPitch(current.X, current.Y, current.Z)
+	local goalYaw, goalPitch = LockOnMath.yawPitch(x, y, z)
+	yaw = LockOnMath.turnAngle(yaw, goalYaw, LockOnMath.turnShare(config.Turn, deltaTime))
+	pitch += (goalPitch - pitch) * LockOnMath.turnShare(config.PitchTurn, deltaTime)
+	local look = Vector3.new(LockOnMath.fromYawPitch(yaw, pitch))
+	if lockSightOwner ~= ownModel or lockSightTarget ~= targetModel then
+		lockSightOwner = ownModel
+		lockSightTarget = targetModel
+		lockSight.FilterDescendantsInstances = { ownModel, targetModel }
+	end
+	local blocked = Workspace:Raycast(focus, -look * distance, lockSight)
+	if blocked ~= nil then
+		distance = math.max(blocked.Distance - config.CameraMarginStuds, 0)
+	end
 	camera.CFrame = CFrame.lookAlong(focus - look * distance, look)
 end
 

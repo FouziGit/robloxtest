@@ -64,4 +64,52 @@ function LockOnMath.turnShare(rate: number, seconds: number): number
 	return 1 - math.exp(-rate * math.max(seconds, 0))
 end
 
+-- The candidates a lock may take, best first, as indices into `candidates`: each within `reach` studs
+-- and `cone` degrees of the aim (an Angle of nil is a point at the eye itself, never taken), ranked by
+-- `rank`. Whether one is in sight is the caller's to ask, in this order, stopping at the first.
+export type Candidate = { Angle: number?, Distance: number }
+function LockOnMath.order(candidates: { Candidate }, reach: number, cone: number): { number }
+	local ranked: { { Index: number, Score: number } } = {}
+	for index, candidate in ipairs(candidates) do
+		local angle = candidate.Angle
+		local score = if angle ~= nil then LockOnMath.rank(angle, candidate.Distance, reach, cone) else nil
+		if score ~= nil then
+			table.insert(ranked, { Index = index, Score = score })
+		end
+	end
+	table.sort(ranked, function(a, b)
+		return a.Score < b.Score
+	end)
+	local out: { number } = {}
+	for _, entry in ipairs(ranked) do
+		table.insert(out, entry.Index)
+	end
+	return out
+end
+
+-- A difference in height as a locked camera takes it: none within `deadband` studs -- a jump, or a
+-- double jump, is not a reason to swing the view -- and only what is beyond it past that.
+function LockOnMath.lift(dy: number, deadband: number): number
+	if math.abs(dy) <= deadband then
+		return 0
+	end
+	return dy - math.sign(dy) * deadband
+end
+
+-- The yaw (radians about the vertical, 0 looking down -Z) and pitch of a unit look, and back.
+function LockOnMath.yawPitch(x: number, y: number, z: number): (number, number)
+	return math.atan2(-x, -z), math.asin(math.clamp(y, -1, 1))
+end
+
+function LockOnMath.fromYawPitch(yaw: number, pitch: number): (number, number, number)
+	local across = math.cos(pitch)
+	return -math.sin(yaw) * across, math.sin(pitch), -math.cos(yaw) * across
+end
+
+-- An angle turned `share` of the way toward another, the short way round.
+function LockOnMath.turnAngle(from: number, to: number, share: number): number
+	local delta = (to - from + math.pi) % (2 * math.pi) - math.pi
+	return from + delta * share
+end
+
 return LockOnMath

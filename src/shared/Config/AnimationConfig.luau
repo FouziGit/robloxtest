@@ -89,6 +89,10 @@ AnimationConfig.Clips = {
 	-- other hand pulled back to the hip, held, then let go. Upper body only, so a Brand thrown on the run
 	-- keeps its legs running. The arm is fully out at 0.06 s, the moment the server lets the Brand go.
 	BrandThrow = clip("brand_throw.rbxmx", 0.58, false, "Action", 1, 0),
+	-- The Wash's own cast (tools/animations/keyed/wash_sweep.json): both palms loaded back, then driven
+	-- forward and down at the floor where the wet front starts, the body bending into it. The palms
+	-- land at 0.10 s, when the drawn front leaves.
+	WashSweep = clip("wash_sweep.rbxmx", 0.64, false, "Action", 1, 0),
 	-- Held for exactly as long as the guard attribute is on.
 	Guard = clip("guard_loop.rbxmx", 2.5, true, "Action", 1, 0),
 	-- The guard thrown open: arms flung wide, head back.
@@ -111,6 +115,7 @@ AnimationConfig.Actions = {
 -- is not uploaded -- plays Actions.Cast.
 AnimationConfig.CastByGlyph = {
 	Brand = "BrandThrow",
+	Wash = "WashSweep",
 } :: { [string]: string }
 
 -- How long before the blow a strike starts: short enough that the fist lands with the damage number,

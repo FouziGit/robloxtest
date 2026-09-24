@@ -39,6 +39,11 @@ local BORROWS: { [string]: { [string]: number } } = {
 	Beam = { Part = 2, Attachment = 2, Beam = 1 },
 	Light = { Part = 1, PointLight = 1 },
 	Carrier = { Part = 1 },
+	-- A generated volume: a part carrying its mesh (VfxVolumes). A link of a Chain takes over the link
+	-- before it and borrows nothing, and the two never overlap, so counting each is the same peak.
+	Mesh = { Part = 1, SpecialMesh = 1 },
+	-- Per scrap (costOf multiplies by the layer's Count): a part and its mesh.
+	Debris = { Part = 1, SpecialMesh = 1 },
 	-- A shake, a flash and a sound borrow nothing and never enter the live list: they are handed to Feel,
 	-- WorldLighting and SoundController and never come back (VfxTimeline.activate returns early).
 	Shake = {},
@@ -56,6 +61,8 @@ local OCCUPIES: { [string]: boolean } = {
 	Beam = true,
 	Light = true,
 	Carrier = true,
+	Mesh = true,
+	Debris = true,
 }
 
 local function phaseSeconds(phase: any): number
@@ -64,7 +71,7 @@ local function phaseSeconds(phase: any): number
 	return VfxTimelineConfig.phaseSeconds(phase, VfxTimelineConfig.MaxWindowSeconds)
 end
 
-type Span = { At: number, Until: number, Kind: string }
+type Span = { At: number, Until: number, Kind: string, Count: number }
 
 local function costOf(id: string, timeline: any): Cost
 	local particles = 0
@@ -87,7 +94,10 @@ local function costOf(id: string, timeline: any): Cost
 						-- Occupied for as long as the renderer keeps it, which for an emitter includes the life
 						-- of the particles it leaves in the air.
 						local lives = VfxTimelineConfig.layerSeconds(layer, for_)
-						table.insert(spans, { At = at, Until = at + lives, Kind = layer.Kind })
+						table.insert(
+							spans,
+							{ At = at, Until = at + lives, Kind = layer.Kind, Count = layer.Count or 1 }
+						)
 					end
 					if layer.Burst ~= nil then
 						particles += layer.Burst
@@ -111,7 +121,7 @@ local function costOf(id: string, timeline: any): Cost
 			if other.At <= span.At and other.Until > span.At then
 				alive += 1
 				for class, count in pairs(BORROWS[other.Kind] or {}) do
-					borrowed[class] = (borrowed[class] or 0) + count
+					borrowed[class] = (borrowed[class] or 0) + count * other.Count
 				end
 			end
 		end
@@ -138,6 +148,7 @@ local CostReport = {}
 -- listed here that the renderer hands off (or missing here while the renderer draws it) makes every peak in
 -- the report wrong in one direction or the other.
 CostReport.Occupies = OCCUPIES
+CostReport.Borrows = BORROWS
 
 -- Every timeline's cost, sorted by id.
 function CostReport.all(): { Cost }

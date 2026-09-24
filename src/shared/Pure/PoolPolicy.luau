@@ -91,6 +91,10 @@ PoolPolicy.Limits = {
 	-- The drawn stroke. Rarer than a trail: a beam is a deliberate line between two points, not something
 	-- a moving body leaves behind on its own.
 	Beam = { Live = 40, Parked = 12 },
+	-- A generated volume on a part (D-114): an ensō, a crown, a thrown drop, a scrap of paper. A blast at
+	-- the top tiers carries eleven (three volumes and eight scraps) and a Brand in flight one more, so
+	-- this holds about eleven blasts at once -- and a scrap refused its mesh is never drawn as a bare part.
+	SpecialMesh = { Live = 128, Parked = 32 },
 } :: { [string]: Limits }
 
 -- No ceiling may exceed this. A row of math.huge is not a generous ceiling, it is the absence of one, and

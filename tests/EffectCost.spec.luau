@@ -41,8 +41,12 @@ local CONCURRENT_EFFECTS = 4
 -- Chosen, not measured. See the header.
 local PARTICLE_CEILING = 400
 -- Every class the renderer borrows, so the cost model cannot silently miss one.
-local BORROWED_CLASSES = { "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Beam", "PointLight" }
+local BORROWED_CLASSES =
+	{ "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Beam", "PointLight", "SpecialMesh" }
 local RENDERER = "src/client/Controllers/VfxTimeline.luau"
+-- Every file that borrows from the pool for a layer: the runtime, and the volumes it hands its own
+-- borrow to (VfxVolumes, `kit.borrow`).
+local BORROWERS = { RENDERER, "src/client/Controllers/VfxVolumes.luau" }
 -- The three kinds the renderer hands to another system and never puts in the live list.
 local HANDED_OFF = { "Shake", "Flash", "Sound" }
 -- Where each tier field is read, and the gate is the reader's own source: a field nothing reads is a
@@ -55,6 +59,7 @@ local READERS: { { Field: string, Path: string } } = {
 	{ Field = "Lights", Path = "src/client/Controllers/VfxTimeline.luau" },
 	{ Field = "PostProcessing", Path = "src/client/Controllers/WorldLighting.luau" },
 	{ Field = "Footprints", Path = "src/client/Controllers/FootprintController.luau" },
+	{ Field = "Flourishes", Path = "src/client/Controllers/VfxTimeline.luau" },
 	{ Field = "NameKey", Path = "src/ui/screens/SettingsScreen.luau" },
 }
 
@@ -155,10 +160,11 @@ describe("the cost of an effect", function()
 		-- The model is a copy of what the renderer does, and a copy drifts. This does not prove the counts
 		-- (only an engine could), but it proves the SET: a class the renderer borrows and the model never
 		-- names would make every pool comparison below optimistic.
-		local renderer = fs.readFile(RENDERER)
 		local named: { [string]: boolean } = {}
-		for class in string.gmatch(renderer, 'borrow%(entry, "([%a]+)"%)') do
-			named[class] = true
+		for _, path in ipairs(BORROWERS) do
+			for class in string.gmatch(stripComments(fs.readFile(path)), 'borrow%(entry, "([%a]+)"%)') do
+				named[class] = true
+			end
 		end
 		-- `host` is itself a Part borrow, which is why Part is not in the matches above.
 		named.Part = true
@@ -171,6 +177,65 @@ describe("the cost of an effect", function()
 		for _, class in ipairs(BORROWED_CLASSES) do
 			if not named[class] then
 				error(("the cost model counts %s and the renderer never borrows one"):format(class))
+			end
+		end
+		-- Kind by kind: the classes each builder borrows (a host is a Part) are the classes the model gives
+		-- that kind, so a class dropped from one kind -- the Mesh's own SpecialMesh -- cannot hide behind
+		-- another kind that still counts it.
+		local BUILDERS: { [string]: { Path: string, Header: string } } = {
+			Sprite = { Path = RENDERER, Header = "local function buildSprite(" },
+			Mark = { Path = RENDERER, Header = "local function buildMark(" },
+			Emitter = { Path = RENDERER, Header = "local function buildEmitter(" },
+			Light = { Path = RENDERER, Header = "local function buildLight(" },
+			Beam = { Path = RENDERER, Header = "local function buildBeam(" },
+			Carrier = { Path = RENDERER, Header = "local function buildCarrier(" },
+			Trail = { Path = RENDERER, Header = "local function buildTrail(" },
+			Mesh = { Path = BORROWERS[2], Header = "function VfxVolumes.build(" },
+			Debris = { Path = BORROWERS[2], Header = "function VfxVolumes.buildDebris(" },
+		}
+		for kind in pairs(EffectCost.Occupies) do
+			local builder = BUILDERS[kind]
+			if builder == nil then
+				error(("%s is drawn and this gate does not know its builder"):format(kind))
+			end
+			local source = stripComments(fs.readFile(builder.Path))
+			local start = source:find(builder.Header, 1, true)
+			local finish = if start ~= nil then source:find("\nend\n", start, true) else nil
+			if start == nil or finish == nil then
+				error(("%s is not in %s: this gate would check nothing"):format(builder.Header, builder.Path))
+			end
+			local code = source:sub(start :: number, finish :: number)
+			local borrows: { [string]: boolean } = {}
+			for class in string.gmatch(code, 'borrow%(entry, "([%a]+)"%)') do
+				borrows[class] = true
+			end
+			if code:find("host(entry,", 1, true) ~= nil then
+				borrows.Part = true
+			end
+			local modelled = EffectCost.Borrows[kind] or {}
+			for class in pairs(borrows) do
+				if (modelled[class] or 0) < 1 then
+					error(("a %s layer borrows a %s and the cost model does not count it"):format(kind, class))
+				end
+			end
+			for class in pairs(modelled) do
+				if not borrows[class] then
+					error(("the cost model counts a %s for a %s layer that never borrows one"):format(class, kind))
+				end
+			end
+		end
+		-- And the model really counts each of them somewhere: a class it stopped counting would drop out of
+		-- every pool comparison below without a word.
+		for _, class in ipairs(BORROWED_CLASSES) do
+			local counted = false
+			for _, cost in ipairs(EffectCost.all()) do
+				if (cost.Instances[class] or 0) > 0 then
+					counted = true
+					break
+				end
+			end
+			if not counted then
+				error(("the renderer borrows %s and no effect's cost counts one"):format(class))
 			end
 		end
 	end)

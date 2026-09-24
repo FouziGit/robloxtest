@@ -33,6 +33,8 @@ local SoundConfig = require(Shared.Config.SoundConfig)
 local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
+-- A sibling, not a controller: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind).
+local VfxVolumes = require(script.Parent:WaitForChild("VfxVolumes"))
 
 local log = Log.new("VfxTimeline")
 
@@ -110,8 +112,15 @@ type Live = {
 	PlayStartedAt: number,
 	-- A carrier brought down where its projectile burst (VfxTimeline.land): from where it was, to there.
 	Landing: { From: CFrame, To: Vector3, At: number }?,
-	-- A riding light dimming out after a landing, from the brightness it had when it began to.
-	Ending: { At: number, From: number }?,
+	-- A riding light dimming out after a landing, from the brightness it had when it began to; or a volume
+	-- splatting out, from its transparency then, its shape held where it was (Alpha).
+	Ending: { At: number, From: number, Alpha: number? }?,
+	-- A Mesh layer's volume (VfxVolumes), handed on to the next link of its Chain.
+	Volume: VfxVolumes.Volume?,
+	-- A Debris layer's scraps (VfxVolumes).
+	Debris: VfxVolumes.Debris?,
+	-- Its place in its timeline, which seeds anything that must be the same on every client.
+	LayerIndex: number,
 }
 
 type Pending = {
@@ -126,6 +135,10 @@ type Pending = {
 	PlayStartedAt: number,
 	-- The phase it belongs to: a landing drops what is still to fly and re-places what is to linger.
 	Phase: string,
+	LayerIndex: number,
+	-- The first link of its Chain in its play (false for a layer with no Chain): the only link that may
+	-- draw its volume from nothing.
+	ChainHead: boolean,
 }
 
 local VfxTimeline = {}
@@ -154,6 +167,10 @@ local overBudgetWarned = false
 
 local FORWARD_FALLBACK = Vector3.new(0, 0, -1)
 local GROUND_PROBE_STUDS = 24
+-- Bodies the ground probe goes on through before it gives up on finding the floor under them.
+local BODY_HOPS = 4
+-- How far above or below a warning's plane something lying on the floor still covers it.
+local WARNING_DEPTH_STUDS = 3
 -- A mark is laid flat: a Decal's face normal is +Z, so the part it sits on is rotated to lie down.
 local LYING = CFrame.Angles(-math.pi / 2, 0, 0)
 
@@ -221,6 +238,16 @@ local function refreshGroundExclude()
 	groundExcludeStale = false
 end
 
+-- The body a part belongs to when that body is not the floor: a model with a Humanoid -- a training
+-- proof, the boss. A player's is excluded up front; these are rare enough under a probe to be stepped over.
+local function bodyOf(instance: Instance): Model?
+	local model = instance:FindFirstAncestorOfClass("Model")
+	if model ~= nil and model:FindFirstChildOfClass("Humanoid") ~= nil then
+		return model
+	end
+	return nil
+end
+
 -- Both edges of a respawn invalidate, or the filter keeps excluding a destroyed rig and stops excluding
 -- the live one; a join invalidates too, because the joiner's first CharacterAdded can land before this
 -- client sees the PlayerAdded.
@@ -231,16 +258,37 @@ local function watchCharacters(other: Player)
 end
 
 -- The ground under a point, for the marks every impact leaves. Falls back to the point itself rather than
--- skipping the mark: a trace slightly off the floor is better than a world that forgets.
-local function groundAt(position: Vector3): (Vector3, Vector3)
+-- skipping the mark: a trace slightly off the floor is better than a world that forgets. The third value
+-- says whether there was a floor at all, for a volume that means nothing in mid-air (a splash crown).
+--
+-- A body is not the floor: a blast on a training proof laid its ensō at the proof's shoulders, stood its
+-- crown on them and lay its scraps on nothing (review). The probe goes on through such a body, excluding
+-- it, to the page under it.
+local function groundAt(position: Vector3): (Vector3, Vector3, boolean)
 	if groundExcludeStale then
 		refreshGroundExclude()
 	end
-	local result = Workspace:Raycast(position + Vector3.yAxis, Vector3.yAxis * -GROUND_PROBE_STUDS, groundParams)
-	if result == nil then
-		return position, Vector3.yAxis
+	local from = position + Vector3.yAxis
+	local toward = Vector3.yAxis * -GROUND_PROBE_STUDS
+	local params = groundParams
+	for _ = 1, BODY_HOPS do
+		local result = Workspace:Raycast(from, toward, params)
+		if result == nil then
+			return position, Vector3.yAxis, false
+		end
+		local body = bodyOf(result.Instance)
+		if body == nil then
+			return result.Position, result.Normal, true
+		end
+		-- Rare, so a fresh filter rather than one shared one that would keep every body it ever met.
+		local exclude = table.clone(params.FilterDescendantsInstances)
+		table.insert(exclude, body)
+		params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.IgnoreWater = true
+		params.FilterDescendantsInstances = exclude
 	end
-	return result.Position, result.Normal
+	return position, Vector3.yAxis, false
 end
 
 --------------------------------------------------------------------------------------------------
@@ -980,6 +1028,27 @@ local function releaseLive(entry: Live)
 	entry.Primary = nil
 end
 
+-- Whether something lying on the floor `reach` studs around `position` would cover a live warning's
+-- mark, measured against the mark's own rectangle as it is drawn this frame. Art bible rule 9: a volume
+-- is weight, a warning is read, and a blast's ensō expanding across the boss's closing ring is the ring
+-- nobody can read (review).
+local function overWarning(position: Vector3, reach: number): boolean
+	for _, entry in ipairs(live) do
+		local primary = entry.Primary
+		if entry.Warning and primary ~= nil and primary:IsA("BasePart") then
+			-- A mark lies with its X and Y on the floor and its Z along the floor's normal (markFrame).
+			local point = primary.CFrame:PointToObjectSpace(position)
+			local size = primary.Size
+			local across = math.max(math.abs(point.X) - size.X / 2, 0)
+			local along = math.max(math.abs(point.Y) - size.Y / 2, 0)
+			if math.abs(point.Z) <= WARNING_DEPTH_STUDS and across * across + along * along < reach * reach then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function activate(item: Pending, now: number)
 	local id = item.Id
 	local layer = item.Layer
@@ -1078,8 +1147,30 @@ local function activate(item: Pending, now: number)
 		-- mark -- so dropping them thins the picture without touching a rule.
 		return
 	end
+	if layer.Flourish == true and not tier.Flourishes then
+		-- Weight, not meaning: the lower tiers draw the blast without its second ring (D-114).
+		return
+	end
 
-	if #live >= tier.Layers then
+	-- The next link of a volume's Chain takes over the link before it (below), so it adds no layer: found
+	-- first, it is kept out of the budget, which would otherwise retire a layer for nothing -- or retire
+	-- the very link it was about to take over. A later link with nothing to take over is not drawn: from
+	-- its own start state it would appear at full size in one frame (rule 3).
+	local predecessor: number? = nil
+	local chain = layer.Chain
+	if layer.Kind == "Mesh" and chain ~= nil then
+		for index, previous in ipairs(live) do
+			if previous.PlayId == item.PlayId and previous.Layer.Chain == chain and previous.Volume ~= nil then
+				predecessor = index
+				break
+			end
+		end
+		if predecessor == nil and not item.ChainHead then
+			return
+		end
+	end
+
+	if predecessor == nil and #live >= tier.Layers then
 		-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a
 		-- six-player exchange loses effects rather than frames -- but never a warning. A telegraph is
 		-- laid at the start of a two-second window and is the longest-lived thing on screen, so "oldest
@@ -1094,7 +1185,9 @@ local function activate(item: Pending, now: number)
 		-- routine the moment the lower tiers arrived.
 		local victim: number? = nil
 		for index, entry in ipairs(live) do
-			if not entry.Warning and entry.Layer.Kind ~= "Carrier" then
+			-- Nor a volume riding a carrier: that is the projectile's own body, the threat itself (D-114).
+			local body = entry.Layer.Kind == "Mesh" and entry.Layer.Ride == true
+			if not entry.Warning and entry.Layer.Kind ~= "Carrier" and not body then
 				victim = index
 				break
 			end
@@ -1163,7 +1256,19 @@ local function activate(item: Pending, now: number)
 		Primary = nil,
 		PlayId = item.PlayId,
 		PlayStartedAt = item.PlayStartedAt,
+		LayerIndex = item.LayerIndex,
 	}
+
+	if predecessor ~= nil then
+		-- The next link of one volume takes over the instances of the link before it, so the volume goes on
+		-- from exactly where it was: no second borrow, no refetch, never a frame with two or with none.
+		local previous = table.remove(live, predecessor) :: Live
+		entry.Instances = previous.Instances
+		entry.Primary = previous.Primary
+		entry.Volume = previous.Volume
+		entry.Wet = previous.Wet
+		entry.Dry = previous.Dry
+	end
 
 	if layer.Kind == "Carrier" then
 		buildCarrier(entry, place)
@@ -1179,6 +1284,14 @@ local function activate(item: Pending, now: number)
 		buildBeam(entry, layer, place)
 	elseif layer.Kind == "Trail" then
 		buildTrail(entry, layer, place)
+	elseif layer.Kind == "Mesh" and entry.Volume == nil then
+		VfxVolumes.build(entry, place)
+	elseif layer.Kind == "Debris" then
+		-- As many scraps as the tier's particle density allows: they are particles made of paper.
+		local count = math.floor((layer.Count or 0) * tier.ParticleScale)
+		if count >= 1 then
+			VfxVolumes.buildDebris(entry, place, count)
+		end
 	end
 
 	if entry.Primary == nil then
@@ -1190,12 +1303,17 @@ local function activate(item: Pending, now: number)
 	table.insert(live, entry)
 end
 
-local function stepLive(entry: Live, now: number, deltaTime: number)
+-- How much of a layer's life has passed.
+local function progressOf(entry: Live, now: number): number
 	local span = entry.EndsAt - entry.StartedAt
+	return if span > 0 then math.clamp((now - entry.StartedAt) / span, 0, 1) else 1
+end
+
+local function stepLive(entry: Live, now: number, deltaTime: number)
 	-- Two clocks. `elapsed` is how much of the layer's life has passed; `alpha` is where its ease has
 	-- carried its shape. Whatever is about time -- how far a fade has got, when an emitter stops -- reads
 	-- `elapsed`: an Exponential Out layer is 85 % grown a fifth of the way in, not 85 % over.
-	local elapsed = if span > 0 then math.clamp((now - entry.StartedAt) / span, 0, 1) else 1
+	local elapsed = progressOf(entry, now)
 	local alpha = eased(entry.Layer, elapsed)
 	local kind = entry.Layer.Kind
 	if kind == "Carrier" then
@@ -1217,6 +1335,10 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 		stepBeam(entry, alpha, elapsed)
 	elseif kind == "Emitter" then
 		stepEmitter(entry, now)
+	elseif kind == "Mesh" then
+		VfxVolumes.step(entry, alpha, elapsed, now)
+	elseif kind == "Debris" then
+		VfxVolumes.stepDebris(entry, now)
 	end
 end
 
@@ -1291,6 +1413,9 @@ function VfxTimeline.play(id: string, context: Context): boolean
 		shots[context.Shot] = playId
 	end
 	local phaseStart = 0
+	local layerIndex = 0
+	-- The chains this play has already begun: the first layer naming one is its head.
+	local begun: { [string]: boolean } = {}
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
@@ -1301,6 +1426,12 @@ function VfxTimeline.play(id: string, context: Context): boolean
 				local seconds = VfxTimelineConfig.phaseSeconds(phase, context.Window)
 				local factor = if phase.Window == true then seconds else 1
 				for _, layer in ipairs(phase.Layers) do
+					layerIndex += 1
+					local chain = layer.Chain
+					local head = chain ~= nil and not begun[chain]
+					if chain ~= nil then
+						begun[chain] = true
+					end
 					table.insert(pending, {
 						Id = id,
 						Layer = layer,
@@ -1315,6 +1446,8 @@ function VfxTimeline.play(id: string, context: Context): boolean
 						PlayId = playId,
 						PlayStartedAt = now,
 						Phase = name :: string,
+						LayerIndex = layerIndex,
+						ChainHead = head,
 					})
 				end
 				phaseStart += seconds
@@ -1329,6 +1462,10 @@ end
 -- -- and one whose caster was stunned mid-flight did the same. What is still to fly is dropped; the carrier
 -- glides the last few studs to the point and holds; what rode it drains out on its own terms; and what
 -- lingers after the flight is re-placed at the point. False when no play is flying that shot.
+--
+-- A volume whose Chain went on into the dropped flight -- the drop gathering in the hand, on a point-blank
+-- throw whose burst beat the flight -- has nothing left to hand itself to: it splats out where it is if it
+-- is drawn, and is never drawn if it is still to come (review: it vanished at full size).
 function VfxTimeline.land(shot: string, point: Vector3): boolean
 	local playId = shots[shot]
 	if playId == nil then
@@ -1337,10 +1474,18 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 	shots[shot] = nil
 	local now = os.clock()
 	local settings = VfxTimelineConfig.Land
+	local cut: { [string]: boolean } = {}
+	for _, item in ipairs(pending) do
+		local chain = item.Layer.Chain
+		if item.PlayId == playId and item.Phase == "Travel" and chain ~= nil then
+			cut[chain] = true
+		end
+	end
 	local index = 1
 	while index <= #pending do
 		local item = pending[index]
-		if item.PlayId == playId and item.Phase == "Travel" then
+		local chain = item.Layer.Chain
+		if item.PlayId == playId and (item.Phase == "Travel" or (chain ~= nil and cut[chain])) then
 			table.remove(pending, index)
 		else
 			if item.PlayId == playId and item.Phase == "Residue" then
@@ -1354,10 +1499,21 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 	end
 	for _, entry in ipairs(live) do
 		local primary = entry.Primary
+		local chain = entry.Layer.Chain
 		if entry.PlayId == playId and primary ~= nil then
 			if entry.Layer.Kind == "Carrier" and primary:IsA("BasePart") then
 				entry.Landing = { From = primary.CFrame, To = point, At = now }
 				entry.EndsAt = now + settings.Seconds + settings.Hold
+			elseif
+				entry.Layer.Kind == "Mesh"
+				and primary:IsA("BasePart")
+				and (entry.Layer.Ride == true or (chain ~= nil and cut[chain]))
+			then
+				-- The thrown drop splats into its burst and dries out, in the shape the burst found it in
+				-- (VfxVolumes.step): read before its life is shortened, which would re-ease it.
+				entry.Ending =
+					{ At = now, From = primary.Transparency, Alpha = eased(entry.Layer, progressOf(entry, now)) }
+				entry.EndsAt = now + settings.Fade
 			elseif entry.Layer.Ride == true then
 				if primary:IsA("Trail") then
 					-- It stops drawing and its ribbon runs out behind it.
@@ -1396,6 +1552,8 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		PlayId = nextPlayId,
 		PlayStartedAt = now,
 		Phase = "Residue",
+		LayerIndex = 0,
+		ChainHead = false,
 	})
 	return true
 end
@@ -1424,6 +1582,17 @@ function VfxTimeline.Init(deps: Deps)
 	quality = deps.QualityController
 	worldLighting = deps.WorldLighting
 	sound = deps.SoundController
+	-- The volumes are built with the runtime's own helpers, so there is one of each.
+	VfxVolumes.bind({
+		borrow = borrow,
+		host = host,
+		groundAt = groundAt,
+		overWarning = overWarning,
+		wetAndDry = wetAndDry,
+		driedBy = driedBy,
+		fadeOf = fadeOf,
+		lerp = lerp,
+	})
 end
 
 function VfxTimeline.Start()

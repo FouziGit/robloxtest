@@ -62,6 +62,8 @@ export type LayerKind =
 	| "Trail"
 	| "Light"
 	| "Mark"
+	| "Mesh"
+	| "Debris"
 	| "Shake"
 	| "Flash"
 	| "Sound"
@@ -127,6 +129,32 @@ export type Layer = {
 	-- Carrier only: studs the flight rises and falls again over its length, which is what separates a
 	-- thrown thing from a beam that happens to move.
 	Arc: number?,
+	-- Mesh only (D-114): a generated volume (MeshConfig), drawn by VfxVolumes. Size and EndSize are studs of
+	-- the mesh's reference extent -- an ensō's outer ink, a crown's base, a drop's length -- and Stretch and
+	-- EndStretch multiply them per axis {right, up, forward} (absent: {1, 1, 1}). Face "Ground" lays it on
+	-- the floor under its place, lifted by Offset's up value; "Aim" (the default) stands it at its place,
+	-- turned to the effect's facing. NeedsGround skips it where there is no floor. Roll tilts it about its
+	-- aim, in degrees; Spin turns it about its mesh's own axis, rad/s, from a seeded start angle within
+	-- ±Jitter. Chain hands one volume from a layer to the next of the same name, which goes on from exactly
+	-- where the last left it. Flourish marks a volume the lower graphics tiers leave out.
+	Mesh: string?,
+	Stretch: { number }?,
+	EndStretch: { number }?,
+	Face: ("Aim" | "Ground")?,
+	NeedsGround: boolean?,
+	Roll: number?,
+	Jitter: number?,
+	Chain: string?,
+	Flourish: boolean?,
+	-- Debris only (D-114): Count scraps of the page, each one of Meshes, thrown within Spread degrees of
+	-- straight up at Speed {min, max}, slowed by Drag toward a gentle Fall (studs/s), tumbling at Tumble
+	-- {min, max} rad/s, lasting Lifetime {min, max} and coloured in turn by Tones (WorldConfig.Colors
+	-- names: paper, never a pigment). Size is a scrap's long side in studs, give or take 30 %.
+	Meshes: { string }?,
+	Count: number?,
+	Fall: number?,
+	Tumble: { number }?,
+	Tones: { string }?,
 	-- Carrier only: how much of the flight follows the ease, the rest following time itself. A projectile
 	-- the server steps at a constant speed is drawn mostly with it: fully eased, the drawn Brand trailed
 	-- the damage by up to 22 studs; with 15 % of a Sine In it trails by under 3 and is never ahead
@@ -688,6 +716,25 @@ local BRAND: Timeline = {
 					Size = 0.45,
 					EndSize = 0.05,
 				},
+				-- The drop gathering in the hand: grown, never appeared, drawn out along the throw as it is let go,
+				-- and handed to the flight (Chain), which carries it on from exactly where this leaves it (D-114).
+				-- Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame and overshot.
+				{
+					Kind = "Mesh",
+					Mesh = "Drop",
+					Chain = "Head",
+					At = 0,
+					For = 0.06,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = { 0, 0.4, 4 },
+					Size = 0.2,
+					EndSize = 1.4,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 0.7, 0.7, 1.8 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
 				{
 					Kind = "Light",
 					At = 0,
@@ -745,6 +792,42 @@ local BRAND: Timeline = {
 					-- A stud and a half of rise and fall over ninety. Barely visible, and the whole reason
 					-- it reads as thrown rather than fired; halved so the drawn one stays inside the blast.
 					Arc = 1.5,
+				},
+				-- The drop itself, riding the flight head first: stretched along its speed at the throw, settling
+				-- round as drag would. It is the threat, so it does not fade in flight: its burst splats it
+				-- (VfxTimeline.land), and so does the end of a flight nothing burst.
+				{
+					Kind = "Mesh",
+					Mesh = "Drop",
+					Chain = "Head",
+					Ride = true,
+					At = 0,
+					For = 1,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Size = 1.4,
+					EndSize = 1.2,
+					Stretch = { 0.7, 0.7, 1.8 },
+					EndStretch = { 1, 1, 1.1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				-- The throwing hand's sweep, left behind at the release: one brush crescent flicked out of the
+				-- hand, tilted a little so it is not a flat plate, and gone in a fifth of a second.
+				{
+					Kind = "Mesh",
+					Mesh = "Crescent",
+					At = 0,
+					For = 0.2,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0.3, 0.4, 3.2 },
+					Roll = 20,
+					Size = 1.2,
+					EndSize = 4.4,
+					Transparency = 0.1,
+					EndTransparency = 1,
+					Spin = 8,
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
@@ -816,24 +899,117 @@ local BRAND: Timeline = {
 -- The detonation every exploding projectile shares (GlyphEffects.explode). Scaled by the blast radius
 -- the server sends, so one timeline serves a Brand at seven studs and a Blot at ten.
 local EXPLOSION: Timeline = {
-	Intent = "The page is struck through: a ring, a bloom of ink, and a burn that stays",
+	Intent = "The page is struck through: a circle of ink to the blast's edge, a splash, and a burn that stays",
 	Phases = {
 		{
 			Name = "Impact",
 			Duration = 0.22,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
+				-- The blast's edge, drawn: one brush circle laid on the page, opening to exactly the reach the
+				-- server damaged (twice its radius), its open end toward the thrower (D-114). It replaced a flat
+				-- sprite ring that faced the same way whatever the throw and outreached the blast by a sixth.
 				{
-					Kind = "Sprite",
+					Kind = "Mesh",
+					Mesh = "Enso",
+					Face = "Ground",
 					At = 0,
-					For = 0.4,
+					For = 0.45,
 					Ease = "Quint",
 					EaseDirection = "Out",
-					Texture = "ShockwaveRing",
-					Size = 1,
-					EndSize = 16,
+					SizeFrom = "Radius",
+					Size = 0.3,
+					EndSize = 2,
+					Offset = { 0, 0.12, 0 },
 					Transparency = 0.05,
 					EndTransparency = 1,
+					Spin = 1.1,
+					Jitter = 0.35,
+				},
+				-- A thinner ring overtaking it the other way round: weight, not meaning, so the lower tiers
+				-- leave it out.
+				{
+					Kind = "Mesh",
+					Mesh = "SplitRing",
+					Face = "Ground",
+					Flourish = true,
+					At = 0.03,
+					For = 0.26,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					SizeFrom = "Radius",
+					Size = 0.2,
+					EndSize = 1.9,
+					Offset = { 0, 0.14, 0 },
+					Transparency = 0.3,
+					EndTransparency = 1,
+					Spin = -2.5,
+					Jitter = math.pi,
+				},
+				-- The splash: a crown of ink thrown up off the page and falling back into it -- round beads,
+				-- never points, below the waist, and high and dark for under a third of a second (rule 9).
+				-- Only on a floor: a crown in mid-air is a crown of nothing.
+				{
+					Kind = "Mesh",
+					Mesh = "Crown",
+					Face = "Ground",
+					NeedsGround = true,
+					Chain = "Crown",
+					At = 0.02,
+					For = 0.12,
+					Ease = "Back",
+					EaseDirection = "Out",
+					SizeFrom = "Radius",
+					Size = 0.45,
+					EndSize = 0.8,
+					Stretch = { 1, 0.08, 1 },
+					EndStretch = { 1, 0.5, 1 },
+					Offset = { 0, 0.1, 0 },
+					Transparency = 0,
+					EndTransparency = 0,
+					Spin = 0.6,
+					Jitter = math.pi,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "Crown",
+					Face = "Ground",
+					NeedsGround = true,
+					Chain = "Crown",
+					At = 0.14,
+					For = 0.22,
+					Ease = "Quad",
+					EaseDirection = "In",
+					SizeFrom = "Radius",
+					Size = 0.8,
+					EndSize = 0.95,
+					Stretch = { 1, 0.5, 1 },
+					EndStretch = { 1.05, 0.04, 1.05 },
+					Offset = { 0, 0.1, 0 },
+					Transparency = 0,
+					EndTransparency = 1,
+					Spin = 0.6,
+					Jitter = math.pi,
+				},
+				-- Scraps of the page torn up by the blast, tumbling, rocking down and lying where they fall until
+				-- they fade. Soaked in the burn: charcoal, never a pigment -- and never a pale tone either: the
+				-- page's own and the training ring's wash were measured invisible on the floors they fell on.
+				-- Weight, not meaning: the lower tiers leave them out.
+				{
+					Kind = "Debris",
+					Meshes = { "ScrapA", "ScrapB" },
+					Flourish = true,
+					At = 0.02,
+					For = 0.04,
+					Count = 8,
+					Size = 0.8,
+					Speed = { 12, 24 },
+					Spread = 55,
+					Lifetime = { 1, 1.6 },
+					Drag = 3,
+					Fall = 7,
+					Tumble = { 6, 14 },
+					Tones = { "Ink" },
 				},
 				-- The flipbook: an ink bloom opening and dispersing, which is the one place in the game a
 				-- 64-frame texture earns its size.
@@ -8027,7 +8203,7 @@ VfxTimelineConfig.DefaultParticleLifetime = { 0.3, 0.6 }
 -- on screen for two frames of their half second. The renderer, the cost model and duration() all ask
 -- this, so what is drawn, what is budgeted and what the packet lifetime is checked against agree.
 function VfxTimelineConfig.layerSeconds(layer: Layer, drawn: number): number
-	if layer.Kind ~= "Emitter" then
+	if layer.Kind ~= "Emitter" and layer.Kind ~= "Debris" then
 		return drawn
 	end
 	local lifetime = layer.Lifetime or VfxTimelineConfig.DefaultParticleLifetime

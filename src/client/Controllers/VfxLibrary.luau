@@ -464,6 +464,8 @@ VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
 		Pigment = pigment,
 		Shade = numberParam(packet, "Shade", 0),
 		Scale = radius / DEFAULT_BLAST_RADIUS,
+		-- The volumes are sized to the radius itself: the ensō's ink stops exactly where the damage does.
+		Radius = radius,
 	})
 end
 

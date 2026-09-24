@@ -14,6 +14,7 @@
 --   Lights          -- src/client/Controllers/VfxTimeline (a Light layer is not drawn at all when false)
 --   PostProcessing  -- src/client/Controllers/WorldLighting (the five effects, and every pulse)
 --   Footprints      -- src/client/Controllers/FootprintController (a share of its own budget, 0 = none)
+--   Flourishes      -- src/client/Controllers/VfxTimeline (a volume marked Flourish is not drawn when false)
 --   NameKey         -- src/ui/screens/SettingsScreen
 -- tests/EffectCost.spec.luau reads that list back out of the sources: a field nothing reads is a promise
 -- to the player that nothing keeps.
@@ -33,6 +34,8 @@ export type TierDef = {
 	Lights: boolean,
 	PostProcessing: boolean,
 	Footprints: number,
+	-- The volumes that add weight rather than meaning (a blast's second ring, its paper scraps, D-114).
+	Flourishes: boolean,
 }
 
 -- Best first. Every step down is a step the client can take by itself, and the last one is the floor.
@@ -48,6 +51,7 @@ local tiers: { [string]: TierDef } = {
 		Lights = true,
 		PostProcessing = true,
 		Footprints = 1,
+		Flourishes = true,
 	},
 	-- Two thirds of the layers and a little over half the particles: the same effects, thinner. Nothing
 	-- structural goes -- every telegraph, every mark, every light is still there -- so the game still
@@ -59,6 +63,7 @@ local tiers: { [string]: TierDef } = {
 		Lights = true,
 		PostProcessing = true,
 		Footprints = 0.5,
+		Flourishes = true,
 	},
 	-- Dynamic lights go. Roblox pays for a local light whether or not the surface ends up lit, and on a
 	-- phone they are the most expensive thing in the frame after the post-processing; the effects keep
@@ -70,6 +75,7 @@ local tiers: { [string]: TierDef } = {
 		Lights = false,
 		PostProcessing = true,
 		Footprints = 0,
+		Flourishes = false,
 	},
 	-- The post-processing goes too: no bloom, no grade, no depth of field, and no page flash. This is the
 	-- floor, and it is still Vellum -- the world is lit high and pale by Lighting itself, not by the
@@ -81,6 +87,7 @@ local tiers: { [string]: TierDef } = {
 		Lights = false,
 		PostProcessing = false,
 		Footprints = 0,
+		Flourishes = false,
 	},
 }
 

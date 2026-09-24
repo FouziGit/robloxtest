@@ -444,6 +444,97 @@
       "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:59:25+00:00"
     },
+    "assets/meshes/ink_crescent.glb": {
+      "assetId": "87589353611427",
+      "assetType": "Model",
+      "sha256": "09a8f89fa677f15ba5a8a3394c3d5dd0aaceb149ff989c4409d2c85333a53a56",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:37:41+00:00",
+      "meshId": "91366264101281",
+      "native": [
+        0.937386155128479,
+        0.018901830539107323,
+        0.4064693748950958
+      ]
+    },
+    "assets/meshes/ink_crown.glb": {
+      "assetId": "139438415041208",
+      "assetType": "Model",
+      "sha256": "69b0ac4db4668083b6ce31866f7863316cfd975dfe99411955b9c6d489b0688b",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:37:47+00:00",
+      "meshId": "136872056111313",
+      "native": [
+        1.2753947973251343,
+        0.5792443752288818,
+        1.2581746578216553
+      ]
+    },
+    "assets/meshes/ink_drop.glb": {
+      "assetId": "96975298520159",
+      "assetType": "Model",
+      "sha256": "7f134f38af814f4eb9c0fb821f650c3caa1cf0837a6c8b20a3a51c8d52f5bc5a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:38:07+00:00",
+      "meshId": "102080336188266",
+      "native": [
+        0.5199999809265137,
+        0.5199999809265137,
+        1.0
+      ]
+    },
+    "assets/meshes/ink_enso.glb": {
+      "assetId": "89622661410607",
+      "assetType": "Model",
+      "sha256": "9c0bce60eb62f88355583f93bc7f740284d401d4edc7f350e70281a6fc12480a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:38:27+00:00",
+      "meshId": "112318728967677",
+      "native": [
+        0.9864785671234131,
+        0.006275438237935305,
+        0.9204848408699036
+      ]
+    },
+    "assets/meshes/ink_split_ring.glb": {
+      "assetId": "110168756587220",
+      "assetType": "Model",
+      "sha256": "3647d441e1563d9812e48258bb02c4ddaafd4177fbfaae83e561dc48b2025df9",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:38:42+00:00",
+      "meshId": "113641567956885",
+      "native": [
+        0.9366002082824707,
+        0.003807331435382366,
+        0.9995793104171753
+      ]
+    },
+    "assets/meshes/paper_scrap_a.glb": {
+      "assetId": "125757916870539",
+      "assetType": "Model",
+      "sha256": "0f4155ef775b81ee63207c4be2cd51a38d550bc27f616ac8817eb5b7afd63d13",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:38:46+00:00",
+      "meshId": "133675506830844",
+      "native": [
+        0.9806308746337891,
+        0.13781867921352386,
+        0.7105470895767212
+      ]
+    },
+    "assets/meshes/paper_scrap_b.glb": {
+      "assetId": "104848514594349",
+      "assetType": "Model",
+      "sha256": "6d9f02df75e7b8af93f52cfdf4cec5a91cb61e697eb2afd4081ba218f114d561",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T15:39:01+00:00",
+      "meshId": "115657160344567",
+      "native": [
+        0.9567726850509644,
+        0.20336832106113434,
+        0.7024022340774536
+      ]
+    },
     "assets/textures/brush_stroke.png": {
       "assetId": "86444840583183",
       "assetType": "Image",

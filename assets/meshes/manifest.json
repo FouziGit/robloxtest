@@ -1,0 +1,187 @@
+{
+  "blender": "Blender 5.2.2 LTS",
+  "meshes": {
+    "Crescent": {
+      "Axis": "Y",
+      "Bytes": 10128,
+      "Flat": true,
+      "Max": [
+        0.4544,
+        0.0189,
+        -0.1294
+      ],
+      "Min": [
+        -0.483,
+        0.0,
+        -0.5359
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "CircleDiameter",
+      "Seed": 3301,
+      "Sha256": "09a8f89fa677f15ba5a8a3394c3d5dd0aaceb149ff989c4409d2c85333a53a56",
+      "Source": "assets/meshes/ink_crescent.glb",
+      "Tris": 198
+    },
+    "Crown": {
+      "Axis": "Y",
+      "Bytes": 19064,
+      "Flat": false,
+      "Max": [
+        0.6365,
+        0.5792,
+        0.6181
+      ],
+      "Min": [
+        -0.6389,
+        0.0,
+        -0.6401
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "BaseDiameter",
+      "Seed": 2203,
+      "Sha256": "69b0ac4db4668083b6ce31866f7863316cfd975dfe99411955b9c6d489b0688b",
+      "Source": "assets/meshes/ink_crown.glb",
+      "Tris": 360
+    },
+    "Drop": {
+      "Axis": "Z",
+      "Bytes": 8704,
+      "Flat": false,
+      "Max": [
+        0.26,
+        0.26,
+        0.74
+      ],
+      "Min": [
+        -0.26,
+        -0.26,
+        -0.26
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Length",
+      "Seed": 4409,
+      "Sha256": "7f134f38af814f4eb9c0fb821f650c3caa1cf0837a6c8b20a3a51c8d52f5bc5a",
+      "Source": "assets/meshes/ink_drop.glb",
+      "Tris": 186
+    },
+    "Enso": {
+      "Axis": "Y",
+      "Bytes": 15780,
+      "Flat": true,
+      "Max": [
+        0.4983,
+        0.0063,
+        0.4357
+      ],
+      "Min": [
+        -0.4882,
+        0.0,
+        -0.4847
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "OuterDiameter",
+      "Seed": 1107,
+      "Sha256": "9c0bce60eb62f88355583f93bc7f740284d401d4edc7f350e70281a6fc12480a",
+      "Source": "assets/meshes/ink_enso.glb",
+      "Tris": 396
+    },
+    "ScrapA": {
+      "Axis": "Y",
+      "Bytes": 2268,
+      "Flat": true,
+      "Max": [
+        0.4806,
+        0.1378,
+        0.3705
+      ],
+      "Min": [
+        -0.5,
+        0.0,
+        -0.34
+      ],
+      "Normals": "true",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "LongSide",
+      "Seed": 5501,
+      "Sha256": "0f4155ef775b81ee63207c4be2cd51a38d550bc27f616ac8817eb5b7afd63d13",
+      "Source": "assets/meshes/paper_scrap_a.glb",
+      "Tris": 48
+    },
+    "ScrapB": {
+      "Axis": "Y",
+      "Bytes": 2196,
+      "Flat": true,
+      "Max": [
+        0.4568,
+        0.2034,
+        0.3624
+      ],
+      "Min": [
+        -0.5,
+        0.0,
+        -0.34
+      ],
+      "Normals": "true",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "LongSide",
+      "Seed": 5502,
+      "Sha256": "6d9f02df75e7b8af93f52cfdf4cec5a91cb61e697eb2afd4081ba218f114d561",
+      "Source": "assets/meshes/paper_scrap_b.glb",
+      "Tris": 36
+    },
+    "SplitRing": {
+      "Axis": "Y",
+      "Bytes": 11132,
+      "Flat": true,
+      "Max": [
+        0.4719,
+        0.0038,
+        0.4996
+      ],
+      "Min": [
+        -0.4647,
+        0.0,
+        -0.5
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "OuterDiameter",
+      "Seed": 1102,
+      "Sha256": "3647d441e1563d9812e48258bb02c4ddaafd4177fbfaae83e561dc48b2025df9",
+      "Source": "assets/meshes/ink_split_ring.glb",
+      "Tris": 272
+    }
+  }
+}

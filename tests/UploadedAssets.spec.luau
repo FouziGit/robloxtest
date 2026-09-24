@@ -13,6 +13,7 @@
 local AnimationConfig = require("../src/shared/Config/AnimationConfig")
 local AssetIds = require("../src/shared/Config/AssetIds")
 local Harness = require("./harness")
+local MeshConfig = require("../src/shared/Config/MeshConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
@@ -28,9 +29,24 @@ local TARGETS = {
 		Prefix = "assets/animations/",
 		Config = AnimationConfig :: any,
 	},
+	-- A mesh's block carries the id of the MeshPart the import made (D-114), not the Model's, and only
+	-- once Studio has resolved it: see `expectedId`.
+	{ Module = "src/shared/Config/MeshConfig.luau", Prefix = "assets/meshes/", Config = MeshConfig :: any },
 }
 
-type Record = { assetId: string, sha256: string, assetType: string? }
+type Record = { assetId: string, sha256: string, assetType: string?, meshId: string?, native: { number }? }
+
+-- The id a block must carry for `path`, or nil when it must carry none: a mesh renders the MeshPart the
+-- import made, known only after `record-meshes`; everything else renders the asset it uploaded.
+local function expectedId(path: string, record: Record): string?
+	if path:sub(1, #"assets/meshes/") == "assets/meshes/" then
+		if record.meshId == nil then
+			return nil
+		end
+		return "rbxassetid://" .. record.meshId
+	end
+	return "rbxassetid://" .. record.assetId
+end
 
 local function readLock(): { [string]: Record }
 	if not fs.isFile(LOCK_PATH) then
@@ -50,7 +66,17 @@ local function readBlock(modulePath: string): { [string]: string }
 	end
 	local block = source:sub(startAt, endAt)
 	local out: { [string]: string } = {}
+	-- A plain id, or a mesh's { Id = ..., Native = ... }: two exact shapes, so a malformed row matches
+	-- neither and is reported missing.
+	local rows: { { string } } = {}
 	for path, id in block:gmatch('%["([^"]+)"%]%s*=%s*"([^"]+)"') do
+		table.insert(rows, { path, id })
+	end
+	for path, id in block:gmatch('%["([^"]+)"%]%s*=%s*{%s*Id%s*=%s*"([^"]+)"') do
+		table.insert(rows, { path, id })
+	end
+	for _, row in ipairs(rows) do
+		local path, id = row[1], row[2]
 		if not id:match("^rbxassetid://%d+$") then
 			error(("%s: %s = %s is not a content id"):format(modulePath, path, id))
 		end
@@ -109,7 +135,7 @@ describe("the generated blocks", function()
 			local block = readBlock(target.Module)
 			for path, record in pairs(lock) do
 				if path:sub(1, #target.Prefix) == target.Prefix then
-					local expected = "rbxassetid://" .. record.assetId
+					local expected = expectedId(path, record)
 					if block[path] ~= expected then
 						error(
 							("%s: %s should read %s, reads %s"):format(
@@ -124,7 +150,7 @@ describe("the generated blocks", function()
 			end
 			for path, id in pairs(block) do
 				local record = lock[path]
-				if record == nil or id ~= "rbxassetid://" .. record.assetId then
+				if record == nil or id ~= expectedId(path, record) then
 					error(
 						("%s: %s = %s is not in the lock file: the block was edited by hand"):format(
 							target.Module,
@@ -157,8 +183,10 @@ describe("the generated blocks", function()
 		-- Non-vacuous whenever anything has been uploaded: a block that parses to nothing would pass the
 		-- two loops above trivially.
 		local recorded = 0
-		for _ in pairs(lock) do
-			recorded += 1
+		for path, record in pairs(lock) do
+			if expectedId(path, record) ~= nil then
+				recorded += 1
+			end
 		end
 		expect(wired).toBe(recorded)
 	end)

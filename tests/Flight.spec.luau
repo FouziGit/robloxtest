@@ -177,9 +177,12 @@ describe("a landing", function()
 
 	it("drops what is still to fly, brings the carrier down, drains what rode it, and moves what lingers", function()
 		local land = functionIn(TIMELINE, "function VfxTimeline.land(")
-		expect(has(land, 'if item.PlayId == playId and item.Phase == "Travel" then table.remove(pending, index)')).toBe(
-			true
-		)
+		expect(
+			has(
+				land,
+				'if item.PlayId == playId and (item.Phase == "Travel" or (chain ~= nil and cut[chain])) then table.remove(pending, index)'
+			)
+		).toBe(true)
 		expect(
 			has(
 				land,

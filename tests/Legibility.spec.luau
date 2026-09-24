@@ -65,9 +65,10 @@ describe("a drawn layer", function()
 		-- of the way into a 2.4 s life. The law is FeelMath.layerFade (tests/FeelMath.spec.luau); this
 		-- holds the renderer to it, from the clock to the call.
 		local step = body("stepLive")
+		expect(step:find("local elapsed = progressOf(entry, now)", 1, true)).never.toBe(nil)
 		expect(
-			step:find(
-				"local elapsed = if span > 0 then math.clamp((now - entry.StartedAt) / span, 0, 1) else 1",
+			body("progressOf"):find(
+				"return if span > 0 then math.clamp((now - entry.StartedAt) / span, 0, 1) else 1",
 				1,
 				true
 			)
@@ -165,7 +166,8 @@ describe("a drawn layer", function()
 		for id, entry in pairs(VfxTimelineConfig.Timelines) do
 			for _, phase in ipairs(entry.Phases) do
 				for _, layer in ipairs(phase.Layers) do
-					if layer.Kind == "Emitter" then
+					-- Scraps of paper (Debris, D-114) are particles too: kept until the last one has faded.
+					if layer.Kind == "Emitter" or layer.Kind == "Debris" then
 						emitters += 1
 						local lifetime = layer.Lifetime or VfxTimelineConfig.DefaultParticleLifetime
 						if VfxTimelineConfig.layerSeconds(layer, layer.For) < layer.For + lifetime[2] - 1e-9 then

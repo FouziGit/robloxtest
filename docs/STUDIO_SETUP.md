@@ -152,6 +152,30 @@ python3 scripts/upload_assets.py upload --reupload
 
 **Sans le script** (dernier recours) : Creator Dashboard → *Creations* → *Development Items* → *Images* ou *Audio* → upload, puis ajouter à la main dans le bloc `-- BEGIN UPLOADED` du module concerné une ligne `["<chemin du fichier>"] = "rbxassetid://<id>",` — et la même entrée dans le fichier de verrou, faute de quoi la porte refuse le bloc.
 
+### 7 bis. Les volumes (meshes générés, D-114)
+
+Les volumes de `assets/meshes/` (l'ensō, la couronne, la goutte de la Marque, les bouts de papier…) sont générés par `tools/meshes/` dans Blender sans interface, puis envoyés par le même script, **comme modèles** : Open Cloud ne prend un maillage que dans un modèle. Le jeu, lui, a besoin de l'identifiant du *maillage* qu'il contient, que la clé n'a pas le droit de lire — c'est Studio qui le lit, en une commande.
+
+```bash
+python3 tools/meshes/generate_all.py
+```
+
+```bash
+python3 scripts/upload_assets.py upload
+```
+
+```bash
+python3 scripts/upload_assets.py resolve-snippet
+```
+
+Colle ce qu'imprime la dernière commande dans la barre de commande de Studio (place ouverte, pas besoin de lancer le jeu) ; elle imprime une ligne JSON. Enregistre-la dans un fichier, puis :
+
+```bash
+python3 scripts/upload_assets.py record-meshes resolved.json
+```
+
+`MeshConfig.luau` reçoit les identifiants et la taille importée de chaque maillage ; `tests/MeshConfig.spec.luau` vérifie qu'un stud du fichier vaut un stud en jeu, et que chaque fichier porte bien le demi-tour que l'importeur annule. Chaque ligne du JSON nomme le modèle d'où elle a été lue : un vieux `resolved.json`, d'avant un nouveau téléversement, est refusé — refais alors le `resolve-snippet`. Tant qu'un volume n'est pas résolu, le jeu ne le dessine pas et l'indique une fois dans la sortie.
+
 ## 8. Assets à remplacer plus tard
 
 Le hub et les arènes sont générés en code (`HubService`, `ArenaService`). Pour les remplacer par des assets, conserver les noms d'ancrage listés dans `docs/GAME_DESIGN.md` §8 (`HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`, `Spawn_Team1/2`, `BossSpawn`). Les sons se remplacent dans `src/shared/Config/SoundConfig.luau` (IDs `rbxassetid://`).

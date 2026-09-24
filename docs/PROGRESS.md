@@ -295,7 +295,7 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | 1 — Les cosmétiques s'affichent | ✅ | voir le journal git |
 | 2 — Artisanat des particules | ✅ | `9af33da` |
 | 3 — Le coup se sent (images d'impact, ragdoll) | ✅ | voir le journal git |
-| 4 — Des volumes (meshes générés, pièce témoin : la Marque) | ⬜ | — |
+| 4 — Des volumes (meshes générés, pièce témoin : la Marque) | 🟡 | `a100b84` (un seul vol) + volumes |
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
 | 7 — Animations | ⬜ | — |
@@ -322,3 +322,9 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Mouvement réduit** de la plateforme respecté par la secousse, le coup de focale, l'éclair de page et l'image d'impact.
 - Trois relectures adversariales ; `tests/HitFeel.spec.luau`, chaque mutation échoue (voir D-112).
 - Vu en jeu ensuite (D-113) : la chute passe bien par le serveur ; elle devient un **knockdown lisible** (0,8 s à terre + 0,3 s de relevé), le corps à terre est **intouchable** (et n'est plus une cible), plus de tir ami en 3v3, la force revient progressivement (pire saut 40° au lieu de 106°) et le serveur vise toujours droit.
+
+### Phase 4 — en cours (D-114)
+
+- **Un seul vol** (`a100b84`) : la Marque dessinée suit la vraie à moins de trois studs et retombe là où elle éclate ; lancer numéroté, `Fizzle`, attente au bout du vol, son de queue gardé.
+- **Volumes générés** : sept maillages Blender reproductibles à l'octet, téléversés et résolus ; couche `Mesh` et couche `Debris` ; Explosion (ensō, anneau, couronne, papier) et Marque (goutte, balayage). Vus en jeu, puis relus : sol trouvé sous les mannequins et le boss, jamais par-dessus l'avertissement d'un autre effet, atterrissages sans à-coup (D-114).
+- Reste : images rémanentes sur l'esquive, kit en encre charbon (coups, esquive) et leurs balayages, puis les phases 5 à 8.

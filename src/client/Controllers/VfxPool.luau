@@ -222,6 +222,18 @@ local function resetBeam(beam: Beam)
 	beam.ZOffset = 0
 end
 
+-- A generated volume's mesh (D-114). MeshId is the one property the builder writes that is NOT reset
+-- here: the builder always writes it before the part is drawn, and clearing it would make every reuse
+-- fetch the mesh again -- a blank frame on the first blast after a lull.
+local function resetSpecialMesh(mesh: SpecialMesh)
+	mesh.Name = "SpecialMesh"
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.TextureId = ""
+	mesh.Scale = Vector3.one
+	mesh.Offset = Vector3.zero
+	mesh.VertexColor = Vector3.one
+end
+
 local function resetAttachment(attachment: Attachment)
 	attachment.Name = "Attachment"
 	attachment.CFrame = CFrame.identity
@@ -257,6 +269,10 @@ end
 
 local function muteBeam(beam: Beam)
 	beam.Enabled = false
+end
+
+local function muteSpecialMesh(mesh: SpecialMesh)
+	mesh.Scale = Vector3.zero
 end
 
 type ClassOps = {
@@ -332,6 +348,17 @@ local CLASSES: { [string]: ClassOps } = {
 		end,
 		mute = function(instance: Instance)
 			muteBeam(instance :: Beam)
+		end,
+	},
+	SpecialMesh = {
+		create = function(): Instance
+			return Instance.new("SpecialMesh")
+		end,
+		reset = function(instance: Instance)
+			resetSpecialMesh(instance :: SpecialMesh)
+		end,
+		mute = function(instance: Instance)
+			muteSpecialMesh(instance :: SpecialMesh)
 		end,
 	},
 	Attachment = {

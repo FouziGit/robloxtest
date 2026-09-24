@@ -79,6 +79,17 @@ KINDS = {
         "target": ROOT / "src" / "shared" / "Config" / "SoundConfig.luau",
         "quota_type": "AUDIO",
     },
+    # The generated volumes (D-114). Open Cloud takes a mesh only as a Model, which the importer turns
+    # into a MeshPart; the id a SpecialMesh renders is that MeshPart's, read in Studio and written back
+    # with `record-meshes`. Until then the block leaves the mesh out and the renderer skips it.
+    "mesh": {
+        "dir": ROOT / "assets" / "meshes",
+        "glob": "*.glb",
+        "asset_type": "Model",
+        "content_type": "model/gltf-binary",
+        "target": ROOT / "src" / "shared" / "Config" / "MeshConfig.luau",
+        "quota_type": "MODEL",
+    },
 }
 
 BEGIN = "-- BEGIN UPLOADED"
@@ -210,18 +221,34 @@ def upload_one(key: str, user_id: str, kind: str, path: pathlib.Path) -> dict:
     raise ApiError(f"upload of {rel(path)} did not finish in {POLL_ATTEMPTS * POLL_SECONDS:.0f} s ({op_path})")
 
 
+def lua_number(value: float) -> str:
+    text = f"{value:.4f}".rstrip("0").rstrip(".")
+    return "0" if text in ("-0", "") else text
+
+
+def block_lines(kind: str, prefix: str, lock: dict) -> list[str]:
+    """The generated block of one kind. A mesh names the id of the MeshPart the import made and the size
+    the importer gave it; a mesh uploaded but not resolved yet is left out, and the renderer skips it."""
+    records = sorted((source, record) for source, record in lock["assets"].items() if source.startswith(prefix))
+    if kind == "mesh":
+        lines = [BEGIN, "local UPLOADED: { [string]: Uploaded } = {"]
+        for source, record in records:
+            if record.get("meshId") and record.get("native"):
+                native = ", ".join(lua_number(v) for v in record["native"])
+                lines.append(f'\t["{source}"] = {{ Id = "rbxassetid://{record["meshId"]}", Native = {{ {native} }} }},')
+        return lines
+    lines = [BEGIN, "local UPLOADED: { [string]: string } = {"]
+    for source, record in records:
+        lines.append(f'\t["{source}"] = "rbxassetid://{record["assetId"]}",')
+    return lines
+
+
 def write_blocks(lock: dict) -> None:
     for kind, spec in KINDS.items():
         target: pathlib.Path = spec["target"]
         prefix = rel(spec["dir"]) + "/"
-        entries = {
-            source: record["assetId"]
-            for source, record in lock["assets"].items()
-            if source.startswith(prefix)
-        }
-        lines = [BEGIN, "local UPLOADED: { [string]: string } = {"]
-        for source, asset_id in sorted(entries.items()):
-            lines.append(f'\t["{source}"] = "rbxassetid://{asset_id}",')
+        lines = block_lines(kind, prefix, lock)
+        entries = lines[2:]
         lines.append("}")
         lines.append(END)
         text = target.read_text()
@@ -260,7 +287,63 @@ def main(argv: list[str]) -> int:
         for kind, path in todo:
             print(f"  {kind:7s} {rel(path)}")
         counts = {kind: sum(1 for k, _ in todo if k == kind) for kind in KINDS}
-        print(f"{len(todo)} to upload ({counts['texture']} textures, {counts['sound']} sounds)")
+        print(f"{len(todo)} to upload (" + ", ".join(f"{n} {kind}" for kind, n in counts.items()) + ")")
+        return 0
+
+    if command == "resolve-snippet":
+        # The Luau to paste in Studio's command bar (or run through the Studio MCP) after an upload: it
+        # loads each uploaded mesh Model and prints, as JSON, the MeshPart's MeshId and MeshSize that
+        # `record-meshes` writes back. Studio, because the key has no right to download an asset.
+        models = {
+            source: record["assetId"]
+            for source, record in sorted(lock["assets"].items())
+            if source.startswith(rel(KINDS["mesh"]["dir"]) + "/")
+        }
+        rows = ",\n".join(f'\t["{source}"] = {asset_id}' for source, asset_id in models.items())
+        print(
+            "local InsertService = game:GetService(\"InsertService\")\n"
+            "local HttpService = game:GetService(\"HttpService\")\n"
+            f"local models = {{\n{rows},\n}}\n"
+            "local out = {}\n"
+            "for source, id in pairs(models) do\n"
+            "\tlocal model = InsertService:LoadAsset(id)\n"
+            "\tlocal part = model:FindFirstChildWhichIsA(\"MeshPart\", true)\n"
+            "\ttable.insert(out, { source = source, assetId = id, meshId = part.MeshId, native = { part.MeshSize.X, part.MeshSize.Y, part.MeshSize.Z } })\n"
+            "\tmodel:Destroy()\n"
+            "end\n"
+            "print(HttpService:JSONEncode(out))"
+        )
+        return 0
+
+    if command == "record-meshes":
+        # The ids Studio resolved (the `resolve-snippet` Luau prints them as JSON): for each uploaded mesh,
+        # the Model it was loaded from and the MeshPart's MeshId and MeshSize inside it. A row resolved
+        # from another upload than the one the lock records -- an old resolved.json after a re-upload -- is
+        # refused: it would name the previous mesh, and a regeneration that kept its bounds would pass
+        # every other check while the game drew the old one.
+        if len(argv) < 3:
+            sys.exit("usage: upload_assets.py record-meshes <resolved.json>")
+        resolved = json.loads(pathlib.Path(argv[2]).read_text())
+        for item in resolved:
+            record = lock["assets"].get(item["source"])
+            if record is None:
+                sys.exit(f"{item['source']} is not in the lock file: upload it first")
+            if int(item.get("assetId") or 0) != int(record["assetId"]):
+                sys.exit(
+                    f"{item['source']}: resolved from model {item.get('assetId')}, the lock records "
+                    f"{record['assetId']}: run resolve-snippet again in Studio"
+                )
+            mesh_id = str(item["meshId"]).removeprefix("rbxassetid://")
+            if not mesh_id.isdigit():
+                sys.exit(f"{item['source']}: {item['meshId']!r} is not a mesh id")
+            native = [float(v) for v in item["native"]]
+            if len(native) != 3 or min(native) <= 0:
+                sys.exit(f"{item['source']}: native size {native} is not three positive numbers")
+            record["meshId"] = mesh_id
+            record["native"] = native
+            print(f"  {item['source']}: mesh {mesh_id}, native {native}")
+        save_lock(lock)
+        write_blocks(lock)
         return 0
 
     if not user_id:
@@ -334,7 +417,7 @@ def main(argv: list[str]) -> int:
         print(f"{uploaded} uploaded")
         return 0
 
-    sys.exit(f"unknown command {command!r}: use quota, plan, upload or status")
+    sys.exit(f"unknown command {command!r}: use quota, plan, upload, status, resolve-snippet or record-meshes")
 
 
 if __name__ == "__main__":

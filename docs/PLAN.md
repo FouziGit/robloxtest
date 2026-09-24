@@ -140,7 +140,7 @@ Demandée après la comparaison avec les meilleurs battlegrounds (recherche du 2
 2. **Artisanat des particules.** Rampes de valeur à l'intérieur d'un pigment sur la vie de chaque particule, faisceaux qui défilent (`TextureSpeed`), formes d'émission partielles, flipbooks nets.
 3. **Le coup se sent.** Images d'impact à l'encre sur les coups lourds, ragdoll et relevé sur le finisher (`RagdollSeconds` existe sans code), réglage des flashs et respect de `ReducedMotion`.
 4. **Des volumes.** Meshes plats générés par script dans Blender, téléversés par Open Cloud, couche `Mesh` de la timeline (interpolation Début → Fin), images rémanentes et débris de papier. La pièce témoin est la Marque. Amende la règle « zéro modèle » de la bible : zéro modèle *sculpté ou fait à la main*.
-5. **Flipbooks procéduraux.** Floraison d'encre, trait qui se dessine, fumée de pinceau sec, éclaboussure, papier déchiré.
+5. **Flipbooks procéduraux.** Floraison d'encre, trait qui se dessine, fumée de pinceau sec, éclaboussure, papier déchiré — et, venus de la phase 2, les formes d'émission partielles et les flipbooks nets, dessinés avec chaque effet.
 6. **Le monde réagit.** Grain de papier sur les surfaces, accessoires d'arène destructibles, impacts contre les murs.
 7. **Animations.** Plus de mouvements CC0 (garde de combat, course, un geste de lancer par école) et marqueurs d'animation.
 8. **Interface et découverte.** Icônes générées (glyphes, pigments, monnaie), icône du jeu, écran de chargement et préchargement.

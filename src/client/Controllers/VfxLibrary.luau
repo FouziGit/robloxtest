@@ -701,9 +701,24 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	-- The outline is what tells you your hit landed on the right person through a crowd and through a
 	-- wall. Only ever drawn for the two people in the exchange; everybody else's is noise.
 	if dealtByMe or takenByMe then
-		local targetModel = api.CharacterOf(targetUserId)
+		-- The body the server named, or the player's by id: a dummy and the boss have only the first.
+		local victim = packet.Params ~= nil and packet.Params.Victim or nil
+		local targetModel = if typeof(victim) == "Instance" and victim:IsA("Model")
+			then victim
+			else api.CharacterOf(targetUserId)
 		if targetModel ~= nil then
 			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else color)
+			-- A heavy hit or the end of a chain prints both bodies in ink for a few frames, over the outline
+			-- (D-112). A finisher is a light hit and a heavy moment, so the server names it.
+			local finisher = packet.Params ~= nil and packet.Params.Finisher == true
+			if heavy or finisher then
+				local bodies = { targetModel }
+				local casterModel = api.CharacterOf(packet.Caster or 0)
+				if casterModel ~= nil then
+					table.insert(bodies, casterModel)
+				end
+				feel.impactFrame(bodies)
+			end
 		end
 		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else color, amplified)
 	end

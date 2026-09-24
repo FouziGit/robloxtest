@@ -352,7 +352,10 @@ local function onPreSimulation(deltaTime: number)
 		if character ~= nil then
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			local root = character:FindFirstChild("HumanoidRootPart")
-			if humanoid ~= nil and humanoid.Health > 0 and root ~= nil and root:IsA("BasePart") then
+			-- A body that is down (MovementService.ragdoll) is its joints' to move, limp or pulling itself
+			-- back up: a pose written over it would fight the fall.
+			local limp = character:GetAttribute(CombatConfig.Status.RagdollAttribute) ~= nil
+			if humanoid ~= nil and humanoid.Health > 0 and root ~= nil and root:IsA("BasePart") and not limp then
 				-- Squared, so the range test costs no square root per character per frame.
 				local offset = root.Position - origin
 				if offset:Dot(offset) <= RANGE_SQUARED then

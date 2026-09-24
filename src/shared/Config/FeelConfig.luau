@@ -132,6 +132,17 @@ FeelConfig.Flash = {
 	MaxConcurrent = 6,
 }
 
+-- The ink impact frame (D-112): on a heavy hit or a chain's finisher, the two bodies in it are printed
+-- as solid ink for a few frames, over the page flash the impact already throws -- the inverse print of an
+-- overexposed page. The bodies only, never the screen: a frame that drained the colour from everything
+-- would hide the spells for its length, which is the one thing D-108 exists to forbid, and the lighting
+-- bands have no room for it besides. Once per MinIntervalSeconds, so a flurry is not a strobe. At least as
+-- long as the hit outline it covers: shorter, the outline flickered back for one frame after it (review).
+FeelConfig.ImpactFrame = {
+	Seconds = 0.1,
+	MinIntervalSeconds = 0.5,
+}
+
 -- Floating damage numbers.
 FeelConfig.DamageNumbers = {
 	Seconds = 0.85,

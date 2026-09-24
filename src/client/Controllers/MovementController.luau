@@ -184,6 +184,24 @@ local function bindCharacter(character: Model)
 	humanoid = foundHumanoid
 	root = foundRoot
 
+	-- A fall (D-112). The server loosens the joints and names the phase on the character; the state of a
+	-- Humanoid is its simulating client's alone, so this client lets its body go and stands it back up.
+	local function followFall()
+		if foundHumanoid.Health <= 0 then
+			return
+		end
+		local phase = character:GetAttribute(CombatConfig.Status.RagdollAttribute)
+		if phase == CombatConfig.Status.RagdollLimp then
+			foundHumanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		elseif foundHumanoid:GetState() == Enum.HumanoidStateType.Physics then
+			-- Rising, or the fall already over: a Humanoid never leaves Physics on its own, so a body this
+			-- client let go stands back up whichever of the two it saw (review).
+			foundHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		end
+	end
+	characterTrove:Connect(character:GetAttributeChangedSignal(CombatConfig.Status.RagdollAttribute), followFall)
+	followFall()
+
 	characterTrove:Connect(
 		foundHumanoid.StateChanged,
 		function(_old: Enum.HumanoidStateType, new: Enum.HumanoidStateType)

@@ -53,6 +53,7 @@ type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	clearSlow: (player: Player, key: string?) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
+	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	command: (player: Player, payload: MovementCommand) -> (),
 }
@@ -918,6 +919,11 @@ function CombatService.ApplyDamage(
 	if pigment ~= nil then
 		hitParams.Pigment = pigment
 	end
+	-- The end of a melee chain: the client reads it for the impact frame a finisher earns (D-112), whatever
+	-- its damage -- fourteen is a light hit and a heavy moment.
+	if kind == "Melee" and tags[1] == "MeleeFinisher" then
+		hitParams.Finisher = true
+	end
 	-- A skinned glyph lands in its skin: the ring, the burn and the number of its hit are part of the
 	-- cast. Glyph damage carries its glyph id as tags[1] (GlyphEffects' tracker).
 	if kind == "Glyph" and source ~= nil and tags[1] ~= nil then
@@ -931,6 +937,9 @@ function CombatService.ApplyDamage(
 	-- for the two people actually in it. Target is 0 for a training dummy or an enemy, which has no
 	-- player behind it; the client treats that as "not me" and it is right.
 	hitParams.Target = if targetPlayer ~= nil then targetPlayer.UserId else 0
+	-- The body itself, for the outline and the ink print (D-112): a dummy or the boss has no user id to
+	-- find it by, and the training hub never showed either.
+	hitParams.Victim = targetModel
 	if amplifier ~= nil then
 		-- Floating text of the interaction (Strings "hud.status.bonus" takes {status} and {percent}).
 		hitParams.StatusKey = amplifier.NameKey
@@ -1104,6 +1113,8 @@ local function onMelee(player: Player, state: State, now: number)
 			local targetPlayer = Players:GetPlayerFromCharacter(model)
 			if targetPlayer ~= nil then
 				movement.applyStun(targetPlayer, melee.FinisherStunSeconds)
+				-- After the knockback: the body is thrown, then goes limp, and its stun lasts until it is up.
+				movement.ragdoll(targetPlayer, CombatConfig.Hit.RagdollSeconds)
 			end
 		end
 	end

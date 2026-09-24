@@ -20,6 +20,7 @@
 -- coupled to the camera, and the render step belongs to Feel, which owns the camera. While no pulse is
 -- live the connection returns on its first line.
 
+local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -67,10 +68,14 @@ local WorldLighting = {}
 local clientData: any
 local quality: any
 
--- False only when the player has asked for less motion on screen. Absent data means yes: a pulse
--- suppressed because a profile had not loaded yet would make the first impact of a session feel
--- different from every one after it.
+-- False only when the player has asked for less motion on screen: in the profile, or once for every
+-- experience in the platform's settings -- the same question Feel asks before a shake (D-112). Absent data
+-- means yes: a pulse suppressed because a profile had not loaded yet would make the first impact of a
+-- session feel different from every one after it.
 local function motionAllowed(): boolean
+	if GuiService.ReducedMotionEnabled then
+		return false
+	end
 	if clientData == nil then
 		return true
 	end

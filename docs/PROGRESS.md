@@ -293,8 +293,8 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | Phase | Statut | Commit |
 |---|---|---|
 | 1 — Les cosmétiques s'affichent | ✅ | voir le journal git |
-| 2 — Artisanat des particules | ⬜ | — |
-| 3 — Le coup se sent (images d'impact, ragdoll) | ⬜ | — |
+| 2 — Artisanat des particules | ✅ | `9af33da` |
+| 3 — Le coup se sent (images d'impact, ragdoll) | ✅ | voir le journal git |
 | 4 — Des volumes (meshes générés, pièce témoin : la Marque) | ⬜ | — |
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
@@ -307,3 +307,18 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - `CosmeticController` (auras, traînées, titres), la nuance écrite par le serveur dans le lancer, l'effet et le coup, quatre effets de kill en encre sur une nouvelle texture (`paper_scrap.png`, téléversée), l'aura VIP que le pass promettait.
 - Un défaut plus ancien corrigé au passage : un attaquant périmé était crédité à la mort suivante du survivant.
 - `tests/Cosmetics.spec.luau` ; 24 mutations, 24 échecs. Reste à voir en jeu : la vérification visuelle attend le serveur MCP de Studio (redémarrage de session).
+
+### Phase 2 — fait (D-111)
+
+- **L'encre sèche** : particules, traînées et taches au sol naissent mouillées et sèchent dans leur pigment ; nuance de skin et séchage bridés une seule fois (`PigmentConfig.shade`). Les taches sèchent sur l'horloge de leur sort : une tache en plusieurs maillons ne repâlit plus à chaque jonction (mesuré en jeu).
+- **L'étincelle vole la tête devant** et s'étire le long de son vol (VelocityParallel, demi-tour, Squash négatif), vérifié en jeu.
+- Les faisceaux défilaient déjà (`TextureSpeed` par défaut, remis par le pool). Les formes d'émission partielles et les flipbooks nets passent en phase 5, où chaque nouvel effet dessine sa texture et sa forme ensemble.
+- `tests/ParticleCraft.spec.luau` ; 21 mutations, 21 échecs.
+
+### Phase 3 — fait (D-112)
+
+- **Le finisher fait tomber** : articulations desserrées par le serveur (tous les clients voient la chute), relevé physique, victime étourdie jusqu'à ce qu'elle soit debout.
+- **Image d'impact à l'encre** sur les coups lourds et les finishers, pour les corps de l'échange, tous ceux d'une explosion ; mannequins et boss compris ; mouvement réduit respecté.
+- **Mouvement réduit** de la plateforme respecté par la secousse, le coup de focale, l'éclair de page et l'image d'impact.
+- Trois relectures adversariales ; `tests/HitFeel.spec.luau`, chaque mutation échoue (voir D-112).
+- Reste à voir en jeu : la chute par le serveur et le relevé physique (Studio indisponible au moment du commit). L'impression à l'encre, elle, a été vue en jeu.

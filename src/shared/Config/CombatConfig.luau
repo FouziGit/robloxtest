@@ -73,7 +73,15 @@ CombatConfig.Hit = {
 	IFrameSeconds = 0.3,
 	KnockbackDurationSeconds = 0.25,
 	StunMaxSeconds = 2,
-	RagdollSeconds = 0.6,
+	-- How long the melee finisher leaves its victim limp (MovementService.ragdoll, D-112), then how long its
+	-- joints pull the body back into its pose before they are rigid again. The victim acts again only once
+	-- both are over, whatever the finisher's own stun: the server aims with the root as it is, and a body
+	-- still lying down aimed its next swing and its next glyph at the sky (found by review). Limp for as
+	-- long as the throw lasts (KnockbackDurationSeconds), so the lock is 0.55 s against the finisher's 0.5
+	-- -- at 0.4 limp it was 0.7 and made a finisher into Brand a follow-up no dash could escape (review).
+	-- The rise is the measured stand-up (about 0.2 s on an R15 avatar) plus a network delay each way.
+	RagdollSeconds = 0.25,
+	RagdollRiseSeconds = 0.3,
 	-- Camera weight for the spells phase 4 of docs/JUICE_PLAN.md has not reworked yet, on the old 0-to-1
 	-- scale VfxLibrary.shakeNear still takes. Everything already reworked names a profile in
 	-- Config/FeelConfig instead, and these two leave with the last renderer that reads them. Hit-stop
@@ -85,6 +93,11 @@ CombatConfig.Hit = {
 CombatConfig.Status = {
 	SlowAttribute = "CombatSlow", -- Humanoid attribute set by the server while slowed
 	StunAttribute = "CombatStun",
+	-- Character attribute the server sets while a body is down (MovementService.ragdoll, D-112): Limp while
+	-- it falls, Rising while its joints pull it back up, nil otherwise. Every client reads it.
+	RagdollAttribute = "CombatRagdoll",
+	RagdollLimp = "Limp",
+	RagdollRising = "Rising",
 	BlockAttribute = "CombatBlock",
 
 	-- Pigment interactions (docs/GAME_DESIGN.md §6). A mark is a Humanoid attribute holding its

@@ -13,6 +13,7 @@
 -- The binding sits one priority above Camera so it runs after the default camera script has written
 -- this frame's CFrame; anything earlier is overwritten and does nothing.
 
+local GuiService = game:GetService("GuiService")
 local HapticService = game:GetService("HapticService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,8 +28,10 @@ local DamageNumber = require(UI.components.DamageNumber)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local FeelMath = require(Shared.Pure.FeelMath)
 local Log = require(Shared.Util.Log)
+local Palette = require(Shared.Util.Palette)
 local Shake = require(Packages.Shake)
 local Spring = require(Shared.Pure.Spring)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("Feel")
 
@@ -71,6 +74,7 @@ local numberSeed = 0
 
 type ActiveFlash = { Highlight: Highlight, Remaining: number }
 local flashes: { ActiveFlash } = {}
+local FLASH_NAME = "FeelFlash"
 
 local hitStopRemaining = 0
 local hitStopRole: Role = "None"
@@ -91,7 +95,13 @@ local function localRoot(): BasePart?
 	return nil
 end
 
-local function shakeEnabled(): boolean
+-- Whether the feel may move the picture: the profile's camera-shake switch, the one reduced-motion control
+-- it has, and the platform's own reduced-motion setting, which a player sets once for every experience.
+-- The shake, the FOV punch and the ink print all ask it (D-112); a hit-stop holds the picture still.
+local function motionAllowed(): boolean
+	if GuiService.ReducedMotionEnabled then
+		return false
+	end
 	if clientData == nil then
 		return true
 	end
@@ -119,7 +129,7 @@ function Feel.shake(profileName: string, scale: number?)
 		return
 	end
 	local strength = math.clamp(scale or 1, 0, 1)
-	if strength < FeelConfig.Shake.MinScale or not shakeEnabled() then
+	if strength < FeelConfig.Shake.MinScale or not motionAllowed() then
 		return
 	end
 
@@ -239,7 +249,7 @@ end
 -- Kicks the field of view. This is an impulse on a spring, not a target, so two punches in one frame
 -- compose, and the view always returns to whatever the camera's own base is.
 function Feel.fovPunch(degrees: number)
-	if degrees == 0 then
+	if degrees == 0 or not motionAllowed() then
 		return
 	end
 	fovSpring:impulse(degrees)
@@ -277,7 +287,7 @@ function Feel.flash(model: Model, color: Color3)
 		end
 	end
 	local highlight = Instance.new("Highlight")
-	highlight.Name = "FeelFlash"
+	highlight.Name = FLASH_NAME
 	highlight.FillColor = color
 	highlight.OutlineColor = color
 	highlight.FillTransparency = FeelConfig.Flash.FillTransparency
@@ -286,6 +296,60 @@ function Feel.flash(model: Model, color: Color3)
 	highlight.Adornee = model
 	highlight.Parent = model
 	table.insert(flashes, { Highlight = highlight, Remaining = FeelConfig.Flash.Seconds })
+end
+
+-- The ink impact frame (FeelConfig.ImpactFrame): each body in `models` printed as solid ink, on top of
+-- everything, for a few frames, over the outline it replaces. Held to motionAllowed like the shake.
+-- Charcoal: the world's ink, the one colour every body is printed in whatever its school.
+local INK = Palette.rgb(WorldConfig.Colors.Ink)
+local INK_FRAME_NAME = "FeelImpactFrame"
+local impactFrameAt = -math.huge
+
+function Feel.impactFrame(models: { Model })
+	local config = FeelConfig.ImpactFrame
+	if not motionAllowed() then
+		return
+	end
+	local now = os.clock()
+	local since = now - impactFrameAt
+	-- One blast is one frame: a body another packet of the same blast names while the frame is still up
+	-- joins it and ends with it. Limited per call, a blast that caught two enemies printed whichever packet
+	-- came first (found by review). After the frame, nothing until the interval: a flurry is not a strobe.
+	local joining = since < config.Seconds
+	if not joining and since < config.MinIntervalSeconds then
+		return
+	end
+	if not joining then
+		impactFrameAt = now
+	end
+	local remaining = impactFrameAt + config.Seconds - now
+	for _, model in ipairs(models) do
+		if model.Parent ~= nil and model:FindFirstChild(INK_FRAME_NAME) == nil then
+			-- The outline under the print ends with it: a body joining a frame already up got its outline's
+			-- full length and showed it for a frame after the ink (review).
+			for _, entry in ipairs(flashes) do
+				if entry.Highlight.Adornee == model and entry.Highlight.Name == FLASH_NAME then
+					entry.Remaining = math.min(entry.Remaining, remaining)
+				end
+			end
+			if #flashes >= FeelConfig.Flash.MaxConcurrent then
+				local oldest = table.remove(flashes, 1)
+				if oldest ~= nil then
+					oldest.Highlight:Destroy()
+				end
+			end
+			local highlight = Instance.new("Highlight")
+			highlight.Name = INK_FRAME_NAME
+			highlight.FillColor = INK
+			highlight.OutlineColor = INK
+			highlight.FillTransparency = 0
+			highlight.OutlineTransparency = 0
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Adornee = model
+			highlight.Parent = model
+			table.insert(flashes, { Highlight = highlight, Remaining = remaining })
+		end
+	end
 end
 
 local function stepFlashes(deltaTime: number)

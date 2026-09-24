@@ -79,6 +79,7 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 1. Play dans Studio : l'Output doit montrer `[Bootstrap] Vellum v2.0.0 ready` et **aucun** `[MonetizationService] missing id` une fois les IDs saisis.
 2. Frapper un mannequin (`J J` = Marque) → XP, Folios, barre de niveau.
+   - Verrou : face à un mannequin, **clic molette** (ou R3) → un losange d'encre au-dessus de lui, la caméra le suit et le personnage lui fait face même en marchant de côté ; clic molette à nouveau → relâché. Il lâche seul si le mannequin tombe à zéro ou si tu t'éloignes de plus de 140 studs. Sur un trackpad sans bouton du milieu, réassigne `Verrouiller` dans les options.
 3. `M` → Options : réassigner une touche, sauvegarder, relancer Play : la touche est conservée (DataStore actif).
 4. Test tactile : Test → Device → téléphone (812x375, paysage). Vérifier trois choses :
    - les cinq disques de pigments affichent bien un pictogramme (`▲ ≈ ■ » ✦`) et non un carré vide. Ce sont des caractères Unicode ; si l'un d'eux ne s'affiche pas sur ton appareil, le remplacer dans `src/shared/Config/PigmentConfig.luau` (champ `Sigils`) — le HUD et l'écran d'équipement suivent automatiquement ;

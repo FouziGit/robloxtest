@@ -40,6 +40,10 @@ type BindInput = Enum.KeyCode | Enum.UserInputType
 type Rect = { Min: Vector2, Max: Vector2 }
 type TouchStyle = { Layout: { [string]: Vector2 }, Size: number, Origin: Vector2 }
 
+-- Above the default camera's own bindings: at the same priority, the most recently bound wins, and the
+-- camera re-binds the right stick's click (its zoom) every time it is re-enabled -- so the lock's button
+-- worked or zoomed depending on who bound last (D-115). The stun's input lock sits above this.
+local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value
 local MOUSE_PREFIX = "MouseButton"
 local GAMEPAD_PREFIX = "Gamepad"
 local MENU_ACTION = "Menu"
@@ -512,7 +516,7 @@ local function bindAll()
 		if #inputs == 0 and not touch then
 			continue
 		end
-		ContextActionService:BindAction(action, onAction, touch, table.unpack(inputs))
+		ContextActionService:BindActionAtPriority(action, onAction, touch, ACTION_PRIORITY, table.unpack(inputs))
 		table.insert(boundActions, action)
 	end
 	if not touch then

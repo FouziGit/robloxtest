@@ -269,6 +269,57 @@ local function upgradeToV4(raw: { [string]: any }, result: { [string]: any })
 	end
 end
 
+-- A keybind map loaded over the template's defaults can hold one key twice: an action added after a
+-- player bound its new default key to something else -- LockOn's wheel click, D-115 -- arrives with that
+-- key while the player's own action still has it. Left alone, the new action silently took the key from
+-- the old one on the client, and the server refused every keybind save after it ("bound twice").
+--
+-- The player's own choice keeps the key; the action that only has its default yields and takes the
+-- first allowed key nobody holds, in sorted order, so every load settles the same way. `chosen` is the
+-- map as the player saved it (nil for a fresh profile), `allowed` the whitelist of its kind, `order`
+-- every action. Returns whether anything moved.
+function DataMigration.settleKeybinds(
+	map: { [string]: string },
+	chosen: { [string]: any }?,
+	allowed: { [string]: boolean },
+	order: { string }
+): boolean
+	local held: { [string]: string } = {}
+	local yielding: { string } = {}
+	-- The player's own keys claim first, the defaults after: on a clash, the default is the one that moves.
+	for _, own in ipairs({ true, false }) do
+		for _, action in ipairs(order) do
+			local key = map[action]
+			if key ~= nil and (chosen ~= nil and chosen[action] == key) == own then
+				if held[key] == nil then
+					held[key] = action
+				else
+					table.insert(yielding, action)
+				end
+			end
+		end
+	end
+	if #yielding == 0 then
+		return false
+	end
+	local free: { string } = {}
+	for key in pairs(allowed) do
+		if held[key] == nil then
+			table.insert(free, key)
+		end
+	end
+	table.sort(free)
+	for _, action in ipairs(yielding) do
+		local key = table.remove(free, 1)
+		if key == nil then
+			break
+		end
+		map[action] = key
+		held[key] = action
+	end
+	return true
+end
+
 function DataMigration.migrate(
 	raw: any,
 	template: { [string]: any },

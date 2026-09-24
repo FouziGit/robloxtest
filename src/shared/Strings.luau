@@ -28,9 +28,11 @@ Strings.Table = {
 	["action.melee.short"] = { en = "Melee", fr = "CAC" },
 	["action.dash.short"] = { en = "Dash", fr = "Ruée" },
 	["action.block.short"] = { en = "Block", fr = "Garde" },
+	["action.lockOn.short"] = { en = "Lock", fr = "Cible" },
 	["action.menu.short"] = { en = "Menu", fr = "Menu" },
 	["action.dash"] = { en = "Dash", fr = "Ruée" },
 	["action.block"] = { en = "Block", fr = "Garde" },
+	["action.lockOn"] = { en = "Lock on", fr = "Verrouiller" },
 	["action.menu"] = { en = "Menu", fr = "Menu" },
 	["currency.folio"] = { en = "Folios", fr = "Folios" },
 

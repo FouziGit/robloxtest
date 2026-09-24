@@ -7,6 +7,7 @@
 -- It never decides that the event is over: `step` reports what the tick found and WorldBossService owns
 -- the schedule, the outcomes and the rewards.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -138,6 +139,8 @@ local function buildBody(position: Vector3, facing: Vector3, health: number): (M
 	humanoid.Parent = model
 
 	model.PrimaryPart = body
+	-- What a client locks onto (WorldBossConfig.Boss.Tag, D-115). The tag replicates with the model.
+	CollectionService:AddTag(model, BOSS.Tag)
 	return model, humanoid, body, band
 end
 

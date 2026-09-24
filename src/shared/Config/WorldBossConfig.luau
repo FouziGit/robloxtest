@@ -108,6 +108,10 @@ WorldBossConfig.Rewards = {
 
 WorldBossConfig.Boss = {
 	Name = "WorldBoss", -- instance name (not shown to players; the HUD uses boss.name)
+	-- The CollectionService tag the boss model carries, which is how a client finds it to lock onto
+	-- (D-115). Never GameConfig.Enemy.Tag: that one means a training proof, and a boss wearing it would
+	-- count as a proof in the quests and take a killer's kill effect.
+	Tag = "WorldBoss",
 	NameKey = "boss.name",
 	-- Studs {X, Y, Z}; the service builds the vector (this module stays pure). Flat on Z: it is the
 	-- collider and the figure inside it (WorldConfig.Erasure) is a flat silhouette, so a deeper hull

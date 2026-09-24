@@ -63,6 +63,8 @@ local ORDER = {
 	-- Listens to the combo and draws in the HUD: after both.
 	"OnboardingController",
 	"CombatController",
+	-- Locks onto an opponent: listens to the input, reads the match snapshots, frames through Feel.
+	"LockOnController",
 	"MovementController",
 }
 

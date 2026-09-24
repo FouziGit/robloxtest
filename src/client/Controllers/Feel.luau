@@ -27,6 +27,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local DamageNumber = require(UI.components.DamageNumber)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local FeelMath = require(Shared.Pure.FeelMath)
+local LockOnMath = require(Shared.Pure.LockOnMath)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
 local Shake = require(Packages.Shake)
@@ -468,6 +469,9 @@ end
 -- Springs for everyone else
 --------------------------------------------------------------------------------------------------
 
+-- What the camera is locked onto (Feel.lockOn), nil when it is free.
+local lockTarget: BasePart? = nil
+
 -- A spring with one of FeelConfig's named constants, for the HUD and the screens. Handed out rather
 -- than required directly so every spring in the game is tuned from the same file.
 -- Watches `humanoid`, or the local character again when it is nil. It is the camera's SUBJECT, not its
@@ -491,6 +495,14 @@ function Feel.watch(humanoid: Humanoid?)
 	end
 end
 
+-- Locks the camera onto `target` -- an opponent's root, chosen by LockOnController (D-115) -- or frees
+-- it with nil. The camera keeps orbiting its subject at the distance the player zoomed to and the walls
+-- allow; only the way it looks is taken, every frame, after the default camera has run and before any
+-- shake or hit-stop is laid on top. Released, the default camera carries on from where the lock left it.
+function Feel.lockOn(target: BasePart?)
+	lockTarget = target
+end
+
 function Feel.newSpring(name: string, value: number?): SpringType
 	local preset = FeelConfig.Springs[name]
 	if preset == nil then
@@ -504,11 +516,55 @@ end
 -- The one render loop
 --------------------------------------------------------------------------------------------------
 
+-- Turns the camera toward the locked target, about the point the default camera orbits (its Focus,
+-- which carries the shoulder offset), at the distance it is at. Turned by a share of the way per frame
+-- (FeelConfig.LockOn.Turn), never snapped; the default camera starts from this direction next frame, so
+-- zoom, occlusion and the release all go on from it.
+local function aimAtLock(camera: Camera, deltaTime: number)
+	local target = lockTarget
+	if target == nil then
+		return
+	end
+	if target.Parent == nil then
+		lockTarget = nil
+		return
+	end
+	local own = localRoot()
+	if own == nil then
+		return
+	end
+	local config = FeelConfig.LockOn
+	local focus = camera.Focus.Position
+	local distance = (camera.CFrame.Position - focus).Magnitude
+	-- Level with level: the point on the target as high above its root as the pivot is above ours, so an
+	-- opponent on the same floor is looked at straight across and only a real difference in height tilts
+	-- the view. The tilt that frames them is the bias's alone.
+	local toward = target.Position + Vector3.yAxis * (focus.Y - own.Position.Y) - focus
+	local x, y, z = LockOnMath.look(
+		toward.X,
+		toward.Y,
+		toward.Z,
+		config.PitchBiasDegrees,
+		config.PitchMinDegrees,
+		config.PitchMaxDegrees
+	)
+	if x == nil or y == nil or z == nil then
+		return
+	end
+	local from = CFrame.lookAlong(Vector3.zero, camera.CFrame.LookVector)
+	local to = CFrame.lookAlong(Vector3.zero, Vector3.new(x, y, z))
+	local look = from:Lerp(to, LockOnMath.turnShare(config.Turn, deltaTime)).LookVector
+	camera.CFrame = CFrame.lookAlong(focus - look * distance, look)
+end
+
 local function onRender(deltaTime: number)
 	local camera = Workspace.CurrentCamera
 	if camera == nil then
 		return
 	end
+
+	-- First, so a shake and a hit-stop are laid on the locked view rather than undone by it.
+	aimAtLock(camera, deltaTime)
 
 	if hitStopRemaining > 0 then
 		hitStopRemaining -= deltaTime
@@ -554,6 +610,7 @@ local function releaseAll()
 	hitStopRole = "None"
 	fovSpring:snap(0)
 	appliedFovOffset = 0
+	lockTarget = nil
 end
 
 function Feel.Init(deps: Deps)

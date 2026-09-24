@@ -16,6 +16,7 @@
 | Corps à corps (M1) | clic gauche | `X` | bouton |
 | Dash | Maj gauche | `B` | bouton |
 | Garde | `F` | `LT` | bouton (maintenir) |
+| Verrouiller un adversaire | clic molette | `R3` | bouton |
 | Menu | `M` | `Select` | bouton |
 | Saut / double saut | Espace ×2 | `A` ×2 | bouton saut Roblox |
 

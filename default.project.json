@@ -31,7 +31,8 @@
 			"$properties": {
 				"CharacterWalkSpeed": 16,
 				"CharacterJumpPower": 50,
-				"CharacterUseJumpPower": true
+				"CharacterUseJumpPower": true,
+				"EnableMouseLockOption": false
 			},
 			"StarterPlayerScripts": {
 				"$path": "src/client"

@@ -3,6 +3,8 @@ action.block,Block,Vellum,,Block,Garde
 action.block.short,Block,Vellum,,Block,Garde
 action.dash,Dash,Vellum,,Dash,Ruée
 action.dash.short,Dash,Vellum,,Dash,Ruée
+action.lockOn,Lock on,Vellum,,Lock on,Verrouiller
+action.lockOn.short,Lock,Vellum,,Lock,Cible
 action.melee,Melee,Vellum,,Melee,Corps à corps
 action.melee.short,Melee,Vellum,,Melee,CAC
 action.menu,Menu,Vellum,,Menu,Menu

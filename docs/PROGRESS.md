@@ -327,4 +327,5 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 
 - **Un seul vol** (`a100b84`) : la Marque dessinée suit la vraie à moins de trois studs et retombe là où elle éclate ; lancer numéroté, `Fizzle`, attente au bout du vol, son de queue gardé.
 - **Volumes générés** : sept maillages Blender reproductibles à l'octet, téléversés et résolus ; couche `Mesh` et couche `Debris` ; Explosion (ensō, anneau, couronne, papier) et Marque (goutte, balayage). Vus en jeu, puis relus : sol trouvé sous les mannequins et le boss, jamais par-dessus l'avertissement d'un autre effet, atterrissages sans à-coup (D-114).
+- **Verrou sur un adversaire** (D-115, demandé en cours de phase) : clic molette / R3 / disque tactile ; caméra et orientation, adversaires en match, mannequins et boss hors match ; shift-lock retiré. Vu en jeu : orientation exacte, caméra sur la cible, relâché à la mort de la cible et hors de portée.
 - Reste : images rémanentes sur l'esquive, kit en encre charbon (coups, esquive) et leurs balayages, puis les phases 5 à 8.

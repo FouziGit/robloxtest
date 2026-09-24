@@ -3,18 +3,40 @@
 -- Keyboard defaults avoid movement keys on QWERTY (W A S D) and AZERTY (Z Q S D), Space (jump),
 -- and Roblox-reserved keys (I/O zoom, Tab leaderboard, Esc menu, digits = backpack).
 
-export type ActionId = "Cinnabar" | "Indigo" | "Umber" | "Verdigris" | "Orpiment" | "Melee" | "Dash" | "Block" | "Menu"
+export type ActionId =
+	"Cinnabar"
+	| "Indigo"
+	| "Umber"
+	| "Verdigris"
+	| "Orpiment"
+	| "Melee"
+	| "Dash"
+	| "Block"
+	| "LockOn"
+	| "Menu"
 
 local InputConfig = {}
 
-InputConfig.Actions =
-	{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block", "Menu" } :: { ActionId }
+InputConfig.Actions = {
+	"Cinnabar",
+	"Indigo",
+	"Umber",
+	"Verdigris",
+	"Orpiment",
+	"Melee",
+	"Dash",
+	"Block",
+	"LockOn",
+	"Menu",
+} :: { ActionId }
 
 -- Actions the player may rebind (Menu stays fixed so the settings screen is always reachable).
 InputConfig.Rebindable =
-	{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block" } :: { ActionId }
+	{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block", "LockOn" } :: { ActionId }
 
--- Enum.KeyCode names, or "MouseButton1" / "MouseButton2" (Enum.UserInputType) for mouse.
+-- Enum.KeyCode names, or "MouseButton1" / "MouseButton2" / "MouseButton3" (Enum.UserInputType) for mouse.
+-- LockOn takes the wheel's click and the right stick's: the thumb that aims is the thumb that locks
+-- (D-115). A trackpad has no middle button, so its players rebind it.
 InputConfig.DefaultKeyboard = {
 	Cinnabar = "J",
 	Indigo = "K",
@@ -24,6 +46,7 @@ InputConfig.DefaultKeyboard = {
 	Melee = "MouseButton1",
 	Dash = "LeftShift",
 	Block = "F",
+	LockOn = "MouseButton3",
 	Menu = "M",
 } :: { [ActionId]: string }
 
@@ -37,6 +60,7 @@ InputConfig.DefaultGamepad = {
 	Melee = "ButtonX",
 	Dash = "ButtonB",
 	Block = "ButtonL2",
+	LockOn = "ButtonR3",
 	Menu = "ButtonSelect",
 } :: { [ActionId]: string }
 
@@ -129,6 +153,7 @@ local touchPositions: { [ActionId]: TouchPlacement } = {
 	Melee = { Anchor = "JumpRow", Step = 1 },
 	Block = { Anchor = "JumpRow", Step = 2 },
 	Dash = { Anchor = "JumpRow", Step = 3 },
+	LockOn = { Anchor = "JumpRow", Step = 4 },
 	Menu = { Anchor = "TopRight" },
 }
 
@@ -151,6 +176,7 @@ InputConfig.ActionNameKeys = {
 	Melee = "action.melee",
 	Dash = "action.dash",
 	Block = "action.block",
+	LockOn = "action.lockOn",
 	Menu = "action.menu",
 } :: { [ActionId]: string }
 
@@ -162,6 +188,7 @@ InputConfig.ActionShortKeys = {
 	Melee = "action.melee.short",
 	Dash = "action.dash.short",
 	Block = "action.block.short",
+	LockOn = "action.lockOn.short",
 	Menu = "action.menu.short",
 } :: { [ActionId]: string }
 

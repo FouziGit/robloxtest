@@ -48,6 +48,7 @@ Pour que les sauvegardes fonctionnent : publier la place et cocher *Game Setting
 | Corps à corps | clic gauche | `X` | bouton |
 | Dash (i-frames) | Maj gauche | `B` | bouton |
 | Garde | `F` | `LT` | maintenir |
+| Verrouiller un adversaire | clic molette | `R3` | bouton |
 | Menu | `M` | `Select` | bouton |
 | Double saut | Espace ×2 | `A` ×2 | bouton saut |
 

@@ -246,3 +246,82 @@ describe("DataMigration boosts", function()
 		expect(malformed.Boosts.XpUntil).toBe(0)
 	end)
 end)
+
+describe("DataMigration.settleKeybinds", function()
+	local ORDER = { "Cinnabar", "Melee", "Dash", "Block", "LockOn", "Menu" }
+	local ALLOWED = {
+		J = true,
+		F = true,
+		M = true,
+		B = true,
+		C = true,
+		LeftShift = true,
+		MouseButton1 = true,
+		MouseButton3 = true,
+	}
+
+	local function unique(map: { [string]: string }): boolean
+		local seen: { [string]: boolean } = {}
+		for _, key in pairs(map) do
+			if seen[key] then
+				return false
+			end
+			seen[key] = true
+		end
+		return true
+	end
+
+	it("keeps the player's key and moves the new default off it", function()
+		-- Saved before LockOn existed, with the wheel's click on Block: the template's LockOn default
+		-- arrives with the same key.
+		local saved = { Cinnabar = "J", Melee = "MouseButton1", Dash = "LeftShift", Block = "MouseButton3", Menu = "M" }
+		local map = table.clone(saved) :: { [string]: string }
+		map.LockOn = "MouseButton3"
+		expect(DataMigration.settleKeybinds(map, saved, ALLOWED, ORDER)).toBe(true)
+		expect(map.Block).toBe("MouseButton3")
+		-- The first free allowed key, sorted: B.
+		expect(map.LockOn).toBe("B")
+		expect(unique(map)).toBe(true)
+		-- Settled once, it stays settled.
+		local again = table.clone(map)
+		expect(DataMigration.settleKeybinds(again, map, ALLOWED, ORDER)).toBe(false)
+		expect(again.LockOn).toBe("B")
+	end)
+
+	it("moves nothing when nothing clashes, saved or fresh", function()
+		local saved = { Cinnabar = "J", Melee = "MouseButton1", Dash = "LeftShift", Block = "F", Menu = "M" }
+		local map = table.clone(saved) :: { [string]: string }
+		map.LockOn = "MouseButton3"
+		expect(DataMigration.settleKeybinds(map, saved, ALLOWED, ORDER)).toBe(false)
+		expect(map.LockOn).toBe("MouseButton3")
+		local fresh = table.clone(map)
+		expect(DataMigration.settleKeybinds(fresh, nil, ALLOWED, ORDER)).toBe(false)
+		expect(fresh.LockOn).toBe("MouseButton3")
+	end)
+
+	it("settles a profile loaded over a template that grew an action", function()
+		local grown = template()
+		grown.Settings.Keyboard.LockOn = "MouseButton3"
+		local raw = template()
+		raw.DataVersion = DataMigration.CurrentVersion
+		raw.Settings.Keyboard.Block = "MouseButton3"
+		local migrated = DataMigration.migrate(raw, grown, "S1", nil)
+		-- The overlay alone leaves the clash: this is what the settling is for.
+		expect(migrated.Settings.Keyboard.LockOn).toBe("MouseButton3")
+		expect(migrated.Settings.Keyboard.Block).toBe("MouseButton3")
+		local allowed: { [string]: boolean } = {}
+		for _, key in pairs(grown.Settings.Keyboard) do
+			allowed[key] = true
+		end
+		allowed.G = true
+		local order =
+			{ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment", "Melee", "Dash", "Block", "LockOn", "Menu" }
+		expect(DataMigration.settleKeybinds(migrated.Settings.Keyboard, raw.Settings.Keyboard, allowed, order)).toBe(
+			true
+		)
+		expect(migrated.Settings.Keyboard.Block).toBe("MouseButton3")
+		-- F was Block's default and is free again once the player moved Block off it.
+		expect(migrated.Settings.Keyboard.LockOn).toBe("F")
+		expect(unique(migrated.Settings.Keyboard)).toBe(true)
+	end)
+end)

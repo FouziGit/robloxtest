@@ -25,7 +25,7 @@ Aucune touche par défaut n'entre en conflit avec WASD (QWERTY), ZQSD (AZERTY), 
 
 - **Vie** : 100. Régénération 3/s hors combat après 8 s sans dégât.
 - **Ink** : 100. Chaque glyph coûte 15-50. Régénération 12/s hors combat, 4/s en combat (6 s après avoir donné ou reçu un coup). Le encre est la vraie limite au spam ; les cooldowns empêchent la répétition d'un même glyph.
-- **M1** : combo de 4 coups (8 / 8 / 8 / 14), fenêtre de chaînage 0,9 s, portée 7 studs. Le 4e coup projette (knockback + léger envol), étourdit 0,5 s, brise la garde, puis impose 1,2 s de recharge. Sur un avatar articulé (AJU), la victime tombe pendant la projection et se relève : elle ne peut agir qu'une fois debout, 0,55 s après le coup (D-112).
+- **M1** : combo de 4 coups (8 / 8 / 8 / 14), fenêtre de chaînage 0,9 s, portée 7 studs. Le 4e coup projette (knockback + léger envol), étourdit 0,5 s, brise la garde, puis impose 1,2 s de recharge. Sur un avatar articulé (AJU), la victime est projetée inerte, tombe, reste à terre un instant et se relève : 1,1 s pendant lesquelles elle ne peut pas agir et **ne peut pas être touchée** (D-113) — un knockdown n'offre jamais de suite garantie.
 - **Dash** : 22 studs en 0,22 s, 0,25 s d'invulnérabilité, recharge 2,5 s, coûte 10 encre. Direction = déplacement en cours, sinon regard.
 - **Garde** : -70 % de dégâts, marche à 50 %, 4 s max puis 1,5 s de recharge. Brisée (1 s de stun) par les *Ultimes* et par le 4e coup de M1.
 - **Stun / ragdoll léger** : sur certains impacts (Empattement, Rupture, finisher M1) — jamais plus de 2 s cumulées.
@@ -164,7 +164,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 
-Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux participants, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
+Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 

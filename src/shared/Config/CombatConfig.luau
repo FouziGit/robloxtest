@@ -75,12 +75,12 @@ CombatConfig.Hit = {
 	StunMaxSeconds = 2,
 	-- How long the melee finisher leaves its victim limp (MovementService.ragdoll, D-112), then how long its
 	-- joints pull the body back into its pose before they are rigid again. The victim acts again only once
-	-- both are over, whatever the finisher's own stun: the server aims with the root as it is, and a body
-	-- still lying down aimed its next swing and its next glyph at the sky (found by review). Limp for as
-	-- long as the throw lasts (KnockbackDurationSeconds), so the lock is 0.55 s against the finisher's 0.5
-	-- -- at 0.4 limp it was 0.7 and made a finisher into Brand a follow-up no dash could escape (review).
-	-- The rise is the measured stand-up (about 0.2 s on an R15 avatar) plus a network delay each way.
-	RagdollSeconds = 0.25,
+	-- both are over, and nothing can hit it until then (CombatService.ApplyDamage): a knockdown is a pause
+	-- for both players, never a free follow-up. Measured live: thrown limp, a body reaches the ground in
+	-- about 0.5 s -- at 0.25 s it often never fell at all, only its arms went loose -- and at 0.6 it got up
+	-- the moment it landed. 0.8 leaves it lying for a third of a second. The rise is the measured stand-up
+	-- (about 0.2 s on an R15 avatar) plus a network delay each way.
+	RagdollSeconds = 0.8,
 	RagdollRiseSeconds = 0.3,
 	-- Camera weight for the spells phase 4 of docs/JUICE_PLAN.md has not reworked yet, on the old 0-to-1
 	-- scale VfxLibrary.shakeNear still takes. Everything already reworked names a profile in

@@ -114,3 +114,54 @@ describe("OriginGuard.budget", function()
 		expect(OriginGuard.budget(0, 5, CONFIG)).toBe(5)
 	end)
 end)
+
+-- The way a body faces, which the server aims every swing and glyph with (D-113). Measured live: after a
+-- finisher the server still saw the victim's root tilted to 0.41 up when its stun ended, and a swing aimed
+-- with that root went into the ground.
+describe("OriginGuard.facing", function()
+	local function facing(look: { number }, up: { number }): (number, number)
+		return OriginGuard.facing(look[1], look[2], look[3], up[1], up[3])
+	end
+	local function near(a: number, b: number)
+		expect(math.abs(a - b) < 1e-6).toBe(true)
+	end
+
+	it("is the look itself for a body standing up", function()
+		local x, z = facing({ 0.6, 0, -0.8 }, { 0, 1, 0 })
+		near(x, 0.6)
+		near(z, -0.8)
+	end)
+
+	-- Facing an arbitrary horizontal direction, never an axis: the degenerate fallback is (0, -1), and a
+	-- case facing -Z would pass by coincidence.
+	local AIM = 0.7
+	local FX, FZ = math.cos(AIM), math.sin(AIM)
+
+	it("keeps pointing forward as the body tips over backwards, down to lying on its back", function()
+		for _, degrees in ipairs({ 30, 60, 78, 80, 89, 90 }) do
+			local t = math.rad(degrees)
+			local c, s = math.cos(t), math.sin(t)
+			local x, z = facing({ c * FX, s, c * FZ }, { -s * FX, c, -s * FZ })
+			near(x, FX)
+			near(z, FZ)
+		end
+	end)
+
+	it("keeps pointing forward as the body falls on its face", function()
+		for _, degrees in ipairs({ 30, 60, 85, 90 }) do
+			local t = math.rad(degrees)
+			local c, s = math.cos(t), math.sin(t)
+			local x, z = facing({ c * FX, -s, c * FZ }, { s * FX, c, s * FZ })
+			near(x, FX)
+			near(z, FZ)
+		end
+	end)
+
+	it("always returns a horizontal unit, even from a degenerate frame", function()
+		local x, z = facing({ 0, 1, 0 }, { 0, 1, 0 })
+		near(x * x + z * z, 1)
+		x, z = facing({ 3, -2, 4 }, { 0, 1, 0 })
+		near(x, 0.6)
+		near(z, 0.8)
+	end)
+end)

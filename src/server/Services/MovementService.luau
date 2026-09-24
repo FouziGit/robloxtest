@@ -32,8 +32,9 @@ type SlowEntry = { Factor: number, Until: number }
 
 -- A joint loosened by a fall, with what it was before.
 type Joint = { Joint: AnimationConstraint, Kinematic: boolean, MaxTorque: number }
--- A body that is down (MovementService.ragdoll): Until ends the limp phase, then the rise.
-type Fall = { Character: Model, Joints: { Joint }, Rising: boolean, Until: number }
+-- A body that is down (MovementService.ragdoll): Until ends the limp phase, then the rise. RiseFrom is
+-- when the rise began, for the joints' strength coming back over it.
+type Fall = { Character: Model, Joints: { Joint }, Rising: boolean, Until: number, RiseFrom: number }
 
 type State = {
 	Trove: TroveType, -- player lifetime
@@ -121,11 +122,14 @@ end
 
 -- The rise: each joint gets its strength back while it is still physical, so a limb is PULLED to its pose
 -- rather than put there in one frame -- restored rigid at once, a shoulder turned 115 degrees in a single
--- step (art bible rule 3, measured by review).
-local function strengthenJoints(fall: Fall)
+-- step (art bible rule 3, measured by review). And back gradually, on the square of the rise's progress:
+-- all of it in one write, a knee still straightened 106 degrees in one frame; ramped, the worst joint
+-- moved 42 (measured live).
+local function strengthenJoints(fall: Fall, progress: number)
+	local strength = math.clamp(progress, 0, 1) ^ 2
 	for _, saved in ipairs(fall.Joints) do
 		if saved.Joint.Parent ~= nil then
-			saved.Joint.MaxTorque = saved.MaxTorque
+			saved.Joint.MaxTorque = saved.MaxTorque * strength
 		end
 	end
 end
@@ -145,6 +149,9 @@ end
 -- 0.55 s the finisher was tuned to (review). The stun is renewed to the rise's end all the same.
 local function stepFall(player: Player, state: State, fall: Fall, now: number)
 	if fall.Until > now then
+		if fall.Rising then
+			strengthenJoints(fall, (now - fall.RiseFrom) / CombatConfig.Hit.RagdollRiseSeconds)
+		end
 		return
 	end
 	if fall.Rising then
@@ -153,8 +160,9 @@ local function stepFall(player: Player, state: State, fall: Fall, now: number)
 		return
 	end
 	fall.Rising = true
+	fall.RiseFrom = fall.Until
 	fall.Until += CombatConfig.Hit.RagdollRiseSeconds
-	strengthenJoints(fall)
+	strengthenJoints(fall, (now - fall.RiseFrom) / CombatConfig.Hit.RagdollRiseSeconds)
 	fall.Character:SetAttribute(RAGDOLL_ATTRIBUTE, CombatConfig.Status.RagdollRising)
 	if fall.Until > now then
 		MovementService.applyStun(player, fall.Until - now)
@@ -461,8 +469,8 @@ end
 -- Lets the player's body go limp for `seconds`, then stand back up over CombatConfig.Hit.RagdollRiseSeconds,
 -- and keeps the player stunned until it has. The phase is the character's RagdollAttribute: the owning
 -- client puts its Humanoid in Physics and back (it alone simulates the body), and every client's Posture
--- stands aside. A second fall on a body already down pushes its end back, and loosens a body that was
--- getting up.
+-- stands aside. A body already down is left as it is: it is untouchable (D-113), so nothing that knocks a
+-- body down can reach it, and loosening it twice would record loose joints as its own.
 function MovementService.ragdoll(player: Player, seconds: number)
 	if not isFinitePositive(seconds) then
 		log.warn("ragdoll rejected for %s: seconds %s", player.Name, tostring(seconds))
@@ -483,30 +491,25 @@ function MovementService.ragdoll(player: Player, seconds: number)
 	local character = parent :: Model
 	local rise = CombatConfig.Hit.RagdollRiseSeconds
 	local limp = math.min(seconds, CombatConfig.Hit.StunMaxSeconds - rise)
-	local now = os.clock()
-	local fall = state.Fall
-	if fall ~= nil and fall.Character == character then
-		if fall.Rising then
-			for _, saved in ipairs(fall.Joints) do
-				if saved.Joint.Parent ~= nil then
-					saved.Joint.MaxTorque = 0
-				end
-			end
-			fall.Rising = false
-			fall.Until = now + limp
-		else
-			fall.Until = math.max(fall.Until, now + limp)
-		end
-	else
-		local joints = loosenJoints(character)
-		if #joints == 0 then
-			return
-		end
-		fall = { Character = character, Joints = joints, Rising = false, Until = now + limp }
-		state.Fall = fall
+	if state.Fall ~= nil then
+		return
 	end
+	local joints = loosenJoints(character)
+	if #joints == 0 then
+		return
+	end
+	state.Fall = { Character = character, Joints = joints, Rising = false, Until = os.clock() + limp, RiseFrom = 0 }
 	character:SetAttribute(RAGDOLL_ATTRIBUTE, CombatConfig.Status.RagdollLimp)
-	MovementService.applyStun(player, (fall :: Fall).Until - now + rise)
+	MovementService.applyStun(player, limp + rise)
+end
+
+-- True while the player's body is down, limp or getting up. CombatService refuses it every hit. It ends
+-- when the rise ends, on the clock and not on the tick that restores the joints: the stun ends at that
+-- same instant, and for up to a tick a player could act while nobody could touch them (measured live).
+function MovementService.isDown(player: Player): boolean
+	local state = states[player]
+	local fall = if state ~= nil then state.Fall else nil
+	return fall ~= nil and not (fall.Rising and fall.Until <= os.clock())
 end
 
 function MovementService.isStunned(player: Player): boolean

@@ -321,4 +321,4 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Image d'impact à l'encre** sur les coups lourds et les finishers, pour les corps de l'échange, tous ceux d'une explosion ; mannequins et boss compris ; mouvement réduit respecté.
 - **Mouvement réduit** de la plateforme respecté par la secousse, le coup de focale, l'éclair de page et l'image d'impact.
 - Trois relectures adversariales ; `tests/HitFeel.spec.luau`, chaque mutation échoue (voir D-112).
-- Reste à voir en jeu : la chute par le serveur et le relevé physique (Studio indisponible au moment du commit). L'impression à l'encre, elle, a été vue en jeu.
+- Vu en jeu ensuite (D-113) : la chute passe bien par le serveur ; elle devient un **knockdown lisible** (0,8 s à terre + 0,3 s de relevé), le corps à terre est **intouchable** (et n'est plus une cible), plus de tir ami en 3v3, la force revient progressivement (pire saut 40° au lieu de 106°) et le serveur vise toujours droit.

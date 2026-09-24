@@ -182,10 +182,17 @@ local function characterOf(part: BasePart): (Model?, Humanoid?)
 	return nil, nil
 end
 
--- Closest ancestor Model with a live Humanoid (accessories and tools nest parts under it).
+-- A body on the ground (MovementService.ragdoll) is untouchable (D-113). The server sets the attribute
+-- exactly while the fall lasts, which is what CombatService.ApplyDamage refuses on too; read here so no
+-- glyph spends its one target, or its projectile, on a body it cannot hurt.
+local function isDown(model: Model): boolean
+	return model:GetAttribute(CombatConfig.Status.RagdollAttribute) ~= nil
+end
+
+-- Closest ancestor Model with a live Humanoid that can be hit (accessories and tools nest parts under it).
 local function modelOf(part: BasePart): Model?
 	local model, humanoid = characterOf(part)
-	if model == nil or humanoid == nil or humanoid.Health <= 0 then
+	if model == nil or humanoid == nil or humanoid.Health <= 0 or isDown(model) then
 		return nil
 	end
 	return model
@@ -331,6 +338,17 @@ local function stepProjectile(
 		end
 		local step = velocity * dt
 		local ray = Workspace:Raycast(position, step, rayParams)
+		-- It flies over a body on the ground instead of stopping on it as if it were a wall.
+		for _ = 1, MAX_HITSCAN_CASTS do
+			local body = if ray ~= nil then characterOf(ray.Instance) else nil
+			if body == nil or not isDown(body) then
+				break
+			end
+			local filter: { Instance } = rayParams.FilterDescendantsInstances
+			table.insert(filter, body)
+			rayParams.FilterDescendantsInstances = filter
+			ray = Workspace:Raycast(position, step, rayParams)
+		end
 		if ray ~= nil then
 			return { Point = ray.Position, Model = modelOf(ray.Instance) }
 		end
@@ -725,7 +743,9 @@ function GlyphEffects.Scorch(ctx: Context): number
 		-- Re-validated every tick. Reading the raw root here made the validated origin decorative: a
 		-- client could move itself onto a different victim between ticks and the zone followed.
 		local centre = ctx.Combat.trustedOrigin(ctx.Caster)
-		if centre == nil then
+		-- And it stops with its caster, like every other timed effect: a caster knocked down would
+		-- otherwise be an untouchable burning ring (found by review, D-113).
+		if centre == nil or not casterAlive(ctx) then
 			break
 		end
 		damageArea(ctx, tracker, centre.Position, params.Radius)

@@ -62,4 +62,26 @@ function OriginGuard.budget(elapsed: number, allowance: number, config: Config):
 	return config.MaxSpeedStudsPerSecond * window + math.max(0, allowance)
 end
 
+-- Below this much horizontal length, a look vector says nothing about which way a body faces.
+local FLAT_LOOK_MIN = 0.2
+
+-- The horizontal way a body faces, from its root's look vector and the horizontal part of its up vector,
+-- as a unit (x, z). The look flattened -- for a standing body, which a Humanoid keeps upright, that is the look itself. A body lying
+-- down looks at the sky or the floor: then its facing is where its head points (face down) or its feet
+-- point (face up), which is what the look turns into as it tips. The server aims every swing and every
+-- glyph with it: aimed with the tilted root, a player getting up swung into the ground (D-113, measured).
+function OriginGuard.facing(lookX: number, lookY: number, lookZ: number, upX: number, upZ: number): (number, number)
+	local x, z = lookX, lookZ
+	local length = math.sqrt(x * x + z * z)
+	if length < FLAT_LOOK_MIN then
+		local sign = if lookY > 0 then -1 else 1
+		x, z = upX * sign, upZ * sign
+		length = math.sqrt(x * x + z * z)
+	end
+	if length < 1e-6 then
+		return 0, -1
+	end
+	return x / length, z / length
+end
+
 return OriginGuard

@@ -599,10 +599,20 @@ local function onKillZoneTouched(active: Active, part: BasePart)
 	end
 end
 
--- PvP is a match privilege: two participants of the same match hurt each other while it is being
--- played, and nothing else. Server-authored damage (no source: environment, NPC, boss) is not a PvP
--- decision and stays allowed. This replaces CombatService's hub policy, so hub players can no longer
--- damage each other at all, while training dummies stay open to everyone outside a match.
+-- Team index `userId` plays for in `active`, nil when they are not on its roster.
+local function teamOfParticipant(active: Active, userId: number): number?
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.UserId == userId then
+			return participant.Team
+		end
+	end
+	return nil
+end
+
+-- PvP is a match privilege: two OPPONENTS of the same match hurt each other while it is being played,
+-- and nothing else. Server-authored damage (no source: environment, NPC, boss) is not a PvP decision and
+-- stays allowed. This replaces CombatService's hub policy, so hub players can no longer damage each other
+-- at all, while training dummies stay open to everyone outside a match.
 local function allowDamage(source: Player?, targetModel: Model): boolean
 	if source == nil then
 		return true
@@ -615,21 +625,16 @@ local function allowDamage(source: Player?, targetModel: Model): boolean
 	if sourceActive == nil or activeByUserId[targetPlayer.UserId] ~= sourceActive then
 		return false
 	end
+	-- No friendly fire (D-113). With it, a teammate's finisher knocked an ally down on purpose, and a body
+	-- on the ground is untouchable: an ult dodged, a combo cancelled, a low ally saved, on demand.
+	if teamOfParticipant(sourceActive, source.UserId) == teamOfParticipant(sourceActive, targetPlayer.UserId) then
+		return false
+	end
 	return not sourceActive.Finished and sourceActive.Match.Phase == "Playing"
 end
 
 -- Average rating of the teams `player` is NOT on, for the forfeit debit below. Read from RankingService
 -- so an opponent who also left still counts at the rating this server last saw for them.
--- Team index `userId` plays for in `active`, nil when they are not on its roster.
-local function teamOfParticipant(active: Active, userId: number): number?
-	for _, participant in ipairs(active.Match.Participants) do
-		if participant.UserId == userId then
-			return participant.Team
-		end
-	end
-	return nil
-end
-
 local function opposingRating(active: Active, player: Player): number
 	local ownTeam = teamOfParticipant(active, player.UserId)
 	if ownTeam == nil then
@@ -870,27 +875,15 @@ local function onCastLanded(player: Player, glyphId: string, hits: number)
 	statsOf(active, player.UserId).Hits += 1
 end
 
-local function teamOf(active: Active, userId: number): number?
-	for _, participant in ipairs(active.Match.Participants) do
-		if participant.UserId == userId then
-			return participant.Team
-		end
-	end
-	return nil
-end
-
 local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
 	local active = activeByUserId[sourceUserId]
 	if active == nil or active.Match.Phase == "Result" then
 		return
 	end
+	-- Only an opponent can be damaged here (allowDamage refuses a teammate), so everything that lands is
+	-- what a player did to the other side.
 	local target = Players:GetPlayerFromCharacter(targetModel)
 	if target == nil or activeByUserId[target.UserId] ~= active then
-		return
-	end
-	-- Not a teammate. The grade is what a player did to the other side; friendly fire counted as damage
-	-- dealt AND as damage taken, so hitting your own team in a 3v3 raised your letter.
-	if teamOf(active, sourceUserId) == teamOf(active, target.UserId) then
 		return
 	end
 	statsOf(active, sourceUserId).DamageDealt += applied

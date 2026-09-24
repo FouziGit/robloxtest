@@ -55,6 +55,7 @@ type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
 	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
+	isDown: (player: Player) -> boolean,
 	command: (player: Player, payload: MovementCommand) -> (),
 }
 type VfxPacket = {
@@ -401,6 +402,13 @@ local function countViolation(state: State, now: number, travelled: number, budg
 	)
 end
 
+-- The same place, turned to face the way the body faces, upright (OriginGuard.facing).
+local function upright(frame: CFrame): CFrame
+	local look, up = frame.LookVector, frame.UpVector
+	local x, z = OriginGuard.facing(look.X, look.Y, look.Z, up.X, up.Z)
+	return CFrame.lookAlong(frame.Position, Vector3.new(x, 0, z))
+end
+
 -- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
 -- passes false: it only ever moves the anchor, and must neither strike nor absolve.
 --
@@ -416,8 +424,11 @@ end
 -- Only HORIZONTAL travel is measured. Vertical speed is gravity-driven and unbounded, so a fall would
 -- fail every check, while the exploit being bounded is repositioning onto a target. The anchor's height
 -- always follows the observation, so a clamped origin still sits at the player's real altitude.
+--
+-- Upright, always: every swing and every glyph is aimed with this frame, and a root tilted by a fall
+-- aimed them into the ground or the sky (D-113).
 local function trustedCFrame(state: State, root: BasePart, now: number, strikeOnFailure: boolean): CFrame
-	local observed = root.CFrame
+	local observed = upright(root.CFrame)
 	local trusted = state.TrustedPosition
 	if trusted == nil then
 		state.TrustedPosition = observed.Position
@@ -850,6 +861,12 @@ function CombatService.ApplyDamage(
 	local targetState = stateOf(targetPlayer)
 
 	if isSpawnProtected(sourceState, sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
+		return result
+	end
+	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
+	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
+	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
+	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
 		return result
 	end
 

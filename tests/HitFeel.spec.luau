@@ -59,22 +59,86 @@ describe("a finisher", function()
 
 	it("keeps its victim down long enough to read, and stunned until it is up, never past the ceiling", function()
 		local hit = CombatConfig.Hit
-		-- Limp for the whole throw: a body that stiffened mid-flight would read as a plank again.
+		-- Limp for the whole throw, and some time lying on the ground: measured live, a thrown body lands in
+		-- about 0.5 s, and at 0.25 s it often never fell at all.
 		expect(hit.RagdollSeconds).toBeGreaterThanOrEqual(hit.KnockbackDurationSeconds)
+		expect(hit.RagdollSeconds).toBeGreaterThanOrEqual(0.5 + 0.25)
 		-- The stand-up measured on an R15 avatar is about 0.2 s.
 		expect(hit.RagdollRiseSeconds).toBeGreaterThanOrEqual(0.2)
 		expect(hit.RagdollSeconds + hit.RagdollRiseSeconds).toBeGreaterThanOrEqual(
 			CombatConfig.Melee.FinisherStunSeconds
 		)
 		expect(hit.RagdollSeconds + hit.RagdollRiseSeconds).toBeLessThanOrEqual(hit.StunMaxSeconds)
-		-- And not much longer than the finisher's own stun: at 0.7 s a finisher into Brand was a follow-up
-		-- no dash could escape. One server tick of slack.
+		-- And up before the attacker's next finisher is ready: a knockdown is a pause, not a lockdown.
 		expect(hit.RagdollSeconds + hit.RagdollRiseSeconds).toBeLessThanOrEqual(
-			CombatConfig.Melee.FinisherStunSeconds + 0.05 + 1e-9
+			CombatConfig.Melee.FinisherCooldownSeconds
 		)
 		local status = CombatConfig.Status
 		expect(type(status.RagdollAttribute)).toBe("string")
 		expect(status.RagdollLimp).never.toBe(status.RagdollRising)
+	end)
+
+	it("leaves a body on the ground untouchable until it stands: a knockdown is never a free follow-up", function()
+		local damage = functionIn("src/server/Services/CombatService.luau", "function CombatService.ApplyDamage(")
+		local refused =
+			damage:find("if targetPlayer ~= nil and movement.isDown(targetPlayer) then return result end", 1, true)
+		local taken = damage:find("humanoid:TakeDamage(applied)", 1, true)
+		expect(refused).never.toBe(nil)
+		expect(taken).never.toBe(nil)
+		expect((refused :: number) < (taken :: number)).toBe(true)
+		-- Before anything the hit would remember or spend.
+		expect((refused :: number) < (damage:find("local memory", 1, true) :: number)).toBe(true)
+		-- Down means down for the whole fall, limp and rising alike.
+		expect(functionIn(MOVEMENT, "function MovementService.isDown(")).toBe(
+			"function MovementService.isDown(player: Player): boolean local state = states[player] local fall = if state ~= nil then state.Fall else nil return fall ~= nil and not (fall.Rising and fall.Until <= os.clock()) end "
+		)
+		-- No glyph picks it, and a projectile flies over it.
+		local glyphs = "src/server/Effects/GlyphEffects.luau"
+		expect(functionIn(glyphs, "local function isDown(")).toBe(
+			"local function isDown(model: Model): boolean return model:GetAttribute(CombatConfig.Status.RagdollAttribute) ~= nil end "
+		)
+		expect(
+			functionIn(glyphs, "local function modelOf("):find(
+				"or humanoid.Health <= 0 or isDown(model) then return nil end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local projectile = functionIn(glyphs, "local function stepProjectile(")
+		expect(projectile:find("if body == nil or not isDown(body) then break end", 1, true)).never.toBe(nil)
+		expect(
+			projectile:find(
+				"table.insert(filter, body) rayParams.FilterDescendantsInstances = filter ray = Workspace:Raycast(position, step, rayParams)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- And no timed effect keeps hurting for a caster who is down: Scorch now stops like the others.
+		local scorch = functionIn(glyphs, "function GlyphEffects.Scorch(")
+		expect(scorch:find("if centre == nil or not casterAlive(ctx) then break end", 1, true)).never.toBe(nil)
+	end)
+
+	it("cannot be handed to an ally: there is no friendly fire", function()
+		-- A teammate's finisher knocked an ally down on purpose, and a body on the ground is untouchable:
+		-- an ult dodged or a low ally saved on demand (found by review, D-113).
+		local allow = functionIn("src/server/Services/MatchService.luau", "local function allowDamage(")
+		expect(
+			allow:find(
+				"if teamOfParticipant(sourceActive, source.UserId) == teamOfParticipant(sourceActive, targetPlayer.UserId) then return false end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+
+	it("aims every swing and every glyph upright, whatever the root's tilt", function()
+		local combat = "src/server/Services/CombatService.luau"
+		expect(
+			functionIn(combat, "local function trustedCFrame("):find("local observed = upright(root.CFrame)", 1, true)
+		).never.toBe(nil)
+		local upright = functionIn(combat, "local function upright(")
+		expect(upright:find("OriginGuard.facing(look.X, look.Y, look.Z, up.X, up.Z)", 1, true)).never.toBe(nil)
+		expect(upright:find("return CFrame.lookAlong(frame.Position, Vector3.new(x, 0, z))", 1, true)).never.toBe(nil)
 	end)
 end)
 
@@ -125,16 +189,14 @@ describe("a ragdoll", function()
 		expect(ragdoll:find("local limp = math.min(seconds, CombatConfig.Hit.StunMaxSeconds - rise)", 1, true)).never.toBe(
 			nil
 		)
-		expect(ragdoll:find("MovementService.applyStun(player, (fall :: Fall).Until - now + rise)", 1, true)).never.toBe(
-			nil
-		)
+		expect(ragdoll:find("MovementService.applyStun(player, limp + rise)", 1, true)).never.toBe(nil)
 	end)
 
 	it("rises on joints that pull, then goes rigid: never a limb put back in one frame", function()
 		local step = functionIn(MOVEMENT, "local function stepFall(")
 		expect(
 			step:find(
-				"fall.Rising = true fall.Until += CombatConfig.Hit.RagdollRiseSeconds strengthenJoints(fall)",
+				"fall.Rising = true fall.RiseFrom = fall.Until fall.Until += CombatConfig.Hit.RagdollRiseSeconds strengthenJoints(fall, (now - fall.RiseFrom) / CombatConfig.Hit.RagdollRiseSeconds)",
 				1,
 				true
 			)
@@ -145,7 +207,16 @@ describe("a ragdoll", function()
 		expect(step:find("if fall.Rising then restoreJoints(fall) state.Fall = nil", 1, true)).never.toBe(nil)
 		-- The rise gives the torque back and leaves the joint physical.
 		local strengthen = functionIn(MOVEMENT, "local function strengthenJoints(")
-		expect(strengthen:find("saved.Joint.MaxTorque = saved.MaxTorque", 1, true)).never.toBe(nil)
+		expect(strengthen:find("local strength = math.clamp(progress, 0, 1) ^ 2", 1, true)).never.toBe(nil)
+		expect(strengthen:find("saved.Joint.MaxTorque = saved.MaxTorque * strength", 1, true)).never.toBe(nil)
+		-- And every tick of the rise gives a little more back.
+		expect(
+			step:find(
+				"if fall.Until > now then if fall.Rising then strengthenJoints(fall, (now - fall.RiseFrom) / CombatConfig.Hit.RagdollRiseSeconds) end return end",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		expect(strengthen:find("IsKinematic", 1, true)).toBe(nil)
 		local restore = functionIn(MOVEMENT, "local function restoreJoints(")
 		expect(restore:find("if saved.Joint.Parent ~= nil then", 1, true)).never.toBe(nil)
@@ -178,11 +249,11 @@ describe("a ragdoll", function()
 		)
 	end)
 
-	it("falls again on a body already down instead of loosening it twice", function()
+	it("leaves a body already down as it is: nothing can reach it, and loosening it twice would lie", function()
 		local ragdoll = functionIn(MOVEMENT, "function MovementService.ragdoll(")
-		expect(ragdoll:find("if fall ~= nil and fall.Character == character then", 1, true)).never.toBe(nil)
-		expect(ragdoll:find("fall.Until = math.max(fall.Until, now + limp)", 1, true)).never.toBe(nil)
-		expect(ragdoll:find("saved.Joint.MaxTorque = 0 end end fall.Rising = false", 1, true)).never.toBe(nil)
+		local guard =
+			ragdoll:find("if state.Fall ~= nil then return end local joints = loosenJoints(character)", 1, true)
+		expect(guard).never.toBe(nil)
 	end)
 
 	it("is followed by the one client that simulates the body, and posed by nobody while it is down", function()

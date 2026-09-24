@@ -59,8 +59,8 @@ Le lâcher tombe à 0,06 s : trop tôt pour une vraie anticipation. Pistes, à d
 | Studio (K+K, vrai lancer) | **avant** : main à z +2,04 (derrière) quand le front part ; **après** : z −1,19, y +0,08, basse, dans le front ; console sans erreur du jeu |
 | Ce que le test a appris au skill | la règle de lâcher est « fin d'Anticipation + Cast » (la plupart des glyphes n'ont pas de Travel) ; deux glyphes (Bleed, Watermark) agissent à 0 s et ne peuvent pas avoir de lancer sans une anticipation VFX (décision du développeur) ; l'instant de gel s'affichait mal (corrigé) |
 
-## Ce que le développeur doit faire
+## Phase 4 — mise en jeu (fait, 2026-09-25)
 
-1. Regarder l'avant/après et les GIF (envoyés dans la conversation).
-2. S'il valide : autoriser l'envoi des deux clips sur Roblox (`brand_throw.rbxmx`, `wash_sweep.rbxmx`). La commande, vérifiée à blanc avec `plan` : `python3 scripts/upload_assets.py upload`. Elle écrit les ids dans `AnimationConfig.luau` ; la Marque et le Lavis jouent alors leur propre lancer, sans autre changement.
-3. Relire et fusionner la branche `feat/anim-pipeline`.
+- **Téléversés avec l'accord du développeur** (« envoie TOUT ») et approuvés par la modération : `BrandThrow` `rbxassetid://112103498595273`, `WashSweep` `rbxassetid://103966907025992`.
+- Vu en jeu avec les vrais ids, joués par `Moves` : le **premier** lancer d'une session restait à poids 0 (l'animation se téléchargeait au coup qui la jouait ; défaut ancien, commun à tous les clips). `Moves` charge maintenant chaque clip à l'apparition du personnage : téléchargés avant tout geste (`GetAssetFetchStatus` = Success), premier lancer à poids 1 — Marque main à z −2,27 à 0,05 s, Lavis z −1,24 à 0,12 s. Console client et serveur sans erreur. Test ajouté, prouvé par mutation.
+- Aperçus pour le développeur : `~/Desktop/Vellum animations - apercus/`.

@@ -41,6 +41,7 @@ local AnimationConfig = {}
 -- fails the build instead of rendering the old upload.
 -- BEGIN UPLOADED
 local UPLOADED: { [string]: string } = {
+	["assets/animations/brand_throw.rbxmx"] = "rbxassetid://112103498595273",
 	["assets/animations/guard_break.rbxmx"] = "rbxassetid://79441446612897",
 	["assets/animations/guard_loop.rbxmx"] = "rbxassetid://124143306345974",
 	["assets/animations/hit_chest.rbxmx"] = "rbxassetid://91485351933599",
@@ -49,6 +50,7 @@ local UPLOADED: { [string]: string } = {
 	["assets/animations/punch_cross.rbxmx"] = "rbxassetid://94991981929453",
 	["assets/animations/punch_jab.rbxmx"] = "rbxassetid://136529039918121",
 	["assets/animations/spell_shoot.rbxmx"] = "rbxassetid://73297736196794",
+	["assets/animations/wash_sweep.rbxmx"] = "rbxassetid://103966907025992",
 }
 -- END UPLOADED
 

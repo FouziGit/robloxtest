@@ -60,7 +60,9 @@ GlyphConfig.Glyphs = {
 		Unlock = { Kind = "Default" },
 		NameKey = "glyph.Brand.name",
 		DescriptionKey = "glyph.Brand.desc",
-		Params = { Speed = 90, BlastRadius = 7, Fuse = 1.0, SpawnOffset = 4 },
+		-- Windup: seconds between the throw's packet and the projectile leaving the hand, which is the
+		-- client's gather (VfxTimelineConfig BRAND, D-114).
+		Params = { Speed = 90, BlastRadius = 7, Fuse = 1.0, SpawnOffset = 4, Windup = 0.06 },
 	},
 	{
 		Id = "Wash",

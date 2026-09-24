@@ -62,7 +62,7 @@ type VfxPacket = {
 	Targets: { Vector3 }?,
 	Params: { [string]: any }?,
 }
-type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
+type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?, alsoNear: Vector3?) -> () }
 type MovementCommand =
 	{ Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
@@ -225,13 +225,13 @@ local function shadedVfx(shade: number): VfxApi
 		return vfx
 	end
 	return {
-		emit = function(packet: VfxPacket, reliable: boolean?)
+		emit = function(packet: VfxPacket, reliable: boolean?, alsoNear: Vector3?)
 			local params: { [string]: any } = table.clone(packet.Params or {})
 			if params.Shade == nil then
 				params.Shade = shade
 			end
 			packet.Params = params
-			vfx.emit(packet, reliable)
+			vfx.emit(packet, reliable, alsoNear)
 		end,
 	}
 end

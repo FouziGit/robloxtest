@@ -95,8 +95,10 @@ local function shouldReceive(position: Vector3?, origin: Vector3): boolean
 	return offset:Dot(offset) <= BROADCAST_RADIUS_SQUARED
 end
 
--- Sends the packet to every player near `packet.Origin` (players without a character always receive it).
-function VfxBroadcaster.emit(packet: Packet, reliable: boolean?)
+-- Sends the packet to every player near `packet.Origin` (players without a character always receive it),
+-- and near `alsoNear` too when given: a thrown thing's burst goes to everyone who saw it thrown, or a
+-- player behind the thrower drew the flight and never its landing (D-114, found by review).
+function VfxBroadcaster.emit(packet: Packet, reliable: boolean?, alsoNear: Vector3?)
 	if not isValid(packet, "emit") then
 		return
 	end
@@ -105,7 +107,9 @@ function VfxBroadcaster.emit(packet: Packet, reliable: boolean?)
 	end
 	local name = remoteName(reliable)
 	for _, recipient in ipairs(recipients) do
-		if shouldReceive(recipient.Position, packet.Origin) then
+		local near = shouldReceive(recipient.Position, packet.Origin)
+			or (alsoNear ~= nil and shouldReceive(recipient.Position, alsoNear))
+		if near then
 			registry.fire(name, recipient.Player, packet)
 		end
 	end

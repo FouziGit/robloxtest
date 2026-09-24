@@ -6,13 +6,14 @@ Il est écrit après `docs/JUICE_AUDIT.md`, qui explique pourquoi il fallait le 
 ## La contrainte qui décide de tout
 
 Il n'y a pas d'artiste 3D sur ce projet, et il n'y en aura pas. Aucune direction ne peut donc reposer
-sur du modèle, du sculpt ou de la texture peinte. Ce qui reste est en réalité suffisant :
+sur du modèle fait à la main, du sculpt ou de la texture peinte. Ce qui reste est en réalité suffisant :
 
 - géométrie primitive (`Part`, `Beam`, `Trail`) ;
 - lumière (`PointLight`, `SpotLight`, `Lighting`, `Atmosphere`) ;
 - particules (`ParticleEmitter` avec courbes et flipbooks) ;
 - post-traitement (`ColorCorrection`, `Bloom`, `Blur`, `DepthOfField`) ;
 - textures générées par script, pas piochées dans la boîte à outils ;
+- géométrie générée par script (Blender sans interface, graine fixée, reproductible à l'octet — D-114) ;
 - et surtout le **timing**.
 
 Les jeux Roblox les plus reconnaissables ne sont pas les plus détaillés, ce sont les plus cohérents.
@@ -91,8 +92,9 @@ qui est exactement le budget qu'on n'a pas. Gardée comme piste pour un mode PvE
 
 1. **Lisibilité.** C'est la seule des trois où le décor ne peut pas être confondu avec une menace. En
    3v3, la question « est-ce que ça va me toucher » se répond à la couleur seule.
-2. **Production.** Traits, aplats, lumières, post-traitement et décalques. Zéro modèle, zéro texture
-   peinte à la main : tout ce dont elle a besoin, je peux le générer.
+2. **Production.** Traits, aplats, lumières, post-traitement, décalques — et des volumes générés par
+   script (Blender en ligne de commande, semés, quelques centaines de triangles). Zéro modèle *sculpté ou
+   fait à la main*, zéro texture peinte à la main : tout ce dont elle a besoin, je peux le générer.
 3. **Miniature.** Un jeu clair au milieu de jeux sombres. C'est un avantage d'acquisition gratuit, et
    c'est le seul des trois qui en offre un.
 4. **Cohérence du lexique.** Encre, pigments, sceaux, volumes : l'univers, la ressource, les écoles et
@@ -165,7 +167,8 @@ Elles s'appliquent à chaque ligne de rendu écrite à partir de maintenant.
 1. **Le décor n'est jamais saturé.** Toute couleur vive à l'écran appartient à un glyphe. Aucune
    exception, pas même pour un élément d'interface diégétique.
 2. **Un glyphe = un pigment = une couleur.** Un sort ne mélange jamais deux pigments. Un joueur doit
-   pouvoir nommer l'école d'un sort à la couleur seule, de dos, à trente studs.
+   pouvoir nommer l'école d'un sort à la couleur seule, de dos, à trente studs. Ce qui n'est d'aucune
+   école — le coup de poing, l'esquive — est à l'encre de la page, le charbon (D-114).
 3. **Rien n'apparaît.** Tout se dessine, croît, ou est projeté. Une apparition instantanée est un bug
    de direction artistique.
 4. **Rien ne bouge en linéaire.** Toute interpolation a une accélération. Le linéaire est réservé aux
@@ -176,6 +179,10 @@ Elles s'appliquent à chaque ligne de rendu écrite à partir de maintenant.
    rouge, donc les télégraphies de Cinabre sont les seules qui n'ont pas besoin d'un code séparé.
 8. **La densité de particules est plafonnée** et diminue avec le nombre de joueurs proches et le
    réglage graphique. Un effet qu'on ne peut pas afficher est un effet qu'on ne joue pas.
+9. **Un volume est surtout de l'air.** C'est un trait de pinceau qui a pris de l'épaisseur — goutte,
+   anneau, couronne d'éclaboussure, balayage, papier arraché —, jamais un objet ni de l'énergie. Il est
+   du pigment, pas de la lumière. Il ne couvre jamais un avertissement, ne dépasse jamais le mal qu'il
+   dessine, et ne reste pas haut et sombre plus d'un tiers de seconde.
 
 ## Ce que cela invalide dans l'existant
 

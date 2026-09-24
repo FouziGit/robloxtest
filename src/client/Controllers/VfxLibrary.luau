@@ -67,6 +67,7 @@ type TimelineContext = {
 	Radius: number?,
 	Reach: number?,
 	Pigment: string?,
+	Shot: string?,
 	Follow: BasePart?,
 }
 
@@ -412,6 +413,18 @@ end
 -- What it replaced was a ball wearing Roblox's own Fire class, flying a straight line at a constant speed
 -- for a full second. Its detonation is a separate packet -- the server emits Explosion when it lands --
 -- and that split is correct rather than accidental: the projectile does not know where it will end.
+-- The name a thrown Brand is known by between its throw and its burst: its thrower and the server's shot
+-- number (GlyphEffects.Brand, D-114). nil for a packet that carries neither -- a Blot's burst, say.
+local function shotKey(packet: Packet): string?
+	local params = packet.Params
+	local shot = if params ~= nil then params.Shot else nil
+	local caster = packet.Caster
+	if type(shot) ~= "number" or type(caster) ~= "number" then
+		return nil
+	end
+	return string.format("%d:%d", caster, shot)
+end
+
 VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Brand", {
 		Origin = packet.Origin,
@@ -419,7 +432,17 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 		Color = glyphColor("Cinnabar", packet, api),
 		Pigment = "Cinnabar",
 		Shade = numberParam(packet, "Shade", 0),
+		Shot = shotKey(packet),
 	})
+end
+
+-- A thrown Brand that never burst: the drawn one comes down where the real one was, instead of flying on
+-- alone to the end of its range.
+VfxLibrary.Fizzle = function(packet: Packet, _trove: TroveType, api: Api)
+	local shot = shotKey(packet)
+	if shot ~= nil then
+		api.Timeline.land(shot, packet.Origin)
+	end
 end
 
 -- Expanding sphere and ember burst where a projectile or blast lands.
@@ -429,6 +452,11 @@ end
 VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
 	local radius = numberParam(packet, "Radius", numberParam(packet, "BlastRadius", DEFAULT_BLAST_RADIUS))
 	local pigment = stringParam(packet, "Pigment", "")
+	-- The Brand that burst here comes down here, however far short of its range (D-114).
+	local shot = shotKey(packet)
+	if shot ~= nil then
+		api.Timeline.land(shot, packet.Origin)
+	end
 	api.Timeline.play("Explosion", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),

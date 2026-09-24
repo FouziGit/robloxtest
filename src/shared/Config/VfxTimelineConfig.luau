@@ -127,6 +127,11 @@ export type Layer = {
 	-- Carrier only: studs the flight rises and falls again over its length, which is what separates a
 	-- thrown thing from a beam that happens to move.
 	Arc: number?,
+	-- Carrier only: how much of the flight follows the ease, the rest following time itself. A projectile
+	-- the server steps at a constant speed is drawn mostly with it: fully eased, the drawn Brand trailed
+	-- the damage by up to 22 studs; with 15 % of a Sine In it trails by under 3 and is never ahead
+	-- (D-114). Absent means 1: the whole flight eased, as every other carrier is.
+	EaseShare: number?,
 	-- Radians per second about the layer's own facing axis.
 	Spin: number?,
 
@@ -661,17 +666,20 @@ local BRAND: Timeline = {
 	Phases = {
 		{
 			Name = "Anticipation",
-			Duration = 0.14,
+			-- With Cast, exactly GlyphConfig's Windup: the flight starts on the frame the server lets
+			-- go (D-114). tests/Flight.spec.luau holds the two together.
+			Duration = 0.04,
 			Layers = {
 				-- Drawn in, not thrown out. The cast's seal has already closed by now; this is the glyph
-				-- itself taking shape in the hand.
+				-- itself taking shape in the hand. A burst, not a rate: over 0.04 s a rate of 46 draws
+				-- two sparks.
 				{
 					Kind = "Emitter",
 					At = 0,
-					For = 0.14,
+					For = 0.04,
 					Texture = "SparkStreak",
 					Offset = { 0, 0.4, 3 },
-					Rate = 46,
+					Burst = 8,
 					Speed = { -12, -6 },
 					Lifetime = { 0.12, 0.2 },
 					Spread = 180,
@@ -694,7 +702,7 @@ local BRAND: Timeline = {
 		},
 		{
 			Name = "Cast",
-			Duration = 0.06,
+			Duration = 0.02,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				{
@@ -721,16 +729,22 @@ local BRAND: Timeline = {
 			-- Range: a visual that outflies the spell lies to the player about where they are safe.
 			Duration = 1,
 			Layers = {
+				-- From the server's spawn point, SpawnOffset ahead, at its speed: mostly time, 15 % of a
+				-- Sine In, so the drawn one trails the real one by under three studs and meets it at the
+				-- end (D-114). It used to leave from the chest on Sine Out, 0.2 s late, and trailed the
+				-- damage by up to 22 studs. A burst lands it early (VfxTimeline.land).
 				{
 					Kind = "Carrier",
 					At = 0,
 					For = 1,
+					Offset = { 0, 0.4, 4 },
 					Ease = "Sine",
-					EaseDirection = "Out",
+					EaseDirection = "In",
+					EaseShare = 0.15,
 					Travel = 90,
-					-- Three studs of rise and fall over ninety. Barely visible, and the whole reason it
-					-- reads as thrown rather than fired.
-					Arc = 3,
+					-- A stud and a half of rise and fall over ninety. Barely visible, and the whole reason
+					-- it reads as thrown rather than fired; halved so the drawn one stays inside the blast.
+					Arc = 1.5,
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
@@ -7983,6 +7997,15 @@ VfxTimelineConfig.Timelines = {
 	KillScraps = KILL_SCRAPS,
 	KillOverexposure = KILL_OVEREXPOSURE,
 } :: { [string]: Timeline }
+
+-- How a thrown thing is brought down (VfxTimeline.land, D-114): the drawn carrier glides the last few studs
+-- to where it burst over Seconds and holds there for Hold, while what rode it drains -- a trail runs out,
+-- smoke thins, a light dims over Fade -- and what lingers after the flight is drawn there. Nothing it
+-- carried vanishes. Grace is how long a thrown carrier waits at the end of its flight for its burst: the
+-- throw and the burst reach a client equally late, so at full range the burst arrives just as the drawn
+-- flight ends -- a frame after it in three throws out of four, measured -- and one that never comes lands
+-- it where it stopped.
+VfxTimelineConfig.Land = { Seconds = 0.05, Hold = 0.1, Fade = 0.1, Grace = 0.25 }
 
 -- Phases always play in this order, whichever subset a timeline declares. The runtime reads it rather
 -- than the table order, so a timeline that lists Residue before Impact still plays correctly and the test

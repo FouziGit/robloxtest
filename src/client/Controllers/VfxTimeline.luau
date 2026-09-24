@@ -64,6 +64,9 @@ export type Context = {
 	-- The caster's skin shade (PigmentConfig.ShadeRange), already in Color. The drying adds to it from the
 	-- pigment itself and is clamped once, so a skin and its drying never compound out of the school.
 	Shade: number?,
+	-- A thrown thing's name between its throw and its burst (thrower and server shot number): the burst
+	-- lands the play that carries it where the server burst it (VfxTimeline.land, D-114).
+	Shot: string?,
 	-- A part the effect rides: a projectile, or the caster's root. Layers that need a moving anchor
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
@@ -105,6 +108,10 @@ type Live = {
 	PlayId: number,
 	-- When that play began: the clock its floor marks dry on.
 	PlayStartedAt: number,
+	-- A carrier brought down where its projectile burst (VfxTimeline.land): from where it was, to there.
+	Landing: { From: CFrame, To: Vector3, At: number }?,
+	-- A riding light dimming out after a landing, from the brightness it had when it began to.
+	Ending: { At: number, From: number }?,
 }
 
 type Pending = {
@@ -117,6 +124,8 @@ type Pending = {
 	Warning: boolean,
 	PlayId: number,
 	PlayStartedAt: number,
+	-- The phase it belongs to: a landing drops what is still to fly and re-places what is to linger.
+	Phase: string,
 }
 
 local VfxTimeline = {}
@@ -135,6 +144,8 @@ local warnedTextures: { [string]: boolean } = {}
 -- ends, so a layer that outlives the flight falls back to standing still rather than following a
 -- part that has gone back to the pool.
 local carriers: { [number]: BasePart } = {}
+-- The play each thrown thing in flight belongs to, by its Shot, until it lands or its carrier ends.
+local shots: { [string]: number } = {}
 local warnedFollow: { [string]: boolean } = {}
 local warnedMeasures: { [string]: boolean } = {}
 local warnedVoices: { [string]: boolean } = {}
@@ -788,12 +799,20 @@ local function stepMark(entry: Live, alpha: number, elapsed: number, now: number
 	part.Transparency = if #children > 0 then 1 else transparency
 end
 
-local function stepLight(entry: Live, alpha: number)
+local function stepLight(entry: Live, alpha: number, now: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
 	end
 	local light = primary :: PointLight
+	local ending = entry.Ending
+	if ending ~= nil then
+		-- Landed: it dims from where it was, never from where its shortened life would put it, fast and
+		-- then easing out, like every other fade (rule 4).
+		local left = 1 - math.clamp((now - ending.At) / VfxTimelineConfig.Land.Fade, 0, 1)
+		light.Brightness = ending.From * left * left
+		return
+	end
 	-- A light changes by brightness, never by being removed: an instant cut reads as a bug, and art bible
 	-- rule 3 forbids anything appearing or vanishing outright. EndBrightness absent means zero, so the
 	-- default is the fade it always was, and a telegraph can ask for the opposite.
@@ -815,26 +834,51 @@ local function stepBeam(entry: Live, alpha: number, elapsed: number)
 	beam.Transparency = NumberSequence.new(math.clamp(lerp(layer.Transparency, layer.EndTransparency, fade, 0.2), 0, 1))
 end
 
+-- Where a carrier is `progress` of the way through its flight: its declared distance forward, and a half
+-- sine of Arc above it -- zero at both ends, highest in the middle, multiplied rather than added so a
+-- timeline with no Arc travels flat and pays nothing for the option.
+local function flightPoint(entry: Live, progress: number): Vector3
+	local layer = entry.Layer
+	local scale = entry.Scales.Effect
+	local distance = (layer.Travel or 0) * scale * progress
+	local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(progress, 0, 1) * math.pi)
+	return (entry.Frame * CFrame.new(0, 0, -distance)).Position + Vector3.new(0, rise, 0)
+end
+
 -- Flight. The body travels its declared distance over its own duration, eased, and rises and falls by
 -- Arc along the way: a thrown thing does not travel a straight line at a constant speed, and art bible
--- rule 4 forbids the linear version outright.
-local function stepCarrier(entry: Live, alpha: number)
+-- rule 4 forbids the linear version outright. EaseShare mixes the ease with time itself, for a carrier
+-- drawing a projectile the server steps at a constant speed (D-114). Timed on its own Seconds, not on its
+-- life: a thrown carrier lives a grace longer, holding at its end for its burst, and must not fly slower
+-- for it.
+local function stepCarrier(entry: Live, now: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
 	end
 	local part = primary :: BasePart
+	local landing = entry.Landing
+	if landing ~= nil then
+		-- Brought down where it burst: the last few studs, accelerating into the point (Quint In).
+		local t = math.clamp((now - landing.At) / VfxTimelineConfig.Land.Seconds, 0, 1)
+		part.CFrame = landing.From:Lerp(CFrame.new(landing.To) * landing.From.Rotation, t ^ 5)
+		return
+	end
 	local layer = entry.Layer
-	local scale = entry.Scales.Effect
-	local distance = (layer.Travel or 0) * scale * alpha
-	-- A half sine: zero at both ends, highest in the middle. Multiplied by the arc rather than added to
-	-- it, so a timeline with no Arc travels flat and pays nothing for the option.
-	local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(alpha, 0, 1) * math.pi)
-	part.CFrame = entry.Frame * CFrame.new(0, 0, -distance) + Vector3.new(0, rise, 0)
+	local flight = if entry.Seconds > 0 then math.clamp((now - entry.StartedAt) / entry.Seconds, 0, 1) else 1
+	local share = layer.EaseShare or 1
+	local progress = (1 - share) * flight + share * eased(layer, flight)
+	local here = flightPoint(entry, progress)
+	-- Along its own path, so what rides it pitches with the arc and points where it is going.
+	local ahead = flightPoint(entry, progress + 1e-3) - here
+	local frame = if ahead.Magnitude > 1e-6 then CFrame.lookAlong(here, ahead) else entry.Frame.Rotation + here
 	local spin = layer.Spin
 	if spin ~= nil then
-		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * (1 / 60))
+		-- An angle, never an increment: added each frame to a frame rebuilt each frame, it was one
+		-- sixtieth of the spin, and a clot said to tumble did not (D-114).
+		frame = frame * CFrame.Angles(0, 0, spin * (now - entry.StartedAt))
 	end
+	part.CFrame = frame
 end
 
 -- A layer riding the carrier is moved with it every frame rather than being parented to it: the pool
@@ -917,6 +961,11 @@ local function releaseLive(entry: Live)
 	local carrier: BasePart? = carriers[entry.PlayId]
 	if entry.Layer.Kind == "Carrier" and carrier == entry.Primary then
 		carriers[entry.PlayId] = nil
+		-- Flown out with no burst to land it: nothing is left to land.
+		local shot = entry.Context.Shot
+		if shot ~= nil and shots[shot] == entry.PlayId then
+			shots[shot] = nil
+		end
 	end
 	-- Each instance is released on its own. A Trail rides a part the effect does not own -- the caster's
 	-- root -- and that part can be destroyed mid-effect by a respawn, taking the attachments parented to
@@ -1097,6 +1146,10 @@ local function activate(item: Pending, now: number)
 	local seconds = math.min(item.Seconds, VfxTimelineConfig.MaxLayerSeconds)
 	-- Kept past its drawn life by whatever it leaves in the air (an emitter's particles), up to the backstop.
 	local lives = math.min(VfxTimelineConfig.layerSeconds(layer, item.Seconds), VfxTimelineConfig.MaxLayerSeconds)
+	if context.Shot ~= nil and (layer.Kind == "Carrier" or layer.Ride == true) then
+		-- A thrown flight waits at its end for its burst, and what rides it waits with it.
+		lives += VfxTimelineConfig.Land.Grace
+	end
 	local entry: Live = {
 		Layer = layer,
 		Context = context,
@@ -1146,7 +1199,7 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	local alpha = eased(entry.Layer, elapsed)
 	local kind = entry.Layer.Kind
 	if kind == "Carrier" then
-		stepCarrier(entry, alpha)
+		stepCarrier(entry, now)
 		return
 	end
 	if entry.Layer.Ride == true then
@@ -1159,12 +1212,38 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	elseif kind == "Mark" then
 		stepMark(entry, alpha, elapsed, now)
 	elseif kind == "Light" then
-		stepLight(entry, alpha)
+		stepLight(entry, alpha, now)
 	elseif kind == "Beam" then
 		stepBeam(entry, alpha, elapsed)
 	elseif kind == "Emitter" then
 		stepEmitter(entry, now)
 	end
+end
+
+-- Whether an entry at its end must stay out of the pool a little longer. A thrown carrier that nothing
+-- landed comes down where it is -- its own landing: its riders drain and what lingers is drawn there --
+-- and a carrier still carrying a sound holds still, unseen, until the sound is over: released with it, a
+-- tail went on playing inside the pool and could follow the next effect that borrowed the part (review).
+local function settle(entry: Live, now: number): boolean
+	local primary = entry.Primary
+	if entry.Layer.Kind ~= "Carrier" or primary == nil or not primary:IsA("BasePart") then
+		return false
+	end
+	local shot = entry.Context.Shot
+	if entry.Landing == nil and shot ~= nil and shots[shot] == entry.PlayId then
+		return VfxTimeline.land(shot, primary.Position)
+	end
+	local tail = 0
+	for _, child in ipairs(primary:GetChildren()) do
+		if child:IsA("Sound") and child.IsPlaying and not child.Looped then
+			tail = math.max(tail, (child.TimeLength - child.TimePosition) / math.max(child.PlaybackSpeed, 1e-3))
+		end
+	end
+	if tail <= 0 then
+		return false
+	end
+	entry.EndsAt = now + math.min(tail, VfxTimelineConfig.MaxLayerSeconds)
+	return true
 end
 
 local function onHeartbeat(deltaTime: number)
@@ -1184,7 +1263,7 @@ local function onHeartbeat(deltaTime: number)
 	index = 1
 	while index <= #live do
 		local entry = live[index]
-		if now >= entry.EndsAt then
+		if now >= entry.EndsAt and not settle(entry, now) then
 			releaseLive(entry)
 			table.remove(live, index)
 		else
@@ -1208,6 +1287,9 @@ function VfxTimeline.play(id: string, context: Context): boolean
 	local now = os.clock()
 	nextPlayId += 1
 	local playId = nextPlayId
+	if context.Shot ~= nil then
+		shots[context.Shot] = playId
+	end
 	local phaseStart = 0
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
@@ -1223,14 +1305,71 @@ function VfxTimeline.play(id: string, context: Context): boolean
 						Id = id,
 						Layer = layer,
 						Context = context,
-						At = now + phaseStart + layer.At * factor,
+						-- What lingers after a thrown thing is drawn where it came down, so it waits for the
+						-- landing (VfxTimeline.land), which every thrown flight ends in.
+						At = if context.Shot ~= nil and name == "Residue"
+							then math.huge
+							else now + phaseStart + layer.At * factor,
 						Seconds = layer.For * factor,
 						Warning = phase.Window == true,
 						PlayId = playId,
 						PlayStartedAt = now,
+						Phase = name :: string,
 					})
 				end
 				phaseStart += seconds
+			end
+		end
+	end
+	return true
+end
+
+-- Brings the play carrying `shot` down at `point`, where the server burst it or where it fizzled (D-114).
+-- Without this a Brand that hit at twenty studs flew on alone to ninety -- trail, smoke and light included
+-- -- and one whose caster was stunned mid-flight did the same. What is still to fly is dropped; the carrier
+-- glides the last few studs to the point and holds; what rode it drains out on its own terms; and what
+-- lingers after the flight is re-placed at the point. False when no play is flying that shot.
+function VfxTimeline.land(shot: string, point: Vector3): boolean
+	local playId = shots[shot]
+	if playId == nil then
+		return false
+	end
+	shots[shot] = nil
+	local now = os.clock()
+	local settings = VfxTimelineConfig.Land
+	local index = 1
+	while index <= #pending do
+		local item = pending[index]
+		if item.PlayId == playId and item.Phase == "Travel" then
+			table.remove(pending, index)
+		else
+			if item.PlayId == playId and item.Phase == "Residue" then
+				local moved = table.clone(item.Context)
+				moved.Origin = point
+				item.Context = moved
+				item.At = now + settings.Seconds + item.Layer.At
+			end
+			index += 1
+		end
+	end
+	for _, entry in ipairs(live) do
+		local primary = entry.Primary
+		if entry.PlayId == playId and primary ~= nil then
+			if entry.Layer.Kind == "Carrier" and primary:IsA("BasePart") then
+				entry.Landing = { From = primary.CFrame, To = point, At = now }
+				entry.EndsAt = now + settings.Seconds + settings.Hold
+			elseif entry.Layer.Ride == true then
+				if primary:IsA("Trail") then
+					-- It stops drawing and its ribbon runs out behind it.
+					primary.Enabled = false
+					entry.EndsAt = now + primary.Lifetime
+				elseif primary:IsA("ParticleEmitter") then
+					primary.Enabled = false
+					entry.EndsAt = now + primary.Lifetime.Max
+				elseif primary:IsA("PointLight") then
+					entry.Ending = { At = now, From = primary.Brightness }
+					entry.EndsAt = now + settings.Fade
+				end
 			end
 		end
 	end
@@ -1256,6 +1395,7 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		Warning = false,
 		PlayId = nextPlayId,
 		PlayStartedAt = now,
+		Phase = "Residue",
 	})
 	return true
 end
@@ -1269,6 +1409,7 @@ function VfxTimeline.clear()
 	end
 	table.clear(live)
 	table.clear(carriers)
+	table.clear(shots)
 end
 
 -- What the runtime is carrying right now. docs/PERFORMANCE.md reads it, and so does anyone wondering

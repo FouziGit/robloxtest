@@ -86,6 +86,9 @@ VfxConfig.CombatIds = {
 	"GuardBreak",
 	-- A killer's KillEffect cosmetic, drawn where the victim fell (CosmeticService).
 	"KillEffect",
+	-- A thrown Brand that never burst -- its caster stunned, guarding or dead before it landed: the
+	-- drawn one stops where the real one was (GlyphEffects.Brand, D-114).
+	"Fizzle",
 } :: { string }
 
 -- Emitted by the World Boss encounter. The four attacks name themselves in WorldBossConfig, and the two

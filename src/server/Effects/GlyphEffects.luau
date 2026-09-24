@@ -66,7 +66,7 @@ export type VfxPacket = {
 	Targets: { Vector3 }?,
 	Params: { [string]: any }?,
 }
-export type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
+export type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?, alsoNear: Vector3?) -> () }
 -- No `command` here on purpose: an effect that displaces its caster goes through
 -- CombatApi.grantMovement, which issues the command AND grants the travel it covers. Exposing the raw
 -- command again would let a future effect forget the second half.
@@ -94,6 +94,15 @@ type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags
 type Ranked = { Model: Model, Distance: number }
 -- Where a stepped projectile stopped, and the live model it stopped on (nil = geometry, fuse, range).
 type ProjectileStop = { Point: Vector3, Model: Model? }
+
+-- Every thrown Brand is numbered, so the client can land the one it drew where the server burst it
+-- (VfxTimeline.land, D-114). Per server, wrapping long before a number could be mistaken for a live one.
+local SHOT_WRAP = 2 ^ 20
+local shotCount = 0
+local function nextShot(): number
+	shotCount = (shotCount + 1) % SHOT_WRAP
+	return shotCount
+end
 
 -- Server collision geometry (walls) carries this tag so spatial queries skip it.
 local COLLISION_TAG = WorldConfig.Glyphs.CollisionTag
@@ -312,7 +321,8 @@ end
 -- included, which is how Umber blocks projectiles —, on the first live model within `hitRadius`
 -- (0 = no proximity scan: the blast of an exploding projectile finds its own targets), once
 -- `maxDistance` of path has been travelled or when the fuse burns out. Returns nil as soon as the
--- cast stops qualifying (caster dead, guarding or stunned) so nothing lands afterwards.
+-- cast stops qualifying (caster dead, guarding or stunned) so nothing lands afterwards -- and, always,
+-- where the projectile last was, which is where a Brand that fizzles is drawn drying out.
 local function stepProjectile(
 	ctx: Context,
 	start: Vector3,
@@ -321,7 +331,7 @@ local function stepProjectile(
 	fuse: number,
 	maxDistance: number,
 	hitRadius: number
-): ProjectileStop?
+): (ProjectileStop?, Vector3)
 	local character = ctx.Caster.Character
 	local rayParams = excludeParams(character)
 	local position = start
@@ -330,7 +340,7 @@ local function stepProjectile(
 	while true do
 		local dt = math.min(task.wait(), MAX_STEP_SECONDS)
 		if not casterAlive(ctx) then
-			return nil
+			return nil, position
 		end
 		elapsed += dt
 		if gravity ~= 0 then
@@ -350,18 +360,18 @@ local function stepProjectile(
 			ray = Workspace:Raycast(position, step, rayParams)
 		end
 		if ray ~= nil then
-			return { Point = ray.Position, Model = modelOf(ray.Instance) }
+			return { Point = ray.Position, Model = modelOf(ray.Instance) }, ray.Position
 		end
 		position += step
 		travelled += step.Magnitude
 		if hitRadius > 0 then
 			local nearest = nearestModel(humanoidsInRadius(position, hitRadius, character), position)
 			if nearest ~= nil then
-				return { Point = position, Model = nearest }
+				return { Point = position, Model = nearest }, position
 			end
 		end
 		if elapsed >= fuse or travelled >= maxDistance then
-			return { Point = position, Model = nil }
+			return { Point = position, Model = nil }, position
 		end
 	end
 end
@@ -436,8 +446,17 @@ end
 
 -- Detonation shared by the exploding projectiles: one "Explosion" packet, one damage pass, and a
 -- push away from the blast for everything it hurt.
-local function explode(ctx: Context, point: Vector3, radius: number, push: number, lift: number): number
-	ctx.Vfx.emit({ Id = "Explosion", Origin = point, Params = { Radius = radius, Pigment = ctx.Def.Pigment } })
+local function explode(ctx: Context, point: Vector3, radius: number, push: number, lift: number, shot: number?): number
+	-- Reliable, and with the thrower: one per cast, it is the damage's confirmation, and it names the shot
+	-- the client drew so the drawn Brand lands where this one burst (D-114). Reliable like the throw, so
+	-- the two arrive in order on the same channel and a burst never reaches a client before its throw.
+	ctx.Vfx.emit({
+		Id = "Explosion",
+		Origin = point,
+		Direction = ctx.Direction,
+		Caster = ctx.Caster.UserId,
+		Params = { Radius = radius, Pigment = ctx.Def.Pigment, Shot = shot },
+	}, true, if shot ~= nil then ctx.Origin.Position else nil)
 	local tracker = newTracker(ctx.Def, 1)
 	for _, model in ipairs(damageArea(ctx, tracker, point, radius)) do
 		local offset = model:GetPivot().Position - point
@@ -457,27 +476,41 @@ function GlyphEffects.Brand(ctx: Context): number
 	local params = ctx.Def.Params
 	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
 	local direction = ctx.Direction
+	local shot = nextShot()
+	local start = ctx.Origin.Position + direction * params.SpawnOffset
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
 		Direction = direction,
 		Caster = ctx.Caster.UserId,
-		Params = { Speed = params.Speed, Fuse = fuse, SpawnOffset = params.SpawnOffset, Pigment = ctx.Def.Pigment },
-	})
+		Params = {
+			Speed = params.Speed,
+			Fuse = fuse,
+			SpawnOffset = params.SpawnOffset,
+			Pigment = ctx.Def.Pigment,
+			Shot = shot,
+		},
+	}, true)
 
-	local stop = stepProjectile(
-		ctx,
-		ctx.Origin.Position + direction * params.SpawnOffset,
-		direction * params.Speed,
-		0,
-		fuse,
-		ctx.Def.Range,
-		0
-	)
+	-- The hand lets go after the client has drawn it gathering (D-114): the drawn Brand used to leave
+	-- 0.2 s after the real one and flew up to 22 studs behind the damage. Imperceptible, and the same at
+	-- every range, so it moves no balance.
+	task.wait(params.Windup)
+	local stop, last = nil, start
+	if casterAlive(ctx) then
+		stop, last = stepProjectile(ctx, start, direction * params.Speed, 0, fuse, ctx.Def.Range, 0)
+	end
 	if stop == nil then
+		-- Stunned, guarding or dead before it landed: nothing bursts, and the drawn one dries out where
+		-- this one was instead of flying on alone to the end of its range.
+		ctx.Vfx.emit(
+			{ Id = "Fizzle", Origin = last, Caster = ctx.Caster.UserId, Params = { Shot = shot } },
+			true,
+			ctx.Origin.Position
+		)
 		return 0
 	end
-	return explode(ctx, stop.Point, params.BlastRadius, BRAND_PUSH, BRAND_LIFT)
+	return explode(ctx, stop.Point, params.BlastRadius, BRAND_PUSH, BRAND_LIFT, shot)
 end
 
 ----------------------------------------------------------------

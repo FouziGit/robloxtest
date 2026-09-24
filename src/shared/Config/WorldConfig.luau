@@ -62,17 +62,23 @@ WorldConfig.Hub = {
 -- stood. That effect is a thin brush stroke centred on the floor line -- half of it underground -- and it
 -- is one of the layers the lower quality tiers are allowed to drop, so on some screens a nine-stud wall
 -- that stops shots and bodies was drawn as a smear, or as nothing. A thing that blocks must be seen by
--- everyone it blocks, on every tier, for exactly as long as it blocks. The client's ink still rules the
--- margin and marks the faces; this is the wall under it.
+-- everyone it blocks, on every tier, for exactly as long as it blocks.
+--
+-- D-108 drew it as a charcoal pane at 0.3 transparency, which was visible and read as glass. The developer
+-- played it: "ça fait plus le mur de boue comme au début". So it is now what it was designed as -- a wall
+-- of its school's pigment (the Margin is Umber), solid, that rises out of the page with its collision and
+-- goes back into it at the end (D-110). The client's ink rules the margin and marks the faces over it.
 WorldConfig.Glyphs = {
-	-- Charcoal: the ink the margin is ruled in, and the colour with the most contrast on the page.
-	Wall = "Ink",
-	-- See-through enough to read an opponent behind it, solid enough to read as a wall at once.
-	WallTransparency = 0.3,
-	-- It appears with its collision, over a few frames, and leaves over the last moments of it rather
-	-- than blinking out when Debris takes it.
-	WallFadeInSeconds = 0.12,
-	WallFadeOutSeconds = 0.4,
+	-- The tag every piece of glyph collision carries (spatial queries skip it), and the Margin slab's
+	-- name: the server builds them, each client finds the slab by them to paint it (VfxLibrary.Margin).
+	CollisionTag = "GlyphCollision",
+	WallName = "Margin",
+	-- The slab's shade of its pigment, toward the page: dry earth under wet ink (CosmeticConfig.shade).
+	WallShade = 0.2,
+	-- Out of the floor, and back into it. Short enough that the collision is where it is drawn almost at
+	-- once; long enough to be seen rising, which is the whole read of a wall being raised.
+	WallRiseSeconds = 0.22,
+	WallSinkSeconds = 0.45,
 }
 
 -- An arena: a page walled in bone, with an ink rule drawn along the top of every wall so the box reads

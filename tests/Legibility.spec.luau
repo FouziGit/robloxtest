@@ -232,36 +232,43 @@ describe("a glyph that blocks", function()
 	local effects = strip(fs.readFile("src/server/Effects/GlyphEffects.luau"))
 	local margin = effects:match("function GlyphEffects%.Margin.-\nend") or ""
 
-	it("is drawn by the thing that blocks, on every quality tier", function()
+	it("is drawn by the thing that blocks, on every quality tier, in its own school", function()
 		-- The collision is the server's, so the look is too: a client effect can be dropped by the lower
-		-- tiers, and a wall that stops shots must never be drawn by something optional.
+		-- tiers, and a wall that stops shots must never be drawn by something optional. And it is a wall of
+		-- its glyph's pigment (the Margin is Umber): drawn as a charcoal pane it read as glass, and the
+		-- developer said so after playing it (D-110).
 		expect(#margin).toBeGreaterThan(0)
-		expect(margin:find("Palette.world(look.Wall)", 1, true)).never.toBe(nil)
+		expect(margin:find("local pigment = colors[ctx.Def.Pigment]", 1, true)).never.toBe(nil)
+		-- Whitespace folded: the formatter may break the line anywhere.
+		local flat = (margin:gsub("%s+", " "))
+		expect(flat:find("wall.Color = Palette.rgb(CosmeticConfig.shade(pigment, look.WallShade", 1, true)).never.toBe(
+			nil
+		)
+		-- Paler than its ink, inside the measured range that keeps the school readable.
+		expect(WorldConfig.Glyphs.WallShade).toBeGreaterThan(0)
+		expect(WorldConfig.Glyphs.WallShade).toBeLessThanOrEqual(0.2)
 		expect(margin:find("Palette.material()", 1, true)).never.toBe(nil)
-		expect(margin:find("look.WallTransparency", 1, true)).never.toBe(nil)
+		-- Solid: no transparency written anywhere on the slab.
+		expect(margin:find("Transparency", 1, true)).toBe(nil)
 	end)
 
-	it("is solid enough to read at a glance and clear enough to see an opponent through", function()
+	it("rises out of the page with its collision and sinks back before it is gone", function()
+		expect(margin:find("wall.CFrame = sunk", 1, true)).never.toBe(nil)
+		expect(margin:find("{ CFrame = standing }", 1, true)).never.toBe(nil)
+		expect(margin:find("{ CFrame = sunk }", 1, true)).never.toBe(nil)
 		local glyphs = WorldConfig.Glyphs
-		expect(WorldConfig.Colors[glyphs.Wall]).never.toBe(nil)
-		expect(glyphs.WallTransparency).toBeGreaterThan(0)
-		expect(glyphs.WallTransparency).toBeLessThanOrEqual(0.5)
-	end)
-
-	it("fades in with its collision and out before it is gone, within the life of the shortest wall", function()
-		local glyphs = WorldConfig.Glyphs
-		expect(glyphs.WallFadeInSeconds).toBeGreaterThan(0)
-		expect(glyphs.WallFadeInSeconds).toBeLessThanOrEqual(0.2)
-		expect(glyphs.WallFadeOutSeconds).toBeGreaterThan(0)
-		-- A wall shorter than its two fades would start fading out at once, cancel its own fade-in and
-		-- block for its whole life at Transparency 1: the invisible slab this file exists to forbid.
+		expect(glyphs.WallRiseSeconds).toBeGreaterThan(0)
+		-- Short enough that the collision is where it is drawn almost at once.
+		expect(glyphs.WallRiseSeconds).toBeLessThanOrEqual(0.3)
+		expect(glyphs.WallSinkSeconds).toBeGreaterThan(0)
+		-- A wall shorter than its rise and its sink would start sinking before it stood.
 		local walls = 0
 		for _, def in ipairs(GlyphConfig.Glyphs) do
 			if def.Effect == "Margin" then
 				walls += 1
 				local duration = (def.Params :: any).Duration
-				if glyphs.WallFadeInSeconds + glyphs.WallFadeOutSeconds > duration then
-					error(("%s lasts %.2f s, less than its fade in and out"):format(def.Id, duration))
+				if glyphs.WallRiseSeconds + glyphs.WallSinkSeconds > duration then
+					error(("%s lasts %.2f s, less than its rise and its sink"):format(def.Id, duration))
 				end
 			end
 		end

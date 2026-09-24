@@ -8,6 +8,7 @@
 -- colour, and against what shape.
 -- The server never builds visuals; it only sends {Id, Origin, Direction, Caster, Targets, Params}.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -16,6 +17,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local AssetIds = require(Shared.Config.AssetIds)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local FeelConfig = require(Shared.Config.FeelConfig)
@@ -472,8 +474,75 @@ VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Bleed", packet, api)
 end
 
+-- The slab this packet announced: tagged glyph collision, named for the Margin, standing where the packet
+-- says in plan (it rises, so its height is not yet the packet's).
+local function marginSlab(origin: Vector3): BasePart?
+	local glyphs = WorldConfig.Glyphs
+	for _, tagged in ipairs(CollectionService:GetTagged(glyphs.CollisionTag)) do
+		if tagged.Name == glyphs.WallName and tagged:IsA("BasePart") then
+			local offset = (tagged.Position - origin) * Vector3.new(1, 0, 1)
+			if offset.Magnitude < 0.5 then
+				return tagged
+			end
+		end
+	end
+	return nil
+end
+
+local WALL_FACES =
+	{ Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right, Enum.NormalId.Top }
+
+-- The ink on the slab (VfxConfig.WallPaint): courses of brush strokes in the glyph's colour and the
+-- page's grain under them, on every face. Parented to the slab, so they go when the server takes it.
+local function paintSlab(slab: BasePart, color: Color3)
+	local paint = VfxConfig.WallPaint
+	local grainRgb =
+		CosmeticConfig.shade({ color.R * 255, color.G * 255, color.B * 255 }, paint.Grain.Shade, INK_RGB, PAGE_RGB)
+	local grainColor = Color3.fromRGB(grainRgb[1], grainRgb[2], grainRgb[3])
+	local stroke = AssetIds.Textures.BrushStroke.Id
+	local grain = AssetIds.Textures.PaperGrain.Id
+	for _, face in ipairs(WALL_FACES) do
+		for _, course in ipairs(paint.Courses) do
+			local texture = Instance.new("Texture")
+			texture.Texture = stroke
+			texture.Face = face
+			texture.Color3 = color
+			texture.Transparency = course.Transparency
+			texture.StudsPerTileU = course.U
+			texture.StudsPerTileV = course.V
+			texture.OffsetStudsU = course.OffsetU
+			texture.OffsetStudsV = course.OffsetV
+			texture.Parent = slab
+		end
+		local texture = Instance.new("Texture")
+		texture.Texture = grain
+		texture.Face = face
+		texture.Color3 = grainColor
+		texture.Transparency = paint.Grain.Transparency
+		texture.StudsPerTileU = paint.Grain.U
+		texture.StudsPerTileV = paint.Grain.V
+		texture.Parent = slab
+	end
+end
+
 VfxLibrary.Margin = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Margin", packet, api)
+	local def = GlyphConfig.ById.Margin
+	local color = glyphColor(if def ~= nil then def.Pigment else "Umber", packet, api)
+	local origin = packet.Origin
+	-- The slab is parented before the packet is sent, but replication gives no promise that it lands
+	-- first on every client: look again for a moment rather than leave a wall unpainted.
+	task.spawn(function()
+		local deadline = os.clock() + VfxConfig.WallPaint.FindSeconds
+		repeat
+			local slab = marginSlab(origin)
+			if slab ~= nil then
+				paintSlab(slab, color)
+				return
+			end
+			task.wait()
+		until os.clock() > deadline
+	end)
 end
 
 VfxLibrary.Scorch = function(packet: Packet, _trove: TroveType, api: Api)

@@ -16,6 +16,21 @@ local VfxConfig = {}
 -- really wanted is a Light layer, which lights the page around it instead of bleaching the ink.
 VfxConfig.LightEmission = 0
 
+-- The ink each client paints on a Margin's slab (VfxLibrary.Margin, D-110). The slab is the server's
+-- -- its collision, its paled pigment, its rise and sink -- and was a smooth board; tried live, two
+-- rhythms of horizontal brush courses over the page's grain read as earth laid by a hand, where one
+-- rhythm read as planks. U and V are studs per tile, Offset shifts a rhythm off the other's joints.
+VfxConfig.WallPaint = {
+	Courses = {
+		{ U = 7, V = 1.6, OffsetU = 0, OffsetV = 0, Transparency = 0.3 },
+		{ U = 4.5, V = 2.3, OffsetU = 2, OffsetV = 0.8, Transparency = 0.55 },
+	},
+	-- The grain in a darker shade of the pigment (CosmeticConfig.shade), so it reads as the slab's own.
+	Grain = { U = 6, V = 6, Transparency = 0.7, Shade = -0.25 },
+	-- How long a client waits for the slab to replicate after the packet: the server parents it first.
+	FindSeconds = 0.6,
+}
+
 -- Emitted by GlyphEffects: one per glyph, plus the shared detonation ("Explosion", reused by
 -- Brand and Blot when they blow up).
 VfxConfig.GlyphIds = {

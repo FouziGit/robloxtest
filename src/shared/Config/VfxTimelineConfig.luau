@@ -1620,13 +1620,14 @@ local BINDING: Timeline = {
 -- arrived with no warning, and the floor it stood in for six seconds kept nothing.
 --
 -- How it is built: the margin is RULED FIRST, a stroke on the floor before anything rises. It is not a
--- warning, and must not be read as one: the collision stands from the packet's first frame, so the
--- server's slab is drawn from its first frame too (WorldConfig.Glyphs, D-108), and this ink marks the faces
--- of a wall already there. Then two courses of ink grow out of that line -- and they are NOT coplanar. The
--- packet's Origin is the slab's centre, so the courses sit on either face of it, 0.9 studs fore and aft
--- inside its 2.5 of thickness: two coplanar textured quads fight for the same pixel as long as they both
--- live, and a wall that flickers for five seconds is worse than no wall. On the leaf's two faces they read
--- as recto and verso, ruled in two passes by a hand rather than extruded by a machine.
+-- warning, and must not be read as one: the collision rises with the server's slab, which is the wall
+-- itself in the Margin's pigment coming up out of the page (WorldConfig.Glyphs, D-110), and this ink marks
+-- the faces of that wall as it stands. Then two courses of ink grow out of that line -- and they are NOT
+-- coplanar. The packet's Origin is the slab's centre, so the courses sit just proud of either face, 1.32
+-- studs fore and aft of a 2.5-stud slab: inside it, where they were, they showed through the old
+-- translucent pane and are buried in the solid wall (D-110); on a face, a quad fights it for the same
+-- pixel. The slab is a paler shade of the pigment, so the courses read darker on it. On the leaf's two
+-- faces they read as recto and verso, ruled in two passes by a hand rather than extruded by a machine.
 --
 -- Both are centred ON the floor line, which is forced and is also correct. buildSprite draws Size x Size
 -- and a sprite can only grow about its own centre, so a course centred anywhere above the floor would have
@@ -1706,7 +1707,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 0.8,
 					EndSize = 14,
-					Offset = { 0, -4.5, -0.9 },
+					Offset = { 0, -4.5, -1.32 },
 					Transparency = 0.34,
 					EndTransparency = 0.14,
 				},
@@ -1721,7 +1722,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 0.6,
 					EndSize = 12,
-					Offset = { 0, -4.5, 0.9 },
+					Offset = { 0, -4.5, 1.32 },
 					Transparency = 0.4,
 					EndTransparency = 0.3,
 				},
@@ -1789,7 +1790,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 14,
 					EndSize = 14,
-					Offset = { 0, -4.5, -0.9 },
+					Offset = { 0, -4.5, -1.32 },
 					Transparency = 0.14,
 					EndTransparency = 0.2,
 				},
@@ -1805,7 +1806,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 14,
 					EndSize = 0.8,
-					Offset = { 0, -4.5, -0.9 },
+					Offset = { 0, -4.5, -1.32 },
 					Transparency = 0.2,
 					EndTransparency = 0.5,
 				},
@@ -1820,7 +1821,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 12,
 					EndSize = 12,
-					Offset = { 0, -4.5, 0.9 },
+					Offset = { 0, -4.5, 1.32 },
 					Transparency = 0.3,
 					EndTransparency = 0.34,
 				},
@@ -1833,7 +1834,7 @@ local MARGIN: Timeline = {
 					Texture = "BrushStroke",
 					Size = 12,
 					EndSize = 0.6,
-					Offset = { 0, -4.5, 0.9 },
+					Offset = { 0, -4.5, 1.32 },
 					Transparency = 0.34,
 					EndTransparency = 0.6,
 				},

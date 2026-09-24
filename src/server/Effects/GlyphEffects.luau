@@ -3,8 +3,8 @@
 -- Effects build NO visual effects: they detect targets (spatial queries, stepped raycasts, collision
 -- parts for walls), deal damage through CombatService.ApplyDamage only, and broadcast Vfx packets that
 -- each client renders, under the glyph's own `VfxId` and carrying its `Pigment`. The one look set here
--- is the Margin slab's own colour and transparency: a thing that blocks must be seen by everyone it
--- blocks, on every quality tier, so its geometry carries it (WorldConfig.Glyphs, docs/DECISIONS.md D-108).
+-- is the Margin slab's own colour and its rise and sink: a thing that blocks must be seen by everyone it
+-- blocks, on every quality tier, so its geometry carries it (WorldConfig.Glyphs, D-108 and D-110).
 -- Timed effects step inline in the caller's thread (the remote handler runs in its own thread) and stop
 -- early when the caster dies, leaves, raises guard or is stunned.
 -- Every effect returns the number of distinct models it damaged.
@@ -24,8 +24,10 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
+local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 export type GlyphDef = GlyphConfig.GlyphDef
@@ -95,9 +97,9 @@ type Ranked = { Model: Model, Distance: number }
 type ProjectileStop = { Point: Vector3, Model: Model? }
 
 -- Server collision geometry (walls) carries this tag so spatial queries skip it.
-local COLLISION_TAG = "GlyphCollision"
+local COLLISION_TAG = WorldConfig.Glyphs.CollisionTag
 local ROOT_PART_NAME = "HumanoidRootPart"
-local WALL_NAME = "Margin"
+local WALL_NAME = WorldConfig.Glyphs.WallName
 -- A projectile fuse is clamped so a synchronous effect never pins the remote handler for long.
 local MAX_PROJECTILE_SECONDS = 1.5
 -- Longest simulated step: a frame hitch must not teleport a projectile through targets.
@@ -639,43 +641,52 @@ function GlyphEffects.Margin(ctx: Context): number
 	local base = ctx.Origin * CFrame.new(0, 0, -params.Offset)
 	local floorY = ctx.Origin.Position.Y - ROOT_FLOOR_OFFSET
 
+	-- Standing, and sunk: the slab's two places. It rises out of the page with its collision and goes
+	-- back into it before Debris takes it, so what blocks is always exactly what is drawn.
+	local standing = CFrame.new(base.Position.X, floorY + params.Height / 2, base.Position.Z) * base.Rotation
+	local sunk = standing * CFrame.new(0, -params.Height, 0)
 	local wall = Instance.new("Part")
 	wall.Name = WALL_NAME
 	wall.Size = Vector3.new(params.Width, params.Height, params.Thickness)
-	wall.CFrame = CFrame.new(base.Position.X, floorY + params.Height / 2, base.Position.Z) * base.Rotation
+	wall.CFrame = sunk
 	wall.Anchored = true
 	wall.CanCollide = true
 	wall.CanQuery = true
 	wall.CanTouch = false
 	wall.CastShadow = false
-	-- Seen for exactly as long as it blocks (WorldConfig.Glyphs): the slab carries the look, and the
-	-- client's ink only rules the margin and marks the faces over it.
+	-- The slab carries the look (WorldConfig.Glyphs, D-110): a wall of its glyph's own pigment, solid, on
+	-- every quality tier, because the thing that blocks must be seen by everyone it blocks. Paled toward
+	-- the page, like dry earth, so the client's ink -- the full pigment, ruled on the floor and painted
+	-- on the faces -- reads darker on it instead of vanishing into a wall of the same colour. The shade is
+	-- CosmeticConfig's measured one: the school stays readable at it.
 	local look = WorldConfig.Glyphs
-	wall.Color = Palette.world(look.Wall)
+	local colors = (PigmentConfig.Colors :: any) :: { [string]: { number } }
+	local pigment = colors[ctx.Def.Pigment] or colors.Umber
+	wall.Color =
+		Palette.rgb(CosmeticConfig.shade(pigment, look.WallShade, WorldConfig.Colors.Ink, WorldConfig.Colors.Page))
 	wall.Material = Palette.material()
-	wall.Transparency = 1
 	CollectionService:AddTag(wall, COLLISION_TAG)
 	wall.Parent = Workspace
 	Debris:AddItem(wall, params.Duration)
 	retireOldestWall(ctx.Caster, wall)
 	TweenService:Create(
 		wall,
-		TweenInfo.new(look.WallFadeInSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ Transparency = look.WallTransparency }
+		TweenInfo.new(look.WallRiseSeconds, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+		{ CFrame = standing }
 	):Play()
-	task.delay(math.max(0, params.Duration - look.WallFadeOutSeconds), function()
+	task.delay(math.max(0, params.Duration - look.WallSinkSeconds), function()
 		if wall.Parent ~= nil then
 			TweenService:Create(
 				wall,
-				TweenInfo.new(look.WallFadeOutSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{ Transparency = 1 }
+				TweenInfo.new(look.WallSinkSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{ CFrame = sunk }
 			):Play()
 		end
 	end)
 
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,
-		Origin = wall.Position,
+		Origin = standing.Position,
 		Direction = ctx.Direction,
 		Caster = ctx.Caster.UserId,
 		Params = {

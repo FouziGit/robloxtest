@@ -44,8 +44,9 @@ local BORROWS: { [string]: { [string]: number } } = {
 	Mesh = { Part = 1, SpecialMesh = 1 },
 	-- Per scrap (costOf multiplies by the layer's Count): a part and its mesh.
 	Debris = { Part = 1, SpecialMesh = 1 },
-	-- A sketch of a body: a part and a mesh per limb, and VfxConfig.Afterimage names eleven.
-	Afterimage = { Part = 11, SpecialMesh = 11 },
+	-- A sketch of a body: a part and a mesh per limb (VfxConfig.Afterimage names fifteen), in one model
+	-- drawn flat by one highlight.
+	Afterimage = { Part = 15, SpecialMesh = 15, Model = 1, Highlight = 1 },
 	-- A shake, a flash and a sound borrow nothing and never enter the live list: they are handed to Feel,
 	-- WorldLighting and SoundController and never come back (VfxTimeline.activate returns early).
 	Shake = {},

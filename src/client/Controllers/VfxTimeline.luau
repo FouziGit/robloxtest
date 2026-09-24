@@ -69,6 +69,9 @@ export type Context = {
 	-- A thrown thing's name between its throw and its burst (thrower and server shot number): the burst
 	-- lands the play that carries it where the server burst it (VfxTimeline.land, D-114).
 	Shot: string?,
+	-- A play that must not shine: a fist's hit is charcoal ink, and ink is laid on the page (D-116). Its
+	-- Light layers are not drawn.
+	Unlit: boolean?,
 	-- A part the effect rides: a projectile, or the caster's root. Layers that need a moving anchor
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
@@ -1143,7 +1146,7 @@ local function activate(item: Pending, now: number)
 		-- on no particles at all. Not drawn, which is the whole point of a tier.
 		return
 	end
-	if layer.Kind == "Light" and not tier.Lights then
+	if layer.Kind == "Light" and (not tier.Lights or context.Unlit == true) then
 		-- A light is the first thing a struggling client stops paying for: Roblox pays for a local light
 		-- whether or not it ends up lit. Nothing a player has to READ is a light -- every telegraph is a
 		-- mark -- so dropping them thins the picture without touching a rule.
@@ -1153,9 +1156,22 @@ local function activate(item: Pending, now: number)
 		-- Weight, not meaning: the lower tiers draw the blast without its second ring (D-114).
 		return
 	end
-	if layer.Kind == "Afterimage" and (layer.Print or 1) > tier.Afterimages then
-		-- A sketch is a copy of every limb of an avatar: the tier says how many a dash may leave (D-116).
-		return
+	if layer.Kind == "Afterimage" then
+		-- A sketch is a copy of every limb of an avatar: the tier says how many a dash may leave, a ceiling
+		-- of its own says how many may stand at once (fifteen parts and meshes and a highlight each), and
+		-- one that would not be drawn is known now, before it retires a live layer for nothing (D-116).
+		if (layer.Print or 1) > tier.Afterimages then
+			return
+		end
+		local standing = 0
+		for _, entry in ipairs(live) do
+			if entry.Layer.Kind == "Afterimage" then
+				standing += 1
+			end
+		end
+		if standing >= VfxConfig.Afterimage.MaxAlive or not VfxVolumes.canSketch(context) then
+			return
+		end
 	end
 
 	-- The next link of a volume's Chain takes over the link before it (below), so it adds no layer: found
@@ -1384,7 +1400,14 @@ local function onHeartbeat(deltaTime: number)
 	local index = 1
 	while index <= #pending do
 		local item = pending[index]
-		if now >= item.At then
+		if now >= item.At and item.Layer.Kind == "Afterimage" and not VfxVolumes.reached(item.Layer, item.Context) then
+			-- A sketch waits for the body to get where it is laid (D-116), and is given up if it never does.
+			if now >= item.At + VfxConfig.Afterimage.WaitSeconds then
+				table.remove(pending, index)
+			else
+				index += 1
+			end
+		elseif now >= item.At then
 			table.remove(pending, index)
 			activate(item, now)
 		else

@@ -156,13 +156,15 @@ export type Layer = {
 	Fall: number?,
 	Tumble: { number }?,
 	Tones: { string }?,
-	-- Afterimage only (D-116): a sketch of the body the renderer passed (Context.Follow's), left where it
-	-- stood -- not Follow, which would drag it along with the body it copies -- each of its
-	-- limbs drawn once as a volume in Tone (a CosmeticConfig.Tones name: ink, never a pigment, for a dodge
-	-- names no school), never moved again, fading from Transparency and bleeding from Size to EndSize (a
-	-- scale). Print is its rank: a tier draws only the prints up to its QualityConfig.Afterimages.
+	-- Afterimage only (D-116): an ink print of the body the renderer passed (Context.Follow's), left where
+	-- it stood -- not Follow, which would drag it along with the body it copies -- flat in Tone (a
+	-- CosmeticConfig.Tones name: ink, never a pigment, for a dodge names no school), never moved again,
+	-- bleeding from Size to EndSize (a scale) and shrinking away at the end (VfxConfig.Afterimage). Laid
+	-- when the body has covered Along of the path (a share of Context.Reach from Context.Origin along
+	-- Context.Direction). Print is its rank: a tier draws only the prints up to QualityConfig.Afterimages.
 	Tone: string?,
 	Print: number?,
+	Along: number?,
 	-- Carrier only: how much of the flight follows the ease, the rest following time itself. A projectile
 	-- the server steps at a constant speed is drawn mostly with it: fully eased, the drawn Brand trailed
 	-- the damage by up to 22 studs; with 15 % of a Sine In it trails by under 3 and is never ahead
@@ -572,33 +574,31 @@ local DASH: Timeline = {
 				-- dodge feel like a stumble. Nobody else needs to feel a dodge: it is not an impact. Nor a
 				-- light: the kit is charcoal ink (D-114), and ink is laid on the page, it does not shine.
 				--
-				-- The body leaves its sketch (D-116): twice, where it was a moment into the dash and again
-				-- further along, each a graphite copy of the limbs, faint from the start and bleeding out.
+				-- The body leaves its sketch (D-116): twice, printed flat in graphite where it was a third of
+				-- the way into the dash and again two thirds along, each bleeding a little and shrinking away.
 				{
 					Kind = "Afterimage",
-					At = 0.03,
+					At = 0,
 					For = 0.22,
 					Print = 1,
+					Along = 0.3,
 					Tone = "Graphite",
 					Ease = "Quad",
 					EaseDirection = "Out",
 					Size = 1,
 					EndSize = 1.04,
-					Transparency = 0.45,
-					EndTransparency = 1,
 				},
 				{
 					Kind = "Afterimage",
-					At = 0.11,
+					At = 0,
 					For = 0.2,
 					Print = 2,
+					Along = 0.7,
 					Tone = "Graphite",
 					Ease = "Quad",
 					EaseDirection = "Out",
 					Size = 1,
 					EndSize = 1.04,
-					Transparency = 0.55,
-					EndTransparency = 1,
 				},
 			},
 		},
@@ -671,7 +671,7 @@ local MELEE: Timeline = {
 					Offset = { 0, 0.1, 2.6 },
 					Roll = 15,
 					Size = 1.4,
-					EndSize = 5,
+					EndSize = 4.8,
 					Transparency = 0.1,
 					EndTransparency = 1,
 					Spin = 9,

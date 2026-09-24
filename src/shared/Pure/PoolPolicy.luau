@@ -52,9 +52,10 @@ type PolicyImpl = typeof(setmetatable({} :: Policy, PoolPolicy))
 --
 -- These are NOT what enforces art bible rule 8. The live-layer budget of the graphics tier being drawn is
 -- (Config/QualityConfig: ninety at the top, twenty-four at the floor), past which the runtime retires the
--- oldest ordinary layer early. A layer borrows between one and five instances, so the timeline runs out of
--- layer budget long before it runs out of any row below, and most of these ceilings are deliberately out
--- of reach of it.
+-- oldest ordinary layer early. Most layers borrow between one and five instances, so the timeline runs out
+-- of layer budget long before it runs out of any row below, and most of these ceilings are deliberately
+-- out of reach of it. The exceptions are the volumes that borrow many at once -- a blast's scraps, a
+-- dash's sketch (up to fifteen parts and meshes) -- and those carry ceilings of their own.
 --
 -- What they are is the backstop, and it has two jobs a layer budget cannot do. The thirty renderers phase
 -- 4 has not converted yet still call Instance.new directly and will come through here one at a time as
@@ -91,10 +92,16 @@ PoolPolicy.Limits = {
 	-- The drawn stroke. Rarer than a trail: a beam is a deliberate line between two points, not something
 	-- a moving body leaves behind on its own.
 	Beam = { Live = 40, Parked = 12 },
-	-- A generated volume on a part (D-114): an ensō, a crown, a thrown drop, a scrap of paper. A blast at
-	-- the top tiers carries eleven (three volumes and eight scraps) and a Brand in flight one more, so
-	-- this holds about eleven blasts at once -- and a scrap refused its mesh is never drawn as a bare part.
+	-- A generated volume on a part (D-114): an ensō, a crown, a thrown drop, a scrap of paper, a limb of a
+	-- dash's sketch. A blast at the top tiers carries eleven (three volumes and eight scraps), a Brand in
+	-- flight one more, and a sketch fifteen -- which is why sketches have a ceiling of their own
+	-- (VfxConfig.Afterimage.MaxAlive), well inside this one: the layer budget counts a sketch as one layer,
+	-- and nothing here may be the first limit a crowd of dashes meets.
 	SpecialMesh = { Live = 128, Parked = 32 },
+	-- A sketch's body and its flat ink (D-116): one of each per sketch, and the engine draws at most 31
+	-- highlights at once, of which Feel's hit outlines and impact frames take up to eight.
+	Model = { Live = 8, Parked = 4 },
+	Highlight = { Live = 8, Parked = 4 },
 } :: { [string]: Limits }
 
 -- No ceiling may exceed this. A row of math.huge is not a generous ceiling, it is the absence of one, and

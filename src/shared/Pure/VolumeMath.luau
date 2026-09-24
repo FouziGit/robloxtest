@@ -89,6 +89,16 @@ function VolumeMath.scrapFade(t: number, lasts: number): number
 	return 1 - math.cos(into * math.pi / 2)
 end
 
+-- How much of its size a dash's sketch keeps at `elapsed` of its life (0 to 1): all of it, then over the
+-- last `share` of its life shrinking away to nothing, slow then fast -- a print never vanishes (rule 3).
+function VolumeMath.sketchShrink(elapsed: number, share: number): number
+	if share <= 0 then
+		return if elapsed >= 1 then 0 else 1
+	end
+	local into = clamp01((elapsed - (1 - share)) / share)
+	return 1 - into * into
+end
+
 -- How far below where a scrap was thrown it lands, or nil when it has nowhere to land: no floor under
 -- the blast, or a "floor" above it (the probe starts a stud up). A scrap with nowhere to land fades in
 -- the air rather than lying flat on nothing.

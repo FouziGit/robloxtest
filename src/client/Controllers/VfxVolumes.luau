@@ -63,8 +63,8 @@ export type Debris = { Origin: Vector3, Depth: number, Scraps: { Scrap } }
 -- limb it copies.
 type Limb = { Part: BasePart, Mesh: SpecialMesh, Scale: Vector3 }
 
--- An Afterimage layer's limbs, and how much fainter than the layer says they are drawn (the dasher's own).
-export type Afterimage = { Limbs: { Limb }, Extra: number }
+-- An Afterimage layer's limbs.
+export type Afterimage = { Limbs: { Limb } }
 
 -- What the runtime hands over (VfxTimeline.Init): its own helpers, so there is one of each.
 export type Kit = {
@@ -402,79 +402,137 @@ function VfxVolumes.stepDebris(entry: Entry, now: number)
 	end
 end
 
--- A sketch of the body `root` belongs to (an Afterimage layer, D-116): each limb VfxConfig.Afterimage
--- names that is a MeshPart and shows, copied once where it stands -- its mesh, its size, its frame -- in
--- the layer's Tone, and never moved again: a sketch is where the body WAS. The limb's mesh is already
--- loaded by the avatar, so nothing pops in; a limb the pool refuses is left out, never drawn as a bare
--- block. The dasher's own sketch is fainter, and not drawn at all when the dash runs along the camera's
--- aim, where every limb of it would stand between the player and what they are running at.
+-- Whether the dasher's own sketch would stand in their way: the camera inside the character (first
+-- person hides it), or the dash running along the camera's aim, where every limb of it would stand
+-- between the player and what they are running at.
+local function inOwnWay(body: Instance, direction: Vector3): boolean
+	local head = body:FindFirstChild("Head")
+	if head ~= nil and head:IsA("BasePart") and head.LocalTransparencyModifier > 0.5 then
+		return true
+	end
+	local camera = Workspace.CurrentCamera
+	local dash = direction * Vector3.new(1, 0, 1)
+	local look = if camera ~= nil then camera.CFrame.LookVector * Vector3.new(1, 0, 1) else Vector3.zero
+	if dash.Magnitude < 1e-3 or look.Magnitude < 1e-3 then
+		return false
+	end
+	return dash.Unit:Dot(look.Unit) >= math.cos(math.rad(VfxConfig.Afterimage.OwnHiddenWithinDegrees))
+end
+
+-- The limbs of `body` a sketch copies: every listed one that is a MeshPart with a mesh and shows.
+local function limbsOf(body: Instance): { MeshPart }
+	local out: { MeshPart } = {}
+	for _, name in ipairs(VfxConfig.Afterimage.BodyParts) do
+		local limb = body:FindFirstChild(name)
+		if limb ~= nil and limb:IsA("MeshPart") and limb.MeshId ~= "" and limb.Transparency < 0.99 then
+			local native = limb.MeshSize
+			if native.X > 1e-4 and native.Y > 1e-4 and native.Z > 1e-4 then
+				table.insert(out, limb)
+			end
+		end
+	end
+	return out
+end
+
+-- Whether a sketch of the body in `context` would be drawn at all: asked BEFORE the runtime spends a
+-- slot of its budget on it, which it otherwise retired a live layer for, for nothing (review).
+function VfxVolumes.canSketch(context: any): boolean
+	local root: BasePart? = context.Follow
+	local body = if root ~= nil then root.Parent else nil
+	if body == nil or #limbsOf(body) == 0 then
+		return false
+	end
+	return body ~= Players.LocalPlayer.Character or not inOwnWay(body, context.Direction)
+end
+
+-- Whether the body in `context` has covered `layer.Along` of its dash, as this screen sees it move: a
+-- print laid by the clock landed on the still body on every other screen, whose copy of the dasher
+-- starts moving only after the latency (review).
+function VfxVolumes.reached(layer: any, context: any): boolean
+	local root: BasePart? = context.Follow
+	local reach: number? = context.Reach
+	if root == nil or reach == nil then
+		return true
+	end
+	local flat = context.Direction * Vector3.new(1, 0, 1)
+	if flat.Magnitude < 1e-3 then
+		return true
+	end
+	return (root.Position - context.Origin):Dot(flat.Unit) >= (layer.Along or 0) * reach
+end
+
+-- A print of the body `root` belongs to (an Afterimage layer, D-116): each of its limbs copied once where
+-- it stands -- its mesh, its size, its frame -- into one Model, drawn flat by one Highlight: a fill in the
+-- layer's Tone and an outline in ink, an ink print rather than a translucent copy, which read as a ghost
+-- (review). Never moved again: a print is where the body WAS. The limb's mesh is already loaded by the
+-- avatar, so nothing pops in. All or nothing: a print the pool cannot give every limb to is not drawn,
+-- never drawn missing its legs.
 function VfxVolumes.buildAfterimage(entry: Entry, root: BasePart?)
 	local body = if root ~= nil then root.Parent else nil
 	if body == nil then
 		return
 	end
 	local config = VfxConfig.Afterimage
-	local extra = 0
-	if body == Players.LocalPlayer.Character then
-		local camera = Workspace.CurrentCamera
-		local dash: Vector3 = entry.Context.Direction * Vector3.new(1, 0, 1)
-		local look = if camera ~= nil then camera.CFrame.LookVector * Vector3.new(1, 0, 1) else Vector3.zero
-		if dash.Magnitude > 1e-3 and look.Magnitude > 1e-3 then
-			if dash.Unit:Dot(look.Unit) >= math.cos(math.rad(config.OwnHiddenWithinDegrees)) then
-				return
-			end
-		end
-		extra = config.OwnExtraTransparency
-	end
-	local tone = CosmeticConfig.Tones[entry.Layer.Tone or ""] or CosmeticConfig.Tones.Graphite
-	local limbs: { Limb } = {}
-	for _, name in ipairs(config.BodyParts) do
-		local limb = body:FindFirstChild(name)
-		if limb ~= nil and limb:IsA("MeshPart") and limb.MeshId ~= "" and limb.Transparency < 0.99 then
-			local native = limb.MeshSize
-			if native.X > 1e-4 and native.Y > 1e-4 and native.Z > 1e-4 then
-				-- The mesh first, as for the scraps: a part refused its mesh would be a bare block.
-				local instance = kit.borrow(entry, "SpecialMesh")
-				if instance == nil then
-					break
-				end
-				local part = kit.host(entry, limb.CFrame, limb.Size)
-				if part == nil then
-					break
-				end
-				local special = instance :: SpecialMesh
-				special.MeshId = limb.MeshId
-				special.Parent = part
-				part.Color = Palette.rgb(tone)
-				table.insert(limbs, { Part = part, Mesh = special, Scale = limb.Size / native })
-			end
-		end
-	end
+	local limbs = limbsOf(body)
 	if #limbs == 0 then
 		return
 	end
-	entry.Afterimage = { Limbs = limbs, Extra = extra }
-	entry.Primary = limbs[1].Part
+	local own = body == Players.LocalPlayer.Character
+	local toneName: string = if own then config.OwnTone else entry.Layer.Tone or ""
+	local tone = CosmeticConfig.Tones[toneName] or CosmeticConfig.Tones.Graphite
+	local outline = CosmeticConfig.Tones[config.Outline] or CosmeticConfig.Tones.Ink
+	local modelInstance = kit.borrow(entry, "Model")
+	local highlightInstance = kit.borrow(entry, "Highlight")
+	if modelInstance == nil or highlightInstance == nil then
+		return
+	end
+	local model = modelInstance :: Model
+	local copies: { Limb } = {}
+	for _, limb in ipairs(limbs) do
+		-- The mesh first, as for the scraps: a part refused its mesh would be a bare block.
+		local instance = kit.borrow(entry, "SpecialMesh")
+		if instance == nil then
+			return
+		end
+		local part = kit.host(entry, limb.CFrame, limb.Size)
+		if part == nil then
+			return
+		end
+		local special = instance :: SpecialMesh
+		special.MeshId = limb.MeshId
+		special.Parent = part
+		part.Color = Palette.rgb(tone)
+		part.Parent = model
+		table.insert(copies, { Part = part, Mesh = special, Scale = limb.Size / limb.MeshSize })
+	end
+	local highlight = highlightInstance :: Highlight
+	highlight.FillColor = Palette.rgb(tone)
+	highlight.FillTransparency = 0
+	highlight.OutlineColor = Palette.rgb(outline)
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.Adornee = model
+	highlight.Parent = model
+	model.Parent = Workspace
+	entry.Afterimage = { Limbs = copies }
+	entry.Primary = copies[1].Part
 	VfxVolumes.stepAfterimage(entry, 0, 0)
 end
 
--- One frame of a sketch: its limbs bleed from Size to EndSize and fade on the ink's clock. Never moved.
+-- One frame of a print: its limbs bleed from Size to EndSize, then shrink away (VolumeMath.sketchShrink).
+-- Never moved, and never faded: a highlight is not drawn over a part that is at all transparent, so a
+-- print goes by its size.
 function VfxVolumes.stepAfterimage(entry: Entry, alpha: number, elapsed: number)
 	local sketch = entry.Afterimage
 	if sketch == nil then
 		return
 	end
 	local layer = entry.Layer
-	local bleed = kit.lerp(layer.Size, layer.EndSize, alpha, 1)
-	local transparency = math.clamp(
-		kit.lerp(layer.Transparency, layer.EndTransparency, kit.fadeOf(layer, elapsed, alpha, 0), 0) + sketch.Extra,
-		0,
-		1
-	)
+	local size = kit.lerp(layer.Size, layer.EndSize, alpha, 1)
+		* VolumeMath.sketchShrink(elapsed, VfxConfig.Afterimage.ShrinkShare)
 	for _, limb in ipairs(sketch.Limbs) do
 		if limb.Part.Parent ~= nil then
-			limb.Mesh.Scale = limb.Scale * bleed
-			limb.Part.Transparency = transparency
+			limb.Mesh.Scale = limb.Scale * size
 		end
 	end
 end

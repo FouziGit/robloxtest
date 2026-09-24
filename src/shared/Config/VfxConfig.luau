@@ -28,11 +28,18 @@ VfxConfig.LightEmission = 0
 -- so a mark the impact lays is still more wet than dry.
 VfxConfig.InkRamp = { Wet = 0.12, Dry = -0.2, Seconds = 2.5 }
 
--- A dash's sketches (D-116, VfxVolumes.buildAfterimage): the limbs of an R15 body copied, and nothing
--- worn -- an accessory is someone's purchase, and a hat left hanging in the air reads as a bug. The
--- dasher's own sketches are fainter by OwnExtraTransparency, and not drawn at all when the dash runs
--- within OwnHiddenWithinDegrees of the camera's aim: there they stack on the screen right behind the
--- character and hide what it is running at.
+-- A dash's sketches (D-116, VfxVolumes.buildAfterimage): every limb of an R15 body copied and drawn flat
+-- by one Highlight -- a fill in the layer's Tone and an Outline in ink, an ink print of the body; a
+-- translucent copy read as a ghost (review). Nothing worn is copied: an accessory is someone's purchase,
+-- and a hat left hanging in the air reads as a bug.
+--
+-- A print is laid when the body has really covered its share of the dash (the layer's Along), on each
+-- screen as that screen sees it move -- the dasher's own a moment after the push, everyone else's after
+-- the latency that shows it moving -- and given up after WaitSeconds (a dash stopped by a wall). It
+-- shrinks away over the last ShrinkShare of its life. The dasher's own is drawn in the paler OwnTone, and
+-- not at all when the dash runs within OwnHiddenWithinDegrees of the camera's aim or the camera is
+-- inside the character (first person): there it would stand between the player and what they run at.
+-- At most MaxAlive at once: each is fifteen parts and meshes and one of the engine's 31 highlights.
 VfxConfig.Afterimage = {
 	BodyParts = {
 		"Head",
@@ -40,15 +47,23 @@ VfxConfig.Afterimage = {
 		"LowerTorso",
 		"LeftUpperArm",
 		"LeftLowerArm",
+		"LeftHand",
 		"RightUpperArm",
 		"RightLowerArm",
+		"RightHand",
 		"LeftUpperLeg",
 		"LeftLowerLeg",
+		"LeftFoot",
 		"RightUpperLeg",
 		"RightLowerLeg",
+		"RightFoot",
 	},
-	OwnExtraTransparency = 0.25,
+	Outline = "Ink",
+	OwnTone = "Wash",
 	OwnHiddenWithinDegrees = 45,
+	WaitSeconds = 0.5,
+	ShrinkShare = 0.5,
+	MaxAlive = 4,
 }
 
 -- Textures drawn along their flight. A spark streak tapers along its image's X, and a particle faces the

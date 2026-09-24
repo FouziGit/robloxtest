@@ -124,6 +124,10 @@ local WHITE = Color3.fromRGB(255, 245, 220)
 -- charcoal (D-114, the developer's choice): white was nearly invisible on vellum and is the colour art
 -- bible rule 7 keeps for "cannot be hurt", and the dodge's Verdigris named a school it is not.
 local KIT_INK = Palette.rgb(WorldConfig.Colors.Ink)
+-- What a fist's hit tells the two people in it -- the outline through a crowd, the number -- in the
+-- page's vellum: charcoal on its charcoal stroke was no number at all, and vanished on the ink cover
+-- walls it is meant to read through (review).
+local KIT_FEEDBACK = Palette.rgb(WorldConfig.Colors.Page)
 local SHIELD_COLOR = Color3.fromRGB(120, 190, 255)
 local GUARD_BREAK_COLOR = Color3.fromRGB(255, 120, 90)
 
@@ -686,8 +690,9 @@ end
 VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local pigment = stringParam(packet, "Pigment", "")
 	-- In the caster's skin when the hit came from a skinned glyph (CombatService writes the shade); in the
-	-- kit's charcoal when it came from a fist.
+	-- kit's charcoal when it came from a fist, told to the two people in it in vellum.
 	local color = if pigment ~= "" then glyphColor(pigment, packet, api) else KIT_INK
+	local feedback = if pigment ~= "" then color else KIT_FEEDBACK
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
 	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
@@ -703,6 +708,8 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 		-- A heavier hit is the same effect, larger. One timeline serves a jab and an ultimate, which is
 		-- what keeps the roster's visual language consistent as it grows.
 		Scale = if heavy then 1.35 else 1,
+		-- Ink does not shine: a fist's hit lights nothing (D-116).
+		Unlit = pigment == "",
 	})
 	-- The page slap is the melee kit's. A glyph's landing is its pigment's Impact voice, played by its
 	-- own timeline once at the point it landed; playing the slap here as well put two thumps under every
@@ -742,7 +749,7 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 			then victim
 			else api.CharacterOf(targetUserId)
 		if targetModel ~= nil then
-			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else color)
+			feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else feedback)
 			-- A heavy hit or the end of a chain prints both bodies in ink for a few frames, over the outline
 			-- (D-112). A finisher is a light hit and a heavy moment, so the server names it.
 			local finisher = packet.Params ~= nil and packet.Params.Finisher == true
@@ -755,7 +762,7 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 				feel.impactFrame(bodies)
 			end
 		end
-		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else color, amplified)
+		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else feedback, amplified)
 	end
 end
 
@@ -808,6 +815,8 @@ VfxLibrary.Dash = function(packet: Packet, _trove: TroveType, api: Api)
 		Direction = directionOf(packet),
 		Color = KIT_INK,
 		Follow = root,
+		-- The length of the path the sketches are laid along (D-116).
+		Reach = CombatConfig.Dash.Distance,
 	})
 	api.Sound.play("Dash", packet.Origin)
 end

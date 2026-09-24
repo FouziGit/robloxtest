@@ -41,8 +41,18 @@ local CONCURRENT_EFFECTS = 4
 -- Chosen, not measured. See the header.
 local PARTICLE_CEILING = 400
 -- Every class the renderer borrows, so the cost model cannot silently miss one.
-local BORROWED_CLASSES =
-	{ "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Beam", "PointLight", "SpecialMesh" }
+local BORROWED_CLASSES = {
+	"Part",
+	"Decal",
+	"ParticleEmitter",
+	"Attachment",
+	"Trail",
+	"Beam",
+	"PointLight",
+	"SpecialMesh",
+	"Model",
+	"Highlight",
+}
 local RENDERER = "src/client/Controllers/VfxTimeline.luau"
 -- Every file that borrows from the pool for a layer: the runtime, and the volumes it hands its own
 -- borrow to (VfxVolumes, `kit.borrow`).

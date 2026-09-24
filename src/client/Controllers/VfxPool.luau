@@ -234,6 +234,22 @@ local function resetSpecialMesh(mesh: SpecialMesh)
 	mesh.VertexColor = Vector3.one
 end
 
+-- A dash's sketch (D-116) is one Model holding its limbs, drawn flat by one Highlight: an ink print of
+-- the body rather than a translucent copy of it.
+local function resetModel(model: Model)
+	model.Name = "Model"
+end
+
+local function resetHighlight(highlight: Highlight)
+	highlight.Name = "Highlight"
+	highlight.Enabled = true
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.FillColor = BLANK_COLOR
+	highlight.FillTransparency = 0
+	highlight.OutlineColor = BLANK_COLOR
+	highlight.OutlineTransparency = 0
+end
+
 local function resetAttachment(attachment: Attachment)
 	attachment.Name = "Attachment"
 	attachment.CFrame = CFrame.identity
@@ -273,6 +289,10 @@ end
 
 local function muteSpecialMesh(mesh: SpecialMesh)
 	mesh.Scale = Vector3.zero
+end
+
+local function muteHighlight(highlight: Highlight)
+	highlight.Enabled = false
 end
 
 type ClassOps = {
@@ -359,6 +379,27 @@ local CLASSES: { [string]: ClassOps } = {
 		end,
 		mute = function(instance: Instance)
 			muteSpecialMesh(instance :: SpecialMesh)
+		end,
+	},
+	Model = {
+		create = function(): Instance
+			return Instance.new("Model")
+		end,
+		reset = function(instance: Instance)
+			resetModel(instance :: Model)
+		end,
+		-- Nothing of its own is drawn: its limbs go back to the pool before it does.
+		mute = function(_instance: Instance) end,
+	},
+	Highlight = {
+		create = function(): Instance
+			return Instance.new("Highlight")
+		end,
+		reset = function(instance: Instance)
+			resetHighlight(instance :: Highlight)
+		end,
+		mute = function(instance: Instance)
+			muteHighlight(instance :: Highlight)
 		end,
 	},
 	Attachment = {

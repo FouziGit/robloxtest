@@ -81,7 +81,7 @@ describe("a drawn layer", function()
 		expect(writes).toBe(1)
 		for _, call in ipairs({
 			"stepSprite(entry, alpha, elapsed, deltaTime)",
-			"stepMark(entry, alpha, elapsed)",
+			"stepMark(entry, alpha, elapsed, now)",
 			"stepBeam(entry, alpha, elapsed)",
 		}) do
 			if not step:find(call, 1, true) then
@@ -241,7 +241,7 @@ describe("a glyph that blocks", function()
 		expect(margin:find("local pigment = colors[ctx.Def.Pigment]", 1, true)).never.toBe(nil)
 		-- Whitespace folded: the formatter may break the line anywhere.
 		local flat = (margin:gsub("%s+", " "))
-		expect(flat:find("wall.Color = Palette.rgb(CosmeticConfig.shade(pigment, look.WallShade", 1, true)).never.toBe(
+		expect(flat:find("wall.Color = Palette.rgb(PigmentConfig.shade(pigment, look.WallShade", 1, true)).never.toBe(
 			nil
 		)
 		-- Paler than its ink, inside the measured range that keeps the school readable.

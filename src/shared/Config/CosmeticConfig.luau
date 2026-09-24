@@ -21,7 +21,7 @@ export type Look = {
 	Tone: Tone?, -- Aura, Trail
 	Timeline: string?, -- KillEffect: a VfxTimelineConfig timeline
 	TextKey: string?, -- Title: the words shown above the head
-	Shade: number?, -- Skin: -1 toward ink .. +1 toward the page, inside ShadeRange
+	Shade: number?, -- Skin: -1 toward ink .. +1 toward the page, inside PigmentConfig.ShadeRange
 }
 export type CosmeticDef = {
 	Id: string,
@@ -394,26 +394,8 @@ CosmeticConfig.Tones = {
 CosmeticConfig.AuraStyles = { "Motes", "Wisps", "Drips", "Pages", "Soot", "Orbit" }
 CosmeticConfig.TrailStyles = { "Stroke", "Hairline", "Scrawl", "Soot", "Scraps", "Dust" }
 
--- How far a skin may move its pigment. Measured, not chosen by eye: at these ends every pigment stays
--- within three quarters of its own distance to the nearest other pigment, the ink or the page
--- (tests/Cosmetics.spec.luau). At -0.35 a darkened Cinnabar was already closer to Umber than to itself,
--- and at +0.25 a paled Indigo drifted toward Verdigris.
-CosmeticConfig.ShadeRange = { -0.25, 0.2 }
-
--- The pigment `rgb` moved by `shade` toward `ink` (negative) or `page` (positive), clamped to ShadeRange.
--- Numbers in, numbers out, so the client and the tests compute the same colour.
-function CosmeticConfig.shade(rgb: { number }, shade: number, ink: { number }, page: { number }): { number }
-	local amount = if shade ~= shade
-		then 0
-		else math.clamp(shade, CosmeticConfig.ShadeRange[1], CosmeticConfig.ShadeRange[2])
-	local toward = if amount < 0 then ink else page
-	local t = math.abs(amount)
-	return {
-		math.floor(rgb[1] + (toward[1] - rgb[1]) * t + 0.5),
-		math.floor(rgb[2] + (toward[2] - rgb[2]) * t + 0.5),
-		math.floor(rgb[3] + (toward[3] - rgb[3]) * t + 0.5),
-	}
-end
+-- A skin's Look.Shade moves its glyph's pigment toward ink or page, inside PigmentConfig.ShadeRange: the
+-- measured range in which every school stays its own (PigmentConfig.shade).
 
 CosmeticConfig.ById = {} :: { [string]: CosmeticDef }
 for _, item in ipairs(CosmeticConfig.Items) do

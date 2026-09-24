@@ -26,10 +26,13 @@ local AssetIds = require(Shared.Config.AssetIds)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local FeelMath = require(Shared.Pure.FeelMath)
 local Log = require(Shared.Util.Log)
+local Palette = require(Shared.Util.Palette)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local SoundConfig = require(Shared.Config.SoundConfig)
 local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("VfxTimeline")
 
@@ -55,8 +58,12 @@ export type Context = {
 	Radius: number?,
 	Reach: number?,
 	-- The pigment whose four voices a Sound layer that names a Voice resolves against. A layer naming a
-	-- voice in a play that carries no pigment is not played, and the runtime says so once.
+	-- voice in a play that carries no pigment is not played, and the runtime says so once. It is also what
+	-- dries: only a play with a pigment has its ink go from wet to dry (VfxConfig.InkRamp).
 	Pigment: string?,
+	-- The caster's skin shade (PigmentConfig.ShadeRange), already in Color. The drying adds to it from the
+	-- pigment itself and is clamped once, so a skin and its drying never compound out of the school.
+	Shade: number?,
 	-- A part the effect rides: a projectile, or the caster's root. Layers that need a moving anchor
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
@@ -90,9 +97,14 @@ type Live = {
 	Warning: boolean,
 	Instances: { Instance },
 	Primary: Instance?,
+	-- A floor mark's ink, wet when its play begins and dry InkRamp.Seconds later (VfxConfig.InkRamp).
+	Wet: Color3?,
+	Dry: Color3?,
 	-- Which call to play() this layer came from. Layers of one play share a carrier, and two casts in
 	-- flight at once must not ride each other's.
 	PlayId: number,
+	-- When that play began: the clock its floor marks dry on.
+	PlayStartedAt: number,
 }
 
 type Pending = {
@@ -104,6 +116,7 @@ type Pending = {
 	Seconds: number,
 	Warning: boolean,
 	PlayId: number,
+	PlayStartedAt: number,
 }
 
 local VfxTimeline = {}
@@ -367,6 +380,37 @@ local function planeSize(entry: Live, alpha: number): Vector3
 	return Vector3.new(width, if span ~= nil then span * entry.Scales.Span else width, 0.05)
 end
 
+local INK_RGB = WorldConfig.Colors.Ink
+local PAGE_RGB = WorldConfig.Colors.Page
+
+-- The colour a thing of this play is at birth (wet) and at the end of its life (dry): VfxConfig.InkRamp
+-- added to the caster's skin shade and applied to the PIGMENT, clamped once by PigmentConfig.shade --
+-- shading an already shaded colour compounded a -0.25 skin and a -0.2 drying to -0.45, where a Cinnabar
+-- reads as Umber. Only a pigment dries: a play with none (the page-coloured Erasure, a kill effect's
+-- inks, a melee hit) keeps the colour it was given.
+local function wetAndDry(context: Context, color: Color3): (Color3, Color3)
+	local pigment = context.Pigment
+	local base: { number }? = if pigment ~= nil then (PigmentConfig.Colors :: any)[pigment] else nil
+	if base == nil then
+		return color, color
+	end
+	local ramp = VfxConfig.InkRamp
+	local shade = context.Shade or 0
+	return Palette.rgb(PigmentConfig.shade(base, shade + ramp.Wet, INK_RGB, PAGE_RGB)),
+		Palette.rgb(PigmentConfig.shade(base, shade + ramp.Dry, INK_RGB, PAGE_RGB))
+end
+
+local function inkRamp(context: Context, color: Color3): ColorSequence
+	local wet, dry = wetAndDry(context, color)
+	return ColorSequence.new(wet, dry)
+end
+
+-- How dry a floor mark is at `now`, on its PLAY's clock rather than its own life: a stain drawn as a chain
+-- of marks then picks up at the colour the last link reached instead of flashing wet at the hand-off.
+local function driedBy(entry: Live, now: number): number
+	return math.clamp((now - entry.PlayStartedAt) / VfxConfig.InkRamp.Seconds, 0, 1)
+end
+
 local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 	if textureMissing(layer) then
 		return
@@ -432,7 +476,14 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame)
 	-- markFrame leaves the part's +Z along the ground normal, and Front is the -Z face: the face that
 	-- looks up is Back. Front here pointed every mark in the game into the floor.
 	decal.Face = Enum.NormalId.Back
-	decal.Color3 = ink
+	-- A mark drawn in its own ink (the Erasure's page-coloured burns) is not the pigment and does not dry.
+	local wet, dry = ink, ink
+	if entry.Context.Ink == nil then
+		wet, dry = wetAndDry(entry.Context, ink)
+	end
+	entry.Wet = wet
+	entry.Dry = dry
+	decal.Color3 = wet:Lerp(dry, driedBy(entry, entry.StartedAt))
 	decal.Transparency = layer.Transparency or 0.3
 	decal.Parent = part
 	entry.Primary = part
@@ -480,7 +531,7 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	if id ~= "" then
 		emitter.Texture = id
 	end
-	emitter.Color = ColorSequence.new(entry.Context.Color)
+	emitter.Color = inkRamp(entry.Context, entry.Context.Color)
 	-- Particle size is a size, so it follows the layer's size measure; speed is a distance through the
 	-- world and follows the effect's own scale.
 	local size = (layer.Size or 1) * entry.Scales.Size
@@ -506,9 +557,24 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	emitter.Lifetime = NumberRange.new(lifetime[1], lifetime[2])
 	emitter.SpreadAngle = Vector2.new(layer.Spread or 0, layer.Spread or 0)
 	emitter.Drag = layer.Drag or 0
-	-- Squash below 1 stretches a particle along its travel, which is what makes a spark read as moving
-	-- rather than as a dot that is somewhere else next frame.
-	emitter.Squash = NumberSequence.new(layer.Squash or 0)
+	-- A spark stretched along its travel reads as moving rather than as a dot that is somewhere else next
+	-- frame. A streak is drawn along its flight (VfxConfig.StreakTextures). VelocityParallel lays the image's +X
+	-- on the velocity, and spark_streak.png has its head at -X, so the image is turned half a turn or every
+	-- spark flies tail first. And Squash scales the image's own axes, so along the flight a NEGATIVE value
+	-- lengthens it: the layer's Squash (written as "how stretched") is applied negated. Both found by
+	-- review with a live probe, sparks thrown straight up (D-111).
+	local squash = layer.Squash or 0
+	local streak = layer.Texture ~= nil and VfxConfig.StreakTextures[layer.Texture] == true
+	if streak then
+		emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
+		emitter.Rotation = NumberRange.new(180, 180)
+		squash = -squash
+	end
+	-- Stretched at birth, when it is fastest, and relaxed by the time drag has stopped it.
+	emitter.Squash = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, squash),
+		NumberSequenceKeypoint.new(1, 0),
+	})
 	-- Wind drags the residue with the world instead of leaving it hanging in still air.
 	emitter.WindAffectsDrag = true
 	emitter.LightEmission = VfxConfig.LightEmission
@@ -634,7 +700,8 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 	local trail = trailInstance :: Trail
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
-	trail.Color = ColorSequence.new(entry.Context.Color)
+	-- Wet at the head, dry at the tail: a trail's length is its age.
+	trail.Color = inkRamp(entry.Context, entry.Context.Color)
 	trail.Lifetime = entry.Seconds
 	trail.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0.3),
@@ -696,7 +763,7 @@ local function stepSprite(entry: Live, alpha: number, elapsed: number, deltaTime
 	end
 end
 
-local function stepMark(entry: Live, alpha: number, elapsed: number)
+local function stepMark(entry: Live, alpha: number, elapsed: number, now: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -704,12 +771,17 @@ local function stepMark(entry: Live, alpha: number, elapsed: number)
 	local part = primary :: BasePart
 	local layer = entry.Layer
 	part.Size = planeSize(entry, alpha)
-	local transparency =
-		math.clamp(lerp(layer.Transparency, layer.EndTransparency, fadeOf(layer, elapsed, alpha, 0.3), 0.3), 0, 1)
+	local fade = fadeOf(layer, elapsed, alpha, 0.3)
+	local transparency = math.clamp(lerp(layer.Transparency, layer.EndTransparency, fade, 0.3), 0, 1)
+	-- The stain darkens as it dries, on its play's clock.
+	local wet, dry = entry.Wet, entry.Dry
 	local children = part:GetChildren()
 	for _, child in ipairs(children) do
 		if child:IsA("Decal") then
 			child.Transparency = transparency
+			if wet ~= nil and dry ~= nil then
+				child.Color3 = wet:Lerp(dry, driedBy(entry, now))
+			end
 		end
 	end
 	-- A warning drawn bare, before its texture exists, fades on the part itself.
@@ -1037,6 +1109,7 @@ local function activate(item: Pending, now: number)
 		Instances = {},
 		Primary = nil,
 		PlayId = item.PlayId,
+		PlayStartedAt = item.PlayStartedAt,
 	}
 
 	if layer.Kind == "Carrier" then
@@ -1084,7 +1157,7 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	if kind == "Sprite" then
 		stepSprite(entry, alpha, elapsed, deltaTime)
 	elseif kind == "Mark" then
-		stepMark(entry, alpha, elapsed)
+		stepMark(entry, alpha, elapsed, now)
 	elseif kind == "Light" then
 		stepLight(entry, alpha)
 	elseif kind == "Beam" then
@@ -1154,6 +1227,7 @@ function VfxTimeline.play(id: string, context: Context): boolean
 						Seconds = layer.For * factor,
 						Warning = phase.Window == true,
 						PlayId = playId,
+						PlayStartedAt = now,
 					})
 				end
 				phaseStart += seconds
@@ -1172,14 +1246,16 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		return false
 	end
 	nextPlayId += 1
+	local now = os.clock()
 	table.insert(pending, {
 		Id = id,
 		Layer = layer,
 		Context = context,
-		At = os.clock() + layer.At,
+		At = now + layer.At,
 		Seconds = layer.For,
 		Warning = false,
 		PlayId = nextPlayId,
+		PlayStartedAt = now,
 	})
 	return true
 end

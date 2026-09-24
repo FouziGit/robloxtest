@@ -67,4 +67,28 @@ function PigmentConfig.isPigment(value: any): boolean
 	return type(value) == "string" and lookup[value] == true
 end
 
+-- How far a pigment may be shaded -- toward ink (negative) or toward the page (positive) -- and still be
+-- read as its own school. Measured, not chosen by eye: at these ends every pigment stays within three
+-- quarters of its own distance to the nearest other pigment, the ink or the page (tests/Cosmetics.spec
+-- .luau). At -0.35 a darkened Cinnabar was already closer to Umber than to itself, and at +0.25 a paled
+-- Indigo drifted toward Verdigris. Skins (D-109), the Margin slab (D-110) and the drying of ink over a
+-- particle's life (D-111) all stay inside it.
+PigmentConfig.ShadeRange = { -0.25, 0.2 }
+
+-- The colour `rgb` moved by `shade` toward `ink` (negative) or `page` (positive), clamped to ShadeRange.
+-- Numbers in, numbers out, so the server, the client and the tests compute the same colour; a NaN shade
+-- is no shade, and a forged one cannot leave the range.
+function PigmentConfig.shade(rgb: { number }, shade: number, ink: { number }, page: { number }): { number }
+	local amount = if shade ~= shade
+		then 0
+		else math.clamp(shade, PigmentConfig.ShadeRange[1], PigmentConfig.ShadeRange[2])
+	local toward = if amount < 0 then ink else page
+	local t = math.abs(amount)
+	return {
+		math.floor(rgb[1] + (toward[1] - rgb[1]) * t + 0.5),
+		math.floor(rgb[2] + (toward[2] - rgb[2]) * t + 0.5),
+		math.floor(rgb[3] + (toward[3] - rgb[3]) * t + 0.5),
+	}
+end
+
 return PigmentConfig

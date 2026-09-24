@@ -24,7 +24,6 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
-local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
@@ -658,12 +657,12 @@ function GlyphEffects.Margin(ctx: Context): number
 	-- every quality tier, because the thing that blocks must be seen by everyone it blocks. Paled toward
 	-- the page, like dry earth, so the client's ink -- the full pigment, ruled on the floor and painted
 	-- on the faces -- reads darker on it instead of vanishing into a wall of the same colour. The shade is
-	-- CosmeticConfig's measured one: the school stays readable at it.
+	-- PigmentConfig's measured one: the school stays readable at it.
 	local look = WorldConfig.Glyphs
 	local colors = (PigmentConfig.Colors :: any) :: { [string]: { number } }
 	local pigment = colors[ctx.Def.Pigment] or colors.Umber
 	wall.Color =
-		Palette.rgb(CosmeticConfig.shade(pigment, look.WallShade, WorldConfig.Colors.Ink, WorldConfig.Colors.Page))
+		Palette.rgb(PigmentConfig.shade(pigment, look.WallShade, WorldConfig.Colors.Ink, WorldConfig.Colors.Page))
 	wall.Material = Palette.material()
 	CollectionService:AddTag(wall, COLLISION_TAG)
 	wall.Parent = Workspace

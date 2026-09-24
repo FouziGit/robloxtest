@@ -23,6 +23,7 @@ local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local FeelConfig = require(Shared.Config.FeelConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Trove = require(Packages.Trove)
 local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
@@ -200,7 +201,7 @@ local INK_RGB = WorldConfig.Colors.Ink
 local PAGE_RGB = WorldConfig.Colors.Page
 
 -- A glyph's colour as its caster wears it: the pigment, moved by the skin shade the server wrote into the
--- packet (GlyphService). CosmeticConfig.shade clamps it to the measured range, so even a packet with an
+-- packet (GlyphService). PigmentConfig.shade clamps it to the measured range, so even a packet with an
 -- absurd shade cannot move a spell out of its school (docs/ART_BIBLE.md rule 2).
 local function glyphColor(pigment: string, packet: Packet, api: Api): Color3
 	local base = api.PigmentColor(pigment)
@@ -208,7 +209,7 @@ local function glyphColor(pigment: string, packet: Packet, api: Api): Color3
 	if shade == 0 then
 		return base
 	end
-	local rgb = CosmeticConfig.shade({ base.R * 255, base.G * 255, base.B * 255 }, shade, INK_RGB, PAGE_RGB)
+	local rgb = PigmentConfig.shade({ base.R * 255, base.G * 255, base.B * 255 }, shade, INK_RGB, PAGE_RGB)
 	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
 
@@ -394,6 +395,7 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 		Direction = directionOf(packet),
 		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
+		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
 	})
 	-- The field of view and the pad belong to the person who cast it, and to nobody else. The timeline's
@@ -416,6 +418,7 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 		Direction = directionOf(packet),
 		Color = glyphColor("Cinnabar", packet, api),
 		Pigment = "Cinnabar",
+		Shade = numberParam(packet, "Shade", 0),
 	})
 end
 
@@ -431,6 +434,7 @@ VfxLibrary.Explosion = function(packet: Packet, _trove: TroveType, api: Api)
 		Direction = directionOf(packet),
 		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
+		Shade = numberParam(packet, "Shade", 0),
 		Scale = radius / DEFAULT_BLAST_RADIUS,
 	})
 end
@@ -454,6 +458,7 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 		Direction = directionOf(packet),
 		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
+		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
 	})
 end
@@ -497,7 +502,7 @@ local WALL_FACES =
 local function paintSlab(slab: BasePart, color: Color3)
 	local paint = VfxConfig.WallPaint
 	local grainRgb =
-		CosmeticConfig.shade({ color.R * 255, color.G * 255, color.B * 255 }, paint.Grain.Shade, INK_RGB, PAGE_RGB)
+		PigmentConfig.shade({ color.R * 255, color.G * 255, color.B * 255 }, paint.Grain.Shade, INK_RGB, PAGE_RGB)
 	local grainColor = Color3.fromRGB(grainRgb[1], grainRgb[2], grainRgb[3])
 	local stroke = AssetIds.Textures.BrushStroke.Id
 	local grain = AssetIds.Textures.PaperGrain.Id
@@ -629,6 +634,7 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 			Color = color,
 			-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
 			Pigment = "Orpiment",
+			Shade = numberParam(packet, "Shade", 0),
 		})
 	end
 end
@@ -656,6 +662,9 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
 		Color = color,
+		-- What dries: the pigment the damage carried (none for a melee hit) and its skin shade.
+		Pigment = if pigment ~= "" then pigment else nil,
+		Shade = numberParam(packet, "Shade", 0),
 		-- A heavier hit is the same effect, larger. One timeline serves a jab and an ultimate, which is
 		-- what keeps the roster's visual language consistent as it grows.
 		Scale = if heavy then 1.35 else 1,

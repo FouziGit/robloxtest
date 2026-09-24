@@ -73,7 +73,7 @@ WorldConfig.Glyphs = {
 	-- name: the server builds them, each client finds the slab by them to paint it (VfxLibrary.Margin).
 	CollisionTag = "GlyphCollision",
 	WallName = "Margin",
-	-- The slab's shade of its pigment, toward the page: dry earth under wet ink (CosmeticConfig.shade).
+	-- The slab's shade of its pigment, toward the page: dry earth under wet ink (PigmentConfig.shade).
 	WallShade = 0.2,
 	-- Out of the floor, and back into it. Short enough that the collision is where it is drawn almost at
 	-- once; long enough to be seen rising, which is the whole read of a wall being raised.

@@ -1,9 +1,10 @@
 """The spark streak.
 
-One bright head with a tail running to +X. Roblox stretches a particle along its velocity on the X
-axis, so a sprite drawn head-left, tail-right is the one that survives being stretched: the head stays
-a head at any speed and only the tail lengthens. Drawn the other way round the emitter looks like it
-is firing backwards, and no amount of emitter tuning fixes it.
+One bright head with a tail running to +X. The renderer draws it along its flight with
+ParticleOrientation.VelocityParallel, which lays the image's +X on the velocity -- so, as drawn here, the
+tail would lead. VfxTimeline turns the image half a turn for every streak texture (VfxConfig.StreakTextures)
+and applies the layer's Squash negated, which is what lengthens it along the flight. Both were measured with
+sparks thrown straight up in a live client (docs/DECISIONS.md D-111); the texture itself is unchanged.
 
 There is no glow and no lens flare here. docs/ART_BIBLE.md rule 1 puts every saturated pixel inside a
 glyph, and a flare is the one particle that always bleeds outside the shape it came from.

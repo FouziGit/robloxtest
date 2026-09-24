@@ -127,6 +127,7 @@ local function resetEmitter(emitter: ParticleEmitter)
 	emitter.Lifetime = UNIT_RANGE
 	emitter.Speed = ZERO_RANGE
 	emitter.Rotation = ZERO_RANGE
+	emitter.Orientation = Enum.ParticleOrientation.FacingCamera
 	emitter.RotSpeed = ZERO_RANGE
 	emitter.SpreadAngle = Vector2.zero
 	emitter.Acceleration = Vector3.zero

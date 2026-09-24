@@ -145,8 +145,10 @@ export type Layer = {
 	Lifetime: { number }?, -- {min, max}, seconds
 	Spread: number?, -- degrees
 	Drag: number?,
-	-- Squash below 1 stretches a particle along its travel, which is what makes a spark read as moving
-	-- rather than as a dot that happens to be somewhere else next frame.
+	-- How stretched a particle is at birth, relaxing to its drawn shape by the end of its life, which is
+	-- what makes a spark read as moving rather than as a dot that happens to be somewhere else next frame.
+	-- On a streak texture it is laid along the flight (VfxTimeline.buildEmitter applies it negated: along
+	-- the image's X a negative ParticleEmitter.Squash is the long one); anywhere else it is Squash as is.
 	Squash: number?,
 
 	-- Light only.

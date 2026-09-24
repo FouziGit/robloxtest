@@ -81,10 +81,10 @@ end)
 describe("a skin", function()
 	it("keeps every pigment its own school at both ends of the shade range", function()
 		-- Measured before it was written: at -0.35 a darkened Cinnabar was closer to Umber than to itself.
-		for _, shade in ipairs(CosmeticConfig.ShadeRange) do
+		for _, shade in ipairs(PigmentConfig.ShadeRange) do
 			for _, name in ipairs(PigmentConfig.Order) do
 				local own = PigmentConfig.Colors[name]
-				local shaded = CosmeticConfig.shade(own, shade, INK, PAGE)
+				local shaded = PigmentConfig.shade(own, shade, INK, PAGE)
 				local nearest = math.min(distance(shaded, INK), distance(shaded, PAGE))
 				for _, other in ipairs(PigmentConfig.Order) do
 					if other ~= name then
@@ -109,8 +109,8 @@ describe("a skin", function()
 			if shade == nil then
 				error(item.Id .. " declares no shade")
 			end
-			expect(shade).toBeGreaterThanOrEqual(CosmeticConfig.ShadeRange[1])
-			expect(shade).toBeLessThanOrEqual(CosmeticConfig.ShadeRange[2])
+			expect(shade).toBeGreaterThanOrEqual(PigmentConfig.ShadeRange[1])
+			expect(shade).toBeLessThanOrEqual(PigmentConfig.ShadeRange[2])
 			-- A skin that moves its pigment by less than this is a purchase nobody can see.
 			expect(math.abs(shade)).toBeGreaterThanOrEqual(0.15)
 			local seen = byGlyph[target] or {}
@@ -124,12 +124,12 @@ describe("a skin", function()
 
 	it("clamps a forged shade, so no packet can move a spell out of its school", function()
 		local cinnabar = PigmentConfig.Colors.Cinnabar
-		local forged = CosmeticConfig.shade(cinnabar, -1, INK, PAGE)
-		local floor = CosmeticConfig.shade(cinnabar, CosmeticConfig.ShadeRange[1], INK, PAGE)
+		local forged = PigmentConfig.shade(cinnabar, -1, INK, PAGE)
+		local floor = PigmentConfig.shade(cinnabar, PigmentConfig.ShadeRange[1], INK, PAGE)
 		expect(forged[1]).toBe(floor[1])
 		expect(forged[2]).toBe(floor[2])
 		expect(forged[3]).toBe(floor[3])
-		local unchanged = CosmeticConfig.shade(cinnabar, 0 / 0, INK, PAGE)
+		local unchanged = PigmentConfig.shade(cinnabar, 0 / 0, INK, PAGE)
 		expect(unchanged[1]).toBe(cinnabar[1])
 	end)
 

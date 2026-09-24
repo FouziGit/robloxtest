@@ -232,8 +232,9 @@ describe("the hand-keyed casts", function()
 
 	it("reach their release exactly when the glyph leaves the hand", function()
 		-- The timing contract (D-114, D-117): the server decides when a glyph leaves; the drawn glyph
-		-- leaves with it (its timeline's Travel starts there, and tests/Flight.spec.luau holds a held
-		-- throw's Windup to it); the animation is keyed on that moment, never the other way round.
+		-- acts with it, once its Anticipation and Cast are drawn (where a Travel starts, and
+		-- tests/Flight.spec.luau holds a held throw's Windup to it); the animation is keyed on that
+		-- moment, never the other way round.
 		for _, keyed in ipairs(keyedClips()) do
 			local def = GlyphConfig.byId(keyed.glyph)
 			local timeline = if def ~= nil then VfxTimelineConfig.Timelines[def.VfxId] else nil
@@ -242,10 +243,9 @@ describe("the hand-keyed casts", function()
 			end
 			local leaves = 0
 			for _, phase in ipairs(timeline.Phases) do
-				if phase.Name == "Travel" then
-					break
+				if phase.Name == "Anticipation" or phase.Name == "Cast" then
+					leaves += phase.Duration
 				end
-				leaves += phase.Duration
 			end
 			expect(math.abs(keyed.release - leaves)).toBeLessThan(1e-9)
 			local windup = def.Params.Windup
@@ -293,9 +293,16 @@ describe("the hand-keyed casts", function()
 			expect(own).toBe(name)
 			expect(ownClip).toBe(clip)
 		end
-		local unkeyed, unkeyedClip = AnimationConfig.castClip("Wash")
-		expect(unkeyed).toBe(generic)
-		expect(unkeyedClip).toBe(AnimationConfig.clipFor("Cast"))
+		local tried = 0
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if AnimationConfig.CastByGlyph[def.Id] == nil then
+				tried += 1
+				local unkeyed, unkeyedClip = AnimationConfig.castClip(def.Id)
+				expect(unkeyed).toBe(generic)
+				expect(unkeyedClip).toBe(AnimationConfig.clipFor("Cast"))
+			end
+		end
+		expect(tried).toBeGreaterThan(0)
 		expect((AnimationConfig.castClip(nil))).toBe(generic)
 	end)
 end)

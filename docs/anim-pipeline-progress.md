@@ -45,12 +45,22 @@ Le lâcher tombe à 0,06 s : trop tôt pour une vraie anticipation. Pistes, à d
 2. **Allonger le Windup de la Marque** (0,06 → 0,10–0,12 s) pour 3 à 4 images d'armé visible. **Change le gameplay** (la Marque part plus tard, à toutes les portées) : à ne faire que sur décision explicite.
 3. **Une traînée d'encre au lâcher** qui suit la main (le balayage de pinceau existe déjà côté VFX) : renforce le contact sans rien changer au timing.
 
-## Phase 3 — skill (en cours)
+## Phase 3 — skill (fait)
 
-`.claude/skills/vellum-animation/` + lignes dans `CLAUDE.md` ; test sur un second glyphe (le Lavis, Indigo + Indigo).
+- `.claude/skills/vellum-animation/` : `SKILL.md` (110 lignes : ce qui doit être ouvert, contrat de timing, méthode en 11 étapes, checklist « fini », chaîne `.rbxmx` → `upload_assets.py` → `AnimationConfig.luau`) ; `references/` (rig R15 et signes mesurés, export, timings des vingt glyphes, pièges) ; `scripts/` (`glyph_timings.luau`, `studio_test.py` qui écrit les extraits Studio : enregistrer, brancher, lire, nettoyer).
+- Renvoi ajouté dans `CLAUDE.md` (section « Animations »).
+- **Testé sur un second glyphe, le Lavis** (Indigo + Indigo), en suivant le skill pas à pas :
+
+| Étape | Résultat |
+|---|---|
+| Timing | le Lavis agit à **0,10 s** (Anticipation 0,06 + Cast 0,04) ; le front du serveur est déjà parti : rien n'a bougé côté jeu |
+| Blocage | premier jet : bras écartés en V, lu comme un haussement d'épaules de face → mains resserrées, poussée plus longue, dépassement ajouté à la main gauche |
+| Courbes | armé 0,04 s (`QuadOut`), poussée `QuadIn` jusqu'au lâcher, dépassement 0,16 s, tenue `SineInOut` jusqu'à 0,30 s, retour 0,64 s ; pire rotation 38,3°/image |
+| Studio (K+K, vrai lancer) | **avant** : main à z +2,04 (derrière) quand le front part ; **après** : z −1,19, y +0,08, basse, dans le front ; console sans erreur du jeu |
+| Ce que le test a appris au skill | la règle de lâcher est « fin d'Anticipation + Cast » (la plupart des glyphes n'ont pas de Travel) ; deux glyphes (Bleed, Watermark) agissent à 0 s et ne peuvent pas avoir de lancer sans une anticipation VFX (décision du développeur) ; l'instant de gel s'affichait mal (corrigé) |
 
 ## Ce que le développeur doit faire
 
 1. Regarder l'avant/après et les GIF (envoyés dans la conversation).
-2. S'il valide : autoriser l'envoi du clip sur Roblox. La commande, déjà vérifiée à blanc (`plan` : un seul fichier) : `python3 scripts/upload_assets.py upload`. Elle écrit l'id dans `AnimationConfig.luau` ; la Marque joue alors son propre lancer, sans autre changement.
+2. S'il valide : autoriser l'envoi des deux clips sur Roblox (`brand_throw.rbxmx`, `wash_sweep.rbxmx`). La commande, vérifiée à blanc avec `plan` : `python3 scripts/upload_assets.py upload`. Elle écrit les ids dans `AnimationConfig.luau` ; la Marque et le Lavis jouent alors leur propre lancer, sans autre changement.
 3. Relire et fusionner la branche `feat/anim-pipeline`.

@@ -51,6 +51,10 @@ Ces cinq commandes sont les quality gates : toutes vertes avant chaque commit. `
 
 Branche `main`. Conventional Commits (`feat(matchmaking): …`, `fix(combat): …`, `docs: …`, `chore(toolchain): …`). Commits atomiques ; le jeu reste `rojo build`-able et les tests verts à chaque commit. Push après chaque phase. Ne jamais prétendre avoir poussé si le push a échoué.
 
+## Animations
+
+Toute création, correction ou comparaison d'animation suit le skill `.claude/skills/vellum-animation/` : méthode d'animateur (poses clés → courbes → secondaire → chiffres), contrat de timing (le serveur décide, l'animation s'y cale, aucun chiffre de gameplay ne bouge), checklist « fini », chaîne `tools/animations/keyed/*.json` → `.rbxmx` → `scripts/upload_assets.py` → `AnimationConfig.luau`. Aucun upload sur Roblox sans l'accord explicite du développeur.
+
 ## Documentation
 
 Toute décision non triviale → `docs/DECISIONS.md` (raison en deux lignes). Fin de phase → `docs/PROGRESS.md` (fait / en cours / reste). Design → `docs/GAME_DESIGN.md`, économie → `docs/ECONOMY.md`, setup manuel Studio → `docs/STUDIO_SETUP.md`.

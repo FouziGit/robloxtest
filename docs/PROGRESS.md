@@ -336,4 +336,5 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Un lancer par glyphe**, posé à la main sur l'horloge du serveur : la Marque pousse la paume dans le sceau à 0,06 s, l'instant où le serveur la lâche (l'ancien clip générique avait la main 2,2 studs derrière le corps à cet instant, mesuré en jeu). Haut du corps seulement : on lance en courant sans glisser.
 - **L'outil** : `tools/animations/keyed.py` (poses clés → courbes → `.rbxmx`, vérifications chiffrées, aperçu Blender sans interface sur deux rigs mesurés dans Studio) ; `check.sh` reconstruit chaque clip depuis ses poses.
 - **Le skill `vellum-animation`** (`.claude/skills/`, pointé par `CLAUDE.md`) fait de la méthode celle du projet ; essayé sur le **Lavis**, qui a désormais son propre lancer (deux paumes vers le sol à 0,10 s).
-- Reste : téléverser `brand_throw.rbxmx` et `wash_sweep.rbxmx` (accord du développeur), puis les autres glyphes.
+- **En jeu** : les deux clips sont téléversés (accord du développeur) ; chaque clip est chargé à l'apparition du personnage, le premier lancer d'une session ne reste plus vide.
+- Reste : les autres glyphes, avec le skill.

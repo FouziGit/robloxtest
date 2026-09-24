@@ -3,6 +3,13 @@
     "userId": "3721321390"
   },
   "assets": {
+    "assets/animations/brand_throw.rbxmx": {
+      "assetId": "112103498595273",
+      "assetType": "Animation",
+      "sha256": "78caf5c51a6728d05370c94af357f28fec672080586b1e3cba024e8dd45049b7",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T23:39:15+00:00"
+    },
     "assets/animations/guard_break.rbxmx": {
       "assetId": "79441446612897",
       "assetType": "Animation",
@@ -58,6 +65,13 @@
       "sha256": "580d0b0587adf76a6e4be5b69f5d7a1f72556320c5c3755b4c4082ebdc97c666",
       "moderationState": "Approved",
       "uploadedAt": "2026-09-23T15:14:15+00:00"
+    },
+    "assets/animations/wash_sweep.rbxmx": {
+      "assetId": "103966907025992",
+      "assetType": "Animation",
+      "sha256": "3f835ed8584ea4bff99f1d3b76ee92522a05102baa70b0cf88d6ddcfd2a1606d",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-09-24T23:39:18+00:00"
     },
     "assets/audio/block_start.wav": {
       "assetId": "120764790598855",

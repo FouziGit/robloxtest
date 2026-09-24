@@ -298,7 +298,7 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | 4 — Des volumes (meshes générés, pièce témoin : la Marque) | ✅ | `a100b84`, `05293fb`, kit et esquisses |
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
-| 7 — Animations | ⬜ | — |
+| 7 — Animations | 🔶 | branche `feat/anim-pipeline` (D-117) |
 | 8 — Interface et découverte | ⬜ | — |
 
 ### Phase 1 — fait
@@ -330,3 +330,9 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Verrou sur un adversaire** (D-115, demandé en cours de phase) : clic molette / R3 / disque tactile ; caméra et orientation, adversaires en match, mannequins et boss hors match ; shift-lock retiré. Vu en jeu : orientation exacte, caméra sur la cible, relâché à la mort de la cible et hors de portée.
 - **Le kit à l'encre** (D-116) : coup, impact et esquive au charbon, sans lumière ; un croissant de pinceau par coup et par impact ; deux empreintes d'encre du corps le long de l'esquive (une en Moyen, aucune en Bas), plus pâles pour soi, posées là où le corps passe vraiment. Vu en jeu, relu, refait.
 - Reste : les phases 5 à 8.
+
+### Phase 7 — en cours (D-117, suivi détaillé : `docs/anim-pipeline-progress.md`)
+
+- **Un lancer par glyphe**, posé à la main sur l'horloge du serveur : la Marque pousse la paume dans le sceau à 0,06 s, l'instant où le serveur la lâche (l'ancien clip générique avait la main 2,2 studs derrière le corps à cet instant, mesuré en jeu). Haut du corps seulement : on lance en courant sans glisser.
+- **L'outil** : `tools/animations/keyed.py` (poses clés → courbes → `.rbxmx`, vérifications chiffrées, aperçu Blender sans interface sur deux rigs mesurés dans Studio) ; `check.sh` reconstruit chaque clip depuis ses poses.
+- Reste : téléverser `brand_throw.rbxmx` (accord du développeur), le skill `vellum-animation`, puis les autres glyphes.

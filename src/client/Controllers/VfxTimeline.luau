@@ -119,6 +119,8 @@ type Live = {
 	Volume: VfxVolumes.Volume?,
 	-- A Debris layer's scraps (VfxVolumes).
 	Debris: VfxVolumes.Debris?,
+	-- An Afterimage layer's limbs (VfxVolumes).
+	Afterimage: VfxVolumes.Afterimage?,
 	-- Its place in its timeline, which seeds anything that must be the same on every client.
 	LayerIndex: number,
 }
@@ -1151,6 +1153,10 @@ local function activate(item: Pending, now: number)
 		-- Weight, not meaning: the lower tiers draw the blast without its second ring (D-114).
 		return
 	end
+	if layer.Kind == "Afterimage" and (layer.Print or 1) > tier.Afterimages then
+		-- A sketch is a copy of every limb of an avatar: the tier says how many a dash may leave (D-116).
+		return
+	end
 
 	-- The next link of a volume's Chain takes over the link before it (below), so it adds no layer: found
 	-- first, it is kept out of the budget, which would otherwise retire a layer for nothing -- or retire
@@ -1292,6 +1298,8 @@ local function activate(item: Pending, now: number)
 		if count >= 1 then
 			VfxVolumes.buildDebris(entry, place, count)
 		end
+	elseif layer.Kind == "Afterimage" then
+		VfxVolumes.buildAfterimage(entry, context.Follow)
 	end
 
 	if entry.Primary == nil then
@@ -1339,6 +1347,8 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 		VfxVolumes.step(entry, alpha, elapsed, now)
 	elseif kind == "Debris" then
 		VfxVolumes.stepDebris(entry, now)
+	elseif kind == "Afterimage" then
+		VfxVolumes.stepAfterimage(entry, alpha, elapsed)
 	end
 end
 

@@ -120,6 +120,10 @@ local HIT_TAKEN_COLOR = Color3.fromRGB(217, 58, 34)
 local DEFAULT_BLAST_RADIUS = 7
 local DEFAULT_DIRECTION = Vector3.new(0, 0, -1)
 local WHITE = Color3.fromRGB(255, 245, 220)
+-- The kit -- the punch, its hit, the dodge -- belongs to no school, so it is drawn in the page's own
+-- charcoal (D-114, the developer's choice): white was nearly invisible on vellum and is the colour art
+-- bible rule 7 keeps for "cannot be hurt", and the dodge's Verdigris named a school it is not.
+local KIT_INK = Palette.rgb(WorldConfig.Colors.Ink)
 local SHIELD_COLOR = Color3.fromRGB(120, 190, 255)
 local GUARD_BREAK_COLOR = Color3.fromRGB(255, 120, 90)
 
@@ -681,8 +685,9 @@ end
 -- camera jolted for fights the player was not in and stayed calm for the one they were.
 VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local pigment = stringParam(packet, "Pigment", "")
-	-- In the caster's skin when the hit came from a skinned glyph (CombatService writes the shade).
-	local color = glyphColor(pigment, packet, api)
+	-- In the caster's skin when the hit came from a skinned glyph (CombatService writes the shade); in the
+	-- kit's charcoal when it came from a fist.
+	local color = if pigment ~= "" then glyphColor(pigment, packet, api) else KIT_INK
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
 	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
@@ -768,9 +773,9 @@ VfxLibrary.Melee = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Melee", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
-		-- The melee kit belongs to no school, so it is drawn in the world's own colour rather than in a
+		-- The melee kit belongs to no school, so it is drawn in the page's charcoal rather than in a
 		-- pigment: art bible rule 2 says a colour on screen names a school, and this one names none.
-		Color = WHITE,
+		Color = KIT_INK,
 		-- The finisher is the same stroke, heavier. One timeline, two weights.
 		Scale = if finisher then 1.4 else 1,
 		Follow = casterRoot(packet),
@@ -801,7 +806,7 @@ VfxLibrary.Dash = function(packet: Packet, _trove: TroveType, api: Api)
 	api.Timeline.play("Dash", {
 		Origin = if root ~= nil then root.Position else packet.Origin,
 		Direction = directionOf(packet),
-		Color = api.PigmentColor("Verdigris"),
+		Color = KIT_INK,
 		Follow = root,
 	})
 	api.Sound.play("Dash", packet.Origin)

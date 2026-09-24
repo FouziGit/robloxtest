@@ -396,7 +396,7 @@ describe("the volumes on screen", function()
 	it("carry their meaning on every tier: only named flourishes are left out, and a crown needs a floor", function()
 		-- Which volumes are weight and not meaning is a design decision, so it is written down here:
 		-- a new volume is drawn on every tier until someone decides otherwise, on purpose.
-		local FLOURISHES = { ["Explosion/SplitRing"] = true, ["Explosion/Debris"] = true }
+		local FLOURISHES = { ["Explosion/SplitRing"] = true, ["Explosion/Debris"] = true, ["Hit/Crescent"] = true }
 		local found: { [string]: boolean } = {}
 		for _, placed in ipairs(volumes()) do
 			local layer = placed.Layer

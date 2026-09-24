@@ -28,6 +28,29 @@ VfxConfig.LightEmission = 0
 -- so a mark the impact lays is still more wet than dry.
 VfxConfig.InkRamp = { Wet = 0.12, Dry = -0.2, Seconds = 2.5 }
 
+-- A dash's sketches (D-116, VfxVolumes.buildAfterimage): the limbs of an R15 body copied, and nothing
+-- worn -- an accessory is someone's purchase, and a hat left hanging in the air reads as a bug. The
+-- dasher's own sketches are fainter by OwnExtraTransparency, and not drawn at all when the dash runs
+-- within OwnHiddenWithinDegrees of the camera's aim: there they stack on the screen right behind the
+-- character and hide what it is running at.
+VfxConfig.Afterimage = {
+	BodyParts = {
+		"Head",
+		"UpperTorso",
+		"LowerTorso",
+		"LeftUpperArm",
+		"LeftLowerArm",
+		"RightUpperArm",
+		"RightLowerArm",
+		"LeftUpperLeg",
+		"LeftLowerLeg",
+		"RightUpperLeg",
+		"RightLowerLeg",
+	},
+	OwnExtraTransparency = 0.25,
+	OwnHiddenWithinDegrees = 45,
+}
+
 -- Textures drawn along their flight. A spark streak tapers along its image's X, and a particle faces the
 -- camera by default, so every spark in the game was a horizontal dash on screen whatever way it flew.
 -- VelocityParallel turns the image to its velocity; checked live with sparks thrown straight up (D-111).

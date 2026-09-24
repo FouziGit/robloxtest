@@ -15,6 +15,7 @@
 --   PostProcessing  -- src/client/Controllers/WorldLighting (the five effects, and every pulse)
 --   Footprints      -- src/client/Controllers/FootprintController (a share of its own budget, 0 = none)
 --   Flourishes      -- src/client/Controllers/VfxTimeline (a volume marked Flourish is not drawn when false)
+--   Afterimages     -- src/client/Controllers/VfxTimeline (how many of a dash's prints are drawn, 0 = none)
 --   NameKey         -- src/ui/screens/SettingsScreen
 -- tests/EffectCost.spec.luau reads that list back out of the sources: a field nothing reads is a promise
 -- to the player that nothing keeps.
@@ -36,6 +37,10 @@ export type TierDef = {
 	Footprints: number,
 	-- The volumes that add weight rather than meaning (a blast's second ring, its paper scraps, D-114).
 	Flourishes: boolean,
+	-- How many sketches of a dashing body are left behind (D-116). Each is a limb-for-limb copy of the
+	-- avatar, a thousand triangles for a blocky body and ten for a detailed one, so the lower tiers draw
+	-- none.
+	Afterimages: number,
 }
 
 -- Best first. Every step down is a step the client can take by itself, and the last one is the floor.
@@ -52,6 +57,7 @@ local tiers: { [string]: TierDef } = {
 		PostProcessing = true,
 		Footprints = 1,
 		Flourishes = true,
+		Afterimages = 2,
 	},
 	-- Two thirds of the layers and a little over half the particles: the same effects, thinner. Nothing
 	-- structural goes -- every telegraph, every mark, every light is still there -- so the game still
@@ -64,6 +70,7 @@ local tiers: { [string]: TierDef } = {
 		PostProcessing = true,
 		Footprints = 0.5,
 		Flourishes = true,
+		Afterimages = 1,
 	},
 	-- Dynamic lights go. Roblox pays for a local light whether or not the surface ends up lit, and on a
 	-- phone they are the most expensive thing in the frame after the post-processing; the effects keep
@@ -76,6 +83,7 @@ local tiers: { [string]: TierDef } = {
 		PostProcessing = true,
 		Footprints = 0,
 		Flourishes = false,
+		Afterimages = 0,
 	},
 	-- The post-processing goes too: no bloom, no grade, no depth of field, and no page flash. This is the
 	-- floor, and it is still Vellum -- the world is lit high and pale by Lighting itself, not by the
@@ -88,6 +96,7 @@ local tiers: { [string]: TierDef } = {
 		PostProcessing = false,
 		Footprints = 0,
 		Flourishes = false,
+		Afterimages = 0,
 	},
 }
 

@@ -60,6 +60,7 @@ local READERS: { { Field: string, Path: string } } = {
 	{ Field = "PostProcessing", Path = "src/client/Controllers/WorldLighting.luau" },
 	{ Field = "Footprints", Path = "src/client/Controllers/FootprintController.luau" },
 	{ Field = "Flourishes", Path = "src/client/Controllers/VfxTimeline.luau" },
+	{ Field = "Afterimages", Path = "src/client/Controllers/VfxTimeline.luau" },
 	{ Field = "NameKey", Path = "src/ui/screens/SettingsScreen.luau" },
 }
 
@@ -192,6 +193,7 @@ describe("the cost of an effect", function()
 			Trail = { Path = RENDERER, Header = "local function buildTrail(" },
 			Mesh = { Path = BORROWERS[2], Header = "function VfxVolumes.build(" },
 			Debris = { Path = BORROWERS[2], Header = "function VfxVolumes.buildDebris(" },
+			Afterimage = { Path = BORROWERS[2], Header = "function VfxVolumes.buildAfterimage(" },
 		}
 		for kind in pairs(EffectCost.Occupies) do
 			local builder = BUILDERS[kind]

@@ -64,6 +64,7 @@ export type LayerKind =
 	| "Mark"
 	| "Mesh"
 	| "Debris"
+	| "Afterimage"
 	| "Shake"
 	| "Flash"
 	| "Sound"
@@ -148,13 +149,20 @@ export type Layer = {
 	Flourish: boolean?,
 	-- Debris only (D-114): Count scraps of the page, each one of Meshes, thrown within Spread degrees of
 	-- straight up at Speed {min, max}, slowed by Drag toward a gentle Fall (studs/s), tumbling at Tumble
-	-- {min, max} rad/s, lasting Lifetime {min, max} and coloured in turn by Tones (WorldConfig.Colors
+	-- {min, max} rad/s, lasting Lifetime {min, max} and coloured at random from Tones (WorldConfig.Colors
 	-- names: paper, never a pigment). Size is a scrap's long side in studs, give or take 30 %.
 	Meshes: { string }?,
 	Count: number?,
 	Fall: number?,
 	Tumble: { number }?,
 	Tones: { string }?,
+	-- Afterimage only (D-116): a sketch of the body the renderer passed (Context.Follow's), left where it
+	-- stood -- not Follow, which would drag it along with the body it copies -- each of its
+	-- limbs drawn once as a volume in Tone (a CosmeticConfig.Tones name: ink, never a pigment, for a dodge
+	-- names no school), never moved again, fading from Transparency and bleeding from Size to EndSize (a
+	-- scale). Print is its rank: a tier draws only the prints up to its QualityConfig.Afterimages.
+	Tone: string?,
+	Print: number?,
 	-- Carrier only: how much of the flight follows the ease, the rest following time itself. A projectile
 	-- the server steps at a constant speed is drawn mostly with it: fully eased, the drawn Brand trailed
 	-- the damage by up to 22 studs; with 15 % of a Sine In it trails by under 3 and is never ahead
@@ -405,6 +413,24 @@ local HIT: Timeline = {
 					Transparency = 0.1,
 					EndTransparency = 1,
 				},
+				-- The blow's own stroke, cut across the point of contact the way it came (D-116): a small
+				-- crescent turning the other way from the swing's. Weight, not meaning: the ring already says
+				-- where, so the lower tiers leave it out.
+				{
+					Kind = "Mesh",
+					Mesh = "Crescent",
+					Flourish = true,
+					At = 0,
+					For = 0.14,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Roll = -25,
+					Size = 0.8,
+					EndSize = 3.2,
+					Transparency = 0.05,
+					EndTransparency = 1,
+					Spin = -10,
+				},
 				{
 					Kind = "Emitter",
 					At = 0,
@@ -543,15 +569,36 @@ local DASH: Timeline = {
 				-- No Shake layer here, on purpose. The dasher's own camera is pushed by MovementController
 				-- the instant the command is accepted, before any packet comes back, and a second push from
 				-- this packet summed on top of it (FeelConfig.Shake sums concurrent shakes) is what made the
-				-- dodge feel like a stumble. Nobody else needs to feel a dodge: it is not an impact.
+				-- dodge feel like a stumble. Nobody else needs to feel a dodge: it is not an impact. Nor a
+				-- light: the kit is charcoal ink (D-114), and ink is laid on the page, it does not shine.
+				--
+				-- The body leaves its sketch (D-116): twice, where it was a moment into the dash and again
+				-- further along, each a graphite copy of the limbs, faint from the start and bleeding out.
 				{
-					Kind = "Light",
-					At = 0,
+					Kind = "Afterimage",
+					At = 0.03,
 					For = 0.22,
-					Ease = "Sine",
-					EaseDirection = "InOut",
-					Range = 6,
-					Brightness = 1.1,
+					Print = 1,
+					Tone = "Graphite",
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Size = 1,
+					EndSize = 1.04,
+					Transparency = 0.45,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Afterimage",
+					At = 0.11,
+					For = 0.2,
+					Print = 2,
+					Tone = "Graphite",
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Size = 1,
+					EndSize = 1.04,
+					Transparency = 0.55,
+					EndTransparency = 1,
 				},
 			},
 		},
@@ -604,38 +651,30 @@ local MELEE: Timeline = {
 					Size = 0.3,
 					EndSize = 0,
 				},
-				{
-					Kind = "Light",
-					At = 0,
-					For = 0.1,
-					Ease = "Sine",
-					EaseDirection = "Out",
-					Offset = { 0, 0.2, 1.8 },
-					Range = 3,
-					Brightness = 0.8,
-				},
 			},
 		},
 		{
 			Name = "Cast",
 			Duration = 0.1,
 			Layers = {
-				-- The stroke itself, swept across the front on a brush texture rather than drawn as a
-				-- hard arc. A melee swing that reads as a shape is a weapon; one that reads as a mark is
-				-- a hand.
+				-- The stroke itself: one charcoal brush crescent flicked across the front, turning as it
+				-- opens, tilted so it is not a plate (D-116). It replaced a flat sprite of the same stroke,
+				-- which read as a card held up in front of the fist. A swing that reads as a shape is a
+				-- weapon; one that reads as a mark is a hand.
 				{
-					Kind = "Sprite",
+					Kind = "Mesh",
+					Mesh = "Crescent",
 					At = 0,
 					For = 0.16,
 					Ease = "Quart",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Offset = { 0, 0.1, 3.2 },
-					Size = 1.2,
-					EndSize = 6.4,
-					Spin = 7,
-					Transparency = 0.15,
+					Offset = { 0, 0.1, 2.6 },
+					Roll = 15,
+					Size = 1.4,
+					EndSize = 5,
+					Transparency = 0.1,
 					EndTransparency = 1,
+					Spin = 9,
 				},
 				{
 					Kind = "Emitter",

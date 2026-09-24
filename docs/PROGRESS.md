@@ -295,7 +295,7 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | 1 — Les cosmétiques s'affichent | ✅ | voir le journal git |
 | 2 — Artisanat des particules | ✅ | `9af33da` |
 | 3 — Le coup se sent (images d'impact, ragdoll) | ✅ | voir le journal git |
-| 4 — Des volumes (meshes générés, pièce témoin : la Marque) | 🟡 | `a100b84` (un seul vol) + volumes |
+| 4 — Des volumes (meshes générés, pièce témoin : la Marque) | ✅ | `a100b84`, `05293fb`, kit et esquisses |
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
 | 7 — Animations | ⬜ | — |
@@ -323,9 +323,10 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - Trois relectures adversariales ; `tests/HitFeel.spec.luau`, chaque mutation échoue (voir D-112).
 - Vu en jeu ensuite (D-113) : la chute passe bien par le serveur ; elle devient un **knockdown lisible** (0,8 s à terre + 0,3 s de relevé), le corps à terre est **intouchable** (et n'est plus une cible), plus de tir ami en 3v3, la force revient progressivement (pire saut 40° au lieu de 106°) et le serveur vise toujours droit.
 
-### Phase 4 — en cours (D-114)
+### Phase 4 — faite (D-114, D-115, D-116)
 
 - **Un seul vol** (`a100b84`) : la Marque dessinée suit la vraie à moins de trois studs et retombe là où elle éclate ; lancer numéroté, `Fizzle`, attente au bout du vol, son de queue gardé.
 - **Volumes générés** : sept maillages Blender reproductibles à l'octet, téléversés et résolus ; couche `Mesh` et couche `Debris` ; Explosion (ensō, anneau, couronne, papier) et Marque (goutte, balayage). Vus en jeu, puis relus : sol trouvé sous les mannequins et le boss, jamais par-dessus l'avertissement d'un autre effet, atterrissages sans à-coup (D-114).
 - **Verrou sur un adversaire** (D-115, demandé en cours de phase) : clic molette / R3 / disque tactile ; caméra et orientation, adversaires en match, mannequins et boss hors match ; shift-lock retiré. Vu en jeu : orientation exacte, caméra sur la cible, relâché à la mort de la cible et hors de portée.
-- Reste : images rémanentes sur l'esquive, kit en encre charbon (coups, esquive) et leurs balayages, puis les phases 5 à 8.
+- **Le kit à l'encre** (D-116) : coup, impact et esquive au charbon, sans lumière ; un croissant de pinceau par coup et par impact ; deux esquisses graphite du corps derrière l'esquive (une en Moyen, aucune en Bas), discrètes pour soi. Vu en jeu.
+- Reste : les phases 5 à 8.

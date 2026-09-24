@@ -189,6 +189,17 @@ describe("the two animation systems", function()
 		expect(AnimationConfig.ImpactLeadSeconds).toBeLessThan(0.15)
 	end)
 
+	it("load every uploaded clip when the character appears, not on its first blow", function()
+		-- Loading starts the asset's download; a clip loaded by the blow that plays it stays at weight
+		-- 0 until the download ends, which was the whole of a session's first Brand (measured).
+		local bind = moves:match("local function bind%(character: Model%)(.-)\nend\n")
+		if bind == nil then
+			error("Moves has no bind(character) to load the clips in")
+		end
+		expect(bind:find("in pairs(AnimationConfig.Clips)", 1, true)).never.toBe(nil)
+		expect(bind:find("trackFor(name, clip)", 1, true)).never.toBe(nil)
+	end)
+
 	it("hold the guard exactly as long as its attribute", function()
 		expect(moves:find("GetAttributeChangedSignal", 1, true)).never.toBe(nil)
 	end)

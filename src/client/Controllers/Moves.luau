@@ -195,6 +195,14 @@ local function bind(character: Model)
 	if found ~= nil and found:IsA("Animator") then
 		animator = found
 	end
+	-- Every clip is loaded as the character appears. An animation asset downloads when it is first
+	-- loaded, and one first loaded by its own blow played nothing that time: measured in Studio, a
+	-- session's first Brand stayed at weight 0 for its whole throw.
+	for name, clip in pairs(AnimationConfig.Clips) do
+		if clip.Id ~= "" then
+			trackFor(name, clip)
+		end
+	end
 	local typed = humanoid :: Humanoid
 	guardConnection = typed:GetAttributeChangedSignal(GUARD_ATTRIBUTE):Connect(function()
 		setGuard(typed:GetAttribute(GUARD_ATTRIBUTE) == true)

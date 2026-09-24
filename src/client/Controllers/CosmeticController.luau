@@ -62,6 +62,9 @@ local MOVING_STUDS_PER_SECOND = 1.5
 -- One turn of an orbiting stroke, in seconds, and how far it rises and falls while it goes round.
 local ORBIT_SECONDS = 2.6
 local ORBIT_BOB = 0.8
+-- Half the stroke's width. Tuned in a live client: at 0.12 the two strokes were hairlines nobody saw,
+-- which on a legendary aura is a purchase that shows nothing.
+local ORBIT_HALF_WIDTH = 0.2
 -- How far a title is read from: past this it is noise over a crowd.
 local TITLE_DISTANCE = 45
 -- A body that moves further than this in one frame was teleported (the end of a match, the boss pads, a
@@ -196,11 +199,11 @@ local AURA: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: numbe
 	Motes = function(worn, root, color, scale)
 		aroundBody(worn, root, color, {
 			Texture = "DustMote",
-			Rate = 5,
+			Rate = 9,
 			Lifetime = { 1.6, 2.6 },
 			Speed = { 0.3, 1 },
-			Size = { 0.2, 0 },
-			Transparency = { 0.2, 1 },
+			Size = { 0.34, 0 },
+			Transparency = { 0.1, 1 },
 			Acceleration = Vector3.new(0, 0.7, 0),
 		}, scale)
 	end,
@@ -212,7 +215,7 @@ local AURA: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: numbe
 			Lifetime = { 1.6, 2.4 },
 			Speed = { 0.8, 1.6 },
 			Size = { 0.8, 2.6 },
-			Transparency = { 0.6, 1 },
+			Transparency = { 0.5, 1 },
 			Spread = 25,
 			Drag = 0.6,
 			RotSpeed = 30,
@@ -236,11 +239,11 @@ local AURA: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: numbe
 	Pages = function(worn, root, color, scale)
 		aroundBody(worn, root, color, {
 			Texture = "PaperScrap",
-			Rate = 1.3,
-			Lifetime = { 2.5, 3.5 },
-			Speed = { 0.3, 0.8 },
-			Size = { 0.38, 0.3 },
-			Transparency = { 0.15, 1 },
+			Rate = 3,
+			Lifetime = { 2.2, 3.2 },
+			Speed = { 0.4, 1 },
+			Size = { 0.65, 0.5 },
+			Transparency = { 0, 1 },
 			Acceleration = Vector3.new(0, 0.35, 0),
 			RotSpeed = 70,
 		}, scale)
@@ -266,7 +269,7 @@ local AURA: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: numbe
 		for index = 1, 2 do
 			local upper = attachment(worn, root, Vector3.zero)
 			local lower = attachment(worn, root, Vector3.zero)
-			ribbon(worn, upper, lower, color, 0.5, 0.15, true)
+			ribbon(worn, upper, lower, color, 0.6, 0.05, true)
 			table.insert(worn.Orbits, { Upper = upper, Lower = lower, Phase = (index - 1) * math.pi, Radius = 2.2 })
 		end
 	end,
@@ -379,7 +382,9 @@ local function buildTitle(look: CosmeticConfig.Look, entry: Tracked): Worn?
 	label.Size = UDim2.fromScale(1, 1)
 	label.FontFace = Theme.Fonts.Title
 	label.TextSize = Theme.Sizes.TextBody
-	label.TextColor3 = Theme.Colors.Ink
+	-- The interface's text colour, charcoal: Theme.Colors.Ink is the ink BAR, a pigment blue, and a title
+	-- in a school's colour over a head is a colour that belongs to no glyph (rule 1).
+	label.TextColor3 = Theme.Colors.Text
 	label.Text = localize.t(look.TextKey)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Theme.Colors.Panel
@@ -500,8 +505,8 @@ local function onHeartbeat()
 					math.sin(angle * 1.7) * ORBIT_BOB,
 					math.sin(angle) * orbit.Radius
 				)
-				orbit.Upper.Position = center + Vector3.new(0, 0.12, 0)
-				orbit.Lower.Position = center - Vector3.new(0, 0.12, 0)
+				orbit.Upper.Position = center + Vector3.new(0, ORBIT_HALF_WIDTH, 0)
+				orbit.Lower.Position = center - Vector3.new(0, ORBIT_HALF_WIDTH, 0)
 			end
 		end
 	end

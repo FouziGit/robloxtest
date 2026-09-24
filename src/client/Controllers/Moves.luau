@@ -1,15 +1,16 @@
 --!strict
 -- Moves: the local character plays real animation clips for what it does.
 --
--- The clips are CC0 motion retargeted onto R15 (Config/AnimationConfig, tools/animations/). They are
--- played here through the character's own Animator, and only on the LOCAL character: Roblox replicates
--- an animation a client plays on its own character to the server and to every other client, so each
--- player's client animating its own body is what makes everyone see everyone move. Playing another
--- player's character from here would be seen by nobody but this client.
+-- The clips are CC0 motion retargeted onto R15, and casts keyed by hand for their glyph
+-- (Config/AnimationConfig, tools/animations/). They are played here through the character's own
+-- Animator, and only on the LOCAL character: Roblox replicates an animation a client plays on its own
+-- character to the server and to every other client, so each player's client animating its own body is
+-- what makes everyone see everyone move. Playing another player's character from here would be seen by
+-- nobody but this client.
 --
 -- An action with no uploaded clip is left to Posture's procedural pose, and an action WITH one is left
--- entirely to this file: both read AnimationConfig.clipFor, so the two never move the same body for the
--- same action.
+-- entirely to this file: both read AnimationConfig.clipFor (castClip for a cast, which a glyph may have
+-- its own of), so the two never move the same body for the same action.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,7 +32,8 @@ local vfxController: any
 local animator: Animator? = nil
 -- Loaded tracks by clip name, for the current character only; a respawn builds a new Animator.
 local tracks: { [string]: AnimationTrack } = {}
--- The melee clip currently playing, stopped when the next hit of the chain starts.
+-- The strike or cast currently playing, stopped when the next one starts: two of them at the same
+-- priority would be blended into a pose that is neither.
 local current: AnimationTrack? = nil
 -- Clip ids that failed to load, reported once each.
 local failed: { [string]: boolean } = {}
@@ -81,17 +83,13 @@ local function nameOf(action: string, index: number?): string?
 	return if names ~= nil then names[index or 1] else nil
 end
 
-local function play(action: string, index: number?)
-	local clip = AnimationConfig.clipFor(action, index)
-	local name = nameOf(action, index)
-	if clip == nil or name == nil then
-		return
-	end
+-- Plays `clip`. A blow -- a strike or a cast -- replaces the one before it; a flinch plays over it.
+local function start(name: string, clip: AnimationConfig.Clip, blow: boolean)
 	local track = trackFor(name, clip)
 	if track == nil then
 		return
 	end
-	if action == "Melee" and current ~= nil and current ~= track then
+	if blow and current ~= nil and current ~= track then
 		current:Stop(FADE_SECONDS)
 	end
 	track:Play(FADE_SECONDS, 1, clip.Speed)
@@ -99,9 +97,27 @@ local function play(action: string, index: number?)
 		-- Start just before the blow: the damage is already applied, so the fist must arrive with it.
 		track.TimePosition = math.max(0, clip.Impact - AnimationConfig.ImpactLeadSeconds)
 	end
-	if action == "Melee" then
+	if blow then
 		current = track
 	end
+end
+
+local function play(action: string, index: number?)
+	local clip = AnimationConfig.clipFor(action, index)
+	local name = nameOf(action, index)
+	if clip == nil or name == nil then
+		return
+	end
+	start(name, clip, action == "Melee")
+end
+
+-- A glyph's cast: its own clip when it has one, the generic cast otherwise (AnimationConfig.castClip).
+local function cast(glyphId: string?)
+	local name, clip = AnimationConfig.castClip(glyphId)
+	if name == nil or clip == nil then
+		return
+	end
+	start(name, clip, true)
 end
 
 -- The guard is a state, like in Posture: the loop runs exactly while the attribute is on.
@@ -134,6 +150,14 @@ local function targetOf(params: { [string]: any }?): number
 	return if type(target) == "number" then target else 0
 end
 
+local function glyphOf(params: { [string]: any }?): string?
+	if type(params) ~= "table" then
+		return nil
+	end
+	local glyphId = params.GlyphId
+	return if type(glyphId) == "string" then glyphId else nil
+end
+
 local function onAction(id: string, userId: number, params: { [string]: any }?)
 	-- What this player did...
 	if userId == player.UserId then
@@ -141,7 +165,7 @@ local function onAction(id: string, userId: number, params: { [string]: any }?)
 			local index = if type(params) == "table" and type(params.Index) == "number" then params.Index else 1
 			play("Melee", math.max(1, math.floor(index)))
 		elseif id == "Cast" then
-			play("Cast")
+			cast(glyphOf(params))
 		end
 	end
 	-- ...and what was done TO them, which the packet names as its target.

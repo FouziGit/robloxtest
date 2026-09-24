@@ -66,6 +66,15 @@ jobs:
             exit 1
           fi
 
+      - name: Keyed animations reproduce from their key poses
+        run: |
+          python3 tools/animations/keyed.py all > /dev/null
+          if ! git diff --quiet -- assets/animations || [ -n "$(git ls-files --others --exclude-standard -- assets/animations)" ]; then
+            echo "assets/animations does not match what tools/animations/keyed.py builds:"
+            git status --short -- assets/animations
+            exit 1
+          fi
+
       - name: Lune tests
         run: lune run tests/run
 

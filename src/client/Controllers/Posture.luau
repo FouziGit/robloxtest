@@ -399,6 +399,15 @@ local function targetOf(params: { [string]: any }?): number
 	return if type(target) == "number" then target else 0
 end
 
+-- The glyph a Cast packet names, which decides whether it has a clip of its own.
+local function glyphOf(params: { [string]: any }?): string?
+	if type(params) ~= "table" then
+		return nil
+	end
+	local glyphId = params.GlyphId
+	return if type(glyphId) == "string" then glyphId else nil
+end
+
 -- What the server broadcast, turned into a pose. Every packet read here already existed and already
 -- named the character it is about: nothing was added to the wire for the body to move, except the
 -- target of a guard break, which the Hit packet beside it already carried.
@@ -426,7 +435,7 @@ local function onAction(id: string, userId: number, params: { [string]: any }?)
 		end
 	elseif id == "Cast" then
 		local character = characterOf(userId)
-		if character ~= nil and AnimationConfig.clipFor("Cast") == nil then
+		if character ~= nil and AnimationConfig.castClip(glyphOf(params)) == nil then
 			play(character, "Cast")
 		end
 	elseif id == "Hit" then

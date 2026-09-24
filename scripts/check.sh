@@ -72,6 +72,19 @@ if ! git diff --quiet -- assets/audio; then
 	exit 1
 fi
 
+# The hand-keyed animation clips: their key poses (tools/animations/keyed/) are the source, and the
+# .rbxmx is what they give. keyed.py refuses a clip that pops, jumps into or out of rest, or throws from
+# behind the body, and the file in the index must be exactly its output -- an untracked one fails too, so
+# a new clip nobody added is caught before the commit that forgets it.
+echo "▶ keyed animations reproduce from their key poses"
+python3 tools/animations/keyed.py all >/dev/null
+if ! git diff --quiet -- assets/animations || [ -n "$(git ls-files --others --exclude-standard -- assets/animations)" ]; then
+	echo "✖ assets/animations does not match what tools/animations/keyed.py builds:"
+	git status --short -- assets/animations
+	echo "  Run python3 tools/animations/keyed.py all and commit the result."
+	exit 1
+fi
+
 echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/Vellum.rbxl

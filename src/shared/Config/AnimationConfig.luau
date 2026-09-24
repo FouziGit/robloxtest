@@ -1,10 +1,11 @@
 --!strict
 -- Every animation clip the game plays, and what each one is for.
 --
--- The clips are CC0 motion from Quaternius's Universal Animation Library (docs/ASSETS.md), retargeted
--- onto Roblox's R15 skeleton by tools/animations/retarget.py and committed as KeyframeSequences in
--- assets/animations/. scripts/upload_assets.py uploads them and writes their ids into the block below,
--- exactly as it does for the textures and the sounds.
+-- Two kinds of clip, both committed as KeyframeSequences in assets/animations/. Most are CC0 motion from
+-- Quaternius's Universal Animation Library (docs/ASSETS.md), retargeted onto Roblox's R15 skeleton by
+-- tools/animations/retarget.py. A glyph's own cast is keyed by hand, pose by pose, on the server's timing
+-- (tools/animations/keyed.py, D-117). scripts/upload_assets.py uploads them and writes their ids into the
+-- block below, exactly as it does for the textures and the sounds.
 --
 -- An id is "" until its clip is uploaded, and an empty id is not an error: the game falls back to the
 -- procedural pose for that action (Config/PostureConfig), the same way a texture without an id draws
@@ -81,8 +82,13 @@ AnimationConfig.Clips = {
 	Cross = clip("punch_cross.rbxmx", 1.0, false, "Action", 1.3, 0.292),
 	Hook = clip("melee_hook.rbxmx", 0.46, false, "Action", 1.2, 0.25),
 	Smash = clip("overhand_throw.rbxmx", 1.33, false, "Action", 1.25, 0.375),
-	-- A glyph leaving the hand: one arm raised high, which no strike does.
+	-- A glyph leaving the hand: one arm raised high, which no strike does. Every glyph without its own
+	-- cast plays it.
 	Spell = clip("spell_shoot.rbxmx", 0.5, false, "Action", 1.2, 0),
+	-- The Brand's own cast (tools/animations/keyed/brand_throw.json): a palm driven out at the drop, the
+	-- other hand pulled back to the hip, held, then let go. Upper body only, so a Brand thrown on the run
+	-- keeps its legs running. The arm is fully out at 0.06 s, the moment the server lets the Brand go.
+	BrandThrow = clip("brand_throw.rbxmx", 0.58, false, "Action", 1, 0),
 	-- Held for exactly as long as the guard attribute is on.
 	Guard = clip("guard_loop.rbxmx", 2.5, true, "Action", 1, 0),
 	-- The guard thrown open: arms flung wide, head back.
@@ -100,6 +106,12 @@ AnimationConfig.Actions = {
 	GuardBreak = { "GuardBreak" },
 	Flinch = { "Flinch" },
 } :: { [string]: { string } }
+
+-- The glyphs with a cast of their own, by glyph Id. Every other glyph -- and one of these while its clip
+-- is not uploaded -- plays Actions.Cast.
+AnimationConfig.CastByGlyph = {
+	Brand = "BrandThrow",
+} :: { [string]: string }
 
 -- How long before the blow a strike starts: short enough that the fist lands with the damage number,
 -- long enough that the arm is seen travelling rather than appearing.
@@ -119,6 +131,21 @@ function AnimationConfig.clipFor(action: string, index: number?): Clip?
 		return nil
 	end
 	return found
+end
+
+-- The clip a cast of `glyphId` plays, and its name: the glyph's own when it has one uploaded, else the
+-- generic cast's, else nil. Moves plays it; Posture asks the same question and stands aside.
+function AnimationConfig.castClip(glyphId: string?): (string?, Clip?)
+	local own = if glyphId ~= nil then AnimationConfig.CastByGlyph[glyphId] else nil
+	local found = if own ~= nil then AnimationConfig.Clips[own] else nil
+	if own ~= nil and found ~= nil and found.Id ~= "" then
+		return own, found
+	end
+	local generic = AnimationConfig.clipFor("Cast")
+	if generic == nil then
+		return nil, nil
+	end
+	return AnimationConfig.Actions.Cast[1], generic
 end
 
 return AnimationConfig

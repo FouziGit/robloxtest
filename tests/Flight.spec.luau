@@ -191,10 +191,7 @@ describe("a landing", function()
 		).toBe(true)
 		expect(has(land, "entry.Landing = { From = primary.CFrame, To = point, At = now }")).toBe(true)
 		expect(
-			has(
-				land,
-				'if primary:IsA("Trail") then primary.Enabled = false entry.EndsAt = now + primary.Lifetime elseif'
-			)
+			has(land, 'if primary:IsA("Trail") then primary.Enabled = false entry.EndsAt = now + entry.Seconds elseif')
 		).toBe(true)
 		expect(
 			has(

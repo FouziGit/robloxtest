@@ -34,7 +34,9 @@ local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local VolumeMath = require(Shared.Pure.VolumeMath)
 local WorldConfig = require(Shared.Config.WorldConfig)
--- A sibling, not a controller: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind).
+-- Siblings, not controllers: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind), and
+-- every layer runs on the effect clock (VfxClock, D-118), which an impact holds and the Studio lab scales.
+local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 local VfxVolumes = require(script.Parent:WaitForChild("VfxVolumes"))
 
 local log = Log.new("VfxTimeline")
@@ -1057,6 +1059,23 @@ local function overWarning(position: Vector3, reach: number): boolean
 	return false
 end
 
+-- The rate the engine-driven parts of the live layers were last set to run at: particles and trails age on
+-- the engine's clock, so they are told when the effect clock is held or slowed (VfxClock).
+local appliedRate = 1
+
+local function followRate(entry: Live, rate: number)
+	local primary = entry.Primary
+	if primary == nil then
+		return
+	end
+	if primary:IsA("ParticleEmitter") then
+		primary.TimeScale = math.clamp(rate, 0, 1)
+	elseif primary:IsA("Trail") then
+		-- A ribbon fades on real time; stretched by the same factor, it holds while everything else does.
+		primary.Lifetime = entry.Seconds / math.max(rate, 0.01)
+	end
+end
+
 local function activate(item: Pending, now: number)
 	local id = item.Id
 	local layer = item.Layer
@@ -1327,6 +1346,9 @@ local function activate(item: Pending, now: number)
 		releaseLive(entry)
 		return
 	end
+	if appliedRate ~= 1 then
+		followRate(entry, appliedRate)
+	end
 	table.insert(live, entry)
 end
 
@@ -1398,7 +1420,18 @@ local function settle(entry: Live, now: number): boolean
 end
 
 local function onHeartbeat(deltaTime: number)
-	local now = os.clock()
+	-- The Studio lab's held packets are released first, so what they play starts this frame.
+	VfxClock.tick()
+	local now = VfxClock.now()
+	local rate = VfxClock.rate()
+	if rate ~= appliedRate then
+		appliedRate = rate
+		for _, entry in ipairs(live) do
+			followRate(entry, rate)
+		end
+	end
+	-- Spins and other per-frame motion advance on effect time too.
+	deltaTime *= rate
 
 	local index = 1
 	while index <= #pending do
@@ -1457,7 +1490,7 @@ function VfxTimeline.play(id: string, context: Context): boolean
 	if timeline == nil then
 		return false
 	end
-	local now = os.clock()
+	local now = VfxClock.now()
 	nextPlayId += 1
 	local playId = nextPlayId
 	if context.Shot ~= nil then
@@ -1523,7 +1556,7 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 		return false
 	end
 	shots[shot] = nil
-	local now = os.clock()
+	local now = VfxClock.now()
 	local settings = VfxTimelineConfig.Land
 	local cut: { [string]: boolean } = {}
 	for _, item in ipairs(pending) do
@@ -1569,7 +1602,8 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 				if primary:IsA("Trail") then
 					-- It stops drawing and its ribbon runs out behind it.
 					primary.Enabled = false
-					entry.EndsAt = now + primary.Lifetime
+					-- Its ribbon's life in effect time: Lifetime itself is stretched while the clock is slowed.
+					entry.EndsAt = now + entry.Seconds
 				elseif primary:IsA("ParticleEmitter") then
 					primary.Enabled = false
 					entry.EndsAt = now + primary.Lifetime.Max
@@ -1592,7 +1626,7 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		return false
 	end
 	nextPlayId += 1
-	local now = os.clock()
+	local now = VfxClock.now()
 	table.insert(pending, {
 		Id = id,
 		Layer = layer,

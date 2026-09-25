@@ -299,6 +299,7 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
 | 7 — Animations | 🔶 | branche `feat/anim-pipeline` (D-117) |
+| Passe VFX (punch et lisibilité) | 🔶 | branche `feat/vfx-pass` (D-118…) |
 | 8 — Interface et découverte | ⬜ | — |
 
 ### Phase 1 — fait
@@ -338,3 +339,9 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Le skill `vellum-animation`** (`.claude/skills/`, pointé par `CLAUDE.md`) fait de la méthode celle du projet ; essayé sur le **Lavis**, qui a désormais son propre lancer (deux paumes vers le sol à 0,10 s).
 - **En jeu** : les deux clips sont téléversés (accord du développeur) ; chaque clip est chargé à l'apparition du personnage, le premier lancer d'une session ne reste plus vide.
 - Reste : les autres glyphes, avec le skill.
+
+### Passe VFX — en cours (D-118, suivi : `docs/vfx/AUDIT.md`)
+
+- **Phase 0** : audit en lecture seule (5 lecteurs) ; causes mesurées : aucune lueur possible, traînée répétée chaque stud, gerbes vers le haut, impact délavé par le flash d'écran (−55 % de saturation), formes posées à plat, sort caché par le corps du lanceur, désynchronisations du Lavis et du Balayage.
+- **Phase 1** : horloge d'effets (micro-arrêt d'impact en jeu, ralenti et gel dans Studio) et labo `tools/vfxlab/` ; planches « avant » de la Marque, du Lavis et du Balayage avec diagnostic noté (`docs/vfx/<sort>/`).
+- Reste : style (phase 2), Marque finale (phase 3), skill et autres sorts (phase 4).

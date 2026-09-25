@@ -1,0 +1,7 @@
+{"title": "Le Lavis (Indigo + Indigo) - AVANT", "frames": [
+ {"capture": "wash_before_depart_side", "moment": "depart", "view": "side", "t": 0.101},
+ {"capture": "wash_before_impact_side", "moment": "impact (1er coup)", "view": "side", "t": 0.137},
+ {"capture": "wash_before_impact_close", "moment": "impact (1er coup)", "view": "impact", "t": 0.137},
+ {"capture": "wash_before_impact3_side", "moment": "impact +0,3", "view": "side", "t": 0.418},
+ {"capture": "wash_before_travel_game", "moment": "impact +0,6", "view": "game", "t": 0.699}
+]}

@@ -45,6 +45,11 @@ local frames = 0
 local elapsed = 0
 local belowFor = 0
 local aboveFor = 0
+-- A tier the Studio VFX lab pinned (tools/vfxlab/, D-118): Studio rendering in the background runs under
+-- forty frames, and the automatic drop would switch off the very lights and flourishes being judged.
+-- Never set in a published game: the attribute is only read in Studio.
+local LAB_ATTRIBUTE = "VfxLabQuality"
+local pinned: string? = nil
 
 local function apply(tier: string, why: string)
 	if tier == effective then
@@ -86,12 +91,18 @@ local function readProfile()
 		return
 	end
 	chosen = wanted
+	if pinned ~= nil then
+		return
+	end
 	-- A new ceiling resets the automatic part: the player has just told us what they want, and holding a
 	-- drop decided under the old ceiling against them would make the setting look broken.
 	apply(chosen, "chosen by the player")
 end
 
 local function onHeartbeat(deltaTime: number)
+	if pinned ~= nil then
+		return
+	end
 	frames += 1
 	elapsed += deltaTime
 	if elapsed < AUTO.SampleSeconds then
@@ -142,6 +153,15 @@ function QualityController.Start()
 		end
 	end)
 	RunService.Heartbeat:Connect(onHeartbeat)
+	if RunService:IsStudio() then
+		local function followLab()
+			local wanted = ReplicatedStorage:GetAttribute(LAB_ATTRIBUTE)
+			pinned = if QualityConfig.isTier(wanted) then wanted :: string else nil
+			frames, elapsed, belowFor, aboveFor = 0, 0, 0, 0
+			apply(pinned or chosen, if pinned ~= nil then "pinned by the VFX lab" else "released by the VFX lab")
+		end
+		ReplicatedStorage:GetAttributeChangedSignal(LAB_ATTRIBUTE):Connect(followLab)
+	end
 	log.info("started at %s (drops under %d fps, recovers over %d)", effective, AUTO.DropBelowFps, AUTO.RaiseAboveFps)
 end
 

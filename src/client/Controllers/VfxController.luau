@@ -9,6 +9,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -20,6 +21,7 @@ local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
 local VfxConfig = require(Shared.Config.VfxConfig)
 -- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
+local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 local VfxLibrary = require(script.Parent:WaitForChild("VfxLibrary"))
 
 local log = Log.new("VfxController")
@@ -129,7 +131,7 @@ local function isValid(packet: any): boolean
 	return true
 end
 
-local function onPacket(packet: any)
+local function play(packet: any)
 	if not isValid(packet) then
 		return
 	end
@@ -158,6 +160,31 @@ local function onPacket(packet: any)
 	end)
 	if not log.try("vfx " .. typed.Id, effect, typed, trove, api) then
 		trove:Destroy()
+	end
+end
+
+-- While the Studio VFX lab runs (VfxClock.labActive, never in a published game), each packet waits for
+-- the effect time it is due at, so a slowed or stopped frame shows what the server sent in its true order
+-- and spacing: a frame frozen before an impact does not show the impact.
+local held: { { Packet: any, Due: number } } = {}
+
+local function onPacket(packet: any)
+	if VfxClock.labActive() then
+		table.insert(held, { Packet = packet, Due = VfxClock.due() })
+		return
+	end
+	play(packet)
+end
+
+local function releaseHeld()
+	local now = VfxClock.now()
+	while true do
+		local first = held[1]
+		if first == nil or (VfxClock.labActive() and first.Due > now) then
+			return
+		end
+		table.remove(held, 1)
+		play(first.Packet)
 	end
 end
 
@@ -190,6 +217,9 @@ function VfxController.Start()
 	auditRenderers()
 	remoteClient.on("Vfx", onPacket)
 	remoteClient.on("VfxReliable", onPacket)
+	if RunService:IsStudio() then
+		VfxClock.onTick(releaseHeld)
+	end
 	log.info("started")
 end
 

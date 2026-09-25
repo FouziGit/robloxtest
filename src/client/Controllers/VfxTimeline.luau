@@ -496,7 +496,8 @@ local function roleRamp(context: Context, layer: Layer): ColorSequence
 	if role == "Ink" then
 		return ColorSequence.new(INK_COLOR)
 	end
-	if role == "Core" then
+	-- A play that must not shine (a fist's hit, D-116) has no heat either: its core is its own ink.
+	if role == "Core" and context.Unlit ~= true then
 		local wet, dry = wetAndDry(context, context.Color)
 		return ColorSequence.new({
 			ColorSequenceKeypoint.new(0, heated(context.Color)),
@@ -512,7 +513,7 @@ local function roleColor(context: Context, layer: Layer): Color3
 	local role = layer.Role
 	if role == "Ink" then
 		return INK_COLOR
-	elseif role == "Core" then
+	elseif role == "Core" and context.Unlit ~= true then
 		return heated(context.Color)
 	end
 	return context.Color
@@ -525,7 +526,7 @@ local function roleWetDry(context: Context, layer: Layer): (Color3, Color3)
 		return INK_COLOR, INK_COLOR
 	end
 	local wet, dry = wetAndDry(context, context.Color)
-	if layer.Role == "Core" then
+	if layer.Role == "Core" and context.Unlit ~= true then
 		return heated(context.Color), wet
 	end
 	return wet, dry
@@ -537,15 +538,19 @@ local function calm(): boolean
 	return feel ~= nil and not feel.motionAllowed()
 end
 
--- How much of a layer's colour is added as light: its Glow, capped, or ink laid on the page.
-local function glowOf(layer: Layer): number
+-- How much of a layer's colour is added as light: its Glow, capped, or ink laid on the page -- which is
+-- all a play that must not shine gets (Context.Unlit).
+local function glowOf(context: Context, layer: Layer): number
+	if context.Unlit == true then
+		return VfxConfig.LightEmission
+	end
 	local glow = math.clamp(layer.Glow or VfxConfig.LightEmission, 0, VfxConfig.MaxGlow)
 	return if calm() then math.min(glow, VfxConfig.Calm.Glow) else glow
 end
 
 -- How bright a particle, beam or trail is drawn: above 1 is what the resting bloom catches.
-local function brightnessOf(layer: Layer): number
-	local brightness = layer.Brightness or 1
+local function brightnessOf(context: Context, layer: Layer): number
+	local brightness = if context.Unlit == true then 1 else layer.Brightness or 1
 	return if calm() then math.min(brightness, VfxConfig.Calm.Brightness) else brightness
 end
 
@@ -565,7 +570,8 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 	if textureMissing(layer) then
 		return
 	end
-	local part = host(entry, place, planeSize(entry, 0))
+	-- Turned about its own facing (Layer.Roll): a brush stroke laid across stands on end at 90.
+	local part = host(entry, place * CFrame.Angles(0, 0, math.rad(layer.Roll or 0)), planeSize(entry, 0))
 	if part == nil then
 		return
 	end
@@ -739,8 +745,8 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	})
 	-- Wind drags the residue with the world instead of leaving it hanging in still air.
 	emitter.WindAffectsDrag = true
-	emitter.LightEmission = glowOf(layer)
-	emitter.Brightness = brightnessOf(layer)
+	emitter.LightEmission = glowOf(entry.Context, layer)
+	emitter.Brightness = brightnessOf(entry.Context, layer)
 	emitter.EmissionDirection = EMISSION[layer.Emit or "Up"]
 	emitter.Rate = 0
 	emitter.Enabled = false
@@ -817,8 +823,8 @@ local function buildBeam(entry: Live, layer: Layer, place: CFrame)
 	beam.Width1 = (layer.Size or 1) * scale * 0.35
 	beam.Transparency = NumberSequence.new(layer.Transparency or 0.2)
 	beam.FaceCamera = true
-	beam.LightEmission = glowOf(layer)
-	beam.Brightness = brightnessOf(layer)
+	beam.LightEmission = glowOf(entry.Context, layer)
+	beam.Brightness = brightnessOf(entry.Context, layer)
 	local id = textureOf(layer)
 	if id ~= "" then
 		beam.Texture = id
@@ -878,8 +884,8 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0.3),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
-	trail.LightEmission = glowOf(layer)
-	trail.Brightness = brightnessOf(layer)
+	trail.LightEmission = glowOf(entry.Context, layer)
+	trail.Brightness = brightnessOf(entry.Context, layer)
 	-- A thrown ribbon turns its face to whoever is looking. Spanned between two attachments one above the
 	-- other, it is a sheet standing along the flight line -- seen edge-on, as a hairline, by exactly the two
 	-- people who matter: the one who threw it and the one it is flying at. Beams already face the camera.
@@ -932,7 +938,18 @@ local function stepSprite(entry: Live, alpha: number, elapsed: number, deltaTime
 	end
 	part.Transparency = if #part:GetChildren() > 0 then 1 else transparency
 	local spin = layer.Spin
-	if spin ~= nil then
+	local camera = Workspace.CurrentCamera
+	if layer.Face == "Camera" and camera ~= nil then
+		-- Upright and turned to whoever is looking, every frame; its roll and spin laid on after, as an
+		-- angle of its whole life so far rather than an increment.
+		local position = part.Position
+		local eye = camera.CFrame.Position
+		local toward = Vector3.new(eye.X, position.Y, eye.Z)
+		if (toward - position).Magnitude > 1e-3 then
+			local turned = math.rad(layer.Roll or 0) + (spin or 0) * elapsed * (entry.EndsAt - entry.StartedAt)
+			part.CFrame = CFrame.lookAt(position, toward) * CFrame.Angles(0, 0, turned)
+		end
+	elseif spin ~= nil then
 		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * deltaTime)
 	end
 end

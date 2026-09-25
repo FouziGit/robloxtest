@@ -150,7 +150,7 @@ export type Layer = {
 	Mesh: string?,
 	Stretch: { number }?,
 	EndStretch: { number }?,
-	Face: ("Aim" | "Ground")?,
+	Face: ("Aim" | "Ground" | "Camera")?,
 	NeedsGround: boolean?,
 	Roll: number?,
 	Jitter: number?,
@@ -165,6 +165,11 @@ export type Layer = {
 	Fall: number?,
 	Tumble: { number }?,
 	Tones: { string }?,
+	-- Sprite only, D-119: Face "Camera" stands the plane upright and turns it, every frame, to whoever is
+	-- looking -- a shockwave or a stroke read by the thrower, the target and every bystander alike, where a
+	-- plane facing the aim is a hairline to anyone beside it. Roll turns a Sprite about its own facing, in
+	-- degrees, before any Spin: 90 stands a horizontal brush stroke on end.
+	--
 	-- Afterimage only (D-116): an ink print of the body the renderer passed (Context.Follow's), left where
 	-- it stood -- not Follow, which would drag it along with the body it copies -- flat in Tone (a
 	-- CosmeticConfig.Tones name: ink, never a pigment, for a dodge names no school), never moved again,
@@ -281,142 +286,154 @@ local VfxTimelineConfig = {}
 -- The cast. Every glyph in the game plays this before its own effect, so it is the single most repeated
 -- visual in Vellum and the one the art direction lives or dies on.
 --
--- The direction is literal about what a cast is: "Le pouvoir ne « sort » pas d'un personnage : il se
--- dessine. Une incantation trace un sceau lumineux dans l'air, trait par trait, avant de se replier et de
--- partir." So the seal is drawn by growing a ring, held for a beat, then collapsed inward to a point that
--- fires. Nothing appears and nothing moves linearly (rules 3 and 4).
+-- The glyph lights in the hand that casts it (D-119): a blot of its pigment pops open round a hot point, a
+-- stud outside the body so the caster's own camera sees it past the shoulder, and a seal snaps open
+-- around the fist and folds shut as the spell leaves. It used to draw the seal in the air three studs
+-- ahead over a third of a second -- after most glyphs had already left (the Brand acts at 0.06 s, the
+-- Serif at 0.03): the seal arrived behind the spell it announced, hidden by the caster's body.
+-- Fourteen hundredths now, and the glyph's own timeline takes the release from there.
 local CAST: Timeline = {
-	Intent = "A seal is drawn in the air, held, then folded into a point that releases",
+	Intent = "The glyph lights in the casting hand: a blot of pigment round a hot point, a seal that snaps open and folds",
 	Phases = {
 		{
 			Name = "Anticipation",
-			Duration = 0.22,
+			Duration = 0.08,
 			Layers = {
-				-- The pigment's attack: heard before the seal is seen, which is what a wind-up sounds like.
+				-- The pigment's attack: heard as the seal is seen, which is what a wind-up sounds like.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Attack" },
-				-- The seal itself, growing from nothing with a slight overshoot so it lands rather than
-				-- arrives. Back easing is the overshoot.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					At = 0,
+					For = 0.04,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "InkBlot",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.14, 0.16 },
+					Spread = 0,
+					Size = 0.3,
+					EndSize = 2.2,
+					Pop = 0.25,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- Heated pigment, never white (rule 7): the only thing in the cast that shines.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 3,
+					At = 0,
+					For = 0.04,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "DustMote",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.2,
+					EndSize = 0.9,
+					Pop = 0.25,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- The seal snapping open round the fist: Back is the overshoot, so it lands rather than arrives.
 				{
 					Kind = "Sprite",
+					Anchor = "Hand",
 					At = 0,
-					For = 0.34,
+					For = 0.08,
 					Ease = "Back",
 					EaseDirection = "Out",
 					Texture = "SealRing",
 					Size = 0.2,
-					EndSize = 5.2,
-					Offset = { 0, 0.6, 3 },
-					Spin = 1.1,
-					Transparency = 1,
-					EndTransparency = 0.12,
+					EndSize = 3,
+					Offset = { 0.8, 0.8, 0.6 },
+					Spin = 4,
+					Transparency = 0,
+					EndTransparency = 0.1,
 				},
-				-- Ink gathering into the seal. Negative speed is the whole idea: particles fly inward, so
-				-- the cast reads as drawing power in rather than as already spending it.
-				{
-					Kind = "Emitter",
-					At = 0.02,
-					For = 0.2,
-					Texture = "SparkStreak",
-					Offset = { 0, 0.6, 3 },
-					Rate = 34,
-					Speed = { -9, -5 },
-					Lifetime = { 0.16, 0.26 },
-					Spread = 180,
-					Drag = 2,
-					Squash = 0.45,
-					Size = 0.5,
-					EndSize = 0.05,
-				},
-				-- A light that rises with the seal, so the caster is lit by their own pigment before the
-				-- spell exists. This is what makes a cast visible from behind, which is how a player reads
-				-- an opponent's intent.
+				-- The caster lit by their own pigment the instant they cast: how a player reads an opponent's
+				-- intent from behind.
 				{
 					Kind = "Light",
+					Anchor = "Hand",
 					At = 0,
-					For = 0.26,
-					Ease = "Sine",
-					EaseDirection = "Out",
-					Offset = { 0, 0.6, 2.4 },
-					Range = 4,
-					Brightness = 0,
-					EndBrightness = 1.6,
+					For = 0.2,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Offset = { 0.8, 0.8, 0.2 },
+					Range = 7,
+					Brightness = 2,
 				},
-				-- Felt, not seen. Late in the wind-up, so it reads as the moment before release.
-				{ Kind = "Shake", At = 0.16, For = 0.06, Profile = "Cast" },
+				-- Felt, not seen, on the release.
+				{ Kind = "Shake", At = 0.04, For = 0.06, Profile = "Cast" },
 			},
 		},
 		{
 			Name = "Cast",
-			Duration = 0.12,
+			Duration = 0.06,
 			Layers = {
 				-- The seal folds to a point. Quint-in means it barely moves, then goes all at once, which
 				-- is the shape of something snapping shut.
 				{
 					Kind = "Sprite",
+					Anchor = "Hand",
 					At = 0,
-					For = 0.12,
+					For = 0.08,
 					Ease = "Quint",
 					EaseDirection = "In",
 					Texture = "SealRing",
-					Size = 5.2,
-					EndSize = 0.3,
-					Offset = { 0, 0.6, 3 },
-					Spin = 5.5,
-					Transparency = 0.12,
-					EndTransparency = 0.5,
+					Size = 3,
+					EndSize = 0.2,
+					Offset = { 0.8, 0.8, 0.6 },
+					Spin = 9,
+					Transparency = 0.1,
+					EndTransparency = 0.6,
 				},
-				-- The release: everything the seal gathered, thrown forward along the aim.
+				-- The release: sparks of the pigment flicked out of the hand along the aim.
 				{
 					Kind = "Emitter",
-					At = 0.08,
-					For = 0.06,
+					Anchor = "Hand",
+					Emit = "Aim",
+					At = 0,
+					For = 0.05,
 					Texture = "SparkStreak",
-					Offset = { 0, 0.6, 3 },
-					Burst = 22,
-					Speed = { 16, 30 },
-					Lifetime = { 0.18, 0.34 },
-					Spread = 26,
-					Drag = 3,
-					Squash = 0.3,
-					Size = 0.8,
+					Offset = { 0.8, 0.8, 0.4 },
+					Burst = 12,
+					Speed = { 18, 32 },
+					Lifetime = { 0.1, 0.2 },
+					Spread = 25,
+					Drag = 5,
+					Squash = 0.6,
+					Size = 1.1,
 					EndSize = 0,
-				},
-				-- The stroke that leaves the hand. A brush stroke, dry at both ends, not a laser.
-				{
-					Kind = "Beam",
-					At = 0.08,
-					For = 0.16,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 1.4,
-					EndSize = 0,
-					Offset = { 0, 0.6, 3 },
-					Transparency = 0.2,
-					EndTransparency = 1,
 				},
 			},
 		},
 		{
 			Name = "Residue",
-			Duration = 0.5,
+			Duration = 0.4,
 			Layers = {
-				-- What is left hanging where the seal was. Slow, faint, and short: a cast should be
-				-- remembered for half a second, not litter the arena.
+				-- A mote or two of the pigment left hanging where the hand was. A cast is remembered for
+				-- half a second, not littered over the arena.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
 					At = 0,
-					For = 0.4,
+					For = 0.3,
 					Ease = "Sine",
 					EaseDirection = "Out",
 					Texture = "DustMote",
-					Offset = { 0, 0.6, 3 },
+					Offset = { 0.8, 0.8, 0.2 },
 					Rate = 8,
 					Speed = { 0.4, 1.6 },
-					Lifetime = { 0.5, 0.9 },
+					Lifetime = { 0.4, 0.7 },
 					Spread = 140,
 					Drag = 1.2,
-					Size = 0.35,
+					Size = 0.3,
 					EndSize = 0,
 				},
 			},
@@ -426,27 +443,48 @@ local CAST: Timeline = {
 
 -- The impact. Played by every hit in the game, which makes it the second most repeated visual.
 --
--- "Un impact blanchit l'écran comme une page surexposée, puis laisse une brûlure d'encre qui s'efface."
--- That is the whole effect: a white flash, a ring, and a mark on the ground that outlives it (rule 5).
+-- The recipe's strongest beat (D-119), small: a hot point that pops at the contact, the ring thrown along
+-- the blow, a star of hot sparks, a short geyser of ink, and the burn it leaves. A fist's hit is the same
+-- gesture in the page's charcoal and does not shine (Context.Unlit, D-116).
 local HIT: Timeline = {
-	Intent = "The page is overexposed for a frame, then keeps the burn where it was struck",
+	Intent = "The blow lands: a hot point pops, a ring and a star of sparks, a spurt of ink, and the burn it leaves",
 	Phases = {
 		{
 			Name = "Impact",
 			Duration = 0.18,
 			Layers = {
+				-- The hot point at the contact. Under the resting bloom's threshold: a hit is the most
+				-- repeated impact in the game, and a halo on every one of them fogged a fight.
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 0,
+					For = 0.04,
+					Texture = "DustMote",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.08, 0.11 },
+					Spread = 0,
+					Size = 0.5,
+					EndSize = 3,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
 				-- The ring, thrown along the blow rather than symmetrically, so an impact reads as having
 				-- come from somewhere.
 				{
 					Kind = "Sprite",
 					At = 0,
-					For = 0.3,
+					For = 0.26,
 					Ease = "Quint",
 					EaseDirection = "Out",
 					Texture = "ShockwaveRing",
 					Size = 0.6,
-					EndSize = 9,
-					Transparency = 0.1,
+					EndSize = 10,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 				-- The blow's own stroke, cut across the point of contact the way it came (D-116): a small
@@ -467,18 +505,55 @@ local HIT: Timeline = {
 					EndTransparency = 1,
 					Spin = -10,
 				},
+				-- The star: hot sparks every way from the contact.
 				{
 					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 0,
+					For = 0.04,
+					Texture = "SparkStreak",
+					Burst = 12,
+					Speed = { 18, 36 },
+					Lifetime = { 0.12, 0.25 },
+					Spread = 180,
+					Drag = 5,
+					Squash = 0.6,
+					Size = 0.9,
+					EndSize = 0,
+				},
+				-- Pigment knocked out of the target along the blow.
+				{
+					Kind = "Emitter",
+					Emit = "Aim",
 					At = 0,
 					For = 0.05,
 					Texture = "SparkStreak",
-					Burst = 14,
-					Speed = { 12, 26 },
-					Lifetime = { 0.18, 0.4 },
-					Spread = 42,
+					Burst = 12,
+					Speed = { 14, 28 },
+					Lifetime = { 0.18, 0.35 },
+					Spread = 40,
 					Drag = 4,
-					Squash = 0.3,
-					Size = 0.55,
+					Squash = 0.4,
+					Size = 0.7,
+					EndSize = 0,
+				},
+				-- A short spurt of ink straight up, which is what clears the attacker's own shoulder.
+				{
+					Kind = "Emitter",
+					Role = "Ink",
+					Emit = "Up",
+					At = 0,
+					For = 0.05,
+					Texture = "SparkStreak",
+					Burst = 7,
+					Speed = { 18, 32 },
+					Lifetime = { 0.15, 0.28 },
+					Spread = 35,
+					Drag = 4,
+					Squash = 0.5,
+					Size = 0.9,
 					EndSize = 0,
 				},
 				-- A light at the point of contact, which is the cheapest way to make a flat world read as
@@ -516,23 +591,21 @@ local HIT: Timeline = {
 					Transparency = 0.35,
 					EndTransparency = 1,
 				},
-				-- Smoke off the burn, rising and slowing.
+				-- A few motes of the pigment rising off the burn: the heat going out of it, not a cloud.
 				{
 					Kind = "Emitter",
 					At = 0.04,
-					For = 0.5,
+					For = 0.4,
 					Ease = "Sine",
 					EaseDirection = "Out",
-					Texture = "SmokeSoft",
-					Rate = 12,
+					Texture = "DustMote",
+					Rate = 10,
 					Speed = { 1.5, 3.5 },
-					Lifetime = { 0.7, 1.2 },
+					Lifetime = { 0.5, 0.9 },
 					Spread = 55,
 					Drag = 2.5,
-					Size = 1.2,
-					EndSize = 3.4,
-					Transparency = 0.55,
-					EndTransparency = 1,
+					Size = 0.3,
+					EndSize = 0,
 				},
 			},
 		},
@@ -850,8 +923,9 @@ local TAP: Timeline = {
 -- speed for a full second. Three of those four words are a rule broken: nothing travels linearly (rule
 -- 4), nothing in this game is a stock engine effect, and a thing thrown by a hand arcs.
 --
--- Three beats, and each one is somewhere the eye already is. It is born in the hand: a hot point and
--- sparks drawn into it, then flicked out of it along the throw with a stroke of ink. It flies as a drop
+-- Three beats, and each one is somewhere the eye already is. It is born in the hand: the shared Cast lights
+-- a blot of pigment round a hot point at the fist, and the throw flicks sparks and a stroke of ink out of
+-- it along the aim. It flies as a drop
 -- of pigment with a short dark stroke behind it and a burning line inside that stroke -- a streak a
 -- quarter of a second long, not a line from the thrower to the target. And it lands (Explosion).
 --
@@ -867,47 +941,9 @@ local BRAND: Timeline = {
 			-- go (D-114). tests/Flight.spec.luau holds the two together.
 			Duration = 0.04,
 			Layers = {
-				-- The glyph lit in the hand: a blot of the pigment popping open at the hand, a stud outside the
-				-- body so the thrower's own camera sees it past their shoulder, and a hot point inside it. A pale
-				-- core alone is pale on a pale page; ringed by its own pigment it reads as heat.
-				{
-					Kind = "Emitter",
-					Anchor = "Hand",
-					At = 0,
-					For = 0.04,
-					Offset = { 0.8, 0.8, 0.2 },
-					Texture = "InkBlot",
-					Burst = 1,
-					Speed = { 0, 0 },
-					Lifetime = { 0.14, 0.16 },
-					Spread = 0,
-					Size = 0.3,
-					EndSize = 2.2,
-					Pop = 0.25,
-					Transparency = 0,
-					EndTransparency = 1,
-				},
-				-- Heated pigment, never white (rule 7): the only thing in the throw that shines.
-				{
-					Kind = "Emitter",
-					Anchor = "Hand",
-					Role = "Core",
-					Glow = 1,
-					Brightness = 3,
-					At = 0,
-					For = 0.04,
-					Offset = { 0.8, 0.8, 0.2 },
-					Texture = "DustMote",
-					Burst = 1,
-					Speed = { 0, 0 },
-					Lifetime = { 0.1, 0.12 },
-					Spread = 0,
-					Size = 0.2,
-					EndSize = 1.3,
-					Pop = 0.25,
-					Transparency = 0,
-					EndTransparency = 1,
-				},
+				-- The glyph lights in the hand with the shared Cast timeline (the blot, the hot point, the seal and
+				-- the light at the fist); what is the Brand's own is the drop, and the throw below.
+				--
 				-- The drop gathering where the server lets go of it: grown, never appeared, drawn out along the
 				-- throw, and handed to the flight (Chain), which carries it on from exactly where this leaves it
 				-- (D-114). Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame and overshot.
@@ -926,17 +962,6 @@ local BRAND: Timeline = {
 					EndStretch = { 0.7, 0.7, 1.8 },
 					Transparency = 0,
 					EndTransparency = 0,
-				},
-				{
-					Kind = "Light",
-					Anchor = "Hand",
-					At = 0,
-					For = 0.18,
-					Offset = { 0.8, 0.8, 0.2 },
-					Ease = "Quad",
-					EaseDirection = "In",
-					Range = 7,
-					Brightness = 2,
 				},
 			},
 		},
@@ -1168,10 +1193,12 @@ local EXPLOSION: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The shock: a ring of the pigment struck out of the burst, standing face on to the throw, so
-				-- the thrower's own camera sees it whole. Quart Out: at its widest in the first frames.
+				-- The shock: a ring of the pigment struck out of the burst, standing turned to whoever looks, so
+				-- the thrower, the target and a bystander all see it whole. Quart Out: at its widest in the
+				-- first frames.
 				{
 					Kind = "Sprite",
+					Face = "Camera",
 					At = 0,
 					For = 0.25,
 					Ease = "Quart",
@@ -1328,6 +1355,7 @@ local EXPLOSION: Timeline = {
 				{
 					Kind = "Emitter",
 					Role = "Ink",
+					Emit = "Up",
 					At = 0,
 					For = 0.06,
 					Texture = "SparkStreak",
@@ -1441,7 +1469,7 @@ local EXPLOSION: Timeline = {
 -- is given one, and followCarrier then writes that part's CFrame every frame: a Follow here would drag the
 -- caster's own root thirty-four studs down the wave.
 local WASH: Timeline = {
-	Intent = "A loaded brush is dragged forward: a dark wet front on the server's own clock, and the strip it soaks",
+	Intent = "A loaded brush is dragged forward: a dark wet front at the edge of the damage, on the server's own clock, and the strip it soaks",
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -1466,25 +1494,25 @@ local WASH: Timeline = {
 					Transparency = 0.55,
 					EndTransparency = 0.85,
 				},
-				-- The brush loading: pigment pulled INTO it, not off it. Negative speed is the idea the
-				-- cast uses -- a wind-up must read as gathering or it reads as a spell already half spent
-				-- -- and the matter is SmokeSoft, because Indigo is wet. Sparks belong to Cinnabar and
-				-- Orpiment; a school legible by its matter as well as its colour is free legibility in a
-				-- six-way fight.
+				-- The brush loading: beads of pigment pulled INTO the hand, not off it. Negative speed is the
+				-- idea the cast uses -- a wind-up must read as gathering or it reads as a spell already half
+				-- spent -- and the matter is ink, because Indigo is wet; it was grey smoke, and grey smoke on a
+				-- pale page is nobody's school (D-119).
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
 					At = 0,
 					For = 0.06,
-					Texture = "SmokeSoft",
-					Offset = { 0, -1.4, 4 },
-					Rate = 60,
-					Speed = { -13, -6 },
-					Lifetime = { 0.1, 0.18 },
-					Spread = 170,
+					Texture = "InkBlot",
+					Offset = { 0.8, 0.8, 0.2 },
+					Burst = 10,
+					Speed = { -12, -6 },
+					Lifetime = { 0.08, 0.14 },
+					Spread = 180,
 					Drag = 2.6,
-					Size = 0.8,
+					Size = 0.6,
 					EndSize = 0.1,
-					Transparency = 0.4,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 			},
@@ -1494,24 +1522,25 @@ local WASH: Timeline = {
 			Duration = 0.04,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
-				-- The pigment leaving the brush, thrown at the floor rather than into the air: a wash is
-				-- laid down, it is not sprayed. There is no Shake here; the Cast timeline playing in
-				-- parallel already fired the Cast profile 0.06 earlier, and firing it twice is two shakes,
-				-- not weight.
+				-- The pigment leaving the brush, thrown forward and falling onto the floor: a wash is laid down,
+				-- it is not sprayed. There is no Shake here; the Cast timeline playing in parallel already
+				-- fired the Cast profile, and firing it twice is two shakes, not weight.
 				{
 					Kind = "Emitter",
+					Emit = "Aim",
 					At = 0,
 					For = 0.04,
-					Texture = "SmokeSoft",
+					Texture = "InkBlot",
 					Offset = { 0, -1.4, 5 },
-					Burst = 18,
-					Speed = { 10, 22 },
+					Burst = 14,
+					Speed = { 14, 26 },
 					Lifetime = { 0.3, 0.55 },
-					Spread = 35,
-					Drag = 3.4,
-					Size = 1.2,
-					EndSize = 4.4,
-					Transparency = 0.45,
+					Spread = 30,
+					Drag = 3,
+					Weight = 40,
+					Size = 1,
+					EndSize = 0.3,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 			},
@@ -1540,21 +1569,42 @@ local WASH: Timeline = {
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
-				-- The leading edge, the signature layer: a stroke facing whoever it is about to reach,
-				-- widening to the full sixteen-stud hit diameter and diluting as it goes. It ends half a
-				-- stud wider than the sphere that hurts, never narrower.
+				-- The leading edge, the signature layer: a stroke turned to whoever looks at it, widening to the full sixteen-stud hit diameter as it goes. It ends half a stud wider than the
+				-- sphere that hurts, never narrower -- and it is drawn seven studs AHEAD of the carrier, at the
+				-- sphere's leading edge: the damage reaches a target when the sphere's rim does, and a front
+				-- drawn at its centre arrived a third of a second after the hit it announced (the lab, D-119).
 				{
 					Kind = "Sprite",
+					Face = "Camera",
 					At = 0,
 					For = 0.7,
 					Ride = true,
 					Ease = "Sine",
 					EaseDirection = "Out",
 					Texture = "BrushStroke",
+					Offset = { 0, 0.6, 7 },
 					Size = 9,
 					EndSize = 16.6,
-					Transparency = 0.22,
-					EndTransparency = 0.72,
+					Transparency = 0.05,
+					EndTransparency = 0.55,
+				},
+				-- Its wet lip in the page's ink, just in front: where the pigment piles up against dry paper,
+				-- the darkest line of a wash, and what detaches an indigo front from a pale floor.
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0,
+					For = 0.7,
+					Ride = true,
+					Ease = "Sine",
+					EaseDirection = "Out",
+					Texture = "BrushStroke",
+					Role = "Ink",
+					Offset = { 0, 0.1, 7.6 },
+					Size = 8,
+					EndSize = 15,
+					Transparency = 0.1,
+					EndTransparency = 0.8,
 				},
 				-- The wet curtain: a five-stud ribbon riding the front, tapering to 1.4 at its tail. A
 				-- riding trail turns its face to the camera (buildTrail), because a sheet standing along
@@ -1567,32 +1617,72 @@ local WASH: Timeline = {
 					At = 0,
 					For = 0.7,
 					Ride = true,
-					Texture = "BrushStroke",
-					Size = 5,
-					EndSize = 1.4,
+					Ribbon = 0.25,
+					Size = 4,
+					EndSize = 0.5,
 					Offset = { 0, 1.7, 0 },
-					Transparency = 0.28,
+					Transparency = 0.35,
 					EndTransparency = 1,
 				},
-				-- Pigment shed off the BACK of the front and dropped toward the page. Outward at seventy
-				-- degrees is the puff every moving thing in Roblox trails; inward and down is a brush
-				-- depositing, which is what the comment above promises and what a wash actually does.
+				-- Beads of pigment shed off the back of the front and falling to the page: a brush depositing,
+				-- where a file of identical grey puffs read as exhaust (the lab's before sheet).
 				{
 					Kind = "Emitter",
 					At = 0,
 					For = 0.66,
 					Ride = true,
-					Texture = "SmokeSoft",
-					Offset = { 0, -1.2, -1.6 },
-					Rate = 34,
-					Speed = { -5, 0 },
-					Lifetime = { 0.35, 0.7 },
-					Spread = 30,
-					Drag = 3.2,
-					Size = 1.1,
-					EndSize = 3.8,
-					Transparency = 0.45,
+					Emit = "Back",
+					Texture = "InkBlot",
+					Offset = { 0, -0.6, -1.6 },
+					Rate = 30,
+					Speed = { 2, 6 },
+					Lifetime = { 0.3, 0.5 },
+					Spread = 40,
+					Drag = 3,
+					Weight = 30,
+					Size = 0.8,
+					EndSize = 0.3,
+					Transparency = 0,
 					EndTransparency = 1,
+				},
+				-- The crest: hot points of the pigment spitting off the leading edge, and spray of ink torn up
+				-- by it -- the only things on the wave that shine, and the dark that makes them read.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.66,
+					Ride = true,
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
+					Emit = "Up",
+					Texture = "DustMote",
+					Offset = { 0, 1, 7 },
+					Rate = 30,
+					Speed = { 1, 4 },
+					Lifetime = { 0.15, 0.3 },
+					Spread = 60,
+					Drag = 2,
+					Size = 0.5,
+					EndSize = 0,
+				},
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.66,
+					Ride = true,
+					Role = "Ink",
+					Emit = "Up",
+					Texture = "SparkStreak",
+					Offset = { 0, 0.5, 7 },
+					Rate = 24,
+					Speed = { 8, 16 },
+					Lifetime = { 0.12, 0.22 },
+					Spread = 50,
+					Drag = 3,
+					Squash = 0.5,
+					Size = 0.8,
+					EndSize = 0,
 				},
 				{
 					Kind = "Light",
@@ -2341,125 +2431,89 @@ local MARGIN: Timeline = {
 -- with it and then throws it as often as a punch. Its damage is not the point: the point is the seventy
 -- studs of Push and the thirty of Lift in Params. It is a displacement wearing twelve damage.
 --
--- What it replaced was a ball of Roblox's ForceField material growing from two studs to twenty-four and
--- fading out, plus a burst of twenty-four sparks. Two failures in one object: a sphere that grows and
--- fades is the effect every Roblox game already ships, and ForceField is an engine material carrying its
--- own hex lattice, so the glyph wore somebody else's identity in a game whose whole direction is that
--- nothing is borrowed.
---
 -- Air is invisible, so the wind is never drawn -- only what it moves is, and in this game what the wind
--- moves is ink. A small stroke leaves the hand; a stroke eight times its size answers it at the burst
--- centre, wide as the hitbox; the ink on the page underneath is shoved out to the rim and gone; the dust
--- is torn UP off the floor, which is the Lift the server applies. The ground trace is the one WIPE in
--- Vellum -- every other glyph burns a mark onto the page, this one pushes the ink off it, so its Mark is a
--- brush stroke and not a blot, and it lasts a second where a burn lasts two and a half.
+-- moves is ink. The hand flicks a crescent of ink; at the centre the page is wiped: a crescent of the
+-- page's charcoal sweeps round the whole hitbox on the floor, the ink under it is shoved out to the rim and
+-- gone, and scraps of the page and spurts of ink are torn UP, which is the Lift the server applies. The
+-- ground trace is the one WIPE in Vellum -- every other glyph burns a mark onto the page, this one pushes
+-- the ink off it -- and it lasts a second where a burn lasts two and a half.
 --
--- The big stroke is deliberately not a plate of PaperGrain. That texture is the world's own surface: five
--- to twenty-four per cent alpha, edge to edge, tileable, no shape of its own (tools/textures/paper.py), so
--- drawn as a twenty-four stud sprite it is a hard-edged translucent square with half of itself buried in
--- the floor. BrushStroke is fifteen to one with dry broken ends, so the same square draws a band of ink
--- across the front and everything outside the band is transparent, which is also what keeps it above
--- ground.
+-- Everything lands at 0, with the damage (D-119). GlyphEffects.Sweep damages the moment the packet leaves;
+-- this timeline used to spend 0.16 s on a wind-up and a hand stroke first, so the wipe was drawn a sixth
+-- of a second after the targets had already been thrown. The wind-up is the shared Cast lighting the hand,
+-- which plays with the same packet; the gesture here is the release.
+--
+-- It is played at the CENTRE the server damaged (VfxLibrary.Sweep adds Params.Offset along the aim: the
+-- server sends the caster's position), so the wipe and the trace sit on the hitbox, measured by its radius.
+-- Verdigris is the palest pigment on the page (contrast 1.06 on the training floor): the charcoal carries
+-- the shape, the pigment carries the school.
 --
 -- No Flash layer. PageFlash belongs to impacts, and a glyph cast every three seconds that borrowed the
--- loudest thing in the vocabulary would make it mean nothing everywhere else. For the same reason the
--- anticipation is one frame of gather -- a Burst, not a Rate: GlyphEffects.Sweep damages the moment the
--- packet leaves, and a Rate of forty-four over sixty milliseconds is two and a half particles, which is
--- not a wind-up, it is an appearance (rule 3).
---
--- It is played at the CENTRE the server damaged, not at the caster, so the footprint and the trace sit on
--- the hitbox at any Scale; the hand layers carry the ten studs of Params.Offset backwards.
+-- loudest thing in the vocabulary would make it mean nothing everywhere else.
 local SWEEP: Timeline = {
-	Intent = "The page is snapped flat in front of the caster and the ink on it is thrown off",
+	Intent = "The page is wiped in front of the caster: a sweep of ink round the hitbox, the ink thrown off and torn up",
 	Phases = {
 		{
-			Name = "Anticipation",
-			Duration = 0.06,
+			Name = "Impact",
+			Duration = 0.2,
 			Layers = {
-				-- One frame. Air pulled into the hand, negative speed, exactly as the cast gathers ink --
-				-- the difference between a shove and a hand that was suddenly somewhere else.
+				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
+				-- The hand's own stroke: a crescent of ink flicked out of the fist, spinning the way the arm
+				-- swept, and gone in a sixth of a second.
 				{
-					Kind = "Emitter",
-					At = 0,
-					For = 0.06,
-					Texture = "DustMote",
-					Offset = { 0, 0.2, -7.6 },
-					Burst = 14,
-					Speed = { -8, -3 },
-					Lifetime = { 0.08, 0.16 },
-					Spread = 180,
-					Drag = 3,
-					Size = 0.35,
-					EndSize = 0.02,
-				},
-			},
-		},
-		{
-			Name = "Cast",
-			Duration = 0.1,
-			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
-				-- The hand's own stroke, on the brush texture and not as a cone: a cone is a shape and a
-				-- shape is a weapon, a stroke is a gesture. It spins slowly rather than fast, because a
-				-- swipe that spins fast is a propeller.
-				{
-					Kind = "Sprite",
+					Kind = "Mesh",
+					Mesh = "Crescent",
+					Anchor = "Hand",
+					Role = "Ink",
 					At = 0,
 					For = 0.16,
 					Ease = "Quart",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 3,
-					EndSize = 9,
-					Offset = { 0, 0.5, -6 },
-					Spin = 1.6,
-					Transparency = 0.12,
+					Offset = { 0.8, 0.8, 0.8 },
+					Roll = 30,
+					Size = 1,
+					EndSize = 5,
+					Transparency = 0,
 					EndTransparency = 1,
+					Spin = -12,
 				},
-				-- Grit knocked loose at the hand. Wide spread on purpose: buildEmitter never sets
-				-- EmissionDirection, so a narrow cone would fire straight up the host's own axis rather
-				-- than along the aim, and a layer cannot be authored to claim a direction the runtime does
-				-- not give it.
+				-- The gust leaving the hand toward the centre: sparks of the pigment along the aim.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
+					Emit = "Aim",
 					At = 0,
-					For = 0.06,
+					For = 0.05,
 					Texture = "SparkStreak",
-					Offset = { 0, 0.4, -6 },
-					Burst = 16,
-					Speed = { 18, 34 },
-					Lifetime = { 0.12, 0.26 },
-					Spread = 120,
+					Offset = { 0.8, 0.8, 0.4 },
+					Burst = 12,
+					Speed = { 24, 40 },
+					Lifetime = { 0.12, 0.22 },
+					Spread = 20,
 					Drag = 4,
-					Squash = 0.25,
-					Size = 0.5,
+					Squash = 0.7,
+					Size = 1.1,
 					EndSize = 0,
 				},
-			},
-		},
-		{
-			Name = "Impact",
-			Duration = 0.18,
-			Layers = {
-				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
-				-- The wipe in the air, at the width of the damage. Params.Radius is 12, so the sphere the
-				-- server queries is twenty-four studs across (twenty-three where it crosses the floor,
-				-- being centred at root height), and this is drawn at twenty-four inside a quarter second,
-				-- because the damage was instant and a footprint drawn smaller than what it hurts is the
-				-- most expensive lie a fighting game can tell.
+				-- The wipe: a crescent of charcoal laid on the floor, its ink reaching the hitbox's edge and not
+				-- past it, sweeping round it once and gone. Quart Out: at full width in the first frames.
 				{
-					Kind = "Sprite",
+					Kind = "Mesh",
+					Mesh = "Crescent",
+					Face = "Ground",
+					Role = "Ink",
 					At = 0,
-					For = 0.26,
+					For = 0.3,
 					Ease = "Quart",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 8,
-					EndSize = 24,
-					Offset = { 0, 2.2, 0 },
-					Spin = 0.5,
-					Transparency = 0.1,
+					SizeFrom = "Radius",
+					Size = 0.3,
+					EndSize = 1.85,
+					Offset = { 0, 0.14, 0 },
+					Transparency = 0,
 					EndTransparency = 1,
+					Spin = 7,
+					Jitter = math.pi,
 				},
 				-- The ink already on the page, shoved outward to the rim in a quarter second and gone. It
 				-- states the hitbox on the ground, where a zone is read from, and it is the only mark in
@@ -2474,28 +2528,85 @@ local SWEEP: Timeline = {
 					Texture = "InkBlot",
 					Size = 14,
 					EndSize = 24,
-					Transparency = 0.3,
+					Transparency = 0.2,
 					EndTransparency = 1,
 					FadesWithSize = true,
 				},
-				-- Torn off the floor, upward: Params.Lift is thirty studs and this is the only layer that
-				-- shows it. Emitted from below the centre, where a host part's own up axis is the one
-				-- direction an emitter here can be trusted to state, so the dust genuinely leaves the
-				-- ground instead of hanging in the air.
+				-- A small hot point where the wind struck, ringed by the pigment it throws. Under the resting
+				-- bloom's threshold: heated Verdigris is the palest core on the page, and bloomed it turned the
+				-- whole hitbox cyan, which is the colour of an ally (rule 7).
 				{
 					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.4,
+					At = 0,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { 0, 1.2, 0 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.5,
+					EndSize = 2.5,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- Torn off the floor, upward: Params.Lift is thirty studs and these show it. Spurts of ink,
+				-- tall enough to clear the caster's own head from behind...
+				{
+					Kind = "Emitter",
+					Role = "Ink",
+					Emit = "Up",
+					At = 0,
+					For = 0.05,
+					Texture = "SparkStreak",
+					Offset = { 0, -1.4, 0 },
+					Burst = 14,
+					Speed = { 22, 40 },
+					Lifetime = { 0.2, 0.35 },
+					Spread = 40,
+					Drag = 3,
+					Squash = 0.6,
+					Size = 1.1,
+					EndSize = 0,
+				},
+				-- ...and the pigment's own dust, thrown up and falling back.
+				{
+					Kind = "Emitter",
+					Emit = "Up",
 					At = 0,
 					For = 0.06,
 					Texture = "DustMote",
 					Offset = { 0, -1.4, 0 },
-					Burst = 30,
+					Burst = 26,
 					Speed = { 16, 34 },
-					Lifetime = { 0.3, 0.6 },
+					Lifetime = { 0.3, 0.55 },
 					Spread = 62,
 					Drag = 2.6,
+					Weight = 30,
 					Squash = 0.4,
-					Size = 0.6,
+					Size = 0.7,
 					EndSize = 0.1,
+				},
+				-- Scraps of the page torn up by the wipe. Weight, not meaning: the lower tiers leave them out.
+				{
+					Kind = "Debris",
+					Meshes = { "ScrapA", "ScrapB" },
+					Flourish = true,
+					At = 0,
+					For = 0.04,
+					Count = 6,
+					Size = 0.7,
+					Speed = { 14, 26 },
+					Spread = 45,
+					Lifetime = { 0.8, 1.3 },
+					Drag = 3,
+					Fall = 7,
+					Tumble = { 6, 14 },
+					Tones = { "Ink" },
 				},
 				{
 					Kind = "Light",
@@ -3278,7 +3389,7 @@ local SERIF: Timeline = {
 				{
 					Kind = "Beam",
 					At = 0,
-					For = 0.38,
+					For = 0.35,
 					Ease = "Quart",
 					EaseDirection = "Out",
 					Texture = "BrushStroke",
@@ -3402,114 +3513,130 @@ local SERIF: Timeline = {
 					EndTransparency = 1,
 					FadesWithSize = true,
 				},
-				-- Grit off the split page, one burst per damaged point, on the server's own schedule. An
-				-- emitter is fixed where it is built and cannot walk down the line, so five of them at
-				-- the five points do what one of them cannot -- and the count is the information: five
-				-- spheres, five beats. An emitter's default direction is its host part's up, so a narrow
-				-- spread is a short column rather than a spray, which is right for a glyph whose server
-				-- stuns and does not launch.
-				--
-				-- The first four are short on purpose. A burst lives out its particles (VfxTimelineConfig.layerSeconds),
-				-- and five columns of 0.6 s grit overlapping with the five prints held Serif at thirteen live layers,
-				-- past half of the lowest tier's budget. Released at For, they used to be on screen for 0.1 s; a fifth of
-				-- a second of grit is still twice that, and the finisher keeps its longer fall.
+				-- The five serifs themselves: at each point the server damages, a spike of the pigment struck
+				-- up out of the page (InkSpike: its root on the plane's middle line, so a plane centred on the
+				-- floor shows it rising), turned to whoever looks, overshooting as it lands and drying out.
+				-- Five points, five beats, eight studs tall, enough to clear the caster's own head from behind; a
+				-- print on the floor never was, sparks at twenty studs were a few grey dashes, and a brush stroke
+				-- stood on end was a smudge (the lab, D-119). The fifth is the terminal: a hot point and a spurt
+				-- of ink where the stroke stops.
 				{
-					Kind = "Emitter",
+					Kind = "Sprite",
+					Face = "Camera",
 					At = 0,
-					For = 0.1,
-					Texture = "SparkStreak",
-					Offset = { 0, -2.4, 6 },
-					Burst = 12,
-					Speed = { 14, 30 },
-					Lifetime = { 0.12, 0.22 },
-					Spread = 55,
-					Drag = 3.5,
-					Squash = 0.35,
-					Size = 0.55,
-					EndSize = 0.05,
+					For = 0.2,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -3, 6 },
+					Size = 1.5,
+					EndSize = 16,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
 				{
-					Kind = "Emitter",
+					Kind = "Sprite",
+					Face = "Camera",
 					At = 0.08,
-					For = 0.1,
-					Texture = "SparkStreak",
-					Offset = { 0, -2.4, 11 },
-					Burst = 12,
-					Speed = { 14, 30 },
-					Lifetime = { 0.12, 0.22 },
-					Spread = 55,
-					Drag = 3.5,
-					Squash = 0.35,
-					Size = 0.55,
-					EndSize = 0.05,
+					For = 0.2,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -3, 11 },
+					Size = 1.5,
+					EndSize = 16,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
 				{
-					Kind = "Emitter",
+					Kind = "Sprite",
+					Face = "Camera",
 					At = 0.16,
-					For = 0.1,
-					Texture = "SparkStreak",
-					Offset = { 0, -2.4, 16 },
-					Burst = 12,
-					Speed = { 14, 30 },
-					Lifetime = { 0.12, 0.22 },
-					Spread = 55,
-					Drag = 3.5,
-					Squash = 0.35,
-					Size = 0.55,
-					EndSize = 0.05,
+					For = 0.2,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -3, 16 },
+					Size = 1.5,
+					EndSize = 16,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
 				{
-					Kind = "Emitter",
+					Kind = "Sprite",
+					Face = "Camera",
 					At = 0.24,
-					For = 0.1,
-					Texture = "SparkStreak",
-					Offset = { 0, -2.4, 21 },
-					Burst = 12,
-					Speed = { 14, 30 },
-					Lifetime = { 0.12, 0.22 },
-					Spread = 55,
-					Drag = 3.5,
-					Squash = 0.35,
-					Size = 0.55,
-					EndSize = 0.05,
+					For = 0.2,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -3, 21 },
+					Size = 1.5,
+					EndSize = 16,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0.32,
+					For = 0.2,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -3, 26 },
+					Size = 1.5,
+					EndSize = 16,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
 				{
 					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
 					At = 0.32,
-					For = 0.1,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { 0, -1, 26 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.5,
+					EndSize = 3.5,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					Role = "Ink",
+					Emit = "Up",
+					At = 0.32,
+					For = 0.05,
 					Texture = "SparkStreak",
 					Offset = { 0, -2.4, 26 },
-					Burst = 16,
-					Speed = { 14, 32 },
-					Lifetime = { 0.3, 0.7 },
-					Spread = 55,
-					Drag = 3.5,
-					Squash = 0.35,
-					Size = 0.6,
-					EndSize = 0.05,
+					Burst = 14,
+					Speed = { 28, 48 },
+					Lifetime = { 0.18, 0.32 },
+					Spread = 25,
+					Drag = 4,
+					Squash = 0.7,
+					Size = 1.6,
+					EndSize = 0,
 				},
-				-- The light marches, near end then far end, so the pigment travels down the line and a
-				-- player watching from the side reads which way the danger is going instead of seeing a
-				-- patch of ground lit all at once. Two and not five: PoolPolicy caps PointLight at 24
-				-- live, the tightest row in the file, and Roblox drops the surplus per surface anyway.
+				-- The light at the far end, where the stroke stops and where a target standing on the line is
+				-- lit by it; the near end is lit by the caster's own cast. One and not five: PoolPolicy caps
+				-- PointLight at 24 live, the tightest row in the file, and five spikes are the budget's worth.
 				{
 					Kind = "Light",
-					At = 0,
-					For = 0.3,
+					At = 0.16,
+					For = 0.42,
 					Ease = "Quart",
 					EaseDirection = "Out",
-					Offset = { 0, -1, 8 },
-					Range = 14,
-					Brightness = 2.6,
-				},
-				{
-					Kind = "Light",
-					At = 0.24,
-					For = 0.34,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Offset = { 0, -1, 23 },
-					Range = 16,
+					Offset = { 0, -1, 21 },
+					Range = 18,
 					Brightness = 2.8,
 				},
 				-- Two taps, not one jolt and not five: the line has a near beat and a far beat and the
@@ -3541,23 +3668,22 @@ local SERIF: Timeline = {
 					Transparency = 0.18,
 					EndTransparency = 1,
 				},
+				-- Dust of the pigment settling over the line once the strokes have dried.
 				{
 					Kind = "Emitter",
-					At = 0.04,
-					For = 0.8,
+					At = 0.25,
+					For = 0.6,
 					Ease = "Sine",
 					EaseDirection = "Out",
-					Texture = "SmokeSoft",
+					Texture = "DustMote",
 					Offset = { 0, -1.6, 16 },
-					Rate = 16,
-					Speed = { 1.4, 3.4 },
-					Lifetime = { 0.7, 1.3 },
-					Spread = 55,
-					Drag = 2.4,
-					Size = 1.4,
-					EndSize = 3.8,
-					Transparency = 0.5,
-					EndTransparency = 1,
+					Rate = 12,
+					Speed = { 0.6, 2 },
+					Lifetime = { 0.5, 0.9 },
+					Spread = 90,
+					Drag = 1.5,
+					Size = 0.35,
+					EndSize = 0,
 				},
 			},
 		},

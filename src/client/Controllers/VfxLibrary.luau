@@ -393,14 +393,23 @@ local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency:
 	play(trove, shield, seconds, { Transparency = 1, Size = Vector3.one * 7.5 })
 end
 
+-- The hand the caster throws with, for the layers born in it (Layer.Anchor).
+local function casterHand(packet: Packet): BasePart?
+	local root = casterRoot(packet)
+	local character = if root ~= nil then root.Parent else nil
+	local hand = if character ~= nil then character:FindFirstChild(VfxConfig.Hand) else nil
+	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
+end
+
 -- Casting flash at the caster, colored by the glyph pigment, with its cast sound.
 VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	-- What this replaced was one ball that grew and one spark burst, played identically by all twenty
 	-- glyphs: two layers, no wind-up, nothing left behind, and no way to tell a Cinnabar cast from an
 	-- Orpiment one except the tint. docs/JUICE_AUDIT.md lists it as the single worst offender in the game.
 	--
-	-- It is now the Cast timeline: a seal drawn in the air, held, and folded into a point that releases.
-	-- The renderer's whole job is to say who cast it, where, and in what pigment.
+	-- It is now the Cast timeline: the glyph lighting in the casting hand, a seal snapping open round it
+	-- and folding as the spell leaves (D-119). The renderer's whole job is to say who cast it, with which
+	-- hand, and in what pigment.
 	local pigment = stringParam(packet, "Pigment", "")
 	api.Timeline.play("Cast", {
 		Origin = packet.Origin,
@@ -409,6 +418,7 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 		Pigment = pigment,
 		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
 	})
 	-- The field of view and the pad belong to the person who cast it, and to nobody else. The timeline's
 	-- own shake layer is distance-attenuated, so bystanders feel the cast without being punched by it.
@@ -416,14 +426,6 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 		api.Feel.fovPunch(FeelConfig.Fov.CastImpulse)
 		api.Feel.haptic("Cast")
 	end
-end
-
--- The hand the caster throws with, for the layers born in it (Layer.Anchor).
-local function casterHand(packet: Packet): BasePart?
-	local root = casterRoot(packet)
-	local character = if root ~= nil then root.Parent else nil
-	local hand = if character ~= nil then character:FindFirstChild(VfxConfig.Hand) else nil
-	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
 end
 
 -- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most.
@@ -520,8 +522,21 @@ VfxLibrary.Serif = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Serif", packet, api)
 end
 
+-- Drawn at the centre the server damaged: it sends the caster's position and the offset it struck at
+-- along the aim (GlyphEffects.Sweep), and a wipe drawn round the caster is a wipe of nobody (D-119).
 VfxLibrary.Sweep = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Sweep", packet, api)
+	local centre = packet.Origin + directionOf(packet) * numberParam(packet, "Offset", 0)
+	local def = GlyphConfig.ById.Sweep
+	api.Timeline.play("Sweep", {
+		Origin = centre,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Radius = numberParam(packet, "Radius", 12),
+	})
 end
 
 VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)

@@ -4,6 +4,7 @@
 -- pale page, a freeze frame that let a projectile fall behind its damage, a spell that appeared a round
 -- trip after the press -- and each is held on the data and on the renderer's own source.
 local FeelConfig = require("../src/shared/Config/FeelConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
@@ -126,18 +127,52 @@ describe("the heated core", function()
 			)
 		).never.toBe(nil)
 		local emitter = body(TIMELINE, "local function buildEmitter(")
-		expect(emitter:find("emitter.Brightness = brightnessOf(layer)", 1, true)).never.toBe(nil)
-		expect(emitter:find("emitter.LightEmission = glowOf(layer)", 1, true)).never.toBe(nil)
-		expect(body(TIMELINE, "local function buildTrail("):find("trail.Brightness = brightnessOf(layer)", 1, true)).never.toBe(
-			nil
-		)
-		expect(body(TIMELINE, "local function buildBeam("):find("beam.Brightness = brightnessOf(layer)", 1, true)).never.toBe(
-			nil
-		)
+		expect(emitter:find("emitter.Brightness = brightnessOf(entry.Context, layer)", 1, true)).never.toBe(nil)
+		expect(emitter:find("emitter.LightEmission = glowOf(entry.Context, layer)", 1, true)).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function buildTrail("):find(
+				"trail.Brightness = brightnessOf(entry.Context, layer)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function buildBeam("):find(
+				"beam.Brightness = brightnessOf(entry.Context, layer)",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		-- The same switch Feel and the page flash ask: one question, one answer.
 		expect(read("src/client/Controllers/Feel.luau"):find("Feel.motionAllowed = motionAllowed", 1, true)).never.toBe(
 			nil
 		)
+	end)
+end)
+
+describe("a play that must not shine", function()
+	it("keeps a fist's core in its own ink: no heat, no light, no bloom (D-116)", function()
+		local glow = body(TIMELINE, "local function glowOf(")
+		expect(glow:find("if context.Unlit == true then return VfxConfig.LightEmission end", 1, true)).never.toBe(nil)
+		local bright = body(TIMELINE, "local function brightnessOf(")
+		expect(bright:find("if context.Unlit == true then 1 else layer.Brightness or 1", 1, true)).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function roleRamp("):find('if role == "Core" and context.Unlit ~= true then', 1, true)
+		).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function roleColor("):find(
+				'elseif role == "Core" and context.Unlit ~= true then',
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function roleWetDry("):find(
+				'if layer.Role == "Core" and context.Unlit ~= true then',
+				1,
+				true
+			)
+		).never.toBe(nil)
 	end)
 end)
 
@@ -237,17 +272,24 @@ describe("a spell born in the hand", function()
 		).never.toBe(nil)
 		local library = read("src/client/Controllers/VfxLibrary.luau")
 		expect(library:find("character:FindFirstChild(VfxConfig.Hand)", 1, true)).never.toBe(nil)
+		-- The shared cast lights every glyph in the hand; the Brand's throw leaves it too.
 		local _, handed = library:gsub("Hand = casterHand%(packet%),", "")
-		expect(handed).toBe(2)
-		local anchored = 0
-		for _, phase in ipairs(TIMELINES.Brand.Phases) do
-			for _, layer in ipairs(phase.Layers) do
-				if layer.Anchor == "Hand" then
-					anchored += 1
+		expect(handed).toBeGreaterThanOrEqual(3)
+		local cast = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Cast = function(")
+		expect(cast:find("Hand = casterHand(packet),", 1, true)).never.toBe(nil)
+		local function anchored(id: string): number
+			local count = 0
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Anchor == "Hand" then
+						count += 1
+					end
 				end
 			end
+			return count
 		end
-		expect(anchored).toBeGreaterThanOrEqual(4)
+		expect(anchored("Cast")).toBeGreaterThanOrEqual(5)
+		expect(anchored("Brand")).toBeGreaterThanOrEqual(2)
 	end)
 end)
 
@@ -313,5 +355,69 @@ describe("the motion of a particle and a ribbon", function()
 				end
 			end
 		end
+	end)
+end)
+
+describe("a glyph drawn where it hurts, when it hurts", function()
+	it("draws the Wash's front at the rim of its damage, not at its centre", function()
+		-- The server's sphere hurts a target when its rim reaches it; drawn at the carrier (its centre)
+		-- the front arrived a third of a second after the hit it announced (the lab, D-119).
+		local radius = (GlyphConfig.ById.Wash.Params :: any).HitRadius
+		local fronts = 0
+		for _, phase in ipairs(TIMELINES.Wash.Phases) do
+			if phase.Name == "Travel" then
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Sprite" and layer.Ride == true then
+						fronts += 1
+						local ahead = (layer.Offset or { 0, 0, 0 })[3]
+						expect(ahead >= radius - 2 and ahead <= radius).toBe(true)
+					end
+				end
+			end
+		end
+		expect(fronts).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("plays the Sweep at the centre the server struck, on the frame it struck", function()
+		local sweep = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Sweep = function(")
+		expect(
+			sweep:find('local centre = packet.Origin + directionOf(packet) * numberParam(packet, "Offset", 0)', 1, true)
+		).never.toBe(nil)
+		expect(sweep:find("Origin = centre,", 1, true)).never.toBe(nil)
+		expect(sweep:find('Radius = numberParam(packet, "Radius", 12),', 1, true)).never.toBe(nil)
+		-- GlyphEffects.Sweep damages as the packet leaves: nothing is drawn before the wipe.
+		expect(TIMELINES.Sweep.Phases[1].Name).toBe("Impact")
+		expect(TIMELINES.Sweep.Phases[1].Layers[1].At).toBe(0)
+	end)
+
+	it("turns a plane to whoever looks at it, and stands a spike up out of the page", function()
+		eachLayer(function(id, phase, layer)
+			if layer.Face == "Camera" and layer.Kind ~= "Sprite" then
+				error(("%s / %s turns a %s to the camera, which only a Sprite can"):format(id, phase.Name, layer.Kind))
+			end
+		end)
+		local step = body(TIMELINE, "local function stepSprite(")
+		expect(step:find('if layer.Face == "Camera" and camera ~= nil then', 1, true)).never.toBe(nil)
+		expect(step:find("part.CFrame = CFrame.lookAt(position, toward) * CFrame.Angles(0, 0, turned)", 1, true)).never.toBe(
+			nil
+		)
+		expect(
+			body(TIMELINE, "local function buildSprite("):find(
+				"CFrame.Angles(0, 0, math.rad(layer.Roll or 0))",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- The Serif's five feet are spikes rising out of the floor at the five points the server damages.
+		local spikes = 0
+		for _, phase in ipairs(TIMELINES.Serif.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Texture == "InkSpike" then
+					spikes += 1
+					expect(layer.Face).toBe("Camera")
+				end
+			end
+		end
+		expect(spikes).toBe((GlyphConfig.ById.Serif.Params :: any).Count)
 	end)
 end)

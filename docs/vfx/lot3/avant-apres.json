@@ -1,0 +1,9 @@
+{"title": "Lot 3 - Pointille, Brulis, Rupture - avant / apres (labo Studio)", "frames": [
+ {"capture": "stipple_before_flight_side", "moment": "Pointille : en vol (profil)", "row": "avant", "t": 0.14},
+ {"capture": "scorch_before_tick_side", "moment": "Brulis : tick (profil)", "row": "avant", "t": 1.668},
+ {"capture": "rupture_before_impact_side", "moment": "Rupture : impact (profil)", "row": "avant", "t": 0.081},
+ {"capture": "stipple_after_flight_side2", "moment": "Pointille : en vol (profil)", "row": "apres", "t": 0.081},
+ {"capture": "scorch_after_tick2_side", "moment": "Brulis : tick (profil)", "row": "apres", "t": 0.907},
+ {"capture": "rupture_after_impact_side", "moment": "Rupture : impact (profil)", "row": "apres", "t": 0.082},
+ {"capture": "rupture_after_peak_game", "moment": "Rupture : +0,2 (jeu)", "row": "apres", "t": 0.204}
+]}

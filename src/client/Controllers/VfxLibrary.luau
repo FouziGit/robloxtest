@@ -503,6 +503,8 @@ end
 local function playGlyph(id: string, packet: Packet, api: Api)
 	local def = GlyphConfig.ById[id]
 	local pigment = if def ~= nil then def.Pigment else stringParam(packet, "Pigment", "")
+	-- The radius the server struck with, when the packet carries one: what a zone's edge is drawn at.
+	local radius = numberParam(packet, "Radius", 0)
 	api.Timeline.play(id, {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
@@ -511,6 +513,7 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
 		Hand = casterHand(packet),
+		Radius = if radius > 0 then radius else nil,
 	})
 end
 

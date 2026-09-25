@@ -433,22 +433,61 @@ describe("a glyph on the server's own clock", function()
 		return 0
 	end
 
-	it("flies the Hairline from where the server's line is when the drawn one leaves", function()
-		-- GlyphEffects.Hairline steps its projectile from the packet: the drawn one left 0.15 s late, twenty
-		-- studs behind, and struck a target at twenty-four before it had left the hand (the lab, D-121).
-		local params = GlyphConfig.ById.Hairline.Params :: any
-		local lead = phaseLength("Hairline", "Anticipation") + phaseLength("Hairline", "Cast")
-		expect(lead <= 0.05).toBe(true)
-		for _, phase in ipairs(TIMELINES.Hairline.Phases) do
-			for _, layer in ipairs(phase.Layers) do
-				if layer.Kind == "Carrier" then
-					local start = (layer.Offset :: { number })[3]
-					expect(math.abs(start - (params.SpawnOffset + params.Speed * lead))).toBeLessThanOrEqual(1)
-					expect(start + (layer.Travel or 0)).toBeLessThanOrEqual(
-						params.SpawnOffset + GlyphConfig.ById.Hairline.Range + 1e-6
-					)
+	-- The glyphs the lab has put back on the frame of their damage (D-120 to D-122): each draws what hurts
+	-- within two frames of the packet the server damages on. A glyph joins this list when it is reworked.
+	local ON_THE_FRAME = { "Sweep", "Bleed", "Serif", "Hairline", "Stipple", "Scorch", "Rupture" }
+
+	it("draws a glyph that strikes on its packet within two frames of it", function()
+		for _, id in ipairs(ON_THE_FRAME) do
+			local lead = phaseLength(id, "Anticipation") + phaseLength(id, "Cast")
+			if lead > 0.05 then
+				error(("%s draws its strike %.2f s after the damage it announces"):format(id, lead))
+			end
+		end
+	end)
+
+	it("flies a projectile from where the server's is when the drawn one leaves", function()
+		-- GlyphEffects steps these from the packet: the drawn Hairline left 0.15 s late, twenty studs behind,
+		-- and struck a target at twenty-four before it had left the hand; the Stipple flew seventeen behind.
+		for _, id in ipairs({ "Hairline", "Stipple" }) do
+			local def = GlyphConfig.ById[id]
+			local params = def.Params :: any
+			local lead = phaseLength(id, "Anticipation") + phaseLength(id, "Cast")
+			local carriers = 0
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Carrier" then
+						carriers += 1
+						local start = (layer.Offset :: { number })[3]
+						expect(math.abs(start - (params.SpawnOffset + params.Speed * lead))).toBeLessThanOrEqual(1)
+						expect(start + (layer.Travel or 0)).toBeLessThanOrEqual(params.SpawnOffset + def.Range + 1e-6)
+					end
 				end
 			end
+			expect(carriers).toBe(1)
+		end
+	end)
+
+	it("rings the Scorch's fire round the body the server re-centres it on, on each tick", function()
+		local params = GlyphConfig.ById.Scorch.Params :: any
+		local lead = phaseLength("Scorch", "Anticipation") + phaseLength("Scorch", "Cast")
+		local ticks: { [number]: number } = {}
+		for _, phase in ipairs(TIMELINES.Scorch.Phases) do
+			if phase.Name == "Impact" then
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Texture == "InkSpike" then
+						expect(layer.Follow).toBe(true)
+						local offset = layer.Offset :: { number }
+						expect(math.sqrt(offset[1] ^ 2 + offset[3] ^ 2) <= params.Radius).toBe(true)
+						local tick = math.floor((layer.At + lead) / params.TickInterval + 0.5)
+						expect(math.abs(layer.At + lead - tick * params.TickInterval)).toBeLessThanOrEqual(0.035)
+						ticks[tick] = (ticks[tick] or 0) + 1
+					end
+				end
+			end
+		end
+		for tick = 0, params.Ticks - 1 do
+			expect((ticks[tick] or 0) >= 3).toBe(true)
 		end
 	end)
 

@@ -55,6 +55,10 @@ Branche `main`. Conventional Commits (`feat(matchmaking): …`, `fix(combat): �
 
 Toute création, correction ou comparaison d'animation suit le skill `.claude/skills/vellum-animation/` : méthode d'animateur (poses clés → courbes → secondaire → chiffres), contrat de timing (le serveur décide, l'animation s'y cale, aucun chiffre de gameplay ne bouge), checklist « fini », chaîne `tools/animations/keyed/*.json` → `.rbxmx` → `scripts/upload_assets.py` → `AnimationConfig.luau`. Aucun upload sur Roblox sans l'accord explicite du développeur.
 
+## Effets visuels
+
+Toute création, correction ou comparaison d'effet suit le skill `.claude/skills/vellum-vfx/` : recette « encre vive à cœur chauffé » en trois temps (naît dans la main → vol → impact le plus fort → trace), rôles de couche (pigment, cœur, encre ; seul le cœur brille), aucun chiffre de gameplay ni de timing serveur ne bouge, jugé au labo Studio (`tools/vfxlab/`) sur planches avant/après, noté sur six critères, au moins deux tours.
+
 ## Documentation
 
 Toute décision non triviale → `docs/DECISIONS.md` (raison en deux lignes). Fin de phase → `docs/PROGRESS.md` (fait / en cours / reste). Design → `docs/GAME_DESIGN.md`, économie → `docs/ECONOMY.md`, setup manuel Studio → `docs/STUDIO_SETUP.md`.

@@ -99,7 +99,9 @@ Strings.Table = {
 	["settings.saveFailed"] = { en = "Could not save settings.", fr = "Impossible de sauvegarder les options." },
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
 	["settings.sfx"] = { en = "Effects volume", fr = "Volume effets" },
-	["settings.cameraShake"] = { en = "Camera shake", fr = "Secousses de caméra" },
+	-- What the switch has governed since D-112 and D-119: the camera's shakes, the page's flashes and the
+	-- glow of a spell's core.
+	["settings.cameraShake"] = { en = "Shakes and flashes", fr = "Secousses et flashs" },
 	["settings.tab.graphics"] = { en = "Graphics", fr = "Graphismes" },
 	["settings.quality"] = { en = "Quality", fr = "Qualité" },
 	["settings.qualityHint"] = {

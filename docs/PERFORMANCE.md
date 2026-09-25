@@ -78,9 +78,9 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 
 | Effet | Couches | Dessinées | Pic simultané | Durée (s) | Particules | Instances au pic | Part | Decal | Emitter | Attach | Trail | Beam | Light |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Binding | 13 | 10 | 5 | 2.70 | 53 | 16 | 6 | 4 | 2 | 2 | 0 | 1 | 1 |
-| Bleed | 13 | 11 | 5 | 4.60 | 52 | 13 | 6 | 1 | 2 | 2 | 0 | 1 | 1 |
-| Blot | 17 | 13 | 10 | 2.70 | 136 | 24 | 11 | 1 | 5 | 4 | 1 | 1 | 1 |
+| Binding | 15 | 12 | 10 | 2.73 | 43 | 24 | 10 | 10 | 3 | 0 | 0 | 0 | 1 |
+| Bleed | 20 | 18 | 7 | 4.60 | 42 | 15 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
+| Blot | 16 | 13 | 12 | 2.90 | 217 | 27 | 12 | 1 | 5 | 4 | 2 | 0 | 2 |
 | BossDefeated | 16 | 12 | 6 | 3.30 | 123 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
 | BossEruption | 20 | 15 | 10 | 4.30 | 156 | 21 | 10 | 3 | 7 | 0 | 0 | 0 | 1 |
 | BossEruptionSafe | 4 | 4 | 3 | 3.80 | 22 | 6 | 3 | 2 | 1 | 0 | 0 | 0 | 0 |
@@ -90,35 +90,36 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | BossSlam | 17 | 12 | 7 | 4.00 | 103 | 14 | 7 | 3 | 3 | 0 | 0 | 0 | 1 |
 | BossSpawn | 17 | 13 | 7 | 3.30 | 130 | 15 | 7 | 2 | 5 | 0 | 0 | 0 | 1 |
 | BossSweep | 20 | 15 | 8 | 4.00 | 98 | 19 | 8 | 6 | 4 | 0 | 0 | 0 | 1 |
-| Brand | 13 | 11 | 9 | 1.66 | 49 | 19 | 9 | 0 | 3 | 2 | 1 | 0 | 2 |
-| Caret | 15 | 12 | 9 | 1.08 | 76 | 21 | 9 | 4 | 4 | 2 | 1 | 0 | 1 |
-| Cast | 9 | 7 | 5 | 0.84 | 32 | 17 | 6 | 4 | 3 | 2 | 0 | 1 | 1 |
-| Colophon | 16 | 12 | 7 | 2.38 | 64 | 24 | 8 | 6 | 2 | 4 | 0 | 2 | 2 |
-| ColophonLink | 11 | 9 | 6 | 1.91 | 48 | 21 | 8 | 4 | 2 | 4 | 0 | 2 | 1 |
+| Brand | 13 | 11 | 9 | 1.66 | 67 | 21 | 9 | 0 | 3 | 4 | 2 | 0 | 1 |
+| Caret | 16 | 12 | 9 | 1.57 | 37 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
+| Cast | 9 | 7 | 6 | 0.54 | 16 | 13 | 6 | 2 | 4 | 0 | 0 | 0 | 1 |
+| Colophon | 21 | 16 | 12 | 2.19 | 77 | 33 | 12 | 6 | 4 | 6 | 3 | 0 | 2 |
+| ColophonLink | 15 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
-| Explosion | 14 | 11 | 10 | 3.22 | 44 | 34 | 17 | 2 | 3 | 0 | 0 | 0 | 1 |
-| Gilding | 17 | 14 | 5 | 4.00 | 42 | 18 | 5 | 4 | 2 | 4 | 2 | 0 | 1 |
-| Hairline | 12 | 9 | 7 | 1.11 | 27 | 20 | 8 | 0 | 2 | 6 | 2 | 1 | 1 |
-| Hit | 7 | 6 | 4 | 2.58 | 20 | 11 | 4 | 3 | 2 | 0 | 0 | 0 | 1 |
+| Explosion | 17 | 14 | 11 | 3.22 | 60 | 38 | 18 | 4 | 4 | 0 | 0 | 0 | 1 |
+| Gilding | 18 | 15 | 11 | 4.00 | 134 | 26 | 10 | 11 | 3 | 0 | 0 | 0 | 1 |
+| Hairline | 12 | 9 | 8 | 0.99 | 42 | 19 | 8 | 0 | 3 | 4 | 2 | 0 | 2 |
+| Hit | 10 | 9 | 7 | 2.58 | 36 | 16 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
 | KillOverexposure | 5 | 5 | 5 | 2.90 | 30 | 12 | 5 | 6 | 1 | 0 | 0 | 0 | 0 |
 | KillRedaction | 4 | 4 | 4 | 2.90 | 0 | 11 | 4 | 7 | 0 | 0 | 0 | 0 | 0 |
 | KillScraps | 4 | 4 | 4 | 2.40 | 34 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
 | KillTear | 4 | 4 | 4 | 2.64 | 21 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
-| Ligature | 27 | 25 | 11 | 3.06 | 108 | 26 | 11 | 6 | 5 | 2 | 1 | 0 | 1 |
-| Margin | 14 | 11 | 6 | 5.46 | 39 | 14 | 6 | 5 | 2 | 0 | 0 | 0 | 1 |
+| Ligature | 29 | 27 | 12 | 3.01 | 283 | 29 | 12 | 5 | 5 | 4 | 2 | 0 | 1 |
+| Margin | 20 | 17 | 12 | 5.45 | 39 | 31 | 12 | 15 | 3 | 0 | 0 | 0 | 1 |
 | Melee | 4 | 4 | 4 | 0.46 | 14 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 0 |
-| Pounce | 14 | 13 | 7 | 4.82 | 201 | 14 | 7 | 2 | 4 | 0 | 0 | 0 | 1 |
-| Rupture | 13 | 10 | 6 | 3.27 | 112 | 14 | 6 | 3 | 3 | 0 | 0 | 0 | 2 |
-| Scorch | 20 | 17 | 10 | 3.36 | 62 | 30 | 10 | 3 | 3 | 8 | 4 | 0 | 2 |
-| Serif | 19 | 16 | 12 | 2.30 | 80 | 32 | 14 | 5 | 5 | 4 | 0 | 2 | 2 |
-| Spiral | 16 | 11 | 6 | 4.70 | 109 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
-| Stipple | 12 | 9 | 7 | 2.36 | 53 | 16 | 7 | 2 | 3 | 2 | 1 | 0 | 1 |
-| Strike | 12 | 9 | 7 | 0.91 | 56 | 17 | 7 | 1 | 4 | 2 | 1 | 0 | 2 |
-| Sweep | 12 | 9 | 7 | 1.24 | 65 | 16 | 7 | 5 | 3 | 0 | 0 | 0 | 1 |
-| Wash | 15 | 12 | 9 | 3.00 | 50 | 21 | 9 | 5 | 3 | 2 | 1 | 0 | 1 |
-| Watermark | 18 | 13 | 5 | 4.34 | 115 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
+| Pounce | 13 | 12 | 6 | 4.72 | 288 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
+| Rupture | 19 | 16 | 12 | 3.22 | 82 | 31 | 12 | 13 | 3 | 0 | 0 | 0 | 2 |
+| Scorch | 21 | 19 | 10 | 3.23 | 358 | 20 | 10 | 3 | 6 | 0 | 0 | 0 | 1 |
+| Serif | 20 | 17 | 12 | 2.30 | 25 | 30 | 13 | 11 | 2 | 2 | 0 | 1 | 1 |
+| Spiral | 24 | 19 | 7 | 4.62 | 168 | 14 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
+| Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
+| Strike | 15 | 11 | 8 | 1.83 | 49 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| Sweep | 13 | 11 | 9 | 1.10 | 58 | 29 | 14 | 2 | 4 | 0 | 0 | 0 | 1 |
+| Tap | 4 | 4 | 4 | 0.25 | 10 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 1 |
+| Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
+| Watermark | 25 | 20 | 6 | 4.34 | 119 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 39 timelines et 502 couches, dont 401 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 201 particules, 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 40 timelines et 569 couches, dont 467 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

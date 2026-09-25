@@ -1,0 +1,50 @@
+{
+	"name": "VellumLab",
+	"globIgnorePaths": [
+		"**/*.spec.luau"
+	],
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"$className": "ReplicatedStorage",
+			"Shared": {
+				"$path": "../../src/shared"
+			},
+			"UI": {
+				"$path": "../../src/ui"
+			},
+			"Packages": {
+				"$path": "../../Packages"
+			}
+		},
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"$path": "../../src/server"
+		},
+		"ServerStorage": {
+			"$className": "ServerStorage"
+		},
+		"StarterPlayer": {
+			"$className": "StarterPlayer",
+			"$properties": {
+				"CharacterWalkSpeed": 16,
+				"CharacterJumpPower": 50,
+				"CharacterUseJumpPower": true,
+				"EnableMouseLockOption": false
+			},
+			"StarterPlayerScripts": {
+				"$path": "../../src/client",
+				"VfxLab": {
+					"$path": "VfxLab.client.luau"
+				}
+			}
+		},
+		"StarterGui": {
+			"$className": "StarterGui",
+			"$properties": {
+				"ScreenOrientation": "LandscapeSensor",
+				"ResetPlayerGuiOnSpawn": false
+			}
+		}
+	}
+}

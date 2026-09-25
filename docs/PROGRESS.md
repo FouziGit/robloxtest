@@ -299,6 +299,7 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 | 5 — Flipbooks procéduraux | ⬜ | — |
 | 6 — Le monde réagit | ⬜ | — |
 | 7 — Animations | 🔶 | branche `feat/anim-pipeline` (D-117) |
+| Passe VFX (punch et lisibilité) | 🔶 | branche `feat/vfx-pass` (D-118…) |
 | 8 — Interface et découverte | ⬜ | — |
 
 ### Phase 1 — fait
@@ -338,3 +339,20 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **Le skill `vellum-animation`** (`.claude/skills/`, pointé par `CLAUDE.md`) fait de la méthode celle du projet ; essayé sur le **Lavis**, qui a désormais son propre lancer (deux paumes vers le sol à 0,10 s).
 - **En jeu** : les deux clips sont téléversés (accord du développeur) ; chaque clip est chargé à l'apparition du personnage, le premier lancer d'une session ne reste plus vide.
 - Reste : les autres glyphes, avec le skill.
+
+### Passe VFX — en cours (D-118, suivi : `docs/vfx/AUDIT.md`)
+
+- **Phase 0** : audit en lecture seule (5 lecteurs) ; causes mesurées : aucune lueur possible, traînée répétée chaque stud, gerbes vers le haut, impact délavé par le flash d'écran (−55 % de saturation), formes posées à plat, sort caché par le corps du lanceur, désynchronisations du Lavis et du Balayage.
+- **Phase 1** : horloge d'effets (micro-arrêt d'impact en jeu, ralenti et gel dans Studio) et labo `tools/vfxlab/` ; planches « avant » de la Marque, du Lavis et du Balayage avec diagnostic noté (`docs/vfx/<sort>/`).
+- **Phase 2** (D-119) : trois styles prototypés et figés au labo (`docs/vfx/styles/`), retenu « encre vive à cœur chauffé » ; rôles de couche (pigment, cœur, encre), palettes par pigment, halo global laissé tel quel (seuls les cœurs le franchissent).
+- **Phase 3** (D-119) : la Marque finale en trois tours de planches (`docs/vfx/brand/`, avant 1/1/2/2/1/4, après 4/4/5/4/4/4) ; éclat dès l'appui, pop des particules, traînée en coin d'encre à trait chaud, impact en étoile avec gerbe d'encre et anneau de choc, gel d'impact sur l'horloge d'effets seulement (jamais sur ce que le serveur chronomètre), réglage « Secousses et flashs » qui bride le cœur. 6 lancers simultanés à 60 i/s dans Studio ; lisible au niveau Performance. `tests/VfxStyle.spec.luau`, 9 mutations, 9 échecs.
+- **Phase 4, lot 1** (D-120) : skill `vellum-vfx` (+ `scripts/style_audit`) ; lancer et coup reçu partagés refaits ; Lavis (front au bord de ses dégâts), Balayage (joué au centre et à l'instant de ses dégâts), Empattement (cinq pointes, nouvelle texture `ink_spike.png`). Planche `docs/vfx/lot1/`.
+- **Phase 4, lot 2** (D-121) : Saignée (gorgées sur les ticks, bord à l'encre), Marge (encre levée avec la dalle du serveur), Délié (part au frame du serveur). Planche `docs/vfx/lot2/`.
+- **Phase 4, lot 3** (D-122) : Pointillé (part au frame du serveur), Brûlis (couronne de pointes qui suit le lanceur à chaque tick), Rupture (éruption d'ultime au rayon du paquet). Planche `docs/vfx/lot3/`.
+- **Phase 4, lot 4** (D-123) : Ligature (flaques posées au paquet), Pâte (sur l'arc du serveur, éclat où il éclate), Entrave (jouée sur la cible prise). Puis, à la remarque du développeur (« les flammes c'est des flaques ») : un **vrai feu** — texture `ink_flame.png`, émetteurs sur une zone ou un anneau, flammes droites qui oscillent — sur la Ligature, le Brûlis (anneau de feu au rayon du serveur) et la Pâte (comète de feu). Planches `docs/vfx/lot4/`, `docs/vfx/feu/`.
+- **Phase 4, lot 5** (D-125) : Dorure (la figure du lanceur, couche `Outline`, pendant toute l'armure), Spirale (tourbillon de sceaux qui tournent, traits aspirés), Poncif (pluie de grain en rafales). Planche `docs/vfx/lot5/`.
+- **Phase 4, lot 6** (D-126) : Frappe (réglée jusqu'où le rayon du serveur s'arrête, depuis la bouche), Caret (tracé jusqu'où le corps est posé), Filigrane (moule pressé sur un bord à l'encre). Champ `TravelFrom`. Planche `docs/vfx/lot6/`.
+- **Phase 4, lot 7** (D-127) : Colophon (la chaîne que le serveur a frappée : bouche → premier corps, puis un trait par saut, marque à l'arrivée). Planche `docs/vfx/lot7/`. **Les vingt glyphes sont passés.**
+- **D-124** : le moteur éclaircit un `Rate` selon sa qualité automatique (80 flammes/s → 5 en temps réel au labo) ; un émetteur `Driven` est émis par le rendu. Opt-in pour le feu ; à généraliser ou non après un essai sur un vrai téléphone.
+- Plus aucune traînée texturée dans les timelines (la dernière, celle de l'esquive, est un ruban nu ; un test l'interdit désormais).
+- Reste : un essai sur téléphone pour D-124 ; la relecture de la PR.

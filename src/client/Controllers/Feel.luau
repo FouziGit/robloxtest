@@ -33,6 +33,8 @@ local Palette = require(Shared.Util.Palette)
 local Shake = require(Packages.Shake)
 local Spring = require(Shared.Pure.Spring)
 local WorldConfig = require(Shared.Config.WorldConfig)
+-- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
+local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 
 local log = Log.new("Feel")
 
@@ -112,6 +114,10 @@ local function motionAllowed(): boolean
 	end
 	return data.Settings.CameraShake ~= false
 end
+
+-- Exposed for what is drawn elsewhere and asks the same question: VfxTimeline, before letting a glyph's
+-- core shine (VfxConfig.Calm).
+Feel.motionAllowed = motionAllowed
 
 local function toVector(triple: FeelConfig.Triple): Vector3
 	return Vector3.new(triple[1], triple[2], triple[3])
@@ -208,10 +214,14 @@ end
 --
 -- `role` is who the local player was. Landing a hit plants their feet, which is most of what makes a
 -- melee blow feel heavy; taking one does not, because the knockback has to land.
+--
+-- The drawn effects stop with the camera (VfxClock.hold, D-119): the burst, its sparks and its light held
+-- still on their widest frames for as long, and never what is drawn on the server's own time.
 function Feel.hitStop(seconds: number, role: Role?)
 	if seconds <= 0 then
 		return
 	end
+	VfxClock.hold(seconds)
 	local merged = FeelMath.mergeHitStop(hitStopRemaining, seconds)
 	if merged > hitStopRemaining or hitStopRole == "None" then
 		hitStopRole = role or "None"

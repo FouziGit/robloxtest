@@ -880,6 +880,9 @@ function GlyphEffects.Blot(ctx: Context): number
 	-- and is back at cast height when the fuse burns out. The client re-simulates from these two.
 	local rise = 4 * params.ArcHeight / fuse
 	local gravity = 2 * rise / fuse
+	-- Named like the Brand's (D-114, D-123): the burst lands the drawn meteor where this one burst, and a
+	-- meteor that never bursts dries out where it stopped. A name for the drawing, nothing for the game.
+	local shot = nextShot()
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
@@ -892,10 +895,11 @@ function GlyphEffects.Blot(ctx: Context): number
 			SpawnOffset = params.SpawnOffset,
 			BlastRadius = params.BlastRadius,
 			Pigment = ctx.Def.Pigment,
+			Shot = shot,
 		},
 	}, true)
 
-	local stop = stepProjectile(
+	local stop, last = stepProjectile(
 		ctx,
 		ctx.Origin.Position + direction * params.SpawnOffset,
 		direction * params.Speed + Vector3.yAxis * rise,
@@ -905,9 +909,14 @@ function GlyphEffects.Blot(ctx: Context): number
 		0
 	)
 	if stop == nil then
+		ctx.Vfx.emit(
+			{ Id = "Fizzle", Origin = last, Caster = ctx.Caster.UserId, Params = { Shot = shot } },
+			true,
+			ctx.Origin.Position
+		)
 		return 0
 	end
-	return explode(ctx, stop.Point, params.BlastRadius, params.Knockback, params.Lift)
+	return explode(ctx, stop.Point, params.BlastRadius, params.Knockback, params.Lift, shot)
 end
 
 ----------------------------------------------------------------

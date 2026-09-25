@@ -514,6 +514,8 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 		Follow = casterRoot(packet),
 		Hand = casterHand(packet),
 		Radius = if radius > 0 then radius else nil,
+		-- A thrown glyph's name (the Blot's, D-123): its burst lands the drawn one where it burst.
+		Shot = shotKey(packet),
 	})
 end
 
@@ -648,8 +650,21 @@ VfxLibrary.Blot = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Blot", packet, api)
 end
 
+-- On the one it caught (the packet's first target, where the server rooted it), or at the centre of the grab
+-- when it caught nobody (D-123): a prison drawn beside its prisoner holds nobody.
 VfxLibrary.Binding = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Binding", packet, api)
+	local targets = packet.Targets
+	local caught = if targets ~= nil then targets[1] else nil
+	local def = GlyphConfig.ById.Binding
+	api.Timeline.play("Binding", {
+		Origin = if typeof(caught) == "Vector3" then caught else packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+	})
 end
 
 VfxLibrary.Stipple = function(packet: Packet, _trove: TroveType, api: Api)

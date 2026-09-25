@@ -176,10 +176,31 @@ local function cameraFor(name: string): CFrame?
 	local forward = if along.Magnitude > 1e-3 then along.Unit else Vector3.new(0, 0, -1)
 	local right = forward:Cross(Vector3.yAxis)
 	if name == "side" then
-		-- Square to the throw, far enough to hold the caster and the dummy both.
+		-- Square to the throw, far enough to hold the caster and the dummy both, on whichever side has a
+		-- clear line to the throw: another dummy standing between the camera and the shot hid it. Raised by
+		-- a third of the span, so a dummy on the floor between the eye and the throw is under the sight line.
 		local middle = (caster + dummy) / 2
 		local span = (dummy - caster).Magnitude
-		return CFrame.lookAt(middle + right * (span * 0.75 + 4) + Vector3.new(0, 2, 0), middle)
+		local sight = RaycastParams.new()
+		sight.FilterType = Enum.RaycastFilterType.Exclude
+		sight.FilterDescendantsInstances = { player.Character :: Instance }
+		local near = OverlapParams.new()
+		near.FilterType = Enum.RaycastFilterType.Exclude
+		near.FilterDescendantsInstances = { player.Character :: Instance }
+		local fallback: CFrame? = nil
+		for _, side in ipairs({ right, -right }) do
+			for _, reach in ipairs({ 0.75, 1.1 }) do
+				local eye = middle + side * (span * reach + 4) + Vector3.new(0, 2 + span / 3, 0)
+				local frame = CFrame.lookAt(eye, middle)
+				fallback = fallback or frame
+				-- A ray does not see the part it starts in: a camera standing inside a dummy is blocked too.
+				local inside = #Workspace:GetPartBoundsInRadius(eye, 4, near) > 0
+				if not inside and Workspace:Raycast(eye, (middle - eye) * 0.9, sight) == nil then
+					return frame
+				end
+			end
+		end
+		return fallback
 	end
 	-- Close on the impact, from the thrower's side and a little above: where the burst is judged.
 	local point = times.ImpactPoint or dummy
@@ -219,7 +240,7 @@ RunService:BindToRenderStep("VfxLabClock", Enum.RenderPriority.First.Value, func
 	end
 end)
 
-VfxController.Acted:Connect(function(id: string, caster: number, params: { [string]: any }?)
+VfxController.Acted:Connect(function(id: string, caster: number, params: { [string]: any }?, origin: Vector3?)
 	local glyph = watching
 	if glyph == nil or caster ~= player.UserId then
 		return
@@ -234,6 +255,10 @@ VfxController.Acted:Connect(function(id: string, caster: number, params: { [stri
 		local victim = if type(params) == "table" then params.Victim else nil
 		if typeof(victim) == "Instance" and victim:IsA("Model") then
 			times.ImpactPoint = victim:GetPivot().Position
+		elseif typeof(origin) == "Vector3" then
+			-- A burst that caught nobody (the Blot flies seventy studs, over a dummy at twenty) is judged
+			-- where it burst, not at the dummy it missed.
+			times.ImpactPoint = origin
 		end
 	end
 end)

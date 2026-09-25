@@ -45,7 +45,7 @@ local CAST_ID = "Cast"
 -- packet names none) and the packet's own params. It exists so that a system which needs to know WHAT a
 -- character just did -- Posture moves its body with it -- reads the packets this controller already
 -- receives instead of opening a second reader on the same remote.
-VfxController.Acted = Signal.new() -- (id: string, casterUserId: number, params: { [string]: any }?)
+VfxController.Acted = Signal.new() -- (id: string, casterUserId: number, params: { [string]: any }?, origin: Vector3?)
 
 local remoteClient: any
 local soundController: any
@@ -152,7 +152,7 @@ local function play(packet: any)
 		VfxController.LocalCast:Fire(glyphId, math.max(1, math.floor(chain)))
 	end
 
-	VfxController.Acted:Fire(typed.Id, typed.Caster or 0, typed.Params)
+	VfxController.Acted:Fire(typed.Id, typed.Caster or 0, typed.Params, typed.Origin)
 
 	local trove = Trove.new()
 	task.delay(TROVE_LIFETIME_SECONDS, function()

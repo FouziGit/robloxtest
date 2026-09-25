@@ -135,6 +135,9 @@ type Live = {
 	Afterimage: VfxVolumes.Afterimage?,
 	-- Its place in its timeline, which seeds anything that must be the same on every client.
 	LayerIndex: number,
+	-- A Driven emitter's flow (Layer.Driven): particles a second, the share of one owed and not yet
+	-- emitted, and the time on the entry's clock they were counted up to.
+	Owed: { Rate: number, Carry: number, At: number }?,
 }
 
 type Pending = {
@@ -673,7 +676,13 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	-- an inward layer emits from the surface of a sphere, facing in, and its particles run toward the
 	-- point instead of away from it. The sphere's size comes from the data the layer already declares.
 	local inward = speed[1] < 0 or speed[2] < 0
-	local hostSize = if inward then Vector3.one * (2 * convergeRadius(speed, lifetime, scale)) else Vector3.one * 0.2
+	-- An Area is the box the particles are born anywhere in (D-123): a fire burning along a stroke is one
+	-- emitter over the whole of it, not one per pool.
+	local area = layer.Area
+	local hostSize = if inward
+		then Vector3.one * (2 * convergeRadius(speed, lifetime, scale))
+		elseif area ~= nil then Vector3.new(area[1], area[2], area[3]) * scale
+		else Vector3.one * 0.2
 	local part = host(entry, place, hostSize)
 	if part == nil then
 		return
@@ -711,6 +720,12 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
+	if area ~= nil and layer.Ring == true then
+		-- Born on the rim of the ellipse the Area's across and along draw, not anywhere inside it: a ring of
+		-- fire at a radius rather than a disc of it (D-123). Seen live: the disc's rim, rising.
+		emitter.Shape = Enum.ParticleEmitterShape.Disc
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	end
 	if inward then
 		emitter.Shape = Enum.ParticleEmitterShape.Sphere
 		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
@@ -737,6 +752,16 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
 		emitter.Rotation = NumberRange.new(180, 180)
 		squash = -squash
+	end
+	-- A flame stands up in the world whatever the camera's tilt, and leans a little either way as it
+	-- rises: a tongue that turns on the screen with the camera, or that never sways, reads as a sticker.
+	if layer.Texture ~= nil and VfxConfig.UprightTextures[layer.Texture] == true then
+		emitter.Orientation = Enum.ParticleOrientation.FacingCameraWorldUp
+	end
+	local sway = layer.Sway
+	if sway ~= nil then
+		emitter.Rotation = NumberRange.new(-sway, sway)
+		emitter.RotSpeed = NumberRange.new(-2 * sway, 2 * sway)
 	end
 	-- Stretched at birth, when it is fastest, and relaxed by the time drag has stopped it.
 	emitter.Squash = NumberSequence.new({
@@ -769,8 +794,14 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter:Emit(math.max(1, math.floor(layer.Burst * density)))
 	end
 	if layer.Rate ~= nil then
-		emitter.Rate = layer.Rate * density
-		emitter.Enabled = true
+		if layer.Driven == true then
+			-- Emitted by stepEmitter on the entry's own clock: the engine thins a Rate by its automatic
+			-- graphics quality, never a call to Emit (D-124).
+			entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt }
+		else
+			emitter.Rate = layer.Rate * density
+			emitter.Enabled = true
+		end
 	end
 	entry.Primary = emitter
 end
@@ -1130,6 +1161,21 @@ local function stepEmitter(entry: Live, now: number)
 	-- value, 65 % for 26 of them -- and was released at 100 % with the cloud still in the air.
 	if entry.Layer.Rate ~= nil and now - entry.StartedAt >= entry.Seconds then
 		emitter.Enabled = false
+	end
+	-- A Driven flow: what its rate owes since the last frame, up to the end of its life. A held clock owes
+	-- nothing, and a slowed one owes less, exactly as the engine's own rate would under its TimeScale.
+	local owed = entry.Owed
+	if owed ~= nil then
+		local upTo = math.min(now, entry.StartedAt + entry.Seconds)
+		if upTo > owed.At then
+			owed.Carry += (upTo - owed.At) * owed.Rate
+			owed.At = upTo
+			local count = math.floor(owed.Carry)
+			if count > 0 then
+				owed.Carry -= count
+				emitter:Emit(count)
+			end
+		end
 	end
 end
 

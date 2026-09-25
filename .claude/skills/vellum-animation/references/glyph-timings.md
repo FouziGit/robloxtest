@@ -13,9 +13,9 @@ Regenerate with `lune run .claude/skills/vellum-animation/scripts/glyph_timings`
 | Margin | Indigo + Indigo + Umber | Wall | none (starts at 0) | 0.25 s | generic |
 | Scorch | Cinnabar + Cinnabar + Verdigris | Zone | none (starts at 0) | 0.03 s | generic |
 | Rupture | Umber + Umber + Umber | Ultimate | none (starts at 0) | 0.02 s | generic |
-| Ligature | Cinnabar + Verdigris | Mobility | none (starts at 0) | 0.07 s, then travels | generic |
-| Blot | Cinnabar + Cinnabar + Umber | Ultimate | none (starts at 0) | 0.28 s, then travels | generic |
-| Binding | Indigo + Verdigris | Counter | none (starts at 0) | 0.22 s | generic |
+| Ligature | Cinnabar + Verdigris | Mobility | none (starts at 0) | 0.02 s, then travels | generic |
+| Blot | Cinnabar + Cinnabar + Umber | Ultimate | none (starts at 0) | 0.03 s, then travels | generic |
+| Binding | Indigo + Verdigris | Counter | none (starts at 0) | 0.03 s | generic |
 | Stipple | Umber + Indigo | Projectile | none (starts at 0) | 0.03 s, then travels | generic |
 | Gilding | Umber + Verdigris | Buff | none (starts at 0) | 0.38 s | generic |
 | Hairline | Verdigris + Cinnabar | Projectile | none (starts at 0) | 0.03 s, then travels | generic |

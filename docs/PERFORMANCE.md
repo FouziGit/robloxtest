@@ -78,9 +78,9 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 
 | Effet | Couches | Dessinées | Pic simultané | Durée (s) | Particules | Instances au pic | Part | Decal | Emitter | Attach | Trail | Beam | Light |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Binding | 13 | 10 | 5 | 2.70 | 53 | 16 | 6 | 4 | 2 | 2 | 0 | 1 | 1 |
+| Binding | 15 | 12 | 10 | 2.73 | 43 | 24 | 10 | 10 | 3 | 0 | 0 | 0 | 1 |
 | Bleed | 20 | 18 | 7 | 4.60 | 42 | 15 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
-| Blot | 17 | 13 | 10 | 2.70 | 136 | 24 | 11 | 1 | 5 | 4 | 1 | 1 | 1 |
+| Blot | 16 | 13 | 12 | 2.90 | 217 | 27 | 12 | 1 | 5 | 4 | 2 | 0 | 2 |
 | BossDefeated | 16 | 12 | 6 | 3.30 | 123 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
 | BossEruption | 20 | 15 | 10 | 4.30 | 156 | 21 | 10 | 3 | 7 | 0 | 0 | 0 | 1 |
 | BossEruptionSafe | 4 | 4 | 3 | 3.80 | 22 | 6 | 3 | 2 | 1 | 0 | 0 | 0 | 0 |
@@ -104,12 +104,12 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | KillRedaction | 4 | 4 | 4 | 2.90 | 0 | 11 | 4 | 7 | 0 | 0 | 0 | 0 | 0 |
 | KillScraps | 4 | 4 | 4 | 2.40 | 34 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
 | KillTear | 4 | 4 | 4 | 2.64 | 21 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
-| Ligature | 27 | 25 | 11 | 3.06 | 108 | 26 | 11 | 6 | 5 | 2 | 1 | 0 | 1 |
+| Ligature | 29 | 27 | 12 | 3.01 | 283 | 29 | 12 | 5 | 5 | 4 | 2 | 0 | 1 |
 | Margin | 20 | 17 | 12 | 5.45 | 39 | 31 | 12 | 15 | 3 | 0 | 0 | 0 | 1 |
 | Melee | 4 | 4 | 4 | 0.46 | 14 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 0 |
 | Pounce | 14 | 13 | 7 | 4.82 | 201 | 14 | 7 | 2 | 4 | 0 | 0 | 0 | 1 |
 | Rupture | 19 | 16 | 12 | 3.22 | 82 | 31 | 12 | 13 | 3 | 0 | 0 | 0 | 2 |
-| Scorch | 32 | 29 | 12 | 3.23 | 43 | 29 | 12 | 13 | 3 | 0 | 0 | 0 | 1 |
+| Scorch | 21 | 19 | 10 | 3.23 | 358 | 20 | 10 | 3 | 6 | 0 | 0 | 0 | 1 |
 | Serif | 20 | 17 | 12 | 2.30 | 25 | 30 | 13 | 11 | 2 | 2 | 0 | 1 | 1 |
 | Spiral | 16 | 11 | 6 | 4.70 | 109 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
 | Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
@@ -119,7 +119,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
 | Watermark | 18 | 13 | 5 | 4.34 | 115 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 40 timelines et 549 couches, dont 449 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 201 particules, 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 40 timelines et 541 couches, dont 443 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

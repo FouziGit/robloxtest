@@ -57,6 +57,7 @@ local UPLOADED: { [string]: string } = {
 	["assets/textures/gradient_linear.png"] = "rbxassetid://111708517818955",
 	["assets/textures/gradient_radial.png"] = "rbxassetid://107271909193136",
 	["assets/textures/ink_blot.png"] = "rbxassetid://73894677941580",
+	["assets/textures/ink_flame.png"] = "rbxassetid://77701120466112",
 	["assets/textures/ink_spike.png"] = "rbxassetid://85430695039008",
 	["assets/textures/paper_grain.png"] = "rbxassetid://127023824364504",
 	["assets/textures/paper_scrap.png"] = "rbxassetid://82591519572234",
@@ -104,6 +105,9 @@ AssetIds.Textures = {
 	-- One stroke flicked straight up off the page, root on the middle line and the lower half empty: a
 	-- Sprite centred on the floor and turned to the camera shows it rising out of the page (D-119).
 	InkSpike = texture("assets/textures/ink_spike.png", 256, 256, 0.074, 0.996),
+	-- A tongue of fire drawn with a brush, three licks off one belly: a particle kept upright to the world
+	-- (VfxConfig.UprightTextures), rising, shrinking and swaying, and a stream of them is a fire (D-123).
+	InkFlame = texture("assets/textures/ink_flame.png", 256, 256, 0.066, 0.898),
 	-- The residue every impact leaves on the ground (art bible rule 5: the world remembers for a few
 	-- seconds). An irregular blot, because a circle is a decal and a blot is ink.
 	InkBlot = texture("assets/textures/ink_blot.png", 256, 256, 0.531, 0.828),

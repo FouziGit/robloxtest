@@ -127,3 +127,9 @@ capture id; `view` rows, or `row` labels for comparisons).
 - A new texture: `tools/textures/<family>.py` + `generate_all.py`, measure a square one
   (`check_ink.py`), `python3 scripts/upload_assets.py upload --only=<png>`; it renders once moderated.
 - Background Studio drops under 40 fps and the auto quality turns lights off: the lab pins the tier.
+- A **fire** is not a stain: a blot on the floor reads as a puddle ("les flammes c'est des flaques", D-123).
+  `InkFlame` on an Emitter (kept upright: `VfxConfig.UprightTextures`), `Sway` 8-16, over an `Area` (a
+  stroke) or its rim (`Ring`, at the server's radius), size 3 -> 0.3, a Core heart low in it, Ink soot above.
+- The engine **thins a `Rate`** by its automatic quality (80 flames/s showed 5 in real time; the slow lab
+  showed 40): anything whose density is its meaning is `Driven` (emitted by the renderer, D-124). Judge
+  dense effects at `slow = 1` too.

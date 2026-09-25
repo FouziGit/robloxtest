@@ -94,6 +94,10 @@ VfxConfig.Afterimage = {
 -- VelocityParallel turns the image to its velocity; checked live with sparks thrown straight up (D-111).
 VfxConfig.StreakTextures = { SparkStreak = true } :: { [string]: boolean }
 
+-- Textures that stand up in the world (D-123). A particle faces the camera and turns with it, so a flame
+-- seen from a raised camera leaned with the screen; FacingCameraWorldUp keeps its tip to the sky.
+VfxConfig.UprightTextures = { InkFlame = true } :: { [string]: boolean }
+
 -- The ink each client paints on a Margin's slab (VfxLibrary.Margin, D-110). The slab is the server's
 -- -- its collision, its paled pigment, its rise and sink -- and was a smooth board; tried live, two
 -- rhythms of horizontal brush courses over the page's grain read as earth laid by a hand, where one

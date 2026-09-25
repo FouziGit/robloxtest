@@ -16,6 +16,7 @@ from __future__ import annotations
 import brush
 import cracks
 import explosion
+import flame
 import gradients
 import ink
 import paper
@@ -28,7 +29,7 @@ import spike
 import telegraph
 from vellum_png import MAX_BYTES, report
 
-MODULES = (smoke, sparks, spike, ink, scrap, gradients, cracks, shockwave, paper, seal, brush, telegraph, explosion)
+MODULES = (smoke, sparks, spike, flame, ink, scrap, gradients, cracks, shockwave, paper, seal, brush, telegraph, explosion)
 
 
 def main() -> int:

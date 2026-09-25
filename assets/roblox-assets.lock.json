@@ -598,6 +598,13 @@
       "moderationState": "Approved",
       "uploadedAt": "2026-09-23T14:56:07+00:00"
     },
+    "assets/textures/ink_flame.png": {
+      "assetId": "77701120466112",
+      "assetType": "Image",
+      "sha256": "c2653cf8c6ba56b4689182288e1c110540fd818e6080961eb2cef1e451db7d85",
+      "moderationState": "Reviewing",
+      "uploadedAt": "2026-09-25T13:40:02+00:00"
+    },
     "assets/textures/ink_spike.png": {
       "assetId": "85430695039008",
       "assetType": "Image",

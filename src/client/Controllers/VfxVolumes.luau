@@ -84,7 +84,7 @@ export type Kit = {
 type Entry = {
 	Layer: any,
 	Context: any,
-	Scales: { Effect: number, Size: number, Span: number, Offset: number },
+	Scales: { Effect: number, Size: number, Span: number, Offset: number, Travel: number },
 	PlayStartedAt: number,
 	StartedAt: number,
 	Primary: Instance?,

@@ -725,35 +725,45 @@ VfxLibrary.Watermark = function(packet: Packet, _trove: TroveType, api: Api)
 end
 
 -- Colophon is the one glyph whose packet carries a PATH rather than a point. The server chains from body
--- to body and sends Targets as one position per link, in the order the arcs fired, so the visual is the
--- signature struck at the caster plus one ruled stroke per link, each aimed at the body the chain went to
--- next. Drawing only the first would hide the whole reason the ultimate costs fifty-five ink.
+-- to body in one frame and sends Targets as one position per link, in the order the arcs fired. So the
+-- visual is the signature ruled from the muzzle to the first body it struck (or to the wall, when it struck
+-- nobody), then one stroke per JUMP, from each body to the next, each exactly as long as the jump (D-127).
+-- It used to rule a fixed sixty studs from the caster and draw a stroke from every body toward the next --
+-- the last one toward nothing -- a fixed twenty-six studs long: the contract its timeline describes was
+-- never played.
 VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Colophon", packet, api)
-
-	local points = packet.Targets
-	if points == nil then
-		return
-	end
 	local def = GlyphConfig.ById.Colophon
-	local color = glyphColor(if def ~= nil then def.Pigment else "Orpiment", packet, api)
-	for index, point in ipairs(points) do
-		-- Aimed at the next link, or along the cast for the last one, which has nowhere further to go.
-		-- Typed optional explicitly: Luau reads a list index as non-optional, so the guard below would be
-		-- dead to the analyser and the last link would subtract nil.
-		local nextPoint: Vector3? = points[index + 1]
-		local direction = if nextPoint ~= nil then nextPoint - point else directionOf(packet)
-		if direction.Magnitude < 1e-3 then
-			direction = directionOf(packet)
+	local color = glyphColor(def.Pigment, packet, api)
+	local shade = numberParam(packet, "Shade", 0)
+	local muzzle = packet.Origin + directionOf(packet) * numberParam(packet, "SpawnOffset", 0)
+	local points = packet.Targets or {}
+	local first: Vector3? = points[1]
+	local toFirst = if first ~= nil then first - muzzle else Vector3.zero
+	local struck = toFirst.Magnitude > 1e-3
+	api.Timeline.play("Colophon", {
+		Origin = muzzle,
+		Direction = if struck then toFirst.Unit else directionOf(packet),
+		Color = color,
+		Pigment = def.Pigment,
+		Shade = shade,
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = if struck then toFirst.Magnitude else math.max(numberParam(packet, "Range", def.Range), 1),
+	})
+	for index = 1, #points - 1 do
+		local from, to = points[index], points[index + 1]
+		local jump = to - from
+		if jump.Magnitude > 1e-3 then
+			api.Timeline.play("ColophonLink", {
+				Origin = from,
+				Direction = jump.Unit,
+				Color = color,
+				-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
+				Pigment = def.Pigment,
+				Shade = shade,
+				Reach = jump.Magnitude,
+			})
 		end
-		api.Timeline.play("ColophonLink", {
-			Origin = point,
-			Direction = direction.Unit,
-			Color = color,
-			-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
-			Pigment = "Orpiment",
-			Shade = numberParam(packet, "Shade", 0),
-		})
 	end
 end
 

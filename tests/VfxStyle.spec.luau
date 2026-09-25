@@ -326,6 +326,11 @@ describe("the motion of a particle and a ribbon", function()
 
 	it("keeps a ribbon a streak rather than a line from the thrower to the target", function()
 		eachLayer(function(id, phase, layer)
+			-- D-119: a texture on a Trail is stretched over its whole length; the brush stroke rendered as a
+			-- smudge on every glyph and on the dodge. A ribbon is bare, tapered by its size.
+			if layer.Kind == "Trail" and layer.Texture ~= nil then
+				error(("%s / %s textures a trail (%s): it renders as a smudge"):format(id, phase.Name, layer.Texture))
+			end
 			if layer.Ribbon ~= nil then
 				expect(layer.Kind).toBe("Trail")
 				if layer.Ribbon <= 0 or layer.Ribbon > layer.For then
@@ -548,6 +553,8 @@ describe("a glyph on the server's own clock", function()
 		"Strike",
 		"Caret",
 		"Watermark",
+		"Colophon",
+		"ColophonLink",
 	}
 
 	it("draws a glyph that strikes on its packet within two frames of it", function()
@@ -685,6 +692,39 @@ describe("a glyph on the server's own clock", function()
 		expect(strike:find('Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),', 1, true)).never.toBe(
 			nil
 		)
+	end)
+
+	it("rules the Colophon to the first body it struck, then one stroke per jump of the server's chain", function()
+		-- D-127: a fixed sixty studs from the caster, then a stroke from EVERY body toward the next (the last
+		-- toward nothing), each a fixed twenty-six studs.
+		for _, id in ipairs({ "Colophon", "ColophonLink" }) do
+			local carriers = 0
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Carrier" then
+						carriers += 1
+						expect(layer.TravelFrom).toBe("Reach")
+						expect(layer.Travel).toBe(1)
+						-- The mark on the body lands when the stroke arrives, not when its ribbon has faded.
+						expect(math.abs(phase.Duration - layer.For)).toBeLessThanOrEqual(0.01)
+					end
+				end
+			end
+			expect(carriers).toBe(1)
+		end
+		local handler = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Colophon = function(")
+		for _, line in ipairs({
+			'local muzzle = packet.Origin + directionOf(packet) * numberParam(packet, "SpawnOffset", 0)',
+			'Reach = if struck then toFirst.Magnitude else math.max(numberParam(packet, "Range", def.Range), 1),',
+			"for index = 1, #points - 1 do",
+			"local from, to = points[index], points[index + 1]",
+			"Origin = from, Direction = jump.Unit,",
+			"Reach = jump.Magnitude,",
+		}) do
+			if handler:find(line, 1, true) == nil then
+				error("VfxLibrary.Colophon no longer plays the chain the server struck: " .. line)
+			end
+		end
 	end)
 
 	it("presses the Watermark's mould on each of the server's ticks, inside an edge at its radius", function()

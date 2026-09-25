@@ -120,6 +120,8 @@ capture id; `view` rows, or `row` labels for comparisons).
   a serif, a spurt, use `InkSpike` on a `Sprite` with `Face = "Camera"`, centred on the floor (its root is
   the image's middle line, so it rises out of the page as it grows).
 - A plane that faces the aim is a hairline to everyone beside it: `Face = "Camera"` for rings and spikes.
+- A hitscan or a step is as long as the server says, not as the glyph's range: `TravelFrom = "Reach"`
+  with the packet's Range passed as `Reach` (D-126). A "renderer contract" in a comment is not one.
 - Where a glyph hurts is the server's, not the packet's `Origin`: read `GlyphEffects` (the Sweep sends
   the caster and an offset; the Wash hurts at the rim of a sphere, not at its centre).
 - A frequent or pale core (a hit, Verdigris) stays under the bloom threshold (`Brightness` < 1.6): bloomed

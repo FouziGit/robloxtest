@@ -687,12 +687,37 @@ VfxLibrary.Pounce = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Pounce", packet, api)
 end
 
+-- A line ruled from the muzzle to where the server's ray stopped (D-126): the packet's Origin is the caster
+-- and its Range the length from SpawnOffset ahead of him, past the body it hit and up to the wall.
 VfxLibrary.Strike = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Strike", packet, api)
+	local def = GlyphConfig.ById.Strike
+	local direction = directionOf(packet)
+	api.Timeline.play("Strike", {
+		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
+		Direction = direction,
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
 end
 
+-- A step to where the server put the body (D-126): Range is the distance it validated against walls and
+-- ground, shorter than the glyph's reach whenever something was in the way.
 VfxLibrary.Caret = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Caret", packet, api)
+	local def = GlyphConfig.ById.Caret
+	api.Timeline.play("Caret", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
 end
 
 VfxLibrary.Watermark = function(packet: Packet, _trove: TroveType, api: Api)

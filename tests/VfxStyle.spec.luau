@@ -545,6 +545,9 @@ describe("a glyph on the server's own clock", function()
 		"Gilding",
 		"Spiral",
 		"Pounce",
+		"Strike",
+		"Caret",
+		"Watermark",
 	}
 
 	it("draws a glyph that strikes on its packet within two frames of it", function()
@@ -656,6 +659,59 @@ describe("a glyph on the server's own clock", function()
 				true
 			)
 		).never.toBe(nil)
+	end)
+
+	it("rules the Strike to where the server's ray stopped and steps the Caret to where it put the body", function()
+		-- D-126: both flew a fixed distance (70 and 18 studs) whatever the server measured, the Strike from the
+		-- caster rather than the muzzle.
+		for _, id in ipairs({ "Strike", "Caret" }) do
+			local carriers = 0
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Carrier" then
+						carriers += 1
+						expect(layer.TravelFrom).toBe("Reach")
+						expect(layer.Travel).toBe(1)
+					end
+				end
+			end
+			expect(carriers).toBe(1)
+			local handler = body("src/client/Controllers/VfxLibrary.luau", ("VfxLibrary.%s = function("):format(id))
+			expect(handler:find('Reach = math.max(numberParam(packet, "Range", def.Range), 1),', 1, true)).never.toBe(
+				nil
+			)
+		end
+		local strike = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Strike = function(")
+		expect(strike:find('Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),', 1, true)).never.toBe(
+			nil
+		)
+	end)
+
+	it("presses the Watermark's mould on each of the server's ticks, inside an edge at its radius", function()
+		local params = GlyphConfig.ById.Watermark.Params :: any
+		local lead = phaseLength("Watermark", "Anticipation") + phaseLength("Watermark", "Cast")
+		local presses: { [number]: number } = {}
+		local edge = false
+		for _, phase in ipairs(TIMELINES.Watermark.Phases) do
+			if phase.Name == "Impact" then
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Texture == "SealRing" and layer.Role == "Ink" then
+						edge = layer.SizeFrom == "Radius"
+							and layer.EndSize == 2
+							and layer.At + layer.For >= (params.Ticks - 1) * params.TickInterval
+					elseif layer.Texture == "SealRing" then
+						expect(layer.SizeFrom).toBe("Radius")
+						local tick = math.floor((layer.At + lead) / params.TickInterval + 0.5)
+						expect(math.abs(layer.At + lead - tick * params.TickInterval)).toBeLessThanOrEqual(0.035)
+						presses[tick] = (presses[tick] or 0) + 1
+					end
+				end
+			end
+		end
+		expect(edge).toBe(true)
+		for tick = 0, params.Ticks - 1 do
+			expect(presses[tick]).toBe(1)
+		end
 	end)
 
 	it("wears the Gilding's armour on the body for as long as the server gives it", function()

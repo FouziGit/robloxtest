@@ -104,7 +104,18 @@ describe("the drawn Brand", function()
 		expect(has(carrier, "local here = flightPoint(entry, progress)")).toBe(true)
 		expect(has(functionIn(TIMELINE, "local function stepLive("), "stepCarrier(entry, now)")).toBe(true)
 		local point = functionIn(TIMELINE, "local function flightPoint(")
-		expect(has(point, "local distance = (layer.Travel or 0) * scale * progress")).toBe(true)
+		expect(has(point, "local distance = (layer.Travel or 0) * entry.Scales.Travel * progress")).toBe(true)
+		-- The Brand names no TravelFrom (D-126): its travel is scaled by the effect alone, as the gate above assumes.
+		expect(brandCarrier().TravelFrom).toBeNil()
+		expect(
+			has(
+				functionIn(TIMELINE, "local function scalesOf("),
+				"local travel = geometryScale(context, layer.TravelFrom, effect)"
+			)
+		).toBe(true)
+		expect(has(functionIn(TIMELINE, "local function geometryScale("), "if name == nil then return effect end")).toBe(
+			true
+		)
 		expect(has(point, "local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(progress, 0, 1) * math.pi)")).toBe(
 			true
 		)

@@ -92,7 +92,7 @@ type Measure = VfxTimelineConfig.Measure
 -- packet carried when the layer named one, and the same Scale when it did not. Resolved once when the
 -- layer starts rather than per frame: a warning that changed size halfway through is a warning about
 -- nothing.
-type Scales = { Effect: number, Size: number, Span: number, Offset: number }
+type Scales = { Effect: number, Size: number, Span: number, Offset: number, Travel: number }
 
 -- One layer in flight. `Instances` is everything it borrowed, released together when it ends.
 type Live = {
@@ -357,10 +357,11 @@ local function scalesOf(context: Context, layer: Layer): Scales?
 	local size = geometryScale(context, layer.SizeFrom, effect)
 	local span = geometryScale(context, layer.SpanFrom, effect)
 	local offset = geometryScale(context, layer.OffsetFrom, effect)
-	if size == nil or span == nil or offset == nil then
+	local travel = geometryScale(context, layer.TravelFrom, effect)
+	if size == nil or span == nil or offset == nil or travel == nil then
 		return nil
 	end
-	return { Effect = effect, Size = size, Span = span, Offset = offset }
+	return { Effect = effect, Size = size, Span = span, Offset = offset, Travel = travel }
 end
 
 local function eased(layer: Layer, alpha: number): number
@@ -1087,7 +1088,8 @@ end
 local function flightPoint(entry: Live, progress: number): Vector3
 	local layer = entry.Layer
 	local scale = entry.Scales.Effect
-	local distance = (layer.Travel or 0) * scale * progress
+	-- Its distance in the measure it names (TravelFrom): a line ruled to where the server's ray stopped.
+	local distance = (layer.Travel or 0) * entry.Scales.Travel * progress
 	local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(progress, 0, 1) * math.pi)
 	return (entry.Frame * CFrame.new(0, 0, -distance)).Position + Vector3.new(0, rise, 0)
 end

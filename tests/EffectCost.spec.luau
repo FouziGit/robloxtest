@@ -204,6 +204,7 @@ describe("the cost of an effect", function()
 			Mesh = { Path = BORROWERS[2], Header = "function VfxVolumes.build(" },
 			Debris = { Path = BORROWERS[2], Header = "function VfxVolumes.buildDebris(" },
 			Afterimage = { Path = BORROWERS[2], Header = "function VfxVolumes.buildAfterimage(" },
+			Outline = { Path = RENDERER, Header = "local function buildOutline(" },
 		}
 		for kind in pairs(EffectCost.Occupies) do
 			local builder = BUILDERS[kind]

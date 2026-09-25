@@ -3,6 +3,7 @@
 -- ink with a heated core. Each rule here is one the lab showed breaking an effect -- a pale core alone on a
 -- pale page, a freeze frame that let a projectile fall behind its damage, a spell that appeared a round
 -- trip after the press -- and each is held on the data and on the renderer's own source.
+local CombatConfig = require("../src/shared/Config/CombatConfig")
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
@@ -530,8 +531,21 @@ describe("a glyph on the server's own clock", function()
 
 	-- The glyphs the lab has put back on the frame of their damage (D-120 to D-122): each draws what hurts
 	-- within two frames of the packet the server damages on. A glyph joins this list when it is reworked.
-	local ON_THE_FRAME =
-		{ "Sweep", "Bleed", "Serif", "Hairline", "Stipple", "Scorch", "Rupture", "Ligature", "Blot", "Binding" }
+	local ON_THE_FRAME = {
+		"Sweep",
+		"Bleed",
+		"Serif",
+		"Hairline",
+		"Stipple",
+		"Scorch",
+		"Rupture",
+		"Ligature",
+		"Blot",
+		"Binding",
+		"Gilding",
+		"Spiral",
+		"Pounce",
+	}
 
 	it("draws a glyph that strikes on its packet within two frames of it", function()
 		for _, id in ipairs(ON_THE_FRAME) do
@@ -593,6 +607,101 @@ describe("a glyph on the server's own clock", function()
 		expect(rings >= params.Ticks + 1).toBe(true)
 		for tick = 0, params.Ticks - 1 do
 			expect(ticks[tick]).toBe(1)
+		end
+	end)
+
+	it("beats the Spiral's pull and the Pounce's pours on each of the server's ticks", function()
+		-- D-125: both were drawn a tenth of a second after the packet the server acts on.
+		local function beats(id: string, matches: (VfxTimelineConfig.Layer) -> boolean)
+			local params = GlyphConfig.ById[id].Params :: any
+			local lead = phaseLength(id, "Anticipation") + phaseLength(id, "Cast")
+			local ticks: { [number]: number } = {}
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				if phase.Name == "Impact" then
+					for _, layer in ipairs(phase.Layers) do
+						if matches(layer) then
+							local tick = math.floor((layer.At + lead) / params.TickInterval + 0.5)
+							expect(math.abs(layer.At + lead - tick * params.TickInterval)).toBeLessThanOrEqual(0.035)
+							ticks[tick] = (ticks[tick] or 0) + 1
+						end
+					end
+				end
+			end
+			for tick = 0, params.Ticks - 1 do
+				if ticks[tick] ~= 1 then
+					error(("%s draws %d beats on its tick %d"):format(id, ticks[tick] or 0, tick))
+				end
+			end
+		end
+		beats("Spiral", function(layer)
+			return layer.Texture == "ShockwaveRing"
+		end)
+		beats("Pounce", function(layer)
+			return layer.Kind == "Emitter" and layer.Burst ~= nil and layer.Area ~= nil
+		end)
+		-- The whirlpool turns: a seal on the page that spins, and the renderer that spins a mark.
+		local turning = 0
+		for _, phase in ipairs(TIMELINES.Spiral.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Mark" and layer.Spin ~= nil then
+					turning += 1
+				end
+			end
+		end
+		expect(turning >= 2).toBe(true)
+		expect(
+			body(TIMELINE, "local function stepMark("):find(
+				"if spin ~= nil then part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * deltaTime)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+
+	it("wears the Gilding's armour on the body for as long as the server gives it", function()
+		-- D-125: the four seconds were brush-textured trails (smudges), after an act that waited 0.38 s.
+		local seconds = CombatConfig.Status.Gilding.DurationSeconds
+		local offset, total, worn = 0, 0, 0
+		for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
+			for _, phase in ipairs(TIMELINES.Gilding.Phases) do
+				if phase.Name == name then
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Follow == true and layer.Kind == "Emitter" and layer.Rate ~= nil then
+							worn = math.max(worn, offset + layer.At + layer.For)
+						end
+					end
+					offset += phase.Duration
+				end
+			end
+		end
+		total = offset
+		expect(math.abs(total - seconds)).toBeLessThanOrEqual(0.05)
+		expect(worn >= seconds - 0.2).toBe(true)
+		-- And the figure itself, drawn round the body for the whole of it: flakes alone vanished into it.
+		local figure = 0
+		offset = 0
+		for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
+			for _, phase in ipairs(TIMELINES.Gilding.Phases) do
+				if phase.Name == name then
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Outline" then
+							figure = math.max(figure, offset + layer.At + layer.For)
+						end
+					end
+					offset += phase.Duration
+				end
+			end
+		end
+		expect(figure >= seconds - 0.05).toBe(true)
+		local outline = body(TIMELINE, "local function buildOutline(")
+		expect(outline:find("highlight.DepthMode = Enum.HighlightDepthMode.Occluded", 1, true)).never.toBe(nil)
+		expect(outline:find("highlight.OutlineColor = INK_COLOR", 1, true)).never.toBe(nil)
+		for _, phase in ipairs(TIMELINES.Gilding.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Trail" then
+					error("the Gilding wears a trail again: a brush-textured ribbon is a smudge (D-119)")
+				end
+			end
 		end
 	end)
 

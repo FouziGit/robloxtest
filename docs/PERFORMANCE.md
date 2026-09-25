@@ -97,7 +97,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | ColophonLink | 11 | 9 | 6 | 1.91 | 48 | 21 | 8 | 4 | 2 | 4 | 0 | 2 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
 | Explosion | 17 | 14 | 11 | 3.22 | 60 | 38 | 18 | 4 | 4 | 0 | 0 | 0 | 1 |
-| Gilding | 17 | 14 | 5 | 4.00 | 42 | 18 | 5 | 4 | 2 | 4 | 2 | 0 | 1 |
+| Gilding | 18 | 15 | 11 | 4.00 | 134 | 26 | 10 | 11 | 3 | 0 | 0 | 0 | 1 |
 | Hairline | 12 | 9 | 8 | 0.99 | 42 | 19 | 8 | 0 | 3 | 4 | 2 | 0 | 2 |
 | Hit | 10 | 9 | 7 | 2.58 | 36 | 16 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
 | KillOverexposure | 5 | 5 | 5 | 2.90 | 30 | 12 | 5 | 6 | 1 | 0 | 0 | 0 | 0 |
@@ -107,11 +107,11 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Ligature | 29 | 27 | 12 | 3.01 | 283 | 29 | 12 | 5 | 5 | 4 | 2 | 0 | 1 |
 | Margin | 20 | 17 | 12 | 5.45 | 39 | 31 | 12 | 15 | 3 | 0 | 0 | 0 | 1 |
 | Melee | 4 | 4 | 4 | 0.46 | 14 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 0 |
-| Pounce | 14 | 13 | 7 | 4.82 | 201 | 14 | 7 | 2 | 4 | 0 | 0 | 0 | 1 |
+| Pounce | 13 | 12 | 6 | 4.72 | 288 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 | Rupture | 19 | 16 | 12 | 3.22 | 82 | 31 | 12 | 13 | 3 | 0 | 0 | 0 | 2 |
 | Scorch | 21 | 19 | 10 | 3.23 | 358 | 20 | 10 | 3 | 6 | 0 | 0 | 0 | 1 |
 | Serif | 20 | 17 | 12 | 2.30 | 25 | 30 | 13 | 11 | 2 | 2 | 0 | 1 | 1 |
-| Spiral | 16 | 11 | 6 | 4.70 | 109 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
+| Spiral | 24 | 19 | 7 | 4.62 | 168 | 14 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
 | Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
 | Strike | 12 | 9 | 7 | 0.91 | 56 | 17 | 7 | 1 | 4 | 2 | 1 | 0 | 2 |
 | Sweep | 13 | 11 | 9 | 1.10 | 58 | 29 | 14 | 2 | 4 | 0 | 0 | 0 | 1 |
@@ -119,7 +119,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
 | Watermark | 18 | 13 | 5 | 4.34 | 115 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 40 timelines et 541 couches, dont 443 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 40 timelines et 549 couches, dont 451 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

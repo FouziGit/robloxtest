@@ -130,6 +130,8 @@ capture id; `view` rows, or `row` labels for comparisons).
 - A **fire** is not a stain: a blot on the floor reads as a puddle ("les flammes c'est des flaques", D-123).
   `InkFlame` on an Emitter (kept upright: `VfxConfig.UprightTextures`), `Sway` 8-16, over an `Area` (a
   stroke) or its rim (`Ring`, at the server's radius), size 3 -> 0.3, a Core heart low in it, Ink soot above.
+- A **status on a body** (armour, buff) is drawn as the body: an `Outline` layer (Highlight, ink contour,
+  pigment wash, Occluded) for the server's whole duration; particles on a body vanish into it (D-125).
 - The engine **thins a `Rate`** by its automatic quality (80 flames/s showed 5 in real time; the slow lab
   showed 40): anything whose density is its meaning is `Driven` (emitted by the renderer, D-124). Judge
   dense effects at `slow = 1` too.

@@ -48,6 +48,8 @@ local BORROWS: { [string]: { [string]: number } } = {
 	-- A sketch of a body: a part and a mesh per limb (VfxConfig.Afterimage names fifteen), in one model
 	-- drawn flat by one highlight.
 	Afterimage = { Part = 15, SpecialMesh = 15, Model = 1, Highlight = 1 },
+	-- A figure drawn round a body (D-125): one highlight, on the body the renderer passed.
+	Outline = { Highlight = 1 },
 	-- A shake, a flash and a sound borrow nothing and never enter the live list: they are handed to Feel,
 	-- WorldLighting and SoundController and never come back (VfxTimeline.activate returns early).
 	Shake = {},
@@ -68,6 +70,7 @@ local OCCUPIES: { [string]: boolean } = {
 	Mesh = true,
 	Debris = true,
 	Afterimage = true,
+	Outline = true,
 }
 
 local function phaseSeconds(phase: any): number

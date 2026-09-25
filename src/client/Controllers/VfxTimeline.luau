@@ -825,6 +825,37 @@ local function buildLight(entry: Live, layer: Layer, place: CFrame)
 	entry.Primary = light
 end
 
+-- The body the renderer passed (Context.Follow) drawn as a figure (D-125): a Highlight whose contour is the
+-- page's ink and whose fill is the layer's colour at a third of the contour's strength. Occluded, never on
+-- top: a figure drawn through a wall would tell an enemy where the caster hides.
+local OUTLINE_FILL_SHARE = 0.35
+
+local function outlineFill(transparency: number): number
+	return 1 - (1 - transparency) * OUTLINE_FILL_SHARE
+end
+
+local function buildOutline(entry: Live, layer: Layer)
+	local body = entry.Context.Follow
+	local figure = if body ~= nil then body:FindFirstAncestorOfClass("Model") else nil
+	if figure == nil then
+		return
+	end
+	local instance = borrow(entry, "Highlight")
+	if instance == nil then
+		return
+	end
+	local highlight = instance :: Highlight
+	local transparency = layer.Transparency or 0
+	highlight.Adornee = figure
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.FillColor = roleColor(entry.Context, layer)
+	highlight.FillTransparency = outlineFill(transparency)
+	highlight.OutlineColor = INK_COLOR
+	highlight.OutlineTransparency = transparency
+	highlight.Parent = Workspace
+	entry.Primary = highlight
+end
+
 -- Two attachments and a Beam between them. CurveSize is what draws a stroke rather than a laser: the art
 -- direction's "un trait qui se dessine est un Beam dont on anime CurveSize".
 local function buildBeam(entry: Live, layer: Layer, place: CFrame)
@@ -985,7 +1016,7 @@ local function stepSprite(entry: Live, alpha: number, elapsed: number, deltaTime
 	end
 end
 
-local function stepMark(entry: Live, alpha: number, elapsed: number, now: number)
+local function stepMark(entry: Live, alpha: number, elapsed: number, now: number, deltaTime: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -1008,6 +1039,11 @@ local function stepMark(entry: Live, alpha: number, elapsed: number, now: number
 	end
 	-- A warning drawn bare, before its texture exists, fades on the part itself.
 	part.Transparency = if #children > 0 then 1 else transparency
+	-- Turned on the page about its own normal (markFrame leaves +Z on it): a seal that turns is a vortex.
+	local spin = layer.Spin
+	if spin ~= nil then
+		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * deltaTime)
+	end
 end
 
 local function stepLight(entry: Live, alpha: number, now: number)
@@ -1516,6 +1552,8 @@ local function activate(item: Pending, now: number)
 		end
 	elseif layer.Kind == "Afterimage" then
 		VfxVolumes.buildAfterimage(entry, context.Follow)
+	elseif layer.Kind == "Outline" then
+		buildOutline(entry, layer)
 	end
 
 	if entry.Primary == nil then
@@ -1529,6 +1567,19 @@ local function activate(item: Pending, now: number)
 		followRate(entry, rate)
 	end
 	table.insert(live, entry)
+end
+
+local function stepOutline(entry: Live, alpha: number, elapsed: number)
+	local primary = entry.Primary
+	if primary == nil or primary.Parent == nil then
+		return
+	end
+	local highlight = primary :: Highlight
+	local layer = entry.Layer
+	local transparency =
+		math.clamp(lerp(layer.Transparency, layer.EndTransparency, fadeOf(layer, elapsed, alpha, 0), 0), 0, 1)
+	highlight.OutlineTransparency = transparency
+	highlight.FillTransparency = outlineFill(transparency)
 end
 
 -- How much of a layer's life has passed.
@@ -1556,7 +1607,7 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	if kind == "Sprite" then
 		stepSprite(entry, alpha, elapsed, deltaTime)
 	elseif kind == "Mark" then
-		stepMark(entry, alpha, elapsed, now)
+		stepMark(entry, alpha, elapsed, now, deltaTime)
 	elseif kind == "Light" then
 		stepLight(entry, alpha, now)
 	elseif kind == "Beam" then
@@ -1569,6 +1620,8 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 		VfxVolumes.stepDebris(entry, now)
 	elseif kind == "Afterimage" then
 		VfxVolumes.stepAfterimage(entry, alpha, elapsed)
+	elseif kind == "Outline" then
+		stepOutline(entry, alpha, elapsed)
 	end
 end
 

@@ -8,9 +8,9 @@ Regenerate with `lune run .claude/skills/vellum-animation/scripts/glyph_timings`
 | Brand | Cinnabar + Cinnabar | Projectile | 0.06 s | 0.06 s, then travels | BrandThrow |
 | Wash | Indigo + Indigo | Aoe | none (starts at 0) | 0.10 s, then travels | WashSweep |
 | Serif | Umber + Umber | Aoe | none (starts at 0) | 0.03 s | generic |
-| Sweep | Verdigris + Verdigris | Aoe | none (starts at 0) | 0.16 s | generic |
+| Sweep | Verdigris + Verdigris | Aoe | none (starts at 0) | 0.00 s | generic |
 | Bleed | Indigo + Cinnabar | Zone | none (starts at 0) | 0.00 s | generic |
-| Margin | Indigo + Indigo + Umber | Wall | none (starts at 0) | 0.76 s | generic |
+| Margin | Indigo + Indigo + Umber | Wall | none (starts at 0) | 0.25 s | generic |
 | Scorch | Cinnabar + Cinnabar + Verdigris | Zone | none (starts at 0) | 0.32 s | generic |
 | Rupture | Umber + Umber + Umber | Ultimate | none (starts at 0) | 0.07 s | generic |
 | Ligature | Cinnabar + Verdigris | Mobility | none (starts at 0) | 0.07 s, then travels | generic |
@@ -18,7 +18,7 @@ Regenerate with `lune run .claude/skills/vellum-animation/scripts/glyph_timings`
 | Binding | Indigo + Verdigris | Counter | none (starts at 0) | 0.22 s | generic |
 | Stipple | Umber + Indigo | Projectile | none (starts at 0) | 0.12 s, then travels | generic |
 | Gilding | Umber + Verdigris | Buff | none (starts at 0) | 0.38 s | generic |
-| Hairline | Verdigris + Cinnabar | Projectile | none (starts at 0) | 0.15 s, then travels | generic |
+| Hairline | Verdigris + Cinnabar | Projectile | none (starts at 0) | 0.03 s, then travels | generic |
 | Spiral | Verdigris + Verdigris + Indigo | Zone | none (starts at 0) | 0.10 s | generic |
 | Pounce | Verdigris + Verdigris + Umber | Zone | none (starts at 0) | 0.12 s | generic |
 | Strike | Orpiment + Orpiment | Projectile | none (starts at 0) | 0.21 s | generic |

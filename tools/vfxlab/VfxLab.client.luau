@@ -13,9 +13,12 @@
 --   aim     { dummy = 1..6, distance = studs }   stand facing a training dummy
 --   shoot   { glyph = "Brand", moment = "depart" | "travel" | "cast" | "impact" | ..., offset = s?, slow = x? }
 --           casts the glyph and stops effect time at the moment; returns what it measured. `slow` (0.01 to
---           0.1, default 0.1) is how slowly the shot runs: slower keeps a frozen trail truer
+--           1, default 0.1) is how slowly the shot runs: slower keeps a frozen trail truer, 1 keeps what the
+--           server builds itself (a wall) in step
 --   view    { name = "game" | "side" | "impact" }   moves the camera while stopped
 --   resume  {}                                   lets time run again and gives the camera back
+--   equip   {}                                   equips the whole roster (a developer account holds it all:
+--           DeveloperConfig; a glyph that is not equipped is refused by the server)
 --   stress  { glyph = "Brand", count = 6 }       plays the glyph and its burst `count` times at once,
 --           round the dummies, and returns the frame times and what the pools and the budget held
 --   status  {}                                   what is live, and the current times
@@ -56,8 +59,10 @@ local QUALITY_ATTRIBUTE = "VfxLabQuality"
 local APPROACH = 0.15
 local SLOW = 0.1
 -- The slowest a shot may run: a trail ages on real time whatever the effect clock does, so the slower the
--- shot, the less a frozen trail has aged by the time its frame is captured (`slow` of shoot).
+-- shot, the less a frozen trail has aged by the time its frame is captured (`slow` of shoot). And the
+-- fastest, real time: what the server builds itself (the Margin's wall) rises on real time.
 local SLOWEST = 0.01
+local FASTEST = 1
 local TIMEOUT = 90
 local END_AFTER = 1.2
 
@@ -280,7 +285,7 @@ local function shoot(args: { [string]: any }): { [string]: any }
 	watching = glyphId
 	-- The whole shot runs slowed, from the cast: a trail's life is set once, when it is built, at the pace
 	-- of effect time then (VfxClock.labScale), and a frozen frame must still hold what was drawn slowly.
-	shotScale = math.clamp(tonumber(args.slow) or SLOW, SLOWEST, SLOW)
+	shotScale = math.clamp(tonumber(args.slow) or SLOW, SLOWEST, FASTEST)
 	setScale(shotScale)
 	-- The last press lights in the hand, as the combo controller has it do on a real press.
 	VfxController.tap(def.Combo[#def.Combo])
@@ -396,6 +401,13 @@ bindable.Parent = ReplicatedStorage;
 		return resume()
 	elseif command == "stress" then
 		return stress(given)
+	elseif command == "equip" then
+		local ids = {}
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			table.insert(ids, def.Id)
+		end
+		RemoteClient.fire("SetLoadout", ids)
+		return { ok = true, equipped = #ids }
 	elseif command == "status" then
 		return {
 			scale = ReplicatedStorage:GetAttribute(TIME_ATTRIBUTE),

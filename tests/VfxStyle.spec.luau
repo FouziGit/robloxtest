@@ -9,6 +9,7 @@ local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -419,5 +420,59 @@ describe("a glyph drawn where it hurts, when it hurts", function()
 			end
 		end
 		expect(spikes).toBe((GlyphConfig.ById.Serif.Params :: any).Count)
+	end)
+end)
+
+describe("a glyph on the server's own clock", function()
+	local function phaseLength(id: string, name: string): number
+		for _, phase in ipairs(TIMELINES[id].Phases) do
+			if phase.Name == name then
+				return phase.Duration
+			end
+		end
+		return 0
+	end
+
+	it("flies the Hairline from where the server's line is when the drawn one leaves", function()
+		-- GlyphEffects.Hairline steps its projectile from the packet: the drawn one left 0.15 s late, twenty
+		-- studs behind, and struck a target at twenty-four before it had left the hand (the lab, D-121).
+		local params = GlyphConfig.ById.Hairline.Params :: any
+		local lead = phaseLength("Hairline", "Anticipation") + phaseLength("Hairline", "Cast")
+		expect(lead <= 0.05).toBe(true)
+		for _, phase in ipairs(TIMELINES.Hairline.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Carrier" then
+					local start = (layer.Offset :: { number })[3]
+					expect(math.abs(start - (params.SpawnOffset + params.Speed * lead))).toBeLessThanOrEqual(1)
+					expect(start + (layer.Travel or 0)).toBeLessThanOrEqual(
+						params.SpawnOffset + GlyphConfig.ById.Hairline.Range + 1e-6
+					)
+				end
+			end
+		end
+	end)
+
+	it("raises the Margin's ink with the server's slab, not after it", function()
+		local rise = phaseLength("Margin", "Anticipation") + phaseLength("Margin", "Cast")
+		expect(math.abs(rise - WorldConfig.Glyphs.WallRiseSeconds)).toBeLessThanOrEqual(0.05)
+	end)
+
+	it("strikes each of the Bleed's drinks on the server's tick, at the radius it drinks from", function()
+		local params = GlyphConfig.ById.Bleed.Params :: any
+		local spikes = {}
+		for _, phase in ipairs(TIMELINES.Bleed.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Texture == "InkSpike" then
+					table.insert(spikes, layer.At)
+				end
+			end
+		end
+		expect(#spikes).toBe(params.Ticks)
+		table.sort(spikes)
+		for index, at in ipairs(spikes) do
+			expect(at).toBe((index - 1) * params.TickInterval)
+		end
+		local bleed = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Bleed = function(")
+		expect(bleed:find('Radius = numberParam(packet, "Radius", 9),', 1, true)).never.toBe(nil)
 	end)
 end)

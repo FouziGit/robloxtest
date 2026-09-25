@@ -539,8 +539,19 @@ VfxLibrary.Sweep = function(packet: Packet, _trove: TroveType, api: Api)
 	})
 end
 
+-- The zone's edge is drawn at the radius the server drinks from (the packet's), not a constant.
 VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Bleed", packet, api)
+	local def = GlyphConfig.ById.Bleed
+	api.Timeline.play("Bleed", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Radius = numberParam(packet, "Radius", 9),
+	})
 end
 
 -- The slab this packet announced: tagged glyph collision, named for the Margin, standing where the packet

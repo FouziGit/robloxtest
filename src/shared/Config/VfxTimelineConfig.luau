@@ -1805,10 +1805,8 @@ local BLEED: Timeline = {
 			Duration = 2.2,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
-				-- The wetting. Exponential/Out puts the full radius down in about a tenth of a second,
-				-- because the zone hurts from frame one and a pool drawn smaller than the damage is the
-				-- lie that costs a player a round. It hands off to the pool at 0.14 rather than
-				-- overlapping it: two marks on one patch of floor share the same 0.03 lift and flicker.
+				-- The page wetted to the zone's edge in a seventh of a second, then soaking: one spread of the
+				-- pigment, held darker than it was (a pale stain on a pale page said nothing).
 				{
 					Kind = "Mark",
 					At = 0,
@@ -1818,13 +1816,9 @@ local BLEED: Timeline = {
 					Texture = "InkBlot",
 					Size = 2,
 					EndSize = 19.5,
-					Transparency = 0.7,
-					EndTransparency = 0.5,
+					Transparency = 0.6,
+					EndTransparency = 0.35,
 				},
-				-- The pool, one mark for the zone's whole life. A stud over the radius that hurts, because
-				-- the blot's edge is ragged: the decal is square but the ink inside it is not, which is
-				-- why this direction draws a blot instead of a circle. It darkens rather than fading --
-				-- the page is taking on more ink the whole time it is hurting somebody.
 				{
 					Kind = "Mark",
 					At = 0.14,
@@ -1834,57 +1828,78 @@ local BLEED: Timeline = {
 					Texture = "InkBlot",
 					Size = 19.5,
 					EndSize = 21,
-					Transparency = 0.5,
-					EndTransparency = 0.62,
+					Transparency = 0.35,
+					EndTransparency = 0.5,
 				},
-				-- Tick one, two, three: ink RUNNING, not vapour rising. A ring of smoke thrown outward
-				-- three times is the stock damage-over-time pulse and belongs to every other game; a
-				-- bleed is defined by wicking along fibre, so each drink sends a stroke racing low across
-				-- the page. They run parallel because paper has a grain and ink follows it. Same numbers
-				-- three times on purpose: an uneven pulse reads as a bug, an even one reads as a clock,
-				-- and a clock is what somebody crossing this needs. buildBeam makes a beam eight times as
-				-- long as it is wide, so 0.9 is a seven-stud run inside a nine-stud radius.
+				-- The zone's edge, in the page's charcoal, as far as the server drinks and no further: the
+				-- boundary a player crosses on purpose (D-121).
 				{
-					Kind = "Beam",
+					Kind = "Mesh",
+					Mesh = "Enso",
+					Face = "Ground",
+					Role = "Ink",
+					At = 0,
+					For = 2.2,
+					Ease = "Quint",
+					EaseDirection = "Out",
+					SizeFrom = "Radius",
+					Size = 0.3,
+					EndSize = 2,
+					Offset = { 0, 0.12, 0 },
+					Transparency = 0.1,
+					EndTransparency = 1,
+					Spin = 0.4,
+					Jitter = 0.35,
+				},
+				-- The drink at 0 s, on the server's tick: a spike of the pigment struck up at the heart and a hot
+				-- point where it lands, and a ring of the pigment drawn in from the zone's edge to its heart,
+				-- the page drinking.
+				{
+					Kind = "Mark",
 					At = 0,
 					For = 0.4,
-					Ease = "Quart",
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "ShockwaveRing",
+					Size = 19,
+					EndSize = 4,
+					Transparency = 0.15,
+					EndTransparency = 1,
+					FadesWithSize = true,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0,
+					For = 0.3,
+					Ease = "Back",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 0.9,
-					EndSize = 0.15,
-					Offset = { -4.6, -2.4, 1.5 },
-					Transparency = 0.2,
+					Texture = "InkSpike",
+					Offset = { -1.2, -3, 0.8 },
+					Size = 1,
+					EndSize = 8,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 				{
-					Kind = "Beam",
-					At = 1,
-					For = 0.4,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 0.9,
-					EndSize = 0.15,
-					Offset = { 3.8, -2.4, -3.4 },
-					Transparency = 0.2,
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 0,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { -1.2, -1.5, 0.8 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.6,
+					EndSize = 3.5,
+					Pop = 0.3,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
-				{
-					Kind = "Beam",
-					At = 2,
-					For = 0.4,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 0.9,
-					EndSize = 0.15,
-					Offset = { -1.2, -2.4, 4.8 },
-					Transparency = 0.2,
-					EndTransparency = 1,
-				},
-				-- One light per drink, on the same three frames. stepLight only ever fades, so each of
-				-- these is a flare that decays: the zone pulses three times and is then just a stain.
 				{
 					Kind = "Light",
 					At = 0,
@@ -1894,6 +1909,55 @@ local BLEED: Timeline = {
 					Range = 15,
 					Brightness = 2.4,
 				},
+				-- The drink at 1 s, on the server's tick: a spike of the pigment struck up at the heart and a hot
+				-- point where it lands, and a ring of the pigment drawn in from the zone's edge to its heart,
+				-- the page drinking.
+				{
+					Kind = "Mark",
+					At = 1,
+					For = 0.4,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "ShockwaveRing",
+					Size = 19,
+					EndSize = 4,
+					Transparency = 0.15,
+					EndTransparency = 1,
+					FadesWithSize = true,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 1,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 1.4, -3, -0.6 },
+					Size = 1,
+					EndSize = 8,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 1,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { 1.4, -1.5, -0.6 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.6,
+					EndSize = 3.5,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
 				{
 					Kind = "Light",
 					At = 1,
@@ -1902,6 +1966,55 @@ local BLEED: Timeline = {
 					EaseDirection = "Out",
 					Range = 15,
 					Brightness = 2.4,
+				},
+				-- The drink at 2 s, on the server's tick: a spike of the pigment struck up at the heart and a hot
+				-- point where it lands, and a ring of the pigment drawn in from the zone's edge to its heart,
+				-- the page drinking.
+				{
+					Kind = "Mark",
+					At = 2,
+					For = 0.4,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "ShockwaveRing",
+					Size = 19,
+					EndSize = 4,
+					Transparency = 0.15,
+					EndTransparency = 1,
+					FadesWithSize = true,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 2,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { -0.4, -3, -1.4 },
+					Size = 1,
+					EndSize = 8,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 2,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { -0.4, -1.5, -1.4 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.6,
+					EndSize = 3.5,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
 				{
 					Kind = "Light",
@@ -1912,29 +2025,23 @@ local BLEED: Timeline = {
 					Range = 15,
 					Brightness = 2.4,
 				},
-				-- The slow, made visible. Everything else here moves outward; this one thing is
-				-- continuously pulled in, because the page is drinking. It is the only layer that says why
-				-- standing here costs you your speed, and it runs for the zone's whole life. SmokeSoft,
-				-- not sparks: Indigo is wet, and the school should be nameable by its matter as well as
-				-- its colour.
+				-- Beads of the pigment drawn inward across the zone the whole time it drinks.
 				{
 					Kind = "Emitter",
 					At = 0.04,
 					For = 2.1,
-					Texture = "SmokeSoft",
+					Texture = "InkBlot",
 					Offset = { 0, 1.2, 0 },
-					Rate = 22,
+					Rate = 16,
 					Speed = { -7, -2 },
 					Lifetime = { 0.4, 0.85 },
 					Spread = 180,
 					Drag = 2.4,
-					Size = 0.9,
+					Size = 0.6,
 					EndSize = 0.1,
-					Transparency = 0.4,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- Once, on the first drink. Three camera shakes a second apart, on a zone somebody may be
-				-- standing in for its whole duration, is a broken camera rather than weight.
 				{ Kind = "Shake", At = 0, For = 0.05, Profile = "Light" },
 			},
 		},
@@ -2230,18 +2337,21 @@ local MARGIN: Timeline = {
 	Phases = {
 		{
 			Name = "Anticipation",
-			Duration = 0.26,
+			-- Two frames: GlyphEffects.Margin raises its slab the instant it emits this packet, in
+			-- WorldConfig.Glyphs.WallRiseSeconds (0.22). The line and its courses used to take 0.76 to come
+			-- up, rising beside a wall that had stood for half a second already (the lab, D-121).
+			Duration = 0.03,
 			Layers = {
 				-- The ruling. Exponential/Out throws most of the line out in a quarter of a second and
 				-- then creeps the last of it, which is a dry brush running out of pigment. Its
 				-- transparency does not move: this is a line being drawn, not a light coming up.
 				-- Fourteen, never more -- the rule may not promise more floor than the wall will occupy.
-				-- It ends at 0.76, where the drying line below begins, so the floor never carries two
+				-- It ends at 0.25, where the drying line below begins, so the floor never carries two
 				-- marks at one height.
 				{
 					Kind = "Mark",
 					At = 0,
-					For = 0.76,
+					For = 0.25,
 					Ease = "Exponential",
 					EaseDirection = "Out",
 					Texture = "BrushStroke",
@@ -2256,10 +2366,10 @@ local MARGIN: Timeline = {
 				{
 					Kind = "Emitter",
 					At = 0,
-					For = 0.26,
+					For = 0.03,
 					Texture = "DustMote",
 					Offset = { 0, -4.5, 0 },
-					Rate = 50,
+					Burst = 12,
 					Speed = { -9, -3 },
 					Lifetime = { 0.16, 0.3 },
 					Spread = 150,
@@ -2271,21 +2381,21 @@ local MARGIN: Timeline = {
 		},
 		{
 			Name = "Cast",
-			Duration = 0.5,
+			-- The server's own rise, to the frame.
+			Duration = 0.22,
 			Layers = {
 				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
-				{ Kind = "Sound", At = 0.45, For = 0.05, Voice = "Impact" },
+				{ Kind = "Sound", At = 0.18, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The near face, the broad pass: fourteen studs of ink out of the floor line, the
-				-- collision's width exactly. Back/Out overshoots and settles, which is a slab hitting its
-				-- stops. It ends at 0.76 on the nail, where the standing course below starts at the same
-				-- size -- a butt joint, not an overlap. onHeartbeat activates pending layers before it
+				-- collision's width exactly, on the server tween's own Quart Out. It ends at 0.25 on the nail,
+				-- where the standing course below starts at the same size -- a butt joint, not an overlap. onHeartbeat activates pending layers before it
 				-- releases expired ones, so there is no frame of nothing between them to defend against.
 				{
 					Kind = "Sprite",
 					At = 0,
-					For = 0.5,
-					Ease = "Back",
+					For = 0.22,
+					Ease = "Quart",
 					EaseDirection = "Out",
 					Texture = "BrushStroke",
 					Size = 0.8,
@@ -2294,13 +2404,13 @@ local MARGIN: Timeline = {
 					Transparency = 0.34,
 					EndTransparency = 0.14,
 				},
-				-- The far face, an eighth of a second later and narrower: ink that did not soak all the
-				-- way through the leaf. Two passes, two planes, one slab.
+				-- The far face, a few hundredths later and narrower: ink that did not soak all the way
+				-- through the leaf. Two passes, two planes, one slab.
 				{
 					Kind = "Sprite",
-					At = 0.08,
-					For = 0.42,
-					Ease = "Back",
+					At = 0.03,
+					For = 0.19,
+					Ease = "Quart",
 					EaseDirection = "Out",
 					Texture = "BrushStroke",
 					Size = 0.6,
@@ -2320,9 +2430,103 @@ local MARGIN: Timeline = {
 					Lifetime = { 0.4, 0.85 },
 					Spread = 45,
 					Drag = 3.4,
+					Weight = 20,
 					Size = 0.7,
 					EndSize = 2.6,
 					Transparency = 0.4,
+					EndTransparency = 1,
+				},
+				-- The page torn up along the foot of the wall as it comes out: spikes of the pigment struck up
+				-- out of the floor on both faces, turned to whoever looks -- the rise read from anywhere, where
+				-- a slab coming out of a pale floor in a pale shade of its pigment was a slab, not a spell.
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { -6, -4.5, -1.9 },
+					Size = 1,
+					EndSize = 7,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0.03,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { -3, -4.5, 1.9 },
+					Size = 1,
+					EndSize = 7,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 0, -4.5, -1.9 },
+					Size = 1,
+					EndSize = 7,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0.03,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 3, -4.5, 1.9 },
+					Size = 1,
+					EndSize = 7,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Sprite",
+					Face = "Camera",
+					At = 0,
+					For = 0.3,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Texture = "InkSpike",
+					Offset = { 6, -4.5, -1.9 },
+					Size = 1,
+					EndSize = 7,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- A hot point where the slab hits its stops, in front of the near face.
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					At = 0.18,
+					For = 0.04,
+					Texture = "DustMote",
+					Offset = { 0, -2.5, -1.8 },
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.8,
+					EndSize = 4,
+					Pop = 0.3,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 				{
@@ -2337,14 +2541,14 @@ local MARGIN: Timeline = {
 				-- The punch profile, not the blast's. A slab reaching its stops is a heavy impact on the
 				-- floor; it is not a detonation, and borrowing Heavy would make a defensive glyph hit the
 				-- camera harder than the ultimate that breaks it.
-				{ Kind = "Shake", At = 0.12, For = 0.08, Profile = "Melee" },
+				{ Kind = "Shake", At = 0.18, For = 0.08, Profile = "Melee" },
 			},
 		},
 		{
 			Name = "Residue",
 			-- A Margin standing IS what the world keeps, which is what this phase is for. There is no
 			-- Impact phase because the wall lands on nobody: its Damage is zero and it hits only the floor.
-			Duration = 4.7,
+			Duration = 5.2,
 			Layers = {
 				-- The line, drying under the wall and after it. Drawn first, gone last, and the longest
 				-- lived layer in the game: the margin is the mark, the wall was only the margin standing
@@ -2352,7 +2556,7 @@ local MARGIN: Timeline = {
 				{
 					Kind = "Mark",
 					At = 0,
-					For = 5.2,
+					For = 5.7,
 					Ease = "Sine",
 					EaseDirection = "In",
 					Texture = "BrushStroke",
@@ -2367,7 +2571,7 @@ local MARGIN: Timeline = {
 				{
 					Kind = "Sprite",
 					At = 0,
-					For = 4.6,
+					For = 5.11,
 					Ease = "Sine",
 					EaseDirection = "InOut",
 					Texture = "BrushStroke",
@@ -2382,7 +2586,7 @@ local MARGIN: Timeline = {
 				-- is shorter than the collision down to a fraction of a second.
 				{
 					Kind = "Sprite",
-					At = 4.6,
+					At = 5.11,
 					For = 0.52,
 					Ease = "Quint",
 					EaseDirection = "In",
@@ -2398,7 +2602,7 @@ local MARGIN: Timeline = {
 				{
 					Kind = "Sprite",
 					At = 0,
-					For = 4.64,
+					For = 5.15,
 					Ease = "Sine",
 					EaseDirection = "InOut",
 					Texture = "BrushStroke",
@@ -2410,7 +2614,7 @@ local MARGIN: Timeline = {
 				},
 				{
 					Kind = "Sprite",
-					At = 4.64,
+					At = 5.15,
 					For = 0.54,
 					Ease = "Quint",
 					EaseDirection = "In",
@@ -2674,56 +2878,55 @@ local SWEEP: Timeline = {
 -- renderer named it in the source. A blade that rolls is a weapon; this glyph is not a weapon, it is a
 -- stroke, and a stroke does not roll.
 --
--- The nib loads first -- a burst rather than a rate, because a rate of thirty-four over a tenth of a
--- second is three particles and an invisible wind-up is an appearance (rule 3) -- then a three-stud Beam
--- at the hand is the bec touching the page. The carrier starts at Params.SpawnOffset, so the sixty studs
--- it flies end sixty-four studs from the caster, which is exactly where stepProjectile stops: it measures
--- its maxDistance from the spawn point, not from the root. There is no Arc at all, the server firing it at
--- zero gravity, and a ruled line does not sag.
+-- It leaves on the server's frame (D-121). GlyphEffects.Hairline steps its projectile from the instant it
+-- emits this packet; the drawn one used to load its nib for a tenth of a second and touch the page for a
+-- twentieth first, so it left 0.15 s late -- twenty studs behind the line that hurts, and at twenty-four
+-- studs the target was struck before the drawn line had left the hand (the lab). The wind-up is the shared
+-- Cast lighting the hand; this timeline spends three hundredths on its own gather and release, and its
+-- carrier runs like the Brand's -- mostly time, 15 % of a Sine In, the pace the server keeps -- from the
+-- server's spawn point. There is no Arc at all, the server firing it at zero gravity, and a ruled line
+-- does not sag.
 --
--- The body of the flight is TWO trails on the same stroke texture, both riding the one carrier: a
--- fifty-five hundredths core and a 1.6 stud dry edge over it. That is a pen stroke -- a wet centre inside
--- a broken outer edge -- where one thin trail plus a dust wake is a bullet with exhaust, and it costs the
--- same. There is no bullet, because there is nothing to see except the mark being made.
---
--- Sine InOut on the carrier is a measured choice. The server moves at a constant velocity, rule 4 forbids
--- copying it, and of the eight curves available this one departs from constant by the least: the curve is
--- symmetric, so the visual is up to six studs BEHIND the hitbox through the first half of the flight and
--- up to six studs AHEAD of it through the second, which at a hundred and thirty studs a second is
--- forty-eight milliseconds either way. Quad In would keep the visual permanently behind, but by fifteen
--- studs at mid-flight, which means being hit by a line that has not arrived -- the worse of the two.
+-- The body of the flight is a pen stroke: a ribbon of the page's ink a tenth of a second long, tapering
+-- to nothing, and a burning line of the pigment inside it, cooling as it trails -- bare ribbons, because a
+-- trail stretches its texture over its whole length and the brush stroke drawn that way was a smudge
+-- (D-119). And a nib: hot points shed at the head.
 --
 -- It has no Impact phase and no Mark. It touches nothing: what happens when it lands belongs to the shared
--- Hit timeline, which bleaches the page and leaves the burn. Same split as Brand, for the same reason.
+-- Hit timeline, which leaves the burn. Same split as Brand, for the same reason.
 local HAIRLINE: Timeline = {
-	Intent = "A single thin line is ruled across the page, wet at the core and dry at the edge",
+	Intent = "A single thin line is ruled across the page, a burning line inside a stroke of ink",
 	Phases = {
 		{
 			Name = "Anticipation",
-			Duration = 0.1,
+			Duration = 0.02,
 			Layers = {
+				-- The nib loading in the hand: sparks of the pigment drawn in. A burst: over two hundredths a
+				-- rate draws nothing.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
 					At = 0,
-					For = 0.1,
+					For = 0.02,
 					Texture = "SparkStreak",
-					Offset = { 0, 0.3, 3 },
-					Burst = 16,
-					Speed = { -9, -4 },
-					Lifetime = { 0.08, 0.16 },
+					Offset = { 0.8, 0.8, 0.2 },
+					Burst = 10,
+					Speed = { -10, -5 },
+					Lifetime = { 0.06, 0.1 },
 					Spread = 180,
-					Drag = 2.5,
-					Squash = 0.3,
-					Size = 0.32,
+					Drag = 3,
+					Squash = 0.5,
+					Size = 0.4,
 					EndSize = 0.02,
 				},
 				{
 					Kind = "Light",
+					Anchor = "Hand",
 					At = 0,
 					For = 0.14,
 					Ease = "Quad",
 					EaseDirection = "In",
-					Offset = { 0, 0.3, 3 },
+					Offset = { 0.8, 0.8, 0.2 },
 					Range = 5,
 					Brightness = 1.2,
 				},
@@ -2731,94 +2934,96 @@ local HAIRLINE: Timeline = {
 		},
 		{
 			Name = "Cast",
-			Duration = 0.05,
+			Duration = 0.01,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
-				-- The nib touching down: three studs of brush stroke, dry at both ends, gone before the
-				-- body has cleared the hand.
-				{
-					Kind = "Beam",
-					At = 0,
-					For = 0.12,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Size = 0.45,
-					EndSize = 0,
-					Offset = { 0, 0.3, 3.4 },
-					Transparency = 0.15,
-					EndTransparency = 1,
-				},
-				-- Eight particles of ink spat at the nib. Not a narrow cone: a narrow cone would fire up
-				-- the host's own axis rather than down the line, so the spread is left wide enough that
-				-- the layer claims nothing the runtime cannot draw.
+				-- The flick: needles of the pigment thrown out of the hand along the line.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
+					Emit = "Aim",
 					At = 0,
 					For = 0.04,
 					Texture = "SparkStreak",
-					Offset = { 0, 0.3, 4 },
-					Burst = 8,
-					Speed = { 14, 26 },
-					Lifetime = { 0.1, 0.2 },
-					Spread = 110,
-					Drag = 4,
-					Squash = 0.25,
-					Size = 0.35,
+					Offset = { 0.8, 0.8, 0.4 },
+					Burst = 10,
+					Speed = { 40, 70 },
+					Lifetime = { 0.06, 0.12 },
+					Spread = 10,
+					Drag = 5,
+					Squash = 0.9,
+					Size = 0.8,
 					EndSize = 0,
 				},
 			},
 		},
 		{
 			Name = "Travel",
-			-- Sixty studs at Params.Speed of a hundred and thirty is 0.46 s, which is when the server's
-			-- projectile expires on distance -- before its 0.6 s fuse, so the fuse is not the number that
-			-- decides the length of the flight.
 			Duration = 0.46,
 			Layers = {
-				-- The landing, at the end of the phase in which it lands: this glyph has no Impact phase.
+				-- The landing sound, at the end of the flight in which it lands.
 				{ Kind = "Sound", At = 0.41, For = 0.05, Voice = "Impact" },
+				-- From where the server's line is when this one leaves: SpawnOffset ahead, plus the four studs
+				-- it covers in the three hundredths spent above. It ends sixty-four from the caster, which is
+				-- exactly where stepProjectile stops (it measures from the spawn point), and by the server's own
+				-- schedule stays within about a stud of the line that hurts.
 				{
 					Kind = "Carrier",
 					At = 0,
 					For = 0.46,
+					Offset = { 0, 0.35, 8 },
 					Ease = "Sine",
-					EaseDirection = "InOut",
-					Offset = { 0, 0.35, 4 },
-					Travel = 60,
+					EaseDirection = "In",
+					EaseShare = 0.15,
+					Travel = 56,
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
-				-- The core of the stroke. The thinnest trail in the game: 0.55 studs against the Marque's
-				-- 2.2.
+				-- The stroke, in the page's ink: a tenth of a second of ribbon, thirteen studs, tapering to a
+				-- point.
 				{
 					Kind = "Trail",
 					At = 0,
 					For = 0.46,
 					Ride = true,
-					Texture = "BrushStroke",
-					Size = 0.55,
-					EndSize = 0.05,
-					Transparency = 0.2,
+					Role = "Ink",
+					Ribbon = 0.1,
+					Size = 0.7,
+					EndSize = 0.02,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The dry edge around it, three times as wide and three times as faint. Two trails on one
-				-- carrier cannot disagree about where the line is, and the pair is what makes it read as
-				-- ink laid by a nib rather than as a tracer.
+				-- The burning line inside it. Under the resting bloom's threshold: heated Verdigris bloomed is
+				-- cyan, an ally's colour (rule 7).
 				{
 					Kind = "Trail",
 					At = 0,
 					For = 0.46,
 					Ride = true,
-					Texture = "BrushStroke",
-					Size = 1.6,
-					EndSize = 0.1,
-					Transparency = 0.62,
+					Role = "Core",
+					Glow = 1,
+					Brightness = 1.5,
+					Ribbon = 0.07,
+					Size = 0.3,
+					EndSize = 0.02,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- Small on purpose: a seven-stud light against the Marque's fourteen. The pigment still
-				-- names the school from behind, which is how a player reads an opponent's intent, but a
-				-- thin stroke that lit a room like a fireball would be lying about its weight.
+				-- The nib: hot points of the pigment shed at the head of the line.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 0.46,
+					Ride = true,
+					Texture = "DustMote",
+					Rate = 40,
+					Speed = { 0.5, 2 },
+					Lifetime = { 0.08, 0.16 },
+					Spread = 180,
+					Drag = 2,
+					Size = 0.35,
+					EndSize = 0,
+				},
 				{
 					Kind = "Light",
 					At = 0,
@@ -2835,9 +3040,7 @@ local HAIRLINE: Timeline = {
 			Name = "Residue",
 			Duration = 0.5,
 			Layers = {
-				-- The afterimage of the line, hanging over the middle of its own path. Offset forward
-				-- thirty-two studs rather than left at the origin: a residue with no offset and no carrier
-				-- to ride is drawn at the caster's feet, which is the one place the stroke never was.
+				-- Dust hanging over the far half of the line after it has been ruled.
 				{
 					Kind = "Emitter",
 					At = 0,
@@ -2850,7 +3053,7 @@ local HAIRLINE: Timeline = {
 					Speed = { -2.2, -0.5 },
 					Lifetime = { 0.5, 0.9 },
 					Spread = 170,
-					Drag = 1.4,
+					Drag = 1.2,
 					Size = 0.26,
 					EndSize = 0,
 				},

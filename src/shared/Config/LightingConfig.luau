@@ -273,20 +273,19 @@ LightingConfig.Envelope = {
 }
 
 local pulses: { [string]: PulseProfile } = {
-	-- The art bible's impact: the screen bleaches like an overexposed page, and the 40 ms is its number.
-	-- Brightness up and saturation down TOGETHER is what makes it read as paper catching too much light
-	-- rather than as a white flash -- the colour leaves the page before the light does. Held for about a
-	-- frame and let go over four times the attack, because a flash that leaves as fast as it arrives
-	-- reads as a dropped frame rather than as an impact.
+	-- An impact's punch on the whole frame, in the 40 ms the art bible gave it (D-119). It used to bleach the
+	-- page -- brightness up, saturation down by more than half -- and, seen in the VFX lab, it drained the
+	-- very burst it marked: the frame of every glyph's landing was a pale pink wash. Now the ink bites
+	-- instead: contrast and saturation up a notch, a touch of light, and the bloom spilling off the burst's
+	-- hot core. Held for about a frame and let go over four times the attack, because a flash that leaves
+	-- as fast as it arrives reads as a dropped frame rather than as an impact.
 	PageFlash = {
 		AttackSeconds = 0.04,
 		HoldSeconds = 0.02,
 		ReleaseSeconds = 0.16,
 		Deltas = {
-			ColorCorrection = { Brightness = 0.22, Saturation = -0.55, Contrast = 0.1 },
-			-- Enough bloom that the overexposure spills off the bright edges instead of stopping dead
-			-- at them.
-			Bloom = { Intensity = 0.5 },
+			ColorCorrection = { Brightness = 0.06, Saturation = 0.18, Contrast = 0.2 },
+			Bloom = { Intensity = 0.6 },
 		},
 	},
 	-- The Erasure arriving: the page being wiped rather than written on. Slow and heavy on purpose, most

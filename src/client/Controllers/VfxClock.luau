@@ -4,6 +4,10 @@
 -- second, and nothing else does: inputs, movement and the server keep their own time -- and, in Studio
 -- only, while the VFX lab (tools/vfxlab/) runs it slower or stops it to look at an effect frame by frame.
 --
+-- And a second one, steady, that the lab scales but an impact never holds: what is drawn on the server's
+-- own time runs on it (VfxTimeline's steady plays, D-119). Held, a projectile in flight fell behind the one
+-- that hurts by its speed times the hold, and a boss warning filled late by every hit landed during it.
+--
 -- A sibling module, not a controller: VfxTimeline reads it on its own Heartbeat and calls tick() there,
 -- Feel asks it for holds. It has no loop of its own; the time is computed from os.clock() when asked.
 
@@ -22,6 +26,7 @@ local VfxClock = {}
 VfxClock.LabAttribute = "VfxLabTimeScale"
 
 local state = EffectClock.new(os.clock())
+local steady = EffectClock.new(os.clock())
 
 -- Effect time now.
 function VfxClock.now(): number
@@ -34,9 +39,19 @@ function VfxClock.rate(): number
 	return EffectClock.rate(state, os.clock())
 end
 
--- Holds effect time still for `seconds` (capped at FeelConfig.EffectHold.Longest).
+-- Steady time now, and how fast it runs: the lab's scale, never held.
+function VfxClock.steady(): number
+	return EffectClock.read(steady, os.clock())
+end
+
+function VfxClock.steadyRate(): number
+	return EffectClock.rate(steady, os.clock())
+end
+
+-- Holds effect time still for `seconds` (capped at FeelConfig.EffectHold.Longest), from After seconds on.
 function VfxClock.hold(seconds: number)
-	EffectClock.hold(state, os.clock(), seconds, FeelConfig.EffectHold.Longest)
+	local config = FeelConfig.EffectHold
+	EffectClock.hold(state, os.clock(), seconds, config.Longest, config.After)
 end
 
 -- The lab. While it runs, what the server sends is played when effect time reaches the moment it would
@@ -50,6 +65,15 @@ local ticks: { () -> () } = {}
 
 function VfxClock.labActive(): boolean
 	return labActive
+end
+
+-- How fast the Studio lab runs effect time, for what can only be told once, at birth: a trail's life.
+-- 1 in a published game, and never below a hundredth -- the lab's slowest shot -- so a stopped lab still
+-- gives a finite life.
+local labScale = 1
+
+function VfxClock.labScale(): number
+	return labScale
 end
 
 -- The effect time something arriving now is due at, while the lab runs.
@@ -75,15 +99,19 @@ if RunService:IsStudio() then
 		local real = os.clock()
 		if type(scale) ~= "number" then
 			labActive = false
+			labScale = 1
 			EffectClock.rescale(state, real, 1)
+			EffectClock.rescale(steady, real, 1)
 			return
 		end
+		labScale = math.max(scale, 0.01)
 		if not labActive then
 			labActive = true
 			epochEffect = EffectClock.read(state, real)
 			epochReal = real
 		end
 		EffectClock.rescale(state, real, scale)
+		EffectClock.rescale(steady, real, scale)
 	end
 	ReplicatedStorage:GetAttributeChangedSignal(VfxClock.LabAttribute):Connect(follow)
 	follow()

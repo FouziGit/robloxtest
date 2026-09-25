@@ -23,7 +23,13 @@ local Signal = require(Packages.Signal)
 
 local log = Log.new("ComboController")
 
-type Deps = { RemoteClient: any, SoundController: any, InputController: any, HudController: any }
+type Deps = {
+	RemoteClient: any,
+	SoundController: any,
+	InputController: any,
+	HudController: any,
+	VfxController: any,
+}
 
 -- Semitones above the root for the first, second, third... press of a sequence: a pentatonic, so any
 -- two consecutive notes agree, and the root an octave up sits where a fifth press would land.
@@ -44,6 +50,7 @@ local remoteClient: any
 local soundController: any
 local inputController: any
 local hudController: any
+local vfxController: any
 
 local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 local sequence: { string } = {}
@@ -100,6 +107,11 @@ local function onAction(actionId: string, began: boolean)
 	local next, decision = ComboResolver.push(resolver, sequence, actionId)
 	cancelTimer()
 
+	-- A press the sequence takes lights in the hand at once (VfxController.tap): the spell is seen starting
+	-- where it will leave from, on the frame of the press, not a round trip later.
+	if decision.Action == "Cast" or decision.Action == "Wait" then
+		vfxController.tap(actionId)
+	end
 	if decision.Action == "Cast" then
 		playNote(actionId, #full)
 		soundController.play(RESOLVE_SFX)
@@ -134,6 +146,7 @@ function ComboController.Init(deps: Deps)
 	soundController = deps.SoundController
 	inputController = deps.InputController
 	hudController = deps.HudController
+	vfxController = deps.VfxController
 end
 
 function ComboController.Start()

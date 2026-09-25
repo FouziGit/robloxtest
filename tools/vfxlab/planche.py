@@ -14,8 +14,8 @@ sheet.json:
     }
 
 Captures are pulled from the session transcript by their capture_id (captures.py). Columns follow the
-order moments first appear in; rows are game, side, impact (whichever are present). A cell with no frame
-stays blank. Each frame is cropped of the HUD band at the top and scaled to CELL.
+order moments first appear in; rows are game, side, impact (whichever are present), or a frame's own
+"row" label when frames carry one (a comparison of styles). A cell with no frame stays blank. Each frame is cropped of the HUD band at the top and scaled to CELL.
 """
 
 from __future__ import annotations
@@ -70,7 +70,16 @@ def build(sheet: dict, transcript: Path, out: Path) -> list[str]:
     for frame in frames:
         if frame["moment"] not in moments:
             moments.append(frame["moment"])
-    views = [view for view in VIEWS if any(frame["view"] == view for frame in frames)]
+    def row_of(frame: dict) -> str:
+        return frame["row"] if "row" in frame else frame["view"]
+
+    if any("row" in frame for frame in frames):
+        views = []
+        for frame in frames:
+            if row_of(frame) not in views:
+                views.append(row_of(frame))
+    else:
+        views = [view for view in VIEWS if any(frame["view"] == view for frame in frames)]
     width = LABEL + CELL[0] * len(moments)
     height = HEADER * 2 + CELL[1] * len(views)
     board = Image.new("RGB", (width, height), PAPER)
@@ -93,7 +102,7 @@ def build(sheet: dict, transcript: Path, out: Path) -> list[str]:
                 missing.append(capture)
                 continue
             image = Image.open(io.BytesIO(found[capture][1])).convert("RGB")
-            y = HEADER * 2 + views.index(frame["view"]) * CELL[1]
+            y = HEADER * 2 + views.index(row_of(frame)) * CELL[1]
             board.paste(fit(image), (x, y))
     out.parent.mkdir(parents=True, exist_ok=True)
     board.save(out, quality=86)

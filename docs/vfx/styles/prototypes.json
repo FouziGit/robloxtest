@@ -1,0 +1,12 @@
+{"title": "Marque - trois styles prototypes (lignes) - depart, trajet, impact", "frames": [
+ {"capture": "protoA_depart_side", "moment": "depart (profil)", "view": "side", "row": "A encre vive", "t": 0.085},
+ {"capture": "protoA_travel_side2", "moment": "trajet (profil)", "view": "side", "row": "A encre vive", "t": 0.202},
+ {"capture": "protoA_impact_close", "moment": "impact (gros plan)", "view": "impact", "row": "A encre vive", "t": 0.259},
+ {"capture": "protoA_impact1_close", "moment": "impact +0,1 (gros plan)", "view": "impact", "row": "A encre vive", "t": 0.337},
+ {"capture": "protoB_depart_side", "moment": "depart (profil)", "view": "side", "row": "B poudre", "t": 0.085},
+ {"capture": "protoB_travel_side", "moment": "trajet (profil)", "view": "side", "row": "B poudre", "t": 0.202},
+ {"capture": "protoB_impact_close", "moment": "impact (gros plan)", "view": "impact", "row": "B poudre", "t": 0.272},
+ {"capture": "protoB_impact_side", "moment": "impact +0,1 (gros plan)", "view": "side", "row": "B poudre", "t": 0.272},
+ {"capture": "protoC_travel_side", "moment": "trajet (profil)", "view": "side", "row": "C enluminure", "t": 0.142},
+ {"capture": "protoC_impact_close", "moment": "impact (gros plan)", "view": "impact", "row": "C enluminure", "t": 0.308}
+]}

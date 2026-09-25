@@ -11,10 +11,13 @@
 -- Driven through a BindableFunction, ReplicatedStorage.VfxLab, so the Studio MCP (or the command bar) can
 -- call it: VfxLab:Invoke(command, args). Commands:
 --   aim     { dummy = 1..6, distance = studs }   stand facing a training dummy
---   shoot   { glyph = "Brand", moment = "depart" | "travel" | "cast" | "impact" | ..., offset = s? }
---           casts the glyph and stops effect time at the moment; returns what it measured
+--   shoot   { glyph = "Brand", moment = "depart" | "travel" | "cast" | "impact" | ..., offset = s?, slow = x? }
+--           casts the glyph and stops effect time at the moment; returns what it measured. `slow` (0.01 to
+--           0.1, default 0.1) is how slowly the shot runs: slower keeps a frozen trail truer
 --   view    { name = "game" | "side" | "impact" }   moves the camera while stopped
 --   resume  {}                                   lets time run again and gives the camera back
+--   stress  { glyph = "Brand", count = 6 }       plays the glyph and its burst `count` times at once,
+--           round the dummies, and returns the frame times and what the pools and the budget held
 --   status  {}                                   what is live, and the current times
 -- Moments: "cast" (the Cast packet), "depart" (the glyph acts: its Anticipation + Cast), "travel" (0.1 s
 -- after departing), "impact" (its burst or first hit), "impact+0.1", "impact+0.3", "end" (1.2 s after the
@@ -40,6 +43,9 @@ local controllers = scripts:WaitForChild("Controllers")
 local RemoteClient = require(scripts:WaitForChild("RemoteClient"))
 local VfxClock = require(controllers:WaitForChild("VfxClock"))
 local VfxController = require(controllers:WaitForChild("VfxController"))
+local VfxPool = require(controllers:WaitForChild("VfxPool"))
+local VfxTimeline = require(controllers:WaitForChild("VfxTimeline"))
+local QualityController = require(controllers:WaitForChild("QualityController"))
 
 local player = Players.LocalPlayer
 
@@ -49,7 +55,10 @@ local QUALITY_ATTRIBUTE = "VfxLabQuality"
 -- a second real time is under a hundredth of effect time when it lands.
 local APPROACH = 0.15
 local SLOW = 0.1
-local TIMEOUT = 12
+-- The slowest a shot may run: a trail ages on real time whatever the effect clock does, so the slower the
+-- shot, the less a frozen trail has aged by the time its frame is captured (`slow` of shoot).
+local SLOWEST = 0.01
+local TIMEOUT = 90
 local END_AFTER = 1.2
 
 type Times = { Cast: number?, Glyph: number?, Impact: number?, ImpactPoint: Vector3? }
@@ -58,6 +67,7 @@ local times: Times = {}
 local watching: string? = nil
 local target: number? = nil
 local stoppedAt: number? = nil
+local shotScale = SLOW
 local cameraName: string? = nil
 local heldTracks: { [AnimationTrack]: number } = {}
 local aimed: { Caster: Vector3, Dummy: Vector3 }? = nil
@@ -199,8 +209,8 @@ RunService:BindToRenderStep("VfxLabClock", Enum.RenderPriority.First.Value, func
 	if now >= goal then
 		setScale(0)
 		stoppedAt = VfxClock.now()
-	elseif goal - now <= APPROACH and ReplicatedStorage:GetAttribute(TIME_ATTRIBUTE) ~= SLOW then
-		setScale(SLOW)
+	elseif goal - now <= APPROACH and ReplicatedStorage:GetAttribute(TIME_ATTRIBUTE) ~= shotScale then
+		setScale(shotScale)
 	end
 end)
 
@@ -268,7 +278,12 @@ local function shoot(args: { [string]: any }): { [string]: any }
 	stoppedAt = nil
 	target = nil
 	watching = glyphId
-	setScale(1)
+	-- The whole shot runs slowed, from the cast: a trail's life is set once, when it is built, at the pace
+	-- of effect time then (VfxClock.labScale), and a frozen frame must still hold what was drawn slowly.
+	shotScale = math.clamp(tonumber(args.slow) or SLOW, SLOWEST, SLOW)
+	setScale(shotScale)
+	-- The last press lights in the hand, as the combo controller has it do on a real press.
+	VfxController.tap(def.Combo[#def.Combo])
 	RemoteClient.fire("CastGlyph", def.Combo)
 	local started = os.clock()
 	while stoppedAt == nil and os.clock() - started < TIMEOUT do
@@ -287,6 +302,62 @@ local function shoot(args: { [string]: any }): { [string]: any }
 		stoppedAt = if stoppedAt ~= nil and times.Cast ~= nil then stoppedAt - times.Cast else nil,
 		target = if target ~= nil and times.Cast ~= nil then target - times.Cast else nil,
 		why = if stoppedAt == nil then "the moment never came (refused cast, cooldown, or no impact)" else nil,
+	}
+end
+
+-- `count` of the glyph's flight and its burst drawn at once, each thrown at a dummy from beside it, in its
+-- pigment: the worst case a crowded fight asks of a client. Measured on the frames that follow.
+local function stress(args: { [string]: any }): { [string]: any }
+	local glyphId = tostring(args.glyph or "Brand")
+	local def = GlyphConfig.byId(glyphId)
+	local list = dummies()
+	if def == nil or #list == 0 then
+		return { ok = false, why = "no glyph or no dummy" }
+	end
+	ReplicatedStorage:SetAttribute(QUALITY_ATTRIBUTE, args.quality or "High")
+	local count = math.clamp(math.floor(tonumber(args.count) or 6), 1, 24)
+	local color = Color3.fromRGB(217, 58, 34)
+	for index = 1, count do
+		local at = list[(index - 1) % #list + 1]:GetPivot().Position
+		local from = at + Vector3.new(math.cos(index) * 18, 1.5, math.sin(index) * 18)
+		local direction = (at - from).Unit
+		VfxTimeline.play(def.VfxId, { Origin = from, Direction = direction, Color = color, Pigment = def.Pigment })
+		task.delay(0.2, function()
+			VfxTimeline.play("Explosion", {
+				Origin = at,
+				Direction = direction,
+				Color = color,
+				Pigment = def.Pigment,
+				Radius = 7,
+				Scale = 1,
+			})
+		end)
+	end
+	local frames: { number } = {}
+	local peak = 0
+	local started = os.clock()
+	while os.clock() - started < 2 do
+		table.insert(frames, RunService.Heartbeat:Wait())
+		peak = math.max(peak, VfxTimeline.stats().Live)
+	end
+	table.sort(frames)
+	local total = 0
+	for _, dt in ipairs(frames) do
+		total += dt
+	end
+	local live = {}
+	for class, state in pairs(VfxPool.stats()) do
+		live[class] = state.PeakLive
+	end
+	return {
+		ok = true,
+		frames = #frames,
+		meanMs = total / #frames * 1000,
+		p95Ms = frames[math.ceil(#frames * 0.95)] * 1000,
+		worstMs = frames[#frames] * 1000,
+		peakLayers = peak,
+		tier = QualityController.get(),
+		poolPeaks = live,
 	}
 end
 
@@ -315,14 +386,22 @@ bindable.Parent = ReplicatedStorage;
 		return shoot(given)
 	elseif command == "view" then
 		cameraName = tostring(given.name or "game")
+		local camera = Workspace.CurrentCamera
+		if cameraName == "game" and camera ~= nil then
+			-- The game's own camera again, behind the body, after a lab camera held it.
+			camera.CameraType = Enum.CameraType.Custom
+		end
 		return { ok = true, view = cameraName }
 	elseif command == "resume" then
 		return resume()
+	elseif command == "stress" then
+		return stress(given)
 	elseif command == "status" then
 		return {
 			scale = ReplicatedStorage:GetAttribute(TIME_ATTRIBUTE),
 			quality = ReplicatedStorage:GetAttribute(QUALITY_ATTRIBUTE),
 			now = VfxClock.now(),
+			steady = VfxClock.steady(),
 			dummies = #dummies(),
 		}
 	end

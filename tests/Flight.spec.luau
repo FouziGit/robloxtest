@@ -186,12 +186,15 @@ describe("a landing", function()
 		expect(
 			has(
 				land,
-				'item.Phase == "Residue" then local moved = table.clone(item.Context) moved.Origin = point item.Context = moved item.At = now + settings.Seconds + item.Layer.At'
+				'item.Phase == "Residue" then local now = if item.Steady then steadyNow else heldNow local moved = table.clone(item.Context) moved.Origin = point item.Context = moved item.At = now + settings.Seconds + item.Layer.At'
 			)
 		).toBe(true)
 		expect(has(land, "entry.Landing = { From = primary.CFrame, To = point, At = now }")).toBe(true)
 		expect(
-			has(land, 'if primary:IsA("Trail") then primary.Enabled = false entry.EndsAt = now + entry.Seconds elseif')
+			has(
+				land,
+				'if primary:IsA("Trail") then primary.Enabled = false entry.EndsAt = now + ribbonOf(entry) elseif'
+			)
 		).toBe(true)
 		expect(
 			has(

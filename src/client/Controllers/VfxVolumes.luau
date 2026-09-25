@@ -73,7 +73,8 @@ export type Kit = {
 	groundAt: (position: Vector3) -> (Vector3, Vector3, boolean),
 	-- Whether something lying `reach` studs around a point of the floor would cover a live warning.
 	overWarning: (position: Vector3, reach: number) -> boolean,
-	wetAndDry: (context: any, color: Color3) -> (Color3, Color3),
+	-- A volume's colour at birth and dried, by its layer's Role (D-119).
+	roleWetDry: (context: any, layer: any) -> (Color3, Color3),
 	driedBy: (entry: any, now: number) -> number,
 	fadeOf: (layer: any, elapsed: number, alpha: number, fallback: number) -> number,
 	lerp: (from: number?, to: number?, alpha: number, fallback: number) -> number,
@@ -202,8 +203,9 @@ function VfxVolumes.build(entry: Entry, place: CFrame)
 	local spread: number = layer.Jitter or 0
 	local jitter = if spread > 0 then randomFor(entry, entry.LayerIndex):NextNumber(-spread, spread) else 0
 	entry.Volume = { Mesh = mesh, Base = base, Jitter = jitter }
-	-- Dried on its play's clock, like the marks (VfxConfig.InkRamp), in its pigment and skin.
-	local wet, dry = kit.wetAndDry(entry.Context, entry.Context.Color)
+	-- Dried on its play's clock, like the marks (VfxConfig.InkRamp), in its pigment and skin; an Ink
+	-- volume is the page's charcoal, a Core one cools from its heat into the wet pigment.
+	local wet, dry = kit.roleWetDry(entry.Context, layer)
 	entry.Wet = wet
 	entry.Dry = dry
 	entry.Primary = part

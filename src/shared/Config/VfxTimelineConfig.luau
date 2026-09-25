@@ -75,6 +75,15 @@ export type LayerKind =
 -- the school with their eyes shut.
 export type Voice = "Attack" | "Body" | "Tail" | "Impact"
 
+-- What a layer is coloured as (D-119). Never a colour: every role is derived from the pigment of whoever
+-- plays the timeline, so one glyph still has one school.
+--   Pigment  the pigment itself, wet at birth and drying (VfxConfig.InkRamp): the body of every effect
+--   Core     the pigment heated toward white (VfxConfig.Heat), cooling into its pigment as it lives: the
+--            hot centre that makes a burst read as energy on a pale page. Never pure white -- white is
+--            invulnerability (art bible rule 7)
+--   Ink      the page's charcoal: the contour and the shadow that detach a pale effect from the vellum
+export type Role = "Pigment" | "Core" | "Ink"
+
 export type Layer = {
 	Kind: LayerKind,
 	-- Seconds after its phase begins, and how long it lives. A layer that starts at 0 and lasts the whole
@@ -172,6 +181,23 @@ export type Layer = {
 	EaseShare: number?,
 	-- Radians per second about the layer's own facing axis.
 	Spin: number?,
+	-- What the layer is coloured as (Role above). Absent: Pigment, which is what every layer was before.
+	Role: Role?,
+	-- Emitter, Beam and Trail: how much of the layer's colour is added as light (LightEmission), capped by
+	-- VfxConfig.MaxGlow. Absent: VfxConfig.LightEmission, ink laid on the page.
+	Glow: number?,
+	-- Emitter only: which way the particles leave their host. "Up" (the default, what every emitter did
+	-- before) is the world's up; "Aim" is along the effect's aim -- a release thrown forward, sparks that
+	-- scatter toward the target -- and "Back" against it.
+	Emit: ("Up" | "Aim" | "Back")?,
+	-- Placed at the caster's throwing hand (Context.Hand) rather than at the effect's origin, still turned
+	-- the way the effect is aimed; Offset is then measured from the hand. A play with no hand places it
+	-- at the origin as usual.
+	Anchor: "Hand"?,
+	-- Trail only: seconds of flight its ribbon keeps behind the head (Trail.Lifetime), when that is shorter
+	-- than the layer's life. A ribbon as long as the flight is a line from the thrower to the target; a
+	-- quarter of a second of it is a streak that reads as speed. Absent: the layer's For.
+	Ribbon: number?,
 
 	Transparency: number?,
 	EndTransparency: number?,
@@ -188,13 +214,21 @@ export type Layer = {
 	Lifetime: { number }?, -- {min, max}, seconds
 	Spread: number?, -- degrees
 	Drag: number?,
+	-- Studs per second squared pulling the particles down (ParticleEmitter.Acceleration): a bead of ink
+	-- thrown up falls back to the page instead of drifting off as a cloud. Absent: none.
+	Weight: number?,
+	-- The share of a particle's life by which it has popped past its EndSize (VfxConfig.PopOvershoot), to
+	-- relax back to it by its end: 0 -> 120 % -> 100 %, the swell that makes a flash hit rather than grow.
+	-- Absent: it goes from Size to EndSize in a straight line, as every particle did before.
+	Pop: number?,
 	-- How stretched a particle is at birth, relaxing to its drawn shape by the end of its life, which is
 	-- what makes a spark read as moving rather than as a dot that happens to be somewhere else next frame.
 	-- On a streak texture it is laid along the flight (VfxTimeline.buildEmitter applies it negated: along
 	-- the image's X a negative ParticleEmitter.Squash is the long one); anywhere else it is Squash as is.
 	Squash: number?,
 
-	-- Light only.
+	-- Light: its brightness. Emitter, Beam and Trail: the instance's Brightness, which above 1 is what the
+	-- resting bloom (threshold 1.6) catches -- only a glyph's core should ever get there.
 	Range: number?,
 	Brightness: number?,
 	-- Where the brightness arrives. Absent means zero, which is the fade every light had before this
@@ -720,18 +754,112 @@ local MELEE: Timeline = {
 	},
 }
 
+-- The tap (D-119): what a player's own hand does on the frame they press a pigment, before the server has
+-- heard of it. A hot point of that pigment lit in the throwing hand and a few beads of it shaken off -- the
+-- spell visibly starting where it will leave from, at the press, rather than a round trip later.
+--
+-- Local only (VfxController.tap): nobody else sees it, and it promises nothing. The server's Cast, and the
+-- glyph's own anticipation in the same hand, are what everybody sees.
+local TAP: Timeline = {
+	Intent = "A pigment pressed lights in the hand that will throw it",
+	Phases = {
+		{
+			Name = "Anticipation",
+			Duration = 0.05,
+			Layers = {
+				-- The same place the glyph will light in: outside the body, where the thrower's camera sees it.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2.5,
+					At = 0,
+					For = 0.04,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "DustMote",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.08, 0.1 },
+					Spread = 0,
+					Size = 0.2,
+					EndSize = 1.2,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					At = 0,
+					For = 0.04,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "InkBlot",
+					Burst = 7,
+					Speed = { 5, 10 },
+					Lifetime = { 0.15, 0.25 },
+					Spread = 180,
+					Drag = 6,
+					Size = 0.45,
+					EndSize = 0.15,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Light",
+					Anchor = "Hand",
+					At = 0,
+					Offset = { 0.8, 0.8, 0.2 },
+					For = 0.12,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Range = 5,
+					Brightness = 1.2,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 0.2,
+			Layers = {
+				-- A mote or two of the pigment still hanging where the hand was.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					At = 0,
+					For = 0.15,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "DustMote",
+					Rate = 12,
+					Speed = { 0.3, 1 },
+					Lifetime = { 0.3, 0.5 },
+					Spread = 180,
+					Drag = 1.5,
+					Size = 0.2,
+					EndSize = 0,
+				},
+			},
+		},
+	},
+}
+
 -- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most, so it
--- is the first of the twenty to be rebuilt.
+-- is the first of the twenty to be rebuilt, twice: in ink (D-114), then with a heated core (D-119).
 --
 -- What it replaced was a ball with Roblox's own Fire class on it, flying in a straight line at a constant
 -- speed for a full second. Three of those four words are a rule broken: nothing travels linearly (rule
 -- 4), nothing in this game is a stock engine effect, and a thing thrown by a hand arcs.
 --
+-- Three beats, and each one is somewhere the eye already is. It is born in the hand: a hot point and
+-- sparks drawn into it, then flicked out of it along the throw with a stroke of ink. It flies as a drop
+-- of pigment with a short dark stroke behind it and a burning line inside that stroke -- a streak a
+-- quarter of a second long, not a line from the thrower to the target. And it lands (Explosion).
+--
 -- It has no Impact phase, because its impact is a separate packet: the server detonates it and emits
 -- Explosion, which has its own timeline below. That split is not an accident of the old code, it is
 -- correct -- the projectile does not know where it will end, and the blast does not know where it began.
 local BRAND: Timeline = {
-	Intent = "An ember is gathered, thrown, and arcs away trailing ink",
+	Intent = "Born hot in the hand, flicked out along the throw, and flown as a drop with a burning stroke behind it",
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -739,27 +867,50 @@ local BRAND: Timeline = {
 			-- go (D-114). tests/Flight.spec.luau holds the two together.
 			Duration = 0.04,
 			Layers = {
-				-- Drawn in, not thrown out. The cast's seal has already closed by now; this is the glyph
-				-- itself taking shape in the hand. A burst, not a rate: over 0.04 s a rate of 46 draws
-				-- two sparks.
+				-- The glyph lit in the hand: a blot of the pigment popping open at the hand, a stud outside the
+				-- body so the thrower's own camera sees it past their shoulder, and a hot point inside it. A pale
+				-- core alone is pale on a pale page; ringed by its own pigment it reads as heat.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
 					At = 0,
 					For = 0.04,
-					Texture = "SparkStreak",
-					Offset = { 0, 0.4, 3 },
-					Burst = 8,
-					Speed = { -12, -6 },
-					Lifetime = { 0.12, 0.2 },
-					Spread = 180,
-					Drag = 3,
-					Squash = 0.4,
-					Size = 0.45,
-					EndSize = 0.05,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "InkBlot",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.14, 0.16 },
+					Spread = 0,
+					Size = 0.3,
+					EndSize = 2.2,
+					Pop = 0.25,
+					Transparency = 0,
+					EndTransparency = 1,
 				},
-				-- The drop gathering in the hand: grown, never appeared, drawn out along the throw as it is let go,
-				-- and handed to the flight (Chain), which carries it on from exactly where this leaves it (D-114).
-				-- Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame and overshot.
+				-- Heated pigment, never white (rule 7): the only thing in the throw that shines.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 3,
+					At = 0,
+					For = 0.04,
+					Offset = { 0.8, 0.8, 0.2 },
+					Texture = "DustMote",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.12 },
+					Spread = 0,
+					Size = 0.2,
+					EndSize = 1.3,
+					Pop = 0.25,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- The drop gathering where the server lets go of it: grown, never appeared, drawn out along the
+				-- throw, and handed to the flight (Chain), which carries it on from exactly where this leaves it
+				-- (D-114). Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame and overshot.
 				{
 					Kind = "Mesh",
 					Mesh = "Drop",
@@ -770,7 +921,7 @@ local BRAND: Timeline = {
 					EaseDirection = "Out",
 					Offset = { 0, 0.4, 4 },
 					Size = 0.2,
-					EndSize = 1.4,
+					EndSize = 1.6,
 					Stretch = { 1, 1, 1 },
 					EndStretch = { 0.7, 0.7, 1.8 },
 					Transparency = 0,
@@ -778,13 +929,14 @@ local BRAND: Timeline = {
 				},
 				{
 					Kind = "Light",
+					Anchor = "Hand",
 					At = 0,
 					For = 0.18,
+					Offset = { 0.8, 0.8, 0.2 },
 					Ease = "Quad",
 					EaseDirection = "In",
-					Offset = { 0, 0.4, 3 },
-					Range = 6,
-					Brightness = 1.4,
+					Range = 7,
+					Brightness = 2,
 				},
 			},
 		},
@@ -793,20 +945,43 @@ local BRAND: Timeline = {
 			Duration = 0.02,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
+				-- The release: sparks of the pigment flicked out of the hand along the throw, stretched by their
+				-- speed. The pigment, not the core: pale sparks vanish against a pale floor.
 				{
 					Kind = "Emitter",
+					Anchor = "Hand",
+					Offset = { 0.8, 0.8, 0.2 },
+					Emit = "Aim",
 					At = 0,
 					For = 0.05,
 					Texture = "SparkStreak",
-					Offset = { 0, 0.4, 3 },
-					Burst = 16,
-					Speed = { 14, 26 },
-					Lifetime = { 0.2, 0.38 },
-					Spread = 30,
-					Drag = 3,
-					Squash = 0.3,
-					Size = 0.6,
+					Burst = 14,
+					Speed = { 24, 42 },
+					Lifetime = { 0.1, 0.22 },
+					Spread = 20,
+					Drag = 5,
+					Squash = 0.7,
+					Size = 1.3,
 					EndSize = 0,
+				},
+				-- The throwing hand's sweep: one crescent of the page's ink flicked out of the hand, tilted so it
+				-- is not a flat plate, spinning, and gone in a sixth of a second. Dark, so it holds on a pale page.
+				{
+					Kind = "Mesh",
+					Mesh = "Crescent",
+					Anchor = "Hand",
+					Role = "Ink",
+					At = 0,
+					For = 0.16,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Offset = { 0.8, 0.8, 0.6 },
+					Roll = 25,
+					Size = 0.8,
+					EndSize = 3.6,
+					Transparency = 0,
+					EndTransparency = 1,
+					Spin = 9,
 				},
 			},
 		},
@@ -846,57 +1021,79 @@ local BRAND: Timeline = {
 					For = 1,
 					Ease = "Exponential",
 					EaseDirection = "Out",
-					Size = 1.4,
-					EndSize = 1.2,
+					Size = 1.6,
+					EndSize = 1.3,
 					Stretch = { 0.7, 0.7, 1.8 },
 					EndStretch = { 1, 1, 1.1 },
 					Transparency = 0,
 					EndTransparency = 0,
 				},
-				-- The throwing hand's sweep, left behind at the release: one brush crescent flicked out of the
-				-- hand, tilted a little so it is not a flat plate, and gone in a fifth of a second.
-				{
-					Kind = "Mesh",
-					Mesh = "Crescent",
-					At = 0,
-					For = 0.2,
-					Ease = "Quart",
-					EaseDirection = "Out",
-					Offset = { 0.3, 0.4, 3.2 },
-					Roll = 20,
-					Size = 1.2,
-					EndSize = 4.4,
-					Transparency = 0.1,
-					EndTransparency = 1,
-					Spin = 8,
-				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
+				-- The stroke behind it, in the page's ink: as thick as the drop where it leaves it and tapering to
+				-- a point a fifth of a second back. The contour that detaches a red drop from a pale floor.
+				-- Untextured on purpose: a trail stretches its texture over its whole length, and the brush
+				-- stroke drawn that way was a faint smudge in the lab where a bare ribbon is a clean wedge.
 				{
 					Kind = "Trail",
 					At = 0,
 					For = 1,
 					Ride = true,
-					Texture = "BrushStroke",
-					Size = 2.2,
-					EndSize = 0.4,
-					Transparency = 0.25,
+					Role = "Ink",
+					Ribbon = 0.2,
+					Size = 1.1,
+					EndSize = 0.05,
+					Transparency = 0,
 					EndTransparency = 1,
+				},
+				-- The burning line inside it: hot at the drop, cooling into the pigment along the ribbon.
+				{
+					Kind = "Trail",
+					At = 0,
+					For = 1,
+					Ride = true,
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
+					Ribbon = 0.12,
+					Size = 0.5,
+					EndSize = 0.02,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- Embers shed by the heat, and beads of pigment flung off the drop: what makes the stroke a
+				-- thing moving through air rather than a line drawn on the screen.
+				{
+					Kind = "Emitter",
+					At = 0,
+					For = 1,
+					Ride = true,
+					Texture = "DustMote",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
+					Rate = 30,
+					Speed = { 0.5, 2 },
+					Lifetime = { 0.15, 0.3 },
+					Spread = 180,
+					Drag = 2,
+					Size = 0.35,
+					EndSize = 0,
 				},
 				{
 					Kind = "Emitter",
 					At = 0,
 					For = 1,
 					Ride = true,
-					Texture = "SmokeSoft",
-					Rate = 22,
-					Speed = { -3, 1 },
-					Lifetime = { 0.35, 0.7 },
-					Spread = 60,
+					Texture = "InkBlot",
+					Rate = 20,
+					Speed = { 0.5, 3 },
+					Lifetime = { 0.25, 0.5 },
+					Spread = 180,
 					Drag = 2,
-					Size = 0.9,
-					EndSize = 2.6,
-					Transparency = 0.5,
+					Size = 0.45,
+					EndSize = 0.15,
+					Transparency = 0,
 					EndTransparency = 1,
 				},
 				{
@@ -939,21 +1136,59 @@ local BRAND: Timeline = {
 
 -- The detonation every exploding projectile shares (GlyphEffects.explode). Scaled by the blast radius
 -- the server sends, so one timeline serves a Brand at seven studs and a Blot at ten.
+--
+-- The loudest frame of the throw, built so that its first frames are its biggest (D-119): a hot flash
+-- that pops, a ring of pigment struck toward the thrower's camera, a star of hot sparks and dark ones,
+-- beads of pigment thrown up and a crown of ink falling back -- then the drawn clock holds still for a
+-- few hundredths of a second on a hit (FeelConfig.EffectHold) while the page keeps the burn.
 local EXPLOSION: Timeline = {
-	Intent = "The page is struck through: a circle of ink to the blast's edge, a splash, and a burn that stays",
+	Intent = "The page is struck through: a hot flash, a ring and a star of sparks, a splash, and a burn that stays",
 	Phases = {
 		{
 			Name = "Impact",
 			Duration = 0.22,
 			Layers = {
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Impact" },
-				-- The blast's edge, drawn: one brush circle laid on the page, opening to exactly the reach the
-				-- server damaged (twice its radius), its open end toward the thrower (D-114). It replaced a flat
-				-- sprite ring that faced the same way whatever the throw and outreached the blast by a sixth.
+				-- The flash: one hot point swelling past the blast's heart and gone in a seventh of a second.
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
+					At = 0,
+					For = 0.04,
+					Texture = "DustMote",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.1, 0.14 },
+					Spread = 0,
+					Size = 1,
+					EndSize = 5,
+					Pop = 0.3,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- The shock: a ring of the pigment struck out of the burst, standing face on to the throw, so
+				-- the thrower's own camera sees it whole. Quart Out: at its widest in the first frames.
+				{
+					Kind = "Sprite",
+					At = 0,
+					For = 0.25,
+					Ease = "Quart",
+					EaseDirection = "Out",
+					Texture = "ShockwaveRing",
+					Size = 1,
+					EndSize = 18,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- The blast's edge, drawn: one brush circle of the page's ink laid on the floor, opening to exactly
+				-- the reach the server damaged (twice its radius), its open end toward the thrower (D-114).
 				{
 					Kind = "Mesh",
 					Mesh = "Enso",
 					Face = "Ground",
+					Role = "Ink",
 					At = 0,
 					For = 0.45,
 					Ease = "Quint",
@@ -967,8 +1202,8 @@ local EXPLOSION: Timeline = {
 					Spin = 1.1,
 					Jitter = 0.35,
 				},
-				-- A thinner ring overtaking it the other way round: weight, not meaning, so the lower tiers
-				-- leave it out.
+				-- A thinner ring of the pigment overtaking it the other way round: weight, not meaning, so the
+				-- lower tiers leave it out.
 				{
 					Kind = "Mesh",
 					Mesh = "SplitRing",
@@ -1052,35 +1287,57 @@ local EXPLOSION: Timeline = {
 					Tumble = { 6, 14 },
 					Tones = { "Ink" },
 				},
-				-- The flipbook: an ink bloom opening and dispersing, which is the one place in the game a
-				-- 64-frame texture earns its size.
-				{
-					Kind = "Emitter",
-					At = 0,
-					For = 0.08,
-					Texture = "ExplosionBloom",
-					Burst = 5,
-					Speed = { 2, 6 },
-					Lifetime = { 0.45, 0.6 },
-					Spread = 180,
-					Drag = 3,
-					Size = 7,
-					EndSize = 13,
-					Transparency = 0.1,
-					EndTransparency = 1,
-				},
+				-- Beads of pigment thrown up out of the burst, braked, and falling back to the page as they dry:
+				-- a splash, not a cloud drifting over the target.
 				{
 					Kind = "Emitter",
 					At = 0,
 					For = 0.06,
-					Texture = "SparkStreak",
-					Burst = 26,
-					Speed = { 18, 40 },
-					Lifetime = { 0.25, 0.5 },
-					Spread = 180,
+					Texture = "InkBlot",
+					Burst = 16,
+					Speed = { 18, 32 },
+					Lifetime = { 0.22, 0.38 },
+					Spread = 60,
 					Drag = 4,
-					Squash = 0.28,
-					Size = 0.7,
+					Weight = 60,
+					Size = 0.8,
+					EndSize = 0.15,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				-- The star: hot sparks in every direction, long at birth and gone in a third of a second, and a
+				-- geyser of dark ones straight up, tall enough to clear the thrower's own head from behind -- the
+				-- camera a thrower has puts the target right behind it.
+				{
+					Kind = "Emitter",
+					Role = "Core",
+					Glow = 1,
+					Brightness = 2,
+					At = 0,
+					For = 0.06,
+					Texture = "SparkStreak",
+					Burst = 24,
+					Speed = { 26, 52 },
+					Lifetime = { 0.15, 0.3 },
+					Spread = 180,
+					Drag = 5,
+					Squash = 0.7,
+					Size = 1.2,
+					EndSize = 0,
+				},
+				{
+					Kind = "Emitter",
+					Role = "Ink",
+					At = 0,
+					For = 0.06,
+					Texture = "SparkStreak",
+					Burst = 12,
+					Speed = { 26, 44 },
+					Lifetime = { 0.2, 0.35 },
+					Spread = 35,
+					Drag = 4,
+					Squash = 0.6,
+					Size = 1.3,
 					EndSize = 0,
 				},
 				{
@@ -1100,20 +1357,9 @@ local EXPLOSION: Timeline = {
 			Name = "Residue",
 			Duration = 3,
 			Layers = {
-				-- The burn. Larger and longer than a plain hit's, because a detonation is the loudest
-				-- thing that happens to a patch of ground in this game.
-				{
-					Kind = "Mark",
-					At = 0,
-					For = 3,
-					Ease = "Sine",
-					EaseDirection = "In",
-					Texture = "CrackWeb",
-					Size = 9,
-					EndSize = 11,
-					Transparency = 0.25,
-					EndTransparency = 1,
-				},
+				-- The burn: a blot of the pigment drying on the page over cracks of its charcoal. Larger and
+				-- longer than a plain hit's, because a detonation is the loudest thing that happens to a patch
+				-- of ground in this game.
 				{
 					Kind = "Mark",
 					At = 0,
@@ -1121,27 +1367,41 @@ local EXPLOSION: Timeline = {
 					Ease = "Sine",
 					EaseDirection = "In",
 					Texture = "InkBlot",
-					Size = 5.5,
-					EndSize = 7,
-					Transparency = 0.3,
+					Size = 6.5,
+					EndSize = 7.5,
+					Transparency = 0.1,
 					EndTransparency = 1,
 				},
 				{
+					Kind = "Mark",
+					Role = "Ink",
+					At = 0,
+					For = 3,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "CrackWeb",
+					Size = 9,
+					EndSize = 11,
+					Transparency = 0.35,
+					EndTransparency = 1,
+				},
+				-- Embers still rising off the burn: the heat going out of it, not a cloud over it.
+				{
 					Kind = "Emitter",
+					Role = "Core",
+					Glow = 0.6,
 					At = 0.05,
 					For = 0.7,
 					Ease = "Sine",
 					EaseDirection = "Out",
-					Texture = "SmokeSoft",
-					Rate = 18,
-					Speed = { 2, 5 },
-					Lifetime = { 0.9, 1.6 },
+					Texture = "DustMote",
+					Rate = 10,
+					Speed = { 1, 3 },
+					Lifetime = { 0.6, 1.2 },
 					Spread = 50,
-					Drag = 2.2,
-					Size = 2,
-					EndSize = 6,
-					Transparency = 0.5,
-					EndTransparency = 1,
+					Drag = 1.5,
+					Size = 0.3,
+					EndSize = 0,
 				},
 			},
 		},
@@ -8175,6 +8435,7 @@ local KILL_OVEREXPOSURE: Timeline = {
 
 VfxTimelineConfig.Timelines = {
 	Cast = CAST,
+	Tap = TAP,
 	Hit = HIT,
 	Dash = DASH,
 	Melee = MELEE,
@@ -8326,6 +8587,23 @@ function VfxTimelineConfig.duration(timeline: Timeline): number
 		end
 	end
 	return math.max(longest, phaseStart)
+end
+
+-- Whether a timeline is drawn on the server's own time: it flies a Carrier the server steps, or fills a
+-- window the server waits through. Such a play runs on VfxClock's steady clock, which an impact's hold
+-- never stops (D-119): held, it would fall behind the damage it draws.
+function VfxTimelineConfig.steady(timeline: Timeline): boolean
+	for _, phase in ipairs(timeline.Phases) do
+		if phase.Window == true then
+			return true
+		end
+		for _, layer in ipairs(phase.Layers) do
+			if layer.Kind == "Carrier" then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 return VfxTimelineConfig

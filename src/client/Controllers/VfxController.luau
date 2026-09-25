@@ -188,6 +188,25 @@ local function releaseHeld()
 	end
 end
 
+-- The local tap (D-119): a pigment the local player presses lights in their throwing hand on that frame,
+-- before the server has heard of it (VfxTimelineConfig's Tap). Drawn on this screen only: it promises
+-- nothing, and the Cast the server sends back is what everybody sees.
+function VfxController.tap(pigment: string)
+	local character = localCharacter()
+	local hand = if character ~= nil then character:FindFirstChild(VfxConfig.Hand) else nil
+	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+	if hand == nil or not hand:IsA("BasePart") or root == nil or not root:IsA("BasePart") then
+		return
+	end
+	timeline.play("Tap", {
+		Origin = hand.Position,
+		Direction = root.CFrame.LookVector,
+		Color = pigmentColor(pigment),
+		Pigment = pigment,
+		Hand = hand,
+	})
+end
+
 function VfxController.Init(deps: Deps)
 	remoteClient = deps.RemoteClient
 	soundController = deps.SoundController

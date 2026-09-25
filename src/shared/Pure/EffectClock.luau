@@ -14,25 +14,24 @@ export type State = {
 	Base: number,
 	RealBase: number,
 	Scale: number,
-	-- Real time until which it is held still.
+	-- The real time span it is held still over (none: an empty span in the past).
+	HoldFrom: number,
 	HoldUntil: number,
 }
 
 function EffectClock.new(real: number): State
-	return { Base = real, RealBase = real, Scale = 1, HoldUntil = -math.huge }
+	return { Base = real, RealBase = real, Scale = 1, HoldFrom = -math.huge, HoldUntil = -math.huge }
 end
 
--- Effect time at real time `real`.
+-- Effect time at real time `real`: the real time since RealBase, less the part of it spent held, at Scale.
 function EffectClock.read(state: State, real: number): number
-	if real <= state.HoldUntil then
-		return state.Base
-	end
-	return state.Base + (real - math.max(state.RealBase, state.HoldUntil)) * state.Scale
+	local held = math.max(math.min(real, state.HoldUntil) - math.max(state.RealBase, state.HoldFrom), 0)
+	return state.Base + (real - state.RealBase - held) * state.Scale
 end
 
 -- How fast effect time is running at `real`: 0 while held.
 function EffectClock.rate(state: State, real: number): number
-	return if real < state.HoldUntil then 0 else state.Scale
+	return if real >= state.HoldFrom and real < state.HoldUntil then 0 else state.Scale
 end
 
 local function rebase(state: State, real: number)
@@ -47,14 +46,24 @@ function EffectClock.rescale(state: State, real: number, scale: number)
 	state.Scale = math.max(scale, 0)
 end
 
--- Holds effect time still for `seconds` from now. Overlapping holds do not add up -- the later end wins --
--- and no hold outlasts `longest`, so a burst of hits reads as impact, never as a stall.
-function EffectClock.hold(state: State, real: number, seconds: number, longest: number)
+-- Holds effect time still for `seconds`, starting `after` seconds from now (at once when absent): a burst
+-- held on its first frame is held before it has drawn anything, a few hundredths later it is held at its
+-- widest. Overlapping holds do not add up -- they merge, the later end wins -- and no hold outlasts
+-- `longest`, so a burst of hits reads as impact, never as a stall.
+function EffectClock.hold(state: State, real: number, seconds: number, longest: number, after: number?)
 	if seconds <= 0 then
 		return
 	end
 	rebase(state, real)
-	state.HoldUntil = math.max(state.HoldUntil, real + math.min(seconds, longest))
+	local from = real + math.max(after or 0, 0)
+	local untilAt = from + math.min(seconds, longest)
+	if state.HoldUntil < real then
+		state.HoldFrom = from
+		state.HoldUntil = untilAt
+	else
+		state.HoldFrom = math.min(state.HoldFrom, from)
+		state.HoldUntil = math.max(state.HoldUntil, untilAt)
+	end
 end
 
 return EffectClock

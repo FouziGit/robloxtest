@@ -69,6 +69,7 @@ type TimelineContext = {
 	Pigment: string?,
 	Shot: string?,
 	Follow: BasePart?,
+	Hand: BasePart?,
 }
 
 type TroveType = typeof(Trove.new())
@@ -417,7 +418,14 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	end
 end
 
--- Neon ball with fire and a trail, flying along Direction for the fuse duration.
+-- The hand the caster throws with, for the layers born in it (Layer.Anchor).
+local function casterHand(packet: Packet): BasePart?
+	local root = casterRoot(packet)
+	local character = if root ~= nil then root.Parent else nil
+	local hand = if character ~= nil then character:FindFirstChild(VfxConfig.Hand) else nil
+	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
+end
+
 -- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most.
 --
 -- What it replaced was a ball wearing Roblox's own Fire class, flying a straight line at a constant speed
@@ -443,6 +451,7 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 		Pigment = "Cinnabar",
 		Shade = numberParam(packet, "Shade", 0),
 		Shot = shotKey(packet),
+		Hand = casterHand(packet),
 	})
 end
 
@@ -455,7 +464,6 @@ VfxLibrary.Fizzle = function(packet: Packet, _trove: TroveType, api: Api)
 	end
 end
 
--- Expanding sphere and ember burst where a projectile or blast lands.
 -- The detonation every exploding projectile shares. The server sends the blast radius it actually used,
 -- so the visual is the size of the damage rather than a constant that happens to look right for one
 -- glyph: a blast drawn smaller than it hurts is the most expensive lie a fighting game can tell.
@@ -500,6 +508,7 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 		Pigment = pigment,
 		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
 	})
 end
 

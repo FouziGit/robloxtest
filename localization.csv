@@ -307,7 +307,7 @@ rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
-settings.cameraShake,Camera shake,Vellum,,Camera shake,Secousses de caméra
+settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs
 settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.
 settings.duplicate,{key} is used twice.,Vellum,,{key} is used twice.,La touche {key} est utilisée deux fois.
 settings.hint,Click a binding to change it.,Vellum,,Click a binding to change it.,Clique sur une touche pour la changer.

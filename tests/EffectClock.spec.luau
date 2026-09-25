@@ -56,6 +56,30 @@ describe("the effect clock", function()
 		expect(EffectClock.read(clock, 10.3)).toBeCloseTo(2.2, 9)
 	end)
 
+	it("holds from a moment ahead when asked, and merges a hold asked for during another", function()
+		local clock = EffectClock.new(0)
+		EffectClock.hold(clock, 1, 0.05, 0.1, 0.04)
+		-- Runs on until the hold begins, stands still through it, then carries on.
+		expect(EffectClock.read(clock, 1.03)).toBeCloseTo(1.03, 9)
+		expect(EffectClock.rate(clock, 1.03)).toBe(1)
+		expect(EffectClock.read(clock, 1.04)).toBeCloseTo(1.04, 9)
+		expect(EffectClock.read(clock, 1.07)).toBeCloseTo(1.04, 9)
+		expect(EffectClock.rate(clock, 1.07)).toBe(0)
+		expect(EffectClock.read(clock, 1.19)).toBeCloseTo(1.14, 9)
+		-- A second hold asked for while the first is still to come merges with it.
+		local merged = EffectClock.new(0)
+		EffectClock.hold(merged, 2, 0.05, 0.1, 0.04)
+		EffectClock.hold(merged, 2.02, 0.05, 0.1, 0.04)
+		expect(EffectClock.read(merged, 2.04)).toBeCloseTo(2.04, 9)
+		expect(EffectClock.read(merged, 2.11)).toBeCloseTo(2.04, 9)
+		expect(EffectClock.read(merged, 2.21)).toBeCloseTo(2.14, 9)
+		-- A hold asked for long after the last one is its own.
+		EffectClock.hold(merged, 5, 0.05, 0.1, 0.04)
+		expect(EffectClock.read(merged, 5.04)).toBeCloseTo(4.97, 9)
+		expect(EffectClock.read(merged, 5.08)).toBeCloseTo(4.97, 9)
+		expect(EffectClock.read(merged, 5.19)).toBeCloseTo(5.07, 9)
+	end)
+
 	it("never runs backwards, whatever order it is held and scaled in", function()
 		local clock = EffectClock.new(0)
 		local last = EffectClock.read(clock, 0)
@@ -63,7 +87,7 @@ describe("the effect clock", function()
 		for step = 1, 400 do
 			real += 0.013
 			if step % 37 == 0 then
-				EffectClock.hold(clock, real, 0.07, 0.1)
+				EffectClock.hold(clock, real, 0.07, 0.1, (step % 2) * 0.04)
 			elseif step % 53 == 0 then
 				EffectClock.rescale(clock, real, (step % 3) * 0.5)
 			end

@@ -25,6 +25,8 @@ La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y t
 3. `./scripts/check.sh` doit afficher `✔ all quality gates green`.
 4. Dans Studio : installer le plugin Rojo (`rojo plugin install` ou Creator Store), puis `rojo serve default.project.json` et **Connect** dans le plugin. Accepter la synchronisation initiale.
 
+**Sous Windows**, les étapes 1, 2 et 4 tiennent en une commande PowerShell, depuis la racine du dépôt : `powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1`. Le script installe rokit et les outils, télécharge les paquets et les types, enregistre le chemin de Blender dans la variable `BLENDER` (les outils d'animation et de maillage prennent sinon le chemin macOS), installe le plugin Rojo et construit `build\Vellum.rbxl`. `scripts/check.sh` demande bash (Git Bash convient).
+
 ## 2. Paramètres de l'expérience (Creator Dashboard → ton expérience)
 
 | Réglage | Valeur | Où |

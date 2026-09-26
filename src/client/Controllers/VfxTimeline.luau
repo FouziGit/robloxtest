@@ -34,7 +34,9 @@ local VfxConfig = require(Shared.Config.VfxConfig)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local VolumeMath = require(Shared.Pure.VolumeMath)
 local WorldConfig = require(Shared.Config.WorldConfig)
--- A sibling, not a controller: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind).
+-- Siblings, not controllers: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind), and
+-- every layer runs on the effect clock (VfxClock, D-118), which an impact holds and the Studio lab scales.
+local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 local VfxVolumes = require(script.Parent:WaitForChild("VfxVolumes"))
 
 local log = Log.new("VfxTimeline")
@@ -77,6 +79,9 @@ export type Context = {
 	-- (Trail, and anything whose Offset should follow the body) use it; the rest are placed once in world
 	-- space, which is what an impact wants.
 	Follow: BasePart?,
+	-- The caster's throwing hand, for the layers anchored to it (Layer.Anchor): what is cast is born in the
+	-- hand that casts it, where the cast animation puts it at the release.
+	Hand: BasePart?,
 }
 
 type Layer = VfxTimelineConfig.Layer
@@ -87,7 +92,7 @@ type Measure = VfxTimelineConfig.Measure
 -- packet carried when the layer named one, and the same Scale when it did not. Resolved once when the
 -- layer starts rather than per frame: a warning that changed size halfway through is a warning about
 -- nothing.
-type Scales = { Effect: number, Size: number, Span: number, Offset: number }
+type Scales = { Effect: number, Size: number, Span: number, Offset: number, Travel: number }
 
 -- One layer in flight. `Instances` is everything it borrowed, released together when it ends.
 type Live = {
@@ -114,6 +119,9 @@ type Live = {
 	PlayId: number,
 	-- When that play began: the clock its floor marks dry on.
 	PlayStartedAt: number,
+	-- On the steady clock rather than the effect clock (VfxTimelineConfig.steady): every time of this entry
+	-- is read on it, and an impact's hold does not stop it.
+	Steady: boolean,
 	-- A carrier brought down where its projectile burst (VfxTimeline.land): from where it was, to there.
 	Landing: { From: CFrame, To: Vector3, At: number }?,
 	-- A riding light dimming out after a landing, from the brightness it had when it began to; or a volume
@@ -127,6 +135,9 @@ type Live = {
 	Afterimage: VfxVolumes.Afterimage?,
 	-- Its place in its timeline, which seeds anything that must be the same on every client.
 	LayerIndex: number,
+	-- A Driven emitter's flow (Layer.Driven): particles a second, the share of one owed and not yet
+	-- emitted, and the time on the entry's clock they were counted up to.
+	Owed: { Rate: number, Carry: number, At: number }?,
 }
 
 type Pending = {
@@ -139,6 +150,7 @@ type Pending = {
 	Warning: boolean,
 	PlayId: number,
 	PlayStartedAt: number,
+	Steady: boolean,
 	-- The phase it belongs to: a landing drops what is still to fly and re-places what is to linger.
 	Phase: string,
 	LayerIndex: number,
@@ -345,10 +357,11 @@ local function scalesOf(context: Context, layer: Layer): Scales?
 	local size = geometryScale(context, layer.SizeFrom, effect)
 	local span = geometryScale(context, layer.SpanFrom, effect)
 	local offset = geometryScale(context, layer.OffsetFrom, effect)
-	if size == nil or span == nil or offset == nil then
+	local travel = geometryScale(context, layer.TravelFrom, effect)
+	if size == nil or span == nil or offset == nil or travel == nil then
 		return nil
 	end
-	return { Effect = effect, Size = size, Span = span, Offset = offset }
+	return { Effect = effect, Size = size, Span = span, Offset = offset, Travel = travel }
 end
 
 local function eased(layer: Layer, alpha: number): number
@@ -472,6 +485,85 @@ local function inkRamp(context: Context, color: Color3): ColorSequence
 	return ColorSequence.new(wet, dry)
 end
 
+local INK_COLOR = Palette.rgb(INK_RGB)
+local WHITE = Color3.new(1, 1, 1)
+
+-- The pigment heated toward white (VfxConfig.Heat): a core's colour at birth. Never white itself.
+local function heated(color: Color3): Color3
+	return color:Lerp(WHITE, VfxConfig.Heat.Toward)
+end
+
+-- A layer's colour over its life, by its Role (D-119): the pigment drying, a core cooling into it, or the
+-- page's ink. The Pigment role is exactly the ramp every layer had before roles existed.
+local function roleRamp(context: Context, layer: Layer): ColorSequence
+	local role = layer.Role
+	if role == "Ink" then
+		return ColorSequence.new(INK_COLOR)
+	end
+	-- A play that must not shine (a fist's hit, D-116) has no heat either: its core is its own ink.
+	if role == "Core" and context.Unlit ~= true then
+		local wet, dry = wetAndDry(context, context.Color)
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0, heated(context.Color)),
+			ColorSequenceKeypoint.new(VfxConfig.Heat.Cools, wet),
+			ColorSequenceKeypoint.new(1, dry),
+		})
+	end
+	return inkRamp(context, context.Color)
+end
+
+-- A flat layer's one colour, by its Role.
+local function roleColor(context: Context, layer: Layer): Color3
+	local role = layer.Role
+	if role == "Ink" then
+		return INK_COLOR
+	elseif role == "Core" and context.Unlit ~= true then
+		return heated(context.Color)
+	end
+	return context.Color
+end
+
+-- A volume's colour at birth and dried, by its Role: the pigment drying, a core cooling into the wet
+-- pigment, or the page's ink, which does not dry.
+local function roleWetDry(context: Context, layer: Layer): (Color3, Color3)
+	if layer.Role == "Ink" then
+		return INK_COLOR, INK_COLOR
+	end
+	local wet, dry = wetAndDry(context, context.Color)
+	if layer.Role == "Core" and context.Unlit ~= true then
+		return heated(context.Color), wet
+	end
+	return wet, dry
+end
+
+-- Whether the player has turned shakes and flashes off (Feel.motionAllowed): a core then shines no more
+-- than VfxConfig.Calm allows.
+local function calm(): boolean
+	return feel ~= nil and not feel.motionAllowed()
+end
+
+-- How much of a layer's colour is added as light: its Glow, capped, or ink laid on the page -- which is
+-- all a play that must not shine gets (Context.Unlit).
+local function glowOf(context: Context, layer: Layer): number
+	if context.Unlit == true then
+		return VfxConfig.LightEmission
+	end
+	local glow = math.clamp(layer.Glow or VfxConfig.LightEmission, 0, VfxConfig.MaxGlow)
+	return if calm() then math.min(glow, VfxConfig.Calm.Glow) else glow
+end
+
+-- How bright a particle, beam or trail is drawn: above 1 is what the resting bloom catches.
+local function brightnessOf(context: Context, layer: Layer): number
+	local brightness = if context.Unlit == true then 1 else layer.Brightness or 1
+	return if calm() then math.min(brightness, VfxConfig.Calm.Brightness) else brightness
+end
+
+local EMISSION: { [string]: Enum.NormalId } = {
+	Up = Enum.NormalId.Top,
+	Aim = Enum.NormalId.Front,
+	Back = Enum.NormalId.Back,
+}
+
 -- How dry a floor mark is at `now`, on its PLAY's clock rather than its own life: a stain drawn as a chain
 -- of marks then picks up at the colour the last link reached instead of flashing wet at the hand-off.
 local function driedBy(entry: Live, now: number): number
@@ -482,11 +574,12 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 	if textureMissing(layer) then
 		return
 	end
-	local part = host(entry, place, planeSize(entry, 0))
+	-- Turned about its own facing (Layer.Roll): a brush stroke laid across stands on end at 90.
+	local part = host(entry, place * CFrame.Angles(0, 0, math.rad(layer.Roll or 0)), planeSize(entry, 0))
 	if part == nil then
 		return
 	end
-	part.Color = entry.Context.Color
+	part.Color = roleColor(entry.Context, layer)
 	part.Transparency = layer.Transparency or 0
 	local id = textureOf(layer)
 	if id ~= "" then
@@ -498,7 +591,7 @@ local function buildSprite(entry: Live, layer: Layer, place: CFrame)
 			local decal = instance :: Decal
 			decal.Texture = id
 			decal.Face = face
-			decal.Color3 = entry.Context.Color
+			decal.Color3 = roleColor(entry.Context, layer)
 			decal.Transparency = layer.Transparency or 0
 			decal.Parent = part
 		end
@@ -525,8 +618,9 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame)
 		return
 	end
 	local id = textureOf(layer)
-	-- What is drawn on the page is drawn in the effect's ink where it has one (see Context.Ink).
-	local ink = entry.Context.Ink or entry.Context.Color
+	-- What is drawn on the page is drawn in the effect's ink where it has one (see Context.Ink), or in the
+	-- page's charcoal for an Ink layer -- a scorch under a burst.
+	local ink = if layer.Role == "Ink" then INK_COLOR else entry.Context.Ink or entry.Context.Color
 	if id == "" then
 		part.Color = ink
 		part.Transparency = layer.Transparency or 0.3
@@ -545,7 +639,7 @@ local function buildMark(entry: Live, layer: Layer, place: CFrame)
 	decal.Face = Enum.NormalId.Back
 	-- A mark drawn in its own ink (the Erasure's page-coloured burns) is not the pigment and does not dry.
 	local wet, dry = ink, ink
-	if entry.Context.Ink == nil then
+	if entry.Context.Ink == nil and layer.Role ~= "Ink" then
 		wet, dry = wetAndDry(entry.Context, ink)
 	end
 	entry.Wet = wet
@@ -583,7 +677,13 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	-- an inward layer emits from the surface of a sphere, facing in, and its particles run toward the
 	-- point instead of away from it. The sphere's size comes from the data the layer already declares.
 	local inward = speed[1] < 0 or speed[2] < 0
-	local hostSize = if inward then Vector3.one * (2 * convergeRadius(speed, lifetime, scale)) else Vector3.one * 0.2
+	-- An Area is the box the particles are born anywhere in (D-123): a fire burning along a stroke is one
+	-- emitter over the whole of it, not one per pool.
+	local area = layer.Area
+	local hostSize = if inward
+		then Vector3.one * (2 * convergeRadius(speed, lifetime, scale))
+		elseif area ~= nil then Vector3.new(area[1], area[2], area[3]) * scale
+		else Vector3.one * 0.2
 	local part = host(entry, place, hostSize)
 	if part == nil then
 		return
@@ -598,19 +698,35 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	if id ~= "" then
 		emitter.Texture = id
 	end
-	emitter.Color = inkRamp(entry.Context, entry.Context.Color)
+	emitter.Color = roleRamp(entry.Context, layer)
 	-- Particle size is a size, so it follows the layer's size measure; speed is a distance through the
 	-- world and follows the effect's own scale.
 	local size = (layer.Size or 1) * entry.Scales.Size
-	local endSize = (layer.EndSize or layer.Size or 1) * entry.Scales.Size
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, size),
-		NumberSequenceKeypoint.new(1, math.max(endSize, 0)),
-	})
+	local endSize = math.max((layer.EndSize or layer.Size or 1) * entry.Scales.Size, 0)
+	local pop = layer.Pop
+	if pop ~= nil and pop > 0 and pop < 1 then
+		-- Past its end size early in its life, then settling back to it: a flash that hits.
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, size),
+			NumberSequenceKeypoint.new(pop, endSize * VfxConfig.PopOvershoot),
+			NumberSequenceKeypoint.new(1, endSize),
+		})
+	else
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, size),
+			NumberSequenceKeypoint.new(1, endSize),
+		})
+	end
 	emitter.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
+	if area ~= nil and layer.Ring == true then
+		-- Born on the rim of the ellipse the Area's across and along draw, not anywhere inside it: a ring of
+		-- fire at a radius rather than a disc of it (D-123). Seen live: the disc's rim, rising.
+		emitter.Shape = Enum.ParticleEmitterShape.Disc
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	end
 	if inward then
 		emitter.Shape = Enum.ParticleEmitterShape.Sphere
 		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
@@ -624,6 +740,7 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	emitter.Lifetime = NumberRange.new(lifetime[1], lifetime[2])
 	emitter.SpreadAngle = Vector2.new(layer.Spread or 0, layer.Spread or 0)
 	emitter.Drag = layer.Drag or 0
+	emitter.Acceleration = Vector3.new(0, -(layer.Weight or 0) * scale, 0)
 	-- A spark stretched along its travel reads as moving rather than as a dot that is somewhere else next
 	-- frame. A streak is drawn along its flight (VfxConfig.StreakTextures). VelocityParallel lays the image's +X
 	-- on the velocity, and spark_streak.png has its head at -X, so the image is turned half a turn or every
@@ -637,6 +754,16 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter.Rotation = NumberRange.new(180, 180)
 		squash = -squash
 	end
+	-- A flame stands up in the world whatever the camera's tilt, and leans a little either way as it
+	-- rises: a tongue that turns on the screen with the camera, or that never sways, reads as a sticker.
+	if layer.Texture ~= nil and VfxConfig.UprightTextures[layer.Texture] == true then
+		emitter.Orientation = Enum.ParticleOrientation.FacingCameraWorldUp
+	end
+	local sway = layer.Sway
+	if sway ~= nil then
+		emitter.Rotation = NumberRange.new(-sway, sway)
+		emitter.RotSpeed = NumberRange.new(-2 * sway, 2 * sway)
+	end
 	-- Stretched at birth, when it is fastest, and relaxed by the time drag has stopped it.
 	emitter.Squash = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, squash),
@@ -644,7 +771,9 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	})
 	-- Wind drags the residue with the world instead of leaving it hanging in still air.
 	emitter.WindAffectsDrag = true
-	emitter.LightEmission = VfxConfig.LightEmission
+	emitter.LightEmission = glowOf(entry.Context, layer)
+	emitter.Brightness = brightnessOf(entry.Context, layer)
+	emitter.EmissionDirection = EMISSION[layer.Emit or "Up"]
 	emitter.Rate = 0
 	emitter.Enabled = false
 	emitter.Parent = part
@@ -666,8 +795,14 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 		emitter:Emit(math.max(1, math.floor(layer.Burst * density)))
 	end
 	if layer.Rate ~= nil then
-		emitter.Rate = layer.Rate * density
-		emitter.Enabled = true
+		if layer.Driven == true then
+			-- Emitted by stepEmitter on the entry's own clock: the engine thins a Rate by its automatic
+			-- graphics quality, never a call to Emit (D-124).
+			entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt }
+		else
+			emitter.Rate = layer.Rate * density
+			emitter.Enabled = true
+		end
 	end
 	entry.Primary = emitter
 end
@@ -689,6 +824,37 @@ local function buildLight(entry: Live, layer: Layer, place: CFrame)
 	light.Shadows = false
 	light.Parent = part
 	entry.Primary = light
+end
+
+-- The body the renderer passed (Context.Follow) drawn as a figure (D-125): a Highlight whose contour is the
+-- page's ink and whose fill is the layer's colour at a third of the contour's strength. Occluded, never on
+-- top: a figure drawn through a wall would tell an enemy where the caster hides.
+local OUTLINE_FILL_SHARE = 0.35
+
+local function outlineFill(transparency: number): number
+	return 1 - (1 - transparency) * OUTLINE_FILL_SHARE
+end
+
+local function buildOutline(entry: Live, layer: Layer)
+	local body = entry.Context.Follow
+	local figure = if body ~= nil then body:FindFirstAncestorOfClass("Model") else nil
+	if figure == nil then
+		return
+	end
+	local instance = borrow(entry, "Highlight")
+	if instance == nil then
+		return
+	end
+	local highlight = instance :: Highlight
+	local transparency = layer.Transparency or 0
+	highlight.Adornee = figure
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.FillColor = roleColor(entry.Context, layer)
+	highlight.FillTransparency = outlineFill(transparency)
+	highlight.OutlineColor = INK_COLOR
+	highlight.OutlineTransparency = transparency
+	highlight.Parent = Workspace
+	entry.Primary = highlight
 end
 
 -- Two attachments and a Beam between them. CurveSize is what draws a stroke rather than a laser: the art
@@ -715,12 +881,13 @@ local function buildBeam(entry: Live, layer: Layer, place: CFrame)
 	local beam = beamInstance :: Beam
 	beam.Attachment0 = a0
 	beam.Attachment1 = a1
-	beam.Color = ColorSequence.new(entry.Context.Color)
+	beam.Color = ColorSequence.new(roleColor(entry.Context, layer))
 	beam.Width0 = (layer.Size or 1) * scale
 	beam.Width1 = (layer.Size or 1) * scale * 0.35
 	beam.Transparency = NumberSequence.new(layer.Transparency or 0.2)
 	beam.FaceCamera = true
-	beam.LightEmission = VfxConfig.LightEmission
+	beam.LightEmission = glowOf(entry.Context, layer)
+	beam.Brightness = brightnessOf(entry.Context, layer)
 	local id = textureOf(layer)
 	if id ~= "" then
 		beam.Texture = id
@@ -741,6 +908,11 @@ local function buildCarrier(entry: Live, place: CFrame)
 	part.Transparency = 1
 	carriers[entry.PlayId] = part
 	entry.Primary = part
+end
+
+-- Seconds of flight a trail's ribbon keeps behind its head (Layer.Ribbon), never longer than its life.
+local function ribbonOf(entry: Live): number
+	return math.min(entry.Layer.Ribbon or entry.Seconds, entry.Seconds)
 end
 
 local function buildTrail(entry: Live, layer: Layer, place: CFrame)
@@ -768,13 +940,15 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
 	-- Wet at the head, dry at the tail: a trail's length is its age.
-	trail.Color = inkRamp(entry.Context, entry.Context.Color)
-	trail.Lifetime = entry.Seconds
+	trail.Color = roleRamp(entry.Context, layer)
+	-- In effect time: the Studio lab's slow motion stretches it from the start, never mid-life (followRate).
+	trail.Lifetime = ribbonOf(entry) / VfxClock.labScale()
 	trail.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, layer.Transparency or 0.3),
 		NumberSequenceKeypoint.new(1, layer.EndTransparency or 1),
 	})
-	trail.LightEmission = VfxConfig.LightEmission
+	trail.LightEmission = glowOf(entry.Context, layer)
+	trail.Brightness = brightnessOf(entry.Context, layer)
 	-- A thrown ribbon turns its face to whoever is looking. Spanned between two attachments one above the
 	-- other, it is a sheet standing along the flight line -- seen edge-on, as a hairline, by exactly the two
 	-- people who matter: the one who threw it and the one it is flying at. Beams already face the camera.
@@ -790,7 +964,9 @@ local function buildTrail(entry: Live, layer: Layer, place: CFrame)
 	local id = textureOf(layer)
 	if id ~= "" then
 		trail.Texture = id
-		trail.TextureMode = Enum.TextureMode.Static
+		-- One stroke drawn along the whole ribbon. Static tiled the full image every TextureLength stud --
+		-- one stud, the pool's reset -- which drew ninety identical dashes along a thrown Brand.
+		trail.TextureMode = Enum.TextureMode.Stretch
 	end
 	trail.Enabled = true
 	trail.Parent = anchor
@@ -825,12 +1001,23 @@ local function stepSprite(entry: Live, alpha: number, elapsed: number, deltaTime
 	end
 	part.Transparency = if #part:GetChildren() > 0 then 1 else transparency
 	local spin = layer.Spin
-	if spin ~= nil then
+	local camera = Workspace.CurrentCamera
+	if layer.Face == "Camera" and camera ~= nil then
+		-- Upright and turned to whoever is looking, every frame; its roll and spin laid on after, as an
+		-- angle of its whole life so far rather than an increment.
+		local position = part.Position
+		local eye = camera.CFrame.Position
+		local toward = Vector3.new(eye.X, position.Y, eye.Z)
+		if (toward - position).Magnitude > 1e-3 then
+			local turned = math.rad(layer.Roll or 0) + (spin or 0) * elapsed * (entry.EndsAt - entry.StartedAt)
+			part.CFrame = CFrame.lookAt(position, toward) * CFrame.Angles(0, 0, turned)
+		end
+	elseif spin ~= nil then
 		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * deltaTime)
 	end
 end
 
-local function stepMark(entry: Live, alpha: number, elapsed: number, now: number)
+local function stepMark(entry: Live, alpha: number, elapsed: number, now: number, deltaTime: number)
 	local primary = entry.Primary
 	if primary == nil or primary.Parent == nil then
 		return
@@ -853,6 +1040,11 @@ local function stepMark(entry: Live, alpha: number, elapsed: number, now: number
 	end
 	-- A warning drawn bare, before its texture exists, fades on the part itself.
 	part.Transparency = if #children > 0 then 1 else transparency
+	-- Turned on the page about its own normal (markFrame leaves +Z on it): a seal that turns is a vortex.
+	local spin = layer.Spin
+	if spin ~= nil then
+		part.CFrame = part.CFrame * CFrame.Angles(0, 0, spin * deltaTime)
+	end
 end
 
 local function stepLight(entry: Live, alpha: number, now: number)
@@ -896,7 +1088,8 @@ end
 local function flightPoint(entry: Live, progress: number): Vector3
 	local layer = entry.Layer
 	local scale = entry.Scales.Effect
-	local distance = (layer.Travel or 0) * scale * progress
+	-- Its distance in the measure it names (TravelFrom): a line ruled to where the server's ray stopped.
+	local distance = (layer.Travel or 0) * entry.Scales.Travel * progress
 	local rise = (layer.Arc or 0) * scale * math.sin(math.clamp(progress, 0, 1) * math.pi)
 	return (entry.Frame * CFrame.new(0, 0, -distance)).Position + Vector3.new(0, rise, 0)
 end
@@ -1007,6 +1200,21 @@ local function stepEmitter(entry: Live, now: number)
 	if entry.Layer.Rate ~= nil and now - entry.StartedAt >= entry.Seconds then
 		emitter.Enabled = false
 	end
+	-- A Driven flow: what its rate owes since the last frame, up to the end of its life. A held clock owes
+	-- nothing, and a slowed one owes less, exactly as the engine's own rate would under its TimeScale.
+	local owed = entry.Owed
+	if owed ~= nil then
+		local upTo = math.min(now, entry.StartedAt + entry.Seconds)
+		if upTo > owed.At then
+			owed.Carry += (upTo - owed.At) * owed.Rate
+			owed.At = upTo
+			local count = math.floor(owed.Carry)
+			if count > 0 then
+				owed.Carry -= count
+				emitter:Emit(count)
+			end
+		end
+	end
 end
 
 --------------------------------------------------------------------------------------------------
@@ -1055,6 +1263,27 @@ local function overWarning(position: Vector3, reach: number): boolean
 		end
 	end
 	return false
+end
+
+-- The rate the engine-driven parts of the live layers were last set to run at: particles and trails age on
+-- the engine's clock, so they are told when the effect clock is held or slowed (VfxClock).
+local appliedRate = 1
+local appliedSteadyRate = 1
+
+-- The time a play reads: a steady one's on the steady clock, every other one's on the effect clock.
+local function clockOf(steady: boolean): number
+	return if steady then VfxClock.steady() else VfxClock.now()
+end
+
+-- Particles age on the engine's clock and are told when effect time is held or slowed. A trail is not:
+-- changing a Trail's Lifetime mid-life wipes the ribbon it has drawn (seen in the lab: a frozen Brand had
+-- no trail at all), so a trail's life is set once, when it is built (buildTrail), and a hold of a few
+-- hundredths of a second simply lets it age.
+local function followRate(entry: Live, rate: number)
+	local primary = entry.Primary
+	if primary ~= nil and primary:IsA("ParticleEmitter") then
+		primary.TimeScale = math.clamp(rate, 0, 1)
+	end
 end
 
 local function activate(item: Pending, now: number)
@@ -1254,6 +1483,11 @@ local function activate(item: Pending, now: number)
 	end
 
 	local base = frameOf(context)
+	local hand = context.Hand
+	if layer.Anchor == "Hand" and hand ~= nil and hand.Parent ~= nil then
+		-- Born in the hand that throws it, turned the way the effect is aimed.
+		base = base.Rotation + hand.Position
+	end
 	local rider = if layer.Ride == true then carriers[item.PlayId] else nil
 	if rider ~= nil then
 		-- The carrier's own frame, not the origin: a layer that rides is placed where the body IS at the
@@ -1281,6 +1515,7 @@ local function activate(item: Pending, now: number)
 		Primary = nil,
 		PlayId = item.PlayId,
 		PlayStartedAt = item.PlayStartedAt,
+		Steady = item.Steady,
 		LayerIndex = item.LayerIndex,
 	}
 
@@ -1319,6 +1554,8 @@ local function activate(item: Pending, now: number)
 		end
 	elseif layer.Kind == "Afterimage" then
 		VfxVolumes.buildAfterimage(entry, context.Follow)
+	elseif layer.Kind == "Outline" then
+		buildOutline(entry, layer)
 	end
 
 	if entry.Primary == nil then
@@ -1327,7 +1564,24 @@ local function activate(item: Pending, now: number)
 		releaseLive(entry)
 		return
 	end
+	local rate = if entry.Steady then appliedSteadyRate else appliedRate
+	if rate ~= 1 then
+		followRate(entry, rate)
+	end
 	table.insert(live, entry)
+end
+
+local function stepOutline(entry: Live, alpha: number, elapsed: number)
+	local primary = entry.Primary
+	if primary == nil or primary.Parent == nil then
+		return
+	end
+	local highlight = primary :: Highlight
+	local layer = entry.Layer
+	local transparency =
+		math.clamp(lerp(layer.Transparency, layer.EndTransparency, fadeOf(layer, elapsed, alpha, 0), 0), 0, 1)
+	highlight.OutlineTransparency = transparency
+	highlight.FillTransparency = outlineFill(transparency)
 end
 
 -- How much of a layer's life has passed.
@@ -1355,7 +1609,7 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	if kind == "Sprite" then
 		stepSprite(entry, alpha, elapsed, deltaTime)
 	elseif kind == "Mark" then
-		stepMark(entry, alpha, elapsed, now)
+		stepMark(entry, alpha, elapsed, now, deltaTime)
 	elseif kind == "Light" then
 		stepLight(entry, alpha, now)
 	elseif kind == "Beam" then
@@ -1368,6 +1622,8 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 		VfxVolumes.stepDebris(entry, now)
 	elseif kind == "Afterimage" then
 		VfxVolumes.stepAfterimage(entry, alpha, elapsed)
+	elseif kind == "Outline" then
+		stepOutline(entry, alpha, elapsed)
 	end
 end
 
@@ -1398,11 +1654,22 @@ local function settle(entry: Live, now: number): boolean
 end
 
 local function onHeartbeat(deltaTime: number)
-	local now = os.clock()
+	-- The Studio lab's held packets are released first, so what they play starts this frame.
+	VfxClock.tick()
+	local heldNow, steadyNow = VfxClock.now(), VfxClock.steady()
+	local rate, steadyRate = VfxClock.rate(), VfxClock.steadyRate()
+	if rate ~= appliedRate or steadyRate ~= appliedSteadyRate then
+		appliedRate = rate
+		appliedSteadyRate = steadyRate
+		for _, entry in ipairs(live) do
+			followRate(entry, if entry.Steady then steadyRate else rate)
+		end
+	end
 
 	local index = 1
 	while index <= #pending do
 		local item = pending[index]
+		local now = if item.Steady then steadyNow else heldNow
 		local decision = "Lay"
 		if now >= item.At and item.Layer.Kind == "Afterimage" then
 			-- A print waits for its body to get where it is laid (D-116), and is given up if it never does.
@@ -1436,11 +1703,13 @@ local function onHeartbeat(deltaTime: number)
 	index = 1
 	while index <= #live do
 		local entry = live[index]
+		local now = if entry.Steady then steadyNow else heldNow
 		if now >= entry.EndsAt and not settle(entry, now) then
 			releaseLive(entry)
 			table.remove(live, index)
 		else
-			stepLive(entry, now, deltaTime)
+			-- Spins and other per-frame motion advance on the entry's own clock too.
+			stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
 			index += 1
 		end
 	end
@@ -1457,7 +1726,8 @@ function VfxTimeline.play(id: string, context: Context): boolean
 	if timeline == nil then
 		return false
 	end
-	local now = os.clock()
+	local steady = VfxTimelineConfig.steady(timeline)
+	local now = clockOf(steady)
 	nextPlayId += 1
 	local playId = nextPlayId
 	if context.Shot ~= nil then
@@ -1496,6 +1766,7 @@ function VfxTimeline.play(id: string, context: Context): boolean
 						Warning = phase.Window == true,
 						PlayId = playId,
 						PlayStartedAt = now,
+						Steady = steady,
 						Phase = name :: string,
 						LayerIndex = layerIndex,
 						ChainHead = head,
@@ -1523,7 +1794,8 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 		return false
 	end
 	shots[shot] = nil
-	local now = os.clock()
+	-- Each layer read on its own play's clock: a thrown flight is steady, whatever it burst into is not.
+	local heldNow, steadyNow = VfxClock.now(), VfxClock.steady()
 	local settings = VfxTimelineConfig.Land
 	local cut: { [string]: boolean } = {}
 	for _, item in ipairs(pending) do
@@ -1540,6 +1812,7 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 			table.remove(pending, index)
 		else
 			if item.PlayId == playId and item.Phase == "Residue" then
+				local now = if item.Steady then steadyNow else heldNow
 				local moved = table.clone(item.Context)
 				moved.Origin = point
 				item.Context = moved
@@ -1551,6 +1824,7 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 	for _, entry in ipairs(live) do
 		local primary = entry.Primary
 		local chain = entry.Layer.Chain
+		local now = if entry.Steady then steadyNow else heldNow
 		if entry.PlayId == playId and primary ~= nil then
 			if entry.Layer.Kind == "Carrier" and primary:IsA("BasePart") then
 				entry.Landing = { From = primary.CFrame, To = point, At = now }
@@ -1569,7 +1843,8 @@ function VfxTimeline.land(shot: string, point: Vector3): boolean
 				if primary:IsA("Trail") then
 					-- It stops drawing and its ribbon runs out behind it.
 					primary.Enabled = false
-					entry.EndsAt = now + primary.Lifetime
+					-- Its ribbon's life in effect time: Lifetime itself is stretched while the clock is slowed.
+					entry.EndsAt = now + ribbonOf(entry)
 				elseif primary:IsA("ParticleEmitter") then
 					primary.Enabled = false
 					entry.EndsAt = now + primary.Lifetime.Max
@@ -1592,7 +1867,7 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		return false
 	end
 	nextPlayId += 1
-	local now = os.clock()
+	local now = VfxClock.now()
 	table.insert(pending, {
 		Id = id,
 		Layer = layer,
@@ -1602,6 +1877,7 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 		Warning = false,
 		PlayId = nextPlayId,
 		PlayStartedAt = now,
+		Steady = false,
 		Phase = "Residue",
 		LayerIndex = 0,
 		ChainHead = false,
@@ -1639,7 +1915,7 @@ function VfxTimeline.Init(deps: Deps)
 		host = host,
 		groundAt = groundAt,
 		overWarning = overWarning,
-		wetAndDry = wetAndDry,
+		roleWetDry = roleWetDry,
 		driedBy = driedBy,
 		fadeOf = fadeOf,
 		lerp = lerp,

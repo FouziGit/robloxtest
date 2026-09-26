@@ -1,0 +1,5 @@
+{"title": "Le Balayage (Vert-de-gris + Vert-de-gris) - AVANT", "frames": [
+ {"capture": "sweep_before_depart_game", "moment": "depart", "view": "game", "t": 0.161},
+ {"capture": "sweep_before_depart_side", "moment": "depart", "view": "side", "t": 0.161},
+ {"capture": "sweep_before_impact3_close", "moment": "+0,3", "view": "impact", "t": 0.301}
+]}

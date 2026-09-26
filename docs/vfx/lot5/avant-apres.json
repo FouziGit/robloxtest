@@ -1,0 +1,10 @@
+{"title": "Lot 5 - Dorure, Spirale, Poncif - avant / apres (labo Studio, temps reel)", "frames": [
+ {"capture": "gilding_before_cast_side", "moment": "Dorure : la feuille posee (profil)", "row": "avant", "t": 0.2},
+ {"capture": "gilding_before_hold_side", "moment": "Dorure : 1,5 s d'armure (profil)", "row": "avant", "t": 1.5},
+ {"capture": "spiral_before_tick_side", "moment": "Spirale : 2e tirage (profil)", "row": "avant", "t": 0.65},
+ {"capture": "pounce_before_tick_side", "moment": "Poncif : versee (profil)", "row": "avant", "t": 0.95},
+ {"capture": "gilding_t2_cast_side", "moment": "Dorure : la feuille posee (profil)", "row": "apres", "t": 0.12},
+ {"capture": "gilding_t2_hold_side", "moment": "Dorure : 1,5 s d'armure (profil)", "row": "apres", "t": 1.5},
+ {"capture": "spiral_t2_tick_side", "moment": "Spirale : 2e tirage (profil)", "row": "apres", "t": 0.65},
+ {"capture": "pounce_t1_pour_side", "moment": "Poncif : versee (profil)", "row": "apres", "t": 1.2}
+]}

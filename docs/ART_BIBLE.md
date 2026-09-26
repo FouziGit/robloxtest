@@ -30,8 +30,10 @@ Le seul élément saturé de l'écran est un sort. Un joueur qui voit une couleu
 toujours, sans exception.
 
 Le pouvoir ne « sort » pas d'un personnage : il **se dessine**. Une incantation trace un sceau lumineux
-dans l'air, trait par trait, avant de se replier et de partir. Un impact blanchit l'écran comme une page
-surexposée, puis laisse une brûlure d'encre qui s'efface.
+dans l'air, trait par trait, avant de se replier et de partir. Un impact fait mordre l'encre de toute
+l'image un instant — contraste et saturation, le halo débordant de son cœur —, puis laisse une brûlure
+d'encre qui s'efface. (Il blanchissait l'écran comme une page surexposée ; vu au labo, ce blanchiment
+effaçait l'éclat même qu'il marquait, D-119.)
 
 | | |
 |---|---|
@@ -183,6 +185,11 @@ Elles s'appliquent à chaque ligne de rendu écrite à partir de maintenant.
    anneau, couronne d'éclaboussure, balayage, papier arraché —, jamais un objet ni de l'énergie. Il est
    du pigment, pas de la lumière. Il ne couvre jamais un avertissement, ne dépasse jamais le mal qu'il
    dessine, et ne reste pas haut et sombre plus d'un tiers de seconde.
+10. **Seul le cœur brûle** (D-119). La page reste de l'encre ; un glyphe est la seule chose qui ait le
+   droit de briller, et seulement en son **cœur** : le pigment chauffé vers le blanc — jamais le blanc
+   pur (règle 7) —, petit, au centre d'un éclat, et toujours entouré de son pigment ou de l'encre de la
+   page (un cœur pâle seul sur le vélin est une tache pâle). Tout le reste est pigment saturé ou encre
+   charbon, qui se lisent sur une page claire. Le réglage « Secousses et flashs » éteint ce feu.
 
 ## Ce que cela invalide dans l'existant
 

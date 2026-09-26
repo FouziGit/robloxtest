@@ -1,0 +1,16 @@
+{"title": "La Marque - avant / apres - memes instants, meme labo", "frames": [
+ {"capture": "brand_before_cast_side", "moment": "lancer (profil)", "row": "avant", "t": 0.030},
+ {"capture": "brand_before_depart_side", "moment": "depart (profil)", "row": "avant", "t": 0.060},
+ {"capture": "brand_before_travel_side", "moment": "trajet (profil)", "row": "avant", "t": 0.161},
+ {"capture": "brand_before_impact_game", "moment": "impact (jeu)", "row": "avant", "t": 0.238},
+ {"capture": "brand_before_impact_close", "moment": "impact (gros plan)", "row": "avant", "t": 0.238},
+ {"capture": "brand_before_impact1_close", "moment": "impact +0,1 (gros plan)", "row": "avant", "t": 0.335},
+ {"capture": "brand_before_impact3_close", "moment": "impact +0,3 (gros plan)", "row": "avant", "t": 0.535},
+ {"capture": "brand_r1_cast_side", "moment": "lancer (profil)", "row": "apres", "t": 0.031},
+ {"capture": "brand_r3_depart_side", "moment": "depart (profil)", "row": "apres", "t": 0.080},
+ {"capture": "brand_r3_travel_side", "moment": "trajet (profil)", "row": "apres", "t": 0.180},
+ {"capture": "brand_r3_impact_game", "moment": "impact (jeu)", "row": "apres", "t": 0.291},
+ {"capture": "brand_r3_impact_close", "moment": "impact (gros plan)", "row": "apres", "t": 0.291},
+ {"capture": "brand_r3_impact1_close", "moment": "impact +0,1 (gros plan)", "row": "apres", "t": 0.349},
+ {"capture": "brand_r3_impact3_close", "moment": "impact +0,3 (gros plan)", "row": "apres", "t": 0.555}
+]}

@@ -43,6 +43,17 @@ FeelConfig.HitStop = {
 	PlantOnDealt = true,
 }
 
+-- The freeze frame of the drawn effects (VfxClock, D-118): at an impact the burst, its sparks and its light
+-- stop dead together, then go on. Only what is drawn stops -- inputs, movement and the server never do,
+-- nor anything drawn on the server's own time (a flight, a warning's window: VfxTimeline's steady plays)
+-- -- and overlapping holds never add up past Longest, so a flurry reads as impact, not as a stall. It starts
+-- After the hit, on the burst's widest frames: held on its first frame, a burst is held before it has
+-- drawn anything (D-119).
+FeelConfig.EffectHold = {
+	Longest = 0.12,
+	After = 0.04,
+}
+
 -- Camera shake, per impact profile. Perlin noise (sleitnick/shake), never random jitter: random reads
 -- as a broken camera, noise reads as weight. Rotation influence is deliberately tiny — roll past about
 -- 0.05 rad makes people motion sick on mobile.

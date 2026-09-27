@@ -1,11 +1,13 @@
 --!strict
 -- CurrencyService: the only writer of Currency.Folios. Amounts are positive integers and the balance
--- never goes negative. Mirrors the balance into the leaderstats "Folios" value when it exists.
+-- never goes negative. Mirrors the balance into the leaderstats "Folios" value when it exists. A developer
+-- account spends without paying when DeveloperConfig.UnlimitedFolios is on (D-129).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
@@ -85,6 +87,11 @@ function CurrencyService.trySpend(player: Player, amount: number, reason: string
 	if data == nil then
 		log.warn("spend skipped for %s (%s): profile not loaded", player.Name, reason)
 		return false
+	end
+	-- The purchase goes through and the balance is untouched: nothing is debited, nothing is credited.
+	if DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name) then
+		log.info("%s paid nothing for %s (developer: %d Folios waived)", player.Name, reason, amount)
+		return true
 	end
 	if data.Currency.Folios < amount then
 		return false

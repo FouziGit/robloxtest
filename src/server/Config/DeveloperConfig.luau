@@ -16,6 +16,11 @@ DeveloperConfig.Names = {} :: { string }
 -- Every glyph equipped at once instead of the purchased slot budget.
 DeveloperConfig.UnlimitedSlots = true
 
+-- Folios purchases go through without debiting (D-129): the whole shop can be tested without grinding the
+-- currency. The balance is never written up, so nothing unearned lands in the saved profile, and turning
+-- this off leaves the account exactly as it was. Robux purchases are Roblox's and are not touched.
+DeveloperConfig.UnlimitedFolios = true
+
 -- No ink cost, and cooldowns collapsed to MinRecastSeconds. Deliberately NOT a free-for-all: see
 -- MinRecastSeconds below, and note that LoadoutService and GlyphService only honour this in the hub.
 DeveloperConfig.FreeCasting = true

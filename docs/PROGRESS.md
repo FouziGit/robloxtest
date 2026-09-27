@@ -356,3 +356,9 @@ Après la comparaison avec les meilleurs battlegrounds. Directive du développeu
 - **D-124** : le moteur éclaircit un `Rate` selon sa qualité automatique (80 flammes/s → 5 en temps réel au labo) ; un émetteur `Driven` est émis par le rendu. Opt-in pour le feu ; à généraliser ou non après un essai sur un vrai téléphone.
 - Plus aucune traînée texturée dans les timelines (la dernière, celle de l'esquive, est un ruban nu ; un test l'interdit désormais).
 - Reste : un essai sur téléphone pour D-124 ; la relecture de la PR.
+
+### Retour du développeur : trouver et lire les écrans (D-128)
+
+- Fait : échelle de l'interface jamais sous 1 à la souris et à la manette (texte courant 16), barre Jouer / Boutique / Classement / Menu (M) en bas à droite, menu réordonné, `M` referme l'écran, tableaux du hub remplis et lisibles (bug de nom corrigé) avec titre et état vide, terminal et boutique du hub nommés avec une invite qui ouvre l'écran, bouton Robux grisé tant que le produit n'existe pas.
+- Reste au développeur : tester le 1v1 à deux clients (six pour le 3v3), activer l'accès aux API sur une place publiée pour voir les classements, valider la taille du texte à l'œil.
+

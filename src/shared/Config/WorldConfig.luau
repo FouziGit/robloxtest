@@ -57,6 +57,40 @@ WorldConfig.Hub = {
 	Emblem = "Ink",
 }
 
+-- The names HubService gives what it builds and every other reader finds them by: LeaderboardService
+-- fills the boards, HubSignsController words them in each player's language (D-128). One contract, so a
+-- rename cannot leave a reader looking for what is no longer there -- which is how the boards stayed
+-- blank: the ladder looked for a part named like the board's model. Names from docs/GAME_DESIGN.md §8.
+WorldConfig.HubAnchors = {
+	Folder = "Hub",
+	Spawn = "HubSpawn",
+	Queue = "QueueTerminal",
+	Shop = "ShopKiosk",
+	-- A board is a Model named BoardPrefix .. boardId; its face is the part named Panel, carrying the
+	-- server's SurfaceGui named BoardGui whose Background frame holds the Entries row container.
+	BoardPrefix = "LeaderboardBoard_",
+	Panel = "Panel",
+	BoardGui = "Board",
+	Entries = "Entries",
+}
+
+-- The hub boards' face (D-128), in the pixels of a SurfaceGui drawn at PixelsPerStud: the server's rows and
+-- the client's title and empty state are laid out on the same grid. A board panel is 24 x 14 studs, so
+-- 1152 x 672 pixels: a TitleBand for the title, then Rows lines of RowPixels with a TextPixels line in
+-- each -- 0.8 stud of text, read from across the hub; the fifteen-pixel rows the menu component drew there
+-- were a third of a stud. tests/Hub.spec.luau holds the fit.
+WorldConfig.HubBoard = {
+	PixelsPerStud = 48,
+	PanelStuds = { 24, 14 },
+	TitleBand = 0.14,
+	TitlePixels = 54,
+	PaddingPixels = 12,
+	RowGapPixels = 4,
+	Rows = 10,
+	RowPixels = 50,
+	TextPixels = 38,
+}
+
 -- A glyph that leaves something standing in the world. Its collision is the server's, so its look is too:
 -- the Margin's slab used to be invisible (Transparency 1) and trusted the client's effect to show where it
 -- stood. That effect is a thin brush stroke centred on the floor line -- half of it underground -- and it

@@ -89,17 +89,19 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 ### La boucle complète, à un seul joueur (5 minutes de plus)
 
+Les écrans s'ouvrent par la barre en bas à droite (**Jouer**, **Boutique**, **Classement**, **Menu (M)**), par la touche `M`, ou en s'approchant du terminal de file et de la boutique du hub (touche `E`). `M` referme l'écran ouvert.
+
 6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Folios.
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
 8. `M` → **Équipement** : retirer un glyphe, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
-9. `M` → **Boutique** : quatre articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». L'achat en Robux ne fonctionne qu'une fois les IDs de §4 saisis et la place publiée.
+9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée.
 10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
 
 ### Le classé, à deux joueurs (Studio le fait tout seul)
 
 11. **Test → Clients and Servers → 2 players → Start**. Deux fenêtres client s'ouvrent.
 12. Dans les deux : `M` → **Jouer** → **1v1 classé**. La file les apparie en quelques secondes, l'arène se construit, compte à rebours de 5 s.
-13. Se battre. Le premier à deux manches gagne. L'écran de résultat montre le score, l'XP, le Folios et le mouvement de classement ; le rang apparaît sur les tableaux du hub au prochain rafraîchissement (60 s).
+13. Se battre. Le premier à deux manches gagne. L'écran de résultat montre le score, l'XP, le Folios et le mouvement de classement ; le rang apparaît sur les tableaux du hub au prochain rafraîchissement (60 s), **si l'accès aux API est activé** (Game Settings → Security → *Enable Studio Access to API Services*, place publiée) : sans lui, les tableaux affichent « Aucun joueur classé pour l'instant ». Seul, un 1v1 ne démarre jamais : il faut deux clients (six pour le 3v3).
 14. **Tester l'abandon** : pendant un match, fermer une fenêtre client. Le survivant remporte la série, et le partant est débité comme s'il avait perdu (visible dans l'Output : `[RankingService] … abandoned …`).
 
 ### Le World Boss, sans attendre vingt minutes

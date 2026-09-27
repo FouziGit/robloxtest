@@ -92,6 +92,31 @@ function ThemeConfig.contrast(a: Rgb, b: Rgb): number
 	return (high + 0.05) / (low + 0.05)
 end
 
+-- The interface's scale (D-128). Every size in src/ui/Theme.luau is designed at ReferenceHeight; a taller
+-- viewport grows the whole interface with it, a shorter one never shrinks it under the floor of its
+-- input. Found in Studio: a window 700 points tall scaled everything to 0.62, body text to nine points,
+-- and the developer could not read a menu or find a screen. Viewport sizes are in points, as the engine
+-- reports them.
+--   PointerFloor  mouse and gamepad: never smaller than designed
+--   TouchFloor    a touch-only device: a phone is small in points but held close, and the HUD and the
+--                 panels are laid out to fit a landscape phone at this scale (HudController's
+--                 TOP_STACK_MAX_HEIGHT is measured at it)
+--   Max           a 4K monitor's 2160 points doubles the interface; beyond that it stops growing
+ThemeConfig.Scale = {
+	ReferenceHeight = 1080,
+	PointerFloor = 1,
+	TouchFloor = 0.68,
+	Max = 2,
+}
+
+-- The UIScale every ScreenRoot applies, for a viewport `height` points tall. Never shrinks as the
+-- viewport grows (tests/Typography.spec.luau).
+function ThemeConfig.scaleFor(height: number, touchOnly: boolean): number
+	local scale = ThemeConfig.Scale
+	local floor = if touchOnly then scale.TouchFloor else scale.PointerFloor
+	return math.clamp(height / scale.ReferenceHeight, floor, scale.Max)
+end
+
 -- The ink that reads on `background`: charcoal on a light pigment (Orpiment, Verdigris), vellum on a
 -- dark one (Indigo, Umber). Decided by contrast, not by a luminance threshold someone guessed.
 function ThemeConfig.inkOn(background: Rgb): Rgb

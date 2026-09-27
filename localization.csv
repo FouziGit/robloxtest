@@ -150,6 +150,9 @@ grade.clean,a clean hand,Vellum,,a clean hand,une main nette
 grade.shaky,a shaking hand,Vellum,,a shaking hand,une main tremblante
 grade.steady,a steady hand,Vellum,,a steady hand,une main sûre
 grade.unsure,an unsure hand,Vellum,,an unsure hand,une main incertaine
+hub.board.title,Leaderboard · {board},Vellum,,Leaderboard · {board},Classement · {board}
+hub.prompt.open,Open,Vellum,,Open,Ouvrir
+hub.queue.name,Ranked matches,Vellum,,Ranked matches,Matchs classés
 hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.chain,"{name}! ×{count} chain, +{ink} ink",Vellum,,"{name}! ×{count} chain, +{ink} ink","{name} ! Enchaînement ×{count}, +{ink} encre"
 hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
@@ -161,9 +164,10 @@ hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated�
 hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
 hud.currency,{amount} {currency},Vellum,,{amount} {currency},{amount} {currency}
 hud.health,Health,Vellum,,Health,Vie
-hud.hint.gamepad,{menu} = Menu,Vellum,,{menu} = Menu,{menu} = Menu
-hud.hint.keyboard,{menu} = Menu,Vellum,,{menu} = Menu,{menu} = Menu
+hud.hint.gamepad,Menu ({menu}),Vellum,,Menu ({menu}),Menu ({menu})
+hud.hint.keyboard,Menu ({menu}),Vellum,,Menu ({menu}),Menu ({menu})
 hud.ink,Ink,Vellum,,Ink,Encre
+hud.key.select,Select,Vellum,,Select,Sélection
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
 hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP

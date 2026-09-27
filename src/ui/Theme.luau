@@ -3,6 +3,8 @@
 -- palette and the typography from ThemeConfig, which is pure data a test holds to docs/ART_BIBLE.md and
 -- to a contrast ratio. Nothing in src/ui names a colour or a font that is not here.
 
+local UserInputService = game:GetService("UserInputService")
+
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 
@@ -52,8 +54,8 @@ Theme.Fonts = {
 
 -- Base sizes at UIScale 1 (1080p). Screens apply Theme.scaleFor(viewport).
 Theme.Sizes = {
-	TextSmall = 13,
-	TextBody = 15,
+	TextSmall = 14,
+	TextBody = 16,
 	TextLarge = 18,
 	TextTitle = 22,
 	TextHero = 30,
@@ -85,10 +87,8 @@ Theme.Layers = {
 	Toast = 50,
 }
 
--- Reference resolution used to compute UIScale. Phones typically land around 0.7-0.85.
-Theme.ReferenceHeight = 1080
-Theme.MinScale = 0.62
-Theme.MaxScale = 1.15
+-- Reference resolution the sizes above are designed at (ThemeConfig.Scale, D-128).
+Theme.ReferenceHeight = ThemeConfig.Scale.ReferenceHeight
 -- Shortest side a touch target may render at, in real screen pixels (Roblox, iOS and Android all ask
 -- for 44). The UIScale below 1 on a phone must never eat into it.
 Theme.MinTouchTarget = 44
@@ -96,13 +96,14 @@ Theme.MinTouchTarget = 44
 -- Viewport assumed before a camera exists: 16:9 at the reference height, which scales by exactly 1.
 local FALLBACK_VIEWPORT = Vector2.new(Theme.ReferenceHeight * 16 / 9, Theme.ReferenceHeight)
 
+-- A device with a touch screen and no keyboard: a phone or a tablet held in the hand. A touch laptop or a
+-- tablet with a keyboard is used like a desktop and gets the pointer floor.
+local function touchOnly(): boolean
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
 function Theme.scaleFor(viewportSize: Vector2): number
-	local scale = viewportSize.Y / Theme.ReferenceHeight
-	-- Wide/short viewports (phones in landscape) get a boost so text stays legible.
-	if viewportSize.Y < 500 then
-		scale = math.max(scale, 0.68)
-	end
-	return math.clamp(scale, Theme.MinScale, Theme.MaxScale)
+	return ThemeConfig.scaleFor(viewportSize.Y, touchOnly())
 end
 
 -- The scale every ScreenRoot is currently applying. Components read it from here so the sizing rules

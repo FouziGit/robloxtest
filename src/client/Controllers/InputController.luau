@@ -3,7 +3,8 @@
 -- gamepad and touch, from the player's saved keybinds. Emits `Action(actionId, began)`; ComboController,
 -- CombatController and MenuController consume it. `captureNext` suspends the actions and resolves the
 -- next raw key of the requested kind for the rebind screen (Escape and the Roblox menu cancel it);
--- `setSuspended` unbinds everything (touch buttons disappear with the bindings) while a menu is open.
+-- `setSuspended` unbinds everything (touch buttons disappear with the bindings) while a menu is open, but
+-- the Menu key, which closes it.
 -- Touch buttons are laid out in absolute screen space from `InputConfig.Touch`, clear of the engine
 -- jump button and of each other (see `touchLayout`).
 
@@ -546,11 +547,63 @@ local function unbindAll()
 	table.clear(boundActions)
 end
 
+-- While a screen is open every action is unbound, and the Menu key went with them: the key that opened
+-- the menu could not close it (D-128). This one binding stays while a screen is open, and goes during a
+-- rebind capture so that the capture receives the key. No screen has a text box for it to steal from.
+local MENU_CLOSE_ACTION = "MenuClose"
+local menuCloseBound = false
+
+-- Both edges are deferred past the press being dispatched: closing re-binds the Menu action to the same
+-- key, and opening binds this one, so neither may be handed the press that caused it -- the menu would
+-- close as it opened, or open again as it closed.
+local function onMenuClose(_actionName: string, state: Enum.UserInputState): Enum.ContextActionResult?
+	if state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+	task.defer(menuController.close)
+	return Enum.ContextActionResult.Sink
+end
+
+local function bindMenuClose()
+	if menuCloseBound then
+		return
+	end
+	local inputs = bindInputs(MENU_ACTION, keybinds("Keyboard"), keybinds("Gamepad"))
+	if #inputs == 0 then
+		return
+	end
+	menuCloseBound = true
+	ContextActionService:BindActionAtPriority(
+		MENU_CLOSE_ACTION,
+		onMenuClose,
+		false,
+		ACTION_PRIORITY,
+		table.unpack(inputs)
+	)
+end
+
+local function unbindMenuClose()
+	if not menuCloseBound then
+		return
+	end
+	menuCloseBound = false
+	ContextActionService:UnbindAction(MENU_CLOSE_ACTION)
+end
+
 local function applyBindings()
 	if suspended or capture ~= nil then
 		unbindAll()
 	else
 		bindAll()
+	end
+	if suspended and capture == nil then
+		task.defer(function()
+			if suspended and capture == nil then
+				bindMenuClose()
+			end
+		end)
+	else
+		unbindMenuClose()
 	end
 end
 

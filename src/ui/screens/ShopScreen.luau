@@ -17,6 +17,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
+local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local ShopConfig = require(Shared.Config.ShopConfig)
@@ -58,6 +59,12 @@ local RARITY_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
 local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
 local RARITY_KEY_PREFIX = "shop.rarity."
+
+-- Whether a Robux product can be bought: it is configured, and it exists on Roblox (a non-zero id).
+local function robuxOffered(productKey: string): boolean
+	local product = MonetizationConfig.Products[productKey]
+	return product ~= nil and product.Id ~= 0
+end
 
 -- Rotation candidates: the pure selector only needs the id, rarity and sellable flag of each item.
 local CANDIDATES: { ShopRotation.Item } = {}
@@ -382,8 +389,9 @@ function ShopScreen.new(deps: Deps): Screen
 		card.Buy:SetDisabled(false)
 		card.Action:SetText(t("shop.buyRobux"))
 		card.Action:SetVariant("Secondary")
-		-- No product configured for that rarity: the Robux path is simply not offered.
-		card.Action:SetDisabled(entry.ProductKey == "")
+		-- The Robux path is offered only for a product that exists on Roblox (D-128): an id of 0 is one nobody
+		-- has created yet, and buying it can only fail -- which, in Studio, is every one of them.
+		card.Action:SetDisabled(not robuxOffered(entry.ProductKey))
 	end
 
 	local function signatureOf(current: Types.ShopSnapshot): string

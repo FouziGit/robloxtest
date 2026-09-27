@@ -1,8 +1,8 @@
 --!strict
 -- HudController: the always-on overlay. Level / XP bar and Folios counter (top-left), health and ink
 -- bars (bottom-left on mouse/gamepad, bottom-center above the combo row on touch so they never cover
--- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the menu hint of
--- the device in use. Every visible text goes through Localize; server Notify payloads carry Strings
+-- the engine thumbstick), combo chips (bottom-center), server and local toasts, and the quick bar
+-- (bottom-right): Play, Shop and Leaderboard one click away, and the Menu button naming its key. Every visible text goes through Localize; server Notify payloads carry Strings
 -- keys, never text.
 --
 -- While MatchController holds a match snapshot, a compact band is shown at the top-center: round, phase
@@ -15,6 +15,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local Button = require(UI.components.Button)
 local GameConfig = require(Shared.Config.GameConfig)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
@@ -41,6 +42,7 @@ type Deps = {
 	ComboController: any,
 	CombatController: any,
 	MatchController: any,
+	MenuController: any,
 	VfxController: any,
 }
 
@@ -73,11 +75,25 @@ local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.G
 -- 375-unit viewport leaves 498.5 padded units at scale 0.68, and the bars start BARS_TOUCH_BOTTOM_MARGIN
 -- above the bottom, so this is what is left above them with a gap to spare.
 local TOP_STACK_MAX_HEIGHT = 240
-local HINT_WIDTH = 220
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local GAMEPAD_PREFIX = "Gamepad"
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
-local HINT_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
+-- The quick bar (D-128). The screens a player comes to the hub for were reachable only through the M key,
+-- which a small muted "M = Menu" in a corner was the only sign of: a developer testing the game could not
+-- find the queue, the shop or the leaderboard. Each is one click away now, and the Menu button names its
+-- key. Bottom-right, the one corner nothing else draws in: the top-right is the engine's player list, a
+-- CoreGui drawn over every ScreenGui that takes the clicks on its rows, and the top centre is the toasts'
+-- and the match and boss bands'. Hidden on a touch-only device, which has its Menu disc, and the three
+-- shortcuts are hidden in a match, where queueing and shopping mean nothing. A pointer affordance: its
+-- buttons are not gamepad-selectable -- the engine's navigation would carry a selection out of an open
+-- panel into them, under its overlay, and leave it there when the panel closed; Select is the gamepad's
+-- way to the menu.
+local QUICK_SCREENS: { { Screen: string, NameKey: string, Variant: Button.Variant } } = {
+	{ Screen = "Play", NameKey = "queue.title", Variant = "Primary" },
+	{ Screen = "Shop", NameKey = "menu.shop", Variant = "Secondary" },
+	{ Screen = "Leaderboard", NameKey = "leaderboard.title", Variant = "Secondary" },
+}
+local MENU_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
 -- Match band (top-center, hidden outside a match).
 local BAND_WIDTH = 360
 -- Order inside the top-centre column (see buildTopStack). The boss band takes BOSS_BAND_ORDER, which
@@ -120,7 +136,9 @@ local streakGeneration = 0
 local chips: { Frame } = {}
 local chipPigments: { string } = {}
 local ghosts: { Frame } = {}
-local hintLabel: TextLabel
+local quickBar: Frame
+local quickButtons: { Button.Button } = {}
+local menuButton: Button.Button
 local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
 local topStack: Frame
@@ -133,6 +151,8 @@ local rosterColumns: { Frame } = {}
 local rosterLabels: { { TextLabel } } = {}
 local notifyWarned = false
 local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
+local menuController: any
+local inMatch = false
 
 local function makeColumn(name: string, anchor: Vector2, position: UDim2, parent: Instance): Frame
 	local column = Instance.new("Frame")
@@ -267,6 +287,57 @@ local function buildMatchBand(parent: Instance)
 	matchBand.Parent = parent
 end
 
+-- A button as wide as its label: the bar reads right to left from the corner, whatever the language.
+local function quickButton(nameKey: string, variant: Button.Variant, order: number, onClick: () -> ()): Button.Button
+	local button = Button.new({
+		Name = nameKey,
+		Text = "",
+		Variant = variant,
+		Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
+		LayoutOrder = order,
+		Parent = quickBar,
+		OnClick = function()
+			soundController.play("UiClick")
+			onClick()
+		end,
+	})
+	button.Instance.AutomaticSize = Enum.AutomaticSize.X
+	button.Instance.Selectable = false
+	return button
+end
+
+local function buildQuickBar(parent: Instance)
+	local pad = Theme.Sizes.Padding
+	quickBar = Instance.new("Frame")
+	quickBar.Name = "QuickBar"
+	quickBar.BackgroundTransparency = 1
+	quickBar.AnchorPoint = Vector2.new(1, 1)
+	quickBar.Position = UDim2.new(1, -pad, 1, -pad)
+	quickBar.Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight)
+	quickBar.AutomaticSize = Enum.AutomaticSize.XY
+	quickBar.Visible = false -- refreshQuickBar shows it for the device in use
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	layout.Parent = quickBar
+	quickBar.Parent = parent
+
+	for index, entry in ipairs(QUICK_SCREENS) do
+		table.insert(
+			quickButtons,
+			quickButton(entry.NameKey, entry.Variant, index, function()
+				menuController.open(entry.Screen)
+			end)
+		)
+	end
+	menuButton = quickButton("Menu", "Secondary", #QUICK_SCREENS + 1, function()
+		menuController.toggle()
+	end)
+end
+
 local function build()
 	root = ScreenRoot.new({ Name = "Hud", DisplayOrder = DISPLAY_ORDER })
 	local content = root.Content
@@ -325,22 +396,7 @@ local function build()
 	streakScale.Parent = streakLabel
 	streakLabel.Parent = comboRow
 
-	hintLabel = Instance.new("TextLabel")
-	hintLabel.Name = "Hint"
-	hintLabel.BackgroundTransparency = 1
-	hintLabel.AnchorPoint = Vector2.new(1, 0)
-	hintLabel.Position = UDim2.new(1, -pad, 0, pad)
-	hintLabel.Size = UDim2.fromOffset(HINT_WIDTH, ROW_HEIGHT)
-	hintLabel.FontFace = Theme.Fonts.Body
-	hintLabel.TextSize = Theme.Sizes.TextSmall
-	hintLabel.TextColor3 = Theme.Colors.TextMuted
-	hintLabel.TextStrokeColor3 = Theme.Colors.TextInverse
-	hintLabel.TextStrokeTransparency = 0.6
-	hintLabel.TextXAlignment = Enum.TextXAlignment.Right
-	hintLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	hintLabel.Text = ""
-	hintLabel.Visible = false -- refreshHint shows it for the device in use
-	hintLabel.Parent = content
+	buildQuickBar(content)
 
 	buildTopStack(content)
 	buildMatchBand(topStack)
@@ -517,19 +573,30 @@ local function sourceFor(inputType: Enum.UserInputType): string
 	return "Keyboard"
 end
 
-local function refreshHint(data: Types.ProfileData)
+-- The Menu button names the key that opens the menu. On a gamepad that is an Enum.KeyCode name, which
+-- reads as code ("ButtonSelect"), so the button's own name is shown instead.
+local function menuKeyText(source: string, data: Types.ProfileData): string
+	if source == "Gamepad" then
+		return localize.t("hud.key.select")
+	end
+	local saved = data.Settings.Keyboard
+	return saved[MENU_ACTION] or InputConfig.DefaultKeyboard[MENU_ACTION]
+end
+
+local function refreshQuickBar(data: Types.ProfileData)
 	local source = sourceFor(UserInputService:GetLastInputType())
 	hintSource = source
 	if source == "Touch" then
-		hintLabel.Visible = false
+		quickBar.Visible = false
 		return
 	end
-	local gamepad = source == "Gamepad"
-	local saved = if gamepad then data.Settings.Gamepad else data.Settings.Keyboard
-	local defaults = if gamepad then InputConfig.DefaultGamepad else InputConfig.DefaultKeyboard
-	local key = saved[MENU_ACTION] or defaults[MENU_ACTION]
-	hintLabel.Text = localize.t(HINT_KEYS[source], { menu = key })
-	hintLabel.Visible = true
+	for index, entry in ipairs(QUICK_SCREENS) do
+		local button = quickButtons[index]
+		button:SetText(localize.t(entry.NameKey))
+		button.Instance.Visible = not inMatch
+	end
+	menuButton:SetText(localize.t(MENU_KEYS[source], { menu = menuKeyText(source, data) }))
+	quickBar.Visible = true
 end
 
 local function refreshBar(bar: ProgressBar.ProgressBar, nameKey: string, current: number, max: number)
@@ -628,6 +695,13 @@ local function refreshRoster(snapshot: Types.MatchSnapshot)
 end
 
 local function refreshMatch(snapshot: Types.MatchSnapshot?)
+	local active = snapshot ~= nil
+	if active ~= inMatch then
+		inMatch = active
+		for _, button in ipairs(quickButtons) do
+			button.Instance.Visible = not active
+		end
+	end
 	if snapshot == nil then
 		matchBand.Visible = false
 		return
@@ -678,7 +752,7 @@ local function refreshProfile(section: string)
 		refreshCurrency(data)
 	end
 	if section == "*" or section == "Settings" then
-		refreshHint(data)
+		refreshQuickBar(data)
 	end
 end
 
@@ -724,6 +798,7 @@ function HudController.Init(deps: Deps)
 	vfxController = deps.VfxController
 	combatController = deps.CombatController
 	matchController = deps.MatchController
+	menuController = deps.MenuController
 	build()
 end
 

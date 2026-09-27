@@ -101,7 +101,8 @@ function MenuScreen.new(deps: Deps): Screen
 	local folioRow = ListRow.new({ Left = t("currency.folio"), Right = "", LayoutOrder = 2, Parent = panel.Content })
 	own(trove, folioRow)
 
-	-- Navigation
+	-- Navigation. What a player comes to the hub for first -- a match, the shop, the ladder -- then the rest
+	-- (D-128): the Shop was tenth, below the fold of a panel that shows about seven rows.
 	local function navigate(id: string)
 		deps.SoundController.play("UiClick")
 		deps.OnNavigate(id)
@@ -121,7 +122,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local leaderboardButton = Button.new({
 		Text = t("leaderboard.title"),
 		Variant = "Secondary",
-		LayoutOrder = 4,
+		LayoutOrder = 5,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Leaderboard")
@@ -132,7 +133,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local settingsButton = Button.new({
 		Text = t("menu.settings"),
 		Variant = "Secondary",
-		LayoutOrder = 5,
+		LayoutOrder = 7,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Settings")
@@ -143,7 +144,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local battlepassButton = Button.new({
 		Text = t("menu.battlepass"),
 		Variant = "Secondary",
-		LayoutOrder = 6,
+		LayoutOrder = 8,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Battlepass")
@@ -154,7 +155,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local questsButton = Button.new({
 		Text = t("menu.quests"),
 		Variant = "Secondary",
-		LayoutOrder = 7,
+		LayoutOrder = 9,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Quests")
@@ -165,7 +166,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local dailyButton = Button.new({
 		Text = t("daily.title"),
 		Variant = "Secondary",
-		LayoutOrder = 8,
+		LayoutOrder = 10,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Daily")
@@ -176,7 +177,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local loadoutButton = Button.new({
 		Text = t("menu.loadout"),
 		Variant = "Secondary",
-		LayoutOrder = 9,
+		LayoutOrder = 6,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Loadout")
@@ -187,7 +188,7 @@ function MenuScreen.new(deps: Deps): Screen
 	local shopButton = Button.new({
 		Text = t("menu.shop"),
 		Variant = "Secondary",
-		LayoutOrder = 10,
+		LayoutOrder = 4,
 		Parent = panel.Content,
 		OnClick = function()
 			navigate("Shop")
@@ -254,7 +255,7 @@ function MenuScreen.new(deps: Deps): Screen
 		self.Visible = true
 		refresh()
 		root.Instance.Enabled = true
-		panel:FocusForGamepad(settingsButton.Instance)
+		panel:FocusForGamepad(playButton.Instance)
 		deps.SoundController.play("UiOpen")
 	end
 

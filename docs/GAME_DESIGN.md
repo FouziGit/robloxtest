@@ -169,7 +169,7 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 
-- **Hub** : plateforme 200×200 en vélin bordée d'encre, spawn au centre (un sceau de craie sur un rebord d'encre), anneau d'épreuves (rayon 22), terminal de file (panneau interactif), tableaux de classement (SurfaceGui), boutique (panneau). Couleurs et matériau : `WorldConfig` (D-86). Le remplacement par des assets doit conserver les noms `HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>`, `ShopKiosk`.
+- **Hub** : plateforme 200×200 en vélin bordée d'encre, spawn au centre (un sceau de craie sur un rebord d'encre), anneau d'épreuves (rayon 22), terminal de file et boutique (un emblème d'encre ; chaque client y écrit le nom dans sa langue et y place une invite qui ouvre l'écran Jouer ou Boutique), tableaux de classement (SurfaceGui : les lignes par le serveur, le titre et l'état vide par chaque client), D-128. Couleurs et matériau : `WorldConfig` (D-86). Le remplacement par des assets doit conserver les noms de `WorldConfig.HubAnchors` : `HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>` (son `Panel`), `ShopKiosk`.
 - **Arène 1v1** : plateforme 80×80 en vélin, murs os à filet d'encre et kill zone sous le sol, `Spawn_Team1` / `Spawn_Team2` à 30 studs l'un de l'autre.
 - **Arène 3v3** : 120×120, trois spawns par équipe espacés de 8 studs, deux murs bas centraux pour casser les lignes.
 - **Arène Boss** : 160×160, spawns joueurs sur le périmètre, `BossSpawn` au centre. L'Effacement y est une figure blanche à bande d'encre dont la hauteur dit la phase (D-87).

@@ -58,6 +58,8 @@ local ORDER = {
 	"SpectateController",
 	"BossController",
 	"MenuController",
+	-- Words the hub and opens its screens from the pedestals' prompts: after MenuController.
+	"HubSignsController",
 	"InputController",
 	"ComboController",
 	-- Listens to the combo and draws in the HUD: after both.

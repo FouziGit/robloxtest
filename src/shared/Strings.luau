@@ -53,8 +53,10 @@ Strings.Table = {
 	["hud.tierUp"] = { en = "Battle pass tier {tier} unlocked!", fr = "Palier {tier} du pass débloqué !" },
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
-	["hud.hint.keyboard"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
-	["hud.hint.gamepad"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
+	["hud.hint.keyboard"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
+	["hud.hint.gamepad"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
+	-- The gamepad button that opens the menu (Enum.KeyCode.ButtonSelect), by the name players know it by.
+	["hud.key.select"] = { en = "Select", fr = "Sélection" },
 	["hud.ink"] = { en = "Ink", fr = "Encre" },
 	["hud.health"] = { en = "Health", fr = "Vie" },
 	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
@@ -469,6 +471,10 @@ Strings.Table = {
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },
 	["leaderboard.board.Team3v3"] = { en = "3v3", fr = "3v3" },
 	["leaderboard.empty"] = { en = "No ranked player yet.", fr = "Aucun joueur classé pour l'instant." },
+	-- The hub, worded by each client (HubSignsController, D-128).
+	["hub.board.title"] = { en = "Leaderboard · {board}", fr = "Classement · {board}" },
+	["hub.queue.name"] = { en = "Ranked matches", fr = "Matchs classés" },
+	["hub.prompt.open"] = { en = "Open", fr = "Ouvrir" },
 	["leaderboard.row"] = { en = "#{rank}  {name}", fr = "#{rank}  {name}" },
 	["leaderboard.rating"] = { en = "{rating}", fr = "{rating}" },
 	["leaderboard.you"] = { en = "You: #{rank} ({rating})", fr = "Toi : #{rank} ({rating})" },

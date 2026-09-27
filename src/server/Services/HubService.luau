@@ -6,12 +6,15 @@
 --
 -- Signage rule: a SurfaceGui parented to a server-built part is byte-identical for every viewer, so
 -- it cannot be localized. Every sign this service builds therefore carries a neutral emblem and no
--- text: the localized queue and shop UI belong to the client (MatchScreen / ShopScreen). The
--- leaderboard boards are the one legitimate exception — player names and ratings are not
--- localizable text — so they expose an empty row container that LeaderboardService fills.
+-- text: the words -- the boards' titles and empty state, the terminal's and the kiosk's names and their
+-- prompts to the Play and Shop screens -- are added by each client in its own language
+-- (HubSignsController, D-128). The leaderboard boards are the one legitimate exception -- player names
+-- and ratings are not localizable text -- so they expose an empty row container that LeaderboardService
+-- fills, under a title band the client writes in.
 --
--- Anchor names come from docs/GAME_DESIGN.md §8 and must survive any replacement by real assets:
--- HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>, ShopKiosk.
+-- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
+-- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
+-- ShopKiosk.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -37,7 +40,8 @@ type Deps = { Combat: CombatApi }
 type BoardLayout = { BoardId: string, PanelCFrame: CFrame }
 type Layout = { Boards: { BoardLayout }, QueueCFrame: CFrame, ShopCFrame: CFrame }
 
-local HUB_FOLDER_NAME = "Hub"
+local ANCHORS = WorldConfig.HubAnchors
+local BOARD = WorldConfig.HubBoard
 -- docs/GAME_DESIGN.md §8: 200×200 platform, spawn at the centre.
 local PLATFORM_SIZE_STUDS = 200
 local PLATFORM_THICKNESS_STUDS = 4
@@ -70,15 +74,11 @@ local TRAINING_MARKER_TRANSPARENCY = 0.4
 -- Props stand clear of the dummy ring; boards sit a little further out so their panels never touch.
 local PROP_RING_RADIUS_STUDS = TRAINING_RADIUS_STUDS + 16
 local BOARD_RING_RADIUS_STUDS = TRAINING_RADIUS_STUDS + 24
-local BOARD_PANEL_SIZE_STUDS = Vector3.new(24, 14, 1)
+local BOARD_PANEL_SIZE_STUDS = Vector3.new(BOARD.PanelStuds[1], BOARD.PanelStuds[2], 1)
 local BOARD_PANEL_GAP_STUDS = 6
 local BOARD_LEG_HEIGHT_STUDS = 6
 local BOARD_LEG_THICKNESS_STUDS = 1
 local BOARD_LEG_INSET_STUDS = 2
-local BOARD_PIXELS_PER_STUD = 48
-local BOARD_ACCENT_HEIGHT_SCALE = 0.07
-local BOARD_PADDING_PIXELS = 12
-local BOARD_ROW_GAP_PIXELS = 4
 local PEDESTAL_BASE_SIZE_STUDS = Vector3.new(7, 1, 7)
 local PEDESTAL_COLUMN_SIZE_STUDS = Vector3.new(2.5, 4, 2.5)
 local PEDESTAL_PANEL_SIZE_STUDS = Vector3.new(6, 4, 0.5)
@@ -234,7 +234,7 @@ local function buildSpawn(parent: Folder): SpawnLocation
 	flatDisc("HubSpawnSeal", SPAWN_SIZE_STUDS.X, SEAL_TOP_STUDS, Palette.world(HUB.Spawn)).Parent = parent
 
 	local spawnPart = Instance.new("SpawnLocation")
-	spawnPart.Name = "HubSpawn"
+	spawnPart.Name = ANCHORS.Spawn
 	spawnPart.Size = SPAWN_SIZE_STUDS
 	spawnPart.CFrame = CFrame.new(0, -SPAWN_SIZE_STUDS.Y / 2, 0)
 	spawnPart.Anchored = true
@@ -337,7 +337,7 @@ local function buildPedestal(parent: Folder, name: string, baseCFrame: CFrame, a
 	local panelCFrame = baseCFrame
 		* CFrame.new(0, panelY, 0)
 		* CFrame.Angles(math.rad(PEDESTAL_PANEL_TILT_DEGREES), 0, 0)
-	local panel = newPart("Panel", PEDESTAL_PANEL_SIZE_STUDS, panelCFrame, Palette.world(HUB.Pedestal))
+	local panel = newPart(ANCHORS.Panel, PEDESTAL_PANEL_SIZE_STUDS, panelCFrame, Palette.world(HUB.Pedestal))
 	panel.Parent = model
 
 	buildEmblem(panel, accent, bars)
@@ -348,10 +348,10 @@ end
 -- Empty row container: LeaderboardService adds one row per entry (LayoutOrder = rank).
 local function buildBoardGui(panel: BasePart): Frame
 	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Board"
+	gui.Name = ANCHORS.BoardGui
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = BOARD_PIXELS_PER_STUD
+	gui.PixelsPerStud = BOARD.PixelsPerStud
 	gui.LightInfluence = 0
 
 	local background = Instance.new("Frame")
@@ -364,29 +364,29 @@ local function buildBoardGui(panel: BasePart): Frame
 
 	local accent = Instance.new("Frame")
 	accent.Name = "Accent"
-	accent.Size = UDim2.fromScale(1, BOARD_ACCENT_HEIGHT_SCALE)
+	accent.Size = UDim2.fromScale(1, BOARD.TitleBand)
 	accent.BackgroundColor3 = Theme.Colors.Accent
 	accent.BorderSizePixel = 0
 	accent.Parent = background
 
 	local entries = Instance.new("Frame")
-	entries.Name = "Entries"
-	entries.Position = UDim2.fromScale(0, BOARD_ACCENT_HEIGHT_SCALE)
-	entries.Size = UDim2.fromScale(1, 1 - BOARD_ACCENT_HEIGHT_SCALE)
+	entries.Name = ANCHORS.Entries
+	entries.Position = UDim2.fromScale(0, BOARD.TitleBand)
+	entries.Size = UDim2.fromScale(1, 1 - BOARD.TitleBand)
 	entries.BackgroundTransparency = 1
 	entries.Parent = background
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, BOARD_PADDING_PIXELS)
-	padding.PaddingBottom = UDim.new(0, BOARD_PADDING_PIXELS)
-	padding.PaddingLeft = UDim.new(0, BOARD_PADDING_PIXELS)
-	padding.PaddingRight = UDim.new(0, BOARD_PADDING_PIXELS)
+	padding.PaddingTop = UDim.new(0, BOARD.PaddingPixels)
+	padding.PaddingBottom = UDim.new(0, BOARD.PaddingPixels)
+	padding.PaddingLeft = UDim.new(0, BOARD.PaddingPixels)
+	padding.PaddingRight = UDim.new(0, BOARD.PaddingPixels)
 	padding.Parent = entries
 
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Vertical
 	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Padding = UDim.new(0, BOARD_ROW_GAP_PIXELS)
+	list.Padding = UDim.new(0, BOARD.RowGapPixels)
 	list.Parent = entries
 
 	gui.Parent = panel
@@ -395,9 +395,9 @@ end
 
 local function buildBoard(parent: Folder, board: BoardLayout)
 	local model = Instance.new("Model")
-	model.Name = "LeaderboardBoard_" .. board.BoardId
+	model.Name = ANCHORS.BoardPrefix .. board.BoardId
 
-	local panel = newPart("Panel", BOARD_PANEL_SIZE_STUDS, board.PanelCFrame, Palette.world(HUB.Board))
+	local panel = newPart(ANCHORS.Panel, BOARD_PANEL_SIZE_STUDS, board.PanelCFrame, Palette.world(HUB.Board))
 	panel.Parent = model
 
 	local legOffsetX = BOARD_PANEL_SIZE_STUDS.X / 2 - BOARD_LEG_INSET_STUDS
@@ -436,14 +436,14 @@ function HubService.Init(deps: Deps)
 end
 
 function HubService.Start()
-	local previous = Workspace:FindFirstChild(HUB_FOLDER_NAME)
+	local previous = Workspace:FindFirstChild(ANCHORS.Folder)
 	if previous ~= nil then
 		previous:Destroy()
 	end
 	table.clear(boardEntries)
 
 	local folder = Instance.new("Folder")
-	folder.Name = HUB_FOLDER_NAME
+	folder.Name = ANCHORS.Folder
 
 	buildPlatform(folder)
 	buildRuling(folder)
@@ -452,8 +452,8 @@ function HubService.Start()
 	-- Both emblems are ink and differ only by their bars: a saturated emblem standing in the hub for the
 	-- whole session is rule 1 of docs/ART_BIBLE.md broken by the longest-lived thing on screen.
 	local emblem = Palette.world(HUB.Emblem)
-	buildPedestal(folder, "QueueTerminal", layout.QueueCFrame, emblem, QUEUE_EMBLEM_BARS)
-	buildPedestal(folder, "ShopKiosk", layout.ShopCFrame, emblem, SHOP_EMBLEM_BARS)
+	buildPedestal(folder, ANCHORS.Queue, layout.QueueCFrame, emblem, QUEUE_EMBLEM_BARS)
+	buildPedestal(folder, ANCHORS.Shop, layout.ShopCFrame, emblem, SHOP_EMBLEM_BARS)
 	for _, board in ipairs(layout.Boards) do
 		buildBoard(folder, board)
 	end

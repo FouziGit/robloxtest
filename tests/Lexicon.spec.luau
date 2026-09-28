@@ -47,7 +47,7 @@ local BORROWED: { [string]: string } = {
 	-- page is the coin.
 	ryo = "folio",
 	-- The eight glyphs of the second roster were each asked for as a technique of some existing licence, and
-	-- their working names were those techniques, translated (D-137). The names below are the originals and
+	-- their working names were those techniques, translated (D-145). The names below are the originals and
 	-- the translations that were proposed, so neither comes back through a tooltip. Not "bleach": the scan
 	-- only checks where a word starts, and "bleaching" is a word a page can use.
 	kamehameha = "Rubric",

@@ -7262,7 +7262,7 @@ local COLOPHON_LINK: Timeline = {
 }
 
 ----------------------------------------------------------------
--- The second roster (D-137): eight glyphs, two charges and a catch
+-- The second roster (D-145): eight glyphs, two charges and a catch
 ----------------------------------------------------------------
 
 -- None of these has been through the Studio lab yet: they are written to the recipe (D-119) and to the
@@ -7271,7 +7271,7 @@ local COLOPHON_LINK: Timeline = {
 
 -- Volute's charge (Indigo, charged melee). A volute is the coiled ornament of a capital, and the glyph is
 -- that coil: wound in the palm while GlyphEffects.charge holds its caster for Params.Windup, then pressed
--- flat into the nearest body a few studs ahead. Two packets (D-138): this one at the press, lasting exactly
+-- flat into the nearest body a few studs ahead. Two packets (D-141): this one at the press, lasting exactly
 -- the wind-up the server waits, and Volute at the release, from where the caster stands by then.
 --
 -- The coil is drawn on the body, not at the cast point: the caster may walk while it winds (sixteen studs a
@@ -7281,7 +7281,7 @@ local COLOPHON_LINK: Timeline = {
 -- and the light brightens toward the release instead of fading from it, which is what a wind-up is.
 --
 -- Its Anticipation is fixed, never windowed. A windowed phase is a boss warning to the runtime: never
--- evicted, drawn over budget, and it clears every floor volume near it (D-138). The charge is not a
+-- evicted, drawn over budget, and it clears every floor volume near it (D-141). The charge is not a
 -- warning to anyone but the one it will hit, and it is the Windup long because tests/Flight.spec.luau
 -- holds it there.
 local VOLUTE_CHARGE: Timeline = {
@@ -7586,7 +7586,7 @@ local VOLUTE: Timeline = {
 
 -- Rubric's charge (Cinnabar, charged hitscan). A rubric is the title a scribe ruled in red, and red is the
 -- danger telegraph (art bible rule 7): the one charge in the game a target must be able to read. The
--- server locks the aim at the press and roots the caster for Params.Windup (D-136, D-138), so the lane is
+-- server locks the aim at the press and roots the caster for Params.Windup (D-141, D-142), so the lane is
 -- known from the first frame, and it is painted on the floor from the release point to the wall the server
 -- found (Origin is the muzzle, Reach the ray's length, both measured at the press). It darkens toward the
 -- release, on Quad In: the last third reads as "now". In the hands, a vermilion drop swells in three hot
@@ -8423,7 +8423,7 @@ local DAGGER: Timeline = {
 -- Cartouche (Indigo, ultimate). A cartouche is the frame that encloses a name, and this one encloses
 -- everyone round the caster: a seal of Damage on the whole Radius at the cast point, which breaks a guard
 -- and is the only stun, then Ticks ticks every TickInterval of TickDamage that slow whoever stays
--- (GlyphEffects.Cartouche, D-139). The first tick waits a whole interval after the seal, so the ticks land
+-- (GlyphEffects.Cartouche, D-140). The first tick waits a whole interval after the seal, so the ticks land
 -- at 0.8, 1.6, 2.4, 3.2 and 4.0 s after the packet, and each is drawn on its own beat.
 --
 -- The seal is stamped out to the exact edge on the packet: the ensō of charcoal opening to the server's

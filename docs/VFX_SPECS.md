@@ -649,7 +649,7 @@ près de deux secondes : la page a été signée.
 
 ---
 
-# Le second roster (D-137, D-138)
+# Le second roster (D-141, D-145)
 
 Huit glyphes, deux charges et une prise : onze chronologies écrites d'un coup, sur les chiffres du serveur
 et dans la recette « encre vive à cœur chauffé » (D-119). Chacune dessine ce qui blesse dans les deux
@@ -680,7 +680,7 @@ trois centièmes. Ce que les tests tiennent déjà est dit fiche par fiche ; le 
 ## `VoluteCharge` — la Volute s'enroule (Indigo, charge)
 
 **Ce qu'il doit faire sentir.** Qu'un coup se prépare dans la main, et combien de temps il reste. Le
-serveur tient le lanceur 0,4 s (`Params.Windup`, la canalisation D-136) avant de lâcher.
+serveur tient le lanceur 0,4 s (`Params.Windup`, la canalisation D-142) avant de lâcher.
 
 **Comment il est construit.** Tout est **sur le corps** (`Follow`), un stud à droite et devant la poitrine,
 là où la caméra du lanceur le voit par-dessus l'épaule : le lanceur peut marcher pendant la charge. Un

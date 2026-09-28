@@ -67,7 +67,7 @@ local function heaviestHit(): number
 end
 
 -- Damage one target takes from a single full cast: zones and trails tick, everything else hits once. An
--- ultimate that opens with one hit and ticks after it (Params.TickDamage, D-139) is that hit plus its ticks:
+-- ultimate that opens with one hit and ticks after it (Params.TickDamage, D-140) is that hit plus its ticks:
 -- read as Damage per tick, the Cartouche would count 28 five times.
 local function castDamage(glyph: GlyphConfig.GlyphDef): number
 	local tickDamage = glyph.Params.TickDamage
@@ -212,7 +212,7 @@ describe("GlyphConfig", function()
 			if stun ~= nil then
 				expect(stun * (glyph.Params.Ticks or 1)).toBeLessThanOrEqual(CombatConfig.Hit.StunMaxSeconds)
 			end
-			-- A tick after an opening hit is lighter than that hit, and there are ticks to deal it (D-139).
+			-- A tick after an opening hit is lighter than that hit, and there are ticks to deal it (D-140).
 			local tickDamage = glyph.Params.TickDamage
 			if tickDamage ~= nil then
 				expect(tickDamage).toBeLessThan(glyph.Damage)

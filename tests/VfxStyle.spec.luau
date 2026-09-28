@@ -558,7 +558,7 @@ describe("a glyph on the server's own clock", function()
 		"Watermark",
 		"Colophon",
 		"ColophonLink",
-		-- The second roster (D-137), written on the frame of its damage from the start.
+		-- The second roster (D-145), written on the frame of its damage from the start.
 		"Volute",
 		"Rubric",
 		"Swash",
@@ -1011,7 +1011,7 @@ describe("a glyph on the server's own clock", function()
 
 	it("seals the Cartouche to the server's radius on the packet, and presses its frame in on each tick", function()
 		-- GlyphEffects.Cartouche seals the whole Radius on the frame it emits, then ticks one interval later and
-		-- every interval after that: at k x TickInterval for k = 1 to Ticks (D-139).
+		-- every interval after that: at k x TickInterval for k = 1 to Ticks (D-140).
 		local params = GlyphConfig.ById.Cartouche.Params :: any
 		local presses: { [number]: number } = {}
 		local rising: { [number]: boolean } = {}

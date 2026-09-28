@@ -105,9 +105,10 @@ la troisième est un affichage. C'est la première qui porte la décision.
 L'annulation ne rend ni l'invulnérabilité ni le cooldown de la ruée : elle échange de l'encre contre du
 tempo. Un joueur à court d'encre ne peut pas annuler, ce qui est exactement la décision qu'on veut créer.
 
-**Canalisation** (D-136) : la Volute et la Rubrique pendant leur charge, les Hachures pendant leur rafale,
-tiennent leur lanceur — ni M1 ni autre glyphe. Une ruée la rompt et le glyphe est perdu, encre et recharge
-comprises ; lever la garde ou être étourdi aussi. C'est le prix d'un coup qu'on voit venir.
+**Canalisation** (D-142) : la Volute et la Rubrique pendant leur charge, les Hachures pendant leur rafale,
+tiennent leur lanceur — ni M1 ni autre glyphe. Une ruée la rompt et la charge, ou le reste de la rafale, est
+perdue, encre et recharge comprises ; lever la garde ou être étourdi aussi. C'est le prix d'un coup qu'on voit
+venir.
 
 ### Matrice outil → contre
 

@@ -1,7 +1,7 @@
 --!strict
 -- Glyph roster. Pure data (no requires, no Roblox globals) so tests can validate it under Lune.
 -- The 28 glyphs of docs/GAME_DESIGN.md §5: the 8 V1 glyphs (unlocked by default) first, then the
--- 12 Phase 2 additions grouped by pigment, then the 8 of the second roster (D-137). Cost, Cooldown and
+-- 12 Phase 2 additions grouped by pigment, then the 8 of the second roster (D-145). Cost, Cooldown and
 -- Damage come straight from that table; every other number a server effect or a client renderer needs
 -- lives in Params, so no effect ever carries a magic constant.
 --
@@ -425,8 +425,8 @@ GlyphConfig.Glyphs = {
 		Params = { SpawnOffset = 3, HitRadius = 5, ChainCount = 3, ChainRadius = 26, StunSeconds = 0.6, Knockback = 25 },
 	},
 
-	-- Second roster (D-137): one glyph for each two-key recipe left free, an Indigo ultimate and an Umber
-	-- three-key. Two of them charge and one rushes, which holds the caster (the channel, D-136).
+	-- Second roster (D-145): one glyph for each two-key recipe left free, an Indigo ultimate and an Umber
+	-- three-key. Two of them charge and one rushes, which holds the caster (the channel, D-142).
 	{
 		-- Charged melee: winds Windup s in the hand (a channel: no M1, no glyph, a dash drops it), then strikes
 		-- the nearest body it may damage within HitRadius of a point Offset ahead of where the caster stands at
@@ -456,7 +456,7 @@ GlyphConfig.Glyphs = {
 	},
 	{
 		-- Charged hitscan: aim locked at the press, caster rooted (ChargeSlowFactor) and channelled for Windup s;
-		-- then one ray from SpawnOffset ahead (or from the wall in that gap, D-140) to Range or the first wall,
+		-- then one ray from SpawnOffset ahead (or from the wall in that gap, D-144) to Range or the first wall,
 		-- damaging up to MaxTargets bodies within HitRadius of it and pushing them along the aim.
 		Id = "Rubric",
 		Pigment = "Cinnabar",
@@ -475,7 +475,7 @@ GlyphConfig.Glyphs = {
 	},
 	{
 		-- A flourish along the ground: its front moves at Speed from SpawnOffset to Range, stopping at the first
-		-- wall (a Margin included, and one inside the SpawnOffset gap, D-140), damaging once every body its
+		-- wall (a Margin included, and one inside the SpawnOffset gap, D-144), damaging once every body its
 		-- Width x Height box sweeps (Depth deep) and pushing it along the aim.
 		Id = "Swash",
 		Pigment = "Umber",
@@ -494,9 +494,9 @@ GlyphConfig.Glyphs = {
 	},
 	{
 		-- Teleports behind the nearest body within Range and ConeDegrees of the aim that it may damage now
-		-- (canDamage, D-135) and can see, BehindStuds past its back (validated like the Caret: ground within
+		-- (canDamage, D-143) and can see, BehindStuds past its back (validated like the Caret: ground within
 		-- GroundSnapStuds, ClearanceRadius free), then strikes its back and pushes it away. No target: nothing
-		-- happens, and the ink stays spent (the Caret's rule, D-137).
+		-- happens, and the ink stays spent (the Caret's rule, D-146).
 		Id = "Dagger",
 		Pigment = "Verdigris",
 		Combo = { "Verdigris", "Umber" },
@@ -522,7 +522,7 @@ GlyphConfig.Glyphs = {
 	{
 		-- Ultimate frame fixed at the cast point: a seal of Damage on everything within Radius (it breaks guards,
 		-- and its StunSeconds is the only stun), then Ticks ticks every TickInterval of TickDamage that never
-		-- break a guard and slow whoever they hurt (D-139). Stops ticking when its caster is stunned, guards or dies.
+		-- break a guard and slow whoever they hurt (D-140). Stops ticking when its caster is stunned, guards or dies.
 		Id = "Cartouche",
 		Pigment = "Indigo",
 		Combo = { "Indigo", "Indigo", "Indigo", "Indigo" },
@@ -566,7 +566,7 @@ GlyphConfig.Glyphs = {
 	},
 	{
 		-- A stitch thrown at Speed for at most Fuse s (a projectile a Margin stops, one inside the SpawnOffset gap
-		-- included, D-140): the first body it meets is damaged, dragged to PullStopStuds of the caster in
+		-- included, D-144): the first body it meets is damaged, dragged to PullStopStuds of the caster in
 		-- PullSeconds and rooted (RootSlowFactor) for RootDuration. Speed x Fuse = Range.
 		Id = "Stitch",
 		Pigment = "Verdigris",
@@ -593,7 +593,7 @@ GlyphConfig.Glyphs = {
 		},
 	},
 	{
-		-- A channelled rush (no M1, no glyph; a dash ends it, D-136): Ticks strokes every TickInterval (above
+		-- A channelled rush (no M1, no glyph; a dash ends it, D-142): Ticks strokes every TickInterval (above
 		-- CombatConfig.Hit.IFrameSeconds, the per-glyph hit memory, with a frame to spare), each in a Width x
 		-- Height box Range deep in front of the caster's validated frame. Strokes slow; the last one launches
 		-- (FinisherPush, FinisherLift) and stuns.

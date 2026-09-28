@@ -315,7 +315,7 @@ describe("a carrier", function()
 end)
 
 describe("a charged glyph", function()
-	-- The Volute and the Rubric send two packets (D-138): the charge at the press, whose Anticipation is the
+	-- The Volute and the Rubric send two packets (D-141): the charge at the press, whose Anticipation is the
 	-- wind-up the server holds its caster through (GlyphEffects' charge), and the glyph at the release.
 	local CHARGES = { { Glyph = "Volute", Charge = "VoluteCharge" }, { Glyph = "Rubric", Charge = "RubricCharge" } }
 

@@ -51,7 +51,7 @@ type CombatApi = {
 	resyncPosition: (player: Player) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
-	-- A charged glyph or a rush holding its caster (D-136): no other glyph until it ends or a dash breaks it.
+	-- A charged glyph or a rush holding its caster (D-142): no other glyph until it ends or a dash breaks it.
 	isChanneling: (player: Player) -> boolean,
 	grantIFrames: (player: Player, seconds: number) -> (),
 	applyStoneSkin: (player: Player) -> boolean,

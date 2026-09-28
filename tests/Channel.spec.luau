@@ -1,5 +1,5 @@
 --!strict
--- The channel (D-136): a charged glyph or a rush holds its caster. Nothing else starts meanwhile -- no M1, no
+-- The channel (D-142): a charged glyph or a rush holds its caster. Nothing else starts meanwhile -- no M1, no
 -- other glyph -- and a dash is the one way out. Without it a caster could turn a charged line mid-charge with
 -- the Caret, or stack M1 on top of a rush. The services touch Roblox, so their sources are read here.
 local Harness = require("./harness")

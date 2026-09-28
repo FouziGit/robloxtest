@@ -115,7 +115,7 @@ type State = {
 	BlockCooldownUntil: number,
 	DashCooldownUntil: number,
 	IFramesUntil: number,
-	ChannelUntil: number, -- os.clock until which a charged glyph or a rush holds its caster (D-136)
+	ChannelUntil: number, -- os.clock until which a charged glyph or a rush holds its caster (D-142)
 	MeleeIndex: number,
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
@@ -907,7 +907,7 @@ local function applyGuard(
 end
 
 -- Everything a hit is turned away for before it is scaled, in one place: what ApplyDamage refuses and what
--- canDamage answers (a glyph that commits to a body before it strikes it, D-135). Read-only: the per-source
+-- canDamage answers (a glyph that commits to a body before it strikes it, D-143). Read-only: the per-source
 -- hit memory stays in ApplyDamage, because only a hit that is going to land may write it.
 local function refuses(source: Player?, targetModel: Model, now: number): boolean
 	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
@@ -1132,7 +1132,7 @@ function CombatService.grantIFrames(player: Player, seconds: number)
 end
 
 -- A charged glyph or a rush holds its caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile,
--- and a dash breaks it -- the effect polls isChanneling and gives up (D-136).
+-- and a dash breaks it -- the effect polls isChanneling and gives up (D-142).
 function CombatService.channel(player: Player, seconds: number)
 	if seconds ~= seconds or seconds < 0 or seconds == math.huge then
 		log.warn("channel rejected for %s: seconds %s", player.Name, tostring(seconds))
@@ -1303,7 +1303,7 @@ local function onDash(player: Player, state: State, now: number)
 	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
-	state.ChannelUntil = 0 -- a dash is the way out of a charge or a rush (D-136)
+	state.ChannelUntil = 0 -- a dash is the way out of a charge or a rush (D-142)
 	local direction = dashDirection(humanoid, root)
 	CombatService.grantMovement(player, {
 		Kind = "Dash",

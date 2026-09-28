@@ -519,7 +519,7 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 	})
 end
 
--- A charge held for exactly the time the server waits (GlyphEffects' charge, D-138): the Anticipation of `id`
+-- A charge held for exactly the time the server waits (GlyphEffects' charge, D-141): the Anticipation of `id`
 -- lasts the glyph's Params.Windup (tests/Flight.spec.luau), on the caster's body, which may walk while it
 -- winds. A lane it paints starts where the server's will: SpawnOffset ahead, Range long, both measured at
 -- the press.
@@ -787,10 +787,10 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 end
 
 ----------------------------------------------------------------
--- Second roster (D-137), grouped by pigment
+-- Second roster (D-145), grouped by pigment
 ----------------------------------------------------------------
 
--- The coil wound in the hand for the Windup the server holds the caster through (D-138).
+-- The coil wound in the hand for the Windup the server holds the caster through (D-141).
 VfxLibrary.VoluteCharge = function(packet: Packet, _trove: TroveType, api: Api)
 	playCharge("VoluteCharge", "Volute", packet, api)
 end
@@ -804,13 +804,13 @@ VfxLibrary.Cartouche = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Cartouche", packet, api)
 end
 
--- The drop swelling in the hands and the locked lane on the floor, measured at the press (D-138).
+-- The drop swelling in the hands and the locked lane on the floor, measured at the press (D-141).
 VfxLibrary.RubricCharge = function(packet: Packet, _trove: TroveType, api: Api)
 	playCharge("RubricCharge", "Rubric", packet, api)
 end
 
 -- The Strike's ruling (D-126), from the release packet: Origin is where the caster let go, SpawnOffset the
--- gap to where the line starts (shorter against a wall, D-140), Range its length up to where the ray stopped.
+-- gap to where the line starts (shorter against a wall, D-144), Range its length up to where the ray stopped.
 VfxLibrary.Rubric = function(packet: Packet, _trove: TroveType, api: Api)
 	local def = GlyphConfig.ById.Rubric
 	local direction = directionOf(packet)

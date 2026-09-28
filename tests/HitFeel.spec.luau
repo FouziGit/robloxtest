@@ -80,7 +80,7 @@ describe("a finisher", function()
 
 	it("leaves a body on the ground untouchable until it stands: a knockdown is never a free follow-up", function()
 		local combat = "src/server/Services/CombatService.luau"
-		-- The refusals live in one place (D-135), which both the hit and the question "may I hit it?" read.
+		-- The refusals live in one place (D-143), which both the hit and the question "may I hit it?" read.
 		local refusals = functionIn(combat, "local function refuses(")
 		expect(refusals:find("if targetPlayer ~= nil and movement.isDown(targetPlayer) then return true end", 1, true)).never.toBe(
 			nil

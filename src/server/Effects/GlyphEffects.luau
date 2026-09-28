@@ -62,10 +62,10 @@ export type CombatApi = {
 	-- player's slow is (`key`). Players go through Movement.
 	controlNpc: (targetModel: Model, kind: "Stun" | "Slow", seconds: number, factor: number, key: string) -> (),
 	-- Whether a hit on `targetModel` would be let through now, judged exactly as ApplyDamage judges it
-	-- (D-135): an effect that commits to a body before striking it asks first.
+	-- (D-143): an effect that commits to a body before striking it asks first.
 	canDamage: (source: Player, targetModel: Model) -> boolean,
 	-- Holds the caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile. A dash breaks it, and
-	-- isChanneling is how the effect holding it finds out (D-136).
+	-- isChanneling is how the effect holding it finds out (D-142).
 	channel: (player: Player, seconds: number) -> (),
 	isChanneling: (player: Player) -> boolean,
 }
@@ -285,7 +285,7 @@ local function newTracker(def: GlyphDef, maxHits: number): Tracker
 	return { MaxHits = maxHits, Hits = {}, Count = 0, Tags = { def.Id, def.Archetype }, Amount = def.Damage }
 end
 
--- An ultimate's ticks after its opening hit (D-139): their own amount, and only the glyph id as a tag -- the
+-- An ultimate's ticks after its opening hit (D-140): their own amount, and only the glyph id as a tag -- the
 -- i-frame key and the skin (tags[1]) without the guard break an ultimate's archetype carries (tags[2]).
 local function tickTracker(def: GlyphDef, amount: number): Tracker
 	return { MaxHits = math.huge, Hits = {}, Count = 0, Tags = { def.Id }, Amount = amount }
@@ -460,7 +460,7 @@ end
 
 -- Where something released `offset` studs ahead of `from` starts, and whether it got there. A ray begun inside
 -- a slab never reports that slab, so a caster hugging a Margin would shoot straight through it: the gap from
--- the body to the release point is checked first, and a wall in it is where the thing ends (D-140).
+-- the body to the release point is checked first, and a wall in it is where the thing ends (D-144).
 local function launchPoint(from: Vector3, direction: Vector3, offset: number, character: Model?): (Vector3, boolean)
 	local wall = geometryStop(from, direction, offset, character)
 	return wall, (wall - from).Magnitude >= offset - EPSILON
@@ -545,8 +545,8 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 	return tracker.Count
 end
 
--- A charged glyph's telegraph (D-138): one reliable `vfxId` packet, whose timeline's Anticipation lasts exactly
--- `seconds` (tests hold it to Params.Windup), then a channel held for as long (D-136). Gives up on the frame the
+-- A charged glyph's telegraph (D-141): one reliable `vfxId` packet, whose timeline's Anticipation lasts exactly
+-- `seconds` (tests hold it to Params.Windup), then a channel held for as long (D-142). Gives up on the frame the
 -- caster stops qualifying (stunned, guarding, dead, gone) or dashes out of it. Returns the frame to release
 -- from, re-validated now (Scorch's rule), or nil. `extra` adds numbers the drawn charge needs.
 local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [string]: number }?): CFrame?
@@ -1586,7 +1586,7 @@ function GlyphEffects.Dagger(ctx: Context): number
 		local line = position - start
 		local flat = Vector3.new(line.X, 0, line.Z)
 		-- A body straight above or below has no "behind": skipped, never given a made-up direction. One the hit
-		-- would be refused on (an ally, the safe zone, i-frames) is never jumped to (D-135), nor one behind a wall.
+		-- would be refused on (an ally, the safe zone, i-frames) is never jumped to (D-143), nor one behind a wall.
 		if
 			flat.Magnitude > EPSILON
 			and flat.Unit:Dot(aim) >= cone
@@ -1765,7 +1765,7 @@ end
 
 function GlyphEffects.Hatching(ctx: Context): number
 	local params = ctx.Def.Params
-	-- Held for the whole rush (D-136): no M1 on top of it, no other glyph, and a dash ends it.
+	-- Held for the whole rush (D-142): no M1 on top of it, no other glyph, and a dash ends it.
 	ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,

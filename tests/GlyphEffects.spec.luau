@@ -1,6 +1,6 @@
 --!strict
 -- The shared helpers of GlyphEffects the new roster leans on, and the rules the eight glyphs of the second
--- roster (D-137) keep on the server. The module touches Roblox, so its source is read here, the way
+-- roster (D-145) keep on the server. The module touches Roblox, so its source is read here, the way
 -- tests/HitFeel.spec.luau and tests/Flight.spec.luau read it; the numbers it reads come from the config.
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
@@ -177,7 +177,7 @@ describe("the Cartouche", function()
 end)
 
 describe("a thing released ahead of the body", function()
-	it("starts at the first wall between the body and its release point (D-140)", function()
+	it("starts at the first wall between the body and its release point (D-144)", function()
 		local launch = functionIn(EFFECTS, "local function launchPoint(")
 		expect(launch:find("local wall = geometryStop(from, direction, offset, character)", 1, true)).never.toBe(nil)
 		expect(launch:find("return wall, (wall - from).Magnitude >= offset - EPSILON", 1, true)).never.toBe(nil)

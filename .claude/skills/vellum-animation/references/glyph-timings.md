@@ -52,7 +52,7 @@ order, ~80 ms apart, e.g. the Brand is `J`, `J`. Wait out the glyph's cooldown b
 ## Charged glyphs
 
 `Volute` and `Rubric` are held by the server for their `Windup` (the "Server hold" above) and send two
-packets (D-138): `VoluteCharge` / `RubricCharge` at the press, whose Anticipation lasts exactly the Windup,
+packets (D-141): `VoluteCharge` / `RubricCharge` at the press, whose Anticipation lasts exactly the Windup,
 then the glyph's own packet at the release. The table reads the release timeline, so its "Release" is
 counted from the release packet, a Windup after the press. A keyed cast clip for either releases at the
 Windup, against the charge timeline: `tests/AnimationConfig.spec.luau` reads the glyph's own, and would

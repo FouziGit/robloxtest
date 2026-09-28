@@ -115,7 +115,7 @@ VfxConfig.WallPaint = {
 
 -- Emitted by GlyphEffects: one per glyph, plus the shared detonation ("Explosion", reused by
 -- Brand and Blot when they blow up), the two charges (the Volute's and the Rubric's, sent at the press
--- and lasting their wind-up, D-138) and the Stitch's catch.
+-- and lasting their wind-up, D-141) and the Stitch's catch.
 VfxConfig.GlyphIds = {
 	"Brand",
 	"Explosion",
@@ -139,7 +139,7 @@ VfxConfig.GlyphIds = {
 	"Caret",
 	"Watermark",
 	"Colophon",
-	-- Second roster (D-137)
+	-- Second roster (D-145)
 	"Volute",
 	"VoluteCharge",
 	"Rubric",

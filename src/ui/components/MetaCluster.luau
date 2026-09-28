@@ -456,6 +456,8 @@ function MetaCluster.new(props: Props): MetaCluster
 
 	local shownLevel: number? = nil
 	local shownFolios: number? = nil
+	-- The Folios the profile holds, shown when the cluster is: a count run behind a fight would tick unseen.
+	local heldFolios: number? = nil
 	local queued = false
 	local waitedBase, waitedAt = 0, 0
 	local queueToken = 0
@@ -479,15 +481,30 @@ function MetaCluster.new(props: Props): MetaCluster
 		xpText.Text = localize.t("level.xp", { xp = xp, needed = needed })
 	end
 
-	local function setCurrency(_self: MetaCluster, currency: Types.CurrencyData)
-		local amount = math.floor(currency.Folios)
-		local from = shownFolios
-		shownFolios = amount
-		if from == nil or amount <= from then
-			count.Text = tostring(amount)
+	-- The count moves to what the profile holds: written at once the first time, counted after that, up or down
+	-- -- through the one count a label has, so a count still running is carried to the new amount rather than
+	-- left to finish on the old one.
+	local function showFolios()
+		local target = heldFolios
+		if target == nil then
 			return
 		end
-		Motion.countTo(count, from, amount, tostring)
+		local from = shownFolios
+		shownFolios = target
+		if from == nil then
+			count.Text = tostring(target)
+			return
+		end
+		if target ~= from then
+			Motion.countTo(count, from, target, tostring)
+		end
+	end
+
+	local function setCurrency(_self: MetaCluster, currency: Types.CurrencyData)
+		heldFolios = math.floor(currency.Folios)
+		if column.Visible then
+			showFolios()
+		end
 	end
 
 	local function setClaims(_self: MetaCluster, claims: Claims)
@@ -577,8 +594,12 @@ function MetaCluster.new(props: Props): MetaCluster
 		end
 	end
 
+	-- Back in the hub, what was won in the fight counts up where the player sees it.
 	local function setVisible(_self: MetaCluster, visible: boolean)
 		column.Visible = visible
+		if visible then
+			showFolios()
+		end
 	end
 
 	local function destroy(_self: MetaCluster)

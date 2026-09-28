@@ -88,15 +88,17 @@ describe("the hub's meta cluster", function()
 	it("counts the Folios up as they grow, in the yellow on ink, with a way to the shop's Folios", function()
 		local source = code(CLUSTER)
 		local currency = body(source, "setCurrency")
-		local plain = string.find(
-			currency,
-			"if from == nil or amount <= from then count.Text = tostring(amount) return end",
-			1,
+		expect(has(currency, "heldFolios = math.floor(currency.Folios) if column.Visible then showFolios() end")).toBe(
 			true
 		)
-		local counted = string.find(currency, "Motion.countTo(count, from, amount, tostring)", 1, true)
-		assert(plain ~= nil and counted ~= nil, "the Folios no longer count up")
-		expect(plain :: number).toBeLessThan(counted :: number)
+		local show = body(source, "showFolios")
+		local first = string.find(show, "if from == nil then count.Text = tostring(target) return end", 1, true)
+		local counted =
+			string.find(show, "if target ~= from then Motion.countTo(count, from, target, tostring) end", 1, true)
+		assert(first ~= nil and counted ~= nil, "the Folios no longer count to what the profile holds")
+		expect(first :: number).toBeLessThan(counted :: number)
+		-- Hidden in a fight, nothing counts; back in the hub, what was won counts up.
+		expect(has(body(source, "setVisible"), "column.Visible = visible if visible then showFolios() end")).toBe(true)
 		expect(has(source, 'textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, Theme.Colors.Primary)')).toBe(true)
 		expect(ThemeConfig.contrast(COLORS.Primary, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
 		local cluster = folded(CLUSTER)

@@ -18,6 +18,7 @@ local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Layout = require("./layout")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -312,6 +313,82 @@ describe("the parts, as Studio drew them", function()
 		assert(words ~= nil, "the title is not written: this gate would check nothing")
 		expect(words.Text).toBe(CosmeticConfig.ById[title :: string].Look.TextKey)
 		expect(words:FindFirstChildOfClass("UITextSizeConstraint").MinTextSize).toBeGreaterThanOrEqual(11)
+	end)
+
+	it("sets a title's drop cap flush with the rest of its word, in a row of their own", function()
+		local world, parent, localize = bench()
+		local Theme = world.require("src/ui/Theme")
+		local ChapterBand = world.require("src/ui/components/ChapterBand")
+		local band = ChapterBand.new({
+			Title = "Menu",
+			Chapter = "Menu",
+			Position = roblox.UDim2.new(),
+			Closable = true,
+			OnClose = function() end,
+			OnBack = function() end,
+			Localize = localize,
+			Parent = parent,
+		})
+		local cap = band.Instance:FindFirstChild("DropCap", true)
+		local title = band.Instance:FindFirstChild("Title", true)
+		assert(cap ~= nil and title ~= nil, "the band has no drop cap or no title: this gate would check nothing")
+		expect(title.Text).toBe("enu")
+		local function placed(frame: any): { any }
+			local found = {}
+			for _, child in ipairs(frame:GetChildren()) do
+				if child:IsA("GuiObject") then
+					table.insert(found, child)
+				end
+			end
+			table.sort(found, function(a: any, b: any): boolean
+				return a.LayoutOrder < b.LayoutOrder
+			end)
+			return found
+		end
+		local function fills(object: any): boolean
+			local item = object:FindFirstChildOfClass("UIFlexItem")
+			return item ~= nil and item.FlexMode.Name == "Fill"
+		end
+		-- The cap and the rest of its word, alone in a row of their own, the cap first and next to the word: at the
+		-- band's own gap between its parts, "Menu" read "M enu" (seen in Studio).
+		local heading = cap.Parent
+		expect(title.Parent).toBe(heading)
+		local inHeading = placed(heading)
+		expect(#inHeading).toBe(2)
+		expect(inHeading[1]).toBe(cap)
+		expect(inHeading[2]).toBe(title)
+		local layout = heading:FindFirstChildOfClass("UIListLayout")
+		assert(layout ~= nil, "the drop cap's row lays nothing out: this gate would check nothing")
+		expect(layout.FillDirection.Name).toBe("Horizontal")
+		expect(layout.Padding.Scale).toBe(0)
+		expect(layout.Padding.Offset).toBeGreaterThanOrEqual(2)
+		expect(layout.Padding.Offset).toBeLessThanOrEqual(3)
+		-- That row takes what the band's other parts leave, the word what the cap leaves, and it truncates there.
+		expect(fills(heading)).toBe(true)
+		expect(fills(title)).toBe(true)
+		expect(title.TextTruncate.Name).toBe("AtEnd")
+		local automatic = title.AutomaticSize
+		expect(automatic == nil or automatic.Name == "None").toBe(true)
+		-- The band's other parts are where they were: back, the title, the screen's slot, the cross, at its gap.
+		local row = heading.Parent
+		local inRow = placed(row)
+		expect(#inRow).toBe(4)
+		expect(inRow[1].Name).toBe("Back")
+		expect(inRow[2]).toBe(heading)
+		expect(inRow[3]).toBe(band.Right)
+		expect(inRow[4]).toBe(band.CloseButton)
+		expect(row:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(Theme.Sizes.Gap)
+		-- A new title keeps the row: an accented cap in it, or no cap and the whole title.
+		band:SetTitle("Équipement")
+		cap = heading:FindFirstChild("DropCap")
+		assert(cap ~= nil, "a new title lost its drop cap's row")
+		expect(cap:FindFirstChild("Letter", true).Text).toBe("É")
+		expect(title.Text).toBe("quipement")
+		band:SetTitle("3v3")
+		expect(band.Instance:FindFirstChild("DropCap", true)).toBeNil()
+		expect(title.Parent).toBe(heading)
+		expect(title.Text).toBe("3v3")
+		expectClean(band.Instance, DESKTOP_HEIGHT)
 	end)
 
 	it("gives each side of every Play card the same blot, so the fighters make the difference", function()

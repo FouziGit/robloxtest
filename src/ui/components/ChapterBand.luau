@@ -5,6 +5,9 @@
 -- the rest of the title, a slot for the screen (a Folios pill, a tier seal) and the cross. An ink band
 -- carries the five-pigment stripe along its foot, and three drips of its colour hang under it.
 --
+-- The drop cap and the rest of its word share a row of their own, the cap flush with the word as an
+-- illuminated initial sits in a manuscript: at the band's gap between its parts, "Menu" read "M enu".
+--
 -- At an entrance it drops into place just after the card starts to arrive, and its drop cap stamps in.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -59,6 +62,9 @@ local TOUCH_MARGIN = 16
 local DROP = 24
 local DROP_DELAY = 0.06
 local TITLE_TILT = -2
+-- Between the drop cap and the rest of its word: next to nothing, set by eye in Studio so that "Menu" reads
+-- as one word.
+local CAP_GAP = 2
 local CLOSE_SIZE = 44
 local CLOSE_ELEVATION = 4
 local CLOSE_HOVER_SHADE = -0.06
@@ -192,13 +198,20 @@ local function makeStripe(parent: Instance): Frame
 	return stripe
 end
 
-local function rowLayout(parent: Instance)
+local function rowLayout(parent: Instance, gap: number)
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	layout.Padding = UDim.new(0, gap)
 	layout.Parent = parent
+end
+
+-- What fills whatever of its row the other parts leave.
+local function fill(object: GuiObject)
+	local item = Instance.new("UIFlexItem")
+	item.FlexMode = Enum.UIFlexMode.Fill
+	item.Parent = object
 end
 
 function ChapterBand.new(props: Props): ChapterBand
@@ -237,7 +250,7 @@ function ChapterBand.new(props: Props): ChapterBand
 	padding.PaddingLeft = UDim.new(0, Theme.Sizes.Padding)
 	padding.PaddingRight = UDim.new(0, Theme.Sizes.PaddingSmall)
 	padding.Parent = row
-	rowLayout(row)
+	rowLayout(row, Theme.Sizes.Gap)
 	row.Parent = band
 
 	local backButton: Button.Button? = nil
@@ -261,20 +274,29 @@ function ChapterBand.new(props: Props): ChapterBand
 		backButton = back
 	end
 
+	-- The drop cap and the rest of the title, in a row of their own that takes what the band's other parts
+	-- leave; the rest of the title takes what the cap leaves, and truncates there.
+	local heading = Instance.new("Frame")
+	heading.Name = "Heading"
+	heading.BackgroundTransparency = 1
+	heading.Size = UDim2.fromScale(0, 1)
+	heading.LayoutOrder = 2
+	fill(heading)
+	rowLayout(heading, CAP_GAP)
+	heading.Parent = row
+
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
 	title.BackgroundTransparency = 1
 	title.Size = UDim2.fromScale(0, 1)
-	title.LayoutOrder = 3
+	title.LayoutOrder = 2
 	title.Rotation = TITLE_TILT
 	title.FontFace = Theme.Fonts.Title
 	title.TextSize = Theme.Sizes.TextTitle
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextTruncate = Enum.TextTruncate.AtEnd
-	local titleFill = Instance.new("UIFlexItem")
-	titleFill.FlexMode = Enum.UIFlexMode.Fill
-	titleFill.Parent = title
-	title.Parent = row
+	fill(title)
+	title.Parent = heading
 
 	-- The screen's own slot, before the cross.
 	local right = Instance.new("Frame")
@@ -283,7 +305,7 @@ function ChapterBand.new(props: Props): ChapterBand
 	right.AutomaticSize = Enum.AutomaticSize.X
 	right.Size = UDim2.fromScale(0, 1)
 	right.LayoutOrder = 4
-	rowLayout(right)
+	rowLayout(right, Theme.Sizes.Gap)
 	right.Parent = row
 
 	local closeButton: TextButton? = nil
@@ -309,8 +331,8 @@ function ChapterBand.new(props: Props): ChapterBand
 		local letter, remainder = ThemeConfig.dropCap(titleText)
 		if letter ~= nil then
 			local created = DropCap.new(letter, chapter)
-			created.Instance.LayoutOrder = 2
-			created.Instance.Parent = row
+			created.Instance.LayoutOrder = 1
+			created.Instance.Parent = heading
 			cap = created
 		end
 		title.Text = remainder

@@ -204,6 +204,7 @@ leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the to
 level.max,Max level,Vellum,,Max level,Niveau max
 level.title,Level {level},Vellum,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
+loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
 loadout.combo,Sequence: {combo},Vellum,,Sequence: {combo},Séquence : {combo}
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé

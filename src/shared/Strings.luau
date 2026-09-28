@@ -586,6 +586,10 @@ Strings.Table = {
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
 	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
+	["loadout.caughtUp"] = {
+		en = "New glyphs unlocked: {count}. Add them to your loadout.",
+		fr = "Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.",
+	},
 	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
 	["loadout.stats"] = {
 		en = "{damage} damage · {cost} ink · {cooldown}s",

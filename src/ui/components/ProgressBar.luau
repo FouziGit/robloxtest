@@ -186,6 +186,10 @@ function ProgressBar.new(props: Props): ProgressBar
 	if props.LabelOutside then
 		label.AnchorPoint = Vector2.new(0, 0.5)
 		label.Position = UDim2.new(1, LABEL_GAP, 0.5, 0)
+		-- As wide as its words, standing over the bar's height: a quest's bar is 14 tall and its count 20, and
+		-- a label allowed to truncate cut words that did not fit its height down to nothing, and sized itself
+		-- to that.
+		label.TextTruncate = Enum.TextTruncate.None
 		label.AutomaticSize = Enum.AutomaticSize.X
 		label.Size = UDim2.fromScale(0, 1)
 		label.TextXAlignment = Enum.TextXAlignment.Left

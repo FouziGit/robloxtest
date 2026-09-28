@@ -8,11 +8,15 @@
 --                    that child against the nearest ancestor of a fixed size, and grows to hold it: a sticker
 --                    filling a button from a frame of its own made the button as wide as the screen. With a
 --                    scale on that axis, it also drops a negative offset beside it.
+--   Truncation       A label that sizes itself and may truncate, shorter than its words, cuts them to nothing
+--                    and sizes itself to that.
 --   Shared rows      An offset is a whole number of pixels: cells that share a row by scale, each less its
 --                    share of the gaps, overrun the row by every fraction the engine drops.
 --   Canvases         A ScrollingFrame's CanvasSize scale is of the ScrollingFrame's parent, as a Size is, not of
 --                    its window (D-171): a canvas of fromScale(1, 1) in a window its parent's header and footer
 --                    shorten is taller than the window, and it scrolls onto nothing.
+local Measure = require("./measure")
+
 local Layout = {}
 
 type Axis = "X" | "Y"
@@ -73,6 +77,30 @@ function Layout.automaticSizes(root: any): { string }
 					table.insert(
 						found,
 						("%s sizes itself on %s with a scale and a negative offset"):format(object:GetFullName(), axis)
+					)
+				end
+			end
+		end
+	end
+	return found
+end
+
+function Layout.truncation(root: any, screenHeight: number): { string }
+	local found: { string } = {}
+	for _, object in ipairs(root:GetDescendants()) do
+		local text = object:IsA("TextLabel") or object:IsA("TextButton")
+		local truncate = object.TextTruncate
+		if text and object.Text ~= "" and truncate ~= nil and truncate.Name ~= "None" and autoOn(object, "X") then
+			if not autoOn(object, "Y") then
+				local ok, height = pcall(Measure.heightOf, object, screenHeight)
+				if ok and height < object.TextSize then
+					table.insert(
+						found,
+						("%s sizes itself, may truncate, and is %.1f tall for words of %d"):format(
+							object:GetFullName(),
+							height,
+							object.TextSize
+						)
 					)
 				end
 			end
@@ -158,9 +186,12 @@ function Layout.canvases(root: any): { string }
 end
 
 -- Every rule, on `root`.
-function Layout.check(root: any, _screenHeight: number): { string }
+function Layout.check(root: any, screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
 	for _, line in ipairs(Layout.canvases(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.truncation(root, screenHeight)) do
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.sharedRows(root)) do

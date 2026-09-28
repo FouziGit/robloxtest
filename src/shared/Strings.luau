@@ -740,7 +740,7 @@ Strings.Table = {
 	["common.seconds"] = { en = "{seconds}s", fr = "{seconds} s" },
 	-- The loadout: a full loadout's Equip, the offer of the pass's slots, and the strip that undoes a change.
 	["loadout.fullShort"] = { en = "Slots full", fr = "Emplacements pleins" },
-	["loadout.moreSlots"] = { en = "+{count} slots", fr = "+{count} emplacements" },
+	["loadout.moreSlots"] = { en = "+{count} slots", fr = "+{count} slots" },
 	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
 	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
 	["common.undo"] = { en = "Undo", fr = "Annuler" },

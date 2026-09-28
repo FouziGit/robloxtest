@@ -268,7 +268,7 @@ loadout.fullShort,Slots full,Vellum,,Slots full,Emplacements pleins
 loadout.invalid,Invalid loadout.,Vellum,,Invalid loadout.,Équipement invalide.
 loadout.locked,Unlocks at level {level},Vellum,,Unlocks at level {level},Se débloque au niveau {level}
 loadout.lockedPigment,Requires the {pigment} pigment,Vellum,,Requires the {pigment} pigment,Nécessite le pigment {pigment}
-loadout.moreSlots,+{count} slots,Vellum,,+{count} slots,+{count} emplacements
+loadout.moreSlots,+{count} slots,Vellum,,+{count} slots,+{count} slots
 loadout.saved,Loadout saved!,Vellum,,Loadout saved!,Équipement sauvegardé !
 loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} slots
 loadout.title,Loadout,Vellum,,Loadout,Équipement

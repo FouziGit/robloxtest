@@ -4,6 +4,7 @@
 -- on the player's clock beside one counted on the server's. These rules hold the joins. The screens are
 -- engine code Lune cannot run, so they are read.
 local Harness = require("./harness")
+local LockOnConfig = require("../src/shared/Config/LockOnConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
 
@@ -178,5 +179,13 @@ describe("a size of the HUD", function()
 			end
 		end
 		expect(names).toBeGreaterThan(20)
+	end)
+end)
+
+describe("the lock's diamond", function()
+	it("is the size D-147 gives it, now that it carries the target's plate", function()
+		-- D-147 amends D-115: the diamond grows (spec 4.13: 34) to stand over the name and health plate
+		-- slice C hung under it. LockOnConfig belonged to no slice, so the integration takes it.
+		expect(LockOnConfig.Marker.SizePx).toBe(34)
 	end)
 end)

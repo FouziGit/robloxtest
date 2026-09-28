@@ -14,8 +14,9 @@ local LockOnConfig = {
 	ConeDegrees = 40,
 	-- Closer than this across the floor, the character is not turned: the direction to the target is noise.
 	FacingMinStuds = 0.5,
-	-- The mark over a locked target: its size in pixels, and how far above the top of its body it floats.
-	Marker = { SizePx = 26, LiftStuds = 1.4 },
+	-- The mark over a locked target: its size in pixels, and how far above the top of its body it floats. The
+	-- diamond grew from D-115's 26 when it took the target's name and health plate under it (D-147).
+	Marker = { SizePx = 34, LiftStuds = 1.4 },
 }
 
 return LockOnConfig

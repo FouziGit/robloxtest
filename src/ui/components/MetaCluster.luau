@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 
 local Badge = require(script.Parent.Badge)
+local CircleButton = require(script.Parent.CircleButton)
 local Icon = require(script.Parent.Icon)
 local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
@@ -126,60 +127,6 @@ local function horizontal(parent: Instance, gap: number)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, gap)
 	layout.Parent = parent
-end
-
--- A pressable sheet disc with a sign on it (the pill's "+" and "✕"): a button too small for a word, its hit
--- area floored at a thumb's.
-local function circleButton(
-	name: string,
-	sign: string,
-	order: number,
-	onClick: () -> (),
-	trove: TroveObject
-): TextButton
-	local button = Instance.new("TextButton")
-	button.Name = name
-	button.AutoButtonColor = false
-	button.BackgroundTransparency = 1
-	button.Text = ""
-	button.Selectable = false
-	button.LayoutOrder = order
-	button.Size = UDim2.fromOffset(CIRCLE, CIRCLE)
-	Theme.minPixelSize(button, Theme.MinTouchTarget)
-	local face = Sticker.new({
-		Kind = "Pressable",
-		Fill = Theme.Colors.PanelRaised,
-		Corner = Theme.Pill,
-		Elevation = 3,
-		Stroke = Theme.Sizes.StrokeThin,
-		Parent = button,
-		Name = "Face",
-	})
-	trove:Add(function()
-		face:Destroy()
-	end)
-	local label = textLabel("Sign", Theme.Fonts.Bold, Theme.Sizes.TextBody, Theme.Colors.Text)
-	label.Size = UDim2.fromScale(1, 1)
-	label.ZIndex = 3
-	label.Text = sign
-	label.Parent = face.Face
-	trove:Connect(button.MouseEnter, function()
-		face:SetState("Hover")
-	end)
-	trove:Connect(button.MouseLeave, function()
-		face:SetState("Idle")
-	end)
-	trove:Connect(button.MouseButton1Down, function()
-		face:SetState("Pressed")
-	end)
-	trove:Connect(button.MouseButton1Up, function()
-		face:SetState("Idle")
-	end)
-	trove:Connect(button.Activated, function()
-		UiSound.play("UiClick")
-		onClick()
-	end)
-	return button
 end
 
 -- An ink pill, as wide as what it holds, laid out left to right.
@@ -297,10 +244,17 @@ function MetaCluster.new(props: Props): MetaCluster
 	count.Size = UDim2.fromScale(0, 1)
 	count.LayoutOrder = 2
 	count.Parent = foliosRow
-	circleButton("More", Theme.Glyphs.Plus, 3, function()
-		props.OnOpen("Shop", { Tab = FOLIOS_TAB })
-	end, trove).Parent =
-		foliosRow
+	local more = CircleButton.new({
+		Sign = Theme.Glyphs.Plus,
+		Size = CIRCLE,
+		LayoutOrder = 3,
+		Parent = foliosRow,
+		Name = "More",
+		OnClick = function()
+			props.OnOpen("Shop", { Tab = FOLIOS_TAB })
+		end,
+	})
+	trove:Add(more)
 
 	-- The claims: a seal per kind, each opening its screen.
 	local claimsRow = Instance.new("Frame")
@@ -391,7 +345,15 @@ function MetaCluster.new(props: Props): MetaCluster
 	searching.Size = UDim2.fromScale(0, 1)
 	searching.LayoutOrder = 2
 	searching.Parent = queueRow
-	circleButton("Leave", Theme.Glyphs.Close, 3, props.OnLeaveQueue, trove).Parent = queueRow
+	local leave = CircleButton.new({
+		Sign = Theme.Glyphs.Close,
+		Size = CIRCLE,
+		LayoutOrder = 3,
+		Parent = queueRow,
+		Name = "Leave",
+		OnClick = props.OnLeaveQueue,
+	})
+	trove:Add(leave)
 	local opener = Instance.new("TextButton")
 	opener.Name = "Open"
 	opener.AutoButtonColor = false

@@ -108,9 +108,15 @@ describe("the hub's meta cluster", function()
 				"OnOpen = function(screen: string, args: any?) menuController.open(screen, args) end,"
 			)
 		).toBe(true)
-		-- A disc too small for a word, still a thumb's worth to hit, and out of a gamepad's way.
-		local circle = body(source, "circleButton")
-		expect(has(circle, "button.Selectable = false")).toBe(true)
+		-- A disc too small for a word, still a thumb's worth to hit, and out of a gamepad's way: no focus is given.
+		expect(
+			has(
+				cluster,
+				'CircleButton.new({ Sign = Theme.Glyphs.Plus, Size = CIRCLE, LayoutOrder = 3, Parent = foliosRow, Name = "More", OnClick = function() props.OnOpen("Shop", { Tab = FOLIOS_TAB }) end, })'
+			)
+		).toBe(true)
+		local circle = folded("src/ui/components/CircleButton.luau")
+		expect(has(circle, "button.Selectable = props.Focus ~= nil")).toBe(true)
 		expect(has(circle, "Theme.minPixelSize(button, Theme.MinTouchTarget)")).toBe(true)
 		expect(has(circle, 'UiSound.play("UiClick")')).toBe(true)
 	end)
@@ -175,7 +181,12 @@ describe("the hub's meta cluster", function()
 			-- Cyan and the sheet: the queue is ours, not a value.
 			expect(has(source, 'local DOT_FILLS: { string } = { "Ally", "PanelRaised", "Ally" }')).toBe(true)
 			local cluster = folded(CLUSTER)
-			expect(has(cluster, 'circleButton("Leave", Theme.Glyphs.Close, 3, props.OnLeaveQueue, trove)')).toBe(true)
+			expect(
+				has(
+					cluster,
+					'CircleButton.new({ Sign = Theme.Glyphs.Close, Size = CIRCLE, LayoutOrder = 3, Parent = queueRow, Name = "Leave", OnClick = props.OnLeaveQueue, })'
+				)
+			).toBe(true)
 			expect(has(cluster, "props.OnOpen(PLAY_SCREEN)")).toBe(true)
 			expect(has(folded(HUD_CONTROLLER), "OnLeaveQueue = function() matchController.leaveQueue() end,")).toBe(
 				true

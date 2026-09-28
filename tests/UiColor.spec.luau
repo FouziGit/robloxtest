@@ -49,6 +49,8 @@ local STROKED_COMPONENTS = {
 	"TouchButton",
 	"DamageNumber",
 	"LockMarker",
+	"SpectatePlate",
+	"CircleButton",
 }
 local BODY_CONTRAST = 4.5
 
@@ -72,6 +74,8 @@ local FIGHT_FILES = {
 	"src/ui/components/HudPlate.luau",
 	"src/client/Controllers/TravelController.luau",
 	"src/ui/components/Banner.luau",
+	"src/ui/components/SpectatePlate.luau",
+	"src/ui/components/CircleButton.luau",
 }
 -- Rule 11: the value colours never enter a fight, by role, by helper, or through a chapter, a rarity or
 -- a rank.

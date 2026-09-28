@@ -12,6 +12,9 @@
 -- Everything it reads is a match snapshot the server pushed: who is alive, on which team, and under which
 -- name. The client picks a teammate from that and finds their character through Players -- it never
 -- decides who is alive.
+--
+-- Who is watched is said on a plate where the dock was (HudController.showSpectating, D-147), whose discs step
+-- to the previous or the next living teammate (cycle); a teammate chosen that way is kept while they live.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,7 +34,7 @@ local matchController: any
 local feel: any
 local hudController: any
 local player = Players.LocalPlayer
--- Who is being watched right now, so the toast is shown on a change and not five times a second.
+-- Who is being watched right now, kept across snapshots while they live.
 local watching: number? = nil
 
 local function humanoidOf(userId: number): Humanoid?
@@ -56,22 +59,52 @@ local function stop()
 	end
 	watching = nil
 	feel.watch(nil)
+	hudController.showSpectating(nil)
 end
 
--- The living teammate to watch: the first of the local team, by the order the server sent them, that is
--- alive and has a character loaded. Stable, so the camera does not hop between two teammates on every
--- snapshot.
-local function pick(snapshot: Types.MatchSnapshot): (number?, string?)
+type Candidate = { UserId: number, Name: string }
+
+-- The teammates the player may watch, in the order the server sent them: alive, not the player, with a
+-- character loaded.
+local function candidates(snapshot: Types.MatchSnapshot): { Candidate }
+	local list: { Candidate } = {}
 	local members = snapshot.Teams[snapshot.LocalTeam]
 	if members == nil then
-		return nil, nil
+		return list
 	end
 	for _, member in ipairs(members) do
 		if member.Alive and member.UserId ~= player.UserId and humanoidOf(member.UserId) ~= nil then
-			return member.UserId, member.Name
+			table.insert(list, { UserId = member.UserId, Name = member.Name })
 		end
 	end
-	return nil, nil
+	return list
+end
+
+-- The living teammate to watch: the one watched now while they live, else the first. Stable, so the camera
+-- does not hop between two teammates on every snapshot.
+local function pick(snapshot: Types.MatchSnapshot): (number?, string?)
+	local list = candidates(snapshot)
+	for _, candidate in ipairs(list) do
+		if candidate.UserId == watching then
+			return candidate.UserId, candidate.Name
+		end
+	end
+	local first = list[1]
+	if first == nil then
+		return nil, nil
+	end
+	return first.UserId, first.Name
+end
+
+-- Watches `userId`, and says so on the plate.
+local function watch(userId: number, name: string)
+	local humanoid = humanoidOf(userId)
+	if humanoid == nil then
+		return
+	end
+	watching = userId
+	feel.watch(humanoid)
+	hudController.showSpectating(name, SpectateController.cycle)
 end
 
 local function isEliminated(snapshot: Types.MatchSnapshot): boolean
@@ -102,13 +135,27 @@ local function refresh(snapshot: Types.MatchSnapshot?)
 	if userId == watching then
 		return
 	end
-	local humanoid = humanoidOf(userId)
-	if humanoid == nil then
+	watch(userId, name :: string)
+end
+
+-- Steps to the previous (-1) or the next (1) living teammate, round the team (the plate's discs).
+function SpectateController.cycle(step: number)
+	local snapshot = matchController.getMatch()
+	if snapshot == nil or watching == nil then
 		return
 	end
-	watching = userId
-	feel.watch(humanoid)
-	hudController.showLocalToast("match.watching", { name = name }, "Info")
+	local list = candidates(snapshot)
+	local index = 0
+	for position, candidate in ipairs(list) do
+		if candidate.UserId == watching then
+			index = position
+		end
+	end
+	if index == 0 or #list < 2 then
+		return
+	end
+	local next = list[(index - 1 + step) % #list + 1]
+	watch(next.UserId, next.Name)
 end
 
 function SpectateController.Init(deps: Deps)

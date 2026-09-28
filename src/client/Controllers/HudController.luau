@@ -9,6 +9,7 @@
 --   ComboRow      the sequence being pressed, the chain counter and the onboarding's ghost chips, above it
 --   ScoreBand     the match, at the top-centre while a snapshot is held
 --   Banner        the match's centre splashes (found, the count, the fight, a round) and the takedown pop
+--   SpectatePlate who an eliminated player watches, in the dock's place (SpectateController)
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
 -- button beside the key that opens it, badged with what waits to be claimed), on touch the Play sticker left of
 -- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
@@ -35,11 +36,13 @@ local Keycap = require(UI.components.Keycap)
 local Log = require(Shared.Util.Log)
 local MatchSplash = require(Shared.Pure.MatchSplash)
 local MetaCluster = require(UI.components.MetaCluster)
+local Motion = require(UI.Motion)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local ScoreBand = require(UI.components.ScoreBand)
 local ScreenRoot = require(UI.components.ScreenRoot)
 local Signal = require(Packages.Signal)
+local SpectatePlate = require(UI.components.SpectatePlate)
 local Theme = require(UI.Theme)
 local ThemeConfig = require(Shared.Config.ThemeConfig)
 local Toast = require(UI.components.Toast)
@@ -179,6 +182,10 @@ local combatDock: CombatDock.CombatDock
 local comboRow: ComboRow.ComboRow
 local hotbar: Hotbar.Hotbar
 local bottomStack: Frame
+local spectatePlate: SpectatePlate.SpectatePlate
+-- The dock's own scale, which carries it out while its player watches and back with their next life.
+local dockScale: UIScale
+local spectateToken = 0
 local scoreBand: ScoreBand.ScoreBand
 local banner: Banner.Banner
 -- The match snapshot before the latest, which the splashes are told apart from.
@@ -349,6 +356,10 @@ local function buildBottomStack(parent: Instance, touch: boolean)
 		Width = if touch then HUD.DockWidthTouchMax else HUD.DockWidthPointer,
 		Pips = touch,
 	})
+	-- Where the dock was, while the player is out of the round and watching a teammate.
+	spectatePlate = SpectatePlate.new({ Parent = bottomStack, Localize = localize, LayoutOrder = DOCK_ORDER })
+	dockScale = Instance.new("UIScale")
+	dockScale.Parent = combatDock.Instance
 	-- On touch the discs already name the pigments: the hotbar is a row of pips inside the dock.
 	hotbar = Hotbar.new({
 		Parent = if touch then combatDock.PipRow or bottomStack else bottomStack,
@@ -521,6 +532,29 @@ function HudController.setWarning(active: boolean)
 		toast:Pause(active)
 		banner:Suppress(active)
 	end
+end
+
+-- An eliminated player watches `name` (SpectateController): the dock leaves on the exit spring and the plate
+-- saying who pops into its place, its discs calling `onCycle`; with nil, the plate leaves and the dock comes
+-- back. The two never stand in the stack together.
+function HudController.showSpectating(name: string?, onCycle: ((step: number) -> ())?)
+	spectateToken += 1
+	local token = spectateToken
+	if name ~= nil and onCycle ~= nil then
+		Motion.to(dockScale, { Scale = 0 }, "UiExit", function()
+			if token == spectateToken then
+				combatDock.Instance.Visible = false
+				spectatePlate:Show(name, onCycle)
+			end
+		end)
+		return
+	end
+	spectatePlate:Hide(function()
+		if token == spectateToken then
+			combatDock.Instance.Visible = true
+			Motion.to(dockScale, { Scale = 1 }, "UiPop")
+		end
+	end)
 end
 
 -- Shows `pigments` as ghost chips, or clears them with nil (OnboardingController): with a pointer each under

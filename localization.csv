@@ -57,12 +57,17 @@ boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts 
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
 common.cancel,Cancel,Vellum,,Cancel,Annuler
+common.loadFailed,Couldn't load.,Vellum,,Couldn't load.,Impossible de charger.
 common.locked,Locked,Vellum,,Locked,Verrouillé
+common.off,Off,Vellum,,Off,Non
 common.ok,OK,Vellum,,OK,OK
+common.on,On,Vellum,,On,Oui
 common.pendingTimeout,No answer from the server. Try again.,Vellum,,No answer from the server. Try again.,Pas de réponse du serveur. Réessaie.
+common.percent,{value}%,Vellum,,{value}%,{value} %
 common.reset,Reset,Vellum,,Reset,Réinitialiser
 common.retry,Retry,Vellum,,Retry,Réessayer
-common.save,Save,Vellum,,Save,Sauvegarder
+common.seconds,{seconds}s,Vellum,,{seconds}s,{seconds} s
+common.undo,Undo,Vellum,,Undo,Annuler
 cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
 cosmetic.AuraCrimson,Smoke Aura,Vellum,,Smoke Aura,Aura de Fumée
 cosmetic.AuraEmber,Soot Aura,Vellum,,Soot Aura,Aura de Suie
@@ -244,6 +249,7 @@ leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
 leaderboard.board.Global,Global,Vellum,,Global,Global
 leaderboard.board.Team3v3,3v3,Vellum,,3v3,3v3
 leaderboard.empty,No ranked player yet.,Vellum,,No ranked player yet.,Aucun joueur classé pour l'instant.
+leaderboard.findMe,Find me,Vellum,,Find me,Me trouver
 leaderboard.rating,{rating},Vellum,,{rating},{rating}
 leaderboard.row,#{rank}  {name},Vellum,,#{rank}  {name},#{rank}  {name}
 leaderboard.title,Leaderboard,Vellum,,Leaderboard,Classement
@@ -254,18 +260,19 @@ level.max,Max level,Vellum,,Max level,Niveau max
 level.title,Level {level},Vellum,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
-loadout.combo,Sequence: {combo},Vellum,,Sequence: {combo},Séquence : {combo}
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé
-loadout.full,Every slot is taken.,Vellum,,Every slot is taken.,Tous les slots sont pris.
+loadout.equippedToast,{name} equipped,Vellum,,{name} equipped,{name} équipé
+loadout.fullShort,Slots full,Vellum,,Slots full,Emplacements pleins
 loadout.invalid,Invalid loadout.,Vellum,,Invalid loadout.,Équipement invalide.
 loadout.locked,Unlocks at level {level},Vellum,,Unlocks at level {level},Se débloque au niveau {level}
 loadout.lockedPigment,Requires the {pigment} pigment,Vellum,,Requires the {pigment} pigment,Nécessite le pigment {pigment}
+loadout.moreSlots,+{count} slots,Vellum,,+{count} slots,+{count} emplacements
 loadout.saved,Loadout saved!,Vellum,,Loadout saved!,Équipement sauvegardé !
 loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} slots
-loadout.stats,{damage} damage · {cost} ink · {cooldown}s,Vellum,,{damage} damage · {cost} ink · {cooldown}s,{damage} dégâts · {cost} encre · {cooldown}s
 loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
+loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
 match.again,Play again,Vellum,,Play again,Rejouer
 match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
@@ -282,7 +289,6 @@ match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
-match.rewards,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 match.round,Round {round} / {total},Vellum,,Round {round} / {total},Manche {round} / {total}
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
@@ -361,6 +367,7 @@ quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target}
 quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
 quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
+quest.resetsIn,Resets in {time},Vellum,,Resets in {time},Réinitialisation dans {time}
 quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
 quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
@@ -385,30 +392,42 @@ rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
+result.details,Details,Vellum,,Details,Détails
 reward.folios,+{amount},Vellum,,+{amount},+{amount}
 reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs
 settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.
+settings.capturing,…,Vellum,,…,…
 settings.duplicate,{key} is used twice.,Vellum,,{key} is used twice.,La touche {key} est utilisée deux fois.
 settings.hint,Click a binding to change it.,Vellum,,Click a binding to change it.,Clique sur une touche pour la changer.
+settings.hint.gamepad,"Select a binding, then press the new button. A cancels.",Vellum,,"Select a binding, then press the new button. A cancels.","Sélectionne une touche, puis appuie sur le nouveau bouton. A annule."
 settings.keyNotAllowed,{key} is not allowed.,Vellum,,{key} is not allowed.,{key} n'est pas autorisée.
 settings.music,Music volume,Vellum,,Music volume,Volume musique
+settings.pressButton,Press a button for {action}… (A to cancel),Vellum,,Press a button for {action}… (A to cancel),Appuie sur un bouton pour {action}… (A pour annuler)
 settings.pressKey,Press a key for {action}… (Esc to cancel),Vellum,,Press a key for {action}… (Esc to cancel),Appuie sur une touche pour {action}… (Échap pour annuler)
 settings.quality,Quality,Vellum,,Quality,Qualité
 settings.qualityHint,"Lower it if the game stutters. The game lowers it by itself when your frame rate drops, and gives it back when it recovers.",Vellum,,"Lower it if the game stutters. The game lowers it by itself when your frame rate drops, and gives it back when it recovers.","Baisse-la si le jeu saccade. Le jeu la baisse tout seul quand tes images par seconde tombent, et la rend quand elles remontent."
-settings.resetPending,Defaults restored. Don't forget to save!,Vellum,,Defaults restored. Don't forget to save!,Touches par défaut restaurées. N'oublie pas de sauvegarder !
+settings.reducedMotion,Reduced motion,Vellum,,Reduced motion,Mouvements réduits
+settings.resetConfirm,Reset every binding to its default?,Vellum,,Reset every binding to its default?,Remettre toutes les touches par défaut ?
 settings.saveFailed,Could not save settings.,Vellum,,Could not save settings.,Impossible de sauvegarder les options.
 settings.saved,Settings saved!,Vellum,,Settings saved!,Options sauvegardées !
-settings.saving,Saving…,Vellum,,Saving…,Sauvegarde…
 settings.sfx,Effects volume,Vellum,,Effects volume,Volume effets
 settings.swapped,Swapped {a} and {b}. Don't forget to save!,Vellum,,Swapped {a} and {b}. Don't forget to save!,{a} et {b} échangés. N'oublie pas de sauvegarder !
+settings.systemHint,"Set in the Roblox menu, under Settings.",Vellum,,"Set in the Roblox menu, under Settings.","Se règle dans le menu Roblox, dans Paramètres."
+settings.tab.accessibility,Accessibility,Vellum,,Accessibility,Accessibilité
 settings.tab.audio,Audio,Vellum,,Audio,Audio
 settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
 settings.tab.graphics,Graphics,Vellum,,Graphics,Graphismes
 settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
+settings.textSize,Text size,Vellum,,Text size,Taille du texte
+settings.textSize.Large,Large,Vellum,,Large,Grand
+settings.textSize.Larger,Larger,Vellum,,Larger,Plus grand
+settings.textSize.Largest,Largest,Vellum,,Largest,Très grand
+settings.textSize.Medium,Standard,Vellum,,Standard,Standard
 settings.title,Settings,Vellum,,Settings,Options
+settings.transparency,Background transparency,Vellum,,Background transparency,Transparence des fonds
 shop.acquired,Acquired!,Vellum,,Acquired!,Acquis !
 shop.buy,Buy,Vellum,,Buy,Acheter
 shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
@@ -436,5 +455,6 @@ shop.unequip,Unequip,Vellum,,Unequip,Retirer
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
+time.daysHours,{days}d {hours}h,Vellum,,{days}d {hours}h,{days} j {hours} h
 time.hoursMinutes,{hours}h {minutes}m,Vellum,,{hours}h {minutes}m,{hours} h {minutes}
 time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}

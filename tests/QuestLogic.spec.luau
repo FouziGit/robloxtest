@@ -23,6 +23,32 @@ describe("QuestLogic", function()
 		expect(QuestLogic.periodKey("Weekly", 86400 * 10)).toBe("W1")
 	end)
 
+	-- The quests screen counts down to periodEndsAt: the second it returns has to be the one the key changes
+	-- on, and not one second earlier, or the board says "resets in 0m" over a set that stays.
+	it("ends a period exactly where its key changes", function()
+		local samples = { 0, 1, 86399, 86400, 86401, 3 * 86400, 4 * 86400 - 1, 4 * 86400, 20725 * 86400 + 43210 }
+		for week = 0, 13 do
+			table.insert(samples, 2960 * 7 * 86400 + week * 86400 + week * 3607)
+		end
+		for _, period in ipairs({ "Daily", "Weekly" } :: { QuestLogic.Period }) do
+			local span = if period == "Daily" then 86400 else 7 * 86400
+			for _, now in ipairs(samples) do
+				local ends = QuestLogic.periodEndsAt(period, now)
+				local key = QuestLogic.periodKey(period, now)
+				expect(ends).toBeGreaterThan(now)
+				expect(ends - now).toBeLessThanOrEqual(span)
+				expect(QuestLogic.periodKey(period, ends - 1)).toBe(key)
+				expect(QuestLogic.periodKey(period, ends)).never.toBe(key)
+			end
+		end
+		-- 1970-01-01 was a Thursday: its week ends at the Monday that opens week 1, and its day at midnight.
+		expect(QuestLogic.periodEndsAt("Weekly", 0)).toBe(4 * 86400)
+		expect(QuestLogic.periodEndsAt("Daily", 86400 * 10 + 5)).toBe(86400 * 11)
+		-- At a boundary the period that just began is the one counted down.
+		expect(QuestLogic.periodEndsAt("Daily", 86400)).toBe(2 * 86400)
+		expect(QuestLogic.periodEndsAt("Weekly", 4 * 86400)).toBe(11 * 86400)
+	end)
+
 	it("selects deterministic distinct quests per period", function()
 		local a = QuestLogic.select(QuestConfig.Pool, "Daily", 3, "D100")
 		local b = QuestLogic.select(QuestConfig.Pool, "Daily", 3, "D100")

@@ -38,6 +38,8 @@ local WATCHED = { "ReducedMotionEnabled", "PreferredTextSize", "PreferredTranspa
 
 local reduced = false
 local textScale = 1
+-- The name of the player's text size (an Enum.PreferredTextSize item), for the Settings screen to show.
+local textSize = "Medium"
 local transparency = 1
 local shakes = true
 local lowQuality = false
@@ -59,6 +61,7 @@ local function refresh()
 	reduced = read("ReducedMotionEnabled") == true
 	local size = read("PreferredTextSize")
 	textScale = if typeof(size) == "EnumItem" then ThemeConfig.TextScale[(size :: EnumItem).Name] or 1 else 1
+	textSize = if typeof(size) == "EnumItem" then (size :: EnumItem).Name else "Medium"
 	local preferred = read("PreferredTransparency")
 	transparency = if type(preferred) == "number" then math.clamp(preferred, 0, 1) else 1
 end
@@ -90,6 +93,11 @@ end
 
 function UiPrefs.textScale(): number
 	return textScale
+end
+
+-- Which of Roblox's text sizes the player chose: Medium unless they asked for larger.
+function UiPrefs.textSize(): string
+	return textSize
 end
 
 function UiPrefs.transparency(): number

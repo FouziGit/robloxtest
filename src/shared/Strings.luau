@@ -13,7 +13,6 @@ Strings.Locales = { "en", "fr" }
 Strings.Table = {
 	-- Common
 	["common.ok"] = { en = "OK", fr = "OK" },
-	["common.save"] = { en = "Save", fr = "Sauvegarder" },
 	["common.reset"] = { en = "Reset", fr = "Réinitialiser" },
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
 
@@ -95,7 +94,6 @@ Strings.Table = {
 		fr = "{action} est maintenant sur {key}. N'oublie pas de sauvegarder !",
 	},
 	["settings.duplicate"] = { en = "{key} is used twice.", fr = "La touche {key} est utilisée deux fois." },
-	["settings.saving"] = { en = "Saving…", fr = "Sauvegarde…" },
 	["settings.saved"] = { en = "Settings saved!", fr = "Options sauvegardées !" },
 	["settings.saveFailed"] = { en = "Could not save settings.", fr = "Impossible de sauvegarder les options." },
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
@@ -113,10 +111,6 @@ Strings.Table = {
 	["quality.medium"] = { en = "Medium", fr = "Moyenne" },
 	["quality.low"] = { en = "Low", fr = "Basse" },
 	["quality.performance"] = { en = "Performance", fr = "Performance" },
-	["settings.resetPending"] = {
-		en = "Defaults restored. Don't forget to save!",
-		fr = "Touches par défaut restaurées. N'oublie pas de sauvegarder !",
-	},
 
 	-- Battle pass
 	["battlepass.title"] = { en = "Battle Pass — Volume {season}", fr = "Battle Pass — Volume {season}" },
@@ -468,7 +462,6 @@ Strings.Table = {
 	["match.victory"] = { en = "Victory!", fr = "Victoire !" },
 	["match.defeat"] = { en = "Defeat", fr = "Défaite" },
 	["match.draw"] = { en = "Draw", fr = "Égalité" },
-	["match.rewards"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["match.ratingUp"] = { en = "{rank}  {rating} (+{delta})", fr = "{rank}  {rating} (+{delta})" },
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
@@ -612,7 +605,6 @@ Strings.Table = {
 	["loadout.equip"] = { en = "Equip", fr = "Équiper" },
 	["loadout.unequip"] = { en = "Unequip", fr = "Retirer" },
 	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
-	["loadout.full"] = { en = "Every slot is taken.", fr = "Tous les slots sont pris." },
 	["loadout.locked"] = { en = "Unlocks at level {level}", fr = "Se débloque au niveau {level}" },
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
@@ -620,11 +612,6 @@ Strings.Table = {
 	["loadout.caughtUp"] = {
 		en = "New glyphs unlocked: {count}. Add them to your loadout.",
 		fr = "Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.",
-	},
-	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
-	["loadout.stats"] = {
-		en = "{damage} damage · {cost} ink · {cooldown}s",
-		fr = "{damage} dégâts · {cost} encre · {cooldown}s",
 	},
 
 	-- Cosmetics
@@ -755,6 +742,56 @@ Strings.Table = {
 	},
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
+	-- A time left, on a countdown (QuestBoard.countdown): days and hours past a day (under a day it reads
+	-- time.hoursMinutes, entered above by slice A).
+	["time.daysHours"] = { en = "{days}d {hours}h", fr = "{days} j {hours} h" },
+	-- The quests board: when each section is drawn again.
+	["quest.resetsIn"] = { en = "Resets in {time}", fr = "Réinitialisation dans {time}" },
+	-- A number of seconds, beside a clock (a glyph's cooldown on its card).
+	["common.seconds"] = { en = "{seconds}s", fr = "{seconds} s" },
+	-- The loadout: a full loadout's Equip, the offer of the pass's slots, and the strip that undoes a change.
+	["loadout.fullShort"] = { en = "Slots full", fr = "Emplacements pleins" },
+	["loadout.moreSlots"] = { en = "+{count} slots", fr = "+{count} emplacements" },
+	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
+	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
+	["common.undo"] = { en = "Undo", fr = "Annuler" },
+	-- The leaderboard: the way to the player's own row, and a board that could not be fetched.
+	["leaderboard.findMe"] = { en = "Find me", fr = "Me trouver" },
+	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
+	-- Settings: the accessibility tab, the words of a switch and of a percentage, the way a pad rebinds, and
+	-- the question before a reset.
+	["settings.tab.accessibility"] = { en = "Accessibility", fr = "Accessibilité" },
+	["common.on"] = { en = "On", fr = "Oui" },
+	["common.off"] = { en = "Off", fr = "Non" },
+	["common.percent"] = { en = "{value}%", fr = "{value} %" },
+	["settings.hint.gamepad"] = {
+		en = "Select a binding, then press the new button. A cancels.",
+		fr = "Sélectionne une touche, puis appuie sur le nouveau bouton. A annule.",
+	},
+	["settings.pressButton"] = {
+		en = "Press a button for {action}… (A to cancel)",
+		fr = "Appuie sur un bouton pour {action}… (A pour annuler)",
+	},
+	-- What a key being rebound shows while it waits for the new one.
+	["settings.capturing"] = { en = "…", fr = "…" },
+	["settings.resetConfirm"] = {
+		en = "Reset every binding to its default?",
+		fr = "Remettre toutes les touches par défaut ?",
+	},
+	-- Roblox's own accessibility settings, shown as they are (UiPrefs) and changed in the Roblox menu.
+	["settings.reducedMotion"] = { en = "Reduced motion", fr = "Mouvements réduits" },
+	["settings.textSize"] = { en = "Text size", fr = "Taille du texte" },
+	["settings.textSize.Medium"] = { en = "Standard", fr = "Standard" },
+	["settings.textSize.Large"] = { en = "Large", fr = "Grand" },
+	["settings.textSize.Larger"] = { en = "Larger", fr = "Plus grand" },
+	["settings.textSize.Largest"] = { en = "Largest", fr = "Très grand" },
+	["settings.transparency"] = { en = "Background transparency", fr = "Transparence des fonds" },
+	["settings.systemHint"] = {
+		en = "Set in the Roblox menu, under Settings.",
+		fr = "Se règle dans le menu Roblox, dans Paramètres.",
+	},
+	-- The Result: the details folded on a phone (its chips count up with reward.xp and reward.folios, above).
+	["result.details"] = { en = "Details", fr = "Détails" },
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

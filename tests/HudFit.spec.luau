@@ -9,6 +9,7 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
+local Measure = require("./measure")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
@@ -19,7 +20,6 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local HUD = ThemeConfig.Hud
 local HUD_CONTROLLER = "src/client/Controllers/HudController.luau"
 local DOCK = "src/ui/components/CombatDock.luau"
-local BUTTON = "src/ui/components/Button.luau"
 local KEYCAP = "src/ui/components/Keycap.luau"
 -- The safe area's own insets, top and bottom together, at most.
 local SAFE_SLACK = 2 * 16
@@ -28,9 +28,6 @@ local PHONE_HEIGHTS = { 375, 390, 414 }
 -- The smallest window a mouse or a gamepad plays in, and its width at 16:9.
 local POINTER_HEIGHT = 720
 local POINTER_WIDTH = 1280
--- The widest a character of the interface's faces is drawn, as a share of its text size: a word is measured
--- this generously, since Lune cannot lay text out.
-local CHAR_SHARE = 0.7
 
 local function code(path: string): string
 	local withoutBlocks = string.gsub(fs.readFile(path), "%-%-%[%[.-%]%]", " ")
@@ -119,17 +116,12 @@ describe("the HUD's fit", function()
 		expect(has(build, "quickBar.AnchorPoint = Vector2.new(1, 1)")).toBe(true)
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 		local Theme = world.require("src/ui/Theme")
-		local button = code(BUTTON)
 		local function buttonWidth(text: string): number
-			local drawn = number(button, "PADDING_X") * 2
-				+ number(button, "ICON_SIZE")
-				+ number(button, "GAP")
-				+ (utf8.len(text) :: number) * CHAR_SHARE * Theme.Sizes.TextButton
-			return math.max(number(button, "MIN_WIDTH"), drawn)
+			return Measure.buttonWidth(text, Theme.Sizes.TextButton, true)
 		end
 		local keycap = code(KEYCAP)
 		local function capWidth(text: string): number
-			return number(keycap, "PADDING") * 2 + (utf8.len(text) :: number) * CHAR_SHARE * number(keycap, "TEXT_SIZE")
+			return number(keycap, "PADDING") * 2 + Measure.textWidth(text, number(keycap, "TEXT_SIZE"))
 		end
 		local widest = 0
 		for _, locale in ipairs(Strings.Locales) do

@@ -138,6 +138,16 @@ local function defaults(className: string): { [string]: any }
 		values.Offset = roblox.Vector2.zero
 		values.Rotation = 0
 		values.Enabled = true
+	elseif className == "UIPadding" then
+		values.PaddingTop = roblox.UDim.new()
+		values.PaddingBottom = roblox.UDim.new()
+		values.PaddingLeft = roblox.UDim.new()
+		values.PaddingRight = roblox.UDim.new()
+	elseif className == "UIListLayout" then
+		values.Padding = roblox.UDim.new()
+	elseif className == "UISizeConstraint" then
+		values.MinSize = roblox.Vector2.zero
+		values.MaxSize = roblox.Vector2.new(math.huge, math.huge)
 	elseif className == "UIStroke" then
 		values.Thickness = 1
 		values.Transparency = 0

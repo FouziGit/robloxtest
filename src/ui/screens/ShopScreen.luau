@@ -78,10 +78,14 @@ type TabId = "Today" | "Folios" | "Passes" | "Locker"
 local ShopScreen = {}
 
 local CHAPTER = "Shop"
--- An item card with a pointer; a Legendary is two of them wide. On a phone the card keeps its width and
--- takes the height the card has, less the track's bar.
+-- An item card with a pointer; a Legendary is two of them wide. On a phone the card takes the height the
+-- track has, which leaves no room for its two prices one over the other (they took the whole preview, and
+-- the Robux one hung under the card): it is as wide as the two side by side need, the longest price
+-- included (tests/ShopEquip.spec.luau), and its preview keeps at least PREVIEW_MIN.
 local CARD_WIDTH = 260
+local CARD_WIDTH_TOUCH = 400
 local CARD_HEIGHT = 330
+local PREVIEW_MIN = 32
 local CARD_PADDING = 12
 local CARD_ELEVATION = 5
 local NAME_SIZE = 20
@@ -402,11 +406,13 @@ function ShopScreen.new(deps: Deps): Screen
 
 	local function buildCard(entry: Entry, item: CosmeticConfig.CosmeticDef, layoutOrder: number): Card
 		local legendary = entry.Rarity == "Legendary"
-		local width = if legendary then CARD_WIDTH * 2 + Theme.Sizes.Gap else CARD_WIDTH
+		local touch = Theme.touchOnly()
+		local single = if touch then CARD_WIDTH_TOUCH else CARD_WIDTH
+		local width = if legendary then single * 2 + Theme.Sizes.Gap else single
 		local holder = blank(entry.CosmeticId, content)
 		holder.LayoutOrder = layoutOrder
 		-- A phone gives the card the height it has; a pointer the designed one.
-		holder.Size = if Theme.touchOnly()
+		holder.Size = if touch
 			then UDim2.new(0, width, 1, -Theme.Sizes.PaddingSmall)
 			else UDim2.fromOffset(width, CARD_HEIGHT)
 		pageTrove:Add(holder)
@@ -441,6 +447,9 @@ function ShopScreen.new(deps: Deps): Screen
 		local wellFlex = Instance.new("UIFlexItem")
 		wellFlex.FlexMode = Enum.UIFlexMode.Fill
 		wellFlex.Parent = well
+		local wellFloor = Instance.new("UISizeConstraint")
+		wellFloor.MinSize = Vector2.new(0, PREVIEW_MIN)
+		wellFloor.Parent = well
 		ItemPreview.new(item, well, deps.Localize)
 		local ribbon = RarityRibbon.new(entry.Rarity, t(Theme.rarity(entry.Rarity).WordKey), face)
 		own(pageTrove, ribbon)

@@ -756,6 +756,12 @@ describe("the renderer", function()
 				end
 			end
 		end
+		-- A ribbon is bare and tapered. The BrushStroke texture the old ones carried was stretched over the whole
+		-- length and read as a faint smudge (vellum-vfx), one of the reasons nothing worn was seen.
+		local ribbon = controller:match("local function buildRibbon%(.-\nend\n") or ""
+		expect(ribbon:find('Instance.new("Trail")', 1, true)).never.toBe(nil)
+		expect(ribbon:find("Texture", 1, true)).toBe(nil)
+		expect(ribbon:find("trail.WidthScale = NumberSequence.new(1, RIBBON_TAPER)", 1, true)).never.toBe(nil)
 		-- Rule 8: on the floor tier nothing of somebody else's, ribbons included.
 		local build = controller:match("local function buildStyles%(.-\nend\n") or ""
 		expect(build:find("if density <= 0 then\n\t\treturn worn", 1, true)).never.toBe(nil)

@@ -16,7 +16,7 @@
 -- strike depends on every exemption its episode met: a grant, contact, a spawn, a server hitch, a stream
 -- catching up, a body that is down. When the server cannot tell, it flags rather than moves anyone.
 --
--- About 1400 lines, a quarter of them the declared shapes and the track's constructor: over the 500-line
+-- About 1500 lines, a quarter of them the declared shapes and the track's constructor: over the 500-line
 -- guideline, like BotBrain. Splitting it would need a require between pure modules or functions injected by
 -- the caller.
 
@@ -957,11 +957,11 @@ local function sweptApart(sx: number, sy: number, sz: number, vx: number, vy: nu
 end
 
 -- Which bodies touch another this tick, from their roots, this tick's displacements and last tick's flags. Body i
--- touches j when their roots are within `radius`. A body that swept through another between two ticks never is:
--- then only the one that moved less was touched -- a client can replicate its body from one side of a victim to
--- the other in one tick, and the victim's own client, which drew it passing, is the one thrown. That contact does
--- not count for i when j was flagged last tick and both moved beyond the teleport slack the same way: a fling
--- victim is thrown away from its flinger and keeps the exemption, two cheaters teleporting together do not.
+-- touches j when their roots are within `radius`, or came within it during the tick: a client can replicate its
+-- body from one side of a victim to the other in one tick, and the victim's own client, which drew it passing, is
+-- the one thrown -- so that contact goes only to the body that moved less. No contact counts for i when j was
+-- flagged last tick and both moved beyond the teleport slack the same way: a fling victim is thrown away from its
+-- flinger and keeps the exemption, two cheaters teleporting together do not.
 function MovementGuard.touching(
 	xs: { number },
 	ys: { number },

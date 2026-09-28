@@ -102,8 +102,8 @@ end
 
 -- How long the anchor, chasing at the ceiling, may need to close `gap` on a body that keeps walking straight away
 -- at `pace`, never more than `cap`: the time a stall's catch-up is given before a refused action counts again.
--- A body faster than that pace is not converging, and a latch it could renew by standing still once would let it
--- attack from positions the server never believed without ever being counted.
+-- A body faster than that pace is not converging: held until the anchor caught up, the latch let one that stood
+-- still once and then outran the chase attack from positions the server never believed, never counted.
 function OriginGuard.convergeSeconds(gap: number, pace: number, cap: number, config: Config): number
 	local closing = config.MaxSpeedStudsPerSecond - pace
 	if closing <= 0 then

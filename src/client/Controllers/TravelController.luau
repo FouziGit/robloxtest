@@ -30,7 +30,7 @@ local Types = require(Shared.Types)
 local log = Log.new("TravelController")
 
 type Band = "Boss" | "Place" | "Portal"
-type HudApi = { topStack: (band: Band?) -> (Frame?, number) }
+type HudApi = { topStack: (band: Band?) -> (Frame?, number), setPlace: (zoneId: string) -> () }
 type Deps = { RemoteClient: any, Localize: any, HudController: HudApi?, SoundController: any }
 
 local BAND_WIDTH = 360
@@ -263,6 +263,11 @@ local function onTravelled(id: any)
 		return
 	end
 	TravelController.Travelled:Fire(id)
+	-- The HUD knows a fight from the hub by where the player is: an arena holds back its value colours.
+	local hud = hudController
+	if hud ~= nil then
+		hud.setPlace(id)
+	end
 end
 
 function TravelController.Init(deps: Deps)

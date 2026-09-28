@@ -38,6 +38,7 @@ local STROKED_COMPONENTS = {
 	"Panel",
 	"ChapterBand",
 	"CardContent",
+	"Toast",
 }
 local BODY_CONTRAST = 4.5
 

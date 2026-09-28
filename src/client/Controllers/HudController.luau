@@ -33,7 +33,7 @@ local Types = require(Shared.Types)
 
 local log = Log.new("HudController")
 
-export type ToastKind = "Info" | "Success" | "Error"
+export type ToastKind = Toast.Kind
 
 type CombatState = { Health: number, MaxHealth: number, Ink: number, MaxInk: number }
 
@@ -47,6 +47,7 @@ type Deps = {
 	MatchController: any,
 	MenuController: any,
 	VfxController: any,
+	InputController: any,
 }
 
 local DISPLAY_ORDER = Theme.Layers.Hud
@@ -80,7 +81,30 @@ local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.G
 local TOP_STACK_MAX_HEIGHT = 240
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local GAMEPAD_PREFIX = "Gamepad"
+-- The kinds a server message may name. The HUD adds two of its own, by key: a celebration and a reward.
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
+-- The moments worth the primary yellow and a splat: a level, a pass tier, a finished quest, the first win of
+-- the day (D-147).
+local CELEBRATE_KEYS: { [string]: boolean } = {
+	["hud.levelUp"] = true,
+	["hud.tierUp"] = true,
+	["quest.completed"] = true,
+	["daily.firstWin"] = true,
+}
+-- Folios paid out: the coin leads the message, and the amount stands beside it (its `folios` or `amount`).
+local REWARD_KEYS: { [string]: boolean } = {
+	["daily.claimed"] = true,
+	["daily.premium"] = true,
+	["quest.reward"] = true,
+	["battlepass.reward.folio"] = true,
+	["season.rewardGranted"] = true,
+}
+-- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
+local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
+-- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
+local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true }
+-- Below the Menu disc, on a touch screen: the gap between the disc and the first message.
+local TOAST_UNDER_MENU = 8
 -- The quick bar (D-128). The screens a player comes to the hub for were reachable only through the M key,
 -- which a small muted "M = Menu" in a corner was the only sign of: a developer testing the game could not
 -- find the queue, the shop or the leaderboard. Each is one click away now, and the Menu button names its
@@ -161,7 +185,10 @@ local rosterLabels: { { TextLabel } } = {}
 local notifyWarned = false
 local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
 local menuController: any
+local inputController: any
 local inMatch = false
+-- In the Battleground or the World Boss's arena (setPlace): a fight, like a match.
+local inArena = false
 
 local function makeColumn(name: string, anchor: Vector2, position: UDim2, parent: Instance): Frame
 	local column = Instance.new("Frame")
@@ -418,9 +445,32 @@ local function build()
 	--
 	-- It also stops the column from growing down over the bars: the column holds the two bands only, so
 	-- their combined height is bounded by the match and boss layouts rather than by how many messages
-	-- happen to be on screen.
-	toastRoot = ScreenRoot.new({ Name = "Toasts", DisplayOrder = Theme.Layers.Toast })
-	toast = Toast.new({ Name = "Toasts", Parent = toastRoot.Content })
+	-- happen to be on screen. The messages follow the player's own text size, as the menus do.
+	toastRoot = ScreenRoot.new({ Name = "Toasts", DisplayOrder = Theme.Layers.Toast, TextScalable = true })
+	toast = Toast.new({
+		Name = "Toasts",
+		Parent = toastRoot.Content,
+		Lane = if Theme.touchOnly() then "Touch" else "Pointer",
+	})
+end
+
+-- On a touch screen the lane hangs under the Menu disc, which InputController lays out in screen pixels:
+-- turned into the design units of the toasts' own safe area.
+local function placeToasts()
+	local menu = inputController.touchRects()[MENU_ACTION]
+	if menu == nil then
+		return
+	end
+	local safeArea = toastRoot.Content
+	local top = (menu.Max.Y - safeArea.AbsolutePosition.Y) / toastRoot:GetScale()
+	toast:SetTop(math.max(Theme.Sizes.Padding, top + TOAST_UNDER_MENU))
+end
+
+-- A match or an arena: fewer messages at once, and none in a value colour (rule 11).
+local function refreshFight()
+	local fighting = inMatch or inArena
+	toast:SetMaxVisible(if fighting then Theme.Timing.Toast.MaxVisibleMatch else Theme.Timing.Toast.MaxVisibleHub)
+	toast:Hold(if fighting then FIGHT_HELD else {})
 end
 
 -- The top-centre column the bands share, plus the LayoutOrder the band `band` must use: the boss's by default,
@@ -716,6 +766,7 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 		for _, button in ipairs(quickButtons) do
 			button.Instance.Visible = not active
 		end
+		refreshFight()
 	end
 	if snapshot == nil then
 		matchBand.Visible = false
@@ -771,6 +822,27 @@ local function refreshProfile(section: string)
 	end
 end
 
+-- The Folios a reward names, for its chip: `folios` in most rewards, `amount` in the pass's and the season's.
+local function amountOf(params: { [string]: any }?): number?
+	if params == nil then
+		return nil
+	end
+	local amount = params.folios or params.amount
+	return if type(amount) == "number" and amount > 0 then amount else nil
+end
+
+-- Every message goes out through here: a celebration or a reward by its key, anything else as its kind.
+local function show(key: string, params: { [string]: any }?, kind: ToastKind)
+	local text = localize.t(key, params)
+	if CELEBRATE_KEYS[key] then
+		toast:Show(text, "Celebrate")
+	elseif REWARD_KEYS[key] then
+		toast:Show(text, "Reward", amountOf(params))
+	else
+		toast:Show(text, kind)
+	end
+end
+
 local function onNotify(payload: any)
 	if type(payload) ~= "table" or type(payload.Key) ~= "string" then
 		if not notifyWarned then
@@ -787,7 +859,7 @@ local function onNotify(payload: any)
 		-- an error on the remote handler.
 		return
 	end
-	toast:Show(localize.t(payload.Key, localize.resolveParams(params)), kind)
+	show(payload.Key, localize.resolveParams(params), kind)
 	if type(payload.Sfx) == "string" then
 		soundController.play(payload.Sfx)
 	end
@@ -802,7 +874,20 @@ function HudController.showLocalToast(key: string, params: { [string]: any }?, k
 	if toast == nil then
 		return
 	end
-	toast:Show(localize.t(key, params), kind or "Info")
+	show(key, params, kind or "Info")
+end
+
+-- Where a portal just took the player (TravelController, once it has fired Travelled): the Battleground and
+-- the World Boss's arena are fights, like a match; anywhere else is the hub.
+function HudController.setPlace(zoneId: string)
+	local arena = ARENA_ZONES[zoneId] == true
+	if arena == inArena then
+		return
+	end
+	inArena = arena
+	if toast ~= nil then
+		refreshFight()
+	end
 end
 
 function HudController.Init(deps: Deps)
@@ -815,6 +900,7 @@ function HudController.Init(deps: Deps)
 	combatController = deps.CombatController
 	matchController = deps.MatchController
 	menuController = deps.MenuController
+	inputController = deps.InputController
 	build()
 end
 
@@ -834,6 +920,8 @@ function HudController.Start()
 	matchController.MatchChanged:Connect(refreshMatch)
 	refreshMatch(matchController.getMatch())
 	remoteClient.on("Notify", onNotify)
+	inputController.TouchLayoutChanged:Connect(placeToasts)
+	placeToasts()
 	log.info("started")
 end
 

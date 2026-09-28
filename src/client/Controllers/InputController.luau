@@ -38,7 +38,7 @@ type TroveType = typeof(Trove.new())
 type Deps = { ClientData: any, Localize: any, MenuController: any }
 type Capture = { Kind: CaptureKind, Callback: (keyName: string?) -> (), Trove: TroveType }
 type BindInput = Enum.KeyCode | Enum.UserInputType
-type Rect = { Min: Vector2, Max: Vector2 }
+export type Rect = { Min: Vector2, Max: Vector2 }
 type TouchStyle = { Layout: { [string]: Vector2 }, Size: number, Origin: Vector2 }
 
 -- Above the default camera's own bindings: at the same priority, the most recently bound wins, and the
@@ -93,6 +93,8 @@ local InputController = {}
 
 InputController.Action = Signal.new() -- (actionId: string, began: boolean)
 InputController.SuspendedChanged = Signal.new() -- (suspended: boolean)
+-- Fired at the end of every layout of the touch discs: what the HUD lays out around them reads touchRects.
+InputController.TouchLayoutChanged = Signal.new()
 
 local clientData: any
 local localize: any
@@ -107,6 +109,9 @@ local suspended = false
 local capture: Capture? = nil
 local warnedKeys: { [string]: boolean } = {}
 local hapticSupport: { [Enum.UserInputType]: boolean } = {}
+-- The square each touch disc covers since the last layout, by action. Kept while a menu unbinds the discs:
+-- they come back in the same places.
+local touchRectsByAction: { [string]: Rect } = {}
 local relayoutTouch: () -> ()
 
 local keyCodeByName: { [string]: Enum.KeyCode } = {}
@@ -461,6 +466,16 @@ local function styleTouchButtons(generation: number)
 			applyTouchButton(action, button, style)
 		end
 	end
+	-- Only the discs that are there: a layout places every action, bound or not.
+	local half = Vector2.new(style.Size, style.Size) * 0.5
+	table.clear(touchRectsByAction)
+	for action, centre in pairs(style.Layout) do
+		local button: ImageButton? = buttons[action]
+		if button ~= nil then
+			touchRectsByAction[action] = { Min = centre - half, Max = centre + half }
+		end
+	end
+	InputController.TouchLayoutChanged:Fire()
 end
 
 -- The layout is measured, so it is rebuilt when the viewport changes or when the engine finally
@@ -707,6 +722,13 @@ function InputController.setSuspended(value: boolean)
 	suspended = value
 	applyBindings()
 	InputController.SuspendedChanged:Fire(value)
+end
+
+-- The square each touch disc covered at the last layout, by action, in the space of a GuiObject's
+-- AbsolutePosition: the toast lane hangs under the Menu disc, the combat dock fits between the thumbs.
+-- Empty until the discs are first laid out (and on a device with no touch screen).
+function InputController.touchRects(): { [string]: Rect }
+	return table.clone(touchRectsByAction)
 end
 
 function InputController.isSuspended(): boolean

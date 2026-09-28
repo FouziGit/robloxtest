@@ -439,8 +439,7 @@ local function placeToasts()
 	if menu == nil then
 		return
 	end
-	local safeArea = toastRoot.Content
-	local top = (menu.Max.Y - safeArea.AbsolutePosition.Y) / toastRoot:GetScale()
+	local top = toastRoot:ToContent(Vector2.new(menu.Min.X, menu.Max.Y)).Y
 	toast:SetTop(math.max(Theme.Sizes.Padding, top + TOAST_UNDER_MENU))
 end
 
@@ -520,11 +519,8 @@ local function placePlaySticker()
 	if sticker == nil or menu == nil then
 		return
 	end
-	local safeArea = root.Content
-	local scale = root:GetScale()
-	local right = (menu.Min.X - safeArea.AbsolutePosition.X) / scale - PLAY_STICKER_GAP
-	local middle = ((menu.Min.Y + menu.Max.Y) / 2 - safeArea.AbsolutePosition.Y) / scale
-	sticker.Instance.Position = UDim2.fromOffset(right, middle)
+	local at = root:ToContent(Vector2.new(menu.Min.X, (menu.Min.Y + menu.Max.Y) / 2))
+	sticker.Instance.Position = UDim2.fromOffset(at.X - PLAY_STICKER_GAP, at.Y)
 	refreshHub()
 end
 

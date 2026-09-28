@@ -43,6 +43,10 @@ export type ScreenRoot = {
 	Content: Frame,
 	Scale: UIScale,
 	GetScale: (self: ScreenRoot) -> number,
+	-- The offset, in design units, that stands a child of Content on the screen pixel `point`. Content keeps
+	-- its padding off the top bar and the notch, and a child is placed from inside that padding, not from
+	-- Content's own corner (AbsolutePosition), which is a whole top bar higher on a phone.
+	ToContent: (self: ScreenRoot, point: Vector2) -> Vector2,
 	-- The card whose half of the entrance and exit PlayEnter and PlayExit play.
 	SetCard: (self: ScreenRoot, card: Card?) -> (),
 	-- Recolours the backdrop: the Result takes its outcome's colour.
@@ -349,6 +353,11 @@ function ScreenRoot.new(props: Props): ScreenRoot
 		end
 	end
 
+	local function toContent(_self: ScreenRoot, point: Vector2): Vector2
+		local inside = Vector2.new(padding.PaddingLeft.Offset, padding.PaddingTop.Offset) * currentScale
+		return (point - content.AbsolutePosition - inside) / currentScale
+	end
+
 	local function destroy(_self: ScreenRoot)
 		trove:Destroy()
 	end
@@ -358,6 +367,7 @@ function ScreenRoot.new(props: Props): ScreenRoot
 		Content = content,
 		Scale = scale,
 		GetScale = getScale,
+		ToContent = toContent,
 		SetCard = setCard,
 		SetChapter = setChapter,
 		PlayEnter = playEnter,

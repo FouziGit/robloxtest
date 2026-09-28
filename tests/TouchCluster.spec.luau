@@ -491,13 +491,17 @@ describe("the hub's shortcuts", function()
 		expect(has(build, "sticker.Instance.AnchorPoint = Vector2.new(1, 0.5)")).toBe(true)
 		expect(has(hud, 'local PLAY_SCREEN = "Play"\n')).toBe(true)
 		expect(number(hud, "PLAY_STICKER_HEIGHT")).toBe(44)
+		-- From inside the safe area's padding, where a child of it is placed (ScreenRoot:ToContent), not from its
+		-- corner a whole top bar higher.
 		local place = body(hud, "placePlaySticker")
-		expect(has(place, "local right = (menu.Min.X - safeArea.AbsolutePosition.X) / scale - PLAY_STICKER_GAP")).toBe(
+		expect(has(place, "local at = root:ToContent(Vector2.new(menu.Min.X, (menu.Min.Y + menu.Max.Y) / 2))")).toBe(
 			true
 		)
-		expect(has(place, "local middle = ((menu.Min.Y + menu.Max.Y) / 2 - safeArea.AbsolutePosition.Y) / scale")).toBe(
-			true
-		)
+		expect(has(place, "sticker.Instance.Position = UDim2.fromOffset(at.X - PLAY_STICKER_GAP, at.Y)")).toBe(true)
+		expect(has(place, "AbsolutePosition")).toBe(false)
+		local toasts = body(hud, "placeToasts")
+		expect(has(toasts, "local top = toastRoot:ToContent(Vector2.new(menu.Min.X, menu.Max.Y)).Y")).toBe(true)
+		expect(has(toasts, "AbsolutePosition")).toBe(false)
 		expect(number(hud, "PLAY_STICKER_GAP")).toBe(8)
 		expect(string.find(hud, "if UserInputService%.TouchEnabled then%s+buildPlaySticker%(content%)")).never.toBeNil()
 		expect(has(hud, "inputController.TouchLayoutChanged:Connect(placePlaySticker)")).toBe(true)

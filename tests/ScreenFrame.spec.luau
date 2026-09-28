@@ -3,10 +3,12 @@
 -- Most of it is engine code that Lune cannot run, so what can regress silently is held by reading it: a
 -- screen that vanishes instead of leaving, a dim that ignores the player's own setting, a HUD that grows
 -- with the menus' text size, a cross that turns red. The drop cap's split is pure and runs here.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -210,3 +212,41 @@ describe("the card", function()
 		expect(string.find(body(code(CONTENT), "update"), "setBobbing(more and shown)", 1, true)).never.toBeNil()
 	end)
 end)
+
+describe("the safe area, run", function()
+	-- A phone's top bar, in pixels.
+	local INSET = 36
+
+	local function phoneRoot(): (any, any)
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		world.userInput.TouchEnabled = true
+		world.userInput.KeyboardEnabled = false
+		world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(667, 375)
+		world.guiService.GetGuiInset = function(): (any, any)
+			return roblox.Vector2.new(0, INSET), roblox.Vector2.zero
+		end
+		local ScreenRoot = world.require("src/ui/components/ScreenRoot")
+		local root = ScreenRoot.new({ Name = "Hud" })
+		root.Instance.Parent = world.playerGui
+		return world, root
+	end
+
+	it("stands a child of its content on the pixel asked, from inside the top bar's padding", function()
+		local _world, root = phoneRoot()
+		local scale = root:GetScale()
+		expect(scale).toBeCloseTo(ThemeConfig.Scale.TouchFloor, 5)
+		local padding = root.Content:FindFirstChildOfClass("UIPadding")
+		local top = padding.PaddingTop.Offset
+		expect(top).toBeGreaterThan(0)
+		-- A disc's height under the top bar, placed there, lands back on that pixel: the padding plus the
+		-- offset, times the scale. (A UDim's offset is whole, and a Vector2 single precision.)
+		local pixel = roblox.Vector2.new(600, INSET + 68)
+		local at = root:ToContent(pixel)
+		expect((top + at.Y) * scale).toBeCloseTo(pixel.Y, 2)
+		expect(at.X * scale).toBeCloseTo(pixel.X, 2)
+		-- Measured from the content's corner instead, it lands a whole padding lower.
+		expect(pixel.Y / scale - at.Y).toBeCloseTo(top, 2)
+	end)
+end)
+
+return nil

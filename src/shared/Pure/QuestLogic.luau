@@ -28,6 +28,19 @@ function QuestLogic.periodKey(period: Period, unixTime: number): string
 	return "W" .. tostring(QuestLogic.weekIndex(unixTime))
 end
 
+-- When the period `unixTime` falls in ends: the first second whose period key is another one, which is
+-- the moment the server draws the next set. Periods are whole UTC days, so that second is a midnight, and
+-- walking forward a day at a time finds it in at most a week. It is found through periodKey itself, so
+-- a countdown to it can never disagree with the rollover it announces.
+function QuestLogic.periodEndsAt(period: Period, unixTime: number): number
+	local key = QuestLogic.periodKey(period, unixTime)
+	local day = QuestLogic.dayIndex(unixTime) + 1
+	while QuestLogic.periodKey(period, day * SECONDS_PER_DAY) == key do
+		day += 1
+	end
+	return day * SECONDS_PER_DAY
+end
+
 -- A set's key names its period and the pool revision its quests were drawn from: "D20725" for the
 -- first pool, "D20725@2" for the second. The revision stays with the set until its period ends, so a
 -- deploy that adds a quest to the pool changes nobody's quests before their next day or week. Drawn

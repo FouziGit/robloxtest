@@ -704,6 +704,11 @@ Strings.Table = {
 	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
+	-- A time left, on a countdown (QuestBoard.countdown): hours and minutes under a day, days and hours past.
+	["time.hoursMinutes"] = { en = "{hours}h {minutes}m", fr = "{hours} h {minutes}" },
+	["time.daysHours"] = { en = "{days}d {hours}h", fr = "{days} j {hours} h" },
+	-- The quests board: when each section is drawn again.
+	["quest.resetsIn"] = { en = "Resets in {time}", fr = "Réinitialisation dans {time}" },
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

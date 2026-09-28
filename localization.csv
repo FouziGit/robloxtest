@@ -124,12 +124,16 @@ cosmetics.slot.Skin,Glyph skins,Vellum,,Glyph skins,Apparences de glyphe
 cosmetics.slot.Title,Titles,Vellum,,Titles,Titres
 cosmetics.slot.Trail,Trails,Vellum,,Trails,Traînées
 currency.folio,Folios,Vellum,,Folios,Folios
+daily.atRisk,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Récupère aujourd'hui pour garder ta série de {streak} jours !
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
+daily.claim,Claim,Vellum,,Claim,Récupérer
 daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
+daily.day,Day {day},Vellum,,Day {day},Jour {day}
 daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
 daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
+daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
 glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,Vellum,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
@@ -382,6 +386,7 @@ rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
 reward.folios,+{amount},Vellum,,+{amount},+{amount}
+reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs

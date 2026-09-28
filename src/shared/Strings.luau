@@ -744,6 +744,15 @@ Strings.Table = {
 	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
 	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
 	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
+	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
+	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
+	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
+	["daily.claim"] = { en = "Claim", fr = "Récupérer" },
+	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
+	["daily.atRisk"] = {
+		en = "Claim today to keep your {streak}-day streak!",
+		fr = "Récupère aujourd'hui pour garder ta série de {streak} jours !",
+	},
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

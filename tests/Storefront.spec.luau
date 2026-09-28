@@ -19,8 +19,9 @@ local PASS = "src/ui/screens/BattlepassScreen.luau"
 local PASS_CELL = "src/ui/screens/pass/Cell.luau"
 local PASS_TRACK = "src/ui/screens/pass/Track.luau"
 local REMOTES = "src/shared/Remotes.luau"
+local DAILY = "src/ui/screens/DailyScreen.luau"
 -- The screens of this slice and their parts, for the rules every one of them keeps.
-local SCREENS = { MENU, PLAY, SHOP, PURCHASE, SHELVES, PASS, PASS_CELL, PASS_TRACK }
+local SCREENS = { MENU, PLAY, SHOP, PURCHASE, SHELVES, PASS, PASS_CELL, PASS_TRACK, DAILY }
 -- How much sooner than it was sent a claim may reach the server, one after another, over a real network.
 local NETWORK_JITTER = 0.05
 local SERVER = "src/server"
@@ -295,5 +296,38 @@ describe("the battle pass", function()
 				error(("claim %d, sent at %.2fs, would be refused as abuse"):format(index, now))
 			end
 		end
+	end)
+end)
+
+describe("the daily reward", function()
+	it("warns of a streak only while it is whole and worth keeping, in the green of what is kept", function()
+		local daily = folded(DAILY)
+		expect(tonumber(string.match(daily, "local AT_RISK_STREAK = (%d+)"))).toBe(2)
+		expect(
+			string.find(
+				daily,
+				"local atRisk = evaluation.CanClaim and not evaluation.Broken and daily.Streak >= AT_RISK_STREAK",
+				1,
+				true
+			)
+		).never.toBeNil()
+		-- Nothing is lost yet: the line is the success ink, never the danger one.
+		expect(string.find(daily, "atRiskLine.TextColor3 = Theme.Colors.Success", 1, true)).never.toBeNil()
+		expect(string.find(daily, "Theme.Colors.Danger", 1, true)).toBeNil()
+	end)
+
+	it("claims once and waits for the profile to show it", function()
+		local daily = folded(DAILY)
+		expect(count(daily, 'fire("ClaimDaily")')).toBe(1)
+		expect(
+			string.find(
+				daily,
+				'if waiting then return end waiting = true claimButton:SetPending(true) deps.RemoteClient.fire("ClaimDaily")',
+				1,
+				true
+			)
+		).never.toBeNil()
+		-- The stamp comes from the profile, not from the press.
+		expect(string.find(daily, 'if waiting and before ~= nil and before.State == "Past" then', 1, true)).never.toBeNil()
 	end)
 end)

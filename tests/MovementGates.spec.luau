@@ -733,7 +733,7 @@ describe("the kill zone, judged by the server", function()
 				"local depth = active.Arena.KillZone.Position.Y for _, participant in ipairs(active.Match.Participants) do"
 			)
 			expect(judge).toContain(
-				'if participant.Alive then local character = participant.Player.Character local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil if character ~= nil and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then killInZone(active, participant, character) end end'
+				'local placed = active.Placed[participant.Player] if participant.Alive and placed ~= nil and now - placed.At >= MovementGuardConfig.SettleMaxSeconds then local character = participant.Player.Character local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil if character == placed.Character and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then killInZone(active, participant, placed.Character) end end'
 			)
 			-- Alive, not merely present: an eliminated player respawned at the hub stands far under every arena's
 			-- zone, and would be killed again on every tick.
@@ -744,7 +744,7 @@ describe("the kill zone, judged by the server", function()
 
 	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
 		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
-			"if not active.Finished and not active.Preparing then judgeFalls(active) refresh(active) advance(active, now) end"
+			"if not active.Finished and not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
 		)
 		local touched = functionIn(MATCH, "local function onKillZoneTouched(")
 		expect(touched).toContain(
@@ -754,6 +754,22 @@ describe("the kill zone, judged by the server", function()
 			"trove:Connect(arena.KillZone.Touched, function(part: BasePart) onKillZoneTouched(active, part) end)"
 		)
 		expect(count(strip(fs.readFile(MATCH)), "humanoid.Health = 0")).toBe(1)
+	end)
+
+	it("judges only the body the round placed, once its pivot has settled", function()
+		-- A setup that stalls past the countdown lets the round play while it still reloads people: a survivor's
+		-- new body stands on the hub, far under the arena, and the client replicates the hub for a round trip after
+		-- its pad. Judged on those, an honest player was killed at the start of the round.
+		expect(functionIn(MATCH, "local function prepareRound(")).toContain(
+			"placeCharacter(player, character, pad, center) active.Placed[player] = { Character = character, At = os.clock() }"
+		)
+		local source = strip(fs.readFile(MATCH))
+		expect(count(source, "active.Placed[")).toBe(2)
+		expect(source).toContain("local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)")
+		-- A round placed on time is judged from its first tick: the countdown outlasts the settle.
+		for _, mode in pairs(MatchConfig.Modes :: { [string]: { CountdownSeconds: number } }) do
+			expect(mode.CountdownSeconds).toBeGreaterThan(MovementGuardConfig.SettleMaxSeconds)
+		end
 	end)
 
 	it("kills a player under the Battleground's kill plane as Touched would, every tick", function()

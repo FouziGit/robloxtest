@@ -24,6 +24,7 @@ local GameModes = require(script.Parent.Parent.GameModes)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
@@ -109,6 +110,9 @@ type TroveType = typeof(Trove.new())
 -- What one participant did over the match, counted from the signals of the services that saw it.
 type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number }
 
+-- The body a round setup put on its pad, and when.
+type Placement = { Character: Model, At: number }
+
 type Active = {
 	Match: GameModes.Match,
 	Mode: GameModes.GameMode,
@@ -121,6 +125,7 @@ type Active = {
 	Generation: number, -- bumped per round: a stale setup thread drops out
 	Ticks: number,
 	Stats: { [number]: ParticipantStats }, -- user id -> the execution, graded at the result
+	Placed: { [Player]: Placement }, -- the body each participant was last placed with, which falls are judged on
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -425,6 +430,7 @@ local function prepareRound(active: Active)
 				local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
 				if pad ~= nil then
 					placeCharacter(player, character, pad, center)
+					active.Placed[player] = { Character = character, At = os.clock() }
 				else
 					log.warn("arena %s has no spawn for team %d", active.Arena.Id, participant.Team)
 				end
@@ -562,18 +568,21 @@ end
 
 -- The kill zone as the server sees it, every tick: Touched is the owning client's word, so a tampered client
 -- simply never touched it and hung under the arena out of every fight. A participant still alive whose root is
--- under the zone fell out.
-local function judgeFalls(active: Active)
+-- under the zone fell out -- judged only on the body the round placed, once the pivot has settled. A setup that
+-- stalled past the countdown lets the round play while it still reloads people: a survivor's new body stands on
+-- the hub, under every arena, and the client replicates the hub for a round trip after its pad.
+local function judgeFalls(active: Active, now: number)
 	if active.Match.Phase ~= "Playing" then
 		return
 	end
 	local depth = active.Arena.KillZone.Position.Y
 	for _, participant in ipairs(active.Match.Participants) do
-		if participant.Alive then
+		local placed = active.Placed[participant.Player]
+		if participant.Alive and placed ~= nil and now - placed.At >= MovementGuardConfig.SettleMaxSeconds then
 			local character = participant.Player.Character
 			local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil
-			if character ~= nil and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then
-				killInZone(active, participant, character)
+			if character == placed.Character and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then
+				killInZone(active, participant, placed.Character)
 			end
 		end
 	end
@@ -595,7 +604,7 @@ local function onHeartbeat(deltaTime: number)
 		end
 		if not active.Finished and not active.Preparing then
 			-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
-			judgeFalls(active)
+			judgeFalls(active, now)
 			refresh(active)
 			advance(active, now)
 		end
@@ -843,6 +852,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Generation = 0,
 		Ticks = 0,
 		Stats = {},
+		Placed = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)

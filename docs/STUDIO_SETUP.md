@@ -264,6 +264,18 @@ La passe couleur (D-147) est tenue sous Lune par des tests de source et d'arithm
 
 **Les appareils.** Téléphone 844 × 390 (iPhone 12 à 14) et téléphone 667 × 375, tous deux à l'échelle 0,68 ; iPad paysage 1180 × 820 ; 1920 × 1080 à la souris, puis à la manette (profil Xbox) ; 2560 × 1440 ; chacun en `fr-fr` au moins une fois.
 
+**Avant tout le reste.** Le test de fumée de dix minutes, jamais fait depuis la fondation : ouvrir chaque écran, jouer un match, visiter le Champ de bataille et l'arène de l'Effacement, et relever dans la sortie chaque avertissement ou erreur d'un contrôleur ou d'un écran.
+
+**Les hypothèses de la fiche (§12.1), à vérifier d'abord** — le reste s'appuie dessus :
+- A. L'épaisseur d'un `UIStroke` sous `UIScale` : un contour de 3 à l'échelle 0,68, mesuré sur une capture. `Theme.stroke` garde 2 pixels au moins dans les deux cas ; noter ce qu'on voit dans une décision.
+- B. `GuiService.ReducedMotionEnabled`, `PreferredTextSize` et `PreferredTransparency` lus et suivis depuis un LocalScript : les afficher, puis les changer dans le menu Roblox. S'ils ne se lisent pas, `UiPrefs` garde ses valeurs neutres avec un avertissement, et la propriété entre dans `RESERVED` de `tests/EngineOnlyApi.spec.luau`.
+- C. Les polices (Fredoka One, Nunito, Oswald, Merriweather italique) et le repli des symboles (▲ ■ ● ◆ ▶ ▼ ✦ ✕ ✓ ≈ » ‹ ›, les flèches en Merriweather) sur PC, iOS et Android : une planche de glyphes. Un symbole manquant est redessiné en cadres (`Icon`).
+- D. La sortie d'un écran dans son `CanvasGroup` passager, sur l'émulateur puis sur un vrai téléphone modeste ; sinon, échelle et glissé seulement.
+- E. Les invites personnalisées et `InputHoldBegin` au toucher (point 12 ci-dessous).
+- F. Le dock entre les disques des deux mains (point 4).
+- G. La file des toasts au PC sous la liste des joueurs à huit (*Test → Players : 8*) ; sinon la faire partir de 0,40 de la hauteur.
+- H. Les comptes à rebours (rotation de la Boutique, quêtes, récompense du jour) contre la bascule du serveur à minuit UTC, horloge décalée dans une place de test.
+
 **À regarder, captures à l'appui (planches avant/après) :**
 1. Chaque écran entre et sort par son animation, rien n'apparaît ni ne disparaît d'un coup, et Retour et ✕ font ce que dit la fiche.
 2. Aucun texte de bouton tronqué en français (« Rejoindre la file », « Tout récupérer (12) », « Obtenir le Premium »).
@@ -279,3 +291,16 @@ La passe couleur (D-147) est tenue sous Lune par des tests de source et d'arithm
 12. Le hub : plaques d'encre lisibles de loin ; les invites du terminal et du kiosque en pilule d'encre (touche « E », « RB » à la manette, rien au toucher) ; un appui sur la pilule au toucher ouvre l'écran (`InputHoldBegin`). Si l'invite personnalisée ne répond pas au toucher, garder le style par défaut pour le toucher seulement et le noter.
 13. Règle 11 : en match et dans les deux arènes, aucune couleur de valeur (jaune primaire, pourpre, raretés) nulle part à l'écran.
 14. Le coût : compteurs d'objets GUI et MicroProfiler sur le téléphone émulé (`docs/PERFORMANCE.md`), et une simulation de daltonisme sur les captures (vie contre encre, Rare contre Épique, chapitres, sigles).
+
+**Les écrans de menu (tranches A et B) :**
+15. Le Menu : les tuiles tiennent sans défilement sur téléphone, à l'échelle de texte 1,3 aussi ; leurs badges disent la même chose que le bouton Menu et les sceaux du HUD, avant et après une récupération ; « + » ouvre la Boutique sur l'onglet Folios et Retour revient au Menu ; à la manette, le focus arrive sur Jouer, Droite mène à la Boutique, Gauche depuis la Boutique ou les Quêtes revient à Jouer ; Options et Inviter en icônes de 44.
+16. Jouer : les disques des combattants sur leurs taches, l'anneau jaune qui respire autour de la carte en file, le voile de craie sur l'autre, le chronomètre qui avance chaque seconde ; après 240 s seul en file, la carte « Personne en file pour l'instant » avec Réessayer et Retour au hub, et un toast d'information (médaillon « i », jamais le « ! » rouge).
+17. La Boutique : cartes de 260 × 330 à la souris, de la hauteur de la fenêtre au toucher ; ombres non rognées par la barre de défilement ; prix qui passent à la ligne sur une carte de 260 et côte à côte sur la légendaire ; la fiche d'achat au-dessus de la carte, B qui ne ferme qu'elle, les trois points d'attente, le tampon « Acquis ! » et l'éclat quand l'article arrive, la secousse sur `shop.notEnoughFolios`, le toast après 5 s de silence, « Obtenir des Folios » qui change d'onglet ; un clic quand le joueur choisit un onglet, aucun quand l'écran s'ouvre sur l'onglet Folios ; les boutons Robux grisés tant que les identifiants de `MonetizationConfig` sont à 0.
+18. Le Battle Pass : la route centrée sur le palier courant pendant l'entrée, les colonnes chargées par dix en glissant, le défilement dans les deux sens sur un petit téléphone, 700 objets GUI au plus à l'ouverture, le balancement des boutons Récupérer ; « Tout récupérer » qui décompte, sans frappe de limite de `ClaimBattlepassReward` dans le journal du serveur sur vingt récupérations.
+19. La récompense du jour : sept cartes, la septième deux fois plus large avec son ruban au-dessus du bord, la carte du jour qui respire avec son badge, le tampon et l'éclat de cinq taches à la récupération, les Folios qui comptent, la ligne en squelette avant le profil ; ouverte seule, elle dit bien ce que le serveur accorde (pas « déjà récupérée » quand le badge disait « ! »).
+20. Les quêtes : le balancement de ±2° d'un bouton dans une liste, les taches derrière le sceau, le décompte sous chaque en-tête, les squelettes, la pilule de Folios qui compte après une récupération, le toast `common.pendingTimeout` quand le serveur ne répond pas.
+21. L'équipement : la grille à 0,68 et à l'échelle de texte 1,3, le nombre d'objets par onglet (environ 65 par carte), la barre de 28 logements d'un compte développeur, la bande « Annuler » qui monte dans la carte et part avant elle, les capuchons à mot (« Maj droite », « Clic molette »), « +4 emplacements » grisé tant que le pass n'a pas d'identifiant.
+22. Le classement : les portraits du podium (et l'initiale quand ils manquent), la ligne du joueur épinglée au pied sans osciller, « Me trouver » qui la centre, l'état d'échec quand le service ne répond pas.
+23. Les options : le capuchon centré dans sa touche, la capture qui respire, une sauvegarde toutes les 2 s au plus, un refus qui remet la ligne, la feuille « Réinitialiser » (le seul bouton rouge des menus) et B qui ne ferme qu'elle, les lignes d'accessibilité qui suivent le menu Roblox, l'aperçu des effets au nouveau volume.
+24. Le résultat : le monde assombri à 0,25, les taches et le trait de l'issue, la défaite qui ne rebondit pas, les pièces qui volent vers les Folios, l'anneau conique qui se vide et s'arrête à la première touche du joueur, la carte qui défile sur le 667 × 375, les détails repliés au toucher.
+25. Le verrou à 34 pixels : le losange plus grand, sa plaque dessous, sans chevauchement.

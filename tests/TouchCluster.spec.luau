@@ -446,12 +446,10 @@ describe("the hub's shortcuts", function()
 		expect(has(body(hud, "refreshQuickBar"), "button.Instance.Visible = not (inMatch or inArena)")).toBe(true)
 		local claims = body(hud, "refreshClaims")
 		expect(has(claims, "menuButton:SetBadge(if inMatch or inArena then nil else counts.Total)")).toBe(true)
-		expect(
-			string.find(
-				hud,
-				"matchController%.QueueChanged:Connect%(function%(snapshot: Types%.QueueSnapshot%)%s+queued = snapshot%.Queued%s+refreshHub%(%)"
-			)
-		).never.toBeNil()
+		local queue = body(hud, "onQueue")
+		expect(has(queue, "queued = snapshot.Queued metaCluster:SetQueue(snapshot) refreshHub()")).toBe(true)
+		expect(has(hud, "matchController.QueueChanged:Connect(onQueue)")).toBe(true)
+		expect(has(hud, "onQueue(matchController.getQueue())")).toBe(true)
 	end)
 
 	it("count the claims on the server's day, and again when it turns", function()

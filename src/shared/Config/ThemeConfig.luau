@@ -321,6 +321,8 @@ ThemeConfig.Hud = {
 	LowHealthFraction = 0.3,
 	-- The lock's mark warns this many studs before the distance a lock breaks at (LockOnConfig.BreakStuds).
 	LockWarnStuds = 20,
+	-- The hub's meta cluster: level, Folios, claims and the queue, in a column this wide.
+	MetaWidth = 300,
 }
 
 -- docs/ART_BIBLE.md (D-147): a rounded poster face for titles (Fredoka One), a rounded grotesque for words

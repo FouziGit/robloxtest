@@ -53,7 +53,6 @@ Strings.Table = {
 	["hud.tierUp"] = { en = "Battle pass tier {tier} unlocked!", fr = "Palier {tier} du pass débloqué !" },
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
-	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar
 	["level.title"] = { en = "Level {level}", fr = "Niveau {level}" },

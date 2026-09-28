@@ -2,7 +2,7 @@
 -- HudController: the always-on overlay, and the one place that orchestrates it. It builds the HUD's pieces,
 -- places them, feeds them the data they draw and routes every server message. The pieces are components of
 -- src/ui (D-147):
---   MetaCluster   the level, its XP and the Folios (top-left), in the hub only
+--   MetaCluster   the level, its XP, the Folios, the claims waiting and the queue, in the hub only
 --   CombatDock    the player's own health and ink, on an ink plate at the bottom centre, between the thumbs
 --   Hotbar        the equipped glyphs and their cooldowns, over the dock (the keys that cast them with a
 --                 pointer, pips inside the dock on touch)
@@ -356,7 +356,19 @@ local function build()
 	root = ScreenRoot.new({ Name = "Hud", DisplayOrder = DISPLAY_ORDER })
 	local content = root.Content
 
-	metaCluster = MetaCluster.new({ Parent = content, Localize = localize })
+	-- Bottom-left with a pointer, the engine's chat being top-left; top-left on touch, the thumbstick's corner
+	-- being bottom-left.
+	metaCluster = MetaCluster.new({
+		Parent = content,
+		Localize = localize,
+		Corner = if Theme.touchOnly() then "Top" else "Bottom",
+		OnOpen = function(screen: string, args: any?)
+			menuController.open(screen, args)
+		end,
+		OnLeaveQueue = function()
+			matchController.leaveQueue()
+		end,
+	})
 	buildBottomStack(content, UserInputService.TouchEnabled)
 
 	buildQuickBar(content)
@@ -430,6 +442,7 @@ local function refreshClaims()
 	local now = Workspace:GetServerTimeNow()
 	local counts = Claims.count(clientData.get(), now)
 	menuButton:SetBadge(if inMatch or inArena then nil else counts.Total)
+	metaCluster:SetClaims(counts)
 	claimsToken += 1
 	local token = claimsToken
 	task.delay(Claims.secondsToNextDay(now), function()
@@ -799,12 +812,13 @@ function HudController.Start()
 		inputController.TouchLayoutChanged:Connect(placePlaySticker)
 		placePlaySticker()
 	end
-	matchController.QueueChanged:Connect(function(snapshot: Types.QueueSnapshot)
+	local function onQueue(snapshot: Types.QueueSnapshot)
 		queued = snapshot.Queued
+		metaCluster:SetQueue(snapshot)
 		refreshHub()
-	end)
-	queued = matchController.getQueue().Queued
-	refreshHub()
+	end
+	matchController.QueueChanged:Connect(onQueue)
+	onQueue(matchController.getQueue())
 	qualityController.Changed:Connect(function()
 		refreshPrefs(clientData.get())
 	end)

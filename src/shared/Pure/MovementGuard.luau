@@ -16,7 +16,7 @@
 -- strike depends on every exemption its episode met: a grant, contact, a spawn, a server hitch, a stream
 -- catching up, a body that is down. When the server cannot tell, it flags rather than moves anyone.
 --
--- About 1350 lines, a quarter of them the declared shapes and the track's constructor: over the 500-line
+-- About 1400 lines, a quarter of them the declared shapes and the track's constructor: over the 500-line
 -- guideline, like BotBrain. Splitting it would need a require between pure modules or functions injected by
 -- the caller.
 
@@ -79,6 +79,8 @@ export type Config = {
 	NoclipTopSlackStuds: number,
 	NoclipMinStepStuds: number,
 	FloorSinkStuds: number,
+	-- Half a body's width: a chord this close to a barrier's edge cuts its corner rather than going through it.
+	BodyHalfWidthStuds: number,
 	TunnelSpeedStudsPerSecond: number,
 	TunnelMinFallStuds: number,
 	-- Confirmation and exemptions.
@@ -113,7 +115,8 @@ export type Config = {
 export type Kind = "Invalid" | "Teleport" | "Flight" | "Noclip" | "Speed" | "Resist"
 export type Action = "None" | "Watch" | "Correct" | "Repivot"
 -- A tagged barrier the segment from the last judged sample went through. The plane is the face it entered
--- by, its normal pointing back to the side the body came from.
+-- by, its normal pointing back to the side the body came from; Top comes from halfHeight, and PassThrough from
+-- passesThrough.
 export type Crossing = {
 	HitY: number,
 	Top: number,
@@ -441,7 +444,8 @@ local function clampRtt(rtt: number, config: Config): number
 end
 
 -- How long a grant outlives its own duration, for the round trip before the client plays it. GetNetworkPing
--- leaves out frame and send time, hence the overhead.
+-- leaves out frame and send time, hence the overhead. CombatService.allowTravel holds OriginGuard's allowance
+-- open by the same grace.
 function MovementGuard.grace(rtt: number, config: Config): number
 	return math.clamp(
 		clampRtt(rtt, config) + config.GraceOverheadSeconds,
@@ -798,6 +802,52 @@ local function safeTarget(track: Track, now: number, groundFirst: boolean, confi
 	end
 	local _, x, y, z = MovementGuard.safePoint(track, 1, false)
 	return x, y, z
+end
+
+----------------------------------------------------------------
+-- Barrier geometry
+----------------------------------------------------------------
+
+-- How far the top of a box of size (sx, sy, sz) stands above its centre, whatever its rotation: (r10, r11, r12) is
+-- the rotation's world-up row, the height each of the box's own axes climbs per stud.
+function MovementGuard.halfHeight(r10: number, r11: number, r12: number, sx: number, sy: number, sz: number): number
+	return (math.abs(r10) * sx + math.abs(r11) * sy + math.abs(r12) * sz) / 2
+end
+
+-- Whether a step from a to b went THROUGH a barrier the ray between them hit, rather than past it: both points in
+-- the barrier's own space, (hx, hy, hz) its half size. Through a wall, both points lie beyond opposite faces of
+-- its thinner horizontal axis, and the step crosses its middle at least a body's half width inside its length: a
+-- chord that cuts a corner, or that starts inside, is not a crossing. Through a floor, the step starts above its
+-- top and ends FloorSinkStuds under it, inside its footprint shrunk by a body's half width.
+function MovementGuard.passesThrough(
+	floor: boolean,
+	ax: number,
+	ay: number,
+	az: number,
+	bx: number,
+	by: number,
+	bz: number,
+	hx: number,
+	hy: number,
+	hz: number,
+	config: Config
+): boolean
+	local inset = config.BodyHalfWidthStuds
+	if floor then
+		return ay > hy and by < hy - config.FloorSinkStuds and math.abs(bx) <= hx - inset and math.abs(bz) <= hz - inset
+	end
+	local thinX = hx <= hz
+	local across, acrossTo, depth = az, bz, hz
+	local along, alongTo, length = ax, bx, hx
+	if thinX then
+		across, acrossTo, depth = ax, bx, hx
+		along, alongTo, length = az, bz, hz
+	end
+	if not ((across > depth and acrossTo < -depth) or (across < -depth and acrossTo > depth)) then
+		return false
+	end
+	local middle = along + (alongTo - along) * across / (across - acrossTo)
+	return math.abs(middle) <= length - inset
 end
 
 ----------------------------------------------------------------

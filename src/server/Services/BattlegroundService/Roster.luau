@@ -238,8 +238,9 @@ end
 ----------------------------------------------------------------
 
 -- Whether a member is still one. The position is the one the server trusts, never the raw root: right after a
--- teleport the client still replicates where it was, and must not be dropped for it. Right after a respawn
--- there is no trusted position at all; within the arrival grace the anchor is set back on the landing.
+-- teleport the client still replicates where it was, and must not be dropped for it. A new body with no
+-- SpawnLocation to start from has no trusted position at all; within the arrival grace the anchor is set back on
+-- the landing.
 local function stays(member: Member, now: number): boolean
 	local player = member.Player
 	if player.Parent ~= Players or deps.Match.isInMatch(player) or deps.WorldBoss.isEngaged(player) then

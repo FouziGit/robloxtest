@@ -651,3 +651,66 @@ describe("MovementGuard.touching", function()
 		expect(touching({ { 0, 3, 0 }, { 3, 3, 0 } }, { short, short }, { true, true })).toEqual({ true, true })
 	end)
 end)
+
+-- The geometry MovementAudit turns a barrier ray's hit into, in the barrier's own space: the shipped half width
+-- (1) and floor sink (1).
+describe("MovementGuard: barrier geometry", function()
+	-- A wall 2 thick on x, 20 long on z, 10 high; a floor slab 40 by 40, 4 thick.
+	local WALL = { 1, 5, 10 }
+	local SLAB = { 20, 2, 20 }
+
+	local function through(floor: boolean, a: { number }, b: { number }, half: { number }): boolean
+		return MovementGuard.passesThrough(floor, a[1], a[2], a[3], b[1], b[2], b[3], half[1], half[2], half[3], CONFIG)
+	end
+
+	it("measures a turned box's top from its centre", function()
+		-- Upright: half its own height.
+		expect(MovementGuard.halfHeight(0, 1, 0, 4, 10, 6)).toBeCloseTo(5, 6)
+		-- Lying on its side, turned a quarter about z: its x size stands up.
+		expect(MovementGuard.halfHeight(1, 0, 0, 4, 10, 6)).toBeCloseTo(2, 6)
+		-- Tipped 45 degrees about z, either way: both x and y climb.
+		local tilt = math.sqrt(0.5)
+		expect(MovementGuard.halfHeight(tilt, tilt, 0, 4, 10, 6)).toBeCloseTo(7 * tilt, 6)
+		expect(MovementGuard.halfHeight(-tilt, tilt, 0, 4, 10, 6)).toBeCloseTo(7 * tilt, 6)
+	end)
+
+	it("reads a step from one side of a wall to the other as going through it", function()
+		expect(through(false, { -3, 0, 0 }, { 3, 0, 2 }, WALL)).toBe(true)
+		expect(through(false, { 3, 0, 0 }, { -3, 0, 0 }, WALL)).toBe(true)
+		-- The thinner horizontal axis decides which way is across: the same wall turned a quarter.
+		expect(through(false, { 0, 0, -3 }, { 0, 0, 3 }, { 10, 5, 1 })).toBe(true)
+	end)
+
+	it("does not read a chord that cuts the end of a wall as a crossing", function()
+		-- Crossing the middle 9.5 studs along a wall 10 long from its centre: inside the end, but not by a body's
+		-- half width.
+		expect(through(false, { -3, 0, 9.5 }, { 3, 0, 9.5 }, WALL)).toBe(false)
+		-- 8.5 along: a whole half width inside the end.
+		expect(through(false, { -3, 0, 8.5 }, { 3, 0, 8.5 }, WALL)).toBe(true)
+		-- Measured where the step crosses the middle, not at either end: from 12 to 4 crosses at 8.
+		expect(through(false, { -3, 0, 12 }, { 3, 0, 4 }, WALL)).toBe(true)
+		expect(through(false, { -3, 0, 14 }, { 3, 0, 8 }, WALL)).toBe(false)
+	end)
+
+	it("does not read a step that starts inside a wall, or stays on one side, as a crossing", function()
+		-- Out of it by the far face, or into it: the step never went from one side to the other.
+		expect(through(false, { 0.5, 0, 0 }, { -3, 0, 0 }, WALL)).toBe(false)
+		expect(through(false, { -3, 0, 0 }, { 0.5, 0, 0 }, WALL)).toBe(false)
+		expect(through(false, { 0.5, 0, 0 }, { 3, 0, 0 }, WALL)).toBe(false)
+		expect(through(false, { -3, 0, 0 }, { -0.5, 0, 0 }, WALL)).toBe(false)
+		expect(through(false, { -3, 0, 0 }, { -1.5, 0, 0 }, WALL)).toBe(false)
+	end)
+
+	it("reads a drop from above a floor to under it as going through it, well inside its footprint", function()
+		-- From over the top (2) to more than the floor sink under it.
+		expect(through(true, { 0, 5, 0 }, { 3, 0.9, -4 }, SLAB)).toBe(true)
+		-- Not sunk past the floor sink: a body resting in the floor's surface.
+		expect(through(true, { 0, 5, 0 }, { 3, 1.1, -4 }, SLAB)).toBe(false)
+		-- Not from above it.
+		expect(through(true, { 0, 1.9, 0 }, { 3, -3, -4 }, SLAB)).toBe(false)
+		-- Landing within a body's half width of an edge: a fall past it, not through it.
+		expect(through(true, { 0, 5, 0 }, { 19.5, -3, 0 }, SLAB)).toBe(false)
+		expect(through(true, { 0, 5, 0 }, { 0, -3, -19.5 }, SLAB)).toBe(false)
+		expect(through(true, { 0, 5, 0 }, { 18.5, -3, -18.5 }, SLAB)).toBe(true)
+	end)
+end)

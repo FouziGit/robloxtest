@@ -182,6 +182,10 @@ MovementGuardConfig.ConfirmProbeReachStuds = 4
 -- Crossing geometry: a normal this upright is a floor, and a chord this close to a wall's edge is a corner cut.
 MovementGuardConfig.FloorNormalY = 0.7
 MovementGuardConfig.BodyHalfWidthStuds = 1
+-- A correction lands only where a body fits: nothing that collides from this far above the feet to this far above
+-- the root, two half widths across.
+MovementGuardConfig.ClearanceFootStuds = 0.5
+MovementGuardConfig.ClearanceHeadStuds = 2.5
 -- No barrier ray over a longer step: H1 already flags it.
 MovementGuardConfig.RaySkipStuds = 200
 -- Contact: roots this close, or a root this far inside a shover's grown box.

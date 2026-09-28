@@ -85,10 +85,6 @@ GameConfig.Latency = {
 	-- client that keeps attacking from positions the server never believed.
 	ViolationsBeforeStrike = 3,
 	ViolationWindowSeconds = 10,
-	-- Server-granted movement (dash, knockback) is added to the travel budget for its duration plus this
-	-- grace, which covers the client round trip. A dash is 22 studs in 0.22 s, i.e. 100 studs per second,
-	-- and a client that replicates it in a single frame must not look like a teleport.
-	AllowanceGraceSeconds = 0.5,
 }
 
 GameConfig.Movement = {

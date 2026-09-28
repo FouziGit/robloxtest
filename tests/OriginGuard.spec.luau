@@ -2,8 +2,10 @@
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local MovementGuard = require("../src/shared/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 local OriginGuard = require("../src/shared/Pure/OriginGuard")
+local Sim = require("./movementsim")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -158,8 +160,8 @@ describe("OriginGuard.follow", function()
 end)
 
 -- CombatService.trustedCFrame on one horizontal axis: the anchor, its clock, the tolerance, the converging
--- flag and the violations, driven through OriginGuard.follow the way the service drives it. The service
--- itself needs an engine; tests/MovementGates.spec.luau holds its source to this shape.
+-- flag, the violations and the server-granted allowance, driven through OriginGuard.follow the way the service
+-- drives it. The service itself needs an engine; tests/MovementGates.spec.luau holds its source to this shape.
 type Anchor = {
 	X: number,
 	At: number,
@@ -168,17 +170,40 @@ type Anchor = {
 	Violations: { number },
 	Refusals: number,
 	Strikes: number,
+	Allowance: number,
+	AllowanceUntil: number,
 }
 
 local function newAnchor(): Anchor
-	return { X = 0, At = 0, Spent = false, Converging = false, Violations = {}, Refusals = 0, Strikes = 0 }
+	return {
+		X = 0,
+		At = 0,
+		Spent = false,
+		Converging = false,
+		Violations = {},
+		Refusals = 0,
+		Strikes = 0,
+		Allowance = 0,
+		AllowanceUntil = 0,
+	}
+end
+
+-- CombatService.allowTravel: `studs` more for `seconds` plus `grace`, capped, sharing the later deadline.
+local function allowTravel(anchor: Anchor, studs: number, seconds: number, now: number, grace: number)
+	if now >= anchor.AllowanceUntil then
+		anchor.Allowance = 0
+	end
+	anchor.Allowance = math.min(anchor.Allowance + studs, MovementGuardConfig.MaxAllowanceStuds)
+	anchor.AllowanceUntil = math.max(anchor.AllowanceUntil, now + seconds + grace)
 end
 
 -- Judges the observation `seen` at `now`; returns the verdict and where the action, if any, is resolved.
 local function judgeAt(anchor: Anchor, seen: number, now: number, action: boolean): (OriginGuard.Verdict, number)
 	local elapsed = now - anchor.At
-	local result, _, advance, spent =
-		OriginGuard.follow(math.abs(seen - anchor.X), elapsed, 0, action, anchor.Spent, CONFIG)
+	local live = if now < anchor.AllowanceUntil then anchor.Allowance else 0
+	local result, left, advance, spent =
+		OriginGuard.follow(math.abs(seen - anchor.X), elapsed, live, action, anchor.Spent, CONFIG)
+	anchor.Allowance = left
 	anchor.Spent = spent
 	if result == "Accepted" then
 		anchor.Converging = false
@@ -324,6 +349,56 @@ describe("the trusted anchor, chasing", function()
 			expect(anchor.Strikes).toBe(0)
 			expect(clamped).toBeLessThanOrEqual(row[2])
 		end
+	end)
+end)
+
+describe("a server grant's window", function()
+	-- A walker dashing 22 studs at 5 s, with a melee on every swing of the combo. The server grants the dash at
+	-- once; the client plays it one latency later and the server sees it one more later, so the window has to
+	-- outlive the round trip. Returns how many swings were refused.
+	local function dashThenSwing(latency: number, grace: number): number
+		local melee = CombatConfig.Melee
+		local swing = (3 * melee.HitIntervalSeconds + melee.FinisherCooldownSeconds) / #melee.Damage
+		local STEPS = 240
+		local DASH_AT = 5
+		local dash = CombatConfig.Dash
+		local anchor = newAnchor()
+		local x, seen, nextSwing = 0, 0, 0.2
+		local packets: { { number } } = {}
+		for step = 1, 12 * STEPS do
+			local now = step / STEPS
+			local playing = now >= DASH_AT + latency and now < DASH_AT + latency + dash.DurationSeconds
+			x += (if playing then dash.Distance / dash.DurationSeconds else WALK) / STEPS
+			local onTick = step % (STEPS / RATE) == 0
+			if onTick then
+				table.insert(packets, { now + latency, x })
+			end
+			while #packets > 0 and packets[1][1] <= now + 1e-9 do
+				seen = table.remove(packets, 1)[2]
+			end
+			if step == DASH_AT * STEPS then
+				allowTravel(anchor, dash.Distance, dash.DurationSeconds, now, grace)
+			end
+			if onTick then
+				judgeAt(anchor, seen, now, false)
+			end
+			if now >= nextSwing then
+				nextSwing += swing
+				judgeAt(anchor, seen, now, true)
+			end
+		end
+		return anchor.Refusals
+	end
+
+	it("outlives the round trip, so no swing after a dash is refused", function()
+		expect(CombatConfig.Dash.Distance).toBe(DASH_STUDS)
+		for _, latency in ipairs({ 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 }) do
+			expect(dashThenSwing(latency, MovementGuard.grace(2 * latency, Sim.config))).toBe(0)
+		end
+		-- The fixed half second it replaces refused the swing after the dash at 0.8 and 1.0 s of round trip.
+		expect(dashThenSwing(0.4, 0.5)).toBe(1)
+		expect(dashThenSwing(0.5, 0.5)).toBe(1)
+		expect(dashThenSwing(0.1, 0.5)).toBe(0)
 	end)
 end)
 

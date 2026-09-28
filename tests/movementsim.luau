@@ -6,17 +6,17 @@
 -- rate and does what MovementAudit does: support probe, barrier ray, path scan, contact, WalkSpeed, grants and
 -- teleports, and a pivot on every correction. One horizontal axis (x) plus height (y).
 --
--- The judge's config is built here the way MovementAudit builds it: MovementGuardConfig, plus the engine and
--- GameConfig values it does not hold.
+-- The judge's config is built here the way CombatService builds it for MovementAudit: MovementGuardConfig, plus
+-- the engine and GameConfig values it does not hold.
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local FeelMath = require("../src/shared/Pure/FeelMath")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local MovementGuard = require("../src/shared/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 
--- Roblox's default gravity, which the game never changes. MovementAudit passes the live Workspace.Gravity.
+-- Roblox's default gravity, which the game never changes. CombatService passes the live Workspace.Gravity.
 local GRAVITY = 196.2
--- CombatService's GUARD.StillEpsilonStuds, which MovementAudit passes on. It is a property of character
+-- CombatService's GUARD.StillEpsilonStuds, which it passes on to the judge. It is a property of character
 -- jitter kept in CombatService rather than in a config, so it is restated here as tests/OriginGuard.spec.luau
 -- does.
 local STILL_EPSILON_STUDS = 0.05

@@ -1,7 +1,8 @@
 --!strict
 -- CombatService: the ONLY damage path of the game. Owns per-player combat state (ink, guard,
 -- dash / melee timers, spawn protection, per-glyph hit memory), the M1 / dash / block handlers and
--- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ).
+-- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ, and the
+-- movement audit, Security/MovementAudit, stepped once per tick).
 -- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so PvP policy,
 -- spawn protection, i-frames and guard rules apply everywhere.
 -- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, Gilding): they
@@ -19,6 +20,8 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local MovementAudit = require(script.Parent.Parent.Security.MovementAudit)
+local MovementGuard = require(Shared.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local OriginGuard = require(Shared.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -150,6 +153,9 @@ type State = {
 	-- of silence) and is still chasing. A refused action counts no violation meanwhile: the gap is the
 	-- connection's, and the action is already resolved from the anchor. Cleared by an Accepted sample.
 	Converging: boolean,
+	-- The body the last server teleport (resyncPosition with a position) moved. With deferred signals a new body's
+	-- CharacterAdded can run after the teleport that placed it, and must not put the anchors back on the spawn.
+	TeleportCharacter: Model?,
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -165,6 +171,8 @@ local MELEE_HITBOX_HEIGHT = CombatConfig.Melee.HitboxHeight
 local LAST_ATTACKER_ATTRIBUTE = "LastAttackerUserId"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local HUMANOID_WAIT_SECONDS = 10
+-- The MicroProfiler label the movement audit's share of the tick is read under.
+local AUDIT_PROFILE_LABEL = "MovementAudit"
 local BLOCK_ATTRIBUTE = CombatConfig.Status.BlockAttribute
 -- Slow source key of the guard, so releasing the guard never cleanses a glyph slow.
 local BLOCK_SLOW_KEY = "Block"
@@ -375,6 +383,24 @@ local GUARD: OriginGuard.Config = {
 	StillEpsilonStuds = 0.05,
 }
 
+-- Pure/MovementGuard's configuration, handed to MovementAudit: MovementGuardConfig, which only the server reads,
+-- plus what it does not hold -- the engine's gravity, the jump velocities, the speed ceiling and its window, the
+-- stillness epsilon above and the tick. tests/MovementGates.spec.luau checks that nothing the judge reads is left
+-- out.
+local function auditConfig(): MovementGuard.Config
+	local config = table.clone(MovementGuardConfig) :: any
+	config.Gravity = Workspace.Gravity
+	config.JumpVelocity = GameConfig.Movement.JumpPower
+	config.DoubleJumpVelocity = GameConfig.Movement.DoubleJumpVelocity
+	config.MaxSpeedStudsPerSecond = LATENCY.MaxSpeedStudsPerSecond
+	config.MaxBudgetSeconds = LATENCY.MaxBudgetSeconds
+	config.StillEpsilonStuds = GUARD.StillEpsilonStuds
+	config.TickSeconds = TICK_SECONDS
+	return config :: MovementGuard.Config
+end
+
+local AUDIT = auditConfig()
+
 -- The CFrame a hitbox or a cast origin is built from.
 --
 -- Roblox simulates a player's character on the owning client, so `root.CFrame` is whatever that client
@@ -394,13 +420,15 @@ local GUARD: OriginGuard.Config = {
 -- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
 -- Called by every server-authored displacement the client applies (dash, knockback, a glyph dash): the
 -- character is simulated by the owning client, so the move arrives as one jump in the replicated
--- position. Overlapping grants add up and share the later deadline.
-local function allowTravel(state: State, studs: number, seconds: number, now: number)
-	local deadline = now + seconds + LATENCY.AllowanceGraceSeconds
+-- position. Overlapping grants add up, capped at MovementGuardConfig.MaxAllowanceStuds, and share the later
+-- deadline, which the round trip `rtt` stretches by MovementGuard.grace: the client plays the move that much
+-- later. No mover overshoot here: it would lend every action after a dash a few free studs.
+local function allowTravel(state: State, studs: number, seconds: number, now: number, rtt: number)
+	local deadline = now + seconds + MovementGuard.grace(rtt, AUDIT)
 	if now >= state.TravelAllowanceUntil then
 		state.TravelAllowanceStuds = 0
 	end
-	state.TravelAllowanceStuds += math.max(0, studs)
+	state.TravelAllowanceStuds = math.min(state.TravelAllowanceStuds + math.max(0, studs), AUDIT.MaxAllowanceStuds)
 	state.TravelAllowanceUntil = math.max(state.TravelAllowanceUntil, deadline)
 end
 
@@ -529,43 +557,86 @@ local function playerRoot(player: Player): BasePart?
 	return if root ~= nil and root:IsA("BasePart") then root else nil
 end
 
+-- Where the engine puts a new body: the root of somebody standing on the hub's SpawnLocation. nil with none.
+local function spawnPoint(): Vector3?
+	local spawn = findSpawn()
+	if spawn == nil then
+		return nil
+	end
+	return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + MovementGuardConfig.DefaultStandHeightStuds, 0)
+end
+
+-- Puts OriginGuard's anchor on `position` with a clean slate: no allowance, the tolerance whole, nothing
+-- converging, and the origin violations cleared if `clearViolations`. nil leaves no anchor, and the next sample
+-- is taken as it comes.
+local function anchorOn(state: State, position: Vector3?, now: number, clearViolations: boolean)
+	state.TrustedPosition = position
+	state.TrustedAt = now
+	state.TravelAllowanceStuds = 0
+	state.TravelAllowanceUntil = 0
+	state.ToleranceSpent = false
+	state.Converging = false
+	if clearViolations then
+		table.clear(state.OriginViolations)
+	end
+end
+
 -- Re-anchors the trust sample on a position the SERVER chose. Every server-authored reposition (match
--- spawn, hub return, boss arena placement, a teleporting glyph) must call this, or the player's next
--- hitbox would be built where they used to stand and miss.
+-- spawn, hub return, boss arena placement, a portal's trip, the Battleground's camp, a teleporting glyph)
+-- must call this right after its PivotTo, or the player's next hitbox would be built where they used to
+-- stand and miss, and the movement audit would read the move as a teleport.
 --
 -- A teleport MUST pass `position`. Re-reading the character would anchor trust on whatever the client
 -- last replicated, which is the one value this path exists not to believe: a glyph that moves the caster
--- relative to a spoofed root would otherwise have the server bless the spoof. Callers that only want the
--- sample re-armed on the current character, such as a respawn, pass nil.
+-- relative to a spoofed root would otherwise have the server bless the spoof. With a position both guards
+-- move there: OriginGuard's anchor, and MovementAudit, which then waits for the body to arrive. Called with
+-- nil (no caller does today), only OriginGuard re-arms on the current root: the audit never adopts a
+-- position the client chose.
 function CombatService.resyncPosition(player: Player, position: Vector3?)
 	local state = states[player]
 	if state == nil then
 		return
 	end
-	local anchor = position
-	if anchor == nil then
+	local now = os.clock()
+	if position == nil then
 		local root = playerRoot(player)
-		anchor = if root ~= nil then root.Position else nil
+		anchorOn(state, if root ~= nil then root.Position else nil, now, true)
+		return
 	end
-	state.TrustedPosition = anchor
-	state.TrustedAt = os.clock()
-	state.TravelAllowanceStuds = 0
-	state.TravelAllowanceUntil = 0
-	state.ToleranceSpent = false
-	state.Converging = false
-	table.clear(state.OriginViolations)
+	anchorOn(state, position, now, true)
+	state.TeleportCharacter = player.Character
+	MovementAudit.teleported(player, position)
+end
+
+-- The movement audit pulled `player`'s body back to `position`: OriginGuard starts there too. The origin
+-- violations stay: a correction absolves nothing.
+local function reanchor(player: Player, position: Vector3)
+	local state = states[player]
+	if state ~= nil then
+		anchorOn(state, position, os.clock(), false)
+	end
 end
 
 -- Issues a server-authored movement command AND grants the travel it covers. The single door for every
 -- displacement the client applies, so no caller can set a character moving without the travel budget
 -- being told: a glyph dash that forgot to would make an honest player's follow-up melee whiff.
+--
+-- A knockback's vertical share is lift, never horizontal travel: OriginGuard is given only the flat distance, and
+-- the movement audit the two apart, each stretched by the round trip the audit reads.
 function CombatService.grantMovement(player: Player, command: MovementCommand)
 	local state = states[player]
 	if state ~= nil then
+		local now = os.clock()
+		local rtt = MovementAudit.rtt(player)
 		if command.Kind == "Dash" then
-			allowTravel(state, command.Distance, command.Duration, os.clock())
+			allowTravel(state, command.Distance, command.Duration, now, rtt)
+			MovementAudit.grant(player, command.Distance, 0, command.Duration)
 		elseif command.Kind == "Knockback" then
-			allowTravel(state, command.Velocity.Magnitude * command.Duration, command.Duration, os.clock())
+			local velocity = command.Velocity
+			local flat = Vector3.new(velocity.X, 0, velocity.Z).Magnitude * command.Duration
+			local lift = math.max(0, velocity.Y) * command.Duration
+			allowTravel(state, flat, command.Duration, now, rtt)
+			MovementAudit.grant(player, flat, lift, command.Duration)
 		end
 	end
 	movement.command(player, command)
@@ -585,8 +656,8 @@ end
 -- Where the server last believed `player` stood: the anchor the per-tick sampling keeps, read as it is. Never
 -- judged here and never counted as an action, so reading it can neither move the anchor nor strike anyone --
 -- which is what a watcher that asks every tick needs (the Battleground's roster, and anything else that must
--- know where a player is without taking the client's word for it). nil right after a respawn, until the next
--- tick samples the new body.
+-- know where a player is without taking the client's word for it). Right after a respawn it is the SpawnLocation
+-- the engine put the new body on; nil only when there is none, until the next tick samples the new body.
 function CombatService.trustedPosition(player: Player): Vector3?
 	local state = states[player]
 	if state == nil then
@@ -707,7 +778,11 @@ local function releaseCharacter(state: State, now: number)
 	state.Character = nil
 end
 
-local function resetState(state: State, now: number)
+-- A fresh slate for a new body (`character`), or for a player who has none yet. The anchors start where the
+-- engine spawns bodies, the SpawnLocation, rather than on the new body's first report -- unless a server teleport
+-- of this very body already ran (deferred signals can deliver CharacterAdded after it): it set them on the point
+-- the server chose.
+local function resetState(state: State, now: number, character: Model?)
 	state.Ink = CombatConfig.Ink.Max * CombatConfig.Ink.StartFraction
 	state.InCombatUntil = 0
 	state.LastDamageTakenAt = 0
@@ -722,13 +797,13 @@ local function resetState(state: State, now: number)
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
 	state.KillCredited = false
 	state.HitMemory = {}
-	state.TrustedPosition = nil
-	state.TrustedAt = now
-	state.OriginViolations = {}
-	state.TravelAllowanceStuds = 0
-	state.TravelAllowanceUntil = 0
-	state.ToleranceSpent = false
-	state.Converging = false
+	if character ~= nil and state.TeleportCharacter == character then
+		return
+	end
+	anchorOn(state, spawnPoint(), now, true)
+	if character ~= nil then
+		MovementAudit.spawned(state.Player, character)
+	end
 end
 
 -- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
@@ -776,7 +851,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	end
 	local now = os.clock()
 	releaseCharacter(state, now)
-	resetState(state, now)
+	resetState(state, now, character)
 	local characterTrove = Trove.new()
 	state.CharacterTrove = characterTrove
 	state.Character = character
@@ -853,9 +928,11 @@ local function onPlayerAdded(player: Player)
 		TravelAllowanceUntil = 0,
 		ToleranceSpent = false,
 		Converging = false,
+		TeleportCharacter = nil,
 	}
 	resetState(state, os.clock())
 	states[player] = state
+	MovementAudit.add(player)
 	trove:Connect(player.CharacterAdded, function(character: Model)
 		onCharacterAdded(player, character)
 	end)
@@ -874,6 +951,7 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	MovementAudit.remove(player)
 	releaseCharacter(state, os.clock())
 	state.Trove:Destroy()
 end
@@ -1471,6 +1549,11 @@ local function onHeartbeat(deltaTime: number)
 	for player, state in pairs(states) do
 		tickPlayer(player, state, now, elapsed, replicate)
 	end
+	-- Once per tick, after every player's own: a tick that came late is a server hitch, which excuses what it
+	-- makes a body look like. Under its own MicroProfiler label, so its cost can be read apart.
+	debug.profilebegin(AUDIT_PROFILE_LABEL)
+	log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds)
+	debug.profileend()
 end
 
 ----------------------------------------------------------------
@@ -1556,6 +1639,13 @@ function CombatService.Init(injected: Deps)
 	progression = injected.Progression
 	currency = injected.Currency
 	cosmetic = injected.Cosmetic
+	MovementAudit.init({
+		AntiCheat = antiCheat,
+		Movement = movement,
+		Registry = registry,
+		Reanchor = reanchor,
+		SpawnPoint = spawnPoint,
+	}, AUDIT)
 end
 
 function CombatService.Start()
@@ -1563,6 +1653,7 @@ function CombatService.Start()
 	if glyph == nil then
 		log.warn("Glyph dependency missing: CombatState replicates without cooldowns")
 	end
+	MovementAudit.start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

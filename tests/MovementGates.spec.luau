@@ -6,7 +6,9 @@
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
 local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 
@@ -19,6 +21,8 @@ local HUB = "src/server/Services/HubService.luau"
 local BATTLEGROUND_MAP = "src/server/Services/BattlegroundService/Map.luau"
 local TAG_BARRIER = "CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)"
 local REGISTRY = "src/server/RemoteRegistry.luau"
+local AUDIT_MODULE = "src/server/Security/MovementAudit.luau"
+local GUARD = "src/shared/Pure/MovementGuard.luau"
 
 local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))
@@ -132,11 +136,404 @@ describe("the trusted anchor", function()
 	end)
 
 	it("starts every body and every server teleport with the tolerance whole and nothing converging", function()
-		for _, header in ipairs({ "function CombatService.resyncPosition(", "local function resetState(" }) do
-			local reset = functionIn(COMBAT, header)
-			expect(reset).toContain("state.ToleranceSpent = false")
-			expect(reset).toContain("state.Converging = false")
+		-- One place resets the anchor, and every way onto a new point goes through it.
+		local anchor = functionIn(COMBAT, "local function anchorOn(")
+		expect(anchor).toContain(
+			"state.TrustedPosition = position state.TrustedAt = now state.TravelAllowanceStuds = 0 state.TravelAllowanceUntil = 0 state.ToleranceSpent = false state.Converging = false if clearViolations then table.clear(state.OriginViolations) end"
+		)
+		local resync = functionIn(COMBAT, "function CombatService.resyncPosition(")
+		expect(resync).toContain(
+			"if position == nil then local root = playerRoot(player) anchorOn(state, if root ~= nil then root.Position else nil, now, true) return end anchorOn(state, position, now, true)"
+		)
+		local reset = functionIn(COMBAT, "local function resetState(")
+		expect(reset).toContain("anchorOn(state, spawnPoint(), now, true)")
+		-- A correction keeps the violations: pulling a body back absolves nothing.
+		expect(functionIn(COMBAT, "local function reanchor(")).toContain(
+			"if state ~= nil then anchorOn(state, position, os.clock(), false) end"
+		)
+		-- Neither sets the anchor by hand, so neither can forget a field of it.
+		for _, entry in ipairs({ resync, reset }) do
+			expect(entry).never.toContain("state.TrustedPosition =")
+			expect(entry).never.toContain("state.ToleranceSpent =")
 		end
+	end)
+end)
+
+-- CombatService around the audit: every server-authored move reaches it, and nothing it is told comes from the
+-- client.
+describe("the movement audit's wiring", function()
+	it("is stepped once per tick, after every player, with the server's own hitch, under its own label", function()
+		local beat = functionIn(COMBAT, "local function onHeartbeat(")
+		expect(beat).toContain(
+			'for player, state in pairs(states) do tickPlayer(player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
+		)
+		expect(count(strip(fs.readFile(COMBAT)), "MovementAudit.step,")).toBe(1)
+		expect(strip(fs.readFile(COMBAT))).toContain('local AUDIT_PROFILE_LABEL = "MovementAudit"')
+	end)
+
+	it("is given every server grant, a knockback's lift apart from its flat distance", function()
+		local grant = functionIn(COMBAT, "function CombatService.grantMovement(")
+		expect(grant).toContain(
+			'local now = os.clock() local rtt = MovementAudit.rtt(player) if command.Kind == "Dash" then allowTravel(state, command.Distance, command.Duration, now, rtt) MovementAudit.grant(player, command.Distance, 0, command.Duration)'
+		)
+		expect(grant).toContain(
+			'elseif command.Kind == "Knockback" then local velocity = command.Velocity local flat = Vector3.new(velocity.X, 0, velocity.Z).Magnitude * command.Duration local lift = math.max(0, velocity.Y) * command.Duration allowTravel(state, flat, command.Duration, now, rtt) MovementAudit.grant(player, flat, lift, command.Duration) end'
+		)
+		expect(
+			ordered(
+				grant,
+				"MovementAudit.grant(player, flat, lift, command.Duration)",
+				"movement.command(player, command)"
+			)
+		).toBe(true)
+	end)
+
+	it("holds OriginGuard's allowance open by the audit's grace, and caps it", function()
+		expect(functionIn(COMBAT, "local function allowTravel(")).toContain(
+			"local deadline = now + seconds + MovementGuard.grace(rtt, AUDIT) if now >= state.TravelAllowanceUntil then state.TravelAllowanceStuds = 0 end state.TravelAllowanceStuds = math.min(state.TravelAllowanceStuds + math.max(0, studs), AUDIT.MaxAllowanceStuds)"
+		)
+		-- The fixed half second it replaces is gone, so nothing can go back to reading it.
+		expect((GameConfig.Latency :: any).AllowanceGraceSeconds).toBeNil()
+	end)
+
+	it(
+		"follows a server teleport, and only one: a teleport without a position adopts nothing the client said",
+		function()
+			local resync = functionIn(COMBAT, "function CombatService.resyncPosition(")
+			expect(resync).toContain(
+				"anchorOn(state, position, now, true) state.TeleportCharacter = player.Character MovementAudit.teleported(player, position) end"
+			)
+			expect(ordered(resync, "if position == nil then", "return end anchorOn(state, position")).toBe(true)
+			expect(count(resync, "MovementAudit.")).toBe(1)
+		end
+	)
+
+	it("starts a new body where the engine spawned it, unless a teleport of that body already ran", function()
+		local reset = functionIn(COMBAT, "local function resetState(")
+		expect(reset).toContain(
+			"if character ~= nil and state.TeleportCharacter == character then return end anchorOn(state, spawnPoint(), now, true) if character ~= nil then MovementAudit.spawned(state.Player, character) end end"
+		)
+		-- The fields every body resets come first, so a kept teleport keeps nothing else of the old body.
+		expect(ordered(reset, "state.HitMemory = {}", "if character ~= nil and state.TeleportCharacter")).toBe(true)
+		expect(functionIn(COMBAT, "local function onCharacterAdded(")).toContain(
+			"releaseCharacter(state, now) resetState(state, now, character)"
+		)
+		expect(functionIn(COMBAT, "local function spawnPoint(")).toContain(
+			"return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + MovementGuardConfig.DefaultStandHeightStuds, 0)"
+		)
+	end)
+
+	it("is set up with CombatService, keeps a record per player, and learns of every body", function()
+		expect(functionIn(COMBAT, "function CombatService.Init(")).toContain(
+			"MovementAudit.init({ AntiCheat = antiCheat, Movement = movement, Registry = registry, Reanchor = reanchor, SpawnPoint = spawnPoint, }, AUDIT)"
+		)
+		local start = functionIn(COMBAT, "function CombatService.Start(")
+		expect(ordered(start, "MovementAudit.start()", "Players.PlayerAdded:Connect(onPlayerAdded)")).toBe(true)
+		local added = functionIn(COMBAT, "local function onPlayerAdded(")
+		expect(
+			ordered(added, "states[player] = state MovementAudit.add(player)", "onCharacterAdded(player, character)")
+		).toBe(true)
+		expect(functionIn(COMBAT, "local function onPlayerRemoving(")).toContain("MovementAudit.remove(player)")
+	end)
+
+	it("hands the judge every number it reads", function()
+		-- The judge's Config type, and what CombatService adds to MovementGuardConfig for it: together they must
+		-- cover it, or a key would read nil in the engine and nowhere under Lune (the simulator builds its own).
+		local guard = fs.readFile(GUARD)
+		local block = guard:match("\nexport type Config = {(.-)\n}")
+		assert(block ~= nil, "MovementGuard has no Config type: this gate would check nothing")
+		local builder = functionIn(COMBAT, "local function auditConfig(")
+		expect(builder).toContain(
+			"local config = table.clone(MovementGuardConfig) :: any config.Gravity = Workspace.Gravity"
+		)
+		local keys = 0
+		for key in block:gmatch("\n\t(%w+): number,") do
+			keys += 1
+			if (MovementGuardConfig :: any)[key] == nil and builder:find("config." .. key .. " = ", 1, true) == nil then
+				error("the judge reads " .. key .. ", which neither MovementGuardConfig nor auditConfig gives it")
+			end
+		end
+		expect(keys).toBeGreaterThan(60)
+	end)
+end)
+
+-- Every server teleport of a player's body must re-anchor both guards on the point the server chose, or the next
+-- hitbox is built where the body was and the audit reads the move as a teleport.
+describe("a server teleport of a player", function()
+	-- The only PivotTo in src/server that moves something else than a player's body: file -> its receiver.
+	local NOT_A_PLAYER: { [string]: string } = {
+		["src/server/Services/ArenaService.luau"] = "clone", -- an arena, onto its slot
+		["src/server/Services/WorldBossService/Encounter.luau"] = "boss.Model", -- the Erasure
+		["src/server/Services/BattlegroundService/Bots.luau"] = "model", -- a Forger
+	}
+
+	local function collect(directory: string, out: { string })
+		for _, entry in ipairs(fs.readDir(directory)) do
+			local path = directory .. "/" .. entry
+			if fs.isDir(path) then
+				collect(path, out)
+			elseif entry:match("%.luau$") then
+				table.insert(out, path)
+			end
+		end
+	end
+
+	-- The innermost function around `at`: its header up to the first `end` at its own indentation.
+	local function enclosing(source: string, at: number): string?
+		local best: string? = nil
+		local bestStart = 0
+		for start, indent in source:gmatch("()\n(\t*)[%w ]-function [%w_%.:]+%(") do
+			local finish = source:find("\n" .. indent .. "end\n", start + 1, true)
+			if start < at and finish ~= nil and finish > at and start > bestStart then
+				best, bestStart = source:sub(start, finish), start
+			end
+		end
+		return best
+	end
+
+	it("calls resyncPosition after its PivotTo, wherever it happens", function()
+		local files: { string } = {}
+		collect("src/server", files)
+		local players, others = 0, 0
+		for _, path in ipairs(files) do
+			if path ~= AUDIT_MODULE then
+				local source = strip(fs.readFile(path))
+				for at in source:gmatch("()[%w_%.]+:PivotTo%(") do
+					local receiver = source:match("^([%w_%.]+):PivotTo%(", at)
+					if NOT_A_PLAYER[path] == receiver then
+						others += 1
+					else
+						players += 1
+						local body = enclosing(source, at)
+						if body == nil then
+							error(path .. ": a PivotTo of " .. tostring(receiver) .. " outside any function")
+						end
+						local pivot = body:find(":PivotTo(", 1, true) :: number
+						if body:find("resyncPosition(", pivot, true) == nil then
+							error(path .. ": " .. tostring(receiver) .. ":PivotTo is not followed by resyncPosition")
+						end
+					end
+				end
+			end
+		end
+		-- Caret, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
+		expect(players).toBe(6)
+		expect(others).toBe(3)
+	end)
+
+	it("sends the destination itself, never a position read back from the body", function()
+		for path, call in pairs({
+			["src/server/Effects/GlyphEffects.luau"] = "ctx.Combat.resyncPosition(ctx.Caster, landing)",
+			["src/server/Services/MatchService.luau"] = "combat.resyncPosition(player, position)",
+			["src/server/Services/HubService.luau"] = "combat.resyncPosition(player, landing)",
+			["src/server/Services/WorldBossService/Encounter.luau"] = "deps.Combat.resyncPosition(player, position)",
+			["src/server/Services/BattlegroundService/Roster.luau"] = "deps.Combat.resyncPosition(player, landing)",
+		}) do
+			expect(strip(fs.readFile(path))).toContain(call)
+		end
+	end)
+end)
+
+-- The engine layer: what it measures, and what it may do with a verdict.
+describe("the movement audit", function()
+	local function audit(header: string): string
+		return functionIn(AUDIT_MODULE, header)
+	end
+
+	it("reads nothing the client writes about its own body", function()
+		-- Support comes from the server's spherecast, never FloorMaterial or the Humanoid's state, and no
+		-- velocity is ever read: the only writes are the zeros after a pivot.
+		local source = strip(fs.readFile(AUDIT_MODULE))
+		for _, banned in ipairs({ "FloorMaterial", ":GetState(", "MoveDirection", ".Velocity" }) do
+			if source:find(banned, 1, true) ~= nil then
+				error("MovementAudit reads " .. banned)
+			end
+		end
+		for _, velocity in ipairs({ "AssemblyLinearVelocity", "AssemblyAngularVelocity" }) do
+			expect(count(source, velocity)).toBe(count(source, velocity .. " = Vector3.zero"))
+		end
+	end)
+
+	it("probes for support under every body on every tick, and stands on a player only if that one stood", function()
+		local sample = audit("local function sampleOf(")
+		expect(sample).toContain("Supported = body.Sane and supportedAt(record, position, stand),")
+		expect(audit("local function supportedAt(")).toContain(
+			"local hit = castDown(record, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds) return hit ~= nil and holdsUp(hit.Instance)"
+		)
+		expect(audit("local function castDown(")).toContain(
+			"local depth = math.max(stand - radius, 0) + reach return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), record.Probe)"
+		)
+		expect(audit("local function holdsUp(")).toContain("return owner == nil or owner.WasSupported")
+		expect(audit("local function gather(")).toContain(
+			"for player, record in pairs(records) do record.WasSupported = record.Supported record.Supported = false"
+		)
+		local added = audit("function MovementAudit.add(")
+		expect(added).toContain("probe.FilterType = Enum.RaycastFilterType.Exclude probe.RespectCanCollide = true")
+		expect(added).toContain("overlap.FilterType = Enum.RaycastFilterType.Exclude overlap.RespectCanCollide = true")
+		expect(audit("local function adopt(")).toContain(
+			"record.Probe.FilterDescendantsInstances = { character } record.Overlap.FilterDescendantsInstances = { character }"
+		)
+	end)
+
+	it("audits a live body even without its Humanoid, and never a dead one", function()
+		local gather = audit("local function gather(")
+		expect(gather).toContain(
+			"if character == nil or player.Character ~= character or character.Parent == nil then continue end"
+		)
+		expect(gather).toContain("if humanoid ~= nil and humanoid.Health <= 0 then continue end")
+		expect(count(gather, "continue")).toBe(3)
+		expect(audit("local function standHeight(")).toContain(
+			"if humanoid == nil then return AUDIT.DefaultStandHeightStuds end return humanoid.HipHeight + root.Size.Y / 2"
+		)
+		expect(audit("local function walkSpeed(")).toContain(
+			"return if humanoid ~= nil then humanoid.WalkSpeed else GameConfig.Movement.WalkSpeed"
+		)
+	end)
+
+	it("tells the judge what the server measured and nothing else", function()
+		local sample = audit("local function sampleOf(")
+		for _, field in ipairs({
+			"Down = deps.Movement.isDown(record.Player),",
+			"Contact = body.Contact,",
+			"Rtt = heldRtt(record, now),",
+			"LastInboundAt = deps.Registry.lastInbound(record.Player),",
+			"Hitch = hitch,",
+			"if MovementGuard.wantsRay(record.Track, sample, config) then sample.Crossing = crossing(record.Track, position) end",
+			"if MovementGuard.preview(record.Track, sample, config) then sample.SupportTops = scan(record, sample) end",
+		}) do
+			expect(sample).toContain(field)
+		end
+		-- The round trip rises at once and falls only once the hold is over. GetNetworkPing is read as one way until
+		-- Studio says otherwise: twice it can only over-grant.
+		expect(strip(fs.readFile(AUDIT_MODULE))).toContain("local PINGS_PER_ROUND_TRIP = 2\n")
+		expect(audit("local function heldRtt(")).toContain(
+			"local measured = PINGS_PER_ROUND_TRIP * record.Player:GetNetworkPing() if measured >= record.RttValue or now - record.RttAt >= AUDIT.RttHoldSeconds then record.RttValue = measured record.RttAt = now end return record.RttValue"
+		)
+	end)
+
+	it("casts the barrier ray from the last judged sample against the tagged barriers only", function()
+		local source = (strip(fs.readFile(AUDIT_MODULE)):gsub("%s+", " "))
+		expect(source).toContain(
+			"barrierParams.FilterType = Enum.RaycastFilterType.Include barrierParams.RespectCanCollide = true"
+		)
+		expect(audit("function MovementAudit.start(")).toContain(
+			"watchParts(AUDIT.BarrierTag, barriers, noteBarriersChanged)"
+		)
+		local cross = audit("local function crossing(")
+		expect(cross).toContain("local ox, oy, oz = MovementGuard.rayOrigin(track)")
+		expect(cross).toContain("if step.Magnitude > AUDIT.RaySkipStuds then return nil end")
+		expect(cross).toContain("local hit = Workspace:Raycast(origin, step, barrierFilter())")
+		expect(cross).toContain("Top = topOf(part),")
+		expect(cross).toContain("local floor = hit.Normal.Y > AUDIT.FloorNormalY")
+		expect(cross).toContain(
+			"PassThrough = MovementGuard.passesThrough(floor, a.X, a.Y, a.Z, b.X, b.Y, b.Z, half.X, half.Y, half.Z, config),"
+		)
+		-- The one ray it casts.
+		expect(count(source, "Workspace:Raycast(")).toBe(1)
+	end)
+
+	it("counts contact with players, the Forgers, the proofs, the Erasure's hull and the Margin walls", function()
+		expect(audit("local function markContacts(")).toContain(
+			"local touched = MovementGuard.touching(xs, ys, zs, dxs, dys, dzs, flagged, AUDIT.ContactRadiusStuds, config) for n, body in ipairs(listed) do body.Contact = touched[n] or nearServerBody(body.Root.Position) end"
+		)
+		local start = audit("function MovementAudit.start(")
+		for _, watched in ipairs({
+			"watchModels(GameConfig.Enemy.Tag, npcs)",
+			"watchModels(BotConfig.Tag, npcs)",
+			"watchModels(WorldBossConfig.Boss.Tag, hulls)",
+			"watchParts(WorldConfig.Glyphs.CollisionTag, walls, nil)",
+		}) do
+			expect(start).toContain(watched)
+		end
+		local near = audit("local function nearServerBody(")
+		expect(near).toContain("(root.Position - position).Magnitude <= AUDIT.ContactRadiusStuds")
+		expect(near).toContain("insideGrown(hull, position, AUDIT.ShoveMarginStuds)")
+		expect(near).toContain("insideGrown(wall, position, AUDIT.ShoveMarginStuds)")
+	end)
+
+	it("in Observe, and on a verdict it only watches, moves nobody", function()
+		local enforce = audit("local function enforce(")
+		expect(ordered(enforce, 'if MovementGuardConfig.Mode == "Observe" then', "correct(body,")).toBe(true)
+		expect(ordered(enforce, 'if MovementGuardConfig.Mode == "Observe" then', "repivot(body,")).toBe(true)
+		expect(enforce).toContain(
+			'if action == "Watch" then report(record, verdict, now, "watch", back, strike(record, verdict, now), true) return end'
+		)
+		expect(enforce).toContain(
+			'if action == "Correct" then correct(body, sample.StandHeight, verdict, now) elseif action == "Repivot" then repivot(body, verdict, now) end end'
+		)
+		expect(enforce).toContain(
+			'if MovementGuardConfig.Mode == "Observe" then local heading = if action == "Watch" then "watch" else "observe " .. string.lower(action) report(record, verdict, now, heading, back, strike(record, verdict, now), true) return end'
+		)
+		expect(enforce).toContain(
+			'if now < record.PausedUntil then report(record, verdict, now, "paused " .. string.lower(action), back, strike(record, verdict, now), true) return end'
+		)
+		-- The only two pivots it makes.
+		expect(count(strip(fs.readFile(AUDIT_MODULE)), ":PivotTo(")).toBe(2)
+	end)
+
+	it("strikes only in Enforce, one strike per kind per spacing, and only a verdict that may", function()
+		local strike = audit("local function strike(")
+		expect(strike).toContain('if not verdict.Strikeable then return "exempt" end')
+		expect(strike).toContain('if MovementGuardConfig.Mode ~= "Enforce" then return "would strike" end')
+		expect(strike).toContain(
+			'if now - (record.StruckAt[key] or -math.huge) < AUDIT.StrikeSpacingSeconds then return "strike spaced out" end record.StruckAt[key] = now deps.AntiCheat.strike('
+		)
+		expect(strike).toContain('"Movement" ) return "struck"')
+		expect(count(strip(fs.readFile(AUDIT_MODULE)), "deps.AntiCheat.strike(")).toBe(1)
+	end)
+
+	it("confirms a flight against the ground before pulling anyone down, in every mode", function()
+		local enforce = audit("local function enforce(")
+		expect(enforce).toContain(
+			'if action == "Correct" and verdict.Kind == "Flight" and groundBelow(body, sample.StandHeight, now) then return end'
+		)
+		expect(ordered(enforce, "groundBelow(", 'if MovementGuardConfig.Mode == "Observe" then')).toBe(true)
+		local ground = audit("local function groundBelow(")
+		expect(ground).toContain(
+			"castDown(record, body.Root.Position, stand, AUDIT.ConfirmProbeRadiusStuds, AUDIT.ConfirmProbeReachStuds)"
+		)
+		expect(ground).toContain("MovementGuard.groundFound(record.Track, hit.Position.Y + stand, now)")
+	end)
+
+	it("corrects to a point the body fits at, and re-anchors both guards there", function()
+		local correct = audit("local function correct(")
+		expect(correct).toContain("local target = clearTarget(record, verdict, stand)")
+		expect(correct).toContain(
+			"local fromX, fromY, fromZ = MovementGuard.heard(track) body.Character:PivotTo(CFrame.new(target) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, target) local grounded = supportedAt(record, target, stand) MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, grounded, config) countCorrection(record, now)"
+		)
+		local clear = audit("local function clearTarget(")
+		expect(clear).toContain('MovementGuard.safePoint(record.Track, n, verdict.Kind == "Flight")')
+		expect(count(clear, "fits(record,")).toBe(2)
+		expect(audit("local function fits(")).toContain(
+			"local bottom = point.Y - stand + AUDIT.ClearanceFootStuds local top = point.Y + AUDIT.ClearanceHeadStuds local width = 2 * AUDIT.BodyHalfWidthStuds"
+		)
+		-- A repivot puts the body back on a destination the teleport already told the judge about.
+		local repivot = audit("local function repivot(")
+		expect(repivot).toContain(
+			"body.Character:PivotTo(CFrame.new(destination) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, destination)"
+		)
+		expect(repivot).never.toContain("MovementGuard.teleported(")
+	end)
+
+	it("pauses corrections caught in a loop, without striking for it", function()
+		local burst = audit("local function countCorrection(")
+		expect(burst).toContain(
+			"if #times > AUDIT.CorrectionBurstLimit then table.clear(times) record.PausedUntil = now + AUDIT.LoopPauseSeconds"
+		)
+		expect(burst).never.toContain("strike(")
+	end)
+
+	it("follows a teleport's new body from where the engine spawned it", function()
+		local teleported = audit("function MovementAudit.teleported(")
+		expect(teleported).toContain("if record.Character ~= character then adopt(record, character, now) end")
+		expect(teleported).toContain("local fromX, fromY, fromZ = MovementGuard.heard(track)")
+		expect(ordered(teleported, "adopt(record, character, now)", "MovementGuard.heard(track)")).toBe(true)
+		expect(audit("local function adopt(")).toContain(
+			"local point = deps.SpawnPoint() if point == nil then record.Track = MovementGuard.newTrack(config)"
+		)
+		expect(audit("local function adopt(")).toContain(
+			"MovementGuard.spawned(record.Track, point.X, point.Y, point.Z, now, config)"
+		)
 	end)
 end)
 

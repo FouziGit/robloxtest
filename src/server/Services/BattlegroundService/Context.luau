@@ -50,7 +50,8 @@ export type CombatApi = {
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	-- Called after the service places a player, with the position the SERVER chose.
 	resyncPosition: (player: Player, position: Vector3?) -> (),
-	-- Where the server last believed the player stood; nil right after a respawn. Never judged, never strikes.
+	-- Where the server last believed the player stood; nil only for a new body with no SpawnLocation to start
+	-- from. Never judged, never strikes.
 	trustedPosition: (player: Player) -> Vector3?,
 	heal: (player: Player, amount: number, quietSeconds: number) -> number,
 	Damaged: {

@@ -3,8 +3,9 @@
 -- top (the level seal and its bar, the Folios and the way to more of them, the settings, an invite), then the
 -- whole menu as tiles above the fold of a phone: Play, the loudest, a yellow double tile on the left; the six
 -- others in a grid of three by two, each in its own chapter's colour, and never two of one colour side by
--- side. A tile badges what waits on its screen (Claimables): the pass's reached tiers, the quests done, a "!"
--- on today's reward. Picking a tile stacks its screen on this one, so Back returns here (MenuController).
+-- side. A tile badges what waits on its screen (Claims, on the server's day, as the HUD counts it): the pass's
+-- reached tiers, the quests done, a "!" on today's reward. Picking a tile stacks its screen on this one, so
+-- Back returns here (MenuController).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,19 +14,14 @@ local SocialService = game:GetService("SocialService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local BattlepassConfig = require(Shared.Config.BattlepassConfig)
 local Button = require(script.Parent.Parent.components.Button)
-local Claimables = require(Shared.Pure.Claimables)
-local DailyStreak = require(Shared.Pure.DailyStreak)
+local Claims = require(script.Parent.Parent.Claims)
 local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
-local GameConfig = require(Shared.Config.GameConfig)
 local Icon = require(script.Parent.Parent.components.Icon)
 local Panel = require(script.Parent.Parent.components.Panel)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
-local QuestConfig = require(Shared.Config.QuestConfig)
-local QuestLogic = require(Shared.Pure.QuestLogic)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Seal = require(script.Parent.Parent.components.Seal)
 local Splat = require(script.Parent.Parent.components.Splat)
@@ -85,9 +81,6 @@ local STRIPE_HEIGHT = 6
 -- The Play tile's line counts the wait once a second while the screen is up.
 local TICK_SECONDS = 1
 
-local SEASON = GameConfig.SeasonId
-local TIERS = BattlepassConfig.Seasons[SEASON].Tiers
-
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
 		object:Destroy()
@@ -103,25 +96,6 @@ local function faceOf(button: Button.Button): Frame?
 		return face
 	end
 	return nil
-end
-
--- What is waiting on each screen right now, counted the way the server grants it.
-local function claimables(data: Types.ProfileData?): Claimables.Counts
-	local now = os.time()
-	local function period(name: QuestLogic.Period): Claimables.Period
-		return {
-			Live = QuestLogic.periodKey(name, now),
-			Select = function(setKey: string): { any }
-				return QuestLogic.select(QuestConfig.Pool, name, QuestConfig.Periods[name].Count, setKey)
-			end,
-		}
-	end
-	return Claimables.count(data, {
-		Today = DailyStreak.dayIndex(now),
-		Periods = { Daily = period("Daily"), Weekly = period("Weekly") },
-		Season = SEASON,
-		Tiers = TIERS,
-	})
 end
 
 local function textLabel(name: string, font: Font, size: number, order: number, parent: Instance): TextLabel
@@ -556,7 +530,7 @@ function MenuScreen.new(deps: Deps): Screen
 			end
 			pill:Set(data.Currency.Folios, screen.Visible)
 		end
-		local counts = claimables(data)
+		local counts = Claims.count(data, workspace:GetServerTimeNow())
 		battlepassButton:SetBadge(if counts.Pass > 0 then counts.Pass else nil)
 		questsButton:SetBadge(if counts.Quests > 0 then counts.Quests else nil)
 		dailyButton:SetBadge(if counts.Daily > 0 then "!" else nil)

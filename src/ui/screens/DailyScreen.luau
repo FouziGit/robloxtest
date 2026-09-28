@@ -417,7 +417,8 @@ function DailyScreen.new(deps: Deps): Screen
 		end
 		pill:Set(data.Currency.Folios, screen.Visible)
 		local daily = data.Daily
-		local evaluation = DailyStreak.evaluate(daily, DailyStreak.dayIndex(os.time()))
+		-- The server's day, the one it grants a claim on: never the player's own clock.
+		local evaluation = DailyStreak.evaluate(daily, DailyStreak.dayIndex(workspace:GetServerTimeNow()))
 		-- Today's streak day: the one a claim would grant while it can, the one granted once it has.
 		local streak = if evaluation.CanClaim then evaluation.NextStreak else daily.Streak
 		local current = DailyStreak.rewardIndex(streak, STREAK_LENGTH)

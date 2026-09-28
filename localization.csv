@@ -16,17 +16,19 @@ battleground.full,The battleground is full. Try again in a moment.,Vellum,,The b
 battleground.status,{standing} Forgers standing · {defeated} defeated,Vellum,,{standing} Forgers standing · {defeated} defeated,{standing} Faussaires debout · {defeated} vaincus
 battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà récupéré.
 battlepass.claim,Claim,Vellum,,Claim,Récupérer
-battlepass.claimed,Claimed,Vellum,,Claimed,Récupéré
+battlepass.claimAll,Claim all ({count}),Vellum,,Claim all ({count}),Tout récupérer ({count})
 battlepass.completed,Completed!,Vellum,,Completed!,Terminé !
-battlepass.free,Free,Vellum,,Free,Gratuit
+battlepass.getPremium,Get Premium,Vellum,,Get Premium,Obtenir le Premium
+battlepass.nextReward,Next reward,Vellum,,Next reward,Prochaine récompense
 battlepass.notReached,Tier {tier} not reached yet.,Vellum,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
 battlepass.premium,Premium,Vellum,,Premium,Premium
 battlepass.premiumRequired,Premium pass required.,Vellum,,Premium pass required.,Pass premium requis.
 battlepass.reward.cosmetic,Cosmetic: {name},Vellum,,Cosmetic: {name},Cosmétique : {name}
 battlepass.reward.folio,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
-battlepass.reward.none,No reward,Vellum,,No reward,Aucune récompense
+battlepass.reward.minutes,{minutes} min,Vellum,,{minutes} min,{minutes} min
 battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
+battlepass.tierShort,Tier {tier},Vellum,,Tier {tier},Palier {tier}
 battlepass.title,Battle Pass — Volume {season},Vellum,,Battle Pass — Volume {season},Battle Pass — Volume {season}
 battlepass.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 boss.announced,The Erasure comes for the page in {seconds}s!,Vellum,,The Erasure comes for the page in {seconds}s!,L'Effacement vient pour la page dans {seconds}s !
@@ -54,9 +56,12 @@ boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+common.cancel,Cancel,Vellum,,Cancel,Annuler
 common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
+common.pendingTimeout,No answer from the server. Try again.,Vellum,,No answer from the server. Try again.,Pas de réponse du serveur. Réessaie.
 common.reset,Reset,Vellum,,Reset,Réinitialiser
+common.retry,Retry,Vellum,,Retry,Réessayer
 common.save,Save,Vellum,,Save,Sauvegarder
 cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
 cosmetic.AuraCrimson,Smoke Aura,Vellum,,Smoke Aura,Aura de Fumée
@@ -113,13 +118,22 @@ cosmetic.title.TitleWanderer,Wanderer,Vellum,,Wanderer,Vagabond
 cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,Vellum,,None,Aucun
 cosmetics.notOwned,You do not own this cosmetic.,Vellum,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
+cosmetics.slot.Aura,Auras,Vellum,,Auras,Auras
+cosmetics.slot.KillEffect,Takedown effects,Vellum,,Takedown effects,Effets d'élimination
+cosmetics.slot.Skin,Glyph skins,Vellum,,Glyph skins,Apparences de glyphe
+cosmetics.slot.Title,Titles,Vellum,,Titles,Titres
+cosmetics.slot.Trail,Trails,Vellum,,Trails,Traînées
 currency.folio,Folios,Vellum,,Folios,Folios
+daily.atRisk,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Récupère aujourd'hui pour garder ta série de {streak} jours !
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
+daily.claim,Claim,Vellum,,Claim,Récupérer
 daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
+daily.day,Day {day},Vellum,,Day {day},Jour {day}
 daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
 daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
+daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
 glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,Vellum,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.
@@ -277,11 +291,9 @@ match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.victory,Victory!,Vellum,,Victory!,Victoire !
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
 menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
-menu.invite,Invite a friend,Vellum,,Invite a friend,Inviter un ami
 menu.inviteUnavailable,Invites are not available here.,Vellum,,Invites are not available here.,Les invitations ne sont pas disponibles ici.
 menu.loadout,Loadout,Vellum,,Loadout,Équipement
 menu.quests,Quests,Vellum,,Quests,Quêtes
-menu.settings,Settings,Vellum,,Settings,Options
 menu.shop,Shop,Vellum,,Shop,Boutique
 menu.title,Menu,Vellum,,Menu,Menu
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
@@ -359,9 +371,13 @@ queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
 queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.
 queue.leave,Leave queue,Vellum,,Leave queue,Quitter la file
 queue.left,You left the queue.,Vellum,,You left the queue.,Tu as quitté la file.
+queue.ranked,Ranked,Vellum,,Ranked,Classé
+queue.rule,First to {rounds} rounds wins,Vellum,,First to {rounds} rounds wins,Le premier à {rounds} manches gagne
+queue.rule.one,A single round decides,Vellum,,A single round decides,Une seule manche décide
 queue.searching,Searching… {waited}s,Vellum,,Searching… {waited}s,Recherche… {waited}s
-queue.teamSize,{size}v{size},Vellum,,{size}v{size},{size}v{size}
 queue.timedOut,No opponent found. Try again!,Vellum,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
+queue.timedOut.hint,Try the Battleground or face the Erasure: their circles are in the hub.,Vellum,,Try the Battleground or face the Erasure: their circles are in the hub.,Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.
+queue.timedOut.title,Nobody in the queue right now,Vellum,,Nobody in the queue right now,Personne en file pour l'instant
 queue.title,Play,Vellum,,Play,Jouer
 queue.waiting,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
 rank.blank,Blank,Vellum,,Blank,Vierge
@@ -369,6 +385,8 @@ rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
+reward.folios,+{amount},Vellum,,+{amount},+{amount}
+reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs
@@ -391,11 +409,16 @@ settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
 settings.tab.graphics,Graphics,Vellum,,Graphics,Graphismes
 settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
 settings.title,Settings,Vellum,,Settings,Options
-shop.balance,You have {amount} Folios,Vellum,,You have {amount} Folios,Tu as {amount} Folios
+shop.acquired,Acquired!,Vellum,,Acquired!,Acquis !
+shop.buy,Buy,Vellum,,Buy,Acheter
 shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
-shop.buyRobux,Buy with Robux,Vellum,,Buy with Robux,Acheter en Robux
+shop.confirm.balance,{before} → {after} Folios,Vellum,,{before} → {after} Folios,{before} → {after} Folios
+shop.confirm.title,Buy {name}?,Vellum,,Buy {name}?,Acheter {name} ?
 shop.equip,Equip,Vellum,,Equip,Équiper
 shop.equipped,Equipped,Vellum,,Equipped,Équipé
+shop.getFolios,Get Folios,Vellum,,Get Folios,Obtenir des Folios
+shop.locker.empty,Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.,Vellum,,Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.,Rien pour l'instant. Gagne des cosmétiques avec le Battle Pass ou achète-les dans la sélection du jour.
+shop.nextRotation,New items in {time},Vellum,,New items in {time},Nouveautés dans {time}
 shop.notEnoughFolios,Not enough Folios.,Vellum,,Not enough Folios.,Pas assez de Folios.
 shop.owned,Owned,Vellum,,Owned,Possédé
 shop.purchased,Purchased: {name},Vellum,,Purchased: {name},Acheté : {name}
@@ -403,8 +426,15 @@ shop.rarity.Common,Common,Vellum,,Common,Commun
 shop.rarity.Epic,Epic,Vellum,,Epic,Épique
 shop.rarity.Legendary,Legendary,Vellum,,Legendary,Légendaire
 shop.rarity.Rare,Rare,Vellum,,Rare,Rare
-shop.rotation,Today's selection,Vellum,,Today's selection,Sélection du jour
+shop.robuxPrice,R$ {price},Vellum,,R$ {price},R$ {price}
+shop.tab.folios,Folios,Vellum,,Folios,Folios
+shop.tab.locker,Locker,Vellum,,Locker,Casier
+shop.tab.passes,Passes & packs,Vellum,,Passes & packs,Pass et packs
+shop.tab.today,Today,Vellum,,Today,Du jour
 shop.title,Shop,Vellum,,Shop,Boutique
+shop.unequip,Unequip,Vellum,,Unequip,Retirer
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
+time.hoursMinutes,{hours}h {minutes}m,Vellum,,{hours}h {minutes}m,{hours} h {minutes}
+time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}

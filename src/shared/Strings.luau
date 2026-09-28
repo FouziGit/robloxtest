@@ -69,7 +69,6 @@ Strings.Table = {
 
 	-- Menu
 	["menu.title"] = { en = "Menu", fr = "Menu" },
-	["menu.settings"] = { en = "Settings", fr = "Options" },
 	["menu.battlepass"] = { en = "Battle Pass", fr = "Battle Pass" },
 	["menu.shop"] = { en = "Shop", fr = "Boutique" },
 	["menu.quests"] = { en = "Quests", fr = "Quêtes" },
@@ -124,14 +123,11 @@ Strings.Table = {
 	["battlepass.tier"] = { en = "Tier {tier} / {max}", fr = "Palier {tier} / {max}" },
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
-	["battlepass.free"] = { en = "Free", fr = "Gratuit" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
 	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
-	["battlepass.claimed"] = { en = "Claimed", fr = "Récupéré" },
 	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
-	["battlepass.reward.none"] = { en = "No reward", fr = "Aucune récompense" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
 	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
@@ -441,10 +437,7 @@ Strings.Table = {
 		fr = "Achète le cosmétique sélectionné avec des Robux.",
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
-	["shop.rotation"] = { en = "Today's selection", fr = "Sélection du jour" },
 	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
-	["shop.balance"] = { en = "You have {amount} Folios", fr = "Tu as {amount} Folios" },
-	["shop.buyRobux"] = { en = "Buy with Robux", fr = "Acheter en Robux" },
 	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
@@ -460,7 +453,6 @@ Strings.Table = {
 	["queue.join"] = { en = "Join queue", fr = "Rejoindre la file" },
 	["queue.leave"] = { en = "Leave queue", fr = "Quitter la file" },
 	["queue.searching"] = { en = "Searching… {waited}s", fr = "Recherche… {waited}s" },
-	["queue.teamSize"] = { en = "{size}v{size}", fr = "{size}v{size}" },
 	["queue.waiting"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
 	["queue.joined"] = { en = "Queued for {mode}.", fr = "En file pour {mode}." },
 	["queue.left"] = { en = "You left the queue.", fr = "Tu as quitté la file." },
@@ -487,7 +479,6 @@ Strings.Table = {
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.again"] = { en = "Play again", fr = "Rejouer" },
 	["match.watching"] = { en = "Watching {name}", fr = "Tu regardes {name}" },
-	["menu.invite"] = { en = "Invite a friend", fr = "Inviter un ami" },
 	["menu.inviteUnavailable"] = {
 		en = "Invites are not available here.",
 		fr = "Les invitations ne sont pas disponibles ici.",
@@ -702,6 +693,66 @@ Strings.Table = {
 	["nav.back"] = { en = "Back", fr = "Retour" },
 
 	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
+	-- The play cards (PlayScreen): the tag on a ranked mode, its rule, and what the card says when the server
+	-- finds nobody. A mode of one round has its own rule: "first to 1 rounds" reads wrong in both languages.
+	["queue.ranked"] = { en = "Ranked", fr = "Classé" },
+	["queue.rule"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
+	["queue.rule.one"] = { en = "A single round decides", fr = "Une seule manche décide" },
+	["queue.timedOut.title"] = { en = "Nobody in the queue right now", fr = "Personne en file pour l'instant" },
+	["queue.timedOut.hint"] = {
+		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
+		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
+	},
+	-- Slice F's shared words, entered with their first reader (D-148).
+	["common.retry"] = { en = "Retry", fr = "Réessayer" },
+	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
+	["time.hoursMinutes"] = { en = "{hours}h {minutes}m", fr = "{hours} h {minutes}" },
+	["common.cancel"] = { en = "Cancel", fr = "Annuler" },
+	["common.pendingTimeout"] = {
+		en = "No answer from the server. Try again.",
+		fr = "Pas de réponse du serveur. Réessaie.",
+	},
+	-- The shop (ShopScreen): the countdown to the next rotation, the Robux price, and the sheet that asks
+	-- before a Folios purchase.
+	["shop.nextRotation"] = { en = "New items in {time}", fr = "Nouveautés dans {time}" },
+	["shop.robuxPrice"] = { en = "R$ {price}", fr = "R$ {price}" },
+	["shop.confirm.title"] = { en = "Buy {name}?", fr = "Acheter {name} ?" },
+	["shop.confirm.balance"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
+	["shop.buy"] = { en = "Buy", fr = "Acheter" },
+	["shop.acquired"] = { en = "Acquired!", fr = "Acquis !" },
+	["shop.getFolios"] = { en = "Get Folios", fr = "Obtenir des Folios" },
+	-- The shop's tabs, and the locker of what the player owns, by slot.
+	["shop.tab.today"] = { en = "Today", fr = "Du jour" },
+	["shop.tab.folios"] = { en = "Folios", fr = "Folios" },
+	["shop.tab.passes"] = { en = "Passes & packs", fr = "Pass et packs" },
+	["shop.tab.locker"] = { en = "Locker", fr = "Casier" },
+	["shop.unequip"] = { en = "Unequip", fr = "Retirer" },
+	["shop.locker.empty"] = {
+		en = "Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.",
+		fr = "Rien pour l'instant. Gagne des cosmétiques avec le Battle Pass ou achète-les dans la sélection du jour.",
+	},
+	["cosmetics.slot.Aura"] = { en = "Auras", fr = "Auras" },
+	["cosmetics.slot.Trail"] = { en = "Trails", fr = "Traînées" },
+	["cosmetics.slot.KillEffect"] = { en = "Takedown effects", fr = "Effets d'élimination" },
+	["cosmetics.slot.Title"] = { en = "Titles", fr = "Titres" },
+	["cosmetics.slot.Skin"] = { en = "Glyph skins", fr = "Apparences de glyphe" },
+	-- The battle pass (BattlepassScreen): its header's buttons, the showcase of the next reward, and a cell's
+	-- amounts. A cell is too narrow for "XP boost (30 min)": it shows the clock and the minutes.
+	["battlepass.getPremium"] = { en = "Get Premium", fr = "Obtenir le Premium" },
+	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout récupérer ({count})" },
+	["battlepass.nextReward"] = { en = "Next reward", fr = "Prochaine récompense" },
+	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
+	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
+	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
+	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
+	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
+	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
+	["daily.claim"] = { en = "Claim", fr = "Récupérer" },
+	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
+	["daily.atRisk"] = {
+		en = "Claim today to keep your {streak}-day streak!",
+		fr = "Récupère aujourd'hui pour garder ta série de {streak} jours !",
+	},
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

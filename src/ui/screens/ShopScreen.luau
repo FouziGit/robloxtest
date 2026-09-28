@@ -1,5 +1,12 @@
 --!strict
--- ShopScreen: today's cosmetic rotation, one card per entry (name, rarity, Folios price, Robux action).
+-- ShopScreen: the shop (D-147), in the green Shop chapter, in four tabs: today's rotation, the Folios
+-- packs, the passes and packs, and the locker of what the player owns (the last three are shop/Shelves).
+-- Today is a track of item cards, the Legendary first and twice as wide: each wears its rarity (colour,
+-- pips and word, since colour is never the only cue), a preview of what it looks like, its name, a Folios
+-- price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase): nothing is bought on one
+-- tap. The band holds the live Folios count; under Today's tab a line counts down to the next rotation.
+-- Opened with { Tab = "Folios" } (the Menu's "+", the sheet of a player short of Folios), it opens there.
+--
 -- The rotation comes from the server's ShopChanged snapshot; until one arrives (screens are built on
 -- their first Open, after the join-time push) the same deterministic rotation is derived locally from
 -- ShopRotation over the sellable CosmeticConfig items, so the card list is never empty. Prices and
@@ -17,11 +24,19 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
+local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
+local Icon = require(script.Parent.Parent.components.Icon)
+local ItemPreview = require(script.Parent.Parent.components.ItemPreview)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
+local Purchase = require(script.Parent.shop.Purchase)
+local RarityRibbon = require(script.Parent.Parent.components.RarityRibbon)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
+local Shelves = require(script.Parent.shop.Shelves)
 local ShopConfig = require(Shared.Config.ShopConfig)
 local ShopRotation = require(Shared.Pure.ShopRotation)
+local Sticker = require(script.Parent.Parent.components.Sticker)
+local Tabs = require(script.Parent.Parent.components.Tabs)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -35,14 +50,22 @@ export type Deps = {
 	},
 	InputController: { captureNext: (kind: string, callback: (keyName: string?) -> ()) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
+	-- A purchase's refusal arrives as a server message (Notified); a purchase that never hears back says
+	-- so on the HUD's toast column.
+	HudController: {
+		Notified: any,
+		showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> (),
+	},
 	OnClose: () -> (),
-	OnNavigate: (id: string) -> (),
+	OnNavigate: (id: string, args: any?) -> (),
+	OnBack: () -> (),
+	CanGoBack: () -> boolean,
 }
 
 export type Screen = {
 	Instance: ScreenGui,
 	Visible: boolean,
-	Open: (self: Screen) -> (),
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 }
@@ -50,15 +73,36 @@ export type Screen = {
 type Destroyable = { Destroy: (self: any) -> () }
 type Entry = Types.ShopEntry
 type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Action: Button.Button }
+type TabId = "Today" | "Folios" | "Passes" | "Locker"
 
 local ShopScreen = {}
 
-local OVERLAY_TRANSPARENCY = 0.45
-local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
-local RARITY_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
-local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
-local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT
-local RARITY_KEY_PREFIX = "shop.rarity."
+local CHAPTER = "Shop"
+-- An item card with a pointer; a Legendary is two of them wide. On a phone the card keeps its width and
+-- takes the height the card has, less the track's bar.
+local CARD_WIDTH = 260
+local CARD_HEIGHT = 330
+local CARD_PADDING = 12
+local CARD_ELEVATION = 5
+local NAME_SIZE = 20
+local MIN_SCALED_TEXT = 14
+local LEGENDARY_RIM = 3
+local LINE_HEIGHT = 32
+local CLOCK_SIZE = 22
+local PILL_HEIGHT = 40
+local TABS_HEIGHT = 48
+-- The tabs, in order, and the way each lays its content out: the cards scroll sideways, the lists down.
+local TAB_ORDER: { TabId } = { "Today", "Folios", "Passes", "Locker" }
+local TAB_KEYS: { [string]: string } = {
+	Today = "shop.tab.today",
+	Folios = "shop.tab.folios",
+	Passes = "shop.tab.passes",
+	Locker = "shop.tab.locker",
+}
+local TAB_MODES: { [string]: Panel.ContentMode } =
+	{ Today = "Track", Folios = "Track", Passes = "List", Locker = "List" }
+local SECONDS_PER_MINUTE = 60
+local SECONDS_PER_HOUR = 3600
 
 -- Whether a Robux product can be bought: it is configured, and it exists on Roblox (a non-zero id).
 local function robuxOffered(productKey: string): boolean
@@ -72,17 +116,10 @@ for _, item in ipairs(CosmeticConfig.Items) do
 	table.insert(CANDIDATES, { Id = item.Id, Rarity = item.Rarity :: string, Sellable = item.Sellable })
 end
 
--- Dimmed backdrop that also swallows clicks so the world under the menu is not interacted with.
-local function makeOverlay(parent: Instance): Frame
-	local overlay = Instance.new("Frame")
-	overlay.Name = "Overlay"
-	overlay.BackgroundColor3 = Theme.Colors.Overlay
-	overlay.BackgroundTransparency = OVERLAY_TRANSPARENCY
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Active = true
-	overlay.Parent = parent
-	return overlay
+-- Where each rarity stands in the track: the Legendary first.
+local RARITY_RANK: { [string]: number } = {}
+for index, rarity in ipairs(ShopConfig.RarityOrder) do
+	RARITY_RANK[rarity] = index
 end
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
@@ -156,25 +193,45 @@ local function readSnapshot(payload: any): Types.ShopSnapshot?
 	return { DayKey = payload.DayKey, Entries = entries }
 end
 
-local function makeLine(
-	name: string,
-	height: number,
-	size: number,
-	bold: boolean,
-	color: Color3,
-	order: number,
-	parent: Instance
-): TextLabel
+local function blank(name: string, parent: Instance?): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.BackgroundTransparency = 1
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	return frame
+end
+
+local function list(frame: Frame, direction: Enum.FillDirection, gap: number): UIListLayout
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = direction
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, gap)
+	layout.Parent = frame
+	return layout
+end
+
+local function pad(frame: Frame, amount: number)
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, amount)
+	padding.PaddingBottom = UDim.new(0, amount)
+	padding.PaddingLeft = UDim.new(0, amount)
+	padding.PaddingRight = UDim.new(0, amount)
+	padding.Parent = frame
+end
+
+local function textLabel(name: string, font: Font, size: number, order: number, parent: Instance): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(1, 0, 0, height)
-	label.LayoutOrder = order
-	label.FontFace = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Size = UDim2.fromOffset(0, size + 6)
+	label.FontFace = font
 	label.TextSize = size
-	label.TextColor3 = color
+	label.TextColor3 = Theme.Colors.Text
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.LayoutOrder = order
 	label.Text = ""
 	label.Parent = parent
 	return label
@@ -182,50 +239,92 @@ end
 
 function ShopScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
-	local cardsTrove = trove:Extend()
+	local pageTrove = trove:Extend()
 	local t = deps.Localize.t
 	local screen: Screen
 	local cards: { Card } = {}
 	local snapshot: Types.ShopSnapshot = localSnapshot()
 	local signature = ""
 	local firstButton: GuiObject? = nil
+	local tab: TabId = "Today"
+	local shelf: Shelves.Shelf? = nil
+	-- Bumped at every Open and Close, so a countdown scheduled for an earlier visit stops.
+	local visit = 0
 
-	local root = ScreenRoot.new({ Name = "ShopScreen", DisplayOrder = Theme.Layers.Screen })
+	local root = ScreenRoot.new({
+		Name = "ShopScreen",
+		DisplayOrder = Theme.Layers.Screen,
+		Chapter = CHAPTER,
+		TextScalable = true,
+	})
 	own(trove, root)
 	root.Instance.Enabled = false
 
-	local overlay = makeOverlay(root.Content)
-
 	local panel = Panel.new({
 		Title = t("shop.title"),
+		Chapter = CHAPTER,
+		ContentMode = "Track",
 		Closable = true,
 		OnClose = function()
 			screen:Close()
 			deps.OnClose()
 		end,
-		Parent = overlay,
+		OnBack = deps.OnBack,
+		ShowBack = deps.CanGoBack,
+		Localize = deps.Localize,
+		Parent = root.Content,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(HEADER_HEIGHT)
+	root:SetCard(panel)
+	local content = panel.Content
 
-	local headerLayout = Instance.new("UIListLayout")
-	headerLayout.FillDirection = Enum.FillDirection.Horizontal
-	headerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	headerLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
-	headerLayout.Parent = panel.Header
+	----------------------------------------------------------------
+	-- The band's Folios, the tabs, and the countdown to the next rotation
+	----------------------------------------------------------------
 
-	-- The two header columns share the width: the rotation title on the left, the Folios balance on the right.
-	local rotationLabel =
-		makeLine("Rotation", STATUS_HEIGHT, Theme.Sizes.TextBody, true, Theme.Colors.TextMuted, 1, panel.Header)
-	rotationLabel.Text = t("shop.rotation")
-	local balanceLabel =
-		makeLine("Balance", STATUS_HEIGHT, Theme.Sizes.TextBody, true, Theme.Colors.Accent, 2, panel.Header)
-	balanceLabel.TextXAlignment = Enum.TextXAlignment.Right
-	for _, label in ipairs({ rotationLabel, balanceLabel }) do
-		local flex = Instance.new("UIFlexItem")
-		flex.FlexMode = Enum.UIFlexMode.Fill
-		flex.Parent = label
+	local pill = FoliosPill.new({ Height = PILL_HEIGHT, Parent = panel.Right })
+	own(trove, pill)
+
+	-- The tabs, and under Today's the countdown; the tabs carry the touch minimum, which follows the viewport.
+	local function headerHeight(): number
+		local height = Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(TABS_HEIGHT)
+		if tab == "Today" then
+			height += Theme.Sizes.PaddingSmall + LINE_HEIGHT
+		end
+		return height
+	end
+	list(panel.Header, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
+
+	local rotationLine = blank("Rotation", panel.Header)
+	rotationLine.Size = UDim2.new(1, 0, 0, LINE_HEIGHT)
+	rotationLine.LayoutOrder = 2
+	list(rotationLine, Enum.FillDirection.Horizontal, Theme.Sizes.PaddingSmall)
+	local clock = Icon.new("Clock", CLOCK_SIZE, Theme.Colors.TextMuted)
+	clock.LayoutOrder = 1
+	clock.Parent = rotationLine
+	local rotationText = textLabel("Text", Theme.Fonts.Bold, Theme.Sizes.TextBody, 2, rotationLine)
+	rotationText.TextColor3 = Theme.Colors.TextMuted
+
+	local function refreshCountdown()
+		local now = workspace:GetServerTimeNow()
+		local left = math.max(0, ShopRotation.nextRotationAt(now) - now)
+		local time = t("time.hoursMinutes", {
+			hours = math.floor(left / SECONDS_PER_HOUR),
+			minutes = math.floor(left % SECONDS_PER_HOUR / SECONDS_PER_MINUTE),
+		})
+		rotationText.Text = t("shop.nextRotation", { time = time })
+	end
+
+	-- Once a minute, on the minute, while the screen is up.
+	local function scheduleCountdown(token: number)
+		local now = workspace:GetServerTimeNow()
+		task.delay(SECONDS_PER_MINUTE - now % SECONDS_PER_MINUTE, function()
+			if token ~= visit or not screen.Visible then
+				return
+			end
+			refreshCountdown()
+			scheduleCountdown(token)
+		end)
 	end
 
 	----------------------------------------------------------------
@@ -255,140 +354,150 @@ function ShopScreen.new(deps: Deps): Screen
 	-- Intent
 	----------------------------------------------------------------
 
-	local function buyWithFolios(entry: Entry)
-		deps.SoundController.play("UiClick")
-		deps.RemoteClient.fire("BuyCosmetic", entry.CosmeticId)
-	end
+	local tabs: Tabs.Tabs
+	local purchases = Purchase.new({
+		Localize = deps.Localize,
+		ClientData = deps.ClientData,
+		RemoteClient = deps.RemoteClient,
+		HudController = deps.HudController,
+		Card = panel.Instance,
+		ShowFolios = function()
+			tabs:Select("Folios")
+		end,
+	})
+	own(trove, purchases)
 
 	-- The client never sends a Roblox asset id: it names the developer product of the entry's rarity.
 	local function buyWithRobux(entry: Entry)
-		deps.SoundController.play("UiClick")
 		deps.RemoteClient.fire("PromptPurchase", "Cosmetic", entry.CosmeticId)
 	end
 
 	local function equip(card: Card)
-		deps.SoundController.play("UiClick")
 		deps.RemoteClient.fire("EquipCosmetic", card.SlotKey, card.Entry.CosmeticId)
 	end
 
 	----------------------------------------------------------------
-	-- Cards
+	-- Today's cards
 	----------------------------------------------------------------
 
-	local function buildCard(entry: Entry, slotKey: string, layoutOrder: number): Card
-		local frame = Instance.new("Frame")
-		frame.Name = entry.CosmeticId
-		frame.BackgroundColor3 = Theme.Colors.PanelRaised
-		frame.BorderSizePixel = 0
-		-- Grown from its rows: the two action buttons carry the touch minimum and are taller than their
-		-- design height on a phone, and the card has to follow instead of clipping them.
-		frame.Size = UDim2.fromScale(1, 0)
-		frame.AutomaticSize = Enum.AutomaticSize.Y
-		frame.LayoutOrder = layoutOrder
+	local function buildCard(entry: Entry, item: CosmeticConfig.CosmeticDef, layoutOrder: number): Card
+		local legendary = entry.Rarity == "Legendary"
+		local width = if legendary then CARD_WIDTH * 2 + Theme.Sizes.Gap else CARD_WIDTH
+		local holder = blank(entry.CosmeticId, content)
+		holder.LayoutOrder = layoutOrder
+		-- A phone gives the card the height it has; a pointer the designed one.
+		holder.Size = if Theme.touchOnly()
+			then UDim2.new(0, width, 1, -Theme.Sizes.PaddingSmall)
+			else UDim2.fromOffset(width, CARD_HEIGHT)
+		pageTrove:Add(holder)
+		local sticker = Sticker.new({
+			Kind = "Card",
+			Fill = Theme.Colors.PanelRaised,
+			Elevation = CARD_ELEVATION,
+			Parent = holder,
+		})
+		own(pageTrove, sticker)
+		local face = sticker.Face
+		if legendary then
+			-- Full gold leaf: the rim of the one legendary in the rotation.
+			local rim = blank("Rim", face)
+			rim.Size = UDim2.fromScale(1, 1)
+			rim.ZIndex = 6
+			Theme.corner(rim, UDim.new(0, Theme.Sizes.CornerCard))
+			Theme.stroke(rim, "Primary", LEGENDARY_RIM)
+		end
 
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-		corner.Parent = frame
+		local body = blank("Body", face)
+		body.Size = UDim2.fromScale(1, 1)
+		pad(body, CARD_PADDING)
+		list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
 
-		local padding = Instance.new("UIPadding")
-		padding.PaddingLeft = UDim.new(0, Theme.Sizes.Padding)
-		padding.PaddingRight = UDim.new(0, Theme.Sizes.Padding)
-		padding.PaddingTop = UDim.new(0, Theme.Sizes.PaddingSmall)
-		padding.PaddingBottom = UDim.new(0, Theme.Sizes.PaddingSmall)
-		padding.Parent = frame
+		local well = blank("Preview", body)
+		well.BackgroundTransparency = 0
+		well.BackgroundColor3 = Theme.Colors.Panel
+		well.Size = UDim2.fromScale(1, 0)
+		well.LayoutOrder = 1
+		Theme.corner(well, UDim.new(0, Theme.Sizes.CornerChip))
+		local wellFlex = Instance.new("UIFlexItem")
+		wellFlex.FlexMode = Enum.UIFlexMode.Fill
+		wellFlex.Parent = well
+		ItemPreview.new(item, well, deps.Localize)
+		local ribbon = RarityRibbon.new(entry.Rarity, t(Theme.rarity(entry.Rarity).WordKey), face)
+		own(pageTrove, ribbon)
 
-		local layout = Instance.new("UIListLayout")
-		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Parent = frame
-
-		local name = makeLine("Name", NAME_HEIGHT, Theme.Sizes.TextLarge, true, Theme.Colors.Text, 1, frame)
+		local name = Instance.new("TextLabel")
+		name.Name = "Name"
+		name.BackgroundTransparency = 1
+		name.Size = UDim2.new(1, 0, 0, NAME_SIZE + 6)
+		name.LayoutOrder = 2
+		name.FontFace = Theme.Fonts.Title
+		name.TextScaled = true
+		name.TextColor3 = Theme.Colors.Text
+		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.Text = t(entry.NameKey)
-		local rarity = makeLine("Rarity", RARITY_HEIGHT, Theme.Sizes.TextSmall, false, Theme.Colors.TextMuted, 2, frame)
-		rarity.Text = t(RARITY_KEY_PREFIX .. entry.Rarity)
+		local cap = Instance.new("UITextSizeConstraint")
+		cap.MinTextSize = MIN_SCALED_TEXT
+		cap.MaxTextSize = NAME_SIZE
+		cap.Parent = name
+		name.Parent = body
 
-		local actions = Instance.new("Frame")
-		actions.Name = "Actions"
-		actions.BackgroundTransparency = 1
-		actions.Size = UDim2.fromScale(1, 0)
+		-- The two prices side by side where they fit, one over the other where they do not.
+		local actions = blank("Actions", body)
 		actions.AutomaticSize = Enum.AutomaticSize.Y
+		actions.Size = UDim2.fromScale(1, 0)
 		actions.LayoutOrder = 3
-		local actionsLayout = Instance.new("UIListLayout")
-		actionsLayout.FillDirection = Enum.FillDirection.Horizontal
-		actionsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-		actionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		actionsLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
-		actionsLayout.Parent = actions
-		local actionsPadding = Instance.new("UIPadding")
-		actionsPadding.PaddingTop = UDim.new(0, Theme.Sizes.Gap)
-		actionsPadding.Parent = actions
-		actions.Parent = frame
+		local actionsLayout = list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.PaddingSmall)
+		actionsLayout.Wraps = true
+		actionsLayout.HorizontalFlex = Enum.UIFlexAlignment.Fill
 
 		local card: Card
-		-- Width comes from the flex item, height from the button itself: the Actions frame is sized by its
-		-- children, so a button asking for the frame's height would make the pair circular.
-		local buy = Button.new({
+		local buyButton = Button.new({
 			Text = "",
 			Variant = "Primary",
-			Size = UDim2.fromOffset(0, Theme.Sizes.RowHeight),
+			Chapter = CHAPTER,
+			Icon = "Coin",
 			LayoutOrder = 1,
-			Parent = actions,
-			OnClick = function()
-				buyWithFolios(entry)
-			end,
-		})
-		own(cardsTrove, buy)
-		local buyFlex = Instance.new("UIFlexItem")
-		buyFlex.FlexMode = Enum.UIFlexMode.Fill
-		buyFlex.Parent = buy.Instance
-
-		local action = Button.new({
-			Text = "",
-			Variant = "Secondary",
-			Size = UDim2.fromOffset(0, Theme.Sizes.RowHeight),
-			LayoutOrder = 2,
 			Parent = actions,
 			OnClick = function()
 				if isOwned(card.Entry) then
 					equip(card)
 				else
-					buyWithRobux(card.Entry)
+					purchases:Ask(card.Entry)
 				end
 			end,
 		})
-		own(cardsTrove, action)
-		local actionFlex = Instance.new("UIFlexItem")
-		actionFlex.FlexMode = Enum.UIFlexMode.Fill
-		actionFlex.Parent = action.Instance
+		own(pageTrove, buyButton)
 
-		frame.Parent = panel.Content
-		cardsTrove:Add(frame)
-		card = { Entry = entry, SlotKey = slotKey, Buy = buy, Action = action }
+		local product = MonetizationConfig.Products[entry.ProductKey]
+		local action = Button.new({
+			Text = t("shop.robuxPrice", { price = if product ~= nil then product.PriceRobux else 0 }),
+			Variant = "Secondary",
+			LayoutOrder = 2,
+			Parent = actions,
+			OnClick = function()
+				buyWithRobux(card.Entry)
+			end,
+		})
+		own(pageTrove, action)
+
+		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }
 		return card
 	end
 
 	local function updateCard(card: Card)
 		local entry = card.Entry
 		if isOwned(entry) then
-			card.Buy:SetText(t("shop.owned"))
-			card.Buy:SetVariant("Secondary")
-			card.Buy:SetDisabled(true)
-			if isEquipped(card) then
-				card.Action:SetText(t("shop.equipped"))
-				card.Action:SetVariant("Secondary")
-				card.Action:SetDisabled(true)
-			else
-				card.Action:SetText(t("shop.equip"))
-				card.Action:SetVariant("Primary")
-				card.Action:SetDisabled(false)
-			end
+			-- Owned: the price becomes the way to wear it, and wearing it is the end of the road.
+			card.Buy:SetVariant("Owner")
+			card.Buy:SetText(t("shop.equip"))
+			card.Buy:SetDisabled(isEquipped(card), "Owned", t("shop.equipped"))
+			card.Action.Instance.Visible = false
 			return
 		end
-		card.Buy:SetText(t("shop.buyFolios", { price = entry.PriceFolios }))
 		card.Buy:SetVariant("Primary")
+		card.Buy:SetText(t("shop.buyFolios", { price = entry.PriceFolios }))
 		card.Buy:SetDisabled(false)
-		card.Action:SetText(t("shop.buyRobux"))
-		card.Action:SetVariant("Secondary")
+		card.Action.Instance.Visible = true
 		-- The Robux path is offered only for a product that exists on Roblox (D-128): an id of 0 is one nobody
 		-- has created yet, and buying it can only fail -- which, in Studio, is every one of them.
 		card.Action:SetDisabled(not robuxOffered(entry.ProductKey))
@@ -402,26 +511,85 @@ function ShopScreen.new(deps: Deps): Screen
 		return table.concat(parts, "|")
 	end
 
-	local function rebuild()
-		cardsTrove:Clean()
+	local function buildToday()
 		cards = {}
-		for index, entry in ipairs(snapshot.Entries) do
+		local entries = table.clone(snapshot.Entries)
+		table.sort(entries, function(a: Entry, b: Entry): boolean
+			return (RARITY_RANK[a.Rarity] or math.huge) < (RARITY_RANK[b.Rarity] or math.huge)
+		end)
+		for index, entry in ipairs(entries) do
 			local item = CosmeticConfig.ById[entry.CosmeticId]
-			if item == nil then
-				continue
+			if item ~= nil then
+				table.insert(cards, buildCard(entry, item, index))
 			end
-			table.insert(cards, buildCard(entry, CosmeticConfig.slotKey(item), index))
 		end
 	end
 
+	----------------------------------------------------------------
+	-- Tabs
+	----------------------------------------------------------------
+
+	-- Tears the page down and builds `next` in its place, in its own layout.
+	local function show(next: TabId)
+		tab = next
+		pageTrove:Clean()
+		cards = {}
+		shelf = nil
+		signature = ""
+		panel:SetContentMode(TAB_MODES[next])
+		if TAB_MODES[next] == "Track" then
+			-- A track's canvas is as tall as its window: a card takes that height, and only scrolls sideways.
+			content.CanvasSize = UDim2.fromScale(0, 1)
+		end
+		rotationLine.Visible = next == "Today"
+		-- The header's height follows the countdown line in or out.
+		panel:SetHeaderHeight(headerHeight)
+		if next == "Today" then
+			return
+		end
+		local context: Shelves.Context = {
+			Localize = deps.Localize,
+			ClientData = deps.ClientData,
+			RemoteClient = deps.RemoteClient,
+			Content = content,
+			Trove = pageTrove,
+			RobuxOffered = robuxOffered,
+		}
+		if next == "Folios" then
+			shelf = Shelves.folios(context)
+		elseif next == "Passes" then
+			shelf = Shelves.passes(context)
+		else
+			shelf = Shelves.locker(context)
+		end
+	end
+
+	local items: { Tabs.Item } = {}
+	for _, id in ipairs(TAB_ORDER) do
+		table.insert(items, { Id = id, Text = t(TAB_KEYS[id]) })
+	end
+
+	----------------------------------------------------------------
+	-- Refresh
+	----------------------------------------------------------------
+
 	local function refresh()
 		local data = deps.ClientData.get()
-		-- Its own line, not the buy button's: the balance is not a price.
-		balanceLabel.Text = if data ~= nil then t("shop.balance", { amount = math.floor(data.Currency.Folios) }) else ""
+		if data ~= nil then
+			pill:Set(data.Currency.Folios, screen.Visible)
+		end
+		purchases:Refresh()
+		local current = shelf
+		if current ~= nil then
+			current.Refresh()
+			firstButton = current.Focus()
+			return
+		end
 		local wanted = signatureOf(snapshot)
 		if wanted ~= signature then
 			signature = wanted
-			rebuild()
+			pageTrove:Clean()
+			buildToday()
 		end
 		firstButton = nil
 		for _, card in ipairs(cards) do
@@ -430,12 +598,25 @@ function ShopScreen.new(deps: Deps): Screen
 			if firstButton == nil then
 				if not card.Buy:IsDisabled() then
 					firstButton = card.Buy.Instance
-				elseif not card.Action:IsDisabled() then
+				elseif card.Action.Instance.Visible and not card.Action:IsDisabled() then
 					firstButton = card.Action.Instance
 				end
 			end
 		end
 	end
+
+	tabs = Tabs.new({
+		Items = items,
+		Selected = tab,
+		Chapter = CHAPTER,
+		LayoutOrder = 1,
+		Parent = panel.Header,
+		OnSelect = function(id: string)
+			show(id :: TabId)
+			refresh()
+		end,
+	})
+	own(trove, tabs)
 
 	-- A rotation from another day (the screen stayed alive across the UTC rollover) is replaced by the
 	-- one of the current day until the server pushes its own.
@@ -456,24 +637,38 @@ function ShopScreen.new(deps: Deps): Screen
 	end))
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
-		if section == "*" or section == "Cosmetics" or section == "Currency" then
+		if
+			section == "*"
+			or section == "Cosmetics"
+			or section == "Currency"
+			or section == "Passes"
+			or section == "Battlepass"
+		then
 			refresh()
 		end
 	end)
-
-	refresh()
 
 	----------------------------------------------------------------
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen)
+	local function open(self: Screen, args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
+		visit += 1
+		local wanted: TabId = "Today"
+		if type(args) == "table" and TAB_KEYS[args.Tab] ~= nil then
+			wanted = args.Tab
+		end
+		if wanted ~= tab then
+			tabs:Select(wanted)
+		end
 		adoptSnapshot()
-		root.Instance.Enabled = true
+		refreshCountdown()
+		scheduleCountdown(visit)
+		root:PlayEnter()
 		panel:FocusForGamepad(firstButton)
 		deps.SoundController.play("UiOpen")
 	end
@@ -483,13 +678,16 @@ function ShopScreen.new(deps: Deps): Screen
 			return
 		end
 		self.Visible = false
+		visit += 1
+		purchases:Close()
 		panel:ReleaseGamepadFocus()
-		root.Instance.Enabled = false
+		root:PlayExit()
 		deps.SoundController.play("UiClose")
 	end
 
 	local function destroy(self: Screen)
 		self.Visible = false
+		visit += 1
 		trove:Destroy()
 	end
 
@@ -500,6 +698,8 @@ function ShopScreen.new(deps: Deps): Screen
 		Close = close,
 		Destroy = destroy,
 	}
+	show(tab)
+	refresh()
 	return screen
 end
 

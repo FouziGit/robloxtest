@@ -285,7 +285,9 @@ local function tick(now: number)
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
 			local player = Players:GetPlayerByUserId(userId)
 			if player ~= nil then
-				notify.send(player, "queue.timedOut", nil, "Error")
+				-- News, not a failure: nobody else was queuing. The toast says it in the neutral medallion (the red
+				-- "!" is for a refused purchase or claim, D-147), and the Play screen turns the card into a state.
+				notify.send(player, "queue.timedOut", nil, "Info")
 				push(player, now)
 			end
 		end

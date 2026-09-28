@@ -13,6 +13,7 @@ local CLAIMABLES = "src/shared/Pure/Claimables.luau"
 local MENU = "src/ui/screens/MenuScreen.luau"
 local DAILY = "src/ui/screens/DailyScreen.luau"
 local SHOP = "src/ui/screens/ShopScreen.luau"
+local MATCHMAKING = "src/server/Services/MatchmakingService.luau"
 
 local function stripComments(source: string): string
 	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
@@ -147,5 +148,16 @@ describe("a tab", function()
 		local _, marked = string.gsub(shop, "switching = true\n%s*tabs:Select%(", "")
 		expect(marked).toBe(selects)
 		expect(has(shop, 'if not switching then\n\t\t\t\tdeps.SoundController.play("UiClick")')).toBe(true)
+	end)
+end)
+
+describe("a queue that finds nobody", function()
+	it("is news in the neutral medallion, not a failure in red", function()
+		-- The red "!" is for a real failure, a refused purchase or claim (spec 4.8); a timed-out queue is a
+		-- state the Play card shows (spec 6.2). Sent as an Error, it would also read as a refusal to a
+		-- purchase waiting in the Shop's sheet, which listens for any Error.
+		local server = code(MATCHMAKING)
+		expect(has(server, 'notify.send(player, "queue.timedOut", nil, "Info")')).toBe(true)
+		expect(has(server, '"queue.timedOut", nil, "Error"')).toBe(false)
 	end)
 end)

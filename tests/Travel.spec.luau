@@ -131,7 +131,7 @@ describe("the Battleground band", function()
 		function()
 			local changed = body(TRAVEL, "local function onBattlegroundChanged(")
 			requireAll(changed, {
-				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) end return end",
+				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) end local hud = hudController if hud ~= nil then hud.leftPlace(BATTLEGROUND_ZONE) end return end",
 				'placeTitle.Text = localize.t("portal.battleground.name")',
 				'placeLine.Text = localize.t("battleground.status", {',
 				"standing = math.max(0, math.floor(snapshot.Standing)),",

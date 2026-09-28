@@ -44,6 +44,7 @@ type HudApi = {
 	overlay: () -> Frame?,
 	setWarning: (active: boolean) -> (),
 	showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> (),
+	leftPlace: (zoneId: string) -> (),
 }
 type Deps = {
 	Localize: any,
@@ -74,6 +75,8 @@ local MEDALLION = 40
 local WARNING_TEXT = 28
 local CHEVRON = 24
 local WARNING_SIGN = "!"
+-- The zone (PortalConfig.Zones) of the Erasure's arena.
+local ERASURE_ZONE = "WorldBoss"
 local PHASES: { [string]: boolean } = { Announced = true, Fighting = true, Defeated = true, Expired = true }
 -- One toast per phase, fired on the transition into it.
 local ANNOUNCEMENTS: { [string]: Announcement } = {
@@ -434,6 +437,11 @@ local function onBossChanged(payload: any)
 		lastPhase = nil -- the next event announces itself from its first phase again
 		soundController.wantMusic("Boss", nil)
 		refresh()
+		-- The fight is over, and whoever still stood in its arena was sent home with it (WorldBossService).
+		local hud = hudController
+		if hud ~= nil then
+			hud.leftPlace(ERASURE_ZONE)
+		end
 		return
 	end
 	local received = read(payload)

@@ -31,7 +31,11 @@ local Types = require(Shared.Types)
 local log = Log.new("TravelController")
 
 type Band = "Boss" | "Place" | "Portal"
-type HudApi = { topStack: (band: Band?) -> (Frame?, number), setPlace: (zoneId: string) -> () }
+type HudApi = {
+	topStack: (band: Band?) -> (Frame?, number),
+	setPlace: (zoneId: string) -> (),
+	leftPlace: (zoneId: string) -> (),
+}
 type Deps = { RemoteClient: any, Localize: any, HudController: HudApi?, SoundController: any }
 
 local BAND_WIDTH = 360
@@ -51,6 +55,8 @@ local FILL_DIRECTION = Enum.EasingDirection.InOut
 -- The loop a member hears (SoundController.wantMusic): the fight's, under the source this controller owns.
 local MUSIC_SOURCE = "Battleground"
 local MUSIC_ID = "Match"
+-- The zone (PortalConfig.Zones) the Battleground's membership is the place of.
+local BATTLEGROUND_ZONE = "Battleground"
 
 local TravelController = {}
 
@@ -235,6 +241,12 @@ local function onBattlegroundChanged(payload: any)
 		if member then
 			member = false
 			soundController.wantMusic(MUSIC_SOURCE, nil)
+		end
+		-- No longer a member: out of the Battleground, whether or not a portal took them (a match, a respawn
+		-- the camp could not take back).
+		local hud = hudController
+		if hud ~= nil then
+			hud.leftPlace(BATTLEGROUND_ZONE)
 		end
 		return
 	end

@@ -15,6 +15,7 @@
 -- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
 -- visible text goes through Localize; server Notify payloads carry Strings keys, never text.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -131,6 +132,7 @@ local TAKEDOWN_KEY = "hud.playerKill"
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
 local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true }
+local ERASURE_ZONE = "WorldBoss"
 -- Below the Menu disc, on a touch screen: the gap between the disc and the first message.
 local TOAST_UNDER_MENU = 8
 -- The quick bar (D-128). The screens a player comes to the hub for were reachable only through the M key,
@@ -219,8 +221,10 @@ local menuController: any
 local inputController: any
 local qualityController: any
 local inMatch = false
--- In the Battleground or the World Boss's arena (setPlace): a fight, like a match.
+-- In the Battleground or the World Boss's arena (setPlace): a fight, like a match. Which of the two: an arena
+-- the server lets the player out of without a portal is left only if it is the one they are in (leftPlace).
 local inArena = false
+local arenaZone: string? = nil
 local queued = false
 
 -- The one top-centre column. The match band, the World Boss band and the toast queue all used to
@@ -673,8 +677,26 @@ local function refreshCombat(state: CombatState)
 	end
 end
 
+-- Where the player now is: the arena `zone` (an ARENA_ZONES key), a fight like a match, or the hub (nil).
+local function place(zone: string?)
+	arenaZone = zone
+	local arena = zone ~= nil
+	if arena == inArena then
+		return
+	end
+	inArena = arena
+	if toast ~= nil then
+		refreshFight()
+	end
+end
+
 local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	local active = snapshot ~= nil
+	if active and not inMatch then
+		-- A match takes the player out of any arena (it ends a Battleground membership, and the Erasure lets
+		-- a participant go), and the server sends them to the hub when it is over: never back to the arena.
+		place(nil)
+	end
 	if active ~= inMatch then
 		inMatch = active
 		refreshFight()
@@ -845,12 +867,17 @@ end
 -- the World Boss's arena are fights, like a match; anywhere else is the hub.
 function HudController.setPlace(zoneId: string)
 	local arena = ARENA_ZONES[zoneId] == true
-	if arena == inArena then
-		return
-	end
-	inArena = arena
-	if toast ~= nil then
-		refreshFight()
+	place(if arena then zoneId else nil)
+end
+
+-- The server let the player out of the arena `zoneId` without a portal, so no Travelled says so: the
+-- Battleground's membership ended (BattlegroundChanged nil), the Erasure's fight ended and sent everyone in it
+-- home (BossChanged nil), or a body that died in the Erasure's arena came back at the hub's spawn. The hub
+-- again -- unless a portal has since put them in the other arena. Without it the hub stayed in fight mode
+-- until the next portal: no level, no Folios, no shortcuts, and every reward held.
+function HudController.leftPlace(zoneId: string)
+	if arenaZone == zoneId then
+		place(nil)
 	end
 end
 
@@ -887,6 +914,11 @@ function HudController.Start()
 	refreshCombat(combatController.getState())
 	matchController.MatchChanged:Connect(refreshMatch)
 	refreshMatch(matchController.getMatch())
+	-- A participant who dies in the Erasure's arena comes back at the hub's spawn (WorldBossService); a
+	-- Battleground member is taken back to the camp instead, and told otherwise when they are not.
+	Players.LocalPlayer.CharacterAdded:Connect(function()
+		HudController.leftPlace(ERASURE_ZONE)
+	end)
 	remoteClient.on("Notify", onNotify)
 	inputController.TouchLayoutChanged:Connect(placeToasts)
 	placeToasts()

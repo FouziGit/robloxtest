@@ -210,7 +210,8 @@ describe("the HUD's toasts", function()
 		expect(string.find(body(hud, "local function refreshMatch("), "refreshFight()", 1, true)).never.toBeNil()
 		local place = body(hud, "function HudController.setPlace(")
 		expect(string.find(place, "local arena = ARENA_ZONES[zoneId] == true", 1, true)).never.toBeNil()
-		expect(string.find(place, "refreshFight()", 1, true)).never.toBeNil()
+		expect(string.find(place, "place(if arena then zoneId else nil)", 1, true)).never.toBeNil()
+		expect(string.find(body(hud, "local function place("), "refreshFight()", 1, true)).never.toBeNil()
 		-- Every place a portal leads is decided: the two arenas are fights, the way back is the hub.
 		local arenas = keysOf(hud, "ARENA_ZONES")
 		for id in pairs(PortalConfig.Zones) do

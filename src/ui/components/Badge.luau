@@ -3,15 +3,14 @@
 -- primary yellow -- never red: nothing is wrong, something is owed to you -- with the count, or "!", in
 -- the heavy label face, tipped a few degrees. It pops in, and it breathes while it is there.
 --
--- Every badge breathes on ONE loop: a single value, sprung back and forth once for the whole client, that
--- each badge reads (ThemeConfig.Budget.MaxIdleLoops). Ten badges on a screen cost one loop, and they
--- breathe together, which is also what makes them read as one system rather than as ten alarms.
+-- Every badge breathes on ONE loop (Breath): ten badges on a screen cost one loop, and they breathe
+-- together, which is also what makes them read as one system rather than as ten alarms.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Breath = require(script.Parent.Parent.Breath)
 local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
@@ -32,45 +31,6 @@ local BREATH_SCALE = 1.12
 local TILT = 6
 -- The blot's ink reaches about two thirds of its plane, so the count sits in the middle two thirds.
 local LABEL_SCALE = 0.62
-
-local breath: NumberValue? = nil
-local breathers = 0
-local stopBreath: (() -> ())? = nil
-
--- Joins the shared breath and returns the value to read.
-local function joinBreath(): NumberValue
-	breathers += 1
-	local value = breath
-	if value ~= nil then
-		return value
-	end
-	local created = Instance.new("NumberValue")
-	created.Name = "BadgeBreath"
-	created.Value = 1
-	-- Motion only springs what is in the DataModel.
-	created.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-	breath = created
-	stopBreath = Motion.loop(created, { Value = 1 }, { Value = BREATH_SCALE }, "Ui", Theme.Timing.IdleBreathSeconds)
-	return created
-end
-
-local function leaveBreath()
-	breathers -= 1
-	if breathers > 0 then
-		return
-	end
-	local stop = stopBreath
-	local value = breath
-	stopBreath = nil
-	breath = nil
-	if stop ~= nil then
-		stop()
-	end
-	if value ~= nil then
-		Motion.cancel(value)
-		value:Destroy()
-	end
-end
 
 local function display(value: Value?): string?
 	if value == nil or value == 0 then
@@ -140,25 +100,36 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	cap.MaxTextSize = 14
 	cap.Parent = label
 
-	local breathing: RBXScriptConnection? = nil
+	local reader: Breath.Reader? = nil
+	local following: RBXScriptConnection? = nil
 	local function setBreathing(on: boolean)
-		if on == (breathing ~= nil) then
+		if on == (reader ~= nil) then
 			return
 		end
-		local connection = breathing
-		if connection ~= nil then
-			connection:Disconnect()
-			breathing = nil
+		local current = reader
+		if current ~= nil then
+			local connection = following
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			following = nil
+			reader = nil
 			breathScale.Scale = 1
-			leaveBreath()
+			current.Leave()
 			return
 		end
-		local shared = joinBreath()
-		breathing = shared.Changed:Connect(function(current: number)
-			breathScale.Scale = current
+		local joined = Breath.join("Badge", 1, BREATH_SCALE, Theme.Timing.IdleBreathSeconds)
+		reader = joined
+		following = joined.Value.Changed:Connect(function(breath: number)
+			breathScale.Scale = breath
 		end)
 	end
 	trove:Add(function()
+		setBreathing(false)
+	end)
+	-- A badge destroyed with whatever it sits on, without its Destroy, still leaves the shared breath: a
+	-- breath nobody reads would spring on for the rest of the session.
+	holder.Destroying:Once(function()
 		setBreathing(false)
 	end)
 

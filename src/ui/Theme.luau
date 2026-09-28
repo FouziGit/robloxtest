@@ -526,11 +526,19 @@ function Theme.focusRing(kind: FocusKind?, corner: UDim?): Frame
 	return root
 end
 
+local function toRgb(color: Color3): { number }
+	return { color.R * 255, color.G * 255, color.B * 255 }
+end
+
+-- The WCAG contrast between two colours (ThemeConfig.contrast), for a component that picks what to draw on.
+function Theme.contrast(a: Color3, b: Color3): number
+	return ThemeConfig.contrast(toRgb(a), toRgb(b))
+end
+
 -- The ink that reads on `background` (see ThemeConfig.inkOn): a sigil on an Orpiment chip is charcoal,
 -- on an Indigo chip vellum.
 function Theme.inkOn(background: Color3): Color3
-	local rgb = { background.R * 255, background.G * 255, background.B * 255 }
-	return fromRgb(ThemeConfig.inkOn(rgb))
+	return fromRgb(ThemeConfig.inkOn(toRgb(background)))
 end
 
 -- Slightly darker/lighter variants for hover/pressed states.

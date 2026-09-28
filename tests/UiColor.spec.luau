@@ -28,6 +28,12 @@ local STROKED_COMPONENTS = {
 	"Keycap",
 	"RarityRibbon",
 	"ConfirmSheet",
+	"Button",
+	"Tabs",
+	"ListRow",
+	"ProgressBar",
+	"Toggle",
+	"Slider",
 }
 local BODY_CONTRAST = 4.5
 
@@ -512,5 +518,151 @@ describe("the keycaps", function()
 			expect(string.find(keycap, "\t" .. pad .. ' = "', 1, true)).never.toBeNil()
 		end
 		expect(string.find(keycap, "Theme.Fonts.Symbol", 1, true)).never.toBeNil()
+	end)
+end)
+
+describe("the restyled controls", function()
+	local function source(name: string): string
+		return stripComments(fs.readFile("src/ui/components/" .. name .. ".luau"))
+	end
+
+	-- The body of the first function in `code` that starts with `head`, up to its closing `end` one tab in
+	-- (`end)` for a handler, `end` for a local function).
+	local function handler(code: string, head: string): string
+		local start = string.find(code, head, 1, true)
+		assert(start ~= nil, "no " .. head .. ": this gate would check nothing")
+		local stop = string.find(code, "\n\tend[%)\n]", start :: number)
+		assert(stop ~= nil, "no end to " .. head)
+		return string.sub(code, start :: number, stop :: number)
+	end
+
+	it("never cut a button's word, and never make a button narrower than a thumb", function()
+		local button = source("Button")
+		expect(string.find(button, "label.TextTruncate = Enum.TextTruncate.None", 1, true)).never.toBeNil()
+		expect(string.find(button, "TextTruncate.AtEnd", 1, true)).toBeNil()
+		expect(string.find(button, "button.AutomaticSize = Enum.AutomaticSize.X", 1, true)).never.toBeNil()
+		local minimum = tonumber(string.match(button, "local MIN_WIDTH = (%d+)"))
+		local wide = tonumber(string.match(button, "local WIDE_WIDTH = (%d+)"))
+		assert(minimum ~= nil and wide ~= nil, "Button no longer names its minimum widths")
+		expect(minimum :: number).toBeGreaterThanOrEqual(140)
+		expect(wide :: number).toBeGreaterThanOrEqual(220)
+		expect(string.find(button, "measure.Size = UDim2.new(0, minWidth, 1, 0)", 1, true)).never.toBeNil()
+	end)
+
+	it("click only when they act: a disabled or pending button is silent", function()
+		local activated = handler(source("Button"), "trove:Connect(button.Activated, function()")
+		local guard = string.find(activated, "if disabled or pending then%s+return%s+end")
+		local click = string.find(activated, 'UiSound.play("UiClick")', 1, true)
+		assert(guard ~= nil and click ~= nil, "the button no longer guards and plays its click")
+		expect(guard :: number).toBeLessThan(click :: number)
+		expect(string.find(source("Button"), "task.delay(Theme.Timing.PendingTimeoutSeconds", 1, true)).never.toBeNil()
+	end)
+
+	it("give the gamepad the double ring on every control", function()
+		for _, name in ipairs({ "Button", "Tabs", "Toggle", "Slider" }) do
+			local code = source(name)
+			if
+				string.find(code, "Theme.focusRing(", 1, true) == nil
+				or string.find(code, "makeSelectionImage", 1, true) ~= nil
+			then
+				error(name .. " draws its own focus instead of Theme.focusRing")
+			end
+		end
+		local theme = stripComments(fs.readFile(THEME))
+		expect(string.find(theme, 'ring("Outer", 12, "Accent", "Outer")', 1, true)).never.toBeNil()
+		expect(
+			string.find(
+				theme,
+				'ring("Inner", 4, if kind == "Fight" then "PanelRaised" else "Primary", "Center")',
+				1,
+				true
+			)
+		).never.toBeNil()
+	end)
+
+	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()
+		local tabs = source("Tabs")
+		expect(string.find(tabs, "return if band == Theme.Colors.Plate then Theme.Colors.Primary else band", 1, true)).never.toBeNil()
+		expect(string.find(tabs, "label.TextColor3 = Theme.inkOn(fill)", 1, true)).never.toBeNil()
+		-- Bold at 20 is large text: the floor on a thumb is 3.
+		expect(string.find(tabs, "label.TextSize = Theme.Sizes.TextButton", 1, true)).never.toBeNil()
+		local fills: { { number } } = {}
+		for _, role in pairs(ThemeConfig.Chapters) do
+			table.insert(fills, if role == "Plate" then ThemeConfig.Colors.Primary else ThemeConfig.Colors[role])
+		end
+		for _, id in ipairs(PigmentConfig.Order) do
+			table.insert(fills, PigmentConfig.Colors[id])
+		end
+		for _, fill in ipairs(fills) do
+			local ratio = ThemeConfig.contrast(ThemeConfig.inkOn(fill), fill)
+			if ratio < 3 then
+				error(("a tab on %d,%d,%d reads at %.2f"):format(fill[1], fill[2], fill[3], ratio))
+			end
+		end
+	end)
+
+	it("write a bar's number in the sheet on an ink stroke, with no halo", function()
+		local bar = source("ProgressBar")
+		expect(string.find(bar, "label.TextColor3 = Theme.Colors.PanelRaised", 1, true)).never.toBeNil()
+		expect(string.find(bar, 'Theme.stroke(label, "Outline", LABEL_STROKE, "Contextual")', 1, true)).never.toBeNil()
+		expect(string.find(bar, "TextStrokeTransparency", 1, true)).toBeNil()
+		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Outline)).toBeGreaterThanOrEqual(
+			4.5
+		)
+	end)
+
+	it("run every fill in a track it stands out from", function()
+		-- The inkwell for the vivid fills; the sheet for an ink one, which would vanish in the well.
+		local bar = source("ProgressBar")
+		expect(string.find(bar, "if Theme.contrast(fill, Theme.Colors.Well) >= GRAPHIC_CONTRAST then", 1, true)).never.toBeNil()
+		expect(string.find(bar, "local GRAPHIC_CONTRAST = 3\n", 1, true)).never.toBeNil()
+		expect(select(2, string.gsub(bar, "track%.BackgroundColor3 = trackFor%(", ""))).toBe(2)
+		local colors = ThemeConfig.Colors
+		expect(ThemeConfig.contrast(colors.Accent, colors.Well)).toBeLessThan(3)
+		expect(ThemeConfig.contrast(colors.Accent, colors.PanelRaised)).toBeGreaterThanOrEqual(3)
+	end)
+
+	it("keep a row's title the full height a caller's own frame is sized to, unless a line goes under it", function()
+		local row = source("ListRow")
+		expect(
+			string.find(
+				row,
+				"left.Frame.Size = if props.Subtitle ~= nil%s+then UDim2.new%(1, 0, 0, Theme.Sizes.TextButton %+ 6%)%s+else UDim2.fromScale%(1, 1%)"
+			)
+		).never.toBeNil()
+	end)
+
+	it("say low health three ways: red, hatching and a pulse", function()
+		local low = handler(source("ProgressBar"), "local function setLow(")
+		expect(string.find(low, "fill.BackgroundColor3 = Theme.Colors.DangerFill", 1, true)).never.toBeNil()
+		expect(string.find(low, "hatch.Visible = next", 1, true)).never.toBeNil()
+		expect(string.find(low, "Motion%.loop%(%s*fill,")).never.toBeNil()
+	end)
+
+	it("switch a toggle with a word that reads on its pill", function()
+		local toggle = source("Toggle")
+		expect(string.find(toggle, "if value then Theme.Colors.SuccessFill else Theme.Colors.Chalk", 1, true)).never.toBeNil()
+		expect(string.find(toggle, "if value then Theme.Colors.Text else Theme.Colors.TextMuted", 1, true)).never.toBeNil()
+		local colors = ThemeConfig.Colors
+		expect(ThemeConfig.contrast(colors.Text, colors.SuccessFill)).toBeGreaterThanOrEqual(4.5)
+		expect(ThemeConfig.contrast(colors.TextMuted, colors.Chalk)).toBeGreaterThanOrEqual(4.5)
+	end)
+
+	it("nudge a slider by a twentieth on the D-pad", function()
+		expect(string.find(source("Slider"), "local GAMEPAD_STEPS = 20%s")).never.toBeNil()
+	end)
+
+	it("breathe what idles on one shared loop", function()
+		for _, name in ipairs({ "Badge", "ListRow" }) do
+			local code = source(name)
+			if
+				string.find(code, "Breath.join(", 1, true) == nil
+				or string.find(code, "Motion.loop(", 1, true) ~= nil
+			then
+				error(name .. " breathes on a loop of its own")
+			end
+		end
+		local breath = stripComments(fs.readFile("src/ui/Breath.luau"))
+		expect(select(2, string.gsub(breath, "Motion%.loop%(", ""))).toBe(1)
 	end)
 end)

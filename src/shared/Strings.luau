@@ -702,6 +702,10 @@ Strings.Table = {
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 
 	-- D-147 · slice C (HUD, toasts, world)
+	-- The centre splashes of a match (Banner).
+	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
+	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
+	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
 } :: { [string]: Entry }
 
 -- Substitutes {name} placeholders. Missing params are left as-is.

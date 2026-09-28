@@ -45,6 +45,7 @@ local STROKED_COMPONENTS = {
 	"MetaCluster",
 	"Hotbar",
 	"HudPlate",
+	"Banner",
 }
 local BODY_CONTRAST = 4.5
 
@@ -67,6 +68,7 @@ local FIGHT_FILES = {
 	"src/ui/components/ScoreBand.luau",
 	"src/ui/components/HudPlate.luau",
 	"src/client/Controllers/TravelController.luau",
+	"src/ui/components/Banner.luau",
 }
 -- Rule 11: the value colours never enter a fight, by role, by helper, or through a chapter, a rarity or
 -- a rank.

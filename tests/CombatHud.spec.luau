@@ -24,6 +24,7 @@ local SCORE_BAND = "src/ui/components/ScoreBand.luau"
 local BOSS = "src/client/Controllers/BossController.luau"
 local TRAVEL = "src/client/Controllers/TravelController.luau"
 local TOAST = "src/ui/components/Toast.luau"
+local BANNER = "src/ui/components/Banner.luau"
 local HUD = ThemeConfig.Hud
 local COLORS = ThemeConfig.Colors
 local GRAPHIC_CONTRAST = 3
@@ -516,5 +517,129 @@ describe("the top bands", function()
 			has(changed, "if lastDefeated ~= nil and defeated ~= lastDefeated then Motion.punch(placeLineScale) end")
 		).toBe(true)
 		expect(has(travel, "HudPlate.new(")).toBe(true)
+	end)
+end)
+
+describe("the centre splashes", function()
+	local VALUE_OR_RED = {
+		Primary = true,
+		Epic = true,
+		Premium = true,
+		SuccessFill = true,
+		Success = true,
+		Danger = true,
+		DangerFill = true,
+	}
+
+	it("follow the match's snapshots, and leave with it", function()
+		local match = body(code(HUD_CONTROLLER), "refreshMatch")
+		expect(has(match, "for _, splash in ipairs(MatchSplash.between(lastMatch :: any, snapshot :: any)) do")).toBe(
+			true
+		)
+		expect(has(match, "banner:Show(splash.Kind, splash.Digit)")).toBe(true)
+		expect(has(match, "if snapshot == nil and lastMatch ~= nil then banner:Clear() end")).toBe(true)
+		expect(has(match, "lastMatch = snapshot")).toBe(true)
+	end)
+
+	it("stand on their own layer, over the HUD and under every menu", function()
+		expect(has(code(BANNER), 'ScreenRoot.new({ Name = "Banner", DisplayOrder = Theme.Layers.Banner')).toBe(true)
+		local theme = code("src/ui/Theme.luau")
+		local layer = function(name: string): number
+			local value = tonumber(string.match(theme, "\n\t" .. name .. " = (%d+),"))
+			assert(value ~= nil, "no layer " .. name)
+			return value :: number
+		end
+		expect(layer("Hud")).toBeLessThan(layer("Banner"))
+		expect(layer("Banner")).toBeLessThan(layer("Screen"))
+	end)
+
+	it("are short, cyan or ink, never a value colour and never red", function()
+		local banner = code(BANNER)
+		local looks = string.match(banner, "local LOOKS: { %[Kind%]: Look } = (%b{})")
+		assert(looks ~= nil, "no LOOKS: this gate would check nothing")
+		local count = 0
+		for role in string.gmatch(looks :: string, 'Tint = "(%w+)"') do
+			count += 1
+			expect(VALUE_OR_RED[role]).toBeNil()
+			expect(COLORS[role] ~= nil).toBe(true)
+		end
+		expect(count).toBe(5)
+		for role in string.gmatch(looks :: string, 'Swash = "(%w+)"') do
+			expect(VALUE_OR_RED[role]).toBeNil()
+		end
+		for seconds in string.gmatch(looks :: string, "Seconds = ([%d%.]+)") do
+			expect(tonumber(seconds) :: number).toBeLessThanOrEqual(ThemeConfig.Timing.SplashSeconds)
+		end
+		-- The words: the sheet on a hard ink stroke, tipped; a digit one way, the next the other.
+		expect(has(banner, "words.TextColor3 = Theme.Colors.PanelRaised")).toBe(true)
+		expect(has(banner, 'Theme.stroke(words, "Outline", STROKE, "Contextual")')).toBe(true)
+		expect(number(banner, "STROKE")).toBe(6)
+		expect(has(banner, "if entry.Digit % 2 == 0 then DIGIT_TILT else -DIGIT_TILT")).toBe(true)
+		-- A lost round drops in with no overshoot.
+		expect(
+			has(
+				body(banner, "present"),
+				'if look.Heavy then Motion.set(shown.Scale, { Scale = ENTER_SCALE }) Motion.to(shown.Scale, { Scale = 1 }, "UiExit")'
+			)
+		).toBe(true)
+	end)
+
+	it("show one at a time, a digit giving way to what follows it at once", function()
+		local banner = code(BANNER)
+		local start = string.find(banner, "\n\tpump = function()", 1, true)
+		assert(start ~= nil, "no pump: this gate would check nothing")
+		local finish = string.find(banner, "\n\tend\n", start :: number, true)
+		local pump = string.gsub(string.sub(banner, start :: number, finish or #banner), "%s+", " ")
+		expect(has(pump, 'if shown ~= nil and shown.Kind == "Countdown" and #queue > 0 then leave(shown) end')).toBe(
+			true
+		)
+		expect(has(pump, "if current ~= nil or #queue == 0 then return end")).toBe(true)
+		expect(has(pump, "if suppressed then return end")).toBe(true)
+	end)
+
+	it("wait while a boss's warning is up, and drop what waited more than two seconds", function()
+		local banner = code(BANNER)
+		expect(number(banner, "SUPPRESS_DROP_SECONDS")).toBe(2)
+		local suppress = body(banner, "suppress")
+		expect(has(suppress, "if now - queue[index].At > SUPPRESS_DROP_SECONDS then table.remove(queue, index) end")).toBe(
+			true
+		)
+		expect(string.find(code(HUD_CONTROLLER), "toast:Pause%(active%)%s+banner:Suppress%(active%)")).never.toBeNil()
+	end)
+
+	it("pop the player's takedown off the centre in cyan, and keep its toast for the XP", function()
+		local banner = code(BANNER)
+		expect(has(banner, "local POP_POSITION = UDim2.fromScale(0.62, 0.35)")).toBe(true)
+		local pop = body(banner, "pop")
+		expect(has(pop, "Fill = Theme.Colors.Ally,")).toBe(true)
+		expect(has(pop, 'localize.t("hud.splash.defeated")')).toBe(true)
+		expect(has(pop, "Theme.Timing.KillPopSeconds")).toBe(true)
+		local hud = code(HUD_CONTROLLER)
+		expect(has(hud, 'local TAKEDOWN_KEY = "hud.playerKill"')).toBe(true)
+		local show = body(hud, "show")
+		expect(has(show, "if key == TAKEDOWN_KEY then banner:Pop() end")).toBe(true)
+		expect(has(code(GLYPH_SERVICE) .. code("src/server/Services/CombatService.luau"), '"hud.playerKill"')).toBe(
+			true
+		)
+	end)
+
+	it("say a round won or lost once, at the centre, and not again as a toast", function()
+		local hud = code(HUD_CONTROLLER)
+		expect(
+			has(
+				hud,
+				'local SPLASH_KEYS: { [string]: boolean } = { ["match.roundWon"] = true, ["match.roundLost"] = true }'
+			)
+		).toBe(true)
+		local show = body(hud, "show")
+		local skipped = string.find(show, "elseif SPLASH_KEYS[key] then return", 1, true)
+		local toasted = string.find(show, "toast:Show(", 1, true)
+		assert(skipped ~= nil and toasted ~= nil, "show no longer keeps the rounds to the centre")
+		expect(skipped :: number).toBeLessThan(toasted :: number)
+		-- The count's digits left the band for the centre.
+		local band = code(SCORE_BAND)
+		expect(has(band, "timerLabel.Visible = not counting")).toBe(true)
+		expect(has(band, '"match.countdown"')).toBe(false)
+		expect(has(code(BANNER), 'Key = "match.countdown"')).toBe(true)
 	end)
 end)

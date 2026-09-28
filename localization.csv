@@ -198,6 +198,9 @@ hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi 
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
 hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
 hud.sequence.streak,×{count},Vellum,,×{count},×{count}
+hud.splash.defeated,Defeated!,Vellum,,Defeated!,Vaincu !
+hud.splash.fight,Fight!,Vellum,,Fight!,Au combat !
+hud.splash.matchFound,Match found!,Vellum,,Match found!,Match trouvé !
 hud.status.bonus,{status}: +{percent}% damage,Vellum,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
 hud.tierUp,Battle pass tier {tier} unlocked!,Vellum,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
 key.ButtonB,B,Vellum,,B,B

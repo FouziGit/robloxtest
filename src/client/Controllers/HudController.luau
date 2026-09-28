@@ -8,6 +8,7 @@
 --                 pointer, pips inside the dock on touch)
 --   ComboRow      the sequence being pressed, the chain counter and the onboarding's ghost chips, above it
 --   ScoreBand     the match, at the top-centre while a snapshot is held
+--   Banner        the match's centre splashes (found, the count, the fight, a round) and the takedown pop
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
 -- button naming its key), the top-centre column the bands stack in (HudController.topStack), and the toast
 -- lane. Every visible text goes through Localize; server Notify payloads carry Strings keys, never text.
@@ -19,6 +20,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local Banner = require(UI.components.Banner)
 local Button = require(UI.components.Button)
 local CombatDock = require(UI.components.CombatDock)
 local ComboRow = require(UI.components.ComboRow)
@@ -26,6 +28,7 @@ local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Hotbar = require(UI.components.Hotbar)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local MatchSplash = require(Shared.Pure.MatchSplash)
 local MetaCluster = require(UI.components.MetaCluster)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local QualityConfig = require(Shared.Config.QualityConfig)
@@ -103,6 +106,11 @@ local CHAIN_KEY = "hud.cast.chain"
 -- The next pigments are hinted after one press or two: one step ahead, never the whole tree.
 local HINT_MIN_PRESSES = 1
 local HINT_MAX_PRESSES = 2
+-- The rounds the centre splash already says (Banner, from the snapshots): the same words again as a toast
+-- would only be the same news twice. The player's own takedown pops at the centre too, and its toast keeps
+-- the XP it paid.
+local SPLASH_KEYS: { [string]: boolean } = { ["match.roundWon"] = true, ["match.roundLost"] = true }
+local TAKEDOWN_KEY = "hud.playerKill"
 -- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
@@ -154,6 +162,9 @@ local comboRow: ComboRow.ComboRow
 local hotbar: Hotbar.Hotbar
 local bottomStack: Frame
 local scoreBand: ScoreBand.ScoreBand
+local banner: Banner.Banner
+-- The match snapshot before the latest, which the splashes are told apart from.
+local lastMatch: Types.MatchSnapshot? = nil
 local quickBar: Frame
 local quickButtons: { Button.Button } = {}
 local menuButton: Button.Button
@@ -302,6 +313,7 @@ local function build()
 
 	buildTopStack(content)
 	scoreBand = ScoreBand.new({ Parent = topStack, Localize = localize, LayoutOrder = MATCH_BAND_ORDER })
+	banner = Banner.new({ Localize = localize })
 
 	-- The toast queue gets its own ScreenGui on Theme.Layers.Toast, ABOVE every menu screen. It is the
 	-- only surface a server message has, and screens now sit deterministically above the HUD, so leaving
@@ -389,6 +401,7 @@ end
 function HudController.setWarning(active: boolean)
 	if toast ~= nil then
 		toast:Pause(active)
+		banner:Suppress(active)
 	end
 end
 
@@ -474,6 +487,14 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 		refreshFight()
 	end
 	scoreBand:Set(snapshot)
+	-- MatchSplash reads a snapshot's plain fields; the phase's literal union is a string to it.
+	for _, splash in ipairs(MatchSplash.between(lastMatch :: any, snapshot :: any)) do
+		banner:Show(splash.Kind, splash.Digit)
+	end
+	if snapshot == nil and lastMatch ~= nil then
+		banner:Clear()
+	end
+	lastMatch = snapshot
 end
 
 -- The keys the hotbar draws under each glyph: the player's own for each pigment, on the device in use.
@@ -526,6 +547,9 @@ end
 -- their keys became words: the cooldown's glyph is found by its name key.
 local function show(key: string, params: { [string]: any }?, kind: ToastKind, raw: { [string]: any }?)
 	local text = localize.t(key, params)
+	if key == TAKEDOWN_KEY then
+		banner:Pop()
+	end
 	local name = if raw ~= nil then raw.name else nil
 	local ink = if raw ~= nil then raw.ink else nil
 	if INLINE_KEYS[key] then
@@ -537,6 +561,8 @@ local function show(key: string, params: { [string]: any }?, kind: ToastKind, ra
 		if type(ink) == "number" then
 			combatDock:GainInk(ink)
 		end
+	elseif SPLASH_KEYS[key] then
+		return
 	elseif CELEBRATE_KEYS[key] then
 		toast:Show(text, "Celebrate")
 	elseif REWARD_KEYS[key] then

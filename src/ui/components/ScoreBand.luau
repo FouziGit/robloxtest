@@ -5,7 +5,7 @@
 --   our score      a cyan pill: cyan is us (docs/ART_BIBLE.md rule 7)
 --   the middle     the round's clock, with a pip per round of the series under it (the sheet for a round we
 --                  took, chalk for one we lost, an empty ring for one still to play); before a round starts,
---                  the round line and the count
+--                  the round line only: the count's digits are the centre's (Banner)
 --   their score    an ink pill ringed with the sheet. Not red: red would sit beside their name for a whole
 --                  match, and red means only what is about to hit you (D-89)
 --   the rosters    a disc per fighter, ours ringed cyan and theirs in the sheet, each ring the fighter's health
@@ -341,9 +341,8 @@ function ScoreBand.new(props: Props): ScoreBand
 		roundLabel.Visible = counting
 		roundLabel.Text = localize.t("match.round", { round = snapshot.Round, total = total })
 		pipRow.Visible = not counting
-		if counting then
-			timerLabel.Text = localize.t("match.countdown", { seconds = seconds })
-		else
+		timerLabel.Visible = not counting
+		if not counting then
 			timerLabel.Text = localize.t("match.timeLeft", { seconds = seconds })
 			if
 				snapshot.Phase == PLAYING_PHASE

@@ -234,7 +234,9 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 	firstWin.FontFace = Theme.Fonts.Bold
 	firstWin.Text = t("match.firstWin")
 
-	-- 6. The details, folded on a phone where the card has no room to spare.
+	-- 6. The details, folded on a phone where the card has no room to spare, and the toggle that unfolds them
+	-- there. With a pointer they are open, and nothing folds them: a toggle there could only hide a line, and its
+	-- row was what the card lacked to hold its rows without scrolling (seen in Studio at 886 high).
 	local details = Instance.new("Frame")
 	details.Name = "Details"
 	details.BackgroundTransparency = 1
@@ -260,6 +262,7 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 			details.Visible = not details.Visible
 		end,
 	})
+	detailsToggle.Instance.Visible = not details.Visible
 	trove:Add(function()
 		detailsToggle:Destroy()
 	end)

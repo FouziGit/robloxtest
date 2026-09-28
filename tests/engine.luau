@@ -669,9 +669,12 @@ function Engine.world(options: Options?): World
 	userInput.MouseEnabled = true
 	userInput.GamepadEnabled = false
 	userInput.GetLastInputType = function(self: any): any
-		return if self.GamepadEnabled
-			then roblox.Enum.UserInputType.Gamepad1
-			else roblox.Enum.UserInputType.MouseButton1
+		if self.GamepadEnabled then
+			return roblox.Enum.UserInputType.Gamepad1
+		elseif self.TouchEnabled and not self.KeyboardEnabled then
+			return roblox.Enum.UserInputType.Touch
+		end
+		return roblox.Enum.UserInputType.MouseButton1
 	end
 	userInput.GetFocusedTextBox = function(): any
 		return nil

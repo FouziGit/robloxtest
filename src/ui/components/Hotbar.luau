@@ -61,8 +61,11 @@ type Slot = {
 	Chip: Frame,
 	Sigil: TextLabel?,
 	Drain: Frame,
+	-- Built the first time the slot shows them (secondsOf, dropOf); a pip has neither.
 	Seconds: TextLabel?,
 	Drop: Frame?,
+	-- A pointer slot's square, which they are built on.
+	Square: Frame?,
 	Flash: ImageLabel?,
 	FlashScale: UIScale?,
 	Keys: Frame?,
@@ -199,25 +202,6 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	sigil.ZIndex = 3
 	sigil.Parent = chip
 
-	local seconds = Instance.new("TextLabel")
-	seconds.Name = "Seconds"
-	seconds.BackgroundTransparency = 1
-	seconds.Size = UDim2.fromScale(1, 1)
-	seconds.FontFace = Theme.Fonts.Numeric
-	seconds.TextSize = SECONDS_TEXT
-	seconds.TextColor3 = Theme.Colors.PanelRaised
-	seconds.ZIndex = 5
-	seconds.Visible = false
-	Theme.stroke(seconds, "Outline", SECONDS_STROKE, "Contextual")
-	seconds.Parent = square
-
-	local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
-	drop.AnchorPoint = Vector2.new(1, 1)
-	drop.Position = UDim2.new(1, -RING_INSET, 1, -RING_INSET)
-	drop.ZIndex = 5
-	drop.Visible = false
-	drop.Parent = square
-
 	local keys = Instance.new("Frame")
 	keys.Name = "Keys"
 	keys.BackgroundTransparency = 1
@@ -239,8 +223,9 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 		Chip = chip,
 		Sigil = sigil,
 		Drain = drain(chip),
-		Seconds = seconds,
-		Drop = drop,
+		Seconds = nil,
+		Drop = nil,
+		Square = square,
 		Flash = flash,
 		FlashScale = flashScale,
 		Keys = keys,
@@ -252,6 +237,42 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	}
 end
 
+-- The seconds a cooling glyph has left, and the drop that says its ink is short, are built the first time the
+-- slot shows them: most slots of most fights never do, and every object the pointer's HUD holds is counted
+-- against its budget (ThemeConfig.Budget, tests/HudBudget.spec.luau).
+local function secondsOf(slot: Slot): TextLabel?
+	local square = slot.Square
+	if slot.Seconds == nil and square ~= nil then
+		local seconds = Instance.new("TextLabel")
+		seconds.Name = "Seconds"
+		seconds.BackgroundTransparency = 1
+		seconds.Size = UDim2.fromScale(1, 1)
+		seconds.FontFace = Theme.Fonts.Numeric
+		seconds.TextSize = SECONDS_TEXT
+		seconds.TextColor3 = Theme.Colors.PanelRaised
+		seconds.ZIndex = 5
+		seconds.Visible = false
+		Theme.stroke(seconds, "Outline", SECONDS_STROKE, "Contextual")
+		seconds.Parent = square
+		slot.Seconds = seconds
+	end
+	return slot.Seconds
+end
+
+local function dropOf(slot: Slot): Frame?
+	local square = slot.Square
+	if slot.Drop == nil and square ~= nil then
+		local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
+		drop.AnchorPoint = Vector2.new(1, 1)
+		drop.Position = UDim2.new(1, -RING_INSET, 1, -RING_INSET)
+		drop.ZIndex = 5
+		drop.Visible = false
+		drop.Parent = square
+		slot.Drop = drop
+	end
+	return slot.Drop
+end
+
 local function buildPip(index: number, parent: Instance): Slot
 	local pip = Instance.new("Frame")
 	pip.Name = "Pip" .. index
@@ -259,7 +280,11 @@ local function buildPip(index: number, parent: Instance): Slot
 	pip.LayoutOrder = index
 	pip.ClipsDescendants = true
 	Theme.corner(pip, Theme.Pill)
-	Theme.stroke(pip, "Accent", Theme.Sizes.StrokeThin)
+	-- The pips sit on the dock's ink plate, the colour an ink outline would be: an Indigo or an Umber pip,
+	-- 2.15 and 2.30 against it, keeps its shape by the sheet's ring, as the chips do (ComboRow). Drawn
+	-- outside the pip, where the cooling veil inside it never covers it, and on every pip, as a pip changes
+	-- pigment with the loadout; a stroke rather than a frame, the touch HUD's objects being counted.
+	Theme.stroke(pip, "PanelRaised", Theme.Sizes.StrokeThin, nil, "Outer")
 	-- Round in whatever share of the row setLoadout gives it, and never taller than the row.
 	local round = Instance.new("UIAspectRatioConstraint")
 	round.AspectRatio = 1
@@ -268,27 +293,15 @@ local function buildPip(index: number, parent: Instance): Slot
 	local scale = Instance.new("UIScale")
 	scale.Parent = pip
 	pip.Parent = parent
-	local veil = drain(pip)
-	-- The pips sit on the dock's ink plate, which is the colour of their own ink outline: an Indigo or an
-	-- Umber pip, 2.15 and 2.30 against it, needs the sheet's ring to keep its shape, the chips' ring
-	-- (ComboRow). Every pip wears it, as a pip changes pigment with the loadout; over the cooling veil.
-	local ring = Instance.new("Frame")
-	ring.Name = "Ring"
-	ring.BackgroundTransparency = 1
-	ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
-	ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
-	ring.ZIndex = veil.ZIndex + 1
-	Theme.corner(ring, Theme.Pill)
-	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
-	ring.Parent = pip
 	return {
 		Root = pip,
 		Scale = scale,
 		Chip = pip,
 		Sigil = nil,
-		Drain = veil,
+		Drain = drain(pip),
 		Seconds = nil,
 		Drop = nil,
+		Square = nil,
 		Flash = nil,
 		FlashScale = nil,
 		Keys = nil,
@@ -462,7 +475,7 @@ function Hotbar.new(props: Props): Hotbar
 					ready(slot)
 				end
 				slot.Remaining = remaining
-				local seconds = slot.Seconds
+				local seconds = if remaining > 0 then secondsOf(slot) else slot.Seconds
 				if seconds ~= nil then
 					seconds.Visible = remaining > 0
 					seconds.Text = tostring(math.ceil(remaining))
@@ -471,7 +484,7 @@ function Hotbar.new(props: Props): Hotbar
 				if unaffordable ~= slot.Unaffordable then
 					slot.Unaffordable = unaffordable
 					fill(slot, if unaffordable then Theme.Colors.Chalk else Theme.pigmentColor(def.Pigment), true)
-					local drop = slot.Drop
+					local drop = if unaffordable then dropOf(slot) else slot.Drop
 					if drop ~= nil then
 						drop.Visible = unaffordable
 					end

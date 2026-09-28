@@ -281,12 +281,17 @@ ThemeConfig.Timing = {
 ThemeConfig.TextScale = { Medium = 1, Large = 1.15, Larger = 1.3, Largest = 1.3 } :: { [string]: number }
 
 -- What one open screen may cost: splats (Splat), animated gradients (RarityRibbon's shimmer), idle loops
--- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent.
+-- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent. And what the HUD
+-- draws in a fight, in GuiObjects shown, with every slot a pass opens and a full 3v3 in the band: on a phone
+-- with its touch discs, the budget the colour pass set; with a pointer, whose hotbar spells each glyph's
+-- keys and whose Menu names its own, the ceiling it is built to (tests/HudBudget.spec.luau, D-166).
 ThemeConfig.Budget = {
 	MaxSplats = 12,
 	MaxAnimatedGradients = 3,
 	MaxIdleLoops = 3,
 	MaxStaggered = 8,
+	MaxHudObjects = 180,
+	MaxHudObjectsPointer = 340,
 }
 
 -- The HUD's geometry, in design units (D-147): never scaled by the player's text size, and laid out to fit a

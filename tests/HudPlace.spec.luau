@@ -9,138 +9,21 @@
 -- another portal.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Hud = require("./hud")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
-type Fixture = {
-	world: any,
-	remote: (name: string, ...any) -> (),
-	match: (snapshot: any) -> (),
-	cluster: any,
-}
+type Fixture = Hud.Fixture
 
 local function setup(): Fixture
-	local world = Engine.world({
-		Stubs = Engine.interfaceStubs(),
-		-- The portal band's fill is a tween (TravelController) and the boss is found by its tag
-		-- (BossController): no circle is stood in and no boss is looked for here.
-		Services = { TweenService = {}, CollectionService = {} },
-	})
-	local handlers: { [string]: (...any) -> () } = {}
-	local signal = Engine.signal
-	local remoteClient = {
-		on = function(name: string, handler: (...any) -> ()): any
-			handlers[name] = handler
-			return signal():Connect(handler)
-		end,
-		fire = function() end,
-	}
-	local localize = {
-		t = function(key: string): string
-			return key
-		end,
-		resolveParams = function(params: any): any
-			return params
-		end,
-	}
-	local sound = { play = function() end, wantMusic = function() end }
-	local matchChanged = signal()
-	local current: any = nil
-	local Hud = world.require("src/client/Controllers/HudController")
-	Hud.Init({
-		Localize = localize,
-		ClientData = {
-			get = function(): any
-				return nil
-			end,
-			Changed = signal(),
-		},
-		RemoteClient = remoteClient,
-		SoundController = sound,
-		ComboController = { SequenceChanged = signal(), PreviewChanged = signal(), SequenceBroken = signal() },
-		CombatController = {
-			StateChanged = signal(),
-			getState = function(): any
-				return { Health = 100, MaxHealth = 100, Ink = 100, MaxInk = 100, Cooldowns = {}, InCombat = false }
-			end,
-		},
-		MatchController = {
-			MatchChanged = matchChanged,
-			QueueChanged = signal(),
-			getMatch = function(): any
-				return current
-			end,
-			getQueue = function(): any
-				return { Queued = false, WaitedSeconds = 0 }
-			end,
-			leaveQueue = function() end,
-		},
-		MenuController = {
-			open = function() end,
-			toggle = function() end,
-			isOpen = function(): boolean
-				return false
-			end,
-		},
-		VfxController = { LocalCast = signal() },
-		InputController = {
-			TouchLayoutChanged = signal(),
-			touchRects = function(): any
-				return {}
-			end,
-			setAffordable = function() end,
-			setHints = function() end,
-		},
-		QualityController = {
-			Changed = signal(),
-			get = function(): string
-				return "High"
-			end,
-		},
-	})
-	local Travel = world.require("src/client/Controllers/TravelController")
-	Travel.Init({ RemoteClient = remoteClient, Localize = localize, HudController = Hud, SoundController = sound })
-	local Boss = world.require("src/client/Controllers/BossController")
-	Boss.Init({
-		Localize = localize,
-		HudController = Hud,
-		RemoteClient = remoteClient,
-		WorldLighting = { pulse = function() end },
-		SoundController = sound,
-	})
-	Hud.Start()
-	Travel.Start()
-	Boss.Start()
-	return {
-		world = world,
-		remote = function(name: string, ...: any)
-			local handler = handlers[name]
-			assert(handler ~= nil, "nothing listens to " .. name)
-			handler(...)
-		end,
-		match = function(snapshot: any)
-			current = snapshot
-			matchChanged:Fire(snapshot)
-		end,
-		cluster = world.playerGui:FindFirstChild("MetaCluster", true),
-	}
+	return Hud.build()
 end
 
 local function inHub(fixture: Fixture): boolean
 	return fixture.cluster.Visible
 end
 
-local SNAPSHOT = {
-	MatchId = "m",
-	ModeId = "Duel",
-	Phase = "Playing",
-	SecondsLeft = 60,
-	Round = 1,
-	RoundsToWin = 2,
-	Scores = { 0, 0 },
-	Teams = { {}, {} },
-	LocalTeam = 1,
-}
+local SNAPSHOT = Hud.match("Duel", 1)
 
 describe("where the HUD thinks the player is, run", function()
 	it("fights in an arena a portal took them to, and is home through the way back", function()

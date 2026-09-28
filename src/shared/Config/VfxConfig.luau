@@ -114,7 +114,8 @@ VfxConfig.WallPaint = {
 }
 
 -- Emitted by GlyphEffects: one per glyph, plus the shared detonation ("Explosion", reused by
--- Brand and Blot when they blow up).
+-- Brand and Blot when they blow up), the two charges (the Volute's and the Rubric's, sent at the press
+-- and lasting their wind-up, D-141) and the Stitch's catch.
 VfxConfig.GlyphIds = {
 	"Brand",
 	"Explosion",
@@ -138,6 +139,18 @@ VfxConfig.GlyphIds = {
 	"Caret",
 	"Watermark",
 	"Colophon",
+	-- Second roster (D-145)
+	"Volute",
+	"VoluteCharge",
+	"Rubric",
+	"RubricCharge",
+	"Swash",
+	"Dagger",
+	"Cartouche",
+	"Emboss",
+	"Stitch",
+	"StitchCatch",
+	"Hatching",
 } :: { string }
 
 -- Emitted by GlyphService and CombatService (casting, hits, melee kit, guard).
@@ -152,7 +165,8 @@ VfxConfig.CombatIds = {
 	-- A killer's KillEffect cosmetic, drawn where the victim fell (CosmeticService).
 	"KillEffect",
 	-- A thrown Brand that never burst -- its caster stunned, guarding or dead before it landed: the
-	-- drawn one stops where the real one was (GlyphEffects.Brand, D-114).
+	-- drawn one stops where the real one was (GlyphEffects.Brand, D-114). A Blot that never burst comes
+	-- down on it too, and so do a Swash wherever it ends and a Stitch that caught nobody.
 	"Fizzle",
 } :: { string }
 

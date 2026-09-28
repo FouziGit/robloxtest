@@ -46,6 +46,8 @@ local ORPIMENT_LEVEL = ProgressionConfig.OrpimentUnlockLevel
 local PIGMENT_NAME_KEYS = (PigmentConfig.NameKeys :: any) :: { [string]: string? }
 -- Strings has no dedicated unlock key; "{name} unlocked!" is the closest fit (see notes).
 local UNLOCKED_KEY = "purchase.passGranted"
+-- The one line a catch-up grant sends at login, with how many glyphs it handed over.
+local CAUGHT_UP_KEY = "loadout.caughtUp"
 
 local LoadoutService = {}
 
@@ -75,18 +77,19 @@ end
 
 -- Grants every glyph the profile has already earned: the level gates up to its current level and the
 -- glyphs of every owned pigment. Catches up a profile that predates a roster change or comes from V1.
+-- Quietly: a roster that grows by eight hands a veteran all eight at once, and the caller says so in one line.
 local function grantEarned(player: Player, data: ProfileData): number
 	local granted = 0
 	for level = 1, data.Progression.Level do
 		for _, glyphId in ipairs(GlyphConfig.unlocksForLevel(level)) do
-			if grantGlyph(player, data, glyphId) then
+			if grantGlyph(player, data, glyphId, true) then
 				granted += 1
 			end
 		end
 	end
 	for _, pigment in ipairs(data.Unlocks.Pigments) do
 		for _, glyphId in ipairs(GlyphConfig.unlocksForPigment(pigment)) do
-			if grantGlyph(player, data, glyphId) then
+			if grantGlyph(player, data, glyphId, true) then
 				granted += 1
 			end
 		end
@@ -297,8 +300,10 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	if data.Progression.Level >= ORPIMENT_LEVEL then
 		LoadoutService.grantPigment(player, ORPIMENT_PIGMENT)
 	end
-	if grantEarned(player, data) > 0 then
+	local caughtUp = grantEarned(player, data)
+	if caughtUp > 0 then
 		dataService.push(player, "Unlocks")
+		notify.send(player, CAUGHT_UP_KEY, { count = caughtUp }, "Success", "LevelUp")
 	end
 	refreshSlotLimit(player, data)
 end

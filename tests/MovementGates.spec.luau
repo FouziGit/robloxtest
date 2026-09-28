@@ -347,8 +347,8 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
-		expect(players).toBe(6)
+		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
+		expect(players).toBe(7)
 		expect(others).toBe(3)
 	end)
 

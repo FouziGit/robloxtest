@@ -17,6 +17,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local ChannelHold = require(Shared.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
@@ -125,6 +126,8 @@ type State = {
 	BlockCooldownUntil: number,
 	DashCooldownUntil: number,
 	IFramesUntil: number,
+	-- The hold a charged glyph or a rush keeps on its caster, on os.clock, and whose hold it is (D-142).
+	Channel: ChannelHold.Hold,
 	MeleeIndex: number,
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
@@ -828,6 +831,7 @@ local function resetState(state: State, now: number, character: Model?)
 	state.BlockCooldownUntil = 0
 	state.DashCooldownUntil = 0
 	state.IFramesUntil = 0
+	ChannelHold.breaks(state.Channel)
 	state.MeleeIndex = 0
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
@@ -952,6 +956,7 @@ local function onPlayerAdded(player: Player)
 		BlockCooldownUntil = 0,
 		DashCooldownUntil = 0,
 		IFramesUntil = 0,
+		Channel = ChannelHold.new(),
 		MeleeIndex = 0,
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
@@ -1069,6 +1074,42 @@ local function applyGuard(
 	return damage * (1 - CombatConfig.Block.DamageReduction), true
 end
 
+-- Everything a hit is turned away for before it is scaled, in one place: what ApplyDamage refuses and what
+-- canDamage answers (a glyph that commits to a body before it strikes it, D-143). Read-only: the per-source
+-- hit memory stays in ApplyDamage, because only a hit that is going to land may write it.
+local function refuses(source: Player?, targetModel: Model, now: number): boolean
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil or humanoid.Health <= 0 then
+		return true
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
+	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+		return true
+	end
+	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+	local targetState = stateOf(targetPlayer)
+	if isSpawnProtected(stateOf(source), sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
+		return true
+	end
+	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
+	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
+	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
+	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
+		return true
+	end
+	if targetState ~= nil and now < targetState.IFramesUntil then
+		return true
+	end
+	return not policy(source, targetModel)
+end
+
+-- Whether a hit from `source` on `targetModel` would be let through right now: the safe zone, a match's PvP
+-- rule, spawn protection, i-frames and a body on the ground, exactly as ApplyDamage judges them. For an effect
+-- that has to choose its body before it strikes (the Dagger moves its caster first).
+function CombatService.canDamage(source: Player, targetModel: Model): boolean
+	return not refuses(source, targetModel, os.clock())
+end
+
 -- `pigment` (glyph pigment, nil for melee / environment) colours the Hit packet clients render and
 -- drives the pigment interactions: it writes the mark of its own pigment on the target and reads
 -- the mark that amplifies it (docs/GAME_DESIGN.md §6).
@@ -1085,28 +1126,18 @@ function CombatService.ApplyDamage(
 		log.warn("ApplyDamage rejected (%s): invalid amount %s", kind, tostring(amount))
 		return result
 	end
-	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
-	if humanoid == nil or humanoid.Health <= 0 then
-		return result
-	end
 	local now = os.clock()
-	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
-	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+	if refuses(source, targetModel, now) then
 		return result
 	end
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil then
+		return result
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
 	local sourceState = stateOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
-
-	if isSpawnProtected(sourceState, sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
-		return result
-	end
-	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
-	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
-	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
-	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
-		return result
-	end
 
 	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
@@ -1122,12 +1153,6 @@ function CombatService.ApplyDamage(
 			return result
 		end
 		memory = existing
-	end
-	if targetState ~= nil and now < targetState.IFramesUntil then
-		return result
-	end
-	if not policy(source, targetModel) then
-		return result
 	end
 
 	local origin = positionOf(targetModel)
@@ -1274,6 +1299,36 @@ function CombatService.grantIFrames(player: Player, seconds: number)
 	state.IFramesUntil = math.max(state.IFramesUntil, os.clock() + seconds)
 end
 
+-- A charged glyph or a rush holds its caster for `seconds`: no M1 and no other glyph meanwhile, and a dash
+-- breaks it (D-142). Returns the hold's number, which the effect keeping it asks about (holdsChannel) and ends
+-- it with (endChannel); nil when there is nothing to hold, which no hold is ever read as.
+function CombatService.channel(player: Player, seconds: number): number?
+	if seconds ~= seconds or seconds < 0 or seconds == math.huge then
+		log.warn("channel rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return nil
+	end
+	local state = states[player]
+	if state == nil then
+		return nil
+	end
+	return ChannelHold.open(state.Channel, os.clock(), seconds)
+end
+
+-- Whether the hold numbered `token` is still the one `player` is kept in: no dash broke it and no later cast
+-- opened another. Its effect asks this, never isChanneling, which would read a later glyph's hold as its own.
+function CombatService.holdsChannel(player: Player, token: number?): boolean
+	local state = states[player]
+	return state ~= nil and token ~= nil and ChannelHold.owns(state.Channel, token)
+end
+
+-- Ends the hold numbered `token`, and nothing a later cast opened.
+function CombatService.endChannel(player: Player, token: number?)
+	local state = states[player]
+	if state ~= nil and token ~= nil then
+		ChannelHold.close(state.Channel, token)
+	end
+end
+
 function CombatService.applyStoneSkin(player: Player): boolean
 	local state = states[player]
 	if state == nil then
@@ -1334,7 +1389,7 @@ local function onMelee(player: Player, state: State, now: number)
 	if character == nil or root == nil then
 		return
 	end
-	if movement.isStunned(player) or state.Blocking then
+	if movement.isStunned(player) or state.Blocking or ChannelHold.refuses(state.Channel, now) then
 		return
 	end
 	local melee = CombatConfig.Melee
@@ -1432,6 +1487,7 @@ local function onDash(player: Player, state: State, now: number)
 	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
+	ChannelHold.breaks(state.Channel) -- a dash is the way out of a charge or a rush (D-142)
 	local direction = dashDirection(humanoid, root)
 	CombatService.grantMovement(player, {
 		Kind = "Dash",
@@ -1647,6 +1703,12 @@ end
 
 function CombatService.isStunned(player: Player): boolean
 	return movement.isStunned(player)
+end
+
+-- Whether `player` is kept in a hold now, whoever opened it: what refuses every other glyph (GlyphService).
+function CombatService.isChanneling(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and ChannelHold.refuses(state.Channel, os.clock())
 end
 
 -- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.

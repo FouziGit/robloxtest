@@ -79,15 +79,32 @@ describe("a finisher", function()
 	end)
 
 	it("leaves a body on the ground untouchable until it stands: a knockdown is never a free follow-up", function()
-		local damage = functionIn("src/server/Services/CombatService.luau", "function CombatService.ApplyDamage(")
-		local refused =
-			damage:find("if targetPlayer ~= nil and movement.isDown(targetPlayer) then return result end", 1, true)
+		local combat = "src/server/Services/CombatService.luau"
+		-- The refusals live in one place (D-143), which both the hit and the question "may I hit it?" read.
+		local refusals = functionIn(combat, "local function refuses(")
+		expect(refusals:find("if targetPlayer ~= nil and movement.isDown(targetPlayer) then return true end", 1, true)).never.toBe(
+			nil
+		)
+		expect(refusals:find("if targetState ~= nil and now < targetState.IFramesUntil then return true end", 1, true)).never.toBe(
+			nil
+		)
+		expect(refusals:find("return not policy(source, targetModel) end", 1, true)).never.toBe(nil)
+		local damage = functionIn(combat, "function CombatService.ApplyDamage(")
+		local refused = damage:find("if refuses(source, targetModel, now) then return result end", 1, true)
 		local taken = damage:find("humanoid:TakeDamage(applied)", 1, true)
 		expect(refused).never.toBe(nil)
 		expect(taken).never.toBe(nil)
 		expect((refused :: number) < (taken :: number)).toBe(true)
 		-- Before anything the hit would remember or spend.
 		expect((refused :: number) < (damage:find("local memory", 1, true) :: number)).toBe(true)
+		-- And a glyph that commits to a body before striking it asks the very same question.
+		expect(
+			functionIn(combat, "function CombatService.canDamage("):find(
+				"refuses(source, targetModel, os.clock())",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		-- Down means down for the whole fall, limp and rising alike.
 		expect(functionIn(MOVEMENT, "function MovementService.isDown(")).toBe(
 			"function MovementService.isDown(player: Player): boolean local state = states[player] local fall = if state ~= nil then state.Fall else nil return fall ~= nil and not (fall.Rising and fall.Until <= os.clock()) end "

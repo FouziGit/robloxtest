@@ -1512,6 +1512,13 @@ local function activate(item: Pending, now: number)
 	end
 
 	local base = frameOf(context)
+	local body: BasePart? = context.Follow
+	if layer.Kind == "Mark" and layer.Follow == true and body ~= nil and body.Parent ~= nil then
+		-- A mark is on the page and never moves: one that follows is laid where the body stands, turned the way it
+		-- faces, when the mark is laid -- a rush the server takes again every stroke leaves its cuts where they
+		-- were struck, not where it began.
+		base = body.CFrame
+	end
 	local hand = context.Hand
 	if layer.Anchor == "Hand" and hand ~= nil and hand.Parent ~= nil then
 		-- Born in the hand that throws it, turned the way the effect is aimed.
@@ -1632,7 +1639,8 @@ local function stepLive(entry: Live, now: number, deltaTime: number)
 	end
 	if entry.Layer.Ride == true then
 		followCarrier(entry)
-	elseif entry.Layer.Follow == true then
+	elseif entry.Layer.Follow == true and kind ~= "Mark" then
+		-- A mark that follows was laid under the body once (activate): the page does not move with it.
 		followBody(entry)
 	end
 	if kind == "Sprite" then

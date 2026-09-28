@@ -51,6 +51,8 @@ type CombatApi = {
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
+	-- A charged glyph or a rush holding its caster (D-142): no other glyph until it ends or a dash breaks it.
+	isChanneling: (player: Player) -> boolean,
 	grantIFrames: (player: Player, seconds: number) -> (),
 	applyStoneSkin: (player: Player) -> boolean,
 }
@@ -302,7 +304,7 @@ local function onCastGlyph(player: Player, sequence: { string })
 	if root == nil then
 		return
 	end
-	if combat.isStunned(player) or combat.isBlocking(player) then
+	if combat.isStunned(player) or combat.isBlocking(player) or combat.isChanneling(player) then
 		return
 	end
 	local now = os.clock()

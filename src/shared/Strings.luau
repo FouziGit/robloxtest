@@ -237,6 +237,46 @@ Strings.Table = {
 		en = "Your signature leaps from body to body, and everyone it touches is signed.",
 		fr = "Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé.",
 	},
+	["glyph.Volute.name"] = { en = "Volute", fr = "Volute" },
+	["glyph.Volute.desc"] = {
+		en = "Winds a coil of ink in your hand, then presses it into the closest enemy: hurled back and stunned.",
+		fr = "Enroule une volute d'encre dans ta main, puis la plaque sur l'ennemi le plus proche : projeté et étourdi.",
+	},
+	["glyph.Rubric.name"] = { en = "Rubric", fr = "Rubrique" },
+	["glyph.Rubric.desc"] = {
+		en = "Hold still to charge, then rule a thick red line straight ahead that pierces up to three enemies.",
+		fr = "Charge sans bouger, puis trace droit devant une épaisse ligne rouge qui transperce jusqu'à trois ennemis.",
+	},
+	["glyph.Swash.name"] = { en = "Swash", fr = "Paraphe" },
+	["glyph.Swash.desc"] = {
+		en = "Sweeps a wide flourish of ink along the ground, cutting through everyone in its path until a wall stops it.",
+		fr = "Lance au ras du sol un large paraphe d'encre qui tranche tous ceux qu'il traverse, jusqu'au premier mur.",
+	},
+	["glyph.Dagger.name"] = { en = "Dagger", fr = "Obèle" },
+	["glyph.Dagger.desc"] = {
+		en = "Vanish and reappear behind the nearest enemy in front of you, striking their back.",
+		fr = "Disparais et réapparais dans le dos de l'ennemi le plus proche devant toi, et frappe-le.",
+	},
+	["glyph.Cartouche.name"] = { en = "Cartouche", fr = "Cartouche" },
+	["glyph.Cartouche.desc"] = {
+		en = "Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.",
+		fr = "Encadre d'encre le sol autour de toi : les ennemis pris dedans sont étourdis malgré leur garde, puis ralentis et blessés tant qu'ils y restent.",
+	},
+	["glyph.Emboss.name"] = { en = "Emboss", fr = "Gaufrage" },
+	["glyph.Emboss.desc"] = {
+		en = "Presses the page outward from you: everyone around you is thrown back.",
+		fr = "Repousse la page tout autour de toi : tous ceux qui t'entourent sont projetés.",
+	},
+	["glyph.Stitch.name"] = { en = "Stitch", fr = "Chaînette" },
+	["glyph.Stitch.desc"] = {
+		en = "Throws a stitch of ink that catches the first enemy in its path and drags them to you, rooted.",
+		fr = "Lance une chaînette d'encre qui saisit le premier ennemi sur sa route et le ramène à toi, cloué au sol.",
+	},
+	["glyph.Hatching.name"] = { en = "Hatching", fr = "Hachures" },
+	["glyph.Hatching.desc"] = {
+		en = "A flurry of strokes in front of you, then a last one that launches.",
+		fr = "Une rafale de traits devant toi, puis un dernier qui projette.",
+	},
 
 	-- Pigment statuses (CombatConfig.Status): shown as floating text on the marked target
 	["status.fanned"] = { en = "Fanned", fr = "Éventé" },
@@ -586,6 +626,10 @@ Strings.Table = {
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
 	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
+	["loadout.caughtUp"] = {
+		en = "New glyphs unlocked: {count}. Add them to your loadout.",
+		fr = "Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.",
+	},
 	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
 	["loadout.stats"] = {
 		en = "{damage} damage · {cost} ink · {cooldown}s",

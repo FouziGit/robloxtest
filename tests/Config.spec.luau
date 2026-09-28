@@ -33,7 +33,7 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 -- Balance targets of docs/GAME_DESIGN.md §3 and §5.
-local ROSTER_SIZE = 20
+local ROSTER_SIZE = 28
 local COST_MIN, COST_MAX = 15, 55 -- §5 table: Slicing Gust 15 … Colophon 55
 local COOLDOWN_MIN, COOLDOWN_MAX = 3, 25
 local SUSTAINED_DPS_MAX = 7 -- a two-key basic, cast once per cooldown
@@ -67,8 +67,14 @@ local function heaviestHit(): number
 	return heaviest
 end
 
--- Damage one target takes from a single full cast: zones and trails tick, everything else hits once.
+-- Damage one target takes from a single full cast: zones and trails tick, everything else hits once. An
+-- ultimate that opens with one hit and ticks after it (Params.TickDamage, D-140) is that hit plus its ticks:
+-- read as Damage per tick, the Cartouche would count 28 five times.
 local function castDamage(glyph: GlyphConfig.GlyphDef): number
+	local tickDamage = glyph.Params.TickDamage
+	if tickDamage ~= nil then
+		return glyph.Damage + tickDamage * (glyph.Params.Ticks or 0)
+	end
 	local hits = glyph.Params.MaxHitsPerTarget or glyph.Params.Ticks or 1
 	return glyph.Damage * hits
 end
@@ -177,13 +183,15 @@ describe("GlyphConfig", function()
 				expect(ComboResolver.resolve(resolver, glyph.Combo)).toBe(glyph.Id)
 			end
 		end
-		-- Colophon's third press is the only intermediate that is not itself a recipe: it waits the
-		-- full timeout instead of casting (docs/GAME_DESIGN.md §4 rule 5).
-		local pending, third = ComboResolver.push(resolver, { "Orpiment", "Orpiment" }, "Orpiment")
-		expect(#pending).toBe(3)
-		expect(third.Action).toBe("Wait")
-		if third.Action == "Wait" then
-			expect(third.Castable).toBe(false)
+		-- Colophon's third press and the Cartouche's are the only intermediates that are not themselves a
+		-- recipe: they wait the full timeout instead of casting (docs/GAME_DESIGN.md §4 rule 5).
+		for _, pigment in ipairs({ "Orpiment", "Indigo" }) do
+			local pending, third = ComboResolver.push(resolver, { pigment, pigment }, pigment)
+			expect(#pending).toBe(3)
+			expect(third.Action).toBe("Wait")
+			if third.Action == "Wait" then
+				expect(third.Castable).toBe(false)
+			end
 		end
 	end)
 
@@ -205,6 +213,12 @@ describe("GlyphConfig", function()
 			if stun ~= nil then
 				expect(stun * (glyph.Params.Ticks or 1)).toBeLessThanOrEqual(CombatConfig.Hit.StunMaxSeconds)
 			end
+			-- A tick after an opening hit is lighter than that hit, and there are ticks to deal it (D-140).
+			local tickDamage = glyph.Params.TickDamage
+			if tickDamage ~= nil then
+				expect(tickDamage).toBeLessThan(glyph.Damage)
+				expect(glyph.Params.Ticks).toBeGreaterThan(0)
+			end
 		end
 		-- Checked against the AMPLIFIED hit, not the raw number: a Cinnabar ultimate on a Fanned target is
 		-- multiplied by 1.25, and that is what the player loses.
@@ -218,6 +232,18 @@ describe("GlyphConfig", function()
 						("%s removes %.1f from a marked target and an ultimate may remove %d"):format(
 							glyph.Id,
 							amplified,
+							ULTIMATE_HIT_MAX
+						)
+					)
+				end
+				-- And the whole cast, ticks included: half the health is the ceiling of one ultimate, not of its
+				-- first hit.
+				local whole = castDamage(glyph) * (amplifier[glyph.Pigment] or 1)
+				if whole > ULTIMATE_HIT_MAX then
+					error(
+						("%s's whole cast removes %.1f from a marked target and an ultimate may remove %d"):format(
+							glyph.Id,
+							whole,
 							ULTIMATE_HIT_MAX
 						)
 					)

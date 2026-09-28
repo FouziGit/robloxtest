@@ -268,12 +268,25 @@ local function buildPip(index: number, parent: Instance): Slot
 	local scale = Instance.new("UIScale")
 	scale.Parent = pip
 	pip.Parent = parent
+	local veil = drain(pip)
+	-- The pips sit on the dock's ink plate, which is the colour of their own ink outline: an Indigo or an
+	-- Umber pip, 2.15 and 2.30 against it, needs the sheet's ring to keep its shape, the chips' ring
+	-- (ComboRow). Every pip wears it, as a pip changes pigment with the loadout; over the cooling veil.
+	local ring = Instance.new("Frame")
+	ring.Name = "Ring"
+	ring.BackgroundTransparency = 1
+	ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
+	ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
+	ring.ZIndex = veil.ZIndex + 1
+	Theme.corner(ring, Theme.Pill)
+	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
+	ring.Parent = pip
 	return {
 		Root = pip,
 		Scale = scale,
 		Chip = pip,
 		Sigil = nil,
-		Drain = drain(pip),
+		Drain = veil,
 		Seconds = nil,
 		Drop = nil,
 		Flash = nil,

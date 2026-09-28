@@ -170,4 +170,45 @@ describe("the touch dock's pips, run", function()
 	end)
 end)
 
+describe("the touch dock's pips on its ink, run", function()
+	it("ring every pip in the sheet, over its cooling veil, so a dark pigment keeps its shape", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local CombatDock = world.require("src/ui/components/CombatDock")
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local dock = CombatDock.new({ Parent = gui, Screen = gui, LayoutOrder = 1, Width = 300, Pips = true })
+		local hotbar = Hotbar.new({
+			Parent = dock.PipRow,
+			Mode = "Pips",
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		-- One glyph of each pigment, the two dark ones included.
+		local ids, seen = {}, {}
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if not seen[def.Pigment] then
+				seen[def.Pigment] = true
+				table.insert(ids, def.Id)
+			end
+		end
+		expect(seen.Indigo and seen.Umber).toBe(true)
+		hotbar:SetLoadout(ids)
+		-- The sheet stands clear of the ink the pips sit on, where the pigment alone does not.
+		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Plate)).toBeGreaterThanOrEqual(3)
+		for index = 1, #ids do
+			local pip = hotbar.Instance:FindFirstChild("Pip" .. index)
+			local ring = pip:FindFirstChild("Ring")
+			expect(ring).never.toBeNil()
+			expect(ring:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.PanelRaised)
+			expect(ring.ZIndex).toBeGreaterThan(pip:FindFirstChild("Drain").ZIndex)
+		end
+	end)
+end)
+
 return nil

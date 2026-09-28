@@ -39,11 +39,17 @@ local STROKED_COMPONENTS = {
 	"ChapterBand",
 	"CardContent",
 	"Toast",
+	"CombatDock",
+	"ComboRow",
+	"ScoreBand",
+	"MetaCluster",
 }
 local BODY_CONTRAST = 4.5
 
 -- Fight surfaces: what is on screen during a round. Each one is added here in the commit that makes it
--- comply; HudController joins when its roster stops naming Success (spec slice C).
+-- comply. HudController joined when the roster that named Success left it for ScoreBand, which joins when
+-- that roster turns cyan (spec slice C). MetaCluster is the one HUD piece that may show value colours: it
+-- is hub-only, and HudController hides it in a fight (below).
 local FIGHT_FILES = {
 	"src/client/Controllers/BossController.luau",
 	"src/client/Controllers/Feel.luau",
@@ -52,6 +58,9 @@ local FIGHT_FILES = {
 	"src/ui/components/DamageNumber.luau",
 	"src/ui/components/LockMarker.luau",
 	"src/ui/components/TouchButton.luau",
+	"src/client/Controllers/HudController.luau",
+	"src/ui/components/CombatDock.luau",
+	"src/ui/components/ComboRow.luau",
 }
 -- Rule 11: the value colours never enter a fight, by role, by helper, or through a chapter, a rarity or
 -- a rank.
@@ -343,6 +352,11 @@ describe("no value colour in a fight", function()
 		if #found > 0 then
 			error("a fight shows no value colour (docs/ART_BIBLE.md rule 11):\n" .. table.concat(found, "\n"))
 		end
+	end)
+
+	it("is kept out of it: the hub's meta cluster hides in a match and in an arena", function()
+		local hud = stripComments(fs.readFile("src/client/Controllers/HudController.luau"))
+		expect(string.find(hud, "metaCluster:SetVisible(not (inMatch or inArena))", 1, true)).never.toBeNil()
 	end)
 end)
 

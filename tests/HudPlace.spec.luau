@@ -71,6 +71,77 @@ describe("where the HUD thinks the player is, run", function()
 	end)
 end)
 
+-- The same ways in and out, for the auras (D-148): TravelController says whether the local player stands where
+-- others fight, and CosmeticController quiets every aura on their screen while it holds. BossChanged reaches
+-- TravelController and BossController both, as the engine delivers a remote to every listener; a fixture that
+-- kept one handler per remote let BossController's hide TravelController's, and the Erasure's end never ended
+-- the auras' fight here.
+local function erasure(phase: string, practice: boolean): any
+	return {
+		Phase = phase,
+		SecondsLeft = 60,
+		Health = 1000,
+		MaxHealth = 1000,
+		PhaseIndex = 1,
+		Participants = 1,
+		MyShare = 0,
+		Practice = practice,
+	}
+end
+
+describe("whether the player fights, for the auras, run", function()
+	it("fights in the Erasure's arena from its gate until its fight ends", function()
+		local fixture = setup()
+		expect(fixture.travel.inFight()).toBe(false)
+		fixture.remote("Travelled", "WorldBoss")
+		expect(fixture.travel.inFight()).toBe(true)
+		fixture.remote("BossChanged", nil)
+		expect(fixture.travel.inFight()).toBe(false)
+		expect(inHub(fixture)).toBe(true)
+	end)
+
+	it("stops fighting when a body that died in the Erasure's arena comes back at the hub", function()
+		local fixture = setup()
+		fixture.remote("Travelled", "WorldBoss")
+		fixture.world.player.CharacterAdded:Fire(Engine.instance("Model"))
+		expect(fixture.travel.inFight()).toBe(false)
+	end)
+
+	it("fights as a member of the Battleground through a respawn and the Erasure's end, until it lets go", function()
+		local fixture = setup()
+		fixture.remote("Travelled", "Battleground")
+		fixture.remote("BattlegroundChanged", { Standing = 3, Defeated = 0 })
+		expect(fixture.travel.inFight()).toBe(true)
+		fixture.world.player.CharacterAdded:Fire(Engine.instance("Model"))
+		fixture.remote("BossChanged", nil)
+		expect(fixture.travel.inFight()).toBe(true)
+		fixture.remote("BattlegroundChanged", nil)
+		expect(fixture.travel.inFight()).toBe(false)
+		expect(inHub(fixture)).toBe(true)
+	end)
+
+	it("is pulled into the scheduled Erasure as it starts fighting, never into a practice", function()
+		local fixture = setup()
+		fixture.remote("BossChanged", erasure("Announced", false))
+		expect(fixture.travel.inFight()).toBe(false)
+		fixture.remote("BossChanged", erasure("Fighting", false))
+		expect(fixture.travel.inFight()).toBe(true)
+		fixture.remote("BossChanged", nil)
+		expect(fixture.travel.inFight()).toBe(false)
+		fixture.remote("BossChanged", erasure("Announced", true))
+		fixture.remote("BossChanged", erasure("Fighting", true))
+		expect(fixture.travel.inFight()).toBe(false)
+	end)
+
+	it("is not pulled out of a match", function()
+		local fixture = setup()
+		fixture.match(SNAPSHOT)
+		fixture.remote("BossChanged", erasure("Announced", false))
+		fixture.remote("BossChanged", erasure("Fighting", false))
+		expect(fixture.travel.inFight()).toBe(false)
+	end)
+end)
+
 -- The medallion of the toast `kind` showing now, as the toast lane draws it.
 local function medallionOf(fixture: Fixture, kind: string): any
 	local toasts = fixture.world.playerGui:FindFirstChild("Toasts")

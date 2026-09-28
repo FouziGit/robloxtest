@@ -23,6 +23,8 @@ export type Fixture = {
 	screen: any,
 	-- The hub's meta cluster.
 	cluster: any,
+	-- The real TravelController, run beside the HUD: whether the local player fights, for the auras.
+	travel: any,
 }
 
 -- A match of `mode` in its Playing phase, `perTeam` a side, full health.
@@ -66,11 +68,18 @@ function Hud.build(options: Options?): Fixture
 		Engine.phone(world, phone[1], phone[2])
 	end
 	local profile = if options ~= nil then options.Profile else nil
-	local handlers: { [string]: (...any) -> () } = {}
+	-- Every listener of a remote, in the order it connected: the real RemoteClient connects each one to the
+	-- remote's OnClientEvent, and BossChanged is heard by TravelController and BossController both.
+	local handlers: { [string]: { (...any) -> () } } = {}
 	local signal = Engine.signal
 	local remoteClient = {
 		on = function(name: string, handler: (...any) -> ()): any
-			handlers[name] = handler
+			local listeners = handlers[name]
+			if listeners == nil then
+				listeners = {}
+				handlers[name] = listeners
+			end
+			table.insert(listeners, handler)
 			return signal():Connect(handler)
 		end,
 		fire = function() end,
@@ -86,6 +95,17 @@ function Hud.build(options: Options?): Fixture
 	local sound = { play = function() end, wantMusic = function() end }
 	local matchChanged = signal()
 	local current: any = nil
+	local matchController = {
+		MatchChanged = matchChanged,
+		QueueChanged = signal(),
+		getMatch = function(): any
+			return current
+		end,
+		getQueue = function(): any
+			return { Queued = false, WaitedSeconds = 0 }
+		end,
+		leaveQueue = function() end,
+	}
 	local HudController = world.require("src/client/Controllers/HudController")
 	HudController.Init({
 		Localize = localize,
@@ -104,17 +124,7 @@ function Hud.build(options: Options?): Fixture
 				return { Health = 100, MaxHealth = 100, Ink = 100, MaxInk = 100, Cooldowns = {}, InCombat = false }
 			end,
 		},
-		MatchController = {
-			MatchChanged = matchChanged,
-			QueueChanged = signal(),
-			getMatch = function(): any
-				return current
-			end,
-			getQueue = function(): any
-				return { Queued = false, WaitedSeconds = 0 }
-			end,
-			leaveQueue = function() end,
-		},
+		MatchController = matchController,
 		MenuController = {
 			open = function() end,
 			toggle = function() end,
@@ -144,6 +154,7 @@ function Hud.build(options: Options?): Fixture
 		Localize = localize,
 		HudController = HudController,
 		SoundController = sound,
+		MatchController = matchController,
 	})
 	local Boss = world.require("src/client/Controllers/BossController")
 	Boss.Init({
@@ -159,9 +170,11 @@ function Hud.build(options: Options?): Fixture
 	return {
 		world = world,
 		remote = function(name: string, ...: any)
-			local handler = handlers[name]
-			assert(handler ~= nil, "nothing listens to " .. name)
-			handler(...)
+			local listeners = handlers[name]
+			assert(listeners ~= nil, "nothing listens to " .. name)
+			for _, handler in ipairs(listeners) do
+				handler(...)
+			end
 		end,
 		match = function(snapshot: any)
 			current = snapshot
@@ -169,6 +182,7 @@ function Hud.build(options: Options?): Fixture
 		end,
 		screen = world.playerGui:FindFirstChild("Hud"),
 		cluster = world.playerGui:FindFirstChild("MetaCluster", true),
+		travel = Travel,
 	}
 end
 

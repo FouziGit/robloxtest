@@ -193,6 +193,9 @@ hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe n
 hud.currency,{amount} {currency},Vellum,,{amount} {currency},{amount} {currency}
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
+hud.lock.dummy,Training dummy,Vellum,,Training dummy,Mannequin
+hud.lock.forger,Forger,Vellum,,Forger,Faussaire
+hud.lock.none,No target,Vellum,,No target,Aucune cible
 hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
 hud.sequence.streak,×{count},Vellum,,×{count},×{count}
 hud.splash.defeated,Defeated!,Vellum,,Defeated!,Vaincu !

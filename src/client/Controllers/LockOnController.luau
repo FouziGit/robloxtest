@@ -14,9 +14,12 @@
 -- while it lies there.
 --
 -- One loop, on PreSimulation: the facing is written just before physics steps, so the server's next
--- look at the character already faces the target.
+-- look at the character already faces the target. The same frame tells the mark (LockMarker) when the lock
+-- nears the distance it breaks at, and where the target is when it is out of view (D-147). A press that
+-- finds nothing says so, with the click a key makes, lower.
 
 local CollectionService = game:GetService("CollectionService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -32,27 +35,40 @@ local LockMarker = require(UI.components.LockMarker)
 local LockOnConfig = require(Shared.Config.LockOnConfig)
 local LockOnMath = require(Shared.Pure.LockOnMath)
 local Log = require(Shared.Util.Log)
+local ThemeConfig = require(Shared.Config.ThemeConfig)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 
 local log = Log.new("LockOnController")
 
-type Deps = { Feel: any, InputController: any, MatchController: any }
+type Deps = { Feel: any, InputController: any, MatchController: any, Localize: any, SoundController: any }
 type Kind = "Player" | "Proof" | "Boss" | "Bot"
 type Lock = { Model: Model, Humanoid: Humanoid, Root: BasePart, Kind: Kind }
 
 local ACTION = "LockOn"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local RAGDOLL = CombatConfig.Status.RagdollAttribute
+-- Past this distance the mark warns that the lock is about to break (LockOnConfig.BreakStuds).
+local WARN_STUDS = LockOnConfig.BreakStuds - ThemeConfig.Hud.LockWarnStuds
+-- What the mark's plate calls a target that is not a player.
+local KIND_NAMES: { [Kind]: string } =
+	{ Proof = "hud.lock.dummy", Bot = "hud.lock.forger", Boss = WorldBossConfig.Boss.NameKey }
+-- A press that locks nothing clicks, lower than a key does.
+local MISS_SOUND = "UiClick"
+local MISS_PITCH = 0.8
 
 local LockOnController = {}
 
 local feel: any
 local inputController: any
 local matchController: any
+local localize: any
+local soundController: any
 
 local player = Players.LocalPlayer
 local current: Lock? = nil
 local marker: LockMarker.LockMarker? = nil
+-- Whether the mark is warning of the break, so it is told only when that changes.
+local warned = false
 
 local sightParams = RaycastParams.new()
 sightParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -230,11 +246,23 @@ local function release()
 	end
 end
 
+-- What the mark's plate names `lock`: a player by their display name, anything else by what it is.
+local function nameOf(lock: Lock): string
+	local other = if lock.Kind == "Player" then Players:GetPlayerFromCharacter(lock.Model) else nil
+	if other ~= nil then
+		return other.DisplayName
+	end
+	local key = KIND_NAMES[lock.Kind]
+	return if key ~= nil then localize.t(key) else ""
+end
+
 local function engage(lock: Lock)
+	warned = false
 	current = lock
 	feel.lockOn(lock.Root)
 	if marker ~= nil then
 		marker:Show(lock.Root, liftOf(lock))
+		marker:SetTarget(nameOf(lock), lock.Humanoid)
 	end
 	-- Faced at once: the first punch after the press must already go at them.
 	face(lock)
@@ -248,6 +276,11 @@ local function toggle()
 	local lock = acquire()
 	if lock ~= nil then
 		engage(lock)
+	end
+	-- Nothing to take: said where the eye is, rather than a press that does nothing.
+	if lock == nil and marker ~= nil then
+		marker:ShowMiss()
+		soundController.play(MISS_SOUND, nil, { Pitch = MISS_PITCH })
 	end
 end
 
@@ -288,6 +321,34 @@ local function onMatchChanged()
 	release()
 end
 
+-- What the mark shows of a held lock each frame: the warning as the distance nears the break, told only when
+-- it changes, and the chevron toward a target out of view (written every frame, no spring).
+local function track(lock: Lock)
+	local _, root = localBody()
+	local camera = Workspace.CurrentCamera
+	local mark = marker
+	if root == nil or camera == nil or mark == nil then
+		return
+	end
+	local warning = (lock.Root.Position - root.Position).Magnitude > WARN_STUDS
+	if warning ~= warned then
+		warned = warning
+		mark:SetWarning(warning)
+	end
+	local point, visible = camera:WorldToScreenPoint(lock.Root.Position)
+	if visible then
+		mark:SetOffscreen(nil)
+		return
+	end
+	local inset = GuiService:GetGuiInset()
+	local centre = (camera.ViewportSize - inset) / 2
+	-- Behind the camera the projection comes out mirrored: the target is the other way.
+	local toward = if point.Z < 0
+		then centre - Vector2.new(point.X, point.Y)
+		else Vector2.new(point.X, point.Y) - centre
+	mark:SetOffscreen(toward)
+end
+
 local function step()
 	local lock = current
 	if lock == nil then
@@ -298,6 +359,7 @@ local function step()
 		return
 	end
 	face(lock)
+	track(lock)
 end
 
 function LockOnController.isLocked(): boolean
@@ -308,11 +370,13 @@ function LockOnController.Init(deps: Deps)
 	feel = deps.Feel
 	inputController = deps.InputController
 	matchController = deps.MatchController
+	localize = deps.Localize
+	soundController = deps.SoundController
 end
 
 function LockOnController.Start()
 	local playerGui = player:WaitForChild("PlayerGui")
-	marker = LockMarker.new(playerGui, LockOnConfig.Marker.SizePx)
+	marker = LockMarker.new(playerGui, LockOnConfig.Marker.SizePx, localize)
 	inputController.Action:Connect(function(actionId: string, began: boolean)
 		if actionId == ACTION and began then
 			toggle()

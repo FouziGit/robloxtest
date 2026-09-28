@@ -702,6 +702,10 @@ Strings.Table = {
 	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
 	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
 	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
+	-- The lock's mark (LockMarker): a press that finds nothing, and the plate's name for what is not a player.
+	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
+	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
+	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
 } :: { [string]: Entry }
 
 -- Substitutes {name} placeholders. Missing params are left as-is.

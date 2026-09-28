@@ -48,6 +48,7 @@ local STROKED_COMPONENTS = {
 	"Banner",
 	"TouchButton",
 	"DamageNumber",
+	"LockMarker",
 }
 local BODY_CONTRAST = 4.5
 

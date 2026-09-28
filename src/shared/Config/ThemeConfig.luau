@@ -319,6 +319,8 @@ ThemeConfig.Hud = {
 	PreviewHeight = 32,
 	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
 	LowHealthFraction = 0.3,
+	-- The lock's mark warns this many studs before the distance a lock breaks at (LockOnConfig.BreakStuds).
+	LockWarnStuds = 20,
 }
 
 -- docs/ART_BIBLE.md (D-147): a rounded poster face for titles (Fredoka One), a rounded grotesque for words

@@ -92,14 +92,18 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | BossSweep | 20 | 15 | 8 | 4.00 | 98 | 19 | 8 | 6 | 4 | 0 | 0 | 0 | 1 |
 | Brand | 13 | 11 | 9 | 1.66 | 67 | 21 | 9 | 0 | 3 | 4 | 2 | 0 | 1 |
 | Caret | 16 | 12 | 9 | 1.57 | 37 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
+| Cartouche | 29 | 21 | 10 | 5.73 | 216 | 22 | 10 | 6 | 3 | 0 | 0 | 0 | 2 |
 | Cast | 9 | 7 | 6 | 0.54 | 16 | 13 | 6 | 2 | 4 | 0 | 0 | 0 | 1 |
 | Colophon | 21 | 16 | 12 | 2.19 | 77 | 33 | 12 | 6 | 4 | 6 | 3 | 0 | 2 |
 | ColophonLink | 15 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
+| Dagger | 16 | 12 | 9 | 1.57 | 35 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
+| Emboss | 14 | 11 | 9 | 2.53 | 88 | 19 | 9 | 3 | 4 | 0 | 0 | 0 | 2 |
 | Explosion | 17 | 14 | 11 | 3.22 | 60 | 38 | 18 | 4 | 4 | 0 | 0 | 0 | 1 |
 | ForgerTell | 8 | 7 | 6 | 2.25 | 2 | 12 | 6 | 4 | 2 | 0 | 0 | 0 | 0 |
 | Gilding | 18 | 15 | 11 | 4.00 | 134 | 26 | 10 | 11 | 3 | 0 | 0 | 0 | 1 |
 | Hairline | 12 | 9 | 8 | 0.99 | 42 | 19 | 8 | 0 | 3 | 4 | 2 | 0 | 2 |
+| Hatching | 29 | 18 | 7 | 3.13 | 176 | 15 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
 | Hit | 10 | 9 | 7 | 2.58 | 36 | 16 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
 | KillOverexposure | 5 | 5 | 5 | 2.90 | 30 | 12 | 5 | 6 | 1 | 0 | 0 | 0 | 0 |
 | KillRedaction | 4 | 4 | 4 | 2.90 | 0 | 11 | 4 | 7 | 0 | 0 | 0 | 0 | 0 |
@@ -109,18 +113,25 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Margin | 20 | 17 | 12 | 5.45 | 39 | 31 | 12 | 15 | 3 | 0 | 0 | 0 | 1 |
 | Melee | 4 | 4 | 4 | 0.46 | 14 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 0 |
 | Pounce | 13 | 12 | 6 | 4.72 | 288 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
+| Rubric | 15 | 11 | 8 | 2.13 | 64 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| RubricCharge | 10 | 9 | 6 | 1.00 | 87 | 15 | 6 | 5 | 3 | 0 | 0 | 0 | 1 |
 | Rupture | 19 | 16 | 12 | 3.22 | 82 | 31 | 12 | 13 | 3 | 0 | 0 | 0 | 2 |
 | Scorch | 21 | 19 | 10 | 3.23 | 358 | 20 | 10 | 3 | 6 | 0 | 0 | 0 | 1 |
 | Serif | 20 | 17 | 12 | 2.30 | 25 | 30 | 13 | 11 | 2 | 2 | 0 | 1 | 1 |
 | Spiral | 24 | 19 | 7 | 4.62 | 168 | 14 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
 | Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
+| Stitch | 13 | 9 | 7 | 1.53 | 32 | 20 | 7 | 1 | 2 | 6 | 3 | 0 | 1 |
+| StitchCatch | 8 | 8 | 7 | 1.15 | 16 | 16 | 6 | 3 | 2 | 2 | 1 | 0 | 1 |
 | Strike | 15 | 11 | 8 | 1.83 | 49 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| Swash | 17 | 13 | 10 | 2.15 | 123 | 25 | 10 | 4 | 3 | 4 | 2 | 0 | 1 |
 | Sweep | 13 | 11 | 9 | 1.10 | 58 | 29 | 14 | 2 | 4 | 0 | 0 | 0 | 1 |
 | Tap | 4 | 4 | 4 | 0.25 | 10 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 1 |
+| Volute | 12 | 10 | 8 | 2.90 | 45 | 19 | 8 | 7 | 3 | 0 | 0 | 0 | 1 |
+| VoluteCharge | 7 | 6 | 5 | 0.70 | 37 | 13 | 5 | 4 | 3 | 0 | 0 | 0 | 1 |
 | Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
 | Watermark | 25 | 20 | 6 | 4.34 | 119 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 41 timelines et 577 couches, dont 474 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 52 timelines et 747 couches, dont 602 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

@@ -9,10 +9,16 @@
 --     how many this player helped defeat, with the match's loop in their ears (BattlegroundChanged). A death
 --     inside keeps it up: the camp takes the next body back, and the server says nothing until it lets go;
 --   * Travelled, fired once a portal has moved the player: MenuController closes whatever screen was open, so
---     nobody arrives somewhere new with their input suspended.
+--     nobody arrives somewhere new with their input suspended;
+--   * FightChanged, whether the player stands where others fight: the Battleground while the server keeps them
+--     a member; the Erasure's arena from its gate, or from the moment a scheduled event starts fighting and
+--     pulls in everybody not in a match (WorldBossService, no portal), until they walk back out, die (a body
+--     is reborn in the hub) or the fight closes (BossChanged nil: its end sends whoever stands in the arena
+--     home). CosmeticController quiets every aura on this screen while it holds, with a ranked match (D-148).
 -- Both bands are children of the HUD's top-centre column (HudController.topStack) and grow into place like the
 -- match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -31,7 +37,7 @@ local log = Log.new("TravelController")
 
 type Band = "Boss" | "Place" | "Portal"
 type HudApi = { topStack: (band: Band?) -> (Frame?, number) }
-type Deps = { RemoteClient: any, Localize: any, HudController: HudApi?, SoundController: any }
+type Deps = { RemoteClient: any, Localize: any, HudController: HudApi?, SoundController: any, MatchController: any }
 
 local BAND_WIDTH = 360
 -- A band that is shown grows into place: rule 3 of docs/ART_BIBLE.md, nothing appears.
@@ -47,16 +53,24 @@ local FILL_DIRECTION = Enum.EasingDirection.InOut
 -- The loop a member hears (SoundController.wantMusic): the fight's, under the source this controller owns.
 local MUSIC_SOURCE = "Battleground"
 local MUSIC_ID = "Match"
+-- The portal whose trip puts the player in the Erasure's arena (PortalConfig.Ids).
+local ARENA_PORTAL = "WorldBoss"
+-- The scheduled event's phases (Types.BossPhaseSnapshot) between which it pulls its players in.
+local ANNOUNCED_PHASE = "Announced"
+local PULL_PHASE = "Fighting"
 
 local TravelController = {}
 
 -- Fired once a portal has moved the local player, with where it took them (a PortalConfig.PortalId).
 TravelController.Travelled = Signal.new() -- (id: string)
+-- Fired when the local player enters or leaves a place where others fight (see the header).
+TravelController.FightChanged = Signal.new() -- (fighting: boolean)
 
 local remoteClient: any
 local localize: any
 local hudController: HudApi?
 local soundController: any
+local matchController: any
 
 local portalBand: Frame
 local portalScale: UIScale
@@ -68,6 +82,10 @@ local placeScale: UIScale
 local placeTitle: TextLabel
 local placeLine: TextLabel
 local member = false
+-- In the Erasure's arena, as far as its gate and its fight say, and the fight's last phase heard.
+local inArena = false
+local bossPhase: string? = nil
+local fighting = false
 local malformedWarned: { [string]: boolean } = {}
 
 local function warnMalformed(remote: string, payload: any)
@@ -80,6 +98,15 @@ end
 
 local function finite(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+local function refreshFight()
+	local now = member or inArena
+	if now == fighting then
+		return
+	end
+	fighting = now
+	TravelController.FightChanged:Fire(now)
 end
 
 local function makeBand(name: string, order: number, stack: Frame): (Frame, UIScale)
@@ -237,6 +264,7 @@ local function onBattlegroundChanged(payload: any)
 		if member then
 			member = false
 			soundController.wantMusic(MUSIC_SOURCE, nil)
+			refreshFight()
 		end
 		return
 	end
@@ -254,6 +282,7 @@ local function onBattlegroundChanged(payload: any)
 	if not member then
 		member = true
 		soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID)
+		refreshFight()
 	end
 end
 
@@ -262,7 +291,48 @@ local function onTravelled(id: any)
 		warnMalformed("Travelled", id)
 		return
 	end
+	inArena = id == ARENA_PORTAL
+	refreshFight()
 	TravelController.Travelled:Fire(id)
+end
+
+-- The Erasure's fight as the server tells it. Its close (nil) sends whoever stands in the arena home, and a
+-- practice's nil is its own participant let go (a ranked match took them). A scheduled event that turns from
+-- announced to fighting has just pulled in everybody alive and in no match; a practice is only ever entered
+-- by its gate, and a player who arrives in the middle of an event was never pulled.
+local function onBossChanged(payload: any)
+	if payload == nil then
+		bossPhase = nil
+		if inArena then
+			inArena = false
+			refreshFight()
+		end
+		return
+	end
+	if type(payload) ~= "table" then
+		return
+	end
+	local phase = payload.Phase
+	if phase == PULL_PHASE and bossPhase == ANNOUNCED_PHASE and payload.Practice ~= true then
+		if matchController.getMatch() == nil then
+			inArena = true
+			refreshFight()
+		end
+	end
+	bossPhase = if type(phase) == "string" then phase else nil
+end
+
+-- A new body is born in the hub, wherever the last one fell: a death in the arena is a way out of it. (The
+-- Battleground takes its member's next body back itself, and says so through BattlegroundChanged.)
+local function onRespawn()
+	if inArena then
+		inArena = false
+		refreshFight()
+	end
+end
+
+function TravelController.inFight(): boolean
+	return fighting
 end
 
 function TravelController.Init(deps: Deps)
@@ -270,13 +340,16 @@ function TravelController.Init(deps: Deps)
 	localize = deps.Localize
 	hudController = deps.HudController
 	soundController = deps.SoundController
+	matchController = deps.MatchController
 end
 
 -- The bands are built here rather than in Init: the HUD's column exists once every Init has run.
 function TravelController.Start()
 	-- Travelled closes a menu whether or not the bands could be built: arriving with input suspended is the
-	-- worse failure.
+	-- worse failure. The arena is followed the same way: it draws no band.
 	remoteClient.on("Travelled", onTravelled)
+	remoteClient.on("BossChanged", onBossChanged)
+	Players.LocalPlayer.CharacterAdded:Connect(onRespawn)
 	if not build() then
 		return
 	end

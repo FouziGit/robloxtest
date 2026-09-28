@@ -17,9 +17,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Icon = require(script.Parent.Parent.components.Icon)
+local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
 local ListRow = require(script.Parent.Parent.components.ListRow)
-local Motion = require(script.Parent.Parent.Motion)
 local Panel = require(script.Parent.Parent.components.Panel)
 local QuestBoard = require(Shared.Pure.QuestBoard)
 local QuestCard = require(script.Parent.Parent.components.QuestCard)
@@ -70,9 +69,8 @@ local TITLE_KEYS: { [string]: string } = { Daily = "quest.daily", Weekly = "ques
 local LAYOUT_BASE: { [string]: number } = { Daily = 1, Weekly = 100 }
 -- A section waiting for the profile shows this many skeleton rows.
 local SKELETON_ROWS = 3
--- The Folios in the band: a pill of the sheet, the coin and the count.
+-- The Folios in the band: the shared pill (FoliosPill), as tall as the Shop's.
 local PILL_HEIGHT = 40
-local PILL_ICON = 26
 local SECONDS_PER_MINUTE = 60
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
@@ -99,42 +97,6 @@ local function questSet(data: Types.ProfileData, period: string): Types.QuestSet
 		return data.Quests.Daily
 	end
 	return data.Quests.Weekly
-end
-
--- The Folios the player holds, in the band: a pill of the sheet in a thin ink outline, the coin, the count.
-local function makeFoliosPill(parent: Instance): (Frame, TextLabel)
-	local frame = Instance.new("Frame")
-	frame.Name = "Folios"
-	frame.BackgroundColor3 = Theme.Colors.PanelRaised
-	frame.BorderSizePixel = 0
-	frame.AutomaticSize = Enum.AutomaticSize.X
-	frame.Size = UDim2.fromOffset(0, PILL_HEIGHT)
-	Theme.corner(frame, Theme.Pill)
-	Theme.stroke(frame, "Accent", Theme.Sizes.StrokeThin)
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, Theme.Sizes.PaddingSmall)
-	padding.PaddingRight = UDim.new(0, Theme.Sizes.Padding)
-	padding.Parent = frame
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
-	layout.Parent = frame
-	Icon.new("Coin", PILL_ICON).Parent = frame
-	local count = Instance.new("TextLabel")
-	count.Name = "Count"
-	count.BackgroundTransparency = 1
-	count.AutomaticSize = Enum.AutomaticSize.X
-	count.Size = UDim2.fromScale(0, 1)
-	count.LayoutOrder = 2
-	count.FontFace = Theme.Fonts.Numeric
-	count.TextSize = Theme.Sizes.Num
-	count.TextColor3 = Theme.Colors.Text
-	count.Text = ""
-	count.Parent = frame
-	frame.Parent = parent
-	return frame, count
 end
 
 function QuestsScreen.new(deps: Deps): Screen
@@ -172,24 +134,16 @@ function QuestsScreen.new(deps: Deps): Screen
 	own(trove, panel)
 	root:SetCard(panel)
 
-	local foliosPill, foliosLabel = makeFoliosPill(panel.Right)
-	local shownFolios: number? = nil
+	local foliosPill = FoliosPill.new({ Height = PILL_HEIGHT, Parent = panel.Right })
+	own(trove, foliosPill)
 
-	-- The count follows the profile: it counts up while the screen is up (a claim paid out), and is simply
+	-- The count follows the profile: it counts while the screen is up (a claim paid out), and is simply
 	-- written otherwise.
 	local function refreshFolios()
 		local data = deps.ClientData.get()
-		foliosPill.Visible = data ~= nil
-		if data == nil then
-			return
-		end
-		local folios = data.Currency.Folios
-		local previous = shownFolios
-		shownFolios = folios
-		if previous ~= nil and folios > previous and visible then
-			Motion.countTo(foliosLabel, previous, folios, tostring)
-		else
-			foliosLabel.Text = tostring(folios)
+		foliosPill.Instance.Visible = data ~= nil
+		if data ~= nil then
+			foliosPill:Set(data.Currency.Folios, visible)
 		end
 	end
 

@@ -63,3 +63,28 @@ describe("a claim", function()
 		expect(has(daily, "os.time(")).toBe(false)
 	end)
 end)
+
+describe("the Folios in a chapter band", function()
+	it("are one pill, whichever slice drew the screen", function()
+		-- A screen that shows the balance shows it in FoliosPill: the same coin, count and count-up
+		-- everywhere, rather than a copy of it that drifts.
+		local screens = {}
+		for _, entry in ipairs(fs.readDir("src/ui/screens")) do
+			if string.match(entry, "Screen%.luau$") then
+				table.insert(screens, "src/ui/screens/" .. entry)
+			end
+		end
+		local showing = 0
+		for _, path in ipairs(screens) do
+			local source = code(path)
+			if has(source, "Currency.Folios") then
+				showing += 1
+				if not has(source, "FoliosPill.new(") then
+					error(path .. " shows the Folios without FoliosPill")
+				end
+			end
+		end
+		-- The Menu, the Shop, the Daily reward and the Quests: this gate checks something.
+		expect(showing).toBeGreaterThanOrEqual(4)
+	end)
+end)

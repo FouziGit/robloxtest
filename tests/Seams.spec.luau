@@ -4,6 +4,7 @@
 -- on the player's clock beside one counted on the server's. These rules hold the joins. The screens are
 -- engine code Lune cannot run, so they are read.
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -14,6 +15,7 @@ local MENU = "src/ui/screens/MenuScreen.luau"
 local DAILY = "src/ui/screens/DailyScreen.luau"
 local SHOP = "src/ui/screens/ShopScreen.luau"
 local MATCHMAKING = "src/server/Services/MatchmakingService.luau"
+local THEME = "src/ui/Theme.luau"
 
 local function stripComments(source: string): string
 	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
@@ -159,5 +161,22 @@ describe("a queue that finds nobody", function()
 		local server = code(MATCHMAKING)
 		expect(has(server, 'notify.send(player, "queue.timedOut", nil, "Info")')).toBe(true)
 		expect(has(server, '"queue.timedOut", nil, "Error"')).toBe(false)
+	end)
+end)
+
+describe("a size of the HUD", function()
+	it("has one home, the one HudFit adds up", function()
+		-- Slice C moved the HUD's geometry into ThemeConfig.Hud, which Lune can read; a copy left in
+		-- Theme.Sizes would be a second value to drift from the one the fit test holds.
+		local sizes = string.match(fs.readFile(THEME), "\nTheme%.Sizes = (%b{})")
+		assert(sizes ~= nil, "Theme.luau has no Theme.Sizes table: this gate would check nothing")
+		local names = 0
+		for name in string.gmatch(sizes :: string, "\n\t(%w+) = ") do
+			names += 1
+			if (ThemeConfig.Hud :: any)[name] ~= nil then
+				error(("Theme.Sizes.%s is also ThemeConfig.Hud.%s"):format(name, name))
+			end
+		end
+		expect(names).toBeGreaterThan(20)
 	end)
 end)

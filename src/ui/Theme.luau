@@ -144,9 +144,7 @@ Theme.Sizes = {
 	ButtonHeight = 52,
 	RowHeight = 56,
 	TileHeight = 150,
-	ChipSize = 44,
-	HotbarSlot = 56,
-	HotbarPip = 26,
+	-- The HUD's chips, hotbar slots and pips are ThemeConfig.Hud's, one home for the numbers HudFit adds up.
 	Keycap = 28,
 	Badge = 26,
 	Medallion = 48,

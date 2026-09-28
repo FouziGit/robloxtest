@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Proves that every pigment sigil is drawn with a glyph Roblox ships, and lists the codepoints that are.
+"""Proves that every pigment sigil, and every other character the code writes, is drawn with a glyph Roblox
+ships, and lists the codepoints that are.
 
     python3 tools/fonts/sigils.py
     python3 tools/fonts/sigils.py --fonts <content/fonts> --binary <RobloxStudio executable>
@@ -14,10 +15,12 @@ its fallback fonts in one block, right after the message it gives when the defau
 That block reads Arimo first, then the two emoji fonts, then one Noto face per script, then CJK. Arimo is
 bundled (content/fonts/families/Arimo.json, Regular and Bold on disk), so a codepoint present in both of
 its bundled faces is drawn, whatever face the interface is set in. Those are the codepoints this proves,
-and tests/Sigils.spec.luau holds PigmentConfig.Sigils to the list this prints.
+and tests/Sigils.spec.luau holds PigmentConfig.Sigils, and every string in src, to the list and the ranges
+this prints. The panels' close cross (U+2715) was the same empty box as the star.
 
-Run it again when Studio updates or when a sigil changes: it fails on a sigil the fallback cannot draw,
-and prints the list to paste into the test. Standard library only, like the generators in tools/.
+Run it again when Studio updates or when a sigil changes: it fails on a sigil or a string the fallback
+cannot draw, and prints the list and the ranges to paste into the test. Standard library only, like the
+generators in tools/.
 """
 
 from __future__ import annotations
@@ -31,7 +34,8 @@ import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PIGMENTS = ROOT / "src" / "shared" / "Config" / "PigmentConfig.luau"
+SOURCE = ROOT / "src"
+PIGMENTS = SOURCE / "shared" / "Config" / "PigmentConfig.luau"
 STUDIO = Path("/Applications/RobloxStudio.app/Contents")
 FONTS = STUDIO / "Resources" / "content" / "fonts"
 BINARY = STUDIO / "MacOS" / "RobloxStudio"
@@ -43,6 +47,11 @@ ASSET = b"rbxasset://fonts/"
 # Shapes weighed for a sigil besides the five in use, kept in the proven list when the fallback has them,
 # so the next choice is made from what is known to draw.
 CANDIDATES = (0x25CA, 0x263C, 0x2021, 0x2042, 0x203B, 0x25CF, 0x2726)
+
+# Whole blocks proven at once, every assigned codepoint of each, so a French string with a new accent does
+# not wait on this script: Latin-1 Supplement with Latin Extended-A, and General Punctuation.
+RANGES = ((0x00A0, 0x017F, "Latin-1 Supplement and Latin Extended-A"), (0x2010, 0x205E, "General Punctuation"))
+COMMENTS = (re.compile(r"--\[(=*)\[.*?\]\1\]", re.S), re.compile(r"--[^\n]*"))
 
 
 def cmap(path: Path) -> list[tuple[int, int]]:
@@ -141,6 +150,22 @@ def sigils() -> dict[str, str]:
     return dict(re.findall(r'^\t(\w+) = "([^"]+)",', block.group(1), re.M))
 
 
+def written() -> dict[int, str]:
+    """Every codepoint past ASCII the code writes, with the first file that writes it. An identifier is ASCII,
+    so once the comments are out what is left of it is the contents of strings (Vendor is not ours)."""
+    found: dict[int, str] = {}
+    for path in sorted(SOURCE.rglob("*.luau")):
+        if "Vendor" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for comment in COMMENTS:
+            text = comment.sub("", text)
+        for char in text:
+            if ord(char) > 0x7F:
+                found.setdefault(ord(char), str(path.relative_to(ROOT)))
+    return found
+
+
 def describe(code: int) -> str:
     return f"U+{code:04X} {chr(code)} {unicodedata.name(chr(code), '?')}"
 
@@ -183,10 +208,30 @@ def main(argv: list[str]) -> int:
             print(f"  {pigment:<10} {describe(code)}: {verdict}")
             failures += 0 if drawn(code) else 1
 
-    proven = sorted({code for code in (*used, *CANDIDATES) if drawn(code)})
+    def ranged(code: int) -> bool:
+        return any(low <= code <= high for low, high, _ in RANGES)
+
+    for low, high, name in RANGES:
+        missing = [code for code in range(low, high + 1) if unicodedata.name(chr(code), "") and not drawn(code)]
+        for code in missing:
+            print(f"  range {name}: {describe(code)} is NOT in every face")
+        failures += len(missing)
+
+    strings = written()
+    print(f"\n{len(strings)} characters past ASCII written in src:")
+    for code, path in sorted(strings.items()):
+        if not drawn(code):
+            print(f"  {path}: {describe(code)}: NOT in every face; first drawn by {drawer(code)}")
+            failures += 1
+    outside = [code for code in strings if not ranged(code)]
+
+    proven = sorted({code for code in (*used, *CANDIDATES, *outside) if drawn(code)})
     print("\nproven codepoints, for tests/Sigils.spec.luau:")
     for code in proven:
         print(f"\t0x{code:04X}, -- {chr(code)} {unicodedata.name(chr(code), '?')}")
+    print("\nproven ranges:")
+    for low, high, name in RANGES:
+        print(f"\t{{ 0x{low:04X}, 0x{high:04X} }}, -- {name}")
     for code in CANDIDATES:
         if not drawn(code):
             print(f"  (not proven: {describe(code)}, first drawn by {drawer(code)})")

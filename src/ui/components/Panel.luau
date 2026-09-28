@@ -53,7 +53,7 @@ local Panel = {}
 -- about its own centre, whenever the screen it belongs to is enabled.
 local ENTER_SCALE = 0.94
 
-local CLOSE_GLYPH = "✕" -- icon glyph, locale independent
+local CLOSE_GLYPH = "×" -- icon glyph, locale independent
 local DPAD_SCROLL_ROWS = 1 -- canvas step per D-pad press, in list rows
 -- Absorbs the rounding between a band height computed here and the UISizeConstraint the engine applies to
 -- the control inside it, so one pixel of disagreement cannot push that control out of its band.

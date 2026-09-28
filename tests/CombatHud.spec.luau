@@ -328,16 +328,11 @@ describe("the combo row", function()
 		expect(select(2, string.gsub(combo, "setPreview%(nil%)", ""))).toBeGreaterThanOrEqual(5)
 		local row = code(COMBO_ROW)
 		local preview = body(row, "setPreview")
-		expect(has(preview, "local fill = Theme.pigmentOnInk(def.Pigment)")).toBe(true)
-		expect(has(preview, 'previewStroke.Enabled = def.Pigment == "Umber"')).toBe(true)
-		expect(has(preview, 'previewText.Text = Theme.Glyphs.Arrow .. " " .. localize.t(def.NameKey)')).toBe(true)
+		expect(has(preview, "local fill, edge = Theme.pigmentOnInk(def.Pigment)")).toBe(true)
+		expect(has(preview, "previewText.Text = localize.t(def.NameKey)")).toBe(true)
 		expect(has(preview, 'Motion.to(previewLine, { Size = UDim2.fromOffset(0, PREVIEW_LINE) }, "Ui")')).toBe(true)
 		expect(GameConfig.Combo.ExtendWindowSeconds).toBeGreaterThan(0)
-		-- Every pigment's name reads on the ink pill: the four with a colour, and Umber as the sheet.
-		for _, pigment in ipairs(PigmentConfig.Order) do
-			local onInk = ThemeConfig.PigmentOnInk[pigment] or COLORS.PanelRaised
-			expect(ThemeConfig.contrast(onInk, COLORS.Plate)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
-		end
+		-- How every pigment's name reads on the ink pill is run in tests/BottomStack.spec.luau.
 	end)
 
 	it("marks the pending glyph's cost on the ink bar, and warns before the last press", function()

@@ -96,6 +96,11 @@ local PREVIEW_TEXT = 20
 local PREVIEW_LINE = 3
 local PREVIEW_ENTER = 0.6
 local UMBER_STROKE = 3
+-- Between a pill's lead and its words.
+local PILL_LEAD_GAP = 6
+-- The contrast words need (WCAG body text): a pigment's colour that falls short of it on ink writes its name in
+-- the sheet, stroked in the pigment.
+local BODY_CONTRAST = 4.5
 -- The chain counter: shown from the second cast, growing by this much per cast past it up to a ceiling,
 -- on a splat from STREAK_SPLAT casts, sending a ring from STREAK_RING.
 local STREAK_MIN_SHOWN = 2
@@ -151,15 +156,30 @@ local function pill(name: string, height: number, order: number, trove: TroveObj
 	trove:Add(function()
 		plate:Destroy()
 	end)
+	-- What the pill says, in a row a lead can join (the preview's arrow).
+	local row = Instance.new("Frame")
+	row.Name = "Row"
+	row.BackgroundTransparency = 1
+	row.AutomaticSize = Enum.AutomaticSize.X
+	row.Size = UDim2.fromScale(0, 1)
+	row.ZIndex = 3
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, PREVIEW_PADDING)
+	padding.PaddingRight = UDim.new(0, PREVIEW_PADDING)
+	padding.Parent = row
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, PILL_LEAD_GAP)
+	layout.Parent = row
+	row.Parent = frame
 	local text = label("Text", Theme.Fonts.Bold, REFUSAL_TEXT, Theme.Colors.TextInverse)
 	text.AutomaticSize = Enum.AutomaticSize.X
 	text.Size = UDim2.fromScale(0, 1)
 	text.ZIndex = 3
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, PREVIEW_PADDING)
-	padding.PaddingRight = UDim.new(0, PREVIEW_PADDING)
-	padding.Parent = text
-	text.Parent = frame
+	text.LayoutOrder = 2
+	text.Parent = row
 	local scale = Instance.new("UIScale")
 	scale.Parent = frame
 	trove:Add(function()
@@ -261,11 +281,20 @@ function ComboRow.new(props: Props): ComboRow
 		Motion.cancel(line)
 	end)
 
-	-- The preview: "→ name" on an ink pill, over a line that drains for the time the controller waits.
+	-- The preview: "→ name" on an ink pill, over a line that drains for the time the controller waits. The arrow
+	-- is its own label, in the only face that has it (Theme.Glyphs); the name is in the title face.
 	local preview, previewText, previewScale = pill("Preview", HUD.PreviewHeight, PREVIEW_ORDER, trove)
 	previewText.FontFace = Theme.Fonts.Title
 	previewText.TextSize = PREVIEW_TEXT
-	-- Umber has no colour that reads on ink: its name is the sheet, in an Umber stroke.
+	local previewArrow = label("Arrow", Theme.Fonts.Symbol, PREVIEW_TEXT, Theme.Colors.TextInverse)
+	previewArrow.AutomaticSize = Enum.AutomaticSize.X
+	previewArrow.Size = UDim2.fromScale(0, 1)
+	previewArrow.ZIndex = 3
+	previewArrow.LayoutOrder = 1
+	previewArrow.Text = Theme.Glyphs.Arrow
+	previewArrow.Parent = previewText.Parent
+	-- Umber has no colour that reads on ink, and Cinnabar's is too dark for words this size: their names are
+	-- the sheet, stroked in the pigment.
 	local previewStroke = Theme.stroke(previewText, "Bronze", UMBER_STROKE, "Contextual")
 	local previewLine = Instance.new("Frame")
 	previewLine.Name = "Window"
@@ -443,11 +472,14 @@ function ComboRow.new(props: Props): ComboRow
 			end
 			return
 		end
-		-- The glyph's own colour over ink (rule 2).
-		local fill = Theme.pigmentOnInk(def.Pigment)
-		previewText.TextColor3 = fill
-		previewStroke.Enabled = def.Pigment == "Umber"
-		previewText.Text = Theme.Glyphs.Arrow .. " " .. localize.t(def.NameKey)
+		-- The glyph's own colour over ink (rule 2), where it reads as words; the sheet in its stroke where not.
+		local fill, edge = Theme.pigmentOnInk(def.Pigment)
+		local short = Theme.contrast(fill, Theme.Colors.Plate) < BODY_CONTRAST
+		previewText.TextColor3 = if short then Theme.Colors.PanelRaised else fill
+		previewArrow.TextColor3 = previewText.TextColor3
+		previewStroke.Color = if short then Theme.pigmentColor(def.Pigment) else edge
+		previewStroke.Enabled = short or def.Pigment == "Umber"
+		previewText.Text = localize.t(def.NameKey)
 		preview.Visible = true
 		Motion.set(previewScale, { Scale = PREVIEW_ENTER })
 		Motion.to(previewScale, { Scale = 1 }, "UiPop")

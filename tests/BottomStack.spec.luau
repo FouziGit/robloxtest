@@ -211,4 +211,56 @@ describe("the touch dock's pips on its ink, run", function()
 	end)
 end)
 
+describe("the preview pill, run", function()
+	-- Words, on the ink pill, at the preview's size (WCAG body text).
+	local BODY_CONTRAST = 4.5
+
+	it("names each pigment's glyph in words that read on ink, after an arrow in the roman", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ComboRow = world.require("src/ui/components/ComboRow")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local row = ComboRow.new({
+			Parent = gui,
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		local preview = row.Instance:FindFirstChild("Preview", true)
+		local name = preview:FindFirstChild("Text", true)
+		local arrow = preview:FindFirstChild("Arrow", true)
+		expect(arrow).never.toBeNil()
+		local seen: { [string]: boolean } = {}
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if seen[def.Pigment] then
+				continue
+			end
+			seen[def.Pigment] = true
+			row:SetPreview(def.Id, 1)
+			expect(name.Text).toBe(def.NameKey)
+			local contrast = Theme.contrast(name.TextColor3, Theme.Colors.Plate)
+			if contrast < BODY_CONTRAST then
+				error(("%s's name is %.2f on the ink pill"):format(def.Pigment, contrast))
+			end
+			-- A name drawn in the sheet still says its pigment, in its stroke.
+			local stroke = name:FindFirstChildOfClass("UIStroke")
+			if name.TextColor3 == Theme.Colors.PanelRaised then
+				expect(stroke.Enabled).toBe(true)
+				local own = if def.Pigment == "Umber" then Theme.Colors.Bronze else Theme.pigmentColor(def.Pigment)
+				expect(stroke.Color).toBe(own)
+			else
+				expect(stroke.Enabled).toBe(false)
+			end
+			expect(arrow.Text).toBe(Theme.Glyphs.Arrow)
+			expect(arrow.FontFace.Family).toBe(Theme.Fonts.Symbol.Family)
+			expect(arrow.TextColor3).toBe(name.TextColor3)
+		end
+		expect(seen.Cinnabar and seen.Umber).toBe(true)
+	end)
+end)
+
 return nil

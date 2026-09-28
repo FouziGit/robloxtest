@@ -164,7 +164,9 @@ local function within(list: { Window }?, at: number): boolean
 	return false
 end
 
--- The server's barrier ray from the last judged sample to this one, against the walls and tagged floors.
+-- The server's barrier ray from the ray's origin (MovementGuard.rayOrigin) to this sample, against the walls and
+-- tagged floors: the first wall face it meets, whether it went on beyond the wall or ended inside it. Floors are
+-- planes here, with nothing inside them.
 local function crossing(
 	floors: { Floor },
 	walls: { Wall },
@@ -174,22 +176,26 @@ local function crossing(
 	y1: number
 ): MovementGuard.Crossing?
 	local found: MovementGuard.Crossing? = nil
+	local nearest = math.huge
 	for _, w in ipairs(walls) do
 		local entry: number? = nil
-		if x0 < w.X0 and x1 > w.X1 then
+		if x0 < w.X0 and x1 > w.X0 then
 			entry = w.X0
-		elseif x0 > w.X1 and x1 < w.X0 then
+		elseif x0 > w.X1 and x1 < w.X1 then
 			entry = w.X1
 		end
-		if entry ~= nil then
+		if entry ~= nil and math.abs(entry - x0) < nearest then
 			local hy = y0 + (y1 - y0) * (entry - x0) / (x1 - x0)
 			if hy <= w.Top and hy >= w.Bottom then
 				local nx = if x0 < w.X0 then -1 else 1
+				local beyond = if nx < 0 then x1 > w.X1 else x1 < w.X0
+				nearest = math.abs(entry - x0)
 				found = {
 					HitY = hy,
 					Top = w.Top,
 					Floor = false,
-					PassThrough = true,
+					PassThrough = beyond,
+					Inside = not beyond and y1 >= w.Bottom and y1 <= w.Top,
 					PlaneX = entry,
 					PlaneY = 0,
 					PlaneZ = 0,
@@ -209,6 +215,7 @@ local function crossing(
 					Top = f.Top,
 					Floor = true,
 					PassThrough = true,
+					Inside = false,
 					PlaneX = cx,
 					PlaneY = f.Top,
 					PlaneZ = 0,

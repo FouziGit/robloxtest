@@ -1341,6 +1341,47 @@ describe("MovementScenarios: cheats, the adversarial review's cases", function()
 			Grants = dashEvery(2.5, 30),
 		}, "strike")
 	end
+	-- A wall is 2 studs thick and a walk crosses 0.8 of it a tick: the stream puts a sample or two inside it, and the
+	-- ray from the last sample never went through it -- in, then out, both from or to a point inside.
+	for _, speed in ipairs({ 4, 16, 20 }) do
+		for _, wall in ipairs({ COVER_WALL, { { X0 = 40, X1 = 42, Bottom = 0, Top = 24 } } }) do
+			case({
+				Name = ("noclip walking through a %d-high wall at %d studs/s, samples inside it"):format(
+					wall[1].Top,
+					speed
+				),
+				Seconds = 40 / speed + 4,
+				Latency = 0.1,
+				Walls = wall,
+				Cheat = function(t: number): (number?, number?)
+					return speed * t, nil
+				end,
+			}, "strike")
+		end
+	end
+	-- Caret stops 3 studs short of the first obstruction, and a wall is 2 thick: its far side is inside the arrival
+	-- radius, and the sample that showed the arrival was judged with no ray at all.
+	case({
+		Name = "Caret beside a 24-high wall, arriving on its far side",
+		Seconds = 6,
+		Latency = 0.05,
+		StartX = 20,
+		Walls = { { X0 = 40, X1 = 42, Bottom = 0, Top = 24 } },
+		Teleports = { { 2, 37, 3 } },
+		Cheat = function(_t: number, x: number): (number?, number?)
+			return if x > 30 then 44 else nil, nil
+		end,
+	}, "strike")
+	-- After ten seconds still, H1 lets a catch-up of over 200 studs through: the ray has to judge it.
+	case({
+		Name = "still 10.5 s, then a 205-stud blink through a 24-high wall",
+		Seconds = 14,
+		Latency = 0.05,
+		Walls = { { X0 = 100, X1 = 102, Bottom = 0, Top = 24 } },
+		Cheat = function(t: number): (number?, number?)
+			return if t >= 10.5 then 205 else nil, nil
+		end,
+	}, "strike")
 	case({
 		Name = "back to the hub after a server teleport, and again after every correction",
 		Seconds = 40,

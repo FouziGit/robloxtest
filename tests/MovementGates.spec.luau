@@ -442,7 +442,7 @@ describe("the movement audit", function()
 		)
 	end)
 
-	it("casts the barrier ray from the last judged sample against the tagged barriers only", function()
+	it("casts the barrier ray from the last point outside every barrier, against the tagged barriers only", function()
 		local source = (strip(fs.readFile(AUDIT_MODULE)):gsub("%s+", " "))
 		expect(source).toContain(
 			"barrierParams.FilterType = Enum.RaycastFilterType.Include barrierParams.RespectCanCollide = true"
@@ -452,8 +452,15 @@ describe("the movement audit", function()
 		)
 		local cross = audit("local function crossing(")
 		expect(cross).toContain("local ox, oy, oz = MovementGuard.rayOrigin(track)")
-		expect(cross).toContain("if step.Magnitude > AUDIT.RaySkipStuds then return nil end")
-		expect(cross).toContain("local hit = Workspace:Raycast(origin, step, barrierFilter())")
+		-- Whatever the step's length: a catch-up H1 forgives after a long stall runs past 200 studs, and a ray
+		-- skipped above that let a blink through any wall.
+		expect(cross).toContain(
+			"local origin = Vector3.new(ox, oy, oz) local hit = Workspace:Raycast(origin, position - origin, barrierFilter()) if hit == nil then return nil end"
+		)
+		expect(cross).never.toContain("Magnitude")
+		expect((MovementGuardConfig :: any).RaySkipStuds).toBeNil()
+		-- Where the step ended: inside the barrier it hit, the next ray still starts outside it.
+		expect(cross).toContain("Inside = MovementGuard.insideBox(b.X, b.Y, b.Z, half.X, half.Y, half.Z),")
 		expect(cross).toContain("Top = topOf(part),")
 		expect(cross).toContain("local floor = hit.Normal.Y > AUDIT.FloorNormalY")
 		expect(cross).toContain(

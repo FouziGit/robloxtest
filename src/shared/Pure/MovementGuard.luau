@@ -114,14 +114,15 @@ export type Config = {
 
 export type Kind = "Invalid" | "Teleport" | "Flight" | "Noclip" | "Speed" | "Resist"
 export type Action = "None" | "Watch" | "Correct" | "Repivot"
--- A tagged barrier the segment from the last judged sample went through. The plane is the face it entered
--- by, its normal pointing back to the side the body came from; Top comes from halfHeight, and PassThrough from
--- passesThrough.
+-- A tagged barrier the segment from the ray's origin (rayOrigin) went into. The plane is the face it entered by,
+-- its normal pointing back to the side the body came from; Top comes from halfHeight, PassThrough from
+-- passesThrough, and Inside from insideBox: the segment ended in the barrier itself.
 export type Crossing = {
 	HitY: number,
 	Top: number,
 	Floor: boolean,
 	PassThrough: boolean,
+	Inside: boolean,
 	PlaneX: number,
 	PlaneY: number,
 	PlaneZ: number,
@@ -261,6 +262,12 @@ export type Track = {
 	LeftY: number,
 	LeftZ: number,
 	LeftAt: number,
+	-- The last judged sample the barrier ray showed outside every barrier (or a point the server chose): where the
+	-- next ray starts. A body that walks through a wall reports a sample or two inside it, and a step from
+	-- outside to inside, then inside to outside, never went through it on its own.
+	OutX: number,
+	OutY: number,
+	OutZ: number,
 	-- An impossible crossing waiting for its confirmation: the plane the body went through.
 	Beyond: boolean,
 	PlaneX: number,
@@ -427,6 +434,9 @@ function MovementGuard.newTrack(config: Config): Track
 		NormalY = 0,
 		NormalZ = 0,
 		BeyondRule = "",
+		OutX = 0,
+		OutY = 0,
+		OutZ = 0,
 	}
 end
 
@@ -546,6 +556,7 @@ local function base(track: Track, x: number, y: number, z: number, now: number, 
 	track.SegCount = 0
 	track.PathCount = 0
 	track.Beyond = false
+	track.OutX, track.OutY, track.OutZ = x, y, z
 	resetEpisodes(track)
 	pushSafe(track, now, x, y, z, groundY ~= nil)
 	pushPath(track, now, x, z)
@@ -826,18 +837,18 @@ function MovementGuard.scanBox(
 	return minX - margin, bottom, minZ - margin, maxX + margin, s.Y + height, maxZ + margin
 end
 
--- Whether MovementAudit should cast the barrier ray for this sample: a real step, and no teleport pending
--- (the stream still carries the old place).
+-- Whether MovementAudit should cast the barrier ray for this sample: a real step from where the last ray left the
+-- body outside every barrier. A pending teleport does not stop it: the sample that shows the body arrived is
+-- judged, from the destination, like any other.
 function MovementGuard.wantsRay(track: Track, s: Sample, config: Config): boolean
-	return track.Based
-		and not track.Pending
-		and dist3(s.X, s.Y, s.Z, track.LastX, track.LastY, track.LastZ) >= config.NoclipMinStepStuds
+	return track.Based and dist3(s.X, s.Y, s.Z, track.OutX, track.OutY, track.OutZ) >= config.NoclipMinStepStuds
 end
 
--- Where the barrier ray starts: the last judged sample, not the last safe point, so one old point cannot make
--- every later step look like a crossing.
+-- Where the barrier ray starts: the last judged sample the ray showed outside every barrier, not the last safe
+-- point, so one old point cannot make every later step look like a crossing, and not the last sample, which may be
+-- inside the wall it is going through.
 function MovementGuard.rayOrigin(track: Track): (number, number, number)
-	return track.LastX, track.LastY, track.LastZ
+	return track.OutX, track.OutY, track.OutZ
 end
 
 -- The n-th newest point the body was believed at (n = 1 is the newest), for MovementAudit to check for
@@ -918,6 +929,11 @@ function MovementGuard.passesThrough(
 	end
 	local middle = along + (alongTo - along) * across / (across - acrossTo)
 	return math.abs(middle) <= length - inset
+end
+
+-- Whether a point in a box's own space, (hx, hy, hz) its half size, lies inside it.
+function MovementGuard.insideBox(bx: number, by: number, bz: number, hx: number, hy: number, hz: number): boolean
+	return math.abs(bx) < hx and math.abs(by) < hy and math.abs(bz) < hz
 end
 
 ----------------------------------------------------------------
@@ -1437,11 +1453,18 @@ function MovementGuard.observe(track: Track, s: Sample, config: Config): Verdict
 	}
 	judgeHorizontal(track, s, step, config)
 	judgeVertical(track, s, step, config)
+	local rayed = MovementGuard.wantsRay(track, s, config)
 	judgeNoclip(track, s, step, config)
 	if step.Moved then
 		track.LastX, track.LastY, track.LastZ, track.LastAt = s.X, s.Y, s.Z, now
 		track.LastMoveAt = now
 		pushPath(track, now, s.X, s.Z)
+	end
+	-- The next ray starts here only if this one showed the body outside every barrier: a step too short for a ray
+	-- proves nothing, and a slow walk through a wall is judged from where it went in.
+	local crossing = s.Crossing
+	if rayed and not (crossing ~= nil and crossing.Inside) then
+		track.OutX, track.OutY, track.OutZ = s.X, s.Y, s.Z
 	end
 
 	local kind: Kind? = confirm(track, s, step, config)

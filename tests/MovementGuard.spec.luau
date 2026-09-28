@@ -73,6 +73,7 @@ local function floorCrossing(top: number): MovementGuard.Crossing
 		Top = top,
 		Floor = true,
 		PassThrough = true,
+		Inside = false,
 		PlaneX = 0,
 		PlaneY = top,
 		PlaneZ = 0,
@@ -773,6 +774,56 @@ describe("MovementGuard: barrier geometry", function()
 		expect(through(false, { 0.5, 0, 0 }, { 3, 0, 0 }, WALL)).toBe(false)
 		expect(through(false, { -3, 0, 0 }, { -0.5, 0, 0 }, WALL)).toBe(false)
 		expect(through(false, { -3, 0, 0 }, { -1.5, 0, 0 }, WALL)).toBe(false)
+	end)
+
+	it("knows a point inside a box from one on its faces or beyond them", function()
+		expect(MovementGuard.insideBox(0.5, 0, 0, 1, 3, 10)).toBe(true)
+		expect(MovementGuard.insideBox(1, 0, 0, 1, 3, 10)).toBe(false)
+		expect(MovementGuard.insideBox(0, -3.5, 0, 1, 3, 10)).toBe(false)
+		expect(MovementGuard.insideBox(0, 0, 10.2, 1, 3, 10)).toBe(false)
+	end)
+
+	it("judges a wall crossing from the last point outside, across the samples taken inside the wall", function()
+		-- A wall from x 40 to 42, 24 high; a body at walking level stepping 1.6 studs a sample through it.
+		local function wall(inside: boolean, passing: boolean): MovementGuard.Crossing
+			return {
+				HitY = STAND,
+				Top = 24,
+				Floor = false,
+				PassThrough = passing,
+				Inside = inside,
+				PlaneX = 40,
+				PlaneY = STAND,
+				PlaneZ = 0,
+				NormalX = -1,
+				NormalY = 0,
+				NormalZ = 0,
+			}
+		end
+		local track = spawnedAt(37.6, STAND, 0)
+		observe(track, at(1), 39.2, STAND, 0)
+		expect(MovementGuard.rayOrigin(track)).toBe(39.2)
+		-- Inside the wall: the ray stays where it went in, and a step from there out to the far side went through.
+		local v = observe(track, at(2), 40.8, STAND, 0, { Crossing = wall(true, false) })
+		expect(v.Action).toBe("None")
+		expect(MovementGuard.rayOrigin(track)).toBe(39.2)
+		v = observe(track, at(3), 42.4, STAND, 0, { Crossing = wall(false, true) })
+		expect(v.Kind).toBe("Noclip")
+		-- A step too short for a ray proves nothing: the origin waits for one that does.
+		local still = spawnedAt(0, STAND, 0)
+		observe(still, at(1), 0.3, STAND, 0)
+		expect(MovementGuard.rayOrigin(still)).toBe(0)
+		observe(still, at(2), 0.6, STAND, 0)
+		expect(MovementGuard.rayOrigin(still)).toBe(0.6)
+	end)
+
+	it("casts the ray for the sample that resolves a pending teleport, from its destination", function()
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 37, STAND, 0, at(1), 0, STAND, 0, STAND, CONFIG)
+		local arrived = sample(at(2 + RATE), 44, STAND, 0)
+		expect(track.Pending).toBe(true)
+		expect(MovementGuard.wantsRay(track, arrived, CONFIG)).toBe(true)
+		expect(MovementGuard.rayOrigin(track)).toBe(37)
 	end)
 
 	it("reads a drop from above a floor to under it as going through it, well inside its footprint", function()

@@ -186,8 +186,6 @@ MovementGuardConfig.BodyHalfWidthStuds = 1
 -- the root, two half widths across.
 MovementGuardConfig.ClearanceFootStuds = 0.5
 MovementGuardConfig.ClearanceHeadStuds = 2.5
--- No barrier ray over a longer step: H1 already flags it.
-MovementGuardConfig.RaySkipStuds = 200
 -- Contact: roots this close, or a root this far inside a shover's grown box.
 MovementGuardConfig.ContactRadiusStuds = 6
 MovementGuardConfig.ShoveMarginStuds = 3

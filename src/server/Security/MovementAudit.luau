@@ -2,8 +2,9 @@
 -- MovementAudit: the server's side of the movement guard. Characters are simulated by their owning clients, so
 -- every replicated root position is the client's word; once per CombatService tick this module measures what the
 -- server can see around each body -- whether something holds it up, what it touched, which barrier the step
--- since the last sample went through, the surfaces it could have landed on, the round trip, whether the client
--- is still sending, whether the server itself stalled -- and hands it to Pure/MovementGuard, which judges.
+-- since it was last seen outside every barrier went into, the surfaces it could have landed on, the round trip,
+-- whether the client is still sending, whether the server itself stalled -- and hands it to Pure/MovementGuard,
+-- which judges.
 -- Then it acts on the verdict, as far as MovementGuardConfig.Mode lets it: Observe only logs, Correct also
 -- pivots a body back to a point it was believed at, Enforce also strikes.
 --
@@ -300,16 +301,12 @@ local function heldRtt(record: Record, now: number): number
 	return record.RttValue
 end
 
--- The barrier the step from the last judged sample to `position` went into, if any.
+-- The barrier the step from where the last ray left the body outside every barrier to `position` went into, if
+-- any, however long the step: after a long stall H1 lets over 200 studs of catch-up through, more with a grant.
 local function crossing(track: MovementGuard.Track, position: Vector3): MovementGuard.Crossing?
 	local ox, oy, oz = MovementGuard.rayOrigin(track)
 	local origin = Vector3.new(ox, oy, oz)
-	local step = position - origin
-	-- H1 already flags a longer one.
-	if step.Magnitude > AUDIT.RaySkipStuds then
-		return nil
-	end
-	local hit = Workspace:Raycast(origin, step, barrierFilter())
+	local hit = Workspace:Raycast(origin, position - origin, barrierFilter())
 	if hit == nil then
 		return nil
 	end
@@ -323,6 +320,7 @@ local function crossing(track: MovementGuard.Track, position: Vector3): Movement
 		Top = topOf(part),
 		Floor = floor,
 		PassThrough = MovementGuard.passesThrough(floor, a.X, a.Y, a.Z, b.X, b.Y, b.Z, half.X, half.Y, half.Z, config),
+		Inside = MovementGuard.insideBox(b.X, b.Y, b.Z, half.X, half.Y, half.Z),
 		PlaneX = hit.Position.X,
 		PlaneY = hit.Position.Y,
 		PlaneZ = hit.Position.Z,

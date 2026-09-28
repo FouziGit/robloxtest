@@ -91,8 +91,9 @@ export type Effect = (ctx: Context) -> number
 -- Tracks the models damaged across the steps of one cast. `MaxHits` = how often one model may be
 -- damaged by this cast: 1 for a wave or a spike line, `math.huge` for a zone that ticks every
 -- interval, a small cap for the Ligature trail. `Tags` is built once: tags[1] is the i-frame key
--- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate.
-type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags: { string } }
+-- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate. `Amount`
+-- is what each of its hits deals, so one cast can strike with two weights under two trackers.
+type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags: { string }, Amount: number }
 -- One candidate of a distance ranking (hitscan beam, chain arc, projectile proximity scan).
 type Ranked = { Model: Model, Distance: number }
 -- Where a stepped projectile stopped, and the live model it stopped on (nil = geometry, fuse, range).
@@ -271,7 +272,7 @@ local function nearestModel(models: { Model }, position: Vector3): Model?
 end
 
 local function newTracker(def: GlyphDef, maxHits: number): Tracker
-	return { MaxHits = maxHits, Hits = {}, Count = 0, Tags = { def.Id, def.Archetype } }
+	return { MaxHits = maxHits, Hits = {}, Count = 0, Tags = { def.Id, def.Archetype }, Amount = def.Damage }
 end
 
 -- Damages one model through the single damage path, honouring the per-cast hit cap. Returns whether
@@ -281,7 +282,7 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	if hits ~= nil and hits >= tracker.MaxHits then
 		return false
 	end
-	local result = ctx.Combat.ApplyDamage(ctx.Caster, model, ctx.Def.Damage, "Glyph", tracker.Tags, ctx.Def.Pigment)
+	local result = ctx.Combat.ApplyDamage(ctx.Caster, model, tracker.Amount, "Glyph", tracker.Tags, ctx.Def.Pigment)
 	if result.Applied <= 0 then
 		return false
 	end
@@ -470,8 +471,19 @@ local function tickZone(
 	return tracker.Count
 end
 
--- Detonation shared by the exploding projectiles: one "Explosion" packet, one damage pass, and a
--- push away from the blast for everything it hurt.
+-- One damage pass around `point` and a push away from it for everything it hurt: horizontal `push` plus
+-- `lift`, straight along the aim for a body standing on the point itself.
+local function blast(ctx: Context, tracker: Tracker, point: Vector3, radius: number, push: number, lift: number)
+	for _, model in ipairs(damageArea(ctx, tracker, point, radius)) do
+		local offset = model:GetPivot().Position - point
+		local away = if Vector3.new(offset.X, 0, offset.Z).Magnitude > EPSILON
+			then horizontal(offset)
+			else horizontal(ctx.Direction)
+		ctx.Combat.knockback(model, away * push + Vector3.yAxis * lift, KNOCKBACK_DURATION)
+	end
+end
+
+-- Detonation shared by the exploding projectiles: one "Explosion" packet and one blast.
 local function explode(ctx: Context, point: Vector3, radius: number, push: number, lift: number, shot: number?): number
 	-- Reliable, and with the thrower: one per cast, it is the damage's confirmation, and it names the shot
 	-- the client drew so the drawn Brand lands where this one burst (D-114). Reliable like the throw, so
@@ -484,13 +496,7 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 		Params = { Radius = radius, Pigment = ctx.Def.Pigment, Shot = shot },
 	}, true, if shot ~= nil then ctx.Origin.Position else nil)
 	local tracker = newTracker(ctx.Def, 1)
-	for _, model in ipairs(damageArea(ctx, tracker, point, radius)) do
-		local offset = model:GetPivot().Position - point
-		local away = if Vector3.new(offset.X, 0, offset.Z).Magnitude > EPSILON
-			then horizontal(offset)
-			else horizontal(ctx.Direction)
-		ctx.Combat.knockback(model, away * push + Vector3.yAxis * lift, KNOCKBACK_DURATION)
-	end
+	blast(ctx, tracker, point, radius, push, lift)
 	return tracker.Count
 end
 

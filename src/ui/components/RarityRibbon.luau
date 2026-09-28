@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local Log = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Util"):WaitForChild("Log"))
 local Motion = require(script.Parent.Parent.Motion)
 local Pips = require(script.Parent.Pips)
 local Theme = require(script.Parent.Parent.Theme)
@@ -25,6 +26,14 @@ local RarityRibbon = {}
 local HEIGHT = 24
 local WORD_SIZE = 14
 local INSET = 8
+
+local log = Log.new("RarityRibbon")
+
+-- The shimmers sweeping on each screen (its LayerCollector), by gradient: a screen sweeps
+-- Theme.Budget.MaxAnimatedGradients of them at most, and one asked for past that stays still (named once in
+-- the log), like a splat past its budget.
+local sweepingOn: { [Instance]: { [Instance]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
+local overBudget: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
 -- The ribbon of `rarity` (a ThemeConfig.Rarity key), reading `word` -- the player's word for it
 -- (`Theme.rarity(rarity).WordKey`, translated by the caller).
@@ -122,6 +131,7 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 		local sweeping = false
 		local watched: LayerCollector? = nil
 		local watching: RBXScriptConnection? = nil
+		local claimed: Instance? = nil
 		local function unwatch()
 			local connection = watching
 			if connection ~= nil then
@@ -129,9 +139,50 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 				watching = nil
 			end
 		end
+		-- Gives back this shimmer's place on its screen's budget.
+		local function unclaim()
+			local layer = claimed
+			claimed = nil
+			local onLayer = if layer ~= nil then sweepingOn[layer] else nil
+			if onLayer ~= nil then
+				onLayer[gradient] = nil
+			end
+		end
+		-- Takes a place on the budget of `layer`, unless its shimmers have them all.
+		local function claim(layer: Instance): boolean
+			if claimed == layer then
+				return true
+			end
+			unclaim()
+			local onLayer = sweepingOn[layer] or {}
+			sweepingOn[layer] = onLayer
+			local count = 0
+			for other in pairs(onLayer) do
+				if other:IsDescendantOf(layer) then
+					count += 1
+				else
+					onLayer[other] = nil
+				end
+			end
+			if count >= Theme.Budget.MaxAnimatedGradients then
+				if not overBudget[layer] then
+					overBudget[layer] = true
+					log.warn(
+						"%s asked for more than %d shimmers: the extra ones stay still",
+						layer:GetFullName(),
+						Theme.Budget.MaxAnimatedGradients
+					)
+				end
+				return false
+			end
+			onLayer[gradient] = true
+			claimed = layer
+			return true
+		end
 		trove:Add(function()
 			running = false
 			unwatch()
+			unclaim()
 			Motion.cancel(gradient)
 		end)
 		local function shown(): boolean
@@ -142,8 +193,10 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 			return layer ~= nil and layer.Enabled
 		end
 		local function sweep()
-			if not running or not shown() then
+			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector")
+			if not running or not shown() or layer == nil or not claim(layer) then
 				sweeping = false
+				unclaim()
 				return
 			end
 			sweeping = true

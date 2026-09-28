@@ -7,6 +7,7 @@
 -- nobody.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -79,6 +80,46 @@ describe("the shimmer, run", function()
 		world:advance(8)
 		expect(world.Heartbeat:count()).toBe(0)
 		expect(gradient.Parent).toBeNil()
+	end)
+end)
+
+describe("the shimmers of a screen, run", function()
+	it("sweep the screen's budget of them, and hold the next one still", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local RarityRibbon = world.require("src/ui/components/RarityRibbon")
+		local screen = Engine.instance("ScreenGui", world.playerGui)
+		local budget = ThemeConfig.Budget.MaxAnimatedGradients
+		local gradients = {}
+		for _ = 1, budget + 1 do
+			local ribbon = RarityRibbon.new("Legendary", "Legendary", Engine.instance("Frame", screen))
+			table.insert(gradients, ribbon.Instance:FindFirstChild("Shine"):FindFirstChildOfClass("UIGradient"))
+		end
+		-- Watched together, over one sweep.
+		local moved: { [number]: boolean } = {}
+		local last = {}
+		for index, gradient in ipairs(gradients) do
+			last[index] = gradient.Offset
+		end
+		for _ = 1, 60 do
+			world:frames(1)
+			for index, gradient in ipairs(gradients) do
+				if gradient.Offset ~= last[index] then
+					moved[index] = true
+				end
+				last[index] = gradient.Offset
+			end
+		end
+		local swept = 0
+		for _ in pairs(moved) do
+			swept += 1
+		end
+		expect(swept).toBe(budget)
+		-- Another screen has its own.
+		local other = Engine.instance("ScreenGui", world.playerGui)
+		local ribbon = RarityRibbon.new("Legendary", "Legendary", Engine.instance("Frame", other))
+		expect(moving(world, ribbon.Instance:FindFirstChild("Shine"):FindFirstChildOfClass("UIGradient"), 1)).toBeGreaterThan(
+			0
+		)
 	end)
 end)
 

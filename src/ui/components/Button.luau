@@ -87,7 +87,6 @@ local PRESSED_SCALE = 0.97
 local FOCUS_SCALE = 1.06
 local DOT_SIZE = 8
 local DOT_BOUNCE = 4
-local DOT_OFFSET_SECONDS = 0.12
 local RIM_SCALE = 1.2
 local RIM_TRANSPARENCY = 0.2
 
@@ -255,7 +254,9 @@ function Button.new(props: Props): Button
 		label.TextSize = GHOST_TEXT_SIZE
 	end
 
-	-- Three dots that bounce while the server has not answered.
+	-- Three dots that bounce while the server has not answered: a wave on ONE loop goes back and forth across
+	-- them, each dot up as it passes, so a pending button spends one of its screen's Budget.MaxIdleLoops, not
+	-- three.
 	local dots = Instance.new("Frame")
 	dots.Name = "Pending"
 	dots.BackgroundTransparency = 1
@@ -275,7 +276,17 @@ function Button.new(props: Props): Button
 		dot.Parent = dots
 		dotList[index] = dot
 	end
-	local stopDots: { () -> () } = {}
+	local wave = Instance.new("NumberValue")
+	wave.Name = "Wave"
+	wave.Parent = dots
+	trove:Connect(wave.Changed, function(value: number)
+		for index, dot in ipairs(dotList) do
+			local place = (index - 1) / (#dotList - 1)
+			local lift = math.clamp(1 - math.abs(value - place) * #dotList, 0, 1)
+			dot.Position = UDim2.fromOffset((index - 1) * DOT_SIZE * 2, DOT_BOUNCE * (1 - lift))
+		end
+	end)
+	local stopDots: (() -> ())? = nil
 
 	local sticker: Sticker.Sticker? = nil
 	local ghostRule: Frame? = nil
@@ -438,22 +449,14 @@ function Button.new(props: Props): Button
 		end
 		pending = next
 		pendingToken += 1
-		for _, stop in ipairs(stopDots) do
+		local stop = stopDots
+		stopDots = nil
+		if stop ~= nil then
 			stop()
 		end
-		table.clear(stopDots)
 		dots.Visible = next
 		if next then
-			for index, dot in ipairs(dotList) do
-				local rest = UDim2.fromOffset((index - 1) * DOT_SIZE * 2, DOT_BOUNCE)
-				local up = UDim2.fromOffset((index - 1) * DOT_SIZE * 2, 0)
-				local token = pendingToken
-				task.delay((index - 1) * DOT_OFFSET_SECONDS, function()
-					if pending and pendingToken == token then
-						table.insert(stopDots, Motion.loop(dot, { Position = rest }, { Position = up }, "UiSnappy"))
-					end
-				end)
-			end
+			stopDots = Motion.loop(wave, { Value = 0 }, { Value = 1 }, "Ui")
 			local token = pendingToken
 			task.delay(Theme.Timing.PendingTimeoutSeconds, function()
 				if pending and pendingToken == token and button:IsDescendantOf(game) then
@@ -470,12 +473,12 @@ function Button.new(props: Props): Button
 	end
 	trove:Add(function()
 		pending = false
-		for _, stop in ipairs(stopDots) do
+		local stop = stopDots
+		stopDots = nil
+		if stop ~= nil then
 			stop()
 		end
-		for _, dot in ipairs(dotList) do
-			Motion.cancel(dot)
-		end
+		Motion.cancel(wave)
 	end)
 
 	trove:Connect(button.MouseEnter, function()

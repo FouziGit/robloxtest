@@ -28,8 +28,6 @@ export type GradientDef = {
 	Rotation: number,
 	-- A GradientType name; Linear when absent.
 	Kind: string?,
-	-- Swept by Motion on a timer (the shimmer). Counts against Budget.MaxAnimatedGradients.
-	Animated: boolean?,
 }
 export type RarityDef = { Fill: string, Pips: number, Seal: boolean?, Shimmer: boolean? }
 export type RankDef = { Fill: string, Rim: string?, Seal: boolean?, Shimmer: boolean? }
@@ -233,12 +231,12 @@ ThemeConfig.Gradients = {
 		Transparency = { { 0, 1 }, { 1, 0 } },
 		Rotation = 90,
 	},
-	-- The sweep of light across gold leaf: Legendary, Codex, the seventh day.
+	-- The sweep of light across gold leaf: Legendary, Codex, the seventh day. RarityRibbon sweeps it, and
+	-- holds a screen to Budget.MaxAnimatedGradients of them.
 	Shimmer = {
 		Color = { { Time = 0, Role = "PanelRaised" }, { Time = 1, Role = "PanelRaised" } },
 		Transparency = { { 0, 1 }, { 0.42, 1 }, { 0.5, 0.3 }, { 0.58, 1 }, { 1, 1 } },
 		Rotation = 20,
-		Animated = true,
 	},
 	-- The Result's auto-close ring, drawn full; the screen rewrites its transparency once a second.
 	ResultRing = {
@@ -282,7 +280,8 @@ ThemeConfig.Timing = {
 -- Never the HUD, whose geometry is measured.
 ThemeConfig.TextScale = { Medium = 1, Large = 1.15, Larger = 1.3, Largest = 1.3 } :: { [string]: number }
 
--- What one open screen may cost: splats, animated gradients, idle loops, staggered entrances.
+-- What one open screen may cost: splats (Splat), animated gradients (RarityRibbon's shimmer), idle loops
+-- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent.
 ThemeConfig.Budget = {
 	MaxSplats = 12,
 	MaxAnimatedGradients = 3,

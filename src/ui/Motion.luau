@@ -25,6 +25,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local FeelConfig = require(Shared.Config.FeelConfig)
+local Log = require(Shared.Util.Log)
 local Spring = require(Shared.Pure.Spring)
 local ThemeConfig = require(Shared.Config.ThemeConfig)
 local UiPrefs = require(script.Parent.UiPrefs)
@@ -58,8 +59,34 @@ local PUNCH_PEAK = 1.15
 local SHAKE_AMPLITUDE = 8
 local SHAKE_LEG_SECONDS = 0.06
 
+local log = Log.new("Motion")
+
 local entries: { [Instance]: Entry } = {}
 local connection: RBXScriptConnection? = nil
+
+-- The loops running on each screen (its LayerCollector), by the instance each one moves. A screen spends
+-- ThemeConfig.Budget.MaxIdleLoops of them; a loop asked for past that stands still at its rest, as under
+-- reduced motion, and the screen is named once in the log. Breath's shared values live in the PlayerGui,
+-- on no screen, and count against none: that is what Breath is for.
+local loopsOn: { [Instance]: { [Instance]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
+local overBudget: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
+-- How many loops still run on `layer`: one whose instance left the screen, destroyed with it, is let go.
+local function loopsRunning(layer: Instance): number
+	local running = loopsOn[layer]
+	if running == nil then
+		return 0
+	end
+	local count = 0
+	for instance in pairs(running) do
+		if instance:IsDescendantOf(layer) then
+			count += 1
+		else
+			running[instance] = nil
+		end
+	end
+	return count
+end
 
 local function lerp(from: any, to: any, alpha: number): any
 	local kind = typeof(to)
@@ -209,20 +236,46 @@ end
 -- wherever the properties are. Returns the function that stops it (a Trove holds it), which springs the
 -- properties back to `a`. A loop owns its properties: another Motion.to on them ends it. Under reduced
 -- motion nothing moves: `a` is written once and the stop does nothing; a loop already running when the
--- player turns reduced motion on stands still at `a` from its next leg.
+-- player turns reduced motion on stands still at `a` from its next leg. A loop asked for on a screen that
+-- already runs its Budget.MaxIdleLoops stands still at `a` the same way.
 function Motion.loop(instance: Instance, a: Goals, b: Goals, preset: Preset?, holdSeconds: number?): () -> ()
 	if UiPrefs.reducedMotion() then
 		Motion.set(instance, a)
 		return function() end
 	end
+	local layer = instance:FindFirstAncestorWhichIsA("LayerCollector")
+	if layer ~= nil then
+		if loopsRunning(layer) >= ThemeConfig.Budget.MaxIdleLoops then
+			if not overBudget[layer] then
+				overBudget[layer] = true
+				log.warn(
+					"%s asked for more than %d loops: the extra ones stand still",
+					layer:GetFullName(),
+					ThemeConfig.Budget.MaxIdleLoops
+				)
+			end
+			Motion.set(instance, a)
+			return function() end
+		end
+		local counted = loopsOn[layer] or {}
+		counted[instance] = true
+		loopsOn[layer] = counted
+	end
 	local running = true
 	local hold = holdSeconds or 0
+	local function release()
+		running = false
+		local onLayer = if layer ~= nil then loopsOn[layer] else nil
+		if onLayer ~= nil then
+			onLayer[instance] = nil
+		end
+	end
 	local function leg(goals: Goals, after: Goals)
 		if not running then
 			return
 		end
 		if UiPrefs.reducedMotion() then
-			running = false
+			release()
 			Motion.set(instance, a)
 			return
 		end
@@ -242,7 +295,7 @@ function Motion.loop(instance: Instance, a: Goals, b: Goals, preset: Preset?, ho
 		if not running then
 			return
 		end
-		running = false
+		release()
 		if instance:IsDescendantOf(game) then
 			Motion.to(instance, a, preset)
 		end

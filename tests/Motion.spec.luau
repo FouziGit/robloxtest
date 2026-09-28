@@ -7,6 +7,7 @@
 -- zero-hold loop stopped after its first leg and every chained flash stayed on its first colour.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -101,6 +102,126 @@ describe("Motion, run on a Heartbeat", function()
 		frame:Destroy()
 		world:frames(1)
 		expect(world.Heartbeat:count()).toBe(0)
+	end)
+end)
+
+-- Whether `frame` moved over the next `seconds`.
+local function moves(world: any, frame: any, property: string, seconds: number): boolean
+	local start = frame[property]
+	for _ = 1, math.floor(seconds * 60) do
+		world:frames(1)
+		if frame[property] ~= start then
+			return true
+		end
+	end
+	return false
+end
+
+describe("Motion's loops on a screen, run", function()
+	local function loopOn(Motion: any, parent: any): (any, () -> ())
+		local frame = Engine.instance("Frame", parent)
+		frame.BackgroundTransparency = 0
+		local stop = Motion.loop(frame, { BackgroundTransparency = 0 }, { BackgroundTransparency = 1 }, "Ui")
+		return frame, stop
+	end
+
+	it("runs a screen's budget of loops, and stands the next one still, said once", function()
+		local world, Motion = setup()
+		local screen = Engine.instance("ScreenGui", world.playerGui)
+		local budget = ThemeConfig.Budget.MaxIdleLoops
+		local frames = {}
+		for _ = 1, budget do
+			table.insert(frames, (loopOn(Motion, screen)))
+		end
+		local extra = loopOn(Motion, screen)
+		local another = loopOn(Motion, screen)
+		for _, frame in ipairs(frames) do
+			expect(moves(world, frame, "BackgroundTransparency", 0.5)).toBe(true)
+		end
+		expect(moves(world, extra, "BackgroundTransparency", 1)).toBe(false)
+		expect(moves(world, another, "BackgroundTransparency", 1)).toBe(false)
+		local said = 0
+		for _, line in ipairs(world.warnings) do
+			if string.find(line, "[Motion]", 1, true) ~= nil then
+				said += 1
+			end
+		end
+		expect(said).toBe(1)
+	end)
+
+	it("counts each screen apart, and nothing on no screen", function()
+		local world, Motion = setup()
+		local first = Engine.instance("ScreenGui", world.playerGui)
+		local second = Engine.instance("ScreenGui", world.playerGui)
+		for _ = 1, ThemeConfig.Budget.MaxIdleLoops do
+			loopOn(Motion, first)
+		end
+		expect(moves(world, (loopOn(Motion, second)), "BackgroundTransparency", 0.5)).toBe(true)
+		-- A shared breath lives in the PlayerGui, on no screen (Breath).
+		expect(moves(world, (loopOn(Motion, world.playerGui)), "BackgroundTransparency", 0.5)).toBe(true)
+	end)
+
+	it("gives a loop's place back when it stops, or when its frame goes", function()
+		local world, Motion = setup()
+		local screen = Engine.instance("ScreenGui", world.playerGui)
+		local stops, frames = {}, {}
+		for _ = 1, ThemeConfig.Budget.MaxIdleLoops do
+			local frame, stop = loopOn(Motion, screen)
+			table.insert(frames, frame)
+			table.insert(stops, stop)
+		end
+		stops[1]()
+		expect(moves(world, (loopOn(Motion, screen)), "BackgroundTransparency", 0.5)).toBe(true)
+		frames[2]:Destroy()
+		expect(moves(world, (loopOn(Motion, screen)), "BackgroundTransparency", 0.5)).toBe(true)
+	end)
+end)
+
+describe("a pending button, run", function()
+	it("bounces its three dots on one of its screen's loops", function()
+		local world, Motion = setup()
+		local Button = world.require("src/ui/components/Button")
+		local screen = Engine.instance("ScreenGui", world.playerGui)
+		local button = Button.new({ Text = "", Parent = screen })
+		button:SetPending(true)
+		local dots = {}
+		for _, child in ipairs(button.Instance:FindFirstChild("Pending", true):GetChildren()) do
+			if child.Name == "Dot" then
+				table.insert(dots, child)
+			end
+		end
+		expect(#dots).toBe(3)
+		-- The rest of the screen's budget still moves beside it.
+		local others = {}
+		for _ = 1, ThemeConfig.Budget.MaxIdleLoops - 1 do
+			local frame = Engine.instance("Frame", screen)
+			frame.BackgroundTransparency = 0
+			Motion.loop(frame, { BackgroundTransparency = 0 }, { BackgroundTransparency = 1 }, "Ui")
+			table.insert(others, frame)
+		end
+		local moved: { [any]: boolean } = {}
+		local last: { [any]: any } = {}
+		local watched = table.clone(dots)
+		for _, frame in ipairs(others) do
+			table.insert(watched, frame)
+		end
+		for _, part in ipairs(watched) do
+			last[part] = if part.Name == "Dot" then part.Position else part.BackgroundTransparency
+		end
+		for _ = 1, 120 do
+			world:frames(1)
+			for _, part in ipairs(watched) do
+				local now = if part.Name == "Dot" then part.Position else part.BackgroundTransparency
+				if now ~= last[part] then
+					moved[part] = true
+				end
+				last[part] = now
+			end
+		end
+		for _, part in ipairs(watched) do
+			expect(moved[part]).toBe(true)
+		end
+		expect(#world.warnings).toBe(0)
 	end)
 end)
 

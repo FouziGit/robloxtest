@@ -1,11 +1,13 @@
 --!strict
 -- Keycap: a key or a pad button drawn as the thing the player presses (D-147) -- a small sheet cap on a
--- chalk lip, the key's name in the number face. The hotbar, the settings, the glyph cards and the hub's
+-- chalk lip, the key's character in the number face or its word in the label face. The hotbar, the settings, the glyph cards and the hub's
 -- prompts all name keys this way, so a player learns one picture for "press this". An optional strip of a
 -- pigment along its bottom ties the key to its school: "J" on a Cinnabar strip.
 --
--- What it says (Keycap.label): a letter, a digit or F1 to F8 as itself; the D-pad as arrows, in the only
--- face that has them; anything else as its `key.*` word, in the player's language ("Maj", "Clic gauche").
+-- What it says (Keycap.label): a letter, a digit or F1 to F8 as itself, in the number face; the D-pad as
+-- arrows, in the only face that has them; anything else as its `key.*` word, in the player's language ("Maj",
+-- "Clic gauche"), in the label face that sets every word on a badge or a tag (spec 2.8: its 4.14 asks the
+-- number face of the cap, which is right for the characters and wrong for a word).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -64,20 +66,38 @@ local TEXT_SIZE = 16
 local PADDING = 6
 local STRIP_HEIGHT = 4
 
+-- A key is drawn as an arrow, as its own character (a digit, a letter, an F key), or as its word.
+type Form = "Arrow" | "Character" | "Word"
+
+local function formOf(keyName: string): Form
+	if ARROWS[keyName] ~= nil then
+		return "Arrow"
+	elseif DIGITS[keyName] ~= nil or #keyName == 1 or string.match(keyName, "^F%d+$") ~= nil then
+		return "Character"
+	end
+	return "Word"
+end
+
 -- What the cap of `keyName` says.
 function Keycap.label(keyName: string, localize: Localizer): string
-	local arrow = ARROWS[keyName]
-	if arrow ~= nil then
-		return arrow
-	end
-	local digit = DIGITS[keyName]
-	if digit ~= nil then
-		return digit
-	end
-	if #keyName == 1 or string.match(keyName, "^F%d+$") ~= nil then
-		return keyName
+	local form = formOf(keyName)
+	if form == "Arrow" then
+		return ARROWS[keyName]
+	elseif form == "Character" then
+		return DIGITS[keyName] or keyName
 	end
 	return localize.t("key." .. keyName)
+end
+
+-- The face the cap of `keyName` is set in.
+function Keycap.font(keyName: string): Font
+	local form = formOf(keyName)
+	if form == "Arrow" then
+		return Theme.Fonts.Symbol
+	elseif form == "Word" then
+		return Theme.Fonts.Label
+	end
+	return Theme.Fonts.Numeric
 end
 
 function Keycap.new(props: Props): Keycap
@@ -110,7 +130,6 @@ function Keycap.new(props: Props): Keycap
 	measure.TextTransparency = 1
 	measure.AutomaticSize = Enum.AutomaticSize.X
 	measure.Size = UDim2.fromOffset(height, height)
-	measure.FontFace = Theme.Fonts.Numeric
 	measure.TextSize = TEXT_SIZE
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, PADDING)
@@ -140,7 +159,7 @@ function Keycap.new(props: Props): Keycap
 
 	local function setKey(_self: Keycap?, key: string)
 		local text = Keycap.label(key, props.Localize)
-		local font = if ARROWS[key] ~= nil then Theme.Fonts.Symbol else Theme.Fonts.Numeric
+		local font = Keycap.font(key)
 		label.FontFace = font
 		label.Text = text
 		measure.FontFace = font

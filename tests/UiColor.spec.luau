@@ -3,6 +3,7 @@
 -- never red nor ours, rarities and ranks that never rely on colour alone, a cyan and a blue that a
 -- colour-blind player still tells apart, and no value colour in a fight. Source-level where it has to
 -- be: a HUD file that names the primary yellow is only caught by reading it.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
@@ -558,6 +559,37 @@ describe("the keycaps", function()
 			error("keys a keycap cannot name: " .. table.concat(missing, ", "))
 		end
 		expect(count).toBeGreaterThanOrEqual(15)
+	end)
+
+	it("sets a cap's character in the number face, its word in the label face, an arrow in the roman", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Keycap = world.require("src/ui/components/Keycap")
+		local Theme = world.require("src/ui/Theme")
+		local localize = {
+			t = function(key: string): string
+				return Strings.t(key, nil, "fr")
+			end,
+		}
+		local faces = {
+			DPadUp = Theme.Fonts.Symbol,
+			Q = Theme.Fonts.Numeric,
+			One = Theme.Fonts.Numeric,
+			F3 = Theme.Fonts.Numeric,
+			LeftShift = Theme.Fonts.Label,
+			MouseButton1 = Theme.Fonts.Label,
+			ButtonSelect = Theme.Fonts.Label,
+		}
+		for key, face in pairs(faces) do
+			local cap = Keycap.new({ Key = key, Device = "Keyboard", Localize = localize })
+			local label = cap.Instance:FindFirstChild("Key", true)
+			local measure = cap.Instance:FindFirstChild("Measure")
+			if label.FontFace.Family ~= face.Family or label.FontFace.Weight ~= face.Weight then
+				error(("the cap of %s (%q) is set in %s"):format(key, label.Text, label.FontFace.Family))
+			end
+			-- The width is measured in the face the word is drawn in.
+			expect(measure.FontFace.Family).toBe(face.Family)
+			expect(measure.FontFace.Weight).toBe(face.Weight)
+		end
 	end)
 
 	it("reads a key's word from Strings, and draws the D-pad as arrows", function()

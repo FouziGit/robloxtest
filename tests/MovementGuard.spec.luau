@@ -333,7 +333,7 @@ describe("MovementGuard: server teleports", function()
 		MovementGuard.grant(track, 22, 15, 0.22, at(1), 0.2, CONFIG)
 		local allowance, lift, windowEnd = track.Allowance, track.Lift, track.WindowEnd
 		local fromX, fromY, fromZ = MovementGuard.heard(track)
-		MovementGuard.teleported(track, 55, STAND, 0, at(2), fromX, fromY, fromZ, true, CONFIG)
+		MovementGuard.teleported(track, 55, STAND, 0, at(2), fromX, fromY, fromZ, STAND, CONFIG)
 		expect(track.Allowance).toBe(allowance)
 		expect(track.Lift).toBe(lift)
 		expect(track.WindowEnd).toBe(windowEnd)
@@ -346,7 +346,7 @@ describe("MovementGuard: server teleports", function()
 			observe(track, at(k), 0, STAND, 0)
 		end
 		local fromX, fromY, fromZ = MovementGuard.heard(track)
-		MovementGuard.teleported(track, 100, STAND, 0, at(20), fromX, fromY, fromZ, true, CONFIG)
+		MovementGuard.teleported(track, 100, STAND, 0, at(20), fromX, fromY, fromZ, STAND, CONFIG)
 		-- The stream still carries the old place until the pivot lands, then the body arrives.
 		for k = 20, 24 do
 			expect(observe(track, at(k), 0, STAND, 0).Action).toBe("None")
@@ -367,6 +367,34 @@ describe("MovementGuard: server teleports", function()
 		expect(v.Action).toBe("Watch")
 		expect(v.Kind).toBe("Teleport")
 	end)
+
+	it("measures altitude from the ground found under the destination, or keeps the old ground with none", function()
+		-- A pad 900 studs above the hub: the root is dropped 4.5 studs over its standing height.
+		local floor, root = 900 + STAND, 900 + STAND + 4.5
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 0, root, 0, at(1), 0, STAND, 0, floor, CONFIG)
+		expect(track.GroundY).toBe(floor)
+		expect(track.TokenUsed).toBe(false)
+		local ok, _, y = MovementGuard.safePoint(track, 1, true)
+		expect(ok).toBe(true)
+		expect(y).toBe(root)
+		-- Nothing found under it: the altitude rule keeps its old ground, and the point is no ground to fall back to.
+		local lost = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(lost, 50, root, 0, at(1), 0, STAND, 0, nil, CONFIG)
+		expect(lost.GroundY).toBe(STAND)
+		local _, x = MovementGuard.safePoint(lost, 1, true)
+		expect(x).toBe(0)
+	end)
+
+	it("scans for a landing on the sample that shows a pending teleport arrived", function()
+		-- Its settle can last a second, in which the body landed on the pad and jumped again: without the scan,
+		-- a hop on arrival read as a hang.
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 0, 900 + STAND + 4.5, 0, at(1), 0, STAND, 0, 900 + STAND, CONFIG)
+		expect(track.Pending).toBe(true)
+		local midHop = sample(at(1 + RATE), 0, 900 + STAND + 7, 0, { Supported = false })
+		expect(MovementGuard.preview(track, midHop, CONFIG)).toBe(true)
+	end)
 end)
 
 describe("MovementGuard: a teleport the client refuses", function()
@@ -381,7 +409,7 @@ describe("MovementGuard: a teleport the client refuses", function()
 		dest: number
 	): (MovementGuard.Verdict, number)
 		local x, y, z = MovementGuard.heard(track)
-		MovementGuard.teleported(track, dest, STAND, 0, at(fromTick), x, y, z, true, CONFIG)
+		MovementGuard.teleported(track, dest, STAND, 0, at(fromTick), x, y, z, STAND, CONFIG)
 		for k = fromTick + 1, fromTick + 10 * RATE do
 			local v = observe(track, at(k), stay, STAND, 0, { LastInboundAt = at(k) - TICK })
 			if v.Action == "Repivot" then
@@ -506,7 +534,7 @@ describe("MovementGuard: corrections", function()
 		expect(v.Action).toBe("Correct")
 		expect(v.Strikeable).toBe(true)
 		local x, y, z = MovementGuard.heard(track)
-		MovementGuard.teleported(track, v.X, v.Y, v.Z, at(RATE + 2), x, y, z, true, CONFIG)
+		MovementGuard.teleported(track, v.X, v.Y, v.Z, at(RATE + 2), x, y, z, v.Y, CONFIG)
 		local again = observe(track, at(RATE + 3), math.huge, STAND, 0)
 		expect(again.Action).toBe("Correct")
 		expect(again.Strikeable).toBe(true)

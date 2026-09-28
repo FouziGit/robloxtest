@@ -1237,3 +1237,39 @@ describe("MovementScenarios: cheats that pin a rule", function()
 		end,
 	}, "strike")
 end)
+
+-- A match or boss pad: ArenaService stands its marker a body's height (3.5) over the floor, and MatchService and
+-- the Erasure's Encounter pivot the root 4 studs above the marker -- 4.5 studs over its standing height, in an
+-- arena 900 studs above the hub the body comes from.
+local PAD_FLOOR = 902
+local PAD_ROOT = PAD_FLOOR + 3.5 + 4
+local PAD_ARENA = { { X0 = -1e9, X1 = 1e9, Top = 0 }, { X0 = -60, X1 = 60, Top = PAD_FLOOR, Tagged = true } }
+
+describe("MovementScenarios: honest, the adversarial review's cases", function()
+	for _, L in ipairs({ 0.05, 0.1, 0.2 }) do
+		for _, scale in ipairs({ 1, 2 }) do
+			case({
+				Name = ("pad drop 4.5 studs above standing, 900 up, hopping on landing, L=%.2f RTT x%d"):format(
+					L,
+					scale
+				),
+				Seconds = 6,
+				Latency = L,
+				RttScale = scale,
+				Floors = PAD_ARENA,
+				Teleports = { { 2, 0, PAD_ROOT } },
+				AutoJumpOn = PAD_FLOOR,
+			}, "clean")
+		end
+	end
+	case({
+		Name = "pad drop held at the destination 1.5 s (streaming), then falling onto the pad",
+		Seconds = 6,
+		Latency = 0.1,
+		Floors = PAD_ARENA,
+		Teleports = { { 2, 0, PAD_ROOT } },
+		Cheat = function(t: number): (number?, number?)
+			return nil, if t >= 2.1 and t < 3.6 then PAD_ROOT else nil
+		end,
+	}, "clean")
+end)

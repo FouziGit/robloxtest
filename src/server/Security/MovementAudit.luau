@@ -265,6 +265,17 @@ local function supportedAt(record: Record, origin: Vector3, stand: number): bool
 	return hit ~= nil and holdsUp(hit.Instance)
 end
 
+-- The standing root height of the ground under a server teleport's destination, nil with none within a jump's
+-- fall of the feet. A pad drops a body 4 studs above its marker, which already stands a body's height over the
+-- floor: the support probe, a stud and a half past the feet, does not reach it.
+local function groundUnder(record: Record, destination: Vector3, stand: number): number?
+	local hit = castDown(record, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config))
+	if hit == nil or not holdsUp(hit.Instance) then
+		return nil
+	end
+	return hit.Position.Y + stand
+end
+
 -- How high a body's root stands over its feet, from the server's own Humanoid; a body whose Humanoid the client
 -- detached is still audited on its root, as a default body.
 local function standHeight(humanoid: Humanoid?, root: BasePart): number
@@ -526,8 +537,9 @@ local function correct(body: Body, stand: number, verdict: MovementGuard.Verdict
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
 	deps.Reanchor(record.Player, target)
-	local grounded = supportedAt(record, target, stand)
-	MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, grounded, config)
+	-- A point the body was believed at: ground under it only as the support probe finds it, never from deeper.
+	local groundY = if supportedAt(record, target, stand) then target.Y else nil
+	MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config)
 	countCorrection(record, now)
 	report(record, verdict, now, "corrected", back, strike(record, verdict, now), false)
 end
@@ -757,8 +769,8 @@ function MovementAudit.teleported(player: Player, position: Vector3)
 	local stand = if root ~= nil and root:IsA("BasePart")
 		then standHeight(character:FindFirstChildOfClass("Humanoid"), root)
 		else AUDIT.DefaultStandHeightStuds
-	local grounded = supportedAt(record, position, stand)
-	MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, grounded, config)
+	local groundY = groundUnder(record, position, stand)
+	MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, groundY, config)
 end
 
 -- The server granted `player` a burst: `flat` horizontal and `lift` vertical studs over `seconds`.

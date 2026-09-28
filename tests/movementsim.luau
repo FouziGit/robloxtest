@@ -39,6 +39,8 @@ local CONFIG = buildConfig()
 local STAND = 3
 -- The support probe reaches this far past the feet.
 local PROBE = MovementGuardConfig.GroundProbeSlackStuds
+-- MovementAudit's probe under a server teleport's destination reaches a jump's fall past the feet.
+local TELEPORT_REACH = MovementGuard.maxRise(CONFIG)
 local CLIENT_STEP = 1 / 240
 -- The server's first tick falls between two client steps, as it would.
 local FIRST_TICK = 0.013
@@ -114,18 +116,20 @@ export type Expectation = "clean" | "nostrike" | "correct" | "strike"
 
 type Mover = { Duration: number, VX: number, VY: number, Exp: number, V: number, Since: number, El: number }
 
-local function supportTop(floors: { Floor }, walls: { Wall }, x: number, y: number): number?
+-- The top of the highest surface a probe from a root at (x, y) meets, reaching `reach` past the feet.
+local function supportTop(floors: { Floor }, walls: { Wall }, x: number, y: number, reach: number): number?
+	local found: number? = nil
 	for _, f in ipairs(floors) do
-		if x >= f.X0 - 1 and x <= f.X1 + 1 and y >= f.Top + STAND - 2.01 and y <= f.Top + STAND + PROBE then
-			return f.Top
+		if x >= f.X0 - 1 and x <= f.X1 + 1 and y >= f.Top + STAND - 2.01 and y <= f.Top + STAND + reach then
+			found = math.max(found or -math.huge, f.Top)
 		end
 	end
 	for _, w in ipairs(walls) do
-		if x >= w.X0 - 1 and x <= w.X1 + 1 and y >= w.Top + STAND - 2.01 and y <= w.Top + STAND + PROBE then
-			return w.Top
+		if x >= w.X0 - 1 and x <= w.X1 + 1 and y >= w.Top + STAND - 2.01 and y <= w.Top + STAND + reach then
+			found = math.max(found or -math.huge, w.Top)
 		end
 	end
-	return nil
+	return found
 end
 
 local function surfaces(floors: { Floor }, walls: { Wall }): { Floor }
@@ -423,7 +427,7 @@ local function run(sc: Scenario): Stats
 			if cy ~= nil then
 				y = cy
 				vy = 0
-				grounded = supportTop(floors, walls, x, y) ~= nil
+				grounded = supportTop(floors, walls, x, y, PROBE) ~= nil
 			end
 		end
 		-- The uplink: what the client replicates, and when it reaches the server.
@@ -485,7 +489,9 @@ local function run(sc: Scenario): Stats
 						else
 							local tp = e[3]
 							local fromX, fromY, fromZ = MovementGuard.heard(track)
-							MovementGuard.teleported(track, tp[2], tp[3], 0, now, fromX, fromY, fromZ, true, CONFIG)
+							local top = supportTop(floors, walls, tp[2], tp[3], TELEPORT_REACH)
+							local groundY = if top ~= nil then top + STAND else nil
+							MovementGuard.teleported(track, tp[2], tp[3], 0, now, fromX, fromY, fromZ, groundY, CONFIG)
 							serverX, serverY = tp[2], tp[3]
 							table.insert(
 								pendingCmds,
@@ -499,7 +505,7 @@ local function run(sc: Scenario): Stats
 					X = serverX,
 					Y = serverY,
 					Z = 0,
-					Supported = supportTop(floors, walls, serverX, serverY) ~= nil,
+					Supported = supportTop(floors, walls, serverX, serverY, PROBE) ~= nil,
 					StandHeight = STAND,
 					Down = within(sc.Down, now),
 					Contact = within(sc.Contact, now),
@@ -530,8 +536,9 @@ local function run(sc: Scenario): Stats
 					if v.Action ~= "Watch" then
 						if v.Action == "Correct" then
 							local fromX, fromY, fromZ = MovementGuard.heard(track)
-							local ground = supportTop(floors, walls, v.X, v.Y) ~= nil
-							MovementGuard.teleported(track, v.X, v.Y, 0, now, fromX, fromY, fromZ, ground, CONFIG)
+							local ground = supportTop(floors, walls, v.X, v.Y, PROBE) ~= nil
+							local groundY = if ground then v.Y else nil
+							MovementGuard.teleported(track, v.X, v.Y, 0, now, fromX, fromY, fromZ, groundY, CONFIG)
 						end
 						serverX, serverY = v.X, v.Y
 						table.insert(

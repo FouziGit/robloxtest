@@ -530,7 +530,7 @@ describe("the movement audit", function()
 		local correct = audit("local function correct(")
 		expect(correct).toContain("local target = clearTarget(record, verdict, stand)")
 		expect(correct).toContain(
-			"local fromX, fromY, fromZ = MovementGuard.heard(track) body.Character:PivotTo(CFrame.new(target) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, target) local grounded = supportedAt(record, target, stand) MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, grounded, config) countCorrection(record, now)"
+			"local fromX, fromY, fromZ = MovementGuard.heard(track) body.Character:PivotTo(CFrame.new(target) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, target) local groundY = if supportedAt(record, target, stand) then target.Y else nil MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config) countCorrection(record, now)"
 		)
 		local clear = audit("local function clearTarget(")
 		expect(clear).toContain('MovementGuard.safePoint(record.Track, n, verdict.Kind == "Flight")')
@@ -552,6 +552,39 @@ describe("the movement audit", function()
 			"if #times > AUDIT.CorrectionBurstLimit then table.clear(times) record.PausedUntil = now + AUDIT.LoopPauseSeconds"
 		)
 		expect(burst).never.toContain("strike(")
+	end)
+
+	it("finds the ground under a server teleport's destination as far down as the pads drop a body", function()
+		-- The support probe missed the floor under a pad, and the altitude rule kept measuring from the hub 900
+		-- studs below: every arrival read as a flight, and one that hopped on landing as a flight to correct.
+		expect(audit("function MovementAudit.teleported(")).toContain(
+			"local groundY = groundUnder(record, position, stand) MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, groundY, config)"
+		)
+		expect(audit("local function groundUnder(")).toContain(
+			"local hit = castDown(record, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config)) if hit == nil or not holdsUp(hit.Instance) then return nil end return hit.Position.Y + stand"
+		)
+		-- A jump's fall past the feet covers every pad: its marker stands a body's height over the floor and the
+		-- root is pivoted above the marker.
+		local function localNumber(path: string, pattern: string): number
+			local found = tonumber(strip(fs.readFile(path)):match(pattern))
+			assert(found ~= nil, path .. " has no " .. pattern .. ": this gate would check nothing")
+			return found :: number
+		end
+		local marker = localNumber(ARENA, "\nlocal CHARACTER_PIVOT_STUDS = ([%d%.]+)\n")
+		local maxRise = (GameConfig.Movement.JumpPower ^ 2 + GameConfig.Movement.DoubleJumpVelocity ^ 2) / (2 * 196.2)
+		for _, clearance in ipairs({
+			localNumber("src/server/Services/MatchService.luau", "\nlocal SPAWN_CLEARANCE_STUDS = ([%d%.]+)\n"),
+			localNumber(
+				"src/server/Services/WorldBossService/Context.luau",
+				"\nContext.SpawnClearanceStuds = ([%d%.]+)\n"
+			),
+		}) do
+			expect(marker + clearance - MovementGuardConfig.DefaultStandHeightStuds).toBeLessThan(maxRise)
+			-- And the support probe alone does not: without the deeper cast the floor stays out of reach.
+			expect(marker + clearance - MovementGuardConfig.DefaultStandHeightStuds).toBeGreaterThan(
+				MovementGuardConfig.GroundProbeSlackStuds
+			)
+		end
 	end)
 
 	it("follows a teleport's new body from where the engine spawned it", function()

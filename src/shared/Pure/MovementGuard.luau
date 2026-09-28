@@ -513,15 +513,16 @@ local function pushPath(track: Track, now: number, x: number, z: number)
 	track.PathCount = math.min(track.PathCount + 1, size)
 end
 
--- Re-anchors everything on a point the SERVER chose: a spawn, a teleport, a correction.
-local function base(track: Track, x: number, y: number, z: number, now: number, grounded: boolean)
+-- Re-anchors everything on a point the SERVER chose: a spawn, a teleport, a correction. `groundY` is the standing
+-- root height of the ground found under it, nil with none: the altitude rule measures from there.
+local function base(track: Track, x: number, y: number, z: number, now: number, groundY: number?)
 	track.Based = true
 	track.LastX, track.LastY, track.LastZ, track.LastAt, track.LastMoveAt = x, y, z, now, now
 	track.AnchorX, track.AnchorZ, track.AnchorAt = x, z, now
 	track.HeardX, track.HeardY, track.HeardZ, track.HeardAt = x, y, z, now
 	track.Forgiven, track.CatchUp, track.Gap = 0, false, 0
-	if grounded then
-		track.GroundY = y
+	if groundY ~= nil then
+		track.GroundY = groundY
 		track.TokenUsed = false
 	end
 	track.HighY, track.HighAt = y, now
@@ -530,7 +531,7 @@ local function base(track: Track, x: number, y: number, z: number, now: number, 
 	track.PathCount = 0
 	track.Beyond = false
 	resetEpisodes(track)
-	pushSafe(track, now, x, y, z, grounded)
+	pushSafe(track, now, x, y, z, groundY ~= nil)
 	pushPath(track, now, x, z)
 end
 
@@ -546,13 +547,15 @@ function MovementGuard.spawned(track: Track, x: number, y: number, z: number, no
 	track.ContactUntil = -math.huge
 	track.SafeCount = 0
 	track.WalkCount = 0
-	base(track, x, y, z, now, true)
+	base(track, x, y, z, now, y)
 	track.SpawnUntil = now + config.SpawnGraceSeconds
 end
 
 -- The server moved the body: a server teleport or a correction. `from` is where the stream last put it, so
 -- its stale samples are recognised by it. Grants survive: a client mover still running keeps carrying the
--- body from the new place.
+-- body from the new place. `groundY` is the standing root height of the ground under the destination, nil with
+-- none: a pad drops a body a few studs above its floor, and the altitude rule must measure from that floor,
+-- not from wherever the body stood before -- the hub, 900 studs under an arena.
 function MovementGuard.teleported(
 	track: Track,
 	x: number,
@@ -562,7 +565,7 @@ function MovementGuard.teleported(
 	fromX: number,
 	fromY: number,
 	fromZ: number,
-	grounded: boolean,
+	groundY: number?,
 	config: Config
 )
 	track.Pending = true
@@ -574,7 +577,7 @@ function MovementGuard.teleported(
 	end
 	track.ReturnUntil = -math.huge
 	track.TeleportAt = now
-	base(track, x, y, z, now, grounded)
+	base(track, x, y, z, now, groundY)
 end
 
 -- The server granted a burst of `flat` horizontal and `lift` vertical studs over `seconds`. The client plays
@@ -724,9 +727,11 @@ local function verticalRule(track: Track, s: Sample, config: Config): (string?, 
 end
 
 -- True when a flight rule would fire on this sample: MovementAudit then scans the path for a surface the
--- body could have stood on between two samples, and passes the tops in s.SupportTops.
+-- body could have stood on between two samples, and passes the tops in s.SupportTops. A pending teleport does
+-- not stop it: the sample that shows the body arrived is judged, after a settle in which it may have landed and
+-- jumped again, and a hop on arrival read as a hang without its scan.
 function MovementGuard.preview(track: Track, s: Sample, config: Config): boolean
-	if not track.Based or track.Pending or s.Supported then
+	if not track.Based or s.Supported then
 		return false
 	end
 	local rule = verticalRule(track, s, config)
@@ -1343,7 +1348,7 @@ function MovementGuard.observe(track: Track, s: Sample, config: Config): Verdict
 	end
 	if not track.Based then
 		-- Only when no spawn point was known: the first sample is all there is (MovementAudit logs it).
-		base(track, s.X, s.Y, s.Z, now, s.Supported)
+		base(track, s.X, s.Y, s.Z, now, if s.Supported then s.Y else nil)
 		return none()
 	end
 	local rtt = clampRtt(s.Rtt, config)

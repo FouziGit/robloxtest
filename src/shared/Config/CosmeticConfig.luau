@@ -8,12 +8,12 @@
 --   * rule 7, white means invulnerable and cyan means an ally -- so nothing worn is white or that cyan;
 --   * a kill effect is drawn in the page's inks (Inks below): it lands on somebody else's screen, in their
 --     fight.
--- What a body WEARS -- an aura, a trail -- is the one amendment to rule 1 (D-148): it is coloured, in the
--- materials of the book (gold leaf, lapis, madder, iron-gall, soot, silverpoint, sap green, ochre, murex
--- purple), because a purchase in the page's charcoal on a dark avatar was a few black dots nobody saw. It
--- still never takes a school's colour (tests/Cosmetics.spec.luau holds every colour it can draw away from
--- each pigment, from white and from the ally cyan), and it steps back in a fight (Fight below) so the glyphs
--- keep the colour of the fight.
+-- What a body WEARS -- an aura, a trail -- is the one exception rule 1 makes in the world (D-148): it is
+-- coloured, in the materials of the book (gold leaf, lapis, madder, iron-gall, soot, silverpoint, sap green,
+-- ochre, murex purple), because a purchase in the page's charcoal on a dark avatar was a few black dots nobody
+-- saw. It still never takes a school's colour (tests/Cosmetics.spec.luau holds every colour it can draw away
+-- from each pigment, from white and from the ally cyan), and it steps back in a fight (Fight below) so the
+-- glyphs keep the colour of the fight.
 -- Rarity is carried by craft AND intensity: a Rare is one layer, an Epic two, a Legendary three with a small
 -- light core, the only thing worn that adds light (LayersByRarity).
 -- Ids are storage keys (profiles, passes, rewards) and keep their historical names; what a player sees

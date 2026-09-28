@@ -169,8 +169,13 @@ Elles s'appliquent à chaque ligne de rendu écrite à partir de maintenant.
 
 1. **Le décor n'est jamais saturé.** Toute couleur vive à l'écran appartient à un glyphe. Aucune
    exception dans le monde, pas même pour un élément d'interface diégétique (plaque, panneau, invite,
-   marqueur posé dans le décor). L'interface d'écran — ce qui est dessiné sur la vitre et non dans le
-   monde — peut être vive, sous la règle 11 (D-147).
+   marqueur posé dans le décor), sauf ce qu'un corps porte (D-148) : une aura ou une traînée a ses propres
+   couleurs, prises aux matières du livre — feuille d'or, lapis, garance, encre ferro-gallique, braise,
+   pointe d'argent, vert de vessie, ocre, pourpre de murex —, jamais celle d'une école, ni le blanc, ni le
+   cyan allié (`tests/Cosmetics.spec.luau` les en tient loin), et elle se tait en combat : moins dense,
+   plus transparente, sans lumière, pour que les glyphes gardent la couleur du combat. Un effet de kill,
+   qui tombe dans le combat d'un autre, reste à l'encre de la page. L'interface d'écran — ce qui est
+   dessiné sur la vitre et non dans le monde — peut être vive, sous la règle 11 (D-147).
 2. **Un glyphe = un pigment = une couleur.** Un sort ne mélange jamais deux pigments. Un joueur doit
    pouvoir nommer l'école d'un sort à la couleur seule, de dos, à trente studs. Ce qui n'est d'aucune
    école — le coup de poing, l'esquive — est à l'encre de la page, le charbon (D-114).

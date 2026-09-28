@@ -32,7 +32,9 @@ local CONTAINER_NAME = "VellumDamageNumbers"
 local BILLBOARD_SIZE = UDim2.fromOffset(220, 60)
 -- Past this the number is somebody else's fight and is not drawn at all.
 local MAX_DISTANCE_STUDS = 160
-local STROKE_THICKNESS = 2.5
+-- The ink around a number (D-147: the Number stroke), on its glyphs, a touch translucent.
+local NUMBER_STROKE = 3
+local STROKE_TRANSPARENCY = 0.15
 
 local container: Folder? = nil
 local pool: { Marker } = {}
@@ -81,11 +83,8 @@ local function build(): Marker
 
 	-- The stroke is what keeps a number readable over a bright explosion, which is exactly when it is
 	-- most needed and least visible.
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = STROKE_THICKNESS
-	stroke.Color = Theme.Colors.Outline
-	stroke.Transparency = 0.15
-	stroke.Parent = label
+	local stroke = Theme.stroke(label, "Outline", NUMBER_STROKE, "Contextual")
+	stroke.Transparency = STROKE_TRANSPARENCY
 
 	return { Anchor = anchor, Billboard = billboard, Label = label, Stroke = stroke }
 end
@@ -128,7 +127,7 @@ end
 function DamageNumber.place(marker: Marker, position: Vector3, transparency: number, scale: number)
 	marker.Anchor.CFrame = CFrame.new(position)
 	marker.Label.TextTransparency = transparency
-	marker.Stroke.Transparency = math.clamp(transparency + 0.15, 0, 1)
+	marker.Stroke.Transparency = math.clamp(transparency + STROKE_TRANSPARENCY, 0, 1)
 	marker.Billboard.Size = UDim2.fromOffset(BILLBOARD_SIZE.X.Offset * scale, BILLBOARD_SIZE.Y.Offset * scale)
 end
 

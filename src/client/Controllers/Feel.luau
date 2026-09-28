@@ -395,7 +395,7 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, cri
 	local severity = FeelMath.severity(amount, FeelConfig.HitStop)
 	local sizeScale = FeelMath.lerp(1, config.MaxSizeScale, severity)
 	if critical then
-		sizeScale *= 1.15
+		sizeScale *= config.AmplifiedScale
 	end
 
 	local marker = DamageNumber.acquire()

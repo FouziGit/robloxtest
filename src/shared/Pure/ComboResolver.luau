@@ -10,12 +10,16 @@
 --     full timeout (docs/GAME_DESIGN.md §4)
 --   * otherwise → Reset (NoMatch)
 --   * on timeout: Cast if the pending sequence is a recipe, else Reset (Dissipated)
+--
+-- It also says where a sequence can go next (continuations): the pigments that extend it toward at least one
+-- recipe. The HUD hints them after the chips a player has pressed -- one step ahead, never the whole tree.
 
 export type Recipe = { Id: string, Combo: { string } }
 
 export type Resolver = {
 	byKey: { [string]: string }, -- combo key -> glyph id
 	prefixes: { [string]: boolean }, -- keys that are strict prefixes of some recipe
+	nexts: { [string]: { string } }, -- prefix key ("" for none) -> the pigments that extend it, in recipe order
 	maxLength: number,
 	duplicates: { string }, -- combo keys defined by more than one recipe (first wins)
 }
@@ -32,7 +36,7 @@ function ComboResolver.keyFor(sequence: { string }): string
 end
 
 function ComboResolver.new(recipes: { Recipe }, maxLength: number): Resolver
-	local resolver: Resolver = { byKey = {}, prefixes = {}, maxLength = maxLength, duplicates = {} }
+	local resolver: Resolver = { byKey = {}, prefixes = {}, nexts = {}, maxLength = maxLength, duplicates = {} }
 	for _, recipe in ipairs(recipes) do
 		local key = ComboResolver.keyFor(recipe.Combo)
 		if resolver.byKey[key] ~= nil then
@@ -42,6 +46,18 @@ function ComboResolver.new(recipes: { Recipe }, maxLength: number): Resolver
 		end
 		for length = 1, #recipe.Combo - 1 do
 			resolver.prefixes[table.concat(recipe.Combo, "-", 1, length)] = true
+		end
+		for length = 0, #recipe.Combo - 1 do
+			local prefix = table.concat(recipe.Combo, "-", 1, length)
+			local nexts = resolver.nexts[prefix]
+			if nexts == nil then
+				nexts = {}
+				resolver.nexts[prefix] = nexts
+			end
+			local pigment = recipe.Combo[length + 1]
+			if table.find(nexts, pigment) == nil then
+				table.insert(nexts, pigment)
+			end
 		end
 	end
 	return resolver
@@ -79,6 +95,13 @@ function ComboResolver.timeout(resolver: Resolver, sequence: { string }): Decisi
 		return { Action = "Cast", GlyphId = glyphId }
 	end
 	return { Action = "Reset", Reason = "Dissipated" }
+end
+
+-- The pigments that extend `sequence` toward at least one recipe, in the order the recipes are listed: every
+-- first pigment for an empty sequence, none for a sequence no recipe goes on from. A new table.
+function ComboResolver.continuations(resolver: Resolver, sequence: { string }): { string }
+	local nexts = resolver.nexts[ComboResolver.keyFor(sequence)]
+	return if nexts ~= nil then table.clone(nexts) else {}
 end
 
 -- Server-side check: does this exact sequence map to a recipe?

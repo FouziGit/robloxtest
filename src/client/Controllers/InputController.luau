@@ -6,7 +6,9 @@
 -- `setSuspended` unbinds everything (touch buttons disappear with the bindings) while a menu is open, but
 -- the Menu key, which closes it.
 -- Touch buttons are laid out in absolute screen space from `InputConfig.Touch`, clear of the engine
--- jump button and of each other (see `touchLayout`).
+-- jump button and of each other (TouchCluster.layout). A locked pigment keeps its keys but gets no disc; the
+-- dash disc shows the cooldown the local throttle keeps (CombatController), and the HUD tells the discs
+-- which ones continue the sequence and which ones the ink can still pay for (setHints, setAffordable).
 
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
@@ -21,12 +23,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local CombatConfig = require(Shared.Config.CombatConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Signal = require(Packages.Signal)
 local Theme = require(UI.Theme)
 local TouchButton = require(UI.components.TouchButton)
+local TouchCluster = require(Shared.Pure.TouchCluster)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
@@ -38,8 +43,8 @@ type TroveType = typeof(Trove.new())
 type Deps = { ClientData: any, Localize: any, MenuController: any }
 type Capture = { Kind: CaptureKind, Callback: (keyName: string?) -> (), Trove: TroveType }
 type BindInput = Enum.KeyCode | Enum.UserInputType
-type Rect = { Min: Vector2, Max: Vector2 }
-type TouchStyle = { Layout: { [string]: Vector2 }, Size: number, Origin: Vector2 }
+export type Rect = { Min: Vector2, Max: Vector2 }
+type TouchStyle = { Discs: { [string]: TouchCluster.Disc }, Origin: Vector2 }
 
 -- Above the default camera's own bindings: at the same priority, the most recently bound wins, and the
 -- camera re-binds the right stick's click (its zoom) every time it is re-enabled -- so the lock's button
@@ -65,14 +70,15 @@ for _, name in ipairs(InputConfig.CaptureCancelKeys) do
 end
 local TOUCH_GUI_NAME = "TouchGui"
 local JUMP_BUTTON_NAME = "JumpButton"
-local CLUSTER_ANCHOR: InputConfig.TouchAnchor = "Cluster"
-local ANCHOR_PRIORITY: { [string]: number } = { TopRight = 1, JumpRow = 2, Cluster = 3 }
--- Relaxation passes applied per disc so a clamped placement still respects the minimum distance.
-local SEPARATION_PASSES = 4
 -- Frames waited for the engine to lay its button frame out (AbsolutePosition is the layout origin).
 local LAYOUT_WAIT_FRAMES = 4
 local FALLBACK_VIEWPORT = Vector2.new(1280, 720)
-local EPSILON = 0.001
+-- The layout reads the touch config as plain data (TouchCluster is pure and knows no ActionId).
+local TOUCH_CONFIG: TouchCluster.Config = InputConfig.Touch :: any
+local ACTIONS: { string } = InputConfig.Actions :: any
+local DASH_ACTION = "Dash"
+-- The dash disc's veil moves at the pace the hotbar's drains do: the server's combat pushes.
+local DASH_TICK_SECONDS = 1 / GameConfig.Server.CombatStateHz
 -- Analog sticks fire InputBegan past their deadzone; they are never a valid gamepad binding.
 local THUMBSTICKS: { [Enum.KeyCode]: boolean } = {
 	[Enum.KeyCode.Thumbstick1] = true,
@@ -93,6 +99,8 @@ local InputController = {}
 
 InputController.Action = Signal.new() -- (actionId: string, began: boolean)
 InputController.SuspendedChanged = Signal.new() -- (suspended: boolean)
+-- Fired at the end of every layout of the touch discs: what the HUD lays out around them reads touchRects.
+InputController.TouchLayoutChanged = Signal.new()
 
 local clientData: any
 local localize: any
@@ -107,7 +115,18 @@ local suspended = false
 local capture: Capture? = nil
 local warnedKeys: { [string]: boolean } = {}
 local hapticSupport: { [Enum.UserInputType]: boolean } = {}
+-- The square each touch disc covers since the last layout, by action. Kept while a menu unbinds the discs:
+-- they come back in the same places.
+local touchRectsByAction: { [string]: Rect } = {}
 local relayoutTouch: () -> ()
+-- The pigments each source of hints says continue the sequence (setHints), and those the ink can pay for.
+local hintsBySource: { [string]: { [string]: boolean } } = {}
+local affordable: { [string]: boolean }? = nil
+-- The locked pigments the discs were last bound without, so an unlock rebinds only when it changes them.
+local lockedSignature = ""
+-- When the local throttle lets the next dash through (os.clock), and the tick chain drawing its veil.
+local dashReadyAt = 0
+local dashToken = 0
 
 local keyCodeByName: { [string]: Enum.KeyCode } = {}
 for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
@@ -182,6 +201,41 @@ local function pulseHaptics(input: InputObject)
 	end)
 end
 
+-- The dash disc's veil, from the throttle's clock: drawn again at the server's combat pace until the next
+-- dash can go. A newer dash starts a new chain and the old one stops.
+local function tickDash(token: number)
+	if token ~= dashToken then
+		return
+	end
+	local remaining = math.max(0, dashReadyAt - os.clock())
+	local visual = touchVisuals[DASH_ACTION]
+	if visual ~= nil then
+		visual:SetCooldown(remaining, CombatConfig.Dash.CooldownSeconds)
+	end
+	if remaining > 0 then
+		task.delay(DASH_TICK_SECONDS, tickDash, token)
+	end
+end
+
+-- A dash press the local throttle lets through (CombatController drops any other inside
+-- Dash.CooldownSeconds of the last it sent): the disc shows the wait until the next.
+local function onDashPressed()
+	local now = os.clock()
+	if not UserInputService.TouchEnabled or now < dashReadyAt then
+		return
+	end
+	dashReadyAt = now + CombatConfig.Dash.CooldownSeconds
+	dashToken += 1
+	tickDash(dashToken)
+end
+
+-- A respawn clears the throttle (CombatController) and the server's cooldowns: the disc is ready.
+local function clearDash()
+	dashReadyAt = 0
+	dashToken += 1
+	tickDash(dashToken)
+end
+
 local function onAction(actionName: string, state: Enum.UserInputState, input: InputObject): Enum.ContextActionResult?
 	if suspended or capture ~= nil then
 		return Enum.ContextActionResult.Pass
@@ -195,6 +249,8 @@ local function onAction(actionName: string, state: Enum.UserInputState, input: I
 		InputController.Action:Fire(actionName, true)
 		if actionName == MENU_ACTION then
 			menuController.toggle()
+		elseif actionName == DASH_ACTION then
+			onDashPressed()
 		end
 		return Enum.ContextActionResult.Sink
 	end
@@ -220,22 +276,6 @@ local function touchScale(): number
 	return Theme.scaleFor(viewportSize())
 end
 
--- Diameter of a touch disc in real screen px. The discs are the primary combat controls and sit under
--- no UIScale, so the scaled size is floored at the smallest reliable touch target.
-local function touchButtonSize(scale: number): number
-	return math.max(InputConfig.Touch.ButtonSize * scale, InputConfig.Touch.MinButtonSize)
-end
-
-local function shrink(rect: Rect, amount: Vector2): Rect
-	local min = rect.Min + amount
-	local max = rect.Max - amount
-	return { Min = min, Max = Vector2.new(math.max(min.X, max.X), math.max(min.Y, max.Y)) }
-end
-
-local function clampPoint(point: Vector2, bounds: Rect): Vector2
-	return Vector2.new(math.clamp(point.X, bounds.Min.X, bounds.Max.X), math.clamp(point.Y, bounds.Min.Y, bounds.Max.Y))
-end
-
 -- Screen area below the Roblox top bar; touch buttons are laid out in these absolute coordinates.
 local function screenRect(): Rect
 	local topInset = GuiService:GetGuiInset()
@@ -254,154 +294,71 @@ local function jumpRect(screen: Rect): Rect
 	return { Min = screen.Max - Vector2.new(reserve.Width, reserve.Height), Max = screen.Max }
 end
 
-local function ringOffset(placement: InputConfig.TouchPlacement, step: number): Vector2
-	local angle = placement.Angle
-	if angle == nil then
-		return Vector2.zero
-	end
-	local radians = math.rad(angle)
-	return Vector2.new(math.cos(radians), -math.sin(radians)) * step
+local function toCluster(rect: Rect): TouchCluster.Rect
+	return { Min = { X = rect.Min.X, Y = rect.Min.Y }, Max = { X = rect.Max.X, Y = rect.Max.Y } }
 end
 
--- Half extent of the pigment ring: centre to the outermost ring centre, per axis.
-local function clusterExtent(step: number): Vector2
-	local extent = Vector2.zero
-	for _, action in ipairs(InputConfig.Actions) do
-		local placement = InputConfig.Touch.Positions[action :: any]
-		if placement ~= nil and placement.Anchor == CLUSTER_ANCHOR then
-			local offset = ringOffset(placement, step)
-			extent = Vector2.new(math.max(extent.X, math.abs(offset.X)), math.max(extent.Y, math.abs(offset.Y)))
-		end
-	end
-	return extent
-end
-
-local function placementRank(placement: InputConfig.TouchPlacement): number
-	local anchor = ANCHOR_PRIORITY[placement.Anchor] or #InputConfig.Actions
-	local detail = placement.Step or 0
-	if placement.Anchor == CLUSTER_ANCHOR then
-		detail = if placement.Angle == nil then 0 else 1 + placement.Angle / 360
-	end
-	return anchor * 10 + detail
-end
-
--- Deterministic placement order: the fixed corner first, then the jump row, then the ring.
-local function placementOrder(): { string }
-	local order: { string } = {}
-	for _, action in ipairs(InputConfig.Actions) do
-		if InputConfig.Touch.Positions[action :: any] ~= nil then
-			table.insert(order, action)
-		end
-	end
-	table.sort(order, function(left: string, right: string): boolean
-		local leftRank = placementRank(InputConfig.Touch.Positions[left :: any])
-		local rightRank = placementRank(InputConfig.Touch.Positions[right :: any])
-		if leftRank == rightRank then
-			return left < right
-		end
-		return leftRank < rightRank
-	end)
-	return order
-end
-
--- Pushes `point` at least `step` away from every disc placed before it.
-local function pushNeighbours(point: Vector2, placed: { Vector2 }, step: number, bounds: Rect): Vector2
-	local result = point
-	for _, other in ipairs(placed) do
-		local delta = result - other
-		local distance = delta.Magnitude
-		if distance < step - EPSILON then
-			local direction = if distance > EPSILON then delta.Unit else Vector2.new(-1, 0)
-			result = clampPoint(other + direction * step, bounds)
-		end
-	end
-	return result
-end
-
--- Lifts `point` above the jump button when it fell inside the button plus its clearance.
-local function clearJump(point: Vector2, jump: Rect, clearance: number, bounds: Rect): Vector2
-	local outside = point.X < jump.Min.X - clearance + EPSILON
-		or point.X > jump.Max.X + clearance - EPSILON
-		or point.Y < jump.Min.Y - clearance + EPSILON
-		or point.Y > jump.Max.Y + clearance - EPSILON
-	if outside then
-		return point
-	end
-	return clampPoint(Vector2.new(point.X, jump.Min.Y - clearance), bounds)
-end
-
--- Resolves InputConfig.Touch to absolute screen centres: the pigment ring above and left of the engine
--- jump button, Melee/Block/Dash/LockOn in a row left of it, Menu in the top-right corner. Every centre stays
--- inside the safe area, at least (diameter + gap) from its neighbours and clear of the jump button.
-local function touchLayout(scale: number): { [string]: Vector2 }
-	local config = InputConfig.Touch
-	local diameter = touchButtonSize(scale)
-	local radius = diameter * 0.5
-	local gap = config.Gap * scale
-	local step = diameter + gap
-	local clearance = radius + gap
+-- Every disc's centre (absolute screen px) and diameter: the pigment ring above and left of the engine jump
+-- button, Melee/Block/Dash/LockOn in a row left of it, Menu in the top-right corner (TouchCluster.layout).
+local function touchLayout(scale: number): { [string]: TouchCluster.Disc }
 	local screen = screenRect()
-	local inset = config.Margin * scale + radius
-	local bounds = shrink(screen, Vector2.new(inset, inset))
-	local jump = jumpRect(screen)
-	local rowY = jump.Min.Y + (jump.Max.Y - jump.Min.Y) * 0.5
-	local rowX = jump.Min.X - clearance
-	local extent = clusterExtent(step)
-	local ringBounds = shrink(bounds, extent)
-	local ringCentre = Vector2.new(
-		math.max(ringBounds.Min.X, math.min(ringBounds.Max.X, jump.Max.X - extent.X)),
-		math.max(
-			ringBounds.Min.Y,
-			math.min(ringBounds.Max.Y, rowY - step - extent.Y, jump.Min.Y - clearance - extent.Y)
-		)
-	)
-	local centres: { [string]: Vector2 } = {}
-	local placed: { Vector2 } = {}
-	for _, action in ipairs(placementOrder()) do
-		local placement = config.Positions[action :: any]
-		local point = ringCentre + ringOffset(placement, step)
-		if placement.Anchor == "TopRight" then
-			point = Vector2.new(bounds.Max.X, bounds.Min.Y)
-		elseif placement.Anchor == "JumpRow" then
-			point = Vector2.new(rowX - ((placement.Step or 1) - 1) * step, rowY)
+	return TouchCluster.layout(TOUCH_CONFIG, ACTIONS, toCluster(screen), toCluster(jumpRect(screen)), scale)
+end
+
+-- Whether any source of hints says `action` continues the sequence.
+local function hinted(action: string): boolean
+	for _, pigments in pairs(hintsBySource) do
+		if pigments[action] then
+			return true
 		end
-		point = clampPoint(point, bounds)
-		for _ = 1, SEPARATION_PASSES do
-			local moved = clearJump(pushNeighbours(point, placed, step, bounds), jump, clearance, bounds)
-			local settled = (moved - point).Magnitude < EPSILON
-			point = moved
-			if settled then
-				break
-			end
-		end
-		centres[action] = point
-		table.insert(placed, point)
 	end
-	return centres
+	return false
+end
+
+-- Whether a pigment disc leads to a glyph the ink can pay for; the kit is always there.
+local function available(action: string): boolean
+	local payable = affordable
+	return payable == nil or not PigmentConfig.isPigment(action) or payable[action] == true
+end
+
+local function refreshDiscs()
+	for action, visual in pairs(touchVisuals) do
+		visual:SetHint(hinted(action))
+		visual:SetAvailable(available(action))
+	end
+end
+
+local function discKind(action: string): TouchButton.Kind
+	if PigmentConfig.isPigment(action) then
+		return "Pigment"
+	end
+	return if action == MENU_ACTION then "Menu" else "Kit"
 end
 
 -- Replaces the engine's default touch button look with the themed TouchButton visual.
 local function applyTouchButton(action: string, button: ImageButton, style: TouchStyle)
-	local centre: Vector2? = style.Layout[action]
+	local disc = style.Discs[action]
+	if disc == nil then
+		return
+	end
 	button.Image = ""
 	button.PressedImage = ""
 	button.AnchorPoint = Vector2.new(0.5, 0.5)
-	button.Size = UDim2.fromOffset(style.Size, style.Size)
-	if centre ~= nil then
-		button.Position = UDim2.fromOffset(centre.X - style.Origin.X, centre.Y - style.Origin.Y)
-	end
+	button.Size = UDim2.fromOffset(disc.Diameter, disc.Diameter)
+	button.Position = UDim2.fromOffset(disc.Centre.X - style.Origin.X, disc.Centre.Y - style.Origin.Y)
 
-	local isPigment = PigmentConfig.isPigment(action)
+	local kind: TouchButton.Kind = discKind(action)
 	local visual = TouchButton.new({
 		-- The short label, not the full name: a disc is Touch.MinButtonSize wide and "Corps à corps"
 		-- clips at that width whatever the text size.
-		Label = if isPigment
+		Label = if kind == "Pigment"
 			then PigmentConfig.Sigils[action :: any]
 			else localize.t(
 				InputConfig.ActionShortKeys[action :: any] or InputConfig.ActionNameKeys[action :: any]
 			),
-		Color = if isPigment then Theme.pigmentColor(action) else Theme.Colors.PanelRaised,
-		Size = style.Size,
+		Kind = kind,
+		Pigment = if kind == "Pigment" then action else nil,
+		Size = disc.Diameter,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Parent = button,
 		Name = action,
@@ -409,6 +366,8 @@ local function applyTouchButton(action: string, button: ImageButton, style: Touc
 	visual.Instance.Interactable = false -- the ContextActionService button underneath receives the touch
 	bindTrove:Add(visual)
 	touchVisuals[action] = visual
+	visual:SetHint(hinted(action))
+	visual:SetAvailable(available(action))
 end
 
 -- ContextActionService:GetButton yields, so the generation is re-checked after every call: an unbind
@@ -449,18 +408,25 @@ local function styleTouchButtons(generation: number)
 	end
 	-- The engine parents its buttons to a small bottom-right frame; the layout is in screen space.
 	frame.ClipsDescendants = false
-	local scale = touchScale()
-	local style: TouchStyle = {
-		Layout = touchLayout(scale),
-		Size = touchButtonSize(scale),
-		Origin = frame.AbsolutePosition,
-	}
+	local style: TouchStyle = { Discs = touchLayout(touchScale()), Origin = frame.AbsolutePosition }
 	for _, action in ipairs(boundActions) do
 		local button: ImageButton? = buttons[action]
 		if button ~= nil then
 			applyTouchButton(action, button, style)
 		end
 	end
+	tickDash(dashToken)
+	-- Only the discs that are there: a layout places every action, bound or not.
+	table.clear(touchRectsByAction)
+	for action, disc in pairs(style.Discs) do
+		local button: ImageButton? = buttons[action]
+		if button ~= nil then
+			local centre = Vector2.new(disc.Centre.X, disc.Centre.Y)
+			local half = Vector2.new(disc.Diameter, disc.Diameter) * 0.5
+			touchRectsByAction[action] = { Min = centre - half, Max = centre + half }
+		end
+	end
+	InputController.TouchLayoutChanged:Fire()
 end
 
 -- The layout is measured, so it is rebuilt when the viewport changes or when the engine finally
@@ -501,6 +467,27 @@ local function bindInputs(action: string, keyboard: Types.KeybindMap, gamepad: T
 	return inputs
 end
 
+-- The pigments the profile has not unlocked (PigmentConfig.Unlockable): all of them before it loads.
+local function lockedPigments(): { [string]: boolean }
+	local data: Types.ProfileData? = clientData.get()
+	local locked: { [string]: boolean } = {}
+	for _, pigment in ipairs(PigmentConfig.Unlockable) do
+		if data == nil or table.find(data.Unlocks.Pigments, pigment) == nil then
+			locked[pigment] = true
+		end
+	end
+	return locked
+end
+
+local function signatureOf(locked: { [string]: boolean }): string
+	local names: { string } = {}
+	for pigment in pairs(locked) do
+		table.insert(names, pigment)
+	end
+	table.sort(names)
+	return table.concat(names, ",")
+end
+
 local function bindAll()
 	if bound then
 		return
@@ -510,17 +497,22 @@ local function bindAll()
 	local generation = bindGeneration
 	local keyboard = keybinds("Keyboard")
 	local gamepad = keybinds("Gamepad")
-	local touch = UserInputService.TouchEnabled
+	local touchScreen = UserInputService.TouchEnabled
+	-- A pigment the player cannot cast yet keeps its keys, which the server answers with why, but gets no
+	-- disc: the cluster shows what can be pressed (D-147).
+	local locked = lockedPigments()
+	lockedSignature = signatureOf(locked)
 
 	for _, action in ipairs(InputConfig.Actions) do
 		local inputs = bindInputs(action, keyboard, gamepad)
+		local touch = touchScreen and not locked[action]
 		if #inputs == 0 and not touch then
 			continue
 		end
 		ContextActionService:BindActionAtPriority(action, onAction, touch, ACTION_PRIORITY, table.unpack(inputs))
 		table.insert(boundActions, action)
 	end
-	if not touch then
+	if not touchScreen then
 		return
 	end
 	-- Every action is bound before the first yielding GetButton, so an unbind can never leave one
@@ -709,8 +701,34 @@ function InputController.setSuspended(value: boolean)
 	InputController.SuspendedChanged:Fire(value)
 end
 
+-- The square each touch disc covered at the last layout, by action, in the space of a GuiObject's
+-- AbsolutePosition: the toast lane hangs under the Menu disc, the combat dock fits between the thumbs.
+-- Empty until the discs are first laid out (and on a device with no touch screen).
+function InputController.touchRects(): { [string]: Rect }
+	return table.clone(touchRectsByAction)
+end
+
 function InputController.isSuspended(): boolean
 	return suspended
+end
+
+-- The pigments `source` says go on from the sequence being pressed (the HUD's "Sequence", the onboarding's
+-- recipe): their discs breathe a thicker ring. A disc is hinted while any source hints it; an empty list
+-- withdraws that source's hints.
+function InputController.setHints(source: string, pigments: { string })
+	local set: { [string]: boolean } = {}
+	for _, pigment in ipairs(pigments) do
+		set[pigment] = true
+	end
+	hintsBySource[source] = set
+	refreshDiscs()
+end
+
+-- The pigments that still lead to a glyph the ink can pay for (TouchCluster.affordable): the other pigment
+-- discs dim their sigil. The table is read, never kept apart from the caller's.
+function InputController.setAffordable(pigments: { [string]: boolean })
+	affordable = pigments
+	refreshDiscs()
 end
 
 -- Re-reads the keybinds. When the actions are currently unbound the next bind reads them anyway.
@@ -736,10 +754,13 @@ end
 
 function InputController.Start()
 	clientData.Changed:Connect(function(section: string)
-		if section == "*" or section == "Settings" then
+		-- New keys, or a pigment just unlocked, which gets its disc.
+		local unlocked = section == "Unlocks" and signatureOf(lockedPigments()) ~= lockedSignature
+		if section == "*" or section == "Settings" or unlocked then
 			InputController.rebuild()
 		end
 	end)
+	Players.LocalPlayer.CharacterAdded:Connect(clearDash)
 	applyBindings()
 	log.info("started (%d actions, touch %s)", #boundActions, tostring(UserInputService.TouchEnabled))
 end

@@ -17,9 +17,15 @@
 -- A prompt is live only when its key is free: not while a screen is open (the key would swap screens, and
 -- abort a rebind capture waiting for that very key), and not while the player has bound that key to an
 -- action (InputConfig.HubPrompt is a rebindable key: E cast a glyph and opened the shop at once).
+--
+-- All of it is drawn in the world, so it stays unsaturated (docs/ART_BIBLE.md rule 1, D-147): ink plates
+-- edged in the sheet, vellum and chalk words. The prompts are drawn here too (their style is Custom): an ink
+-- pill with the key to press as a cap, what it does and what it opens; a tap on the pill presses it on touch.
+-- Colour arrives with the screen the prompt opens.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -28,9 +34,12 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local InputConfig = require(Shared.Config.InputConfig)
+local Keycap = require(UI.components.Keycap)
 local Log = require(Shared.Util.Log)
+local Motion = require(UI.Motion)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Sticker = require(UI.components.Sticker)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
 local WorldConfig = require(Shared.Config.WorldConfig)
@@ -50,7 +59,9 @@ local SIGN_Z_OFFSET = 1
 local PLATE_SIZE = UDim2.fromOffset(280, 52)
 local PLATE_STUDS_ABOVE = 5
 local PLATE_MAX_DISTANCE = 160
-local PLATE_STROKE = 2
+-- The name in the title face, as large as the plate lets it be up to this; the hint under it.
+local NAME_MAX_TEXT = 30
+local HINT_TEXT = 18
 -- A gate's plate: two lines, its destination in the title face and what the circle asks under it, standing
 -- clear over the lintel (WorldConfig.Portal: the posts are twelve studs and the lintel a stud and a half).
 local SEAL_PLATE_SIZE = UDim2.fromOffset(300, 78)
@@ -58,6 +69,12 @@ local SEAL_PLATE_STUDS_ABOVE = 15
 local SEAL_NAME_SHARE = 0.6
 -- The prompt at a pedestal: close enough that it is the one the player walks up to.
 local PROMPT_DISTANCE_STUDS = 12
+-- The prompt as it is drawn: an ink pill this many pixels, this far over the pedestal, the key on a cap.
+local PROMPT_SIZE = UDim2.fromOffset(220, 48)
+local PROMPT_STUDS_ABOVE = 3
+local PROMPT_ACTION_TEXT = 18
+local PROMPT_OBJECT_TEXT = 14
+local PROMPT_FROM_SCALE = 0.8
 
 local HubSignsController = {}
 
@@ -68,6 +85,8 @@ local clientData: any
 local signs = Trove.new()
 local gui: Folder? = nil
 local prompts: { ProximityPrompt } = {}
+-- The pill each of those prompts is drawn as while it shows.
+local shownPrompts: { [ProximityPrompt]: BillboardGui } = {}
 -- The words over each gate standing in the world, by its seal.
 local sealSigns: { [BasePart]: typeof(Trove.new()) } = {}
 
@@ -145,6 +164,7 @@ local function wordBoard(folder: Instance, boardId: string, trove: typeof(Trove.
 	title.Size = UDim2.fromScale(1, BOARD.TitleBand)
 
 	local empty = textLabel("Empty", localize.t("leaderboard.empty"), BOARD.TextPixels, Theme.Colors.TextMuted, surface)
+	empty.FontFace = Theme.Fonts.Lore
 	empty.Position = UDim2.fromScale(0, BOARD.TitleBand)
 	empty.Size = UDim2.fromScale(1, 1 - BOARD.TitleBand)
 	surface.Parent = gui
@@ -187,23 +207,25 @@ local function namePlate(
 	billboard.ResetOnSpawn = false
 	trove:Add(billboard)
 
+	-- Ink edged in the sheet: against the cream world the plate is the darkest thing there is.
 	local plate = Instance.new("Frame")
 	plate.Name = "Plate"
 	plate.Size = UDim2.fromScale(1, 1)
-	plate.BackgroundColor3 = Theme.Colors.Panel
+	plate.BackgroundColor3 = Theme.Colors.Plate
+	plate.BackgroundTransparency = 0
 	plate.BorderSizePixel = 0
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-	corner.Parent = plate
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Theme.Colors.Text
-	stroke.Thickness = PLATE_STROKE
-	stroke.Parent = plate
+	Theme.corner(plate, Theme.Sizes.CornerCard)
+	Theme.stroke(plate, "PanelRaised", Theme.Sizes.StrokeThin)
 	plate.Parent = billboard
-	local label = textLabel("Name", name, Theme.Sizes.TextTitle, Theme.Colors.Text, plate)
+	local label = textLabel("Name", name, NAME_MAX_TEXT, Theme.Colors.TextInverse, plate)
 	label.Size = UDim2.fromScale(1, if hint ~= nil then SEAL_NAME_SHARE else 1)
+	label.TextScaled = true
+	local cap = Instance.new("UITextSizeConstraint")
+	cap.MaxTextSize = NAME_MAX_TEXT
+	cap.Parent = label
 	if hint ~= nil then
-		local line = textLabel("Hint", hint, Theme.Sizes.TextBody, Theme.Colors.TextMuted, plate)
+		local line = textLabel("Hint", hint, HINT_TEXT, Theme.Colors.Chalk, plate)
+		line.FontFace = Theme.Fonts.Body
 		line.Position = UDim2.fromScale(0, SEAL_NAME_SHARE)
 		line.Size = UDim2.fromScale(1, 1 - SEAL_NAME_SHARE)
 	end
@@ -238,6 +260,8 @@ local function wordPedestal(
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = PROMPT_DISTANCE_STUDS
 	prompt.RequiresLineOfSight = false
+	-- Drawn here, in ink (onPromptShown), not in the engine's grey.
+	prompt.Style = Enum.ProximityPromptStyle.Custom
 	trove:Add(prompt)
 	trove:Connect(prompt.Triggered, function()
 		if not menuController.isOpen() then
@@ -253,6 +277,115 @@ local function wordPedestal(
 	end)
 	prompt.Parent = panel
 	refreshPrompts()
+end
+
+-- One of this controller's prompts, drawn while it shows: an ink pill over what it opens, with the key on a cap
+-- for the device the player uses (none on touch), what it does and what it opens; a tap or a click on it
+-- presses the prompt. It pops in and leaves the same way.
+local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType)
+	if table.find(prompts, prompt) == nil or shownPrompts[prompt] then
+		return
+	end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "Prompt_" .. prompt.Name
+	billboard.Adornee = prompt.Parent :: Instance
+	billboard.Size = PROMPT_SIZE
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, PROMPT_STUDS_ABOVE, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.ResetOnSpawn = false
+	billboard.Active = true
+	shownPrompts[prompt] = billboard
+	local scale = Instance.new("UIScale")
+	scale.Parent = billboard
+
+	local pill = Sticker.new({ Kind = "Plate", Fill = Theme.Colors.Plate, Corner = Theme.Pill, Parent = billboard })
+	local row = Instance.new("Frame")
+	row.Name = "Row"
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.fromScale(1, 1)
+	row.ZIndex = 3
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
+	layout.Parent = row
+	row.Parent = pill.Face
+	if inputType ~= Enum.ProximityPromptInputType.Touch then
+		local gamepad = inputType == Enum.ProximityPromptInputType.Gamepad
+		Keycap.new({
+			Key = if gamepad then InputConfig.HubPrompt.Gamepad else InputConfig.HubPrompt.Keyboard,
+			Device = if gamepad then "Gamepad" else "Keyboard",
+			Localize = localize,
+			LayoutOrder = 1,
+			Parent = row,
+		})
+	end
+	local words = Instance.new("Frame")
+	words.Name = "Words"
+	words.BackgroundTransparency = 1
+	words.AutomaticSize = Enum.AutomaticSize.X
+	words.Size = UDim2.fromScale(0, 1)
+	words.LayoutOrder = 2
+	local stack = Instance.new("UIListLayout")
+	stack.VerticalAlignment = Enum.VerticalAlignment.Center
+	stack.SortOrder = Enum.SortOrder.LayoutOrder
+	stack.Parent = words
+	words.Parent = row
+	local action = textLabel("Action", prompt.ActionText, PROMPT_ACTION_TEXT, Theme.Colors.TextInverse, words)
+	action.FontFace = Theme.Fonts.Bold
+	action.AutomaticSize = Enum.AutomaticSize.XY
+	action.TextWrapped = false
+	action.LayoutOrder = 1
+	local object = textLabel("Object", prompt.ObjectText, PROMPT_OBJECT_TEXT, Theme.Colors.Chalk, words)
+	object.FontFace = Theme.Fonts.Label
+	object.AutomaticSize = Enum.AutomaticSize.XY
+	object.TextWrapped = false
+	object.LayoutOrder = 2
+
+	-- A custom prompt is pressed by hand on touch, and a click on the pill works with a mouse too.
+	local press = Instance.new("TextButton")
+	press.Name = "Press"
+	press.BackgroundTransparency = 1
+	press.Text = ""
+	press.Size = UDim2.fromScale(1, 1)
+	press.ZIndex = 5
+	press.Parent = billboard
+	press.InputBegan:Connect(function(input: InputObject)
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1 then
+			prompt:InputHoldBegin()
+		end
+	end)
+	press.InputEnded:Connect(function(input: InputObject)
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1 then
+			prompt:InputHoldEnd()
+		end
+	end)
+
+	billboard.Parent = gui
+	Motion.set(scale, { Scale = PROMPT_FROM_SCALE })
+	Motion.to(scale, { Scale = 1 }, "UiPop")
+	-- A hub rebuilt under a shown prompt takes the prompt with it: its pill goes too.
+	-- The pill's plate follows the player's transparency setting until it is destroyed itself: gone with the
+	-- billboard, never left listening.
+	local function dispose()
+		pill:Destroy()
+		billboard:Destroy()
+	end
+	prompt.Destroying:Once(function()
+		shownPrompts[prompt] = nil
+		dispose()
+	end)
+	prompt.PromptHidden:Once(function()
+		if shownPrompts[prompt] == billboard then
+			shownPrompts[prompt] = nil
+		end
+		Motion.to(scale, { Scale = 0 }, "UiExit", dispose)
+	end)
 end
 
 -- The words over the gate `seal` stands at the foot of: where its circle leads and how to go there, in this
@@ -320,6 +453,7 @@ function HubSignsController.Start()
 	gui = folder
 
 	inputController.SuspendedChanged:Connect(refreshPrompts)
+	ProximityPromptService.PromptShown:Connect(onPromptShown)
 	clientData.Changed:Connect(function(section: string)
 		if section == "*" or section == "Settings" then
 			refreshPrompts()

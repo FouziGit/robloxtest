@@ -257,3 +257,25 @@ Le garde de mouvement (D-135 à D-139) est livré en **Observe** : il juge chaqu
 12. **`GetNetworkPing` contre l'affichage de `Shift+F3`.** Le garde lit l'aller-retour comme deux fois `GetNetworkPing` ; si l'affichage montre la même valeur que `GetNetworkPing` et non le double, le garde surestime l'aller-retour (sans danger pour un joueur honnête, mais ses fenêtres sont plus larges que nécessaire).
 
 **Passer en Correct.** Quand ces douze points sont vus et que les journaux d'une vraie session sont propres (`docs/QA.md` §11), passer `MovementGuardConfig.Mode` à `"Correct"` dans `src/server/Config/MovementGuardConfig.luau`, et changer avec lui le test qui tient `"Observe"` (`tests/Config.spec.luau`) : c'est une décision, à écrire dans `docs/DECISIONS.md`. `"Enforce"` (les frappes) vient ensuite, de la même façon, après des journaux propres en Correct.
+
+## 11. Vérifier l'interface (appareils)
+
+La passe couleur (D-147) est tenue sous Lune par des tests de source et d'arithmétique ; ce qui suit ne se voit qu'à l'écran. Dans Studio, *Test → Device* pour l'émulateur, et *Test → Locale* pour le français.
+
+**Les appareils.** Téléphone 844 × 390 (iPhone 12 à 14) et téléphone 667 × 375, tous deux à l'échelle 0,68 ; iPad paysage 1180 × 820 ; 1920 × 1080 à la souris, puis à la manette (profil Xbox) ; 2560 × 1440 ; chacun en `fr-fr` au moins une fois.
+
+**À regarder, captures à l'appui (planches avant/après) :**
+1. Chaque écran entre et sort par son animation, rien n'apparaît ni ne disparaît d'un coup, et Retour et ✕ font ce que dit la fiche.
+2. Aucun texte de bouton tronqué en français (« Rejoindre la file », « Tout récupérer (12) », « Obtenir le Premium »).
+3. L'anneau de sélection de la manette se voit sur un bouton jaune, un bouton feuille, une tuile d'encre, l'onglet choisi et les disques du spectateur (anneau « combat » : la feuille, jamais le jaune).
+4. Le HUD à 0,68 : le dock, la barre de glyphes, les puces et l'aperçu ne touchent ni les disques ni la zone du stick ; sur le 667 × 375, le dock glisse à gauche des disques à 200 unités ; la colonne du haut reste sous 240.
+5. Vie basse : barre rouge hachurée qui bat, bords qui brûlent ; immobiles avec « secousses et éclairs » coupé et avec le mouvement réduit.
+6. La grappe tactile : le corps à corps à 55 points, les autres à 44, aucun disque ne se touche ; les lèvres et les anneaux ; l'éclat d'encre à la pression ; le voile du dash coupé en haut du disque ; la respiration des disques suggérés ; les sigles pâlis quand l'encre manque ; pas de disque Orpiment avant le déblocage, puis le disque arrive.
+7. La barre rapide : icônes, la touche du Menu sur son capuchon à gauche du bouton, le badge des récompenses ; l'autocollant Jouer à gauche du disque Menu sur téléphone, caché en file et en combat.
+8. Le verrou : losange d'encre bordé de feuille, plaque du nom et de la vie sous lui, passage à la craie à 120 studs, chevron au bord de l'écran tourné vers une cible hors champ (surtout derrière la caméra), « Aucune cible » avec un clic plus grave.
+9. L'amas méta : en bas à gauche à la souris, en haut à gauche au toucher ; sceau de niveau, Folios qui comptent en montant, « + » vers l'onglet Folios, sceaux des récompenses, pilule de file (vague, secondes, croix qui quitte) ; la carte des premiers pas, cochée puis tamponnée et repliée ; la récompense du jour qui s'ouvre seule trois secondes après l'arrivée.
+10. Les puces fantômes : leurs touches au-dessus d'elles, alignées ; elles reviennent 1,5 s après une séquence ratée.
+11. Le spectateur : le dock sort, la plaque « Tu regardes {name} » entre à sa place, les deux disques changent de coéquipier, et le dock revient à la vie suivante.
+12. Le hub : plaques d'encre lisibles de loin ; les invites du terminal et du kiosque en pilule d'encre (touche « E », « RB » à la manette, rien au toucher) ; un appui sur la pilule au toucher ouvre l'écran (`InputHoldBegin`). Si l'invite personnalisée ne répond pas au toucher, garder le style par défaut pour le toucher seulement et le noter.
+13. Règle 11 : en match et dans les deux arènes, aucune couleur de valeur (jaune primaire, pourpre, raretés) nulle part à l'écran.
+14. Le coût : compteurs d'objets GUI et MicroProfiler sur le téléphone émulé (`docs/PERFORMANCE.md`), et une simulation de daltonisme sur les captures (vie contre encre, Rare contre Épique, chapitres, sigles).

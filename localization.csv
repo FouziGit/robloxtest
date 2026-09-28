@@ -39,7 +39,6 @@ boss.attack.sweep,Sweep,Vellum,,Sweep,Balayage
 boss.defeated,The Erasure is undone. The page keeps.,Vellum,,The Erasure is undone. The page keeps.,L'Effacement est défait. La page reste.
 boss.expired,The Erasure has left the page…,Vellum,,The Erasure has left the page…,L'Effacement a quitté la page…
 boss.health,{health} / {max},Vellum,,{health} / {max},{health} / {max}
-boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche !
 boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
 boss.name,The Erasure,Vellum,,The Erasure,L'Effacement
 boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}
@@ -202,25 +201,28 @@ grade.unsure,an unsure hand,Vellum,,an unsure hand,une main incertaine
 hub.board.title,Leaderboard · {board},Vellum,,Leaderboard · {board},Classement · {board}
 hub.prompt.open,Open,Vellum,,Open,Ouvrir
 hub.queue.name,Ranked matches,Vellum,,Ranked matches,Matchs classés
-hud.bar,{name}  {current} / {max},Vellum,,{name}  {current} / {max},{name}  {current} / {max}
 hud.cast.chain,"{name}! ×{count} chain, +{ink} ink",Vellum,,"{name}! ×{count} chain, +{ink} ink","{name} ! Enchaînement ×{count}, +{ink} encre"
 hud.cast.cooldown,{name}: {seconds}s left,Vellum,,{name}: {seconds}s left,{name} : encore {seconds}s
 hud.cast.failed,{name} failed,Vellum,,{name} failed,{name} a échoué
 hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
 hud.cast.notEnoughInk,Not enough ink,Vellum,,Not enough ink,Plus d'encre
 hud.cast.notEquipped,{name} is not in your loadout,Vellum,,{name} is not in your loadout,{name} n'est pas dans ton équipement
+hud.checklist.cast,Cast a glyph,Vellum,,Cast a glyph,Trace un glyphe
+hud.checklist.daily,Claim your daily reward,Vellum,,Claim your daily reward,Récupère ta récompense du jour
+hud.checklist.match,Play a match,Vellum,,Play a match,Joue un match
+hud.checklist.title,First steps,Vellum,,First steps,Premiers pas
 hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
 hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
-hud.currency,{amount} {currency},Vellum,,{amount} {currency},{amount} {currency}
-hud.health,Health,Vellum,,Health,Vie
-hud.hint.gamepad,Menu ({menu}),Vellum,,Menu ({menu}),Menu ({menu})
-hud.hint.keyboard,Menu ({menu}),Vellum,,Menu ({menu}),Menu ({menu})
-hud.ink,Ink,Vellum,,Ink,Encre
-hud.key.select,Select,Vellum,,Select,Sélection
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
+hud.lock.dummy,Training dummy,Vellum,,Training dummy,Mannequin
+hud.lock.forger,Forger,Vellum,,Forger,Faussaire
+hud.lock.none,No target,Vellum,,No target,Aucune cible
 hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} XP,Tu as vaincu {name} ! +{xp} XP
 hud.sequence.streak,×{count},Vellum,,×{count},×{count}
+hud.splash.defeated,Defeated!,Vellum,,Defeated!,Vaincu !
+hud.splash.fight,Fight!,Vellum,,Fight!,Au combat !
+hud.splash.matchFound,Match found!,Vellum,,Match found!,Match trouvé !
 hud.status.bonus,{status}: +{percent}% damage,Vellum,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
 hud.tierUp,Battle pass tier {tier} unlocked!,Vellum,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
 key.ButtonB,B,Vellum,,B,B
@@ -257,7 +259,6 @@ leaderboard.unranked,Unranked — play a ranked match,Vellum,,Unranked — play 
 leaderboard.you,You: #{rank} ({rating}),Vellum,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
 leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the top {count},Toi : hors du top {count}
 level.max,Max level,Vellum,,Max level,Niveau max
-level.title,Level {level},Vellum,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
 loadout.equip,Equip,Vellum,,Equip,Équiper
@@ -292,7 +293,6 @@ match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour a
 match.round,Round {round} / {total},Vellum,,Round {round} / {total},Manche {round} / {total}
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
-match.score,{ours} - {theirs},Vellum,,{ours} - {theirs},{ours} - {theirs}
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.victory,Victory!,Vellum,,Victory!,Victoire !
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}

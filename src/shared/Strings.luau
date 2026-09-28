@@ -52,17 +52,8 @@ Strings.Table = {
 	["hud.tierUp"] = { en = "Battle pass tier {tier} unlocked!", fr = "Palier {tier} du pass débloqué !" },
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
-	["hud.hint.keyboard"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
-	["hud.hint.gamepad"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
-	-- The gamepad button that opens the menu (Enum.KeyCode.ButtonSelect), by the name players know it by.
-	["hud.key.select"] = { en = "Select", fr = "Sélection" },
-	["hud.ink"] = { en = "Ink", fr = "Encre" },
-	["hud.health"] = { en = "Health", fr = "Vie" },
-	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
-	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar
-	["level.title"] = { en = "Level {level}", fr = "Niveau {level}" },
 	["level.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["level.max"] = { en = "Max level", fr = "Niveau max" },
 
@@ -456,7 +447,6 @@ Strings.Table = {
 	["match.countdown"] = { en = "{seconds}", fr = "{seconds}" },
 	["match.round"] = { en = "Round {round} / {total}", fr = "Manche {round} / {total}" },
 	["match.timeLeft"] = { en = "{seconds}s", fr = "{seconds}s" },
-	["match.score"] = { en = "{ours} - {theirs}", fr = "{ours} - {theirs}" },
 	["match.roundWon"] = { en = "Round won!", fr = "Manche gagnée !" },
 	["match.roundLost"] = { en = "Round lost", fr = "Manche perdue" },
 	["match.victory"] = { en = "Victory!", fr = "Victoire !" },
@@ -566,7 +556,6 @@ Strings.Table = {
 	["boss.attack.sweep"] = { en = "Sweep", fr = "Balayage" },
 	["boss.attack.eruption"] = { en = "Eruption", fr = "Éruption" },
 	["boss.attack.fury"] = { en = "Fury", fr = "Furie" },
-	["boss.incoming"] = { en = "{attack} incoming!", fr = "{attack} en approche !" },
 	-- Practice against the Erasure and joining a fight through the hub's gate (D-132).
 	["boss.practice.title"] = { en = "The Erasure · practice", fr = "L'Effacement · entraînement" },
 	["boss.portal.announced"] = {
@@ -794,6 +783,19 @@ Strings.Table = {
 	["result.details"] = { en = "Details", fr = "Détails" },
 
 	-- D-147 · slice C (HUD, toasts, world)
+	-- The centre splashes of a match (Banner).
+	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
+	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
+	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
+	-- The lock's mark (LockMarker): a press that finds nothing, and the plate's name for what is not a player.
+	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
+	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
+	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
+	-- A new player's first steps (MetaCluster), until all three are done.
+	["hud.checklist.title"] = { en = "First steps", fr = "Premiers pas" },
+	["hud.checklist.cast"] = { en = "Cast a glyph", fr = "Trace un glyphe" },
+	["hud.checklist.match"] = { en = "Play a match", fr = "Joue un match" },
+	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Récupère ta récompense du jour" },
 } :: { [string]: Entry }
 
 -- Substitutes {name} placeholders. Missing params are left as-is.

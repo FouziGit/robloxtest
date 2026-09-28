@@ -290,6 +290,43 @@ ThemeConfig.Budget = {
 	MaxStaggered = 8,
 }
 
+-- The HUD's geometry, in design units (D-147): never scaled by the player's text size, and laid out to fit a
+-- landscape phone's height at the touch floor.
+ThemeConfig.Hud = {
+	-- The top-centre column's ceiling (HudController's topStack): what a 375-point phone leaves above the
+	-- bottom stack at the touch floor, with a gap to spare.
+	TopStackMaxHeight = 240,
+	-- And how far under the safe area's top edge the column starts.
+	TopPad = 12,
+	-- The combat dock: centred at the bottom, off the bottom edge by this much with a pointer and on touch.
+	DockBottomPad = 16,
+	DockBottomPadTouch = 12,
+	DockWidthPointer = 460,
+	-- On touch it is also never wider than the gap between the thumbs (InputController.touchRects).
+	DockWidthTouchMax = 300,
+	-- Nor narrower than this, which holds six pips: where the discs reach the middle of a small phone, the dock
+	-- keeps this width and slides left of them instead (TouchCluster.dockSpan).
+	DockWidthTouchMin = 200,
+	-- Health 26 + ink 14 + padding 10 * 2 + gap 10.
+	DockHeight = 70,
+	-- The hotbar: with a pointer, a slot per equipped glyph over the key strip that casts it, this far apart;
+	-- on touch, a row of pips across the top of the dock, this tall.
+	HotbarSlot = 56,
+	HotbarKeyStrip = 18,
+	HotbarGap = 8,
+	HotbarPipsHeight = 26,
+	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it.
+	ChipSize = 44,
+	ChipRowGap = 8,
+	PreviewHeight = 32,
+	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
+	LowHealthFraction = 0.3,
+	-- The lock's mark warns this many studs before the distance a lock breaks at (LockOnConfig.BreakStuds).
+	LockWarnStuds = 20,
+	-- The hub's meta cluster: level, Folios, claims and the queue, in a column this wide.
+	MetaWidth = 300,
+}
+
 -- docs/ART_BIBLE.md (D-147): a rounded poster face for titles (Fredoka One), a rounded grotesque for words
 -- (Nunito), a condensed grotesque for numbers (Oswald); the roman (Merriweather) keeps the lore, in
 -- italic, and the drop caps. Merriweather is also the only one of the four with the arrows.
@@ -334,8 +371,8 @@ end
 -- reports them.
 --   PointerFloor  mouse and gamepad: never smaller than designed
 --   TouchFloor    a touch-only device: a phone is small in points but held close, and the HUD and the
---                 panels are laid out to fit a landscape phone at this scale (HudController's
---                 TOP_STACK_MAX_HEIGHT is measured at it)
+--                 panels are laid out to fit a landscape phone at this scale (ThemeConfig.Hud is
+--                 measured at it)
 --   Max           a 4K monitor's 2160 points doubles the interface; beyond that it stops growing
 ThemeConfig.Scale = {
 	ReferenceHeight = 1080,

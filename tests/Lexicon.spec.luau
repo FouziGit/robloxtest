@@ -62,6 +62,16 @@ local BORROWED: { [string]: string } = {
 	["whorl sphere"] = "Volute",
 	["spiral sphere"] = "Volute",
 	["sphère spirale"] = "Volute",
+	-- The same, spelled the other ways they were written: the romanisation with its macron, and the working
+	-- names shown to the developer in both languages.
+	["ryōiki"] = "Cartouche",
+	["extension de territoire"] = "Cartouche",
+	["pas éclair"] = "Dagger",
+	["flash step"] = "Dagger",
+	["répulsion universelle"] = "Emboss",
+	["universal repulse"] = "Emboss",
+	["chaînes du jugement"] = "Stitch",
+	["judgment chain"] = "Stitch",
 }
 
 -- Where an old spelling is data rather than a name, and must survive untouched.

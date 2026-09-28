@@ -46,6 +46,22 @@ local BORROWED: { [string]: string } = {
 	-- borrowed terms and never had a row for money. A folio is a leaf of a manuscript, so in Vellum the
 	-- page is the coin.
 	ryo = "folio",
+	-- The eight glyphs of the second roster were each asked for as a technique of some existing licence, and
+	-- their working names were those techniques, translated (D-137). The names below are the originals and
+	-- the translations that were proposed, so neither comes back through a tooltip. Not "bleach": the scan
+	-- only checks where a word starts, and "bleaching" is a word a page can use.
+	kamehameha = "Rubric",
+	getsuga = "Swash",
+	shunpo = "Dagger",
+	hiraishin = "Dagger",
+	shinra = "Emboss",
+	kurapika = "Stitch",
+	ryoiki = "Cartouche",
+	["domain expansion"] = "Cartouche",
+	["extension du territoire"] = "Cartouche",
+	["whorl sphere"] = "Volute",
+	["spiral sphere"] = "Volute",
+	["sphère spirale"] = "Volute",
 }
 
 -- Where an old spelling is data rather than a name, and must survive untouched.

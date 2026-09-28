@@ -197,8 +197,8 @@ local menuButton: Button.Button
 local menuKey: Keycap.Keycap? = nil
 local menuKeyDevice: Keycap.Device? = nil
 local playSticker: Button.Button? = nil
--- A newer count of the claims supersedes the turn of the day the older one waited for.
-local claimsToken = 0
+-- Whether a wait for the day's turn is already pending: one at a time, however often the claims are counted.
+local dayTurnPending = false
 -- The equipped glyphs as the touch discs weigh them, and the pigments the ink can pay for (touch only).
 local equipped: { TouchCluster.Recipe }? = nil
 local payable: { [string]: boolean } = {}
@@ -454,18 +454,20 @@ end
 
 -- What waits to be claimed (Claims), as a badge on the Menu button: none in a fight, where the badge's yellow
 -- would be a value colour (rule 11). A new day brings a new daily reward and new quests with no change to the
--- profile, so the count is made again when the day turns.
+-- profile, so the count is made again when the day turns. The claims are counted on every queue snapshot, so
+-- only one wait for that turn is ever pending.
 local function refreshClaims()
 	local now = Workspace:GetServerTimeNow()
 	local counts = Claims.count(clientData.get(), now)
 	menuButton:SetBadge(if inMatch or inArena then nil else counts.Total)
 	metaCluster:SetClaims(counts)
-	claimsToken += 1
-	local token = claimsToken
+	if dayTurnPending then
+		return
+	end
+	dayTurnPending = true
 	task.delay(Claims.secondsToNextDay(now), function()
-		if token == claimsToken then
-			refreshClaims()
-		end
+		dayTurnPending = false
+		refreshClaims()
 	end)
 end
 

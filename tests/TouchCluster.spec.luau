@@ -457,12 +457,16 @@ describe("the hub's shortcuts", function()
 		local claims = body(hud, "refreshClaims")
 		expect(has(claims, "local now = Workspace:GetServerTimeNow()")).toBe(true)
 		expect(has(claims, "local counts = Claims.count(clientData.get(), now)")).toBe(true)
-		expect(
-			has(
-				claims,
-				"task.delay(Claims.secondsToNextDay(now), function() if token == claimsToken then refreshClaims()"
-			)
-		).toBe(true)
+		-- One wait for the day's turn at a time: the claims are counted on every queue snapshot.
+		local pending = string.find(claims, "if dayTurnPending then return end dayTurnPending = true", 1, true)
+		local waits = string.find(
+			claims,
+			"task.delay(Claims.secondsToNextDay(now), function() dayTurnPending = false refreshClaims() end)",
+			1,
+			true
+		)
+		assert(pending ~= nil and waits ~= nil, "the claims no longer wait once for the day's turn")
+		expect(pending :: number).toBeLessThan(waits :: number)
 		expect(
 			has(
 				body(hud, "refreshProfile"),

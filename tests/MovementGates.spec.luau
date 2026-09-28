@@ -177,7 +177,7 @@ describe("the trusted anchor", function()
 			"if position == nil then local root = playerRoot(player) anchorOn(state, if root ~= nil then root.Position else nil, now, true) return end anchorOn(state, position, now, true)"
 		)
 		local reset = functionIn(COMBAT, "local function resetState(")
-		expect(reset).toContain("anchorOn(state, spawnPoint(), now, true)")
+		expect(reset).toContain("anchorOn(state, spawnPoint(character), now, true)")
 		-- A correction keeps the violations: pulling a body back absolves nothing.
 		expect(functionIn(COMBAT, "local function reanchor(")).toContain(
 			"if state ~= nil then local now = os.clock() anchorOn(state, position, now, false)"
@@ -242,15 +242,17 @@ describe("the movement audit's wiring", function()
 	it("starts a new body where the engine spawned it, unless a teleport of that body already ran", function()
 		local reset = functionIn(COMBAT, "local function resetState(")
 		expect(reset).toContain(
-			"if character ~= nil and state.TeleportCharacter == character then return end anchorOn(state, spawnPoint(), now, true) if character ~= nil then MovementAudit.spawned(state.Player, character) end end"
+			"if character ~= nil and state.TeleportCharacter == character then return end anchorOn(state, spawnPoint(character), now, true) if character ~= nil then MovementAudit.spawned(state.Player, character) end end"
 		)
 		-- The fields every body resets come first, so a kept teleport keeps nothing else of the old body.
 		expect(ordered(reset, "state.HitMemory = {}", "if character ~= nil and state.TeleportCharacter")).toBe(true)
 		expect(functionIn(COMBAT, "local function onCharacterAdded(")).toContain(
 			"releaseCharacter(state, now) resetState(state, now, character)"
 		)
+		-- The root of this body standing on the pad, at its own height: a small avatar stands under 2 studs, an
+		-- Rthro one over 4, and a default 3 put the judge's ground and first safe point beside the body.
 		expect(functionIn(COMBAT, "local function spawnPoint(")).toContain(
-			"return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + MovementGuardConfig.DefaultStandHeightStuds, 0)"
+			"local stand = if character ~= nil then MovementAudit.standingHeight(character) else MovementGuardConfig.DefaultStandHeightStuds return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + stand, 0)"
 		)
 	end)
 
@@ -438,6 +440,20 @@ describe("the movement audit", function()
 			)
 		end
 	)
+
+	it("judges every avatar from its own standing height, a default body's only where none can be measured", function()
+		-- The developer's avatar stands 2.89 studs, the default description 3.19, a small one under 2, an Rthro one
+		-- over 4: a fixed 3 put the ground a teleport and a spawn start from beside the body.
+		expect(audit("function MovementAudit.standingHeight(")).toContain(
+			'local root = character:FindFirstChild(ROOT_PART_NAME) if root == nil or not root:IsA("BasePart") then return AUDIT.DefaultStandHeightStuds end return standHeight(character:FindFirstChildOfClass("Humanoid"), root)'
+		)
+		expect(audit("function MovementAudit.teleported(")).toContain(
+			"local stand = MovementAudit.standingHeight(character) local groundY = groundUnder(record, position, stand)"
+		)
+		-- No root, no Humanoid, or no character yet: nowhere else.
+		expect(count(strip(fs.readFile(AUDIT_MODULE)), "DefaultStandHeightStuds")).toBe(2)
+		expect(count(strip(fs.readFile(COMBAT)), "DefaultStandHeightStuds")).toBe(1)
+	end)
 
 	it("audits a live body even without its Humanoid, and never a dead one", function()
 		local gather = audit("local function gather(")
@@ -639,7 +655,7 @@ describe("the movement audit", function()
 		expect(teleported).toContain("local fromX, fromY, fromZ = MovementGuard.heard(track)")
 		expect(ordered(teleported, "adopt(record, character, now)", "MovementGuard.heard(track)")).toBe(true)
 		expect(audit("local function adopt(")).toContain(
-			"local point = deps.SpawnPoint() if point == nil then record.Track = MovementGuard.newTrack(config)"
+			"local point = deps.SpawnPoint(character) if point == nil then record.Track = MovementGuard.newTrack(config)"
 		)
 		expect(audit("local function adopt(")).toContain(
 			"MovementGuard.spawned(record.Track, point.X, point.Y, point.Z, now, config)"

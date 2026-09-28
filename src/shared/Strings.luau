@@ -711,6 +711,10 @@ Strings.Table = {
 	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
 	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
 	["common.undo"] = { en = "Undo", fr = "Annuler" },
+	-- The leaderboard: the way to the player's own row, and a board that could not be fetched.
+	["leaderboard.findMe"] = { en = "Find me", fr = "Me trouver" },
+	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
+	["common.retry"] = { en = "Retry", fr = "Réessayer" },
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

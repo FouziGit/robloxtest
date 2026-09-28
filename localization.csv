@@ -54,9 +54,11 @@ boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+common.loadFailed,Couldn't load.,Vellum,,Couldn't load.,Impossible de charger.
 common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
 common.reset,Reset,Vellum,,Reset,Réinitialiser
+common.retry,Retry,Vellum,,Retry,Réessayer
 common.save,Save,Vellum,,Save,Sauvegarder
 common.seconds,{seconds}s,Vellum,,{seconds}s,{seconds} s
 common.undo,Undo,Vellum,,Undo,Annuler
@@ -232,6 +234,7 @@ leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
 leaderboard.board.Global,Global,Vellum,,Global,Global
 leaderboard.board.Team3v3,3v3,Vellum,,3v3,3v3
 leaderboard.empty,No ranked player yet.,Vellum,,No ranked player yet.,Aucun joueur classé pour l'instant.
+leaderboard.findMe,Find me,Vellum,,Find me,Me trouver
 leaderboard.rating,{rating},Vellum,,{rating},{rating}
 leaderboard.row,#{rank}  {name},Vellum,,#{rank}  {name},#{rank}  {name}
 leaderboard.title,Leaderboard,Vellum,,Leaderboard,Classement

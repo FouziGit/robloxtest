@@ -71,6 +71,11 @@ describe("the hub's words", function()
 		).toBe(true)
 		expect(has(plate, "Theme.corner(plate, Theme.Sizes.CornerCard)")).toBe(true)
 		expect(has(plate, 'Theme.stroke(plate, "PanelRaised", Theme.Sizes.StrokeThin)')).toBe(true)
+		-- A scaled name fills the plate's width: held off its rounded ends, or its letters ran into the corners
+		-- and the outline (seen in Studio on "Face the Erasure").
+		expect(has(plate, "inset.PaddingLeft = UDim.new(0, Theme.Sizes.CornerCard)")).toBe(true)
+		expect(has(plate, "inset.PaddingRight = UDim.new(0, Theme.Sizes.CornerCard)")).toBe(true)
+		expect(has(plate, "inset.Parent = plate")).toBe(true)
 		expect(has(plate, 'local label = textLabel("Name", name, NAME_MAX_TEXT, Theme.Colors.TextInverse, plate)')).toBe(
 			true
 		)

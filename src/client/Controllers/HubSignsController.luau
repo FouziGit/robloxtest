@@ -216,6 +216,11 @@ local function namePlate(
 	plate.BorderSizePixel = 0
 	Theme.corner(plate, Theme.Sizes.CornerCard)
 	Theme.stroke(plate, "PanelRaised", Theme.Sizes.StrokeThin)
+	-- The words keep off the plate's rounded ends: a scaled name ran into its corners and its outline.
+	local inset = Instance.new("UIPadding")
+	inset.PaddingLeft = UDim.new(0, Theme.Sizes.CornerCard)
+	inset.PaddingRight = UDim.new(0, Theme.Sizes.CornerCard)
+	inset.Parent = plate
 	plate.Parent = billboard
 	local label = textLabel("Name", name, NAME_MAX_TEXT, Theme.Colors.TextInverse, plate)
 	label.Size = UDim2.fromScale(1, if hint ~= nil then SEAL_NAME_SHARE else 1)

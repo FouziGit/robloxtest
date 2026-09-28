@@ -212,6 +212,34 @@ Commencer dans Studio avec **Test → Device** (l'émulateur), puis sur un vrai 
 1. **Appuis en continu.** Appuyer sur toutes les touches pendant 60 s d'affilée. Attendu : aucune expulsion ; tout au plus des lignes `[AntiCheatService] <nom> RateLimit strike n/600 …` (`AntiCheatService.luau:81`, seuil en `GameConfig.luau:35`).
 2. **Couverture des remotes.** Les 15 remotes client→serveur ont chacun un schéma `Guard` et une limite de débit (`Remotes.luau:36-141`). C'est prouvé par `Guard.spec` et `TokenBucket.spec` : rien à faire à la main.
 
+Les étapes 3 à 8 concernent le garde de mouvement (D-135 à D-139). Il est livré en **Observe** : il juge chaque corps et écrit ce qu'il aurait fait, mais ne déplace ni ne frappe personne. Ses lignes commencent par `[Combat.MovementAudit]`, côté serveur. Les vérifications du moteur qu'il attend avant de passer en Correct sont au §10 de `docs/STUDIO_SETUP.md`.
+
+3. **Le garde démarre en observation.** Au **Play**, côté serveur : `[Combat.MovementAudit] mode Observe: gravity 196.2 (judged at 196.2), streaming …, signals …, 5 barrier parts` (`MovementAudit.start`). Attendu : `mode Observe`, le seul mode livré (D-137, tenu par `tests/Config.spec.luau`) ; les deux gravités égales ; 5 barrières, la plateforme du hub et ses quatre bordures. Un autre mode est un KO bloquant tant que le §10 de `docs/STUDIO_SETUP.md` n'est pas fait.
+4. **Lire une ligne du garde.** Pour chaque joueur, au plus une ligne par titre et par genre toutes les 10 s. Format : `<joueur> <titre> (<genre>/<règle>): <mesure> against <budget>, back <n> studs; <issue>`.
+
+   | Titre | Niveau | Ce que ça veut dire |
+   |---|---|---|
+   | `watch` | info | un signal pas encore confirmé, ou un corps immobile en l'air depuis 3 s (`Flight/frozen`) ; `back` vaut 0 |
+   | `observe correct` | avertissement | deux signaux frais en 2 s : en Correct, le corps aurait été ramené de `back` studs |
+   | `observe repivot` | avertissement | un téléport du serveur que le client n'a toujours pas appliqué : en Correct, le corps aurait été reposé sur la destination (`timeout/timeout`, puis `Resist/resist` au troisième refus en 30 s) |
+
+   | Genre/règle | Le corps… |
+   |---|---|
+   | `Teleport/gap` | est plus loin, à plat, de là où le serveur le croyait que le plafond de vitesse (40 studs/s) et les mouvements accordés ne l'expliquent, de plus de 12 studs |
+   | `Teleport/sink` | est descendu plus vite que la gravité |
+   | `Flight/altitude` | est monté plus haut qu'un saut et un double saut (12,7 studs), plus les élévations des projections reçues, plus 2 studs |
+   | `Flight/hang` | est resté en l'air plus longtemps qu'une chute ne le permet |
+   | `Flight/frozen` | est immobile en l'air depuis 3 s |
+   | `Speed/sustained` | a tenu pendant 3 s, sans contact ni mouvement accordé, plus que sa vitesse de marche × 1,25 + 2 studs/s |
+   | `Noclip/wall`, `Noclip/floor` | est passé à travers un mur ou un sol étiqueté `MovementBarrier` |
+   | `Invalid/invalid` | a une position qui n'est pas un nombre ou qui dépasse 100 000 studs |
+
+   L'issue dit ce que le mode Enforce aurait fait : `exempt` (rien : un contact, une projection ou un dash en cours, une réapparition de moins d'1 s, un tick serveur en retard, le rattrapage d'un silence du réseau, un échantillon d'avant un téléport ou un corps à terre explique le mouvement), `would strike` (une frappe `Movement`). Une ligne `watch` finit par `exempt` : un signal seul ne frappe jamais, sauf `Flight/frozen` répété. Deux autres lignes : `a flight flag found ground N studs under the root, nothing done` (info : la sonde de confirmation a trouvé un sol que la sonde d'appui avait raté, noter l'endroit) ; `had no spawn point` ou `no SpawnLocation to rebase` (pas de `HubSpawn`, voir le §1.5).
+5. **Une session honnête.** À deux clients (**Test → Clients and Servers**), jouer dix minutes sans retenir ses coups : marcher, sauter et double-sauter sur les bords, les bordures du hub, une dalle de la Marge et les épreuves ; dasher ; recevoir les projections des glyphes et la finale du combo ; lancer Caret et Ligature ; prendre les deux portails dans les deux sens ; mourir et réapparaître, au hub et au champ de bataille ; tomber d'une arène ; jouer un duel complet. Attendu : aucune ligne `would strike`. Une ligne `exempt` pendant un contact, une projection ou juste après une réapparition est acceptable ; la noter quand même, elle dit ce que Correct aurait fait.
+6. **Reconnaître un faux positif.** C'est une ligne `would strike` sur un joueur qui n'a rien fait d'anormal. Noter la ligne entière, ce que le joueur faisait dans la seconde d'avant (sur quoi il a sauté, quelle projection, quel portail, quelle réapparition), son ping (`Shift+F3`) et l'endroit. Où chercher, selon la ligne : `Flight/hang` ou `Flight/altitude` au bord d'une surface, la sonde d'appui (`docs/STUDIO_SETUP.md` §10.1) ; `Teleport/gap` juste après un gel du réseau, qui devrait être `exempt` ; `observe repivot` ou `Teleport/gap` juste après un portail ou un pad, les échantillons périmés (§10.2 et §10.9) ; `Noclip/wall` après une projection contre un mur (§10.5) ; `Flight/frozen` sur un appareil lent (§10.7). En Observe, un faux positif ne touche aucun joueur : ce n'est pas un KO de la version, mais il bloque le passage en Correct (D-137).
+7. **Une vraie triche est vue.** Dans Studio seulement, jamais sur la place publique. Vue **Client** (onglet Test, *Current: Client*), loin des épreuves et des autres joueurs, au moins une seconde après être apparu, dans la barre de commande : `local r = game.Players.LocalPlayer.Character.HumanoidRootPart r.CFrame += Vector3.new(0, 60, 0)`. Attendu côté serveur, dans la seconde : une ligne `<joueur> watch (Flight/altitude): …`, puis `<joueur> observe correct (Flight/altitude): … would strike`, et le corps n'est pas ramené (Observe). S'il n'y a aucune ligne, le garde ne voit pas les corps : KO bloquant. Un saut horizontal fait de l'arrêt peut, lui, passer pour le rattrapage d'un silence du réseau et n'être que poursuivi (D-139) : ce n'est pas un KO.
+8. **Aucune frappe en Observe.** Sur toute la passe, attendu : aucune ligne `[AntiCheatService] <joueur> Movement strike …` (`AntiCheatService.strike`). Une seule suffit pour un KO bloquant : le garde frapperait en production.
+
 ## 12. Écarts connus au commit `c0b6687`
 
 Voici ce que le code fait aujourd'hui et que la passe va rencontrer. Un KO qui correspond à une ligne de ce tableau se note par son numéro. Chaque ligne appelle une décision dans `docs/PUBLISH.md`.
@@ -236,4 +264,4 @@ Voici ce que le code fait aujourd'hui et que la passe va rencontrer. Un KO qui c
 
 ## 13. Passe courte, après chaque publication
 
-Sur un serveur en ligne de l'expérience publique, avec `F9` ouvert côté serveur et côté client, refaire : §1.2 à §1.5, §2.1, §2.3, un seul achat du §3 (`FolioSmall`, avec le compte secondaire), §5.1 à §5.5, puis §6 bis.2, §6 bis.16 et §6 bis.26 (réglage de streaming de la place publiée). Tout KO ici déclenche le §9 de `docs/PUBLISH.md`.
+Sur un serveur en ligne de l'expérience publique, avec `F9` ouvert côté serveur et côté client, refaire : §1.2 à §1.5, §2.1, §2.3, un seul achat du §3 (`FolioSmall`, avec le compte secondaire), §5.1 à §5.5, puis §6 bis.2, §6 bis.16 et §6 bis.26 (réglage de streaming de la place publiée), et §11.3 (le mode du garde de mouvement, et le streaming et les signaux qu'il lit sur la place publiée). Tout KO ici déclenche le §9 de `docs/PUBLISH.md`.

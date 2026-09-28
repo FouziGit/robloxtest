@@ -1135,9 +1135,14 @@ describe("a glyph on the server's own clock", function()
 					local offset = layer.Offset :: { number }
 					expect(math.sqrt(offset[1] ^ 2 + offset[3] ^ 2)).toBeLessThanOrEqual(params.Radius)
 				elseif layer.Kind == "Mark" and phase.Name == "Impact" then
-					-- The frame's edge and the flooded page, at the server's radius.
+					-- The frame's edge and the flooded page, at the server's radius: their ink, not their plane
+					-- (AssetIds' measured reach), from 0.95 of it to just past it, once they have opened.
 					floors += 1
 					expect(layer.SizeFrom).toBe("Radius")
+					local ink = (AssetIds.Textures :: any)[layer.Texture].Ink :: { Least: number, Most: number }
+					local reach = (layer.EndSize or layer.Size or 0) / 2
+					expect(reach * ink.Least).toBeGreaterThanOrEqual(0.95)
+					expect(reach * ink.Most).toBeLessThanOrEqual(1.02)
 				end
 			end
 		end

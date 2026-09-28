@@ -771,12 +771,16 @@ garde, puis cinq pressions.
 
 **Comment il est construit.** Le sceau tombe sur le paquet : l'ensō de charbon s'ouvre jusqu'au rayon exact
 du serveur, un point chaud éclate au cœur, deux pointes du pigment se dressent près du bord, de part et
-d'autre de la visée, le bord du cadre est posé au charbon et la page dedans est noyée. Puis, **sur chaque tick** du
+d'autre de la visée, le bord du cadre est posé au charbon et la page dedans est noyée — **leur encre au
+rayon**, pas leur plan : l'encre du sceau est à 0,91 de son plan, d'où 2,2 rayons, et la page est noyée par
+un disque dont l'encre va jusqu'au bord (la tache s'arrêtait entre la moitié et les quatre cinquièmes du
+rayon, et un joueur debout hors du cadre dessiné était encore frappé). Puis, **sur chaque tick** du
 serveur (0,8 ; 1,6 ; 2,4 ; 3,2 ; 4,0 s), le cadre presse : un anneau du pigment se referme depuis le bord, la
 caméra le sent, et un nouveau maillon d'encre montante brûle sur le bord — un maillon par intervalle plutôt
 qu'une seule longue couche, pour qu'un niveau bas qui retire la couche la plus ancienne n'emporte jamais tout
-le bord. Pas de dôme, pas de volume tenu haut (règle 9), pas de flash. Les tests tiennent le bord au rayon,
-une pression par tick et au bon instant, le sceau sur le paquet et les pointes dans le cadre.
+le bord. Pas de dôme, pas de volume tenu haut (règle 9), pas de flash. Les tests tiennent l'encre du bord
+et de la page au rayon, une pression par tick et au bon instant, le sceau sur le paquet et les pointes dans le
+cadre.
 
 ## `Emboss` — le Gaufrage (Terre d'Ombre, souffle)
 

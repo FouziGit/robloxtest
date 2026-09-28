@@ -8564,7 +8564,9 @@ local CARTOUCHE: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The frame's edge, in charcoal, at the server's Radius for as long as it ticks.
+				-- The frame's edge, in charcoal, at the server's Radius for as long as it ticks: the seal ring's ink sits
+				-- at 0.91 of its plane (AssetIds), so 2.2 radii put it on the edge the ticks reach, not a stud and a half
+				-- inside it.
 				{
 					Kind = "Mark",
 					Role = "Ink",
@@ -8575,19 +8577,20 @@ local CARTOUCHE: Timeline = {
 					Texture = "SealRing",
 					SizeFrom = "Radius",
 					Offset = { 0, 0.04, 0 },
-					Size = 1.6,
-					EndSize = 2,
+					Size = 1.76,
+					EndSize = 2.2,
 					Transparency = 0.25,
 					EndTransparency = 0.6,
 				},
-				-- The page inside, flooded.
+				-- The page inside, flooded to the edge: a disc whose ink reaches its plane's (the blot's stopped between
+				-- half and four fifths of the radius, and a player standing outside the flood was still ticked).
 				{
 					Kind = "Mark",
 					At = 0,
 					For = 4.3,
 					Ease = "Circular",
 					EaseDirection = "Out",
-					Texture = "InkBlot",
+					Texture = "TelegraphDisc",
 					SizeFrom = "Radius",
 					Offset = { 0, 0.02, 0 },
 					Size = 1.6,

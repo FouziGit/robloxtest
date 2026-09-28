@@ -5969,8 +5969,6 @@ local STRIKE: Timeline = {
 					TravelFrom = "Reach",
 					Travel = 1,
 				},
-				-- After the carrier, so it exists when the tail starts riding it.
-				{ Kind = "Sound", Ride = true, At = 0, For = 0.05, Voice = "Tail" },
 				{
 					Kind = "Trail",
 					Ride = true,
@@ -6216,8 +6214,6 @@ local CARET: Timeline = {
 					Travel = 1,
 					Arc = 5,
 				},
-				-- After the carrier, so it exists when the tail starts riding it.
-				{ Kind = "Sound", Ride = true, At = 0, For = 0.05, Voice = "Tail" },
 				{
 					Kind = "Trail",
 					Ride = true,
@@ -6812,8 +6808,6 @@ local COLOPHON: Timeline = {
 					TravelFrom = "Reach",
 					Travel = 1,
 				},
-				-- After the carrier, so it exists when the tail starts riding it.
-				{ Kind = "Sound", Ride = true, At = 0, For = 0.05, Voice = "Tail" },
 				{
 					Kind = "Trail",
 					Ride = true,
@@ -7099,8 +7093,6 @@ local COLOPHON_LINK: Timeline = {
 					TravelFrom = "Reach",
 					Travel = 1,
 				},
-				-- After the carrier, so it exists when the tail starts riding it.
-				{ Kind = "Sound", Ride = true, At = 0, For = 0.05, Voice = "Tail" },
 				{
 					Kind = "Trail",
 					Ride = true,

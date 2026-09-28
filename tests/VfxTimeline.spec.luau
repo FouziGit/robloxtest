@@ -58,6 +58,60 @@ local function eachLayer(fn: (id: string, phase: VfxTimelineConfig.Phase, layer:
 	end
 end
 
+-- The pigment a voice resolves in is not in the timeline: the renderer passes it, and SoundConfig.voiceKey
+-- joins it to the voice the layer names. A glyph's own timeline is played in its GlyphConfig pigment; the
+-- plays below in the pigment of the glyphs they name, or in any of the five; every other timeline in none.
+-- "knows the pigment every renderer plays a timeline in" holds these two tables to the renderers.
+local PLAYED_FOR: { [string]: { string } } = {
+	-- The detonation, in the pigment of whatever blew up (GlyphEffects' explode).
+	Explosion = { "Brand", "Blot" },
+	-- A glyph's other plays: the chain's jumps, the two charges, the thread's catch.
+	ColophonLink = { "Colophon" },
+	VoluteCharge = { "Volute" },
+	RubricCharge = { "Rubric" },
+	StitchCatch = { "Stitch" },
+}
+-- In the pigment of whatever was cast (the shared wind-up), pressed (the local tap) or landed (the hit).
+local ANY_PIGMENT: { [string]: boolean } = { Cast = true, Tap = true, Hit = true }
+
+local function pigmentsOf(id: string): { string }
+	local pigments: { string } = {}
+	local def = GlyphConfig.ById[id]
+	if def ~= nil then
+		table.insert(pigments, def.Pigment)
+	elseif ANY_PIGMENT[id] then
+		for _, pigment in ipairs(PigmentConfig.Order) do
+			table.insert(pigments, pigment)
+		end
+	else
+		for _, glyphId in ipairs(PLAYED_FOR[id] or {}) do
+			table.insert(pigments, GlyphConfig.ById[glyphId].Pigment)
+		end
+	end
+	return pigments
+end
+
+-- A file's source with its comments stripped and its whitespace folded, so a pattern reads one statement.
+local function folded(path: string): string
+	return ((fs.readFile(path):gsub("%-%-[^\n]*", "")):gsub("%s+", " "))
+end
+
+-- Every top-level function of a file whose header matches `header` (a pattern capturing its name), by name.
+local function bodies(path: string, header: string): { [string]: string }
+	local text = fs.readFile(path):gsub("%-%-[^\n]*", "")
+	local found: { [string]: string } = {}
+	local at = 1
+	while true do
+		local start, finish, name = text:find(header, at)
+		if start == nil then
+			return found
+		end
+		local close = text:find("\nend\n", finish, true) or #text
+		found[name] = (text:sub(start, close):gsub("%s+", " "))
+		at = close
+	end
+end
+
 describe("vfx timelines", function()
 	it("declares some, so nothing below passes vacuously", function()
 		local count = 0
@@ -244,7 +298,8 @@ describe("vfx timelines", function()
 	it("gives every glyph its voices, in the phases it has", function()
 		-- docs/JUICE_PLAN.md phase 5: attack, body, tail, impact. The attack is the shared Cast timeline's
 		-- (every glyph plays it first); the rest belong to the glyph's own phases, and a glyph that has
-		-- a phase without its voice is a spell half of which is silent.
+		-- a phase without its voice is a spell half of which is silent. A voice its pigment does not have
+		-- is not asked for: Orpiment has no tail, and its Travel is a stroke ruled at once, not a flight.
 		local function voiceIn(timeline: VfxTimelineConfig.Timeline, phaseName: string, voice: string): boolean
 			for _, phase in ipairs(timeline.Phases) do
 				if phase.Name == phaseName then
@@ -267,7 +322,8 @@ describe("vfx timelines", function()
 			local timeline = TIMELINES[def.Id]
 			if timeline ~= nil then
 				for phaseName, voice in pairs({ Cast = "Body", Travel = "Tail", Impact = "Impact" }) do
-					if not voiceIn(timeline, phaseName, voice) then
+					local owned = SoundConfig.Sfx[SoundConfig.voiceKey(def.Pigment, voice)] ~= nil
+					if owned and not voiceIn(timeline, phaseName, voice) then
 						error(("glyph %s has a %s phase with no %s voice"):format(def.Id, phaseName, voice))
 					end
 				end
@@ -340,6 +396,142 @@ describe("vfx timelines", function()
 				if SoundConfig.Sfx[key] ~= nil and not reachable[key] then
 					error(("%s is configured and no timeline played with %s can reach it"):format(key, pigment))
 				end
+			end
+		end
+	end)
+
+	it("names only voices every pigment it is played in has", function()
+		-- The other direction of the same seam. A voice the pigment lacks joins into a key SoundConfig does not
+		-- declare, and SoundController drops it with a warning on every cast: Orpiment has no tail
+		-- (tools/audio/pigments.py), and the Strike, the Caret, the Colophon and its links each asked for one.
+		eachLayer(function(id, phase, layer)
+			local voice = layer.Voice
+			if layer.Kind ~= "Sound" or voice == nil then
+				return
+			end
+			local pigments = pigmentsOf(id)
+			if #pigments == 0 then
+				error(("timeline %s / %s names voice %s and is played in no pigment"):format(id, phase.Name, voice))
+			end
+			for _, pigment in ipairs(pigments) do
+				local key = SoundConfig.voiceKey(pigment, voice)
+				if SoundConfig.Sfx[key] == nil then
+					error(
+						("timeline %s / %s names voice %s, played in %s: SoundConfig has no %s"):format(
+							id,
+							phase.Name,
+							voice,
+							pigment,
+							key
+						)
+					)
+				end
+			end
+		end)
+	end)
+
+	it("knows the pigment every renderer plays a timeline in", function()
+		-- PLAYED_FOR and ANY_PIGMENT are read off the renderers; this holds them there. Every play that passes a
+		-- Pigment is of a glyph or in the two tables, and every entry of the tables is a play that passes one.
+		local library = folded("src/client/Controllers/VfxLibrary.luau")
+		local pigmented: { [string]: boolean } = {}
+		for _, path in ipairs({ "src/client/Controllers/VfxLibrary.luau", "src/client/Controllers/VfxController.luau" }) do
+			for id, args in folded(path):gmatch('[Tt]imeline%.play%("(%w+)", (%b{})') do
+				if args:find("Pigment =", 1, true) ~= nil then
+					pigmented[id] = true
+				end
+			end
+		end
+		for id in library:gmatch('playGlyph%("(%w+)"') do
+			if GlyphConfig.ById[id] == nil then
+				error(("playGlyph plays %s, which is no glyph: its pigment is nobody's"):format(id))
+			end
+			pigmented[id] = true
+		end
+		for id, glyphId in library:gmatch('playCharge%("(%w+)", "(%w+)"') do
+			local named = PLAYED_FOR[id]
+			if named == nil or #named ~= 1 or named[1] ~= glyphId then
+				error(("%s is played in %s's pigment and PLAYED_FOR does not say so"):format(id, glyphId))
+			end
+			pigmented[id] = true
+		end
+		-- The two that play by name pass the pigment of the glyph they are named for.
+		local helpers = bodies("src/client/Controllers/VfxLibrary.luau", "\nlocal function (play%w+)%(")
+		local byGlyph = helpers.playGlyph or ""
+		expect(byGlyph:find("local pigment = if def ~= nil then def.Pigment else", 1, true) ~= nil).toBe(true)
+		expect(byGlyph:find("Pigment = pigment,", 1, true) ~= nil).toBe(true)
+		local byCharge = helpers.playCharge or ""
+		expect(byCharge:find("local def = GlyphConfig.ById[glyphId]", 1, true) ~= nil).toBe(true)
+		expect(byCharge:find("Pigment = def.Pigment,", 1, true) ~= nil).toBe(true)
+		for id in pairs(pigmented) do
+			if GlyphConfig.ById[id] == nil and not ANY_PIGMENT[id] and PLAYED_FOR[id] == nil then
+				error(("%s is played in a pigment and neither PLAYED_FOR nor ANY_PIGMENT names one"):format(id))
+			end
+		end
+		for id in pairs(ANY_PIGMENT) do
+			if not pigmented[id] then
+				error(("ANY_PIGMENT names %s, which no renderer plays in a pigment"):format(id))
+			end
+		end
+		-- A glyph's other play sits in a renderer that reads that glyph and passes its pigment.
+		local renderers = bodies("src/client/Controllers/VfxLibrary.luau", "\nVfxLibrary%.(%w+) = function%(")
+		for id, glyphIds in pairs(PLAYED_FOR) do
+			if not pigmented[id] then
+				error(("PLAYED_FOR names %s, which no renderer plays in a pigment"):format(id))
+			end
+			if
+				id ~= "Explosion"
+				and library:find(('playCharge("%s", "%s"'):format(id, glyphIds[1]), 1, true) == nil
+			then
+				local read = false
+				for _, renderer in pairs(renderers) do
+					local args = renderer:match(('Timeline%%.play%%("%s", (%%b{})'):format(id))
+					if
+						args ~= nil
+						and args:find("Pigment = def.Pigment,", 1, true) ~= nil
+						and renderer:find(("local def = GlyphConfig.ById.%s "):format(glyphIds[1]), 1, true) ~= nil
+					then
+						read = true
+					end
+				end
+				if not read then
+					error(("%s is not played in %s's pigment by any renderer"):format(id, glyphIds[1]))
+				end
+			end
+		end
+	end)
+
+	it("plays the detonation in the pigment of every glyph that blows up, and of no other", function()
+		-- The Explosion renderer passes the packet's pigment, which is the one GlyphEffects' explode sends: the
+		-- glyph's own, from each glyph that calls it. PLAYED_FOR.Explosion is that list of glyphs.
+		local effects = "src/server/Effects/GlyphEffects.luau"
+		local explode = bodies(effects, "\nlocal function (explode)%(").explode
+		expect(explode ~= nil and explode:find("Pigment = ctx.Def.Pigment,", 1, true) ~= nil).toBe(true)
+		local exploding: { [string]: boolean } = {}
+		local count = 0
+		for name, body in pairs(bodies(effects, "\nfunction GlyphEffects%.(%w+)%(")) do
+			local _, calls = body:gsub("explode%(ctx,", "")
+			if calls > 0 then
+				exploding[name] = true
+				count += calls
+			end
+		end
+		local _, everywhere = folded(effects):gsub("explode%(ctx,", "")
+		expect(count).toBe(everywhere)
+		local named: { [string]: boolean } = {}
+		for _, glyphId in ipairs(PLAYED_FOR.Explosion) do
+			named[glyphId] = true
+			if not exploding[glyphId] then
+				error(("PLAYED_FOR says %s blows up, and GlyphEffects.%s explodes nothing"):format(glyphId, glyphId))
+			end
+		end
+		for glyphId in pairs(exploding) do
+			if not named[glyphId] then
+				error(
+					("GlyphEffects.%s explodes in its pigment and PLAYED_FOR.Explosion does not name it"):format(
+						glyphId
+					)
+				)
 			end
 		end
 	end)

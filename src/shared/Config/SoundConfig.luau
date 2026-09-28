@@ -102,10 +102,12 @@ end
 
 -- The four voices a pigment can have, in the order a glyph spends them: the wind-up, the release, the
 -- flight, the landing. A pigment only has the tail if something of it flies: Orpiment, the school that
--- strikes at once, has no Travel phase anywhere and so no tail (tests/VfxTimeline.spec.luau holds every
--- configured voice to a timeline that can play it). A timeline names a voice and the renderer names the pigment; the key is the two
--- joined (SoundConfig.voiceKey), which is what keeps a school's matter its own without twenty glyphs
--- carrying eighty sound ids.
+-- strikes at once, has none. Its Strike, Caret and Colophon rule a stroke across the page in a few
+-- hundredths -- a Travel phase, not a flight -- and are heard in the snap and the crack. A timeline names a
+-- voice and the renderer names the pigment; the key is the two joined (SoundConfig.voiceKey), which is what
+-- keeps a school's matter its own without twenty glyphs carrying eighty sound ids. tests/VfxTimeline.spec.luau
+-- holds both directions: every configured voice to a timeline that can play it, and every voice a timeline
+-- names to a sound in each pigment it is played in.
 SoundConfig.Voices = { "Attack", "Body", "Tail", "Impact" } :: { string }
 
 SoundConfig.Sfx = {

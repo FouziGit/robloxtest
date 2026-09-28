@@ -585,7 +585,9 @@ CosmeticConfig.AuraStyles = {
 			},
 		},
 	},
-	-- Embers leaving the feet in a column, cooling to soot as they climb.
+	-- Embers leaving the feet in a column, cooling toward soot as they climb -- no further than a coal's burnt
+	-- orange: an ember darkened on toward ink crosses Umber's brown on the way (tests/Cosmetics.spec.luau
+	-- measured 38 from Umber at 0.85).
 	Soot = {
 		Emissions = {
 			{
@@ -601,7 +603,7 @@ CosmeticConfig.AuraStyles = {
 				Drag = 0.9,
 				Rise = 0.4,
 				Spin = 90,
-				Dries = 0.85,
+				Dries = 0.4,
 			},
 		},
 	},
@@ -858,7 +860,7 @@ CosmeticConfig.TrailStyles = {
 			},
 		},
 	},
-	-- Embers kicked up by the feet, cooling to soot.
+	-- Embers kicked up by the feet, cooling toward soot as far as the aura's (no further: Umber's brown).
 	Soot = {
 		Emissions = {
 			{
@@ -873,7 +875,7 @@ CosmeticConfig.TrailStyles = {
 				Transparency = { 0.15, 0.3, 1 },
 				Drag = 0.8,
 				Spin = 60,
-				Dries = 0.85,
+				Dries = 0.4,
 			},
 		},
 	},

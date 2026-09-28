@@ -10,7 +10,8 @@
 -- D-148 amended rule 1 for what a body wears: an aura and a trail are coloured now, because in the page's
 -- charcoal the legendary "Illuminated Aura" drew a few black dots round a dark avatar. The colours are
 -- measured here with the metric tests/Config.spec.luau holds the pigments apart by, on every colour the
--- renderer can draw (Pure/AuraMath.colors, the function CosmeticController paints with).
+-- renderer can draw: the stops of Pure/AuraMath.colors, the function CosmeticController paints with, and
+-- every colour the engine draws between two of them.
 local AssetIds = require("../src/shared/Config/AssetIds")
 local AuraMath = require("../src/shared/Pure/AuraMath")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
@@ -227,7 +228,22 @@ local function ribbonsOf(style: CosmeticConfig.Style): { CosmeticConfig.Ribbon }
 	return style.Ribbons or {}
 end
 
--- Every colour one layer can put on screen: each stop of each of its emissions' and ribbons' ramps.
+-- How finely the colours between two stops are measured. The engine draws a ColorSequence by carrying each
+-- channel in a straight line from one keypoint to the next, and a line between two colours that each keep
+-- their distance from a pigment can still pass close to it: an ember drying toward ink crosses Umber's
+-- brown on the way (found by review: 38 from Umber, with both of its stops over 80).
+local STEPS_BETWEEN_STOPS = 32
+
+local function between(a: { number }, b: { number }, t: number): { number }
+	return {
+		math.floor(a[1] + (b[1] - a[1]) * t + 0.5),
+		math.floor(a[2] + (b[2] - a[2]) * t + 0.5),
+		math.floor(a[3] + (b[3] - a[3]) * t + 0.5),
+	}
+end
+
+-- Every colour one layer can put on screen: each stop of each of its emissions' and ribbons' ramps, and
+-- every colour the engine draws between two of them.
 local function colorsOf(layer: Layer): { { number } }
 	local rgb = CosmeticConfig.Tones[layer.Tone or ""]
 	local out: { { number } } = {}
@@ -243,8 +259,15 @@ local function colorsOf(layer: Layer): { { number } }
 		table.insert(ramps, { Dries = ribbon.Dries })
 	end
 	for _, ramp in ipairs(ramps) do
-		for _, stop in ipairs(AuraMath.colors(rgb, ramp, CosmeticConfig.Tones.Ink, CosmeticConfig.Flow.HoldShare)) do
+		local stops = AuraMath.colors(rgb, ramp, CosmeticConfig.Tones.Ink, CosmeticConfig.Flow.HoldShare)
+		for index, stop in ipairs(stops) do
 			table.insert(out, stop.Rgb)
+			local after = stops[index + 1]
+			if after ~= nil then
+				for step = 1, STEPS_BETWEEN_STOPS - 1 do
+					table.insert(out, between(stop.Rgb, after.Rgb, step / STEPS_BETWEEN_STOPS))
+				end
+			end
 		end
 	end
 	return out

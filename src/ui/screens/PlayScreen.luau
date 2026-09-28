@@ -138,6 +138,21 @@ local function blank(name: string, parent: Instance): Frame
 	return frame
 end
 
+-- The width of `count` fighters side by side.
+local function fightersWidth(count: number): number
+	return count * FIGHTER_SIZE + (count - 1) * FIGHTER_GAP
+end
+
+-- Every side's blot is the size of the largest team's, so the cards differ by their fighters alone: a lone
+-- duellist's blot, sized to them, was hardly larger than their disc and the 1v1 card read as empty.
+local function blotSize(): number
+	local largest = 1
+	for _, mode in ipairs(MatchConfig.ModeOrder) do
+		largest = math.max(largest, MatchConfig.Modes[mode].TeamSize)
+	end
+	return fightersWidth(largest) * SIDE_SPLAT_SCALE
+end
+
 -- One side of the fight: a blot of its colour, and one disc per fighter on it. Ours are cyan and outlined in
 -- ink; theirs are ink, ringed in the sheet (ink on ink is nothing).
 local function side(parent: Instance, order: number, count: number, ours: boolean): Frame
@@ -145,9 +160,10 @@ local function side(parent: Instance, order: number, count: number, ours: boolea
 	frame.Size = UDim2.fromScale(SIDE_SHARE, 1)
 	frame.LayoutOrder = order
 	local fill = if ours then Theme.Colors.Ally else Theme.Colors.Plate
-	local width = count * FIGHTER_SIZE + (count - 1) * FIGHTER_GAP
+	local width = fightersWidth(count)
+	local blot = blotSize()
 	Splat.new({
-		Size = UDim2.fromOffset(width * SIDE_SPLAT_SCALE, width * SIDE_SPLAT_SCALE),
+		Size = UDim2.fromOffset(blot, blot),
 		Tint = fill,
 		Rotation = Splat.rotation(if ours then 2 else 5),
 		Parent = frame,

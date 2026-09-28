@@ -313,6 +313,20 @@ describe("the parts, as Studio drew them", function()
 		expect(words.Text).toBe(CosmeticConfig.ById[title :: string].Look.TextKey)
 		expect(words:FindFirstChildOfClass("UITextSizeConstraint").MinTextSize).toBeGreaterThanOrEqual(11)
 	end)
+
+	it("gives each side of every Play card the same blot, so the fighters make the difference", function()
+		local built = screen("PlayScreen", nil)
+		local sizes: { number } = {}
+		for _, part in ipairs(built.Instance:GetDescendants()) do
+			if part.Name == "Splat" and (part.Parent.Name == "Allies" or part.Parent.Name == "Opponents") then
+				table.insert(sizes, part.Size.X.Offset)
+			end
+		end
+		expect(#sizes).toBeGreaterThanOrEqual(4)
+		for _, size in ipairs(sizes) do
+			expect(size).toBe(sizes[1])
+		end
+	end)
 end)
 
 return nil

@@ -741,13 +741,16 @@ le serveur juge une boîte de douze studs de large et cinq de haut.
 **Comment il est construit.** Un porteur à la vitesse du serveur, parti d'où est le front du serveur quand
 le dessin part (`SpawnOffset` plus trois centièmes de vol), à un stud du sol, et posé là où le front du
 serveur s'est arrêté : le `Fizzle` nomme son tir (D-114). Le corps du sort est un croissant du pigment
-couché, aussi large que la boîte, dont le bord avant suit celui du serveur ; il naît au tiers de sa largeur
-et s'ouvre en un dixième de seconde (un volume n'apparaît jamais à pleine taille). Une gerbe debout,
-exactement de la largeur de la boîte et à peu près de sa hauteur, est ce que lit un joueur sur le côté. La
+couché, aussi large que la boîte, dont le bord avant suit celui du serveur **dès sa première image**, comme la
+boîte : il naît pâle, un lavis du pigment, et s'encre en un dixième de seconde (un volume n'apparaît jamais
+d'un coup). Né au tiers de sa largeur, il dessinait une lame quatre studs derrière et huit plus étroite que
+celle qui tranchait. Une gerbe debout, exactement de la largeur de la boîte et lancée jusqu'à son sommet, est
+ce que lit un joueur sur le côté. La
 page est entaillée là où le dessin passe ; celles qui restent à venir tombent à l'atterrissage, donc rien
 n'est entaillé derrière un mur. **Aucun plan monté** : un atterrissage vide une traînée, un émetteur, une
 lumière et un volume, jamais un plan, qui resterait figé en l'air. Les tests tiennent le départ, la vitesse,
-la portée, le bord avant, la largeur et l'absence de plan monté.
+la portée, le bord avant et la largeur à la naissance comme à la fin, la hauteur de la gerbe et l'absence de
+plan monté.
 
 ## `Dagger` — l'Obèle (Vert-de-gris, mobilité)
 

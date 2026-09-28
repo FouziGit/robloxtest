@@ -990,28 +990,59 @@ describe("a glyph on the server's own clock", function()
 	it("draws the Swash on the server's front, as wide as its box, with nothing its landing would leave", function()
 		-- The server's front edge is Depth/2 ahead of where it has reached, and its box Width across
 		-- (GlyphEffects.Swash). The riding crescent's front is its offset plus the mesh's reach ahead of its pivot
-		-- at its end size; its width, the mesh's own across at that size. And a landing drains a trail, an
+		-- at its size; its width, the mesh's own across at that size. And a landing drains a trail, an
 		-- emitter, a light and a volume (VfxTimeline.land), never a plane: a riding Sprite of the Swash or the
 		-- Stitch would stay frozen where the flight stopped.
 		local params = GlyphConfig.ById.Swash.Params :: any
 		local crescent = MeshConfig.get("Crescent") :: MeshConfig.Mesh
+		-- The carrier's height over the line the server's box is centred on (the caster's root height).
+		local carrierUp: number? = nil
+		for _, phase in ipairs(TIMELINES.Swash.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Carrier" then
+					carrierUp = (layer.Offset :: { number })[2]
+				end
+			end
+		end
+		if carrierUp == nil then
+			error("the Swash flies no carrier: this gate would check nothing")
+		end
 		local bodies, sprays = 0, 0
 		for _, phase in ipairs(TIMELINES.Swash.Phases) do
 			for _, layer in ipairs(phase.Layers) do
 				if layer.Kind == "Mesh" and layer.Ride == true then
 					bodies += 1
 					expect(layer.Mesh).toBe("Crescent")
-					local size = layer.EndSize or layer.Size or 1
-					local stretch = layer.EndStretch or layer.Stretch or { 1, 1, 1 }
-					local front = (layer.Offset :: { number })[3] - crescent.Min[3] * size * stretch[3]
-					expect(math.abs(front)).toBeLessThanOrEqual(params.Depth / 2)
-					local across = (crescent.Max[1] - crescent.Min[1]) * size * stretch[1]
-					expect(across).toBeLessThanOrEqual(params.Width + 0.5)
-					expect(across).toBeGreaterThanOrEqual(params.Width - 1)
+					-- At its birth as at its end: the server's box is Width across and its edge Depth/2 ahead from
+					-- its first step. Born at a third of its width, the drawn blade was four studs behind and eight
+					-- narrower than the one cutting a body ten studs out.
+					local shapes = {
+						{ layer.Size or 1, layer.Stretch or { 1, 1, 1 } },
+						{ layer.EndSize or layer.Size or 1, layer.EndStretch or layer.Stretch or { 1, 1, 1 } },
+					}
+					for _, shape in ipairs(shapes) do
+						local size, stretch = shape[1] :: number, shape[2] :: { number }
+						local front = (layer.Offset :: { number })[3] - crescent.Min[3] * size * stretch[3]
+						expect(math.abs(front)).toBeLessThanOrEqual(params.Depth / 2)
+						local across = (crescent.Max[1] - crescent.Min[1]) * size * stretch[1]
+						expect(across).toBeLessThanOrEqual(params.Width + 0.5)
+						expect(across).toBeGreaterThanOrEqual(params.Width - 1)
+					end
 				elseif layer.Kind == "Emitter" and layer.Ride == true and layer.Area ~= nil then
-					-- The spray a player at the side reads: the box's width.
+					-- The spray a player at the side reads: the box's width, and thrown up to the box's top (Height/2
+					-- above the line the box is centred on) from the carrier's height. A particle leaving at Speed
+					-- under Drag d rises Speed * (1 - 2^(-d t)) / (d ln 2) in t (ParticleEmitter.Drag halves its
+					-- speed every 1/d seconds).
 					sprays += 1
 					expect(math.abs((layer.Area :: { number })[1] - params.Width)).toBeLessThanOrEqual(0.5)
+					local speed, life = (layer.Speed :: { number })[2], (layer.Lifetime :: { number })[2]
+					local drag = layer.Drag or 0
+					local rise = if drag > 0
+						then speed * (1 - 2 ^ (-drag * life)) / (drag * math.log(2))
+						else speed * life
+					local top = (carrierUp :: number) + rise
+					expect(top).toBeGreaterThanOrEqual(params.Height / 2)
+					expect(top).toBeLessThanOrEqual(params.Height / 2 + 1)
 				end
 			end
 		end

@@ -7982,9 +7982,11 @@ local RUBRIC: Timeline = {
 --
 -- The body of it is one crescent of the pigment lying on the floor, as wide as the server's box and its
 -- front edge on the server's (MeshConfig's Crescent: 0.94 of its size across, its front 0.54 ahead of its
--- pivot, flattened to 0.6 along the aim), opening from a third of that width to most of it in the first
--- tenth of a second, so it is born rather than shown (rule 3); and a standing spray of the pigment the
--- width of the box and about as high, which is what a player at the side reads. No riding Sprite: a
+-- pivot, flattened to 0.6 along the aim) from its first frame, as the server's box is: born pale, a wash of
+-- the pigment, and inked within a tenth of a second, so it is born rather than shown (rule 3) -- born at a
+-- third of its width, it drew a blade four studs behind and eight narrower than the one cutting; and a
+-- standing spray of the pigment the width of the box, thrown up to its top, which is what a player at the
+-- side reads. No riding Sprite: a
 -- landing drains a trail, an emitter, a light and a volume, never a plane, which would stay frozen where
 -- the flight stopped. The page is gouged where the front passes: three blots at the times the drawn front
 -- reaches them, and those still to come are dropped by the landing, which the server sends on the frame its
@@ -8039,24 +8041,26 @@ local SWASH: Timeline = {
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", Ride = true, At = 0, For = 0.05, Voice = "Tail" },
-				-- The flourish: its front edge a hair behind the carrier, the server's edge Depth/2 ahead of it.
+				-- The flourish: its front edge a hair behind the carrier, the server's edge Depth/2 ahead of it, and
+				-- as wide as the server's box from its first frame, as the box is. It is born pale, a wash, and
+				-- inks in within a tenth of a second (rule 3: it never appears), never born narrow and behind.
 				{
 					Kind = "Mesh",
 					Mesh = "Crescent",
 					Ride = true,
 					At = 0,
 					For = 0.517,
-					Ease = "Quart",
+					Ease = "Exponential",
 					EaseDirection = "Out",
 					Offset = { 0, 0, -4.2 },
 					Roll = 12,
-					Size = 4,
+					Size = 12.2,
 					EndSize = 12.8,
 					Stretch = { 1, 1, 0.6 },
-					Transparency = 0.05,
-					EndTransparency = 0.4,
+					Transparency = 0.6,
+					EndTransparency = 0.15,
 				},
-				-- The standing spray, as wide as the server's box.
+				-- The standing spray, as wide as the server's box and thrown as high as it reaches.
 				{
 					Kind = "Emitter",
 					Ride = true,
@@ -8067,7 +8071,7 @@ local SWASH: Timeline = {
 					Texture = "SparkStreak",
 					Area = { 12, 0.3, 1 },
 					Rate = 140,
-					Speed = { 8, 14 },
+					Speed = { 10, 18 },
 					Lifetime = { 0.2, 0.35 },
 					Spread = 10,
 					Drag = 2,

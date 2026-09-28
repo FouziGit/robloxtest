@@ -13,7 +13,6 @@ Strings.Locales = { "en", "fr" }
 Strings.Table = {
 	-- Common
 	["common.ok"] = { en = "OK", fr = "OK" },
-	["common.save"] = { en = "Save", fr = "Sauvegarder" },
 	["common.reset"] = { en = "Reset", fr = "Réinitialiser" },
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
 
@@ -96,7 +95,6 @@ Strings.Table = {
 		fr = "{action} est maintenant sur {key}. N'oublie pas de sauvegarder !",
 	},
 	["settings.duplicate"] = { en = "{key} is used twice.", fr = "La touche {key} est utilisée deux fois." },
-	["settings.saving"] = { en = "Saving…", fr = "Sauvegarde…" },
 	["settings.saved"] = { en = "Settings saved!", fr = "Options sauvegardées !" },
 	["settings.saveFailed"] = { en = "Could not save settings.", fr = "Impossible de sauvegarder les options." },
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
@@ -114,10 +112,6 @@ Strings.Table = {
 	["quality.medium"] = { en = "Medium", fr = "Moyenne" },
 	["quality.low"] = { en = "Low", fr = "Basse" },
 	["quality.performance"] = { en = "Performance", fr = "Performance" },
-	["settings.resetPending"] = {
-		en = "Defaults restored. Don't forget to save!",
-		fr = "Touches par défaut restaurées. N'oublie pas de sauvegarder !",
-	},
 
 	-- Battle pass
 	["battlepass.title"] = { en = "Battle Pass — Volume {season}", fr = "Battle Pass — Volume {season}" },
@@ -715,6 +709,39 @@ Strings.Table = {
 	["leaderboard.findMe"] = { en = "Find me", fr = "Me trouver" },
 	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
 	["common.retry"] = { en = "Retry", fr = "Réessayer" },
+	-- Settings: the accessibility tab, the words of a switch and of a percentage, the way a pad rebinds, and
+	-- the question before a reset.
+	["settings.tab.accessibility"] = { en = "Accessibility", fr = "Accessibilité" },
+	["common.on"] = { en = "On", fr = "Oui" },
+	["common.off"] = { en = "Off", fr = "Non" },
+	["common.percent"] = { en = "{value}%", fr = "{value} %" },
+	["settings.hint.gamepad"] = {
+		en = "Select a binding, then press the new button. A cancels.",
+		fr = "Sélectionne une touche, puis appuie sur le nouveau bouton. A annule.",
+	},
+	["settings.pressButton"] = {
+		en = "Press a button for {action}… (A to cancel)",
+		fr = "Appuie sur un bouton pour {action}… (A pour annuler)",
+	},
+	-- What a key being rebound shows while it waits for the new one.
+	["settings.capturing"] = { en = "…", fr = "…" },
+	["settings.resetConfirm"] = {
+		en = "Reset every binding to its default?",
+		fr = "Remettre toutes les touches par défaut ?",
+	},
+	["common.cancel"] = { en = "Cancel", fr = "Annuler" },
+	-- Roblox's own accessibility settings, shown as they are (UiPrefs) and changed in the Roblox menu.
+	["settings.reducedMotion"] = { en = "Reduced motion", fr = "Mouvements réduits" },
+	["settings.textSize"] = { en = "Text size", fr = "Taille du texte" },
+	["settings.textSize.Medium"] = { en = "Standard", fr = "Standard" },
+	["settings.textSize.Large"] = { en = "Large", fr = "Grand" },
+	["settings.textSize.Larger"] = { en = "Larger", fr = "Plus grand" },
+	["settings.textSize.Largest"] = { en = "Largest", fr = "Très grand" },
+	["settings.transparency"] = { en = "Background transparency", fr = "Transparence des fonds" },
+	["settings.systemHint"] = {
+		en = "Set in the Roblox menu, under Settings.",
+		fr = "Se règle dans le menu Roblox, dans Paramètres.",
+	},
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

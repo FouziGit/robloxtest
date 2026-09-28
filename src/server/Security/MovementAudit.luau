@@ -58,10 +58,9 @@ type Record = {
 	-- The round trip, held at its highest for RttHoldSeconds.
 	RttValue: number,
 	RttAt: number,
-	-- Whether the probe found support under it this tick and last tick: another body may stand on this one only if
-	-- it was itself held up on the tick before.
+	-- Whether something holds it up this tick, the world or a body the world holds up (markSupport): another body
+	-- may stand on this one only then.
 	Supported: boolean,
-	WasSupported: boolean,
 	-- Last tick's verdict raised a flag, and where the root was: the co-moving rule of MovementGuard.touching.
 	Flagged: boolean,
 	HasLast: boolean,
@@ -105,8 +104,14 @@ local MovementAudit = {}
 local deps: Deps
 local config: MovementGuard.Config
 local records: { [Player]: Record } = {}
--- Every audited body this tick, by character, so a probe that hits a player's body finds whose it is.
+-- Every audited body this tick, by character, so a probe that hits a player's body finds whose it is; and every
+-- player's body, audited or not (dead, or not yet adopted), which holds nobody up on its own word.
 local characters: { [Instance]: Record } = {}
+local playerBodies: { [Instance]: true } = {}
+-- The support probe that sees no player's body at all: what it finds is the world.
+local worldProbe = RaycastParams.new()
+worldProbe.FilterType = Enum.RaycastFilterType.Exclude
+worldProbe.RespectCanCollide = true
 -- Bodies the server owns and moves (MovementAudit.start keeps them from their tags): training proofs and
 -- Forgers touch by their root, the Erasure's hull and the Margin walls by their box.
 local npcs: { [Model]: true } = {}
@@ -234,35 +239,48 @@ local function topOf(part: BasePart): number
 	return part.Position.Y + MovementGuard.halfHeight(r10, r11, r12, size.X, size.Y, size.Z)
 end
 
--- The audited player whose body `instance` is part of, if any.
-local function ownerOf(instance: Instance): Record?
+-- The player's body `instance` is part of: its record when that body is audited this tick, and whether it is a
+-- player's body at all.
+local function bodyOf(instance: Instance): (Record?, boolean)
 	local ancestor = instance.Parent
 	while ancestor ~= nil and ancestor ~= Workspace do
 		local owner = characters[ancestor]
 		if owner ~= nil then
-			return owner
+			return owner, true
+		end
+		if playerBodies[ancestor] then
+			return nil, true
 		end
 		ancestor = ancestor.Parent
 	end
-	return nil
+	return nil, false
 end
 
--- A surface counts unless it is a player's body that was not itself held up last tick: a torso a client detached
--- and parked in the air is no platform.
+-- A surface counts unless it is a player's body that nothing holds up this tick: a torso a client detached and
+-- parked in the air, two bodies propping each other up, a corpse.
 local function holdsUp(instance: Instance): boolean
-	local owner = ownerOf(instance)
-	return owner == nil or owner.WasSupported
+	local owner, isBody = bodyOf(instance)
+	if owner ~= nil then
+		return owner.Supported
+	end
+	return not isBody
 end
 
 -- A sphere cast straight down from `origin` to `reach` studs past the feet of a body standing `stand` high.
-local function castDown(record: Record, origin: Vector3, stand: number, radius: number, reach: number): RaycastResult?
+local function castDown(
+	params: RaycastParams,
+	origin: Vector3,
+	stand: number,
+	radius: number,
+	reach: number
+): RaycastResult?
 	local depth = math.max(stand - radius, 0) + reach
-	return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), record.Probe)
+	return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), params)
 end
 
--- The support probe, every tick: whether something that collides is right under the feet.
+-- The support probe: whether something that collides is right under the feet.
 local function supportedAt(record: Record, origin: Vector3, stand: number): boolean
-	local hit = castDown(record, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds)
+	local hit = castDown(record.Probe, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds)
 	return hit ~= nil and holdsUp(hit.Instance)
 end
 
@@ -270,7 +288,7 @@ end
 -- fall of the feet. A pad drops a body 4 studs above its marker, which already stands a body's height over the
 -- floor: the support probe, a stud and a half past the feet, does not reach it.
 local function groundUnder(record: Record, destination: Vector3, stand: number): number?
-	local hit = castDown(record, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config))
+	local hit = castDown(record.Probe, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config))
 	if hit == nil or not holdsUp(hit.Instance) then
 		return nil
 	end
@@ -369,7 +387,7 @@ local function sampleOf(body: Body, now: number, hitch: boolean): MovementGuard.
 		X = body.X,
 		Y = body.Y,
 		Z = body.Z,
-		Supported = body.Sane and supportedAt(record, position, stand),
+		Supported = record.Supported,
 		StandHeight = stand,
 		Down = deps.Movement.isDown(record.Player),
 		Contact = body.Contact,
@@ -455,7 +473,8 @@ end
 -- the body ends the incident where it stands, in every mode, so Observe logs what Correct would do.
 local function groundBelow(body: Body, stand: number, now: number): boolean
 	local record = body.Record
-	local hit = castDown(record, body.Root.Position, stand, AUDIT.ConfirmProbeRadiusStuds, AUDIT.ConfirmProbeReachStuds)
+	local hit =
+		castDown(record.Probe, body.Root.Position, stand, AUDIT.ConfirmProbeRadiusStuds, AUDIT.ConfirmProbeReachStuds)
 	if hit == nil or not holdsUp(hit.Instance) then
 		return false
 	end
@@ -592,13 +611,18 @@ end
 -- The tick
 ----------------------------------------------------------------
 
--- The bodies audited this tick: each player's live character, the one its track follows, not dead.
+-- The bodies audited this tick: each player's live character, the one its track follows, not dead. Every player's
+-- body, audited or not, is noted too.
 local function gather(): { Body }
 	table.clear(characters)
+	table.clear(playerBodies)
 	local bodies: { Body } = {}
 	for player, record in pairs(records) do
-		record.WasSupported = record.Supported
 		record.Supported = false
+		local current = player.Character
+		if current ~= nil then
+			playerBodies[current] = true
+		end
 		local character = record.Character
 		if character == nil or player.Character ~= character or character.Parent == nil then
 			continue
@@ -655,6 +679,44 @@ local function markContacts(bodies: { Body })
 	end
 end
 
+-- Support under every body, before any is judged. First a probe that sees no player's body at all; for a body it
+-- found nothing under, one that sees the others, and a body found there holds this one up only if the world holds
+-- it up this tick, directly or through the bodies under it (MovementGuard.carried). Last tick's word let two
+-- bodies hold each other up at any height, and a body with no record -- a corpse -- held up anyone.
+local function markSupport(bodies: { Body })
+	local excluded: { Instance } = {}
+	for character in pairs(playerBodies) do
+		table.insert(excluded, character)
+	end
+	worldProbe.FilterDescendantsInstances = excluded
+	local index: { [Record]: number } = {}
+	for n, body in ipairs(bodies) do
+		index[body.Record] = n
+	end
+	local world: { boolean }, carrier: { number } = {}, {}
+	for n, body in ipairs(bodies) do
+		world[n], carrier[n] = false, 0
+		if body.Sane then
+			local stand = standHeight(body.Humanoid, body.Root)
+			local position = body.Root.Position
+			local radius, reach = AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds
+			if castDown(worldProbe, position, stand, radius, reach) ~= nil then
+				world[n] = true
+			else
+				local hit = castDown(body.Record.Probe, position, stand, radius, reach)
+				local owner = if hit ~= nil then bodyOf(hit.Instance) else nil
+				if owner ~= nil then
+					carrier[n] = index[owner] or 0
+				end
+			end
+		end
+	end
+	local held = MovementGuard.carried(world, carrier)
+	for n, body in ipairs(bodies) do
+		body.Record.Supported = held[n]
+	end
+end
+
 local function audit(body: Body, now: number, hitch: boolean)
 	local record = body.Record
 	local track = record.Track
@@ -664,7 +726,6 @@ local function audit(body: Body, now: number, hitch: boolean)
 	if not based and track.Based then
 		log.info("%s had no spawn point: the audit starts from this first sample", record.Player.Name)
 	end
-	record.Supported = sample.Supported
 	record.Flagged = verdict.Action ~= "None"
 	if body.Sane then
 		record.HasLast = true
@@ -677,6 +738,7 @@ end
 function MovementAudit.step(now: number, hitch: boolean)
 	local bodies = gather()
 	markContacts(bodies)
+	markSupport(bodies)
 	for _, body in ipairs(bodies) do
 		-- One body's failure must not blind the audit to the others.
 		log.try("audit of " .. body.Record.Player.Name, audit, body, now, hitch)
@@ -721,7 +783,6 @@ function MovementAudit.add(player: Player)
 		RttValue = 0,
 		RttAt = -math.huge,
 		Supported = false,
-		WasSupported = false,
 		Flagged = false,
 		HasLast = false,
 		LastX = 0,

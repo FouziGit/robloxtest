@@ -981,6 +981,30 @@ function MovementGuard.touching(
 	return touched
 end
 
+-- Which bodies stand on something this tick, from each one's own probe: `world[i]` when it found the world (the
+-- ground, a wall, a body the server owns), else `carrier[i]`, the body it found under it (0 for none). A carried
+-- body is held up only if the bodies under it reach the world this tick: two bodies propping each other up, or a
+-- stack resting on nothing, are not -- whatever each said about the other on the tick before.
+function MovementGuard.carried(world: { boolean }, carrier: { number }): { boolean }
+	local count = #world
+	local held = table.create(count, false)
+	for i = 1, count do
+		local j = i
+		-- A chain longer than the bodies there are went round in a circle.
+		for _ = 1, count do
+			if world[j] then
+				held[i] = true
+				break
+			end
+			j = carrier[j]
+			if j == 0 then
+				break
+			end
+		end
+	end
+	return held
+end
+
 ----------------------------------------------------------------
 -- Server teleports
 ----------------------------------------------------------------

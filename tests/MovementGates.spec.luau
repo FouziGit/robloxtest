@@ -385,26 +385,56 @@ describe("the movement audit", function()
 		end
 	end)
 
-	it("probes for support under every body on every tick, and stands on a player only if that one stood", function()
-		local sample = audit("local function sampleOf(")
-		expect(sample).toContain("Supported = body.Sane and supportedAt(record, position, stand),")
-		expect(audit("local function supportedAt(")).toContain(
-			"local hit = castDown(record, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds) return hit ~= nil and holdsUp(hit.Instance)"
-		)
-		expect(audit("local function castDown(")).toContain(
-			"local depth = math.max(stand - radius, 0) + reach return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), record.Probe)"
-		)
-		expect(audit("local function holdsUp(")).toContain("return owner == nil or owner.WasSupported")
-		expect(audit("local function gather(")).toContain(
-			"for player, record in pairs(records) do record.WasSupported = record.Supported record.Supported = false"
-		)
-		local added = audit("function MovementAudit.add(")
-		expect(added).toContain("probe.FilterType = Enum.RaycastFilterType.Exclude probe.RespectCanCollide = true")
-		expect(added).toContain("overlap.FilterType = Enum.RaycastFilterType.Exclude overlap.RespectCanCollide = true")
-		expect(audit("local function adopt(")).toContain(
-			"record.Probe.FilterDescendantsInstances = { character } record.Overlap.FilterDescendantsInstances = { character }"
-		)
-	end)
+	it(
+		"probes for support under every body on every tick, and stands on a player only if the world holds it",
+		function()
+			-- Every body's support is known before any is judged, and the sample reads it.
+			expect(audit("function MovementAudit.step(")).toContain(
+				"local bodies = gather() markContacts(bodies) markSupport(bodies)"
+			)
+			expect(audit("local function sampleOf(")).toContain("Supported = record.Supported,")
+			-- The world first, seen by a probe blind to every player's body; a body found by the second probe carries
+			-- this one only through MovementGuard.carried, on this tick's support alone. Last tick's word let two bodies
+			-- hold each other up at any height.
+			local support = audit("local function markSupport(")
+			expect(support).toContain("worldProbe.FilterDescendantsInstances = excluded")
+			expect(support).toContain(
+				"if castDown(worldProbe, position, stand, radius, reach) ~= nil then world[n] = true else local hit = castDown(body.Record.Probe, position, stand, radius, reach) local owner = if hit ~= nil then bodyOf(hit.Instance) else nil if owner ~= nil then carrier[n] = index[owner] or 0 end end"
+			)
+			expect(support).toContain(
+				"local held = MovementGuard.carried(world, carrier) for n, body in ipairs(bodies) do body.Record.Supported = held[n] end"
+			)
+			local source = (strip(fs.readFile(AUDIT_MODULE)):gsub("%s+", " "))
+			expect(source).toContain(
+				"worldProbe.FilterType = Enum.RaycastFilterType.Exclude worldProbe.RespectCanCollide = true"
+			)
+			expect(source).never.toContain("WasSupported")
+			-- Every player's body, dead or not yet adopted: a corpse holds nobody up.
+			expect(audit("local function gather(")).toContain(
+				"table.clear(playerBodies) local bodies: { Body } = {} for player, record in pairs(records) do record.Supported = false local current = player.Character if current ~= nil then playerBodies[current] = true end"
+			)
+			expect(audit("local function bodyOf(")).toContain(
+				"local owner = characters[ancestor] if owner ~= nil then return owner, true end if playerBodies[ancestor] then return nil, true end"
+			)
+			expect(audit("local function holdsUp(")).toContain(
+				"local owner, isBody = bodyOf(instance) if owner ~= nil then return owner.Supported end return not isBody"
+			)
+			expect(audit("local function supportedAt(")).toContain(
+				"local hit = castDown(record.Probe, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds) return hit ~= nil and holdsUp(hit.Instance)"
+			)
+			expect(audit("local function castDown(")).toContain(
+				"local depth = math.max(stand - radius, 0) + reach return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), params)"
+			)
+			local added = audit("function MovementAudit.add(")
+			expect(added).toContain("probe.FilterType = Enum.RaycastFilterType.Exclude probe.RespectCanCollide = true")
+			expect(added).toContain(
+				"overlap.FilterType = Enum.RaycastFilterType.Exclude overlap.RespectCanCollide = true"
+			)
+			expect(audit("local function adopt(")).toContain(
+				"record.Probe.FilterDescendantsInstances = { character } record.Overlap.FilterDescendantsInstances = { character }"
+			)
+		end
+	)
 
 	it("audits a live body even without its Humanoid, and never a dead one", function()
 		local gather = audit("local function gather(")
@@ -528,7 +558,7 @@ describe("the movement audit", function()
 		expect(ordered(enforce, "groundBelow(", 'if MovementGuardConfig.Mode == "Observe" then')).toBe(true)
 		local ground = audit("local function groundBelow(")
 		expect(ground).toContain(
-			"castDown(record, body.Root.Position, stand, AUDIT.ConfirmProbeRadiusStuds, AUDIT.ConfirmProbeReachStuds)"
+			"castDown(record.Probe, body.Root.Position, stand, AUDIT.ConfirmProbeRadiusStuds, AUDIT.ConfirmProbeReachStuds)"
 		)
 		expect(ground).toContain("MovementGuard.groundFound(record.Track, hit.Position.Y + stand, now)")
 	end)
@@ -574,7 +604,7 @@ describe("the movement audit", function()
 			"local groundY = groundUnder(record, position, stand) MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, groundY, config)"
 		)
 		expect(audit("local function groundUnder(")).toContain(
-			"local hit = castDown(record, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config)) if hit == nil or not holdsUp(hit.Instance) then return nil end return hit.Position.Y + stand"
+			"local hit = castDown(record.Probe, destination, stand, AUDIT.GroundProbeRadiusStuds, MovementGuard.maxRise(config)) if hit == nil or not holdsUp(hit.Instance) then return nil end return hit.Position.Y + stand"
 		)
 		-- A jump's fall past the feet covers every pad: its marker stands a body's height over the floor and the
 		-- root is pivoted above the marker.

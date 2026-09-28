@@ -727,6 +727,29 @@ describe("MovementGuard.touching", function()
 	end)
 end)
 
+describe("MovementGuard.carried", function()
+	it("holds a body up through the bodies under it, down to the world", function()
+		-- 1 on the ground, 2 on 1, 3 on 2: a tower stands.
+		local held = MovementGuard.carried({ true, false, false }, { 0, 1, 2 })
+		expect(held).toEqual({ true, true, true })
+		-- Nothing under a body, or a body under it that nothing holds: not held.
+		expect(MovementGuard.carried({ false, false }, { 0, 1 })).toEqual({ false, false })
+	end)
+
+	it("never lets bodies hold each other up with nothing under any of them", function()
+		expect(MovementGuard.carried({ false, false }, { 2, 1 })).toEqual({ false, false })
+		-- A circle of three, and a fourth standing on it.
+		expect(MovementGuard.carried({ false, false, false, false }, { 2, 3, 1, 1 })).toEqual({
+			false,
+			false,
+			false,
+			false,
+		})
+		-- The same circle with one of them on the ground holds everyone.
+		expect(MovementGuard.carried({ false, false, true, false }, { 2, 3, 1, 1 })).toEqual({ true, true, true, true })
+	end)
+end)
+
 -- The geometry MovementAudit turns a barrier ray's hit into, in the barrier's own space: the shipped half width
 -- (1) and floor sink (1).
 describe("MovementGuard: barrier geometry", function()

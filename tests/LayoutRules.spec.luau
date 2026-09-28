@@ -257,6 +257,27 @@ describe("the parts, as Studio drew them", function()
 		local plain = Keycap.new({ Key = "M", Device = "Keyboard", Localize = localize, Parent = parent })
 		expect(plain.Instance:FindFirstChild("Key", true).TextSize).toBe(16)
 	end)
+
+	it("rims a Premium button in gold, hugging it, only while it can be pressed", function()
+		local world, parent = bench()
+		local Button = world.require("src/ui/components/Button")
+		local button = Button.new({ Text = "Buy", Variant = "Premium", Sublabel = "R$ 99", Parent = parent })
+		local rim = button.Instance:FindFirstChild("Rim")
+		assert(rim ~= nil, "the Premium button has no rim: this gate would check nothing")
+		-- A pill outline on the button's own size: the seal's ring, stretched to 120% of a pill, was an ellipse
+		-- standing out past both of its ends.
+		expect(rim.ClassName).toBe("Frame")
+		expect(rim.Size.X.Scale).toBe(1)
+		expect(rim.Size.Y.Scale).toBe(1)
+		expect(rim.Size.X.Offset).toBe(0)
+		local stroke = rim:FindFirstChildOfClass("UIStroke")
+		expect(stroke.BorderStrokePosition.Name).toBe("Outer")
+		expect(rim.Visible).toBe(true)
+		button:SetDisabled(true, "Premium")
+		expect(rim.Visible).toBe(false)
+		button:SetDisabled(false)
+		expect(rim.Visible).toBe(true)
+	end)
 end)
 
 return nil

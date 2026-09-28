@@ -89,7 +89,6 @@ local PRESSED_SCALE = 0.97
 local FOCUS_SCALE = 1.06
 local DOT_SIZE = 8
 local DOT_BOUNCE = 4
-local RIM_SCALE = 1.2
 local RIM_TRANSPARENCY = 0.2
 
 local function lookFor(variant: Variant, chapter: string?): Look
@@ -302,7 +301,7 @@ function Button.new(props: Props): Button
 
 	local sticker: Sticker.Sticker? = nil
 	local ghostRule: Frame? = nil
-	local rim: ImageLabel? = nil
+	local rim: Frame? = nil
 	local badge: Badge.Badge? = nil
 
 	-- The face of the current variant, rebuilt when the variant changes; the content moves with it.
@@ -337,21 +336,18 @@ function Button.new(props: Props): Button
 			dots.Parent = face.Face
 			sticker = face
 			if variant == "Premium" then
-				local id = Theme.texture("SealRing")
-				if id ~= "" then
-					local ring = Instance.new("ImageLabel")
-					ring.Name = "Rim"
-					ring.BackgroundTransparency = 1
-					ring.Image = id
-					ring.ImageColor3 = Theme.Colors.Primary
-					ring.ImageTransparency = RIM_TRANSPARENCY
-					ring.AnchorPoint = Vector2.new(0.5, 0.5)
-					ring.Position = UDim2.fromScale(0.5, 0.5)
-					ring.Size = UDim2.fromScale(RIM_SCALE, RIM_SCALE)
-					ring.ZIndex = 0
-					ring.Parent = button
-					rim = ring
-				end
+				-- Gold leaf around the pill, outside its ink. The seal's round ring, stretched to 120% of a
+				-- pill, was a wide ellipse whose ends stood out past the button onto its neighbours.
+				local ring = Instance.new("Frame")
+				ring.Name = "Rim"
+				ring.BackgroundTransparency = 1
+				ring.BorderSizePixel = 0
+				ring.Size = UDim2.fromScale(1, 1)
+				ring.ZIndex = 0
+				Theme.corner(ring, look.Corner)
+				Theme.stroke(ring, "Primary", Theme.Sizes.Stroke, nil, "Outer").Transparency = RIM_TRANSPARENCY
+				ring.Parent = button
+				rim = ring
 			end
 		end
 		if old ~= nil then
@@ -420,6 +416,11 @@ function Button.new(props: Props): Button
 		sublabel.TextColor3 = label.TextColor3
 		label.Visible = not pending
 		sublabel.Visible = props.Sublabel ~= nil and not pending
+		local currentRim = rim
+		if currentRim ~= nil then
+			-- Gold says "this is worth it": not on a button that cannot be pressed.
+			currentRim.Visible = not disabled
+		end
 		iconSlot.Visible = iconSlot.Visible and not pending
 		for _, dot in ipairs(dotList) do
 			dot.BackgroundColor3 = look.Ink

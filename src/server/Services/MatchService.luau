@@ -4,10 +4,11 @@
 -- → Result, pays the rewards, applies the ranking and brings everybody back to the hub.
 --
 -- One Heartbeat accumulator drives every live match (no per-match thread, no per-player loop): it
--- refreshes the participants from their Humanoid, asks the mode for a round verdict, advances the
--- phases and pushes MatchChanged at SNAPSHOT_HZ. Everything a match owns (arena, kill-zone
--- connection) hangs from its Trove, so a normal end, an abandon and a disconnect all release it the
--- same way. The rules themselves live in GameModes: this service never decides who won.
+-- kills whoever fell under the arena's kill zone, refreshes the participants from their Humanoid, asks
+-- the mode for a round verdict, advances the phases and pushes MatchChanged at SNAPSHOT_HZ. Everything
+-- a match owns (arena, kill-zone connection) hangs from its Trove, so a normal end, an abandon and a
+-- disconnect all release it the same way. The rules themselves live in GameModes: this service never
+-- decides who won.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -129,6 +130,7 @@ local SNAPSHOT_HZ = MatchConfig.SnapshotHz
 local TICKS_PER_SNAPSHOT = math.max(1, math.floor(GameConfig.Server.TickRate / SNAPSHOT_HZ))
 -- Characters are pivoted this far above their spawn pad so they never start clipped into it.
 local SPAWN_CLEARANCE_STUDS = 4
+local ROOT_PART_NAME = "HumanoidRootPart"
 local XP = ProgressionConfig.XP
 local FOLIOS = ProgressionConfig.Folios
 -- Per-mode reward multipliers; MatchConfig.Rewards is keyed by mode id.
@@ -544,6 +546,39 @@ local function advance(active: Active, now: number)
 	finish(active)
 end
 
+-- The arena kill zone under the floor. Health = 0 makes it an environment death, so CombatService
+-- still credits the last attacker when a knockback is what sent the victim over the edge. Only while the
+-- round is played, and only a participant still alive in it: one eliminated earlier and respawned at the hub
+-- is no longer in the arena's business.
+local function killInZone(active: Active, participant: GameModes.Participant, character: Model)
+	if active.Finished or active.Match.Phase ~= "Playing" or not participant.Alive then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid ~= nil and humanoid.Health > 0 then
+		humanoid.Health = 0
+	end
+end
+
+-- The kill zone as the server sees it, every tick: Touched is the owning client's word, so a tampered client
+-- simply never touched it and hung under the arena out of every fight. A participant still alive whose root is
+-- under the zone fell out.
+local function judgeFalls(active: Active)
+	if active.Match.Phase ~= "Playing" then
+		return
+	end
+	local depth = active.Arena.KillZone.Position.Y
+	for _, participant in ipairs(active.Match.Participants) do
+		if participant.Alive then
+			local character = participant.Player.Character
+			local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil
+			if character ~= nil and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then
+				killInZone(active, participant, character)
+			end
+		end
+	end
+end
+
 local function onHeartbeat(deltaTime: number)
 	accumulator += deltaTime
 	if accumulator < TICK_SECONDS then
@@ -559,6 +594,8 @@ local function onHeartbeat(deltaTime: number)
 			active.Preparing = false
 		end
 		if not active.Finished and not active.Preparing then
+			-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
+			judgeFalls(active)
 			refresh(active)
 			advance(active, now)
 		end
@@ -575,12 +612,8 @@ end
 -- Arena hazards, PvP policy, disconnects
 ----------------------------------------------------------------
 
--- The arena kill zone under the floor. Health = 0 makes it an environment death, so CombatService
--- still credits the last attacker when a knockback is what sent the victim over the edge.
+-- The kill zone as the client that owns the falling body reports it: Touched.
 local function onKillZoneTouched(active: Active, part: BasePart)
-	if active.Finished or active.Match.Phase ~= "Playing" then
-		return
-	end
 	local character = part:FindFirstAncestorOfClass("Model")
 	if character == nil then
 		return
@@ -590,12 +623,8 @@ local function onKillZoneTouched(active: Active, part: BasePart)
 		return
 	end
 	local participant = GameModes.participantOf(active.Match, player.UserId)
-	if participant == nil or not participant.Alive then
-		return
-	end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid ~= nil and humanoid.Health > 0 then
-		humanoid.Health = 0
+	if participant ~= nil then
+		killInZone(active, participant, character)
 	end
 end
 

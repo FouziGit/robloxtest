@@ -8,6 +8,7 @@ local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local MatchConfig = require("../src/shared/Config/MatchConfig")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
@@ -604,5 +605,95 @@ describe("the barriers", function()
 			expect(seen[role]).toBe(true)
 		end
 		expect(seen.KillZone).toBe(true)
+	end)
+end)
+
+-- Touched on a kill zone is reported by the client that owns the falling body, so a tampered client never
+-- touches one. The server looks for itself, every tick; Touched stays as the fast path.
+describe("the kill zone, judged by the server", function()
+	local MATCH = "src/server/Services/MatchService.luau"
+	local BATTLEGROUND = "src/server/Services/BattlegroundService/init.luau"
+
+	it(
+		"kills a match participant still alive whose root fell under the arena's zone, while the round is played",
+		function()
+			local kill = functionIn(MATCH, "local function killInZone(")
+			expect(kill).toContain(
+				'if active.Finished or active.Match.Phase ~= "Playing" or not participant.Alive then return end local humanoid = character:FindFirstChildOfClass("Humanoid") if humanoid ~= nil and humanoid.Health > 0 then humanoid.Health = 0 end'
+			)
+			local judge = functionIn(MATCH, "local function judgeFalls(")
+			expect(judge).toContain('if active.Match.Phase ~= "Playing" then return end')
+			expect(judge).toContain(
+				"local depth = active.Arena.KillZone.Position.Y for _, participant in ipairs(active.Match.Participants) do"
+			)
+			expect(judge).toContain(
+				'if participant.Alive then local character = participant.Player.Character local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil if character ~= nil and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then killInZone(active, participant, character) end end'
+			)
+			-- Alive, not merely present: an eliminated player respawned at the hub stands far under every arena's
+			-- zone, and would be killed again on every tick.
+			expect(judge).never.toContain("isLive(")
+			expect(strip(fs.readFile(MATCH))).toContain('local ROOT_PART_NAME = "HumanoidRootPart"')
+		end
+	)
+
+	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
+		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
+			"if not active.Finished and not active.Preparing then judgeFalls(active) refresh(active) advance(active, now) end"
+		)
+		local touched = functionIn(MATCH, "local function onKillZoneTouched(")
+		expect(touched).toContain(
+			"local participant = GameModes.participantOf(active.Match, player.UserId) if participant ~= nil then killInZone(active, participant, character) end"
+		)
+		expect((strip(fs.readFile(MATCH)):gsub("%s+", " "))).toContain(
+			"trove:Connect(arena.KillZone.Touched, function(part: BasePart) onKillZoneTouched(active, part) end)"
+		)
+		expect(count(strip(fs.readFile(MATCH)), "humanoid.Health = 0")).toBe(1)
+	end)
+
+	it("kills a player under the Battleground's kill plane as Touched would, every tick", function()
+		local judge = functionIn(BATTLEGROUND, "local function judgeFalls(")
+		expect(judge).toContain("local plane = map.KillZone local half = plane.Size / 2")
+		expect(judge).toContain(
+			"for _, player in ipairs(Players:GetPlayers()) do local root = Context.liveRoot(player) local character = player.Character if root ~= nil and character ~= nil then local offset = plane.CFrame:PointToObjectSpace(root.Position) if offset.Y < 0 and math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then fell(character) end end"
+		)
+		expect(functionIn(BATTLEGROUND, "local function tick(")).toContain("judgeFalls(map) Roster.step(now, dt)")
+		expect(functionIn(BATTLEGROUND, "local function onKillZoneTouched(")).toContain(
+			"Bots.kill(bot, os.clock()) return end fell(model) end"
+		)
+		expect(functionIn(BATTLEGROUND, "local function fell(")).toContain(
+			"if humanoid ~= nil and humanoid.Health > 0 and Players:GetPlayerFromCharacter(model) ~= nil then humanoid.Health = 0 end"
+		)
+		expect(count(strip(fs.readFile(BATTLEGROUND)), "humanoid.Health = 0")).toBe(1)
+	end)
+
+	it("covers only the page: whoever is under the Battleground's plane fell off it", function()
+		-- Every player is looked at, member or not, so the plane's footprint must hold nothing else: not the
+		-- column over the world's origin, where the hub and every arena stand, centred.
+		local hub = tonumber(strip(fs.readFile(HUB)):match("\nlocal PLATFORM_SIZE_STUDS = (%d+)\n"))
+		assert(hub ~= nil, "HubService has no PLATFORM_SIZE_STUDS: this gate would check nothing")
+		local reach = hub / 2
+		for _, arena in pairs(MatchConfig.Arenas :: { [string]: { Size: number } }) do
+			reach = math.max(reach, arena.Size / 2)
+		end
+		local dressing: BattlegroundLayout.Dressing = {
+			FloorName = BattlegroundConfig.Anchors.Floor,
+			KillZoneName = BattlegroundConfig.Anchors.KillZone,
+			WallRuleStuds = WorldConfig.Arena.WallRuleStuds,
+			WallRuleProudStuds = WorldConfig.Arena.WallRuleProudStuds,
+			FlatThickness = WorldConfig.FlatThicknessStuds,
+			RuleTop = WorldConfig.Ladder.Rule,
+			CampTop = WorldConfig.Ladder.Training,
+			CampTransparency = WorldConfig.Battleground.CampTransparency,
+		}
+		local layout = BattlegroundLayout.build(BattlegroundConfig.Map, dressing, BotConfig.Path.RadiusStuds)
+		local origin = BattlegroundConfig.Map.Origin
+		local found = false
+		for _, box in ipairs(layout.Boxes) do
+			if box.Role == "KillZone" then
+				found = true
+				expect(origin[1] + box.X - box.SizeX / 2).toBeGreaterThan(reach)
+			end
+		end
+		expect(found).toBe(true)
 	end)
 end)

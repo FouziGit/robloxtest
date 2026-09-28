@@ -225,6 +225,33 @@ local function think(now: number)
 	end
 end
 
+-- A player's body at the kill plane under the page: a death of the environment, credited to nobody.
+local function fell(model: Model)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid ~= nil and humanoid.Health > 0 and Players:GetPlayerFromCharacter(model) ~= nil then
+		humanoid.Health = 0
+	end
+end
+
+-- The kill plane as the server sees it, every tick: Touched is the owning client's word, so a tampered client
+-- simply never touched it and stayed under the page. Any player whose root is under the plane, inside its
+-- footprint, fell off -- members or not, since the roster lets a member go as soon as the trusted position leaves
+-- the floor, long before the plane.
+local function judgeFalls(map: Map.Handle)
+	local plane = map.KillZone
+	local half = plane.Size / 2
+	for _, player in ipairs(Players:GetPlayers()) do
+		local root = Context.liveRoot(player)
+		local character = player.Character
+		if root ~= nil and character ~= nil then
+			local offset = plane.CFrame:PointToObjectSpace(root.Position)
+			if offset.Y < 0 and math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then
+				fell(character)
+			end
+		end
+	end
+end
+
 local function tick(map: Map.Handle, now: number, dt: number)
 	-- A rest that is over is forgotten, whoever it was for: one written for a player who left mid-chain too.
 	for userId, untilTime in pairs(restUntil) do
@@ -232,6 +259,7 @@ local function tick(map: Map.Handle, now: number, dt: number)
 			restUntil[userId] = nil
 		end
 	end
+	judgeFalls(map)
 	Roster.step(now, dt)
 	for _, bot in ipairs(Bots.all()) do
 		maintain(map, bot, now)
@@ -379,8 +407,8 @@ local function bodyOf(part: BasePart): Model?
 	return nil
 end
 
--- The kill plane under the page: a death of the environment, credited to nobody. Any player's body that
--- reaches it dies (a member who fell has already left the roster by then), and so does a Forger.
+-- The kill plane as the client that owns the falling body reports it: Touched. Any player's body that reaches it
+-- dies (a member who fell has already left the roster by then), and so does a Forger.
 local function onKillZoneTouched(part: BasePart)
 	local model = bodyOf(part)
 	if model == nil then
@@ -391,10 +419,7 @@ local function onKillZoneTouched(part: BasePart)
 		Bots.kill(bot, os.clock())
 		return
 	end
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	if humanoid ~= nil and humanoid.Health > 0 and Players:GetPlayerFromCharacter(model) ~= nil then
-		humanoid.Health = 0
-	end
+	fell(model)
 end
 
 local function onPlayerRemoving(player: Player)

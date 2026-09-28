@@ -1,0 +1,728 @@
+--!strict
+-- A pretend engine, just deep enough to run the interface's own modules under Lune: instances with a
+-- parent, children and the signals the interface listens to; a Heartbeat and a clock the test advances by
+-- hand; task.delay on that clock; and require by the paths Rojo gives the modules, so `script.Parent.Motion`
+-- and `Shared.Config.FeelConfig` load the files in src/. The datatypes (UDim2, Color3, Vector2, Enum...) are
+-- Lune's, which are the engine's own.
+--
+-- Most of the interface's gates read its source, because Lune has no engine. That cannot see an order of
+-- events: a callback that restarts a spring the loop is about to drop, a splat handed back after its screen
+-- destroyed it. Those are what this runs. A module is given what it asks for and nothing else: an unknown
+-- service or a module that is not on disk is an error, so a spec cannot pass on code it never ran.
+local fs = require("@lune/fs")
+local luau = require("@lune/luau")
+local roblox = require("@lune/roblox") :: any
+
+local Engine = {}
+
+----------------------------------------------------------------
+-- Signals
+----------------------------------------------------------------
+
+local SignalClass = {}
+SignalClass.__index = SignalClass
+local ConnectionClass = {}
+ConnectionClass.__index = ConnectionClass
+
+export type Connection = { Connected: boolean, Disconnect: (self: Connection) -> () }
+export type Signal = {
+	Connect: (self: Signal, fn: (...any) -> ()) -> Connection,
+	Once: (self: Signal, fn: (...any) -> ()) -> Connection,
+	Fire: (self: Signal, ...any) -> (),
+	count: (self: Signal) -> number,
+}
+
+function Engine.signal(): Signal
+	return setmetatable({ _handlers = {} }, SignalClass) :: any
+end
+
+function SignalClass.Connect(self: any, fn: (...any) -> ()): Connection
+	local connection = setmetatable({ Connected = true, _signal = self, _fn = fn }, ConnectionClass)
+	table.insert(self._handlers, connection)
+	return connection :: any
+end
+
+function SignalClass.Once(self: any, fn: (...any) -> ()): Connection
+	local connection: Connection
+	connection = SignalClass.Connect(self, function(...)
+		connection:Disconnect()
+		fn(...)
+	end)
+	return connection
+end
+
+function SignalClass.Fire(self: any, ...: any)
+	for _, connection in ipairs(table.clone(self._handlers)) do
+		if connection.Connected then
+			connection._fn(...)
+		end
+	end
+end
+
+-- How many handlers are connected: what a leak is counted in.
+function SignalClass.count(self: any): number
+	return #self._handlers
+end
+
+function SignalClass.disconnectAll(self: any)
+	for _, connection in ipairs(table.clone(self._handlers)) do
+		connection:Disconnect()
+	end
+end
+
+function ConnectionClass.Disconnect(self: any)
+	if not self.Connected then
+		return
+	end
+	self.Connected = false
+	local handlers = self._signal._handlers
+	local index = table.find(handlers, self)
+	if index ~= nil then
+		table.remove(handlers, index)
+	end
+end
+
+----------------------------------------------------------------
+-- Instances
+----------------------------------------------------------------
+
+-- Which classes answer IsA for the abstract ones the interface asks about.
+local GUI_OBJECTS = {
+	Frame = true,
+	TextLabel = true,
+	TextButton = true,
+	TextBox = true,
+	ImageLabel = true,
+	ImageButton = true,
+	ScrollingFrame = true,
+	CanvasGroup = true,
+	ViewportFrame = true,
+}
+local ABSTRACT: { [string]: { [string]: boolean } } = {
+	GuiObject = GUI_OBJECTS,
+	GuiButton = { TextButton = true, ImageButton = true },
+	LayerCollector = { ScreenGui = true, BillboardGui = true, SurfaceGui = true },
+	ValueBase = { NumberValue = true, StringValue = true, BoolValue = true, IntValue = true, ObjectValue = true },
+}
+
+local function defaults(className: string): { [string]: any }
+	local values: { [string]: any } = {}
+	if GUI_OBJECTS[className] then
+		values.Visible = true
+		values.Size = roblox.UDim2.new()
+		values.Position = roblox.UDim2.new()
+		values.AnchorPoint = roblox.Vector2.zero
+		values.Rotation = 0
+		values.ZIndex = 1
+		values.LayoutOrder = 0
+		values.BackgroundTransparency = 0
+		values.AbsoluteSize = roblox.Vector2.zero
+		values.AbsolutePosition = roblox.Vector2.zero
+		values.Selectable = false
+		values.Active = false
+	end
+	if className == "TextLabel" or className == "TextButton" or className == "TextBox" then
+		values.Text = ""
+	end
+	if className == "ScreenGui" then
+		values.Enabled = true
+	elseif className == "UIScale" then
+		values.Scale = 1
+	elseif className == "UIGradient" then
+		values.Offset = roblox.Vector2.zero
+		values.Rotation = 0
+		values.Enabled = true
+	elseif className == "UIStroke" then
+		values.Thickness = 1
+		values.Transparency = 0
+	elseif ABSTRACT.ValueBase[className] then
+		values.Value = if className == "NumberValue" or className == "IntValue" then 0 else nil
+	end
+	return values
+end
+
+type Data = {
+	ClassName: string,
+	Name: string,
+	Parent: any,
+	Children: { any },
+	Destroyed: boolean,
+	Props: { [string]: any },
+	Attributes: { [string]: any },
+	Signals: { [string]: any },
+	PropertySignals: { [string]: any },
+}
+
+local dataOf: { [any]: Data } = setmetatable({}, { __mode = "k" }) :: any
+local InstanceMeta: any = {}
+
+local function signalOf(data: Data, name: string): any
+	local signal = data.Signals[name]
+	if signal == nil then
+		signal = Engine.signal()
+		data.Signals[name] = signal
+	end
+	return signal
+end
+
+local function propertySignal(data: Data, property: string): any
+	local signal = data.PropertySignals[property]
+	if signal == nil then
+		signal = Engine.signal()
+		data.PropertySignals[property] = signal
+	end
+	return signal
+end
+
+local function descendants(instance: any, out: { any })
+	for _, child in ipairs(dataOf[instance].Children) do
+		table.insert(out, child)
+		descendants(child, out)
+	end
+end
+
+local function fireAncestry(instance: any)
+	local all = { instance }
+	descendants(instance, all)
+	local parent = dataOf[instance].Parent
+	for _, each in ipairs(all) do
+		signalOf(dataOf[each], "AncestryChanged"):Fire(instance, parent)
+	end
+end
+
+local function setParent(instance: any, parent: any)
+	local data = dataOf[instance]
+	if data.Destroyed then
+		error(
+			("The Parent property of %s is locked, current parent: NULL, new parent %s"):format(
+				data.Name,
+				if parent ~= nil then dataOf[parent].Name else "NULL"
+			),
+			3
+		)
+	end
+	if data.Parent == parent then
+		return
+	end
+	local old = data.Parent
+	if old ~= nil then
+		local siblings = dataOf[old].Children
+		local index = table.find(siblings, instance)
+		if index ~= nil then
+			table.remove(siblings, index)
+		end
+	end
+	data.Parent = parent
+	if parent ~= nil then
+		table.insert(dataOf[parent].Children, instance)
+	end
+	propertySignal(data, "Parent"):Fire()
+	fireAncestry(instance)
+	if parent ~= nil then
+		signalOf(dataOf[parent], "ChildAdded"):Fire(instance)
+	end
+end
+
+local Methods: { [string]: any } = {}
+-- Each world's services, by its DataModel.
+local servicesOf: { [any]: { [string]: any } } = setmetatable({}, { __mode = "k" }) :: any
+
+function Methods.GetService(self: any, name: string): any
+	local services = servicesOf[self]
+	if services == nil then
+		error("GetService is the DataModel's", 2)
+	end
+	local service = services[name]
+	if service == nil then
+		error(("the spec gives no %s: add it to the world's Services"):format(name), 2)
+	end
+	return service
+end
+
+function Methods.IsA(self: any, className: string): boolean
+	local own = dataOf[self].ClassName
+	if own == className or className == "Instance" then
+		return true
+	end
+	local members = ABSTRACT[className]
+	return members ~= nil and members[own] == true
+end
+
+function Methods.IsDescendantOf(self: any, ancestor: any): boolean
+	local parent = dataOf[self].Parent
+	while parent ~= nil do
+		if parent == ancestor then
+			return true
+		end
+		parent = dataOf[parent].Parent
+	end
+	return false
+end
+
+function Methods.FindFirstAncestorOfClass(self: any, className: string): any
+	local parent = dataOf[self].Parent
+	while parent ~= nil do
+		if dataOf[parent].ClassName == className then
+			return parent
+		end
+		parent = dataOf[parent].Parent
+	end
+	return nil
+end
+
+function Methods.FindFirstAncestorWhichIsA(self: any, className: string): any
+	local parent = dataOf[self].Parent
+	while parent ~= nil do
+		if Methods.IsA(parent, className) then
+			return parent
+		end
+		parent = dataOf[parent].Parent
+	end
+	return nil
+end
+
+function Methods.FindFirstChild(self: any, name: string): any
+	for _, child in ipairs(dataOf[self].Children) do
+		if dataOf[child].Name == name then
+			return child
+		end
+	end
+	return nil
+end
+
+function Methods.FindFirstChildOfClass(self: any, className: string): any
+	for _, child in ipairs(dataOf[self].Children) do
+		if dataOf[child].ClassName == className then
+			return child
+		end
+	end
+	return nil
+end
+
+function Methods.FindFirstChildWhichIsA(self: any, className: string): any
+	for _, child in ipairs(dataOf[self].Children) do
+		if Methods.IsA(child, className) then
+			return child
+		end
+	end
+	return nil
+end
+
+function Methods.WaitForChild(self: any, name: string): any
+	local child = Methods.FindFirstChild(self, name)
+	if child == nil then
+		error(("%s has no child %s, and nothing in a spec will ever add it"):format(dataOf[self].Name, name), 2)
+	end
+	return child
+end
+
+function Methods.GetChildren(self: any): { any }
+	return table.clone(dataOf[self].Children)
+end
+
+function Methods.GetDescendants(self: any): { any }
+	local all = {}
+	descendants(self, all)
+	return all
+end
+
+function Methods.GetFullName(self: any): string
+	local names = {}
+	local current = self
+	while current ~= nil do
+		table.insert(names, 1, dataOf[current].Name)
+		current = dataOf[current].Parent
+	end
+	return table.concat(names, ".")
+end
+
+function Methods.GetPropertyChangedSignal(self: any, property: string): any
+	return propertySignal(dataOf[self], property)
+end
+
+function Methods.GetAttribute(self: any, name: string): any
+	return dataOf[self].Attributes[name]
+end
+
+function Methods.SetAttribute(self: any, name: string, value: any)
+	dataOf[self].Attributes[name] = value
+end
+
+function Methods.ClearAllChildren(self: any)
+	for _, child in ipairs(table.clone(dataOf[self].Children)) do
+		Methods.Destroy(child)
+	end
+end
+
+-- The engine's order: Destroying first, then the children, the parent set to nil and locked, and every
+-- connection to the instance's own signals cut.
+function Methods.Destroy(self: any)
+	local data = dataOf[self]
+	if data.Destroyed then
+		return
+	end
+	signalOf(data, "Destroying"):Fire()
+	for _, child in ipairs(table.clone(data.Children)) do
+		Methods.Destroy(child)
+	end
+	setParent(self, nil)
+	data.Destroyed = true
+	for _, signal in pairs(data.Signals) do
+		signal:disconnectAll()
+	end
+	for _, signal in pairs(data.PropertySignals) do
+		signal:disconnectAll()
+	end
+end
+
+local SIGNALS = {
+	Destroying = true,
+	AncestryChanged = true,
+	ChildAdded = true,
+	Changed = true,
+	Activated = true,
+	MouseButton1Click = true,
+	MouseEnter = true,
+	MouseLeave = true,
+	SelectionGained = true,
+	SelectionLost = true,
+}
+
+InstanceMeta.__index = function(self: any, key: string): any
+	local method = Methods[key]
+	if method ~= nil then
+		return method
+	end
+	local data = dataOf[self]
+	if key == "ClassName" or key == "Name" or key == "Parent" then
+		return (data :: any)[key]
+	end
+	if SIGNALS[key] then
+		return signalOf(data, key)
+	end
+	return data.Props[key]
+end
+
+InstanceMeta.__newindex = function(self: any, key: string, value: any)
+	local data = dataOf[self]
+	if key == "Parent" then
+		setParent(self, value)
+		return
+	end
+	if key == "Name" then
+		data.Name = value
+		propertySignal(data, key):Fire()
+		return
+	end
+	if data.Props[key] == value then
+		return
+	end
+	data.Props[key] = value
+	propertySignal(data, key):Fire()
+	if ABSTRACT.ValueBase[data.ClassName] and key == "Value" then
+		signalOf(data, "Changed"):Fire(value)
+	else
+		signalOf(data, "Changed"):Fire(key)
+	end
+end
+
+InstanceMeta.__tostring = function(self: any): string
+	return dataOf[self].Name
+end
+
+function Engine.instance(className: string, parent: any?): any
+	local instance = setmetatable({}, InstanceMeta)
+	dataOf[instance] = {
+		ClassName = className,
+		Name = className,
+		Parent = nil,
+		Children = {},
+		Destroyed = false,
+		Props = defaults(className),
+		Attributes = {},
+		Signals = {},
+		PropertySignals = {},
+	}
+	if parent ~= nil then
+		setParent(instance, parent)
+	end
+	return instance
+end
+
+-- True once Destroy has run on `instance`: what the engine shows as a locked Parent.
+function Engine.destroyed(instance: any): boolean
+	return dataOf[instance].Destroyed
+end
+
+-- The engine's typeof, for the fakes as well as Lune's datatypes.
+local function typeOf(value: any): string
+	if type(value) == "table" then
+		local meta = getmetatable(value)
+		if meta == InstanceMeta then
+			return "Instance"
+		elseif meta == SignalClass then
+			return "RBXScriptSignal"
+		elseif meta == ConnectionClass then
+			return "RBXScriptConnection"
+		end
+	end
+	return typeof(value)
+end
+
+----------------------------------------------------------------
+-- Module paths, as Rojo lays them out (default.project.json)
+----------------------------------------------------------------
+
+local PathMeta: any = {}
+local pathOf: { [any]: string } = setmetatable({}, { __mode = "k" }) :: any
+
+-- ReplicatedStorage's children, and where they come from on disk.
+local REPLICATED = { Shared = "src/shared", UI = "src/ui", Packages = "Packages" }
+local REPLICATED_ROOT = "<ReplicatedStorage>"
+
+local function pathNode(path: string): any
+	local node = setmetatable({}, PathMeta)
+	pathOf[node] = path
+	return node
+end
+
+local function childPath(path: string, name: string): string
+	if path == REPLICATED_ROOT then
+		local mapped = REPLICATED[name]
+		if mapped == nil then
+			error(("ReplicatedStorage has no %s in this project"):format(name), 3)
+		end
+		return mapped
+	end
+	return path .. "/" .. name
+end
+
+PathMeta.__index = function(node: any, key: string): any
+	local path = pathOf[node]
+	if key == "Parent" then
+		return pathNode(string.match(path, "^(.*)/[^/]+$") or REPLICATED_ROOT)
+	elseif key == "Name" then
+		return string.match(path, "([^/]+)$")
+	elseif key == "WaitForChild" or key == "FindFirstChild" then
+		return function(self: any, name: string): any
+			return pathNode(childPath(pathOf[self], name))
+		end
+	end
+	return pathNode(childPath(path, key))
+end
+
+local function sourceOf(path: string): string?
+	for _, suffix in ipairs({ ".luau", ".lua", "/init.luau", "/init.lua" }) do
+		if fs.isFile(path .. suffix) then
+			return fs.readFile(path .. suffix)
+		end
+	end
+	return nil
+end
+
+----------------------------------------------------------------
+-- The world: one engine, its clock, and the modules loaded in it
+----------------------------------------------------------------
+
+export type Options = {
+	-- Modules replaced by a table, by their path without extension ("src/ui/UiPrefs").
+	Stubs: { [string]: any }?,
+	-- Services beyond RunService and ReplicatedStorage, by name.
+	Services: { [string]: any }?,
+}
+
+export type World = {
+	game: any,
+	now: number,
+	Heartbeat: Signal,
+	warnings: { string },
+	require: (path: string) -> any,
+	advance: (self: World, seconds: number, frameSeconds: number?) -> (),
+	frames: (self: World, count: number, frameSeconds: number?) -> (),
+}
+
+function Engine.world(options: Options?): World
+	local stubs = if options ~= nil and options.Stubs ~= nil then options.Stubs else {}
+	local extraServices = if options ~= nil and options.Services ~= nil then options.Services else {}
+
+	local world: any = {
+		now = 0,
+		Heartbeat = Engine.signal(),
+		warnings = {},
+	}
+
+	local game = Engine.instance("DataModel")
+	game.Name = "Game"
+	world.game = game
+
+	local services: { [string]: any } = {
+		RunService = {
+			Heartbeat = world.Heartbeat,
+			RenderStepped = Engine.signal(),
+			IsStudio = function()
+				return false
+			end,
+		},
+		ReplicatedStorage = pathNode(REPLICATED_ROOT),
+	}
+	for name, service in pairs(extraServices) do
+		services[name] = service
+	end
+	servicesOf[game] = services
+
+	-- task, on the world's clock. A delay is a thread, so task.cancel and Trove treat it as the engine's.
+	type Timer = { At: number, Order: number, Thread: thread, Args: { any } }
+	local timers: { Timer } = {}
+	local order = 0
+	local function resume(thread: thread, ...: any)
+		local ok, err = coroutine.resume(thread, ...)
+		if not ok then
+			error(err, 0)
+		end
+	end
+	local function schedule(seconds: number, fn: any, ...: any): thread
+		local thread = if type(fn) == "thread" then fn else coroutine.create(fn)
+		order += 1
+		table.insert(timers, { At = world.now + seconds, Order = order, Thread = thread, Args = { ... } })
+		return thread
+	end
+	local fakeTask = {
+		delay = function(seconds: number?, fn: any, ...: any): thread
+			return schedule(seconds or 0, fn, ...)
+		end,
+		defer = function(fn: any, ...: any): thread
+			return schedule(0, fn, ...)
+		end,
+		spawn = function(fn: any, ...: any): thread
+			local thread = if type(fn) == "thread" then fn else coroutine.create(fn)
+			resume(thread, ...)
+			return thread
+		end,
+		cancel = function(thread: thread)
+			for index = #timers, 1, -1 do
+				if timers[index].Thread == thread then
+					table.remove(timers, index)
+				end
+			end
+		end,
+		wait = function()
+			error("task.wait has no place in the interface, and a spec cannot yield", 2)
+		end,
+	}
+
+	local function runDue()
+		while true do
+			local due: Timer? = nil
+			for _, timer in ipairs(timers) do
+				if
+					timer.At <= world.now
+					and (due == nil or timer.At < due.At or (timer.At == due.At and timer.Order < due.Order))
+				then
+					due = timer
+				end
+			end
+			if due == nil then
+				return
+			end
+			table.remove(timers, table.find(timers, due) :: number)
+			resume(due.Thread, table.unpack(due.Args))
+		end
+	end
+
+	-- One frame: the timers that are due, then the Heartbeat, as the engine's frame runs them.
+	local function frame(seconds: number)
+		world.now += seconds
+		runDue()
+		world.Heartbeat:Fire(seconds)
+	end
+
+	function world.advance(_self: any, seconds: number, frameSeconds: number?)
+		local step = frameSeconds or 1 / 60
+		local count = math.max(1, math.floor(seconds / step + 0.5))
+		for _ = 1, count do
+			frame(step)
+		end
+	end
+
+	function world.frames(_self: any, count: number, frameSeconds: number?)
+		for _ = 1, count do
+			frame(frameSeconds or 1 / 60)
+		end
+	end
+
+	local cache: { [string]: any } = {}
+	local environment: { [string]: any } = {
+		game = game,
+		task = fakeTask,
+		typeof = typeOf,
+		warn = function(...: any)
+			local parts = {}
+			for index = 1, select("#", ...) do
+				table.insert(parts, tostring((select(index, ...))))
+			end
+			table.insert(world.warnings, table.concat(parts, " "))
+		end,
+		time = function(): number
+			return world.now
+		end,
+		os = {
+			clock = function(): number
+				return world.now
+			end,
+			time = os.time,
+			date = os.date,
+		},
+		Instance = {
+			new = function(className: string, parent: any?): any
+				return Engine.instance(className, parent)
+			end,
+		},
+		UDim = roblox.UDim,
+		UDim2 = roblox.UDim2,
+		Vector2 = roblox.Vector2,
+		Vector3 = roblox.Vector3,
+		CFrame = roblox.CFrame,
+		Color3 = roblox.Color3,
+		ColorSequence = roblox.ColorSequence,
+		ColorSequenceKeypoint = roblox.ColorSequenceKeypoint,
+		NumberSequence = roblox.NumberSequence,
+		NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+		NumberRange = roblox.NumberRange,
+		Rect = roblox.Rect,
+		Font = roblox.Font,
+		Enum = roblox.Enum,
+	}
+
+	local function load(path: string): any
+		local stub = stubs[path]
+		if stub ~= nil then
+			return stub
+		end
+		local cached = cache[path]
+		if cached ~= nil then
+			return cached
+		end
+		local source = sourceOf(path)
+		if source == nil then
+			error(("no module at %s"):format(path), 3)
+		end
+		local env = table.clone(environment)
+		env.script = pathNode(path)
+		env.require = function(target: any): any
+			local targetPath = pathOf[target]
+			if targetPath == nil then
+				error(("%s requires something that is not a module path: %s"):format(path, tostring(target)), 2)
+			end
+			return load(targetPath)
+		end
+		local chunk = luau.load(source, { debugName = path, environment = env })
+		local result = chunk()
+		cache[path] = result
+		return result
+	end
+
+	world.require = load
+	return world
+end
+
+return Engine

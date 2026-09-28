@@ -97,13 +97,16 @@ local function presetOf(name: Preset?): { Tension: number, Friction: number }
 end
 
 local function step(deltaTime: number)
+	-- The arrivals of this frame, called once both passes are over. An arrival is very often the start of
+	-- the next movement -- a loop's next leg, a flash's way back -- and a Motion.to made from inside the
+	-- pass would add a key to a table `pairs` is walking, or land in an entry the pass then drops as empty.
+	local arrived: { () -> () } = {}
 	for instance, entry in pairs(entries) do
 		if not instance:IsDescendantOf(game) then
 			-- Destroyed under us: a Trove destroyed the screen. Nothing to write to, nothing to keep.
 			entries[instance] = nil
 			continue
 		end
-		local remaining = 0
 		for property, track in pairs(entry) do
 			local alpha = Spring.step(track.Spring, deltaTime)
 			if Spring.isSettled(track.Spring, SETTLE_EPSILON) then
@@ -111,16 +114,18 @@ local function step(deltaTime: number)
 				entry[property] = nil
 				local onSettled = track.OnSettled
 				if onSettled ~= nil then
-					onSettled()
+					table.insert(arrived, onSettled)
 				end
 			else
 				(instance :: any)[property] = lerp(track.From, track.To, alpha)
-				remaining += 1
 			end
 		end
-		if remaining == 0 then
+		if next(entry) == nil then
 			entries[instance] = nil
 		end
+	end
+	for _, onSettled in ipairs(arrived) do
+		onSettled()
 	end
 	if next(entries) == nil and connection ~= nil then
 		connection:Disconnect()

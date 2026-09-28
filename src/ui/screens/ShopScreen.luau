@@ -355,6 +355,9 @@ function ShopScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	local tabs: Tabs.Tabs
+	-- A tab the player picks clicks, like every tab strip; a switch the screen makes itself (Open's Tab, the
+	-- sheet's Get Folios, whose button has already clicked) is quiet.
+	local switching = false
 	local purchases = Purchase.new({
 		Localize = deps.Localize,
 		ClientData = deps.ClientData,
@@ -362,7 +365,9 @@ function ShopScreen.new(deps: Deps): Screen
 		HudController = deps.HudController,
 		Card = panel.Instance,
 		ShowFolios = function()
+			switching = true
 			tabs:Select("Folios")
+			switching = false
 		end,
 	})
 	own(trove, purchases)
@@ -612,6 +617,9 @@ function ShopScreen.new(deps: Deps): Screen
 		LayoutOrder = 1,
 		Parent = panel.Header,
 		OnSelect = function(id: string)
+			if not switching then
+				deps.SoundController.play("UiClick")
+			end
 			show(id :: TabId)
 			refresh()
 		end,
@@ -663,7 +671,9 @@ function ShopScreen.new(deps: Deps): Screen
 			wanted = args.Tab
 		end
 		if wanted ~= tab then
+			switching = true
 			tabs:Select(wanted)
+			switching = false
 		end
 		adoptSnapshot()
 		refreshCountdown()

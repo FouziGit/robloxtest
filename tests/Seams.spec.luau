@@ -12,6 +12,7 @@ local CLAIMS = "src/ui/Claims.luau"
 local CLAIMABLES = "src/shared/Pure/Claimables.luau"
 local MENU = "src/ui/screens/MenuScreen.luau"
 local DAILY = "src/ui/screens/DailyScreen.luau"
+local SHOP = "src/ui/screens/ShopScreen.luau"
 
 local function stripComments(source: string): string
 	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
@@ -28,6 +29,18 @@ end
 
 local function has(source: string, plain: string): boolean
 	return string.find(source, plain, 1, true) ~= nil
+end
+
+local function count(source: string, plain: string): number
+	local found, from = 0, 1
+	while true do
+		local at = string.find(source, plain, from, true)
+		if at == nil then
+			return found
+		end
+		found += 1
+		from = at + 1
+	end
 end
 
 local function collect(directory: string, out: { string })
@@ -107,5 +120,32 @@ describe("a claim or a purchase the server never answers", function()
 		end
 		-- The Daily reward, the quest card and the Quests screen that words its timeout.
 		expect(waiting).toBeGreaterThanOrEqual(3)
+	end)
+end)
+
+describe("a tab", function()
+	it("clicks when the player picks it, on every screen, and only then", function()
+		-- Tabs makes no sound of its own (only Button does): each strip's OnSelect clicks.
+		local screens = {}
+		collect("src/ui/screens", screens)
+		local strips = 0
+		for _, path in ipairs(screens) do
+			for body in string.gmatch(code(path), "OnSelect = function%(id: string%)(.-)\n%s*end,") do
+				strips += 1
+				if not has(body, 'play("UiClick")') then
+					error(path .. " has a tab strip that switches in silence")
+				end
+			end
+		end
+		-- The Shop, the Loadout, the Leaderboard, the Settings and its quality strip.
+		expect(strips).toBeGreaterThanOrEqual(5)
+		-- Select fires OnSelect as a click would, and the Shop switches tabs itself (Open's Tab, Get Folios):
+		-- each of those is marked as the screen's own, which keeps it quiet.
+		local shop = code(SHOP)
+		local selects = count(shop, "tabs:Select(")
+		expect(selects).toBeGreaterThanOrEqual(2)
+		local _, marked = string.gsub(shop, "switching = true\n%s*tabs:Select%(", "")
+		expect(marked).toBe(selects)
+		expect(has(shop, 'if not switching then\n\t\t\t\tdeps.SoundController.play("UiClick")')).toBe(true)
 	end)
 end)

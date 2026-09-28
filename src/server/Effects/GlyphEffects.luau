@@ -1611,10 +1611,12 @@ function GlyphEffects.Swash(ctx: Context): number
 				ctx.Combat.knockback(model, push, KNOCKBACK_DURATION)
 			end
 			previous = reached
-			if reached >= span then
+			if reached >= span - EPSILON then
 				break
 			end
-			elapsed += task.wait(WAVE_STEP_SECONDS)
+			-- The last step lands on the wall, never a whole step past it: the Fizzle leaves on the frame the front
+			-- gets there, before the drawn front gouges the page beyond the wall.
+			elapsed += task.wait(math.min(WAVE_STEP_SECONDS, (span - reached) / params.Speed))
 			if not casterAlive(ctx) then
 				break
 			end

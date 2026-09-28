@@ -350,6 +350,17 @@ describe("a thing released ahead of the body", function()
 		).never.toBe(nil)
 	end)
 
+	it("lands the Swash on the frame its front meets the wall, not a step past it", function()
+		-- Stepped by whole 0.05 s steps, the front's landing left up to a step late -- five studs at its speed --
+		-- after the drawn front had already gouged the page past the wall (VfxTimeline.land keeps a gouge drawn).
+		local swash = functionIn(EFFECTS, "function GlyphEffects.Swash(")
+		expect(
+			swash:find("elapsed += task.wait(math.min(WAVE_STEP_SECONDS, (span - reached) / params.Speed))", 1, true)
+		).never.toBe(nil)
+		expect(swash:find("if reached >= span - EPSILON then break end", 1, true)).never.toBe(nil)
+		expect(swash:find("task.wait(WAVE_STEP_SECONDS)", 1, true)).toBe(nil)
+	end)
+
 	it("comes down on every client where the server's one ended", function()
 		for _, id in ipairs({ "Swash", "Stitch" }) do
 			local effect = functionIn(EFFECTS, "function GlyphEffects." .. id .. "(")

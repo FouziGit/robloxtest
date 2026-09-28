@@ -7987,7 +7987,8 @@ local RUBRIC: Timeline = {
 -- width of the box and about as high, which is what a player at the side reads. No riding Sprite: a
 -- landing drains a trail, an emitter, a light and a volume, never a plane, which would stay frozen where
 -- the flight stopped. The page is gouged where the front passes: three blots at the times the drawn front
--- reaches them, and those still to come are dropped by the landing, so nothing is gouged past a wall.
+-- reaches them, and those still to come are dropped by the landing, which the server sends on the frame its
+-- front meets the wall (its last step is cut to the distance left), so nothing is gouged past a wall.
 local SWASH: Timeline = {
 	Intent = "A flourish of umber skims the floor at the server's front, a spray as wide as its blade, gouging the page as it goes",
 	Phases = {

@@ -86,14 +86,19 @@ end)
 describe("a charged glyph", function()
 	it("holds its caster for exactly the charge, and gives up the frame the hold breaks", function()
 		local charge = functionIn(EFFECTS, "local function charge(")
-		expect(charge:find("ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)", 1, true)).never.toBe(nil)
+		expect(charge:find("local token = ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)", 1, true)).never.toBe(
+			nil
+		)
+		-- It asks about its own hold, never the gate (D-142): a dash then another glyph's hold is not its own, and
+		-- a late frame past its deadline is no break.
 		expect(
 			charge:find(
-				"if not casterAlive(ctx) or not ctx.Combat.isChanneling(ctx.Caster) then ctx.Combat.channel(ctx.Caster, 0) return nil end",
+				"if not casterAlive(ctx) or not ctx.Combat.holdsChannel(ctx.Caster, token) then ctx.Combat.endChannel(ctx.Caster, token) return nil end",
 				1,
 				true
 			)
 		).never.toBe(nil)
+		expect(charge:find("isChanneling", 1, true)).toBe(nil)
 		-- The telegraph says how long it lasts, and is reliable: the release packet must never overtake it.
 		expect(charge:find("{ Windup = seconds, Pigment = ctx.Def.Pigment }", 1, true)).never.toBe(nil)
 		expect(charge:find("Params = packetParams, }, true)", 1, true)).never.toBe(nil)
@@ -102,7 +107,7 @@ describe("a charged glyph", function()
 			before(
 				charge,
 				"local frame = ctx.Combat.trustedOrigin(ctx.Caster)",
-				"ctx.Combat.channel(ctx.Caster, 0) return frame"
+				"ctx.Combat.endChannel(ctx.Caster, token) return frame"
 			)
 		).toBe(true)
 		expect(
@@ -130,11 +135,15 @@ end)
 describe("the Hatching", function()
 	it("holds its caster for the rush, and stops the stroke a dash broke it", function()
 		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
-		local held = "ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)"
+		local held =
+			"local token = ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)"
 		expect(before(hatching, held, "for stroke = 1, params.Ticks do")).toBe(true)
-		expect(hatching:find("if not ctx.Combat.isChanneling(ctx.Caster) then break end", 1, true)).never.toBe(nil)
-		expect(hatching:sub(-#"ctx.Combat.channel(ctx.Caster, 0) return tracker.Count end " - 1)).toBe(
-			" ctx.Combat.channel(ctx.Caster, 0) return tracker.Count end "
+		expect(hatching:find("if not ctx.Combat.holdsChannel(ctx.Caster, token) then break end", 1, true)).never.toBe(
+			nil
+		)
+		expect(hatching:find("isChanneling", 1, true)).toBe(nil)
+		expect(hatching:sub(-#"ctx.Combat.endChannel(ctx.Caster, token) return tracker.Count end " - 1)).toBe(
+			" ctx.Combat.endChannel(ctx.Caster, token) return tracker.Count end "
 		)
 	end)
 

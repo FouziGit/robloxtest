@@ -16,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local ChannelHold = require(Shared.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
@@ -115,7 +116,8 @@ type State = {
 	BlockCooldownUntil: number,
 	DashCooldownUntil: number,
 	IFramesUntil: number,
-	ChannelUntil: number, -- os.clock until which a charged glyph or a rush holds its caster (D-142)
+	-- The hold a charged glyph or a rush keeps on its caster, on os.clock, and whose hold it is (D-142).
+	Channel: ChannelHold.Hold,
 	MeleeIndex: number,
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
@@ -671,7 +673,7 @@ local function resetState(state: State, now: number)
 	state.BlockCooldownUntil = 0
 	state.DashCooldownUntil = 0
 	state.IFramesUntil = 0
-	state.ChannelUntil = 0
+	ChannelHold.breaks(state.Channel)
 	state.MeleeIndex = 0
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
@@ -794,7 +796,7 @@ local function onPlayerAdded(player: Player)
 		BlockCooldownUntil = 0,
 		DashCooldownUntil = 0,
 		IFramesUntil = 0,
-		ChannelUntil = 0,
+		Channel = ChannelHold.new(),
 		MeleeIndex = 0,
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
@@ -1131,18 +1133,34 @@ function CombatService.grantIFrames(player: Player, seconds: number)
 	state.IFramesUntil = math.max(state.IFramesUntil, os.clock() + seconds)
 end
 
--- A charged glyph or a rush holds its caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile,
--- and a dash breaks it -- the effect polls isChanneling and gives up (D-142).
-function CombatService.channel(player: Player, seconds: number)
+-- A charged glyph or a rush holds its caster for `seconds`: no M1 and no other glyph meanwhile, and a dash
+-- breaks it (D-142). Returns the hold's number, which the effect keeping it asks about (holdsChannel) and ends
+-- it with (endChannel); nil when there is nothing to hold, which no hold is ever read as.
+function CombatService.channel(player: Player, seconds: number): number?
 	if seconds ~= seconds or seconds < 0 or seconds == math.huge then
 		log.warn("channel rejected for %s: seconds %s", player.Name, tostring(seconds))
-		return
+		return nil
 	end
 	local state = states[player]
 	if state == nil then
-		return
+		return nil
 	end
-	state.ChannelUntil = os.clock() + seconds
+	return ChannelHold.open(state.Channel, os.clock(), seconds)
+end
+
+-- Whether the hold numbered `token` is still the one `player` is kept in: no dash broke it and no later cast
+-- opened another. Its effect asks this, never isChanneling, which would read a later glyph's hold as its own.
+function CombatService.holdsChannel(player: Player, token: number?): boolean
+	local state = states[player]
+	return state ~= nil and token ~= nil and ChannelHold.owns(state.Channel, token)
+end
+
+-- Ends the hold numbered `token`, and nothing a later cast opened.
+function CombatService.endChannel(player: Player, token: number?)
+	local state = states[player]
+	if state ~= nil and token ~= nil then
+		ChannelHold.close(state.Channel, token)
+	end
 end
 
 function CombatService.applyStoneSkin(player: Player): boolean
@@ -1205,7 +1223,7 @@ local function onMelee(player: Player, state: State, now: number)
 	if character == nil or root == nil then
 		return
 	end
-	if movement.isStunned(player) or state.Blocking or now < state.ChannelUntil then
+	if movement.isStunned(player) or state.Blocking or ChannelHold.refuses(state.Channel, now) then
 		return
 	end
 	local melee = CombatConfig.Melee
@@ -1303,7 +1321,7 @@ local function onDash(player: Player, state: State, now: number)
 	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
-	state.ChannelUntil = 0 -- a dash is the way out of a charge or a rush (D-142)
+	ChannelHold.breaks(state.Channel) -- a dash is the way out of a charge or a rush (D-142)
 	local direction = dashDirection(humanoid, root)
 	CombatService.grantMovement(player, {
 		Kind = "Dash",
@@ -1516,9 +1534,10 @@ function CombatService.isStunned(player: Player): boolean
 	return movement.isStunned(player)
 end
 
+-- Whether `player` is kept in a hold now, whoever opened it: what refuses every other glyph (GlyphService).
 function CombatService.isChanneling(player: Player): boolean
 	local state = states[player]
-	return state ~= nil and os.clock() < state.ChannelUntil
+	return state ~= nil and ChannelHold.refuses(state.Channel, os.clock())
 end
 
 -- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.

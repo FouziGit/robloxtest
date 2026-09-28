@@ -64,10 +64,12 @@ export type CombatApi = {
 	-- Whether a hit on `targetModel` would be let through now, judged exactly as ApplyDamage judges it
 	-- (D-143): an effect that commits to a body before striking it asks first.
 	canDamage: (source: Player, targetModel: Model) -> boolean,
-	-- Holds the caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile. A dash breaks it, and
-	-- isChanneling is how the effect holding it finds out (D-142).
-	channel: (player: Player, seconds: number) -> (),
-	isChanneling: (player: Player) -> boolean,
+	-- Holds the caster for `seconds`: no M1 and no other glyph meanwhile, and a dash breaks it (D-142). It returns
+	-- the hold's number: the effect keeping it asks holdsChannel about that number alone, so a dash followed by
+	-- another glyph's hold never reads as its own, and endChannel lets go of that hold and of no later one.
+	channel: (player: Player, seconds: number) -> number?,
+	holdsChannel: (player: Player, token: number?) -> boolean,
+	endChannel: (player: Player, token: number?) -> (),
 }
 export type VfxPacket = {
 	Id: string,
@@ -556,8 +558,9 @@ local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [st
 			packetParams[key] = value
 		end
 	end
-	-- A frame of grace (MAX_STEP_SECONDS) so the last poll does not read its own expiry as a break.
-	ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)
+	-- A frame of grace (MAX_STEP_SECONDS) on the gate, so no other glyph slips in before the release frame. The
+	-- charge asks about its own hold, never the gate: a late frame past it breaks nothing.
+	local token = ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)
 	ctx.Vfx.emit({
 		Id = vfxId,
 		Origin = ctx.Origin.Position,
@@ -568,13 +571,13 @@ local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [st
 	local elapsed = 0
 	while elapsed < seconds do
 		elapsed += task.wait()
-		if not casterAlive(ctx) or not ctx.Combat.isChanneling(ctx.Caster) then
-			ctx.Combat.channel(ctx.Caster, 0)
+		if not casterAlive(ctx) or not ctx.Combat.holdsChannel(ctx.Caster, token) then
+			ctx.Combat.endChannel(ctx.Caster, token)
 			return nil
 		end
 	end
 	local frame = ctx.Combat.trustedOrigin(ctx.Caster)
-	ctx.Combat.channel(ctx.Caster, 0)
+	ctx.Combat.endChannel(ctx.Caster, token)
 	return frame
 end
 
@@ -1765,8 +1768,9 @@ end
 
 function GlyphEffects.Hatching(ctx: Context): number
 	local params = ctx.Def.Params
-	-- Held for the whole rush (D-142): no M1 on top of it, no other glyph, and a dash ends it.
-	ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)
+	-- Held for the whole rush (D-142): no M1 on top of it, no other glyph, and a dash ends it. The rush asks
+	-- about its own hold: one a later glyph opened after a dash is not a reason to go on.
+	local token = ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)
 	ctx.Vfx.emit({
 		Id = ctx.Def.VfxId,
 		Origin = ctx.Origin.Position,
@@ -1781,7 +1785,7 @@ function GlyphEffects.Hatching(ctx: Context): number
 		if stroke > 1 then
 			-- Against the start, not the last stroke: a late frame never pushes every later stroke back.
 			task.wait(math.max(started + (stroke - 1) * params.TickInterval - os.clock(), 0))
-			if not ctx.Combat.isChanneling(ctx.Caster) then
+			if not ctx.Combat.holdsChannel(ctx.Caster, token) then
 				break
 			end
 		end
@@ -1803,7 +1807,7 @@ function GlyphEffects.Hatching(ctx: Context): number
 			end
 		end
 	end
-	ctx.Combat.channel(ctx.Caster, 0)
+	ctx.Combat.endChannel(ctx.Caster, token)
 	return tracker.Count
 end
 

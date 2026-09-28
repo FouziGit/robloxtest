@@ -194,6 +194,58 @@ describe("the hub's portal gates", function()
 		expect(facing:find("CFrame.lookAt(position, Vector3.new(0, position.Y, 0))", 1, true)).never.toBe(nil)
 	end)
 
+	it("never let one sign cover the other's words, from anywhere both are read, the spawn among them", function()
+		-- Each sign's front face on the ground (WorldConfig.Portal: on the lintel and flush with its front, the
+		-- circle's radius behind the base), its two ends and the way it faces: where the gate's players come from.
+		local radius = PortalConfig.Hub.RingRadiusStuds
+		local half = WorldConfig.Portal.SignStuds[1] / 2
+		local faces: { { Centre: { number }, Look: { number }, Ends: { { number } } } } = {}
+		for _, side in ipairs({ -1, 1 }) do
+			local angle = -math.pi / 2 + side * PortalConfig.Hub.AngleOffsetRadians
+			local x, z = math.cos(angle) * radius, math.sin(angle) * radius
+			local lookX, lookZ = -x / radius, -z / radius
+			-- Behind the base is -look; its RightVector is (-lookZ, lookX) on the ground (tests/gate.luau).
+			local cx = x - lookX * PortalConfig.ZoneRadiusStuds
+			local cz = z - lookZ * PortalConfig.ZoneRadiusStuds
+			table.insert(faces, {
+				Centre = { cx, cz },
+				Look = { lookX, lookZ },
+				Ends = { { cx - lookZ * half, cz + lookX * half }, { cx + lookZ * half, cz - lookX * half } },
+			})
+		end
+		local function ahead(face: any, point: { number }): number
+			return face.Look[1] * (point[1] - face.Centre[1]) + face.Look[2] * (point[2] - face.Centre[2])
+		end
+		-- Signs stand upright, so this holds at every height. A reader in front of both faces reads both; each face
+		-- lies wholly in front of the other, so no line of sight to one crosses the other, from any spot and any
+		-- camera height. Behind a sign its words are not written (writeSign: the Front face only), and the words
+		-- of one are never drawn over the other's.
+		for index, face in ipairs(faces) do
+			for _, point in ipairs(faces[3 - index].Ends) do
+				expect(ahead(face, point)).toBeGreaterThan(0)
+			end
+			expect(ahead(face, { 0, 0 })).toBeGreaterThan(0)
+		end
+		-- And two signs, not one banner: at least a gate's opening of sky between their nearer ends.
+		local nearest = math.huge
+		for _, one in ipairs(faces[1].Ends) do
+			for _, other in ipairs(faces[2].Ends) do
+				nearest = math.min(nearest, math.sqrt((one[1] - other[1]) ^ 2 + (one[2] - other[2]) ^ 2))
+			end
+		end
+		expect(nearest).toBeGreaterThanOrEqual(WorldConfig.Portal.OpeningStuds)
+		-- Read from the spawn: its words are drawn out to twice as far as the sign stands from the spawn's floor, a
+		-- camera pulled back as far again.
+		local maxDistance = tonumber(string.match(code(SIGNS), "\nlocal PLATE_MAX_DISTANCE = ([%d%.]+)\n"))
+		assert(maxDistance ~= nil, "HubSignsController has no PLATE_MAX_DISTANCE")
+		local portal = WorldConfig.Portal
+		local signHeight = portal.PostStuds[2] + portal.LintelStuds + portal.SignStuds[2] / 2
+		for _, face in ipairs(faces) do
+			local ground = math.sqrt(face.Centre[1] ^ 2 + face.Centre[2] ^ 2)
+			expect(maxDistance).toBeGreaterThanOrEqual(2 * math.sqrt(ground ^ 2 + signHeight ^ 2))
+		end
+	end)
+
 	it("are drawn with the hub's own seal, from the helpers they share", function()
 		-- One way to draw a part, a disc and an emblem (World/Draw): the hub keeps no copy of any.
 		local hub = code(HUB)
@@ -271,39 +323,39 @@ end)
 
 -- The portal gates' words (D-130): every gate names where its circle leads and what it asks, in the reader's
 -- language, wherever it stands -- the hub's, the Battleground's camp, each copy of the Erasure's arena -- found by
--- its seal's tag, so a gate built anywhere is worded without a list of places. No prompt and no remote: the server
+-- its sign's tag, so a gate built anywhere is worded without a list of places. No prompt and no remote: the server
 -- moves whoever stands in the circle.
 describe("the portal gates' words", function()
-	it("word every seal by the zone it names, the way PortalService counts it", function()
-		local seal = body(SIGNS, "local function wordSeal(")
+	it("word every sign by the zone it names, the way PortalService reads its seal", function()
+		local sign = body(SIGNS, "local function wordSign(")
 		for _, line in ipairs({
-			"local id = seal:GetAttribute(PortalConfig.SealAttribute)",
+			"local id = sign:GetAttribute(PortalConfig.SealAttribute)",
 			'local zone = if type(id) == "string" then PortalConfig.Zones[id] else nil',
-			"namePlate(seal, localize.t(zone.NameKey), localize.t(zone.HintKey), SEAL_PLATE_STUDS_ABOVE, trove)",
+			"writeSign(sign, localize.t(zone.NameKey), localize.t(zone.HintKey), trove)",
 		}) do
-			if seal:find(line, 1, true) == nil then
-				error("wordSeal no longer does: " .. line)
+			if sign:find(line, 1, true) == nil then
+				error("wordSign no longer does: " .. line)
 			end
 		end
-		expect(seal:find("ProximityPrompt", 1, true)).toBe(nil)
-		expect(seal:find("remoteClient", 1, true)).toBe(nil)
-		-- In the Workspace only, as PortalService: an arena template's seal is no circle, and has no words.
+		expect(sign:find("ProximityPrompt", 1, true)).toBe(nil)
+		expect(sign:find("remoteClient", 1, true)).toBe(nil)
+		-- In the Workspace only, as PortalService: an arena template's gate is no way out, and has no words.
 		expect(
-			body(SIGNS, "local function onSealAdded("):find(
-				'if instance:IsA("BasePart") and instance:IsDescendantOf(Workspace) and sealSigns[instance] == nil then wordSeal(instance) end',
+			body(SIGNS, "local function onSignAdded("):find(
+				'if instance:IsA("BasePart") and instance:IsDescendantOf(Workspace) and gateSigns[instance] == nil then wordSign(instance) end',
 				1,
 				true
 			)
 		).never.toBe(nil)
-		expect(body(SIGNS, "local function unwordSeal("):find("trove:Destroy()", 1, true)).never.toBe(nil)
+		expect(body(SIGNS, "local function unwordSign("):find("trove:Destroy()", 1, true)).never.toBe(nil)
 	end)
 
-	it("follows the seals' tag as they come and go, and the ones already there", function()
+	it("follows the signs' tag as they come and go, and the ones already there", function()
 		local start = body(SIGNS, "function HubSignsController.Start(")
 		for _, line in ipairs({
-			"CollectionService:GetInstanceAddedSignal(PortalConfig.SealTag):Connect(onSealAdded)",
-			"CollectionService:GetInstanceRemovedSignal(PortalConfig.SealTag):Connect(onSealRemoved)",
-			"for _, seal in ipairs(CollectionService:GetTagged(PortalConfig.SealTag)) do onSealAdded(seal) end",
+			"CollectionService:GetInstanceAddedSignal(PortalConfig.SignTag):Connect(onSignAdded)",
+			"CollectionService:GetInstanceRemovedSignal(PortalConfig.SignTag):Connect(onSignRemoved)",
+			"for _, sign in ipairs(CollectionService:GetTagged(PortalConfig.SignTag)) do onSignAdded(sign) end",
 		}) do
 			if start:find(line, 1, true) == nil then
 				error("HubSignsController.Start no longer does: " .. line)
@@ -311,15 +363,30 @@ describe("the portal gates' words", function()
 		end
 	end)
 
-	it("sets one plate the pedestals and the gates share, over the gate's lintel", function()
+	it("sets a pedestal's name on a plate the size of a line on the screen, and a gate's on its sign", function()
 		local pedestal = body(SIGNS, "local function wordPedestal(")
-		expect(pedestal:find("namePlate(panel, name, nil, PLATE_STUDS_ABOVE, trove)", 1, true)).never.toBe(nil)
+		expect(pedestal:find("namePlate(panel, name, PLATE_STUDS_ABOVE, trove)", 1, true)).never.toBe(nil)
 		local plate = body(SIGNS, "local function namePlate(")
 		expect(plate:find("billboard.StudsOffsetWorldSpace = Vector3.new(0, above, 0)", 1, true)).never.toBe(nil)
-		expect(plate:find('local line = textLabel("Hint", hint,', 1, true)).never.toBe(nil)
-		-- Above the lintel's top (WorldConfig.Portal), read from the seal on the floor at the gate's foot.
-		local above = tonumber(string.match(code(SIGNS), "\nlocal SEAL_PLATE_STUDS_ABOVE = ([%d%.]+)\n"))
-		assert(above ~= nil, "HubSignsController has no SEAL_PLATE_STUDS_ABOVE")
-		expect(above).toBeGreaterThan(WorldConfig.Portal.PostStuds[2] + WorldConfig.Portal.LintelStuds)
+		-- A gate's words are the world's size, on the face of its sign that looks where its players come from, and
+		-- on that face only: screen-sized, the hub's two plates touched from the spawn and covered each other on a
+		-- phone (D-174).
+		local sign = body(SIGNS, "local function writeSign(")
+		for _, line in ipairs({
+			'local surface = Instance.new("SurfaceGui")',
+			"surface.Adornee = sign",
+			"surface.Face = Enum.NormalId.Front",
+			"surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud",
+			"surface.PixelsPerStud = SIGN_PIXELS_PER_STUD",
+			"surface.MaxDistance = PLATE_MAX_DISTANCE",
+			"surface.LightInfluence = 0",
+			"surface.Parent = gui",
+		}) do
+			if sign:find(line, 1, true) == nil then
+				error("writeSign no longer does: " .. line)
+			end
+		end
+		expect(sign:find("BillboardGui", 1, true)).toBe(nil)
+		expect(select(2, sign:gsub('Instance.new%("SurfaceGui"%)', ""))).toBe(1)
 	end)
 end)

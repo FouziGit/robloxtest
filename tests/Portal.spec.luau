@@ -5,6 +5,7 @@
 -- the client reports, a seal lying in ServerStorage, a circle that re-arms under a player's feet, a cooldown
 -- written for a player who has left, a gate whose circle is not the zone.
 local Harness = require("./harness")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -297,6 +298,28 @@ describe("a gate", function()
 		expect(has(code(GATE), "local RADIUS = PortalConfig.ZoneRadiusStuds")).toBe(true)
 	end)
 
+	it("stands a sign on its lintel, tagged and told where it leads before anything can see it", function()
+		-- The board each client writes the gate's words on (D-174): on the lintel, its front face flush with the
+		-- lintel's, facing where players come from, as tests/Hub.spec.luau measures it.
+		local build = body(GATE, "function PortalGate.build(")
+		requireAll(build, {
+			"local signAt = base * CFrame.new(0, POST_SIZE.Y + lintel + SIGN_SIZE.Y / 2, RADIUS + SIGN_SIZE.Z / 2)",
+			"local sign = Draw.part(PortalConfig.Anchors.Sign, SIGN_SIZE, signAt, Palette.world(PORTAL.Sign))",
+			"sign:SetAttribute(PortalConfig.SealAttribute, portalId)",
+			"CollectionService:AddTag(sign, PortalConfig.SignTag)",
+			"add(sign)",
+		}, "PortalGate.build")
+		expect(has(code(GATE), "local SIGN_SIZE = Palette.vector(PORTAL.SignStuds)")).toBe(true)
+		expect(ordered(build, "CollectionService:AddTag(sign, PortalConfig.SignTag)", "model.Parent = parent")).toBe(
+			true
+		)
+		expect(ordered(build, "sign:SetAttribute(PortalConfig.SealAttribute, portalId)", "model.Parent = parent")).toBe(
+			true
+		)
+		-- No deeper than the lintel it stands on, so the gate's footprint holds it.
+		expect(WorldConfig.Portal.SignStuds[3]).toBeLessThanOrEqual(WorldConfig.Portal.LintelStuds)
+	end)
+
 	it("stands where the placement tests measured it", function()
 		-- tests/gate.luau reads the gate's footprint from WorldConfig.Portal for the hub, the arena and the
 		-- Battleground: the posts across OpeningStuds / 2 + a post, behind the circle by a post; the lintel on them.
@@ -312,6 +335,8 @@ describe("a gate", function()
 		}, "PortalGate.build")
 		requireAll(tight(code(GATE_FOOTPRINT)), {
 			"HalfWidth = portal.OpeningStuds / 2 + portal.PostStuds[1],",
+			"SignHalfWidth = portal.SignStuds[1] / 2,",
+			"local half = math.max(footprint.HalfWidth, footprint.SignHalfWidth, footprint.RimRadius)",
 			"Front = radius + portal.SealRimStuds,",
 			"Back = radius + math.max(portal.PostStuds[3], portal.LintelStuds),",
 		}, GATE_FOOTPRINT)
@@ -321,9 +346,10 @@ describe("a gate", function()
 		local files: { string } = {}
 		collect(SERVER, files)
 		local taggers: { string } = {}
+		local signers: { string } = {}
 		for _, path in ipairs(files) do
 			local source = code(path)
-			for _, literal in ipairs({ '"PortalSeal"', '"PortalId"', '"ReturnPortal"' }) do
+			for _, literal in ipairs({ '"PortalSeal"', '"PortalSign"', '"PortalId"', '"ReturnPortal"' }) do
 				if has(source, literal) then
 					error(("%s spells %s instead of reading PortalConfig"):format(path, literal))
 				end
@@ -331,9 +357,14 @@ describe("a gate", function()
 			if has(source, "PortalConfig.SealTag)") and has(source, "AddTag(") then
 				table.insert(taggers, path)
 			end
+			if has(source, "PortalConfig.SignTag)") and has(source, "AddTag(") then
+				table.insert(signers, path)
+			end
 		end
 		expect(#taggers).toBe(1)
 		expect(taggers[1]).toBe(GATE)
+		expect(#signers).toBe(1)
+		expect(signers[1]).toBe(GATE)
 	end)
 
 	it("leads home from the Erasure's arena and from the Battleground's camp", function()

@@ -60,7 +60,7 @@ describe("the hub's words", function()
 		end
 	end)
 
-	it("set a name in the title face on an ink plate edged in the sheet, its hint in chalk", function()
+	it("set a name in the title face on an ink plate edged in the sheet, a gate's hint in chalk", function()
 		local signs = code(SIGNS)
 		local plate = body(signs, "namePlate")
 		expect(
@@ -82,9 +82,32 @@ describe("the hub's words", function()
 		expect(has(plate, "label.TextScaled = true")).toBe(true)
 		expect(has(plate, "cap.MaxTextSize = NAME_MAX_TEXT")).toBe(true)
 		expect(number(signs, "NAME_MAX_TEXT")).toBe(30)
-		expect(has(plate, 'local line = textLabel("Hint", hint, HINT_TEXT, Theme.Colors.Chalk, plate)')).toBe(true)
-		expect(has(plate, "line.FontFace = Theme.Fonts.Body")).toBe(true)
-		expect(number(signs, "HINT_TEXT")).toBe(18)
+		-- A gate's sign is the same ink edged in the sheet, its name in the title face and its hint in chalk, each
+		-- as large as its share of the sign lets it be (D-174).
+		local sign = body(signs, "writeSign")
+		expect(
+			has(
+				sign,
+				"plate.BackgroundColor3 = Theme.Colors.Plate plate.BackgroundTransparency = 0 plate.BorderSizePixel = 0"
+			)
+		).toBe(true)
+		expect(has(sign, 'Theme.stroke(plate, "PanelRaised", SIGN_EDGE)')).toBe(true)
+		expect(has(sign, 'local label = textLabel("Name", name, nil, Theme.Colors.TextInverse, plate)')).toBe(true)
+		expect(has(sign, "label.Size = UDim2.fromScale(1, SIGN_NAME_SHARE)")).toBe(true)
+		expect(has(sign, 'local line = textLabel("Hint", hint, nil, Theme.Colors.Chalk, plate)')).toBe(true)
+		expect(has(sign, "line.FontFace = Theme.Fonts.Body")).toBe(true)
+		expect(has(sign, "line.Size = UDim2.fromScale(1, 1 - SIGN_NAME_SHARE)")).toBe(true)
+		-- A label given no size is scaled to its box.
+		expect(
+			has(
+				body(signs, "textLabel"),
+				"if textSize ~= nil then label.TextSize = textSize else label.TextScaled = true end"
+			)
+		).toBe(true)
+		-- Its words keep off its edge of the sheet, and its name has more of it than its hint.
+		expect(number(signs, "SIGN_INSET_X")).toBeGreaterThan(number(signs, "SIGN_EDGE"))
+		expect(number(signs, "SIGN_INSET_Y")).toBeGreaterThan(number(signs, "SIGN_EDGE"))
+		expect(number(signs, "SIGN_NAME_SHARE")).toBeGreaterThan(0.5)
 		expect(ThemeConfig.contrast(COLORS.TextInverse, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
 		expect(ThemeConfig.contrast(COLORS.Chalk, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
 		-- Against the cream world the plate is the darkest thing there is.

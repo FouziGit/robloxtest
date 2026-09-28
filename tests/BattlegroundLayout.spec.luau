@@ -372,9 +372,10 @@ describe("the Battleground's names", function()
 		for _, box in ipairs(LAYOUT.Boxes) do
 			claim(box.Name)
 		end
-		-- The return gate stands inside the map, its seal inside the gate.
+		-- The return gate stands inside the map, its seal and its sign inside the gate.
 		claim(PortalConfig.Anchors.ReturnGate)
 		claim(PortalConfig.Anchors.Seal)
+		claim(PortalConfig.Anchors.Sign)
 		expect(seen[anchors.Floor]).toBe(true)
 		expect(seen[anchors.KillZone]).toBe(true)
 		expect(string.sub(anchors.Arrival, 1, #anchors.BotSpawn) ~= anchors.BotSpawn).toBe(true)

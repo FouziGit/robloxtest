@@ -1,35 +1,41 @@
 --!strict
--- The hub's prompt pills, run (tests/engine.luau): the real HubSignsController, Sticker, Motion and Theme.
+-- The hub's prompt pills and a gate's sign, run (tests/engine.luau): the real HubSignsController, Sticker, Motion
+-- and Theme.
 --
 -- A pedestal's prompt lives for the whole session and shows every time the player walks up to it. Each show
 -- used to connect a listener to the prompt's Destroying that its hide never cut: fifty visits to the kiosk,
 -- fifty listeners, each holding a pill already destroyed.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local PortalConfig = require("../src/shared/Config/PortalConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
-local function setup()
+-- The controller started on a hub as far as the shop kiosk, with `gates` standing in the Workspace beside it and
+-- `signs` tagged as gates' signs. Returns the world, the prompt service, the kiosk's prompt, the PlayerGui, and the
+-- signals that add and remove a sign's tag.
+local function setup(gates: { any }?, signs: { any }?)
 	local world: any
 	local player = Engine.instance("Player")
 	local playerGui = Engine.instance("PlayerGui", player)
 	playerGui.Name = "PlayerGui"
 	local promptService = { PromptShown = Engine.signal() }
+	local tags = { Added = Engine.signal(), Removed = Engine.signal() }
 	world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 		Services = {
 			Players = { LocalPlayer = player },
 			ProximityPromptService = promptService,
 			CollectionService = {
-				GetInstanceAddedSignal = function()
-					return Engine.signal()
+				GetInstanceAddedSignal = function(_self: any, tag: string)
+					return if tag == PortalConfig.SignTag then tags.Added else Engine.signal()
 				end,
-				GetInstanceRemovedSignal = function()
-					return Engine.signal()
+				GetInstanceRemovedSignal = function(_self: any, tag: string)
+					return if tag == PortalConfig.SignTag then tags.Removed else Engine.signal()
 				end,
-				GetTagged = function(): { any }
-					return {}
+				GetTagged = function(_self: any, tag: string): { any }
+					return if tag == PortalConfig.SignTag then signs or {} else {}
 				end,
 			},
 		},
@@ -69,9 +75,33 @@ local function setup()
 	local panel = Engine.instance("BasePart", kiosk)
 	panel.Name = "Panel"
 	hub.Parent = world.workspace
+	for _, gate in ipairs(gates or {}) do
+		gate.Parent = world.workspace
+	end
 	controller.Start()
 	local prompt = panel:FindFirstChildOfClass("ProximityPrompt")
-	return world, promptService, prompt, playerGui
+	return world, promptService, prompt, playerGui, tags
+end
+
+-- A gate's sign, told where it leads, in a gate named `name`.
+local function gateSign(name: string, leadsTo: string): (any, any)
+	local gate = Engine.instance("Model")
+	gate.Name = name
+	local sign = Engine.instance("BasePart", gate)
+	sign.Name = PortalConfig.Anchors.Sign
+	sign:SetAttribute(PortalConfig.SealAttribute, leadsTo)
+	return gate, sign
+end
+
+-- Everything this client draws on `part`.
+local function drawnOn(playerGui: any, part: any): { any }
+	local found = {}
+	for _, child in ipairs(playerGui:GetDescendants()) do
+		if child:IsA("LayerCollector") and child.Adornee == part then
+			table.insert(found, child)
+		end
+	end
+	return found
 end
 
 describe("the hub's prompt pills, run", function()
@@ -105,6 +135,40 @@ describe("the hub's prompt pills, run", function()
 		expect(pill).never.toBeNil()
 		prompt:Destroy()
 		expect(Engine.destroyed(pill)).toBe(true)
+	end)
+end)
+
+describe("a gate's sign, run", function()
+	it("is written once, in the world's size, on the face that looks where its players come from", function()
+		local gate, sign = gateSign("BossPortal", "WorldBoss")
+		local _world, _prompts, _prompt, playerGui, tags = setup({ gate }, { sign })
+		local drawn = drawnOn(playerGui, sign)
+		expect(#drawn).toBe(1)
+		local surface = drawn[1]
+		expect(surface.ClassName).toBe("SurfaceGui")
+		expect(surface.Face.Name).toBe("Front")
+		expect(surface.SizingMode.Name).toBe("PixelsPerStud")
+		expect(surface:FindFirstChild("Name", true).Text).toBe(PortalConfig.Zones.WorldBoss.NameKey)
+		expect(surface:FindFirstChild("Hint", true).Text).toBe(PortalConfig.Zones.WorldBoss.HintKey)
+		-- Tagged again, it is not written twice; its tag gone, its words go with it.
+		tags.Added:Fire(sign)
+		expect(#drawnOn(playerGui, sign)).toBe(1)
+		tags.Removed:Fire(sign)
+		expect(Engine.destroyed(surface)).toBe(true)
+	end)
+
+	it("writes a gate that arrives later, and none outside the Workspace or leading nowhere", function()
+		local world, _prompts, _prompt, playerGui, tags = setup()
+		local stored, template = gateSign("ReturnPortal", "Return")
+		tags.Added:Fire(template)
+		expect(#drawnOn(playerGui, template)).toBe(0)
+		stored.Parent = world.workspace
+		tags.Added:Fire(template)
+		expect(#drawnOn(playerGui, template)).toBe(1)
+		local nowhere, lost = gateSign("Nowhere", "Nowhere")
+		nowhere.Parent = world.workspace
+		tags.Added:Fire(lost)
+		expect(#drawnOn(playerGui, lost)).toBe(0)
 	end)
 end)
 

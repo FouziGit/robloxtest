@@ -6,12 +6,12 @@
 --     the boards used to stand as blank cream panels, and a blank panel says nothing, not "no one yet";
 --   * the queue terminal's and the shop kiosk's names above them, and a prompt at each that opens the
 --     Play or the Shop screen -- they looked like the way in to a match or the shop and did nothing;
---   * over every portal gate (D-130), wherever it stands -- the hub's two, the Battleground's camp, the
---     Erasure's arena -- where its circle leads and what it asks: stay in it. No prompt and no remote: the
---     server moves whoever stands in the circle (PortalService), so there is nothing here to press.
+--   * on every portal gate's sign (D-130, D-174), wherever it stands -- the hub's two, the Battleground's
+--     camp, the Erasure's arena -- where its circle leads and what it asks: stay in it. No prompt and no
+--     remote: the server moves whoever stands in the circle (PortalService), so there is nothing here to press.
 -- Everything is built into this player's PlayerGui (a SurfaceGui or BillboardGui adorned to the server's
 -- part, and a prompt that only this client has), and rebuilt when the server rebuilds the hub; a gate's
--- words come and go with its seal (PortalConfig.SealTag), which is how the arena copies and anything the
+-- words come and go with its sign (PortalConfig.SignTag), which is how the arena copies and anything the
 -- place streams in or out are worded without a list of them.
 --
 -- A prompt is live only when its key is free: not while a screen is open (the key would swap screens, and
@@ -59,14 +59,18 @@ local SIGN_Z_OFFSET = 1
 local PLATE_SIZE = UDim2.fromOffset(280, 52)
 local PLATE_STUDS_ABOVE = 5
 local PLATE_MAX_DISTANCE = 160
--- The name in the title face, as large as the plate lets it be up to this; the hint under it.
+-- The name in the title face, as large as the plate lets it be up to this.
 local NAME_MAX_TEXT = 30
-local HINT_TEXT = 18
--- A gate's plate: two lines, its destination in the title face and what the circle asks under it, standing
--- clear over the lintel (WorldConfig.Portal: the posts are twelve studs and the lintel a stud and a half).
-local SEAL_PLATE_SIZE = UDim2.fromOffset(300, 78)
-local SEAL_PLATE_STUDS_ABOVE = 15
-local SEAL_NAME_SHARE = 0.6
+-- A gate's words, on its sign (WorldConfig.Portal.SignStuds, D-174): two lines, its destination in the title
+-- face and what the circle asks under it, each as large as its share of the sign lets it be. In the sign's own
+-- pixels, this many to a stud: a word is never scaled past 100 of them, and a name's share of the sign is
+-- about 97, so the name grows until the sign's width stops it.
+local SIGN_PIXELS_PER_STUD = 30
+local SIGN_NAME_SHARE = 0.6
+-- The words keep this far off the sign's edges, and its edge of the sheet is this thick.
+local SIGN_INSET_X = 15
+local SIGN_INSET_Y = 9
+local SIGN_EDGE = 5
 -- The prompt at a pedestal: close enough that it is the one the player walks up to.
 local PROMPT_DISTANCE_STUDS = 12
 -- The prompt as it is drawn: an ink pill this many pixels, this far over the pedestal, the key on a cap.
@@ -87,8 +91,8 @@ local gui: Folder? = nil
 local prompts: { ProximityPrompt } = {}
 -- The pill each of those prompts is drawn as while it shows.
 local shownPrompts: { [ProximityPrompt]: BillboardGui } = {}
--- The words over each gate standing in the world, by its seal.
-local sealSigns: { [BasePart]: typeof(Trove.new()) } = {}
+-- The words on each gate standing in the world, by its sign.
+local gateSigns: { [BasePart]: typeof(Trove.new()) } = {}
 
 -- Whether the player bound one of the prompt's keys to an action.
 local function promptKeyTaken(): boolean
@@ -121,12 +125,17 @@ local function playerGui(): Instance
 	return player:WaitForChild("PlayerGui")
 end
 
-local function textLabel(name: string, text: string, textSize: number, color: Color3, parent: Instance): TextLabel
+-- `text` in `textSize`, or as large as its box lets it be when there is no size.
+local function textLabel(name: string, text: string, textSize: number?, color: Color3, parent: Instance): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.FontFace = Theme.Fonts.Title
-	label.TextSize = textSize
+	if textSize ~= nil then
+		label.TextSize = textSize
+	else
+		label.TextScaled = true
+	end
 	label.TextColor3 = color
 	label.TextWrapped = true
 	label.Text = text
@@ -185,22 +194,20 @@ local function wordBoard(folder: Instance, boardId: string, trove: typeof(Trove.
 	refresh()
 end
 
--- A plate of page edged in ink, `above` studs over `adornee` and facing whoever looks at it: `name` in the
--- title face, and under it `hint` when there is one. The size of a line of title text (or two) in screen
--- pixels, so it reads at any distance on the hub and does not shrink with it. Named after what it words: the
--- model `adornee` belongs to.
-local function namePlate(
-	adornee: BasePart,
-	name: string,
-	hint: string?,
-	above: number,
-	trove: typeof(Trove.new())
-): BillboardGui
-	local owner = adornee.Parent
+-- Named after what it words: the model `part` belongs to.
+local function signName(part: BasePart): string
+	local owner = part.Parent
+	return "Sign_" .. (if owner ~= nil then owner.Name else part.Name)
+end
+
+-- A plate of page edged in ink, `above` studs over `adornee` and facing whoever looks at it, with `name` in the
+-- title face. The size of a line of title text in screen pixels, so it reads at any distance on the hub and does
+-- not shrink with it.
+local function namePlate(adornee: BasePart, name: string, above: number, trove: typeof(Trove.new())): BillboardGui
 	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "Sign_" .. (if owner ~= nil then owner.Name else adornee.Name)
+	billboard.Name = signName(adornee)
 	billboard.Adornee = adornee
-	billboard.Size = if hint ~= nil then SEAL_PLATE_SIZE else PLATE_SIZE
+	billboard.Size = PLATE_SIZE
 	billboard.StudsOffsetWorldSpace = Vector3.new(0, above, 0)
 	billboard.MaxDistance = PLATE_MAX_DISTANCE
 	billboard.LightInfluence = 0
@@ -223,19 +230,53 @@ local function namePlate(
 	inset.Parent = plate
 	plate.Parent = billboard
 	local label = textLabel("Name", name, NAME_MAX_TEXT, Theme.Colors.TextInverse, plate)
-	label.Size = UDim2.fromScale(1, if hint ~= nil then SEAL_NAME_SHARE else 1)
+	label.Size = UDim2.fromScale(1, 1)
 	label.TextScaled = true
 	local cap = Instance.new("UITextSizeConstraint")
 	cap.MaxTextSize = NAME_MAX_TEXT
 	cap.Parent = label
-	if hint ~= nil then
-		local line = textLabel("Hint", hint, HINT_TEXT, Theme.Colors.Chalk, plate)
-		line.FontFace = Theme.Fonts.Body
-		line.Position = UDim2.fromScale(0, SEAL_NAME_SHARE)
-		line.Size = UDim2.fromScale(1, 1 - SEAL_NAME_SHARE)
-	end
 	billboard.Parent = gui
 	return billboard
+end
+
+-- `name` in the title face on the gate's `sign`, and under it `hint`, written on the face that looks where the
+-- gate's players come from: ink edged in the sheet, as the pedestals' plates. Sized in the world with the sign,
+-- not on the screen (D-174): screen-sized, the hub's two plates touched from the spawn and covered each other on
+-- a phone. Only that face is written, so the back of one gate's sign never shows words over the other's.
+local function writeSign(sign: BasePart, name: string, hint: string, trove: typeof(Trove.new())): SurfaceGui
+	local surface = Instance.new("SurfaceGui")
+	surface.Name = signName(sign)
+	surface.Adornee = sign
+	surface.Face = Enum.NormalId.Front
+	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surface.PixelsPerStud = SIGN_PIXELS_PER_STUD
+	surface.MaxDistance = PLATE_MAX_DISTANCE
+	surface.LightInfluence = 0
+	surface.ResetOnSpawn = false
+	trove:Add(surface)
+
+	local plate = Instance.new("Frame")
+	plate.Name = "Plate"
+	plate.Size = UDim2.fromScale(1, 1)
+	plate.BackgroundColor3 = Theme.Colors.Plate
+	plate.BackgroundTransparency = 0
+	plate.BorderSizePixel = 0
+	Theme.stroke(plate, "PanelRaised", SIGN_EDGE)
+	local inset = Instance.new("UIPadding")
+	inset.PaddingLeft = UDim.new(0, SIGN_INSET_X)
+	inset.PaddingRight = UDim.new(0, SIGN_INSET_X)
+	inset.PaddingTop = UDim.new(0, SIGN_INSET_Y)
+	inset.PaddingBottom = UDim.new(0, SIGN_INSET_Y)
+	inset.Parent = plate
+	plate.Parent = surface
+	local label = textLabel("Name", name, nil, Theme.Colors.TextInverse, plate)
+	label.Size = UDim2.fromScale(1, SIGN_NAME_SHARE)
+	local line = textLabel("Hint", hint, nil, Theme.Colors.Chalk, plate)
+	line.FontFace = Theme.Fonts.Body
+	line.Position = UDim2.fromScale(0, SIGN_NAME_SHARE)
+	line.Size = UDim2.fromScale(1, 1 - SIGN_NAME_SHARE)
+	surface.Parent = gui
+	return surface
 end
 
 -- A pedestal's name above it, and the prompt that opens its screen.
@@ -254,7 +295,7 @@ local function wordPedestal(
 		return
 	end
 	local name = localize.t(nameKey)
-	namePlate(panel, name, nil, PLATE_STUDS_ABOVE, trove)
+	namePlate(panel, name, PLATE_STUDS_ABOVE, trove)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Open_" .. screen
@@ -396,43 +437,43 @@ local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityP
 	end)
 end
 
--- The words over the gate `seal` stands at the foot of: where its circle leads and how to go there, in this
--- player's language. A seal that names no destination this client knows is left unworded, and the log says so.
-local function wordSeal(seal: BasePart)
-	local id = seal:GetAttribute(PortalConfig.SealAttribute)
+-- The words on the gate `sign` stands on: where its circle leads and how to go there, in this player's language.
+-- A sign that names no destination this client knows is left unworded, and the log says so.
+local function wordSign(sign: BasePart)
+	local id = sign:GetAttribute(PortalConfig.SealAttribute)
 	local zone = if type(id) == "string" then PortalConfig.Zones[id] else nil
 	if zone == nil then
 		log.warn(
-			"%s is a seal that leads nowhere: %s is %s",
-			seal:GetFullName(),
+			"%s is a sign that leads nowhere: %s is %s",
+			sign:GetFullName(),
 			PortalConfig.SealAttribute,
 			tostring(id)
 		)
 		return
 	end
 	local trove = Trove.new()
-	sealSigns[seal] = trove
-	namePlate(seal, localize.t(zone.NameKey), localize.t(zone.HintKey), SEAL_PLATE_STUDS_ABOVE, trove)
+	gateSigns[sign] = trove
+	writeSign(sign, localize.t(zone.NameKey), localize.t(zone.HintKey), trove)
 end
 
-local function unwordSeal(seal: BasePart)
-	local trove = sealSigns[seal]
+local function unwordSign(sign: BasePart)
+	local trove = gateSigns[sign]
 	if trove ~= nil then
-		sealSigns[seal] = nil
+		gateSigns[sign] = nil
 		trove:Destroy()
 	end
 end
 
--- A tagged part is worded while it stands in the Workspace, as PortalService only counts those.
-local function onSealAdded(instance: Instance)
-	if instance:IsA("BasePart") and instance:IsDescendantOf(Workspace) and sealSigns[instance] == nil then
-		wordSeal(instance)
+-- A tagged sign is worded while it stands in the Workspace, as PortalService only counts the seals there.
+local function onSignAdded(instance: Instance)
+	if instance:IsA("BasePart") and instance:IsDescendantOf(Workspace) and gateSigns[instance] == nil then
+		wordSign(instance)
 	end
 end
 
-local function onSealRemoved(instance: Instance)
+local function onSignRemoved(instance: Instance)
 	if instance:IsA("BasePart") then
-		unwordSeal(instance)
+		unwordSign(instance)
 	end
 end
 
@@ -479,10 +520,10 @@ function HubSignsController.Start()
 		wordHub(existing)
 	end
 
-	CollectionService:GetInstanceAddedSignal(PortalConfig.SealTag):Connect(onSealAdded)
-	CollectionService:GetInstanceRemovedSignal(PortalConfig.SealTag):Connect(onSealRemoved)
-	for _, seal in ipairs(CollectionService:GetTagged(PortalConfig.SealTag)) do
-		onSealAdded(seal)
+	CollectionService:GetInstanceAddedSignal(PortalConfig.SignTag):Connect(onSignAdded)
+	CollectionService:GetInstanceRemovedSignal(PortalConfig.SignTag):Connect(onSignRemoved)
+	for _, sign in ipairs(CollectionService:GetTagged(PortalConfig.SignTag)) do
+		onSignAdded(sign)
 	end
 	log.info("started")
 end

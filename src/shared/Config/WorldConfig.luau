@@ -156,16 +156,24 @@ WorldConfig.Proof = {
 -- server measures, and the rim shows SealRimStuds around it; the two posts stand behind the circle, their
 -- inner faces OpeningStuds apart and their front faces on its back edge; the lintel, LintelStuds square,
 -- spans both posts' outer faces on top of them; the panel hangs in front of the lintel and carries the
--- emblem. tests/Hub.spec.luau and tests/Config.spec.luau place that footprint in the hub and in the arena.
+-- emblem; the sign, the board each client writes the gate's words on, stands on the lintel, its front face
+-- flush with the lintel's. tests/Hub.spec.luau and tests/Config.spec.luau place that footprint in the hub and in
+-- the arena.
+--
+-- The sign is sized in the world (D-174): it shrinks with distance as its gate does, so the hub's two never
+-- cover each other from anywhere their words can be read, a phone sees them as a desktop does, and it is as
+-- wide as the arena's corner lets a gate be, for its name to read from the hub's spawn.
 WorldConfig.Portal = {
 	Frame = "Ink",
 	Seal = "Chalk",
 	SealRim = "Ink",
 	Emblem = "Ink",
+	Sign = "Ink",
 	PostStuds = { 1.5, 12, 1.5 },
 	OpeningStuds = 11,
 	LintelStuds = 1.5,
 	PanelStuds = { 6, 4, 0.5 },
+	SignStuds = { 20, 6, 0.5 },
 	SealRimStuds = 1.2,
 	-- Rotations (degrees) of the bars inside each gate's emblem ring, as on the hub's pedestals: shapes only,
 	-- never text, so every viewer reads the same sign and each client words it in its own language.

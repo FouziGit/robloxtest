@@ -1010,6 +1010,7 @@ describe("PortalConfig", function()
 	it("gives every tagged thing a tag of its own", function()
 		local tags = {
 			PortalConfig.SealTag,
+			PortalConfig.SignTag,
 			BotConfig.Tag,
 			GameConfig.Enemy.Tag,
 			WorldBossConfig.Boss.Tag,

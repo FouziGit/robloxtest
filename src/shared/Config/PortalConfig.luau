@@ -22,12 +22,16 @@ PortalConfig.Ids = { "Battleground", "WorldBoss", "Return" } :: { PortalId }
 -- template arrives with every copy of it.
 PortalConfig.SealTag = "PortalSeal"
 -- The attribute on that same part naming where its circle leads: one of Ids. A seal that names anything else
--- opens nothing (PortalService).
+-- opens nothing (PortalService). The gate's board carries it too, for its words.
 PortalConfig.SealAttribute = "PortalId"
+-- The tag on every gate's board (D-174), which each client writes where the gate leads on: the board is found as
+-- the seal is, so a copied or streamed gate is worded without a list of places, and without its seal.
+PortalConfig.SignTag = "PortalSign"
 
--- What a gate's parts are called: the invisible Seal every reader measures from, and the Model name of the
--- gate that leads back to the hub from the Battleground and from the Erasure's arena (docs/GAME_DESIGN.md §8).
-PortalConfig.Anchors = { Seal = "Seal", ReturnGate = "ReturnPortal" }
+-- What a gate's parts are called: the invisible Seal every reader measures from, the Sign its words are written
+-- on, and the Model name of the gate that leads back to the hub from the Battleground and from the Erasure's
+-- arena (docs/GAME_DESIGN.md §8).
+PortalConfig.Anchors = { Seal = "Seal", Sign = "Sign", ReturnGate = "ReturnPortal" }
 
 -- What each seal is called and says on the plate above it, in each player's language, and how long a player
 -- has to stand in it before it moves them.

@@ -124,6 +124,12 @@ local function defaults(className: string): { [string]: any }
 	if className == "TextLabel" or className == "TextButton" or className == "TextBox" then
 		values.Text = ""
 	end
+	if className == "ScrollingFrame" then
+		values.CanvasPosition = roblox.Vector2.zero
+		values.CanvasSize = roblox.UDim2.new()
+		values.AbsoluteCanvasSize = roblox.Vector2.zero
+		values.AbsoluteWindowSize = roblox.Vector2.zero
+	end
 	if className == "ScreenGui" then
 		values.Enabled = true
 	elseif className == "UIScale" then
@@ -386,6 +392,8 @@ local SIGNALS = {
 	Changed = true,
 	Activated = true,
 	MouseButton1Click = true,
+	MouseButton1Down = true,
+	MouseButton1Up = true,
 	MouseEnter = true,
 	MouseLeave = true,
 	InputBegan = true,
@@ -399,6 +407,14 @@ local SIGNALS = {
 	CharacterAdded = true,
 	CharacterRemoving = true,
 	Died = true,
+	Ended = true,
+	JumpRequest = true,
+	LastInputTypeChanged = true,
+	GamepadConnected = true,
+	GamepadDisconnected = true,
+	PlayerAdded = true,
+	PlayerRemoving = true,
+	MenuOpened = true,
 }
 
 InstanceMeta.__index = function(self: any, key: string): any
@@ -579,6 +595,9 @@ export type Options = {
 export type World = {
 	game: any,
 	workspace: any,
+	player: any,
+	playerGui: any,
+	guiService: any,
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -616,7 +635,28 @@ function Engine.world(options: Options?): World
 	userInput.MouseEnabled = true
 	userInput.GamepadEnabled = false
 
+	-- The local player and their PlayerGui, where every screen is parented.
+	local players = Engine.instance("Players", game)
+	players.Name = "Players"
+	local player = Engine.instance("Player", players)
+	player.Name = "Player"
+	players.LocalPlayer = player
+	local playerGui = Engine.instance("PlayerGui", player)
+	playerGui.Name = "PlayerGui"
+	world.player = player
+	world.playerGui = playerGui
+
+	-- The gamepad's selection and the topbar's inset (none, as on a desktop window).
+	local guiService = Engine.instance("GuiService", game)
+	guiService.SelectedObject = nil
+	guiService.GetGuiInset = function(_self: any): (any, any)
+		return roblox.Vector2.zero, roblox.Vector2.zero
+	end
+	world.guiService = guiService
+
 	local services: { [string]: any } = {
+		Players = players,
+		GuiService = guiService,
 		RunService = {
 			Heartbeat = world.Heartbeat,
 			RenderStepped = Engine.signal(),

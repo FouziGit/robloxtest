@@ -156,6 +156,11 @@ function BattlepassScreen.new(deps: Deps): Screen
 	-- Every reward waiting on the pass, and the claims on their way out.
 	local claimable: { Claim } = {}
 	local queue: { Claim } = {}
+	-- When each claim left, by "tier:track". Until its push lands the reward still reads Claimable here: a
+	-- second tap on its Claim, or Claim all pressed again once the queue drained, must not send it twice (the
+	-- server would answer battlepass.alreadyClaimed in red). The server pushes only a claim it grants, so one
+	-- it refused is let go after the pending timeout.
+	local sent: { [string]: number } = {}
 	-- The mirror of the remote's bucket, and when the last claim left.
 	local bucket = TokenBucket.new(CLAIM_RATE.Capacity, CLAIM_RATE.Refill, os.clock())
 	local lastSent = -math.huge
@@ -192,6 +197,29 @@ function BattlepassScreen.new(deps: Deps): Screen
 	-- Claims, paced under the remote's bucket
 	----------------------------------------------------------------
 
+	local function currentSeason(): SeasonData?
+		local data = deps.ClientData.get()
+		if data == nil then
+			return nil
+		end
+		return data.Battlepass[SEASON]
+	end
+
+	local function keyOf(tier: number, track: Cell.Track): string
+		return tostring(tier) .. ":" .. track
+	end
+
+	local function inFlight(tier: number, track: Cell.Track, now: number): boolean
+		local at = sent[keyOf(tier, track)]
+		return at ~= nil and now - at < Theme.Timing.PendingTimeoutSeconds
+	end
+
+	-- Whether `claim` is still worth sending: its reward waits, and no claim for it is on its way.
+	local function worthSending(claim: Claim, now: number): boolean
+		return Cell.state(claim.Tier, claim.Track, currentSeason()) == "Claimable"
+			and not inFlight(claim.Tier, claim.Track, now)
+	end
+
 	-- Sends the queued claims one at a time: never closer than CLAIM_SPACING, and never before the mirror of
 	-- the server's bucket holds a token and its margin. With a full bucket the first few leave a spacing
 	-- apart, then one a refill.
@@ -199,12 +227,17 @@ function BattlepassScreen.new(deps: Deps): Screen
 		if pumping or not alive then
 			return
 		end
+		local now = os.clock()
+		-- Each claim is looked at again as its turn comes: a push that landed while it waited in the queue may
+		-- have claimed it already, and a claim sent once is not sent again while its push is on its way.
+		while queue[1] ~= nil and not worthSending(queue[1], now) do
+			table.remove(queue, 1)
+		end
 		local nextClaim = queue[1]
 		if nextClaim == nil then
 			refresh()
 			return
 		end
-		local now = os.clock()
 		local wait = math.max(0, CLAIM_SPACING - (now - lastSent))
 		local shortfall = 1 + CLAIM_MARGIN - TokenBucket.available(bucket, now)
 		if shortfall > 0 then
@@ -222,6 +255,13 @@ function BattlepassScreen.new(deps: Deps): Screen
 		if TokenBucket.tryTake(bucket, now) then
 			lastSent = now
 			deps.RemoteClient.fire(CLAIM_REMOTE, nextClaim.Tier, nextClaim.Track)
+			sent[keyOf(nextClaim.Tier, nextClaim.Track)] = now
+			-- A claim the server refused frees its reward here once it has waited out the timeout.
+			task.delay(Theme.Timing.PendingTimeoutSeconds, function()
+				if alive then
+					refresh()
+				end
+			end)
 		end
 		refresh()
 		pump()
@@ -312,7 +352,8 @@ function BattlepassScreen.new(deps: Deps): Screen
 		LayoutOrder = 5,
 		Parent = header,
 		OnClick = function()
-			for _, claim in ipairs(claimable) do
+			-- A copy: the first claim leaves at once, and the refresh after it recounts `claimable` without it.
+			for _, claim in ipairs(table.clone(claimable)) do
 				enqueue(claim.Tier, claim.Track)
 			end
 		end,
@@ -384,14 +425,6 @@ function BattlepassScreen.new(deps: Deps): Screen
 	-- Refresh
 	----------------------------------------------------------------
 
-	local function currentSeason(): SeasonData?
-		local data = deps.ClientData.get()
-		if data == nil then
-			return nil
-		end
-		return data.Battlepass[SEASON]
-	end
-
 	-- The reward of the next tier, on the track the player can have: premium when they own it.
 	local function showNext(season: SeasonData?)
 		for _, child in ipairs(showIcon:GetChildren()) do
@@ -436,10 +469,15 @@ function BattlepassScreen.new(deps: Deps): Screen
 	-- Every reward of the pass waiting to be claimed, built on the road or not: Claim all counts them all.
 	local function countClaimable(season: SeasonData?)
 		table.clear(claimable)
+		local now = os.clock()
 		for tier = 1, MAX_TIER do
 			for index = 1, #TRACKS do
 				local which: Cell.Track = TRACKS[index]
-				if rewardOf(tier, which) ~= nil and Cell.state(tier, which, season) == "Claimable" then
+				if
+					rewardOf(tier, which) ~= nil
+					and Cell.state(tier, which, season) == "Claimable"
+					and not inFlight(tier, which, now)
+				then
 					table.insert(claimable, { Tier = tier, Track = which })
 				end
 			end

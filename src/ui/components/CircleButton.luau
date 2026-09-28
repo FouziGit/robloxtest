@@ -56,12 +56,17 @@ function CircleButton.new(props: Props): CircleButton
 	trove:Add(button)
 	Theme.minPixelSize(button, Theme.MinTouchTarget)
 
+	-- The disc keeps its own size in the middle of the hit area, which a phone's floor makes larger than it:
+	-- filling that area, it grew past the pill it sits in.
 	local face = Sticker.new({
 		Kind = "Pressable",
 		Fill = Theme.Colors.PanelRaised,
 		Corner = Theme.Pill,
 		Elevation = ELEVATION,
 		Stroke = Theme.Sizes.StrokeThin,
+		Size = UDim2.fromOffset(props.Size, props.Size),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
 		Parent = button,
 		Name = "Face",
 	})

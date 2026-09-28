@@ -287,10 +287,18 @@ function Methods.FindFirstAncestorWhichIsA(self: any, className: string): any
 	return nil
 end
 
-function Methods.FindFirstChild(self: any, name: string): any
+function Methods.FindFirstChild(self: any, name: string, recursive: boolean?): any
 	for _, child in ipairs(dataOf[self].Children) do
 		if dataOf[child].Name == name then
 			return child
+		end
+	end
+	if recursive then
+		for _, child in ipairs(dataOf[self].Children) do
+			local found = Methods.FindFirstChild(child, name, true)
+			if found ~= nil then
+				return found
+			end
 		end
 	end
 	return nil
@@ -305,10 +313,18 @@ function Methods.FindFirstChildOfClass(self: any, className: string): any
 	return nil
 end
 
-function Methods.FindFirstChildWhichIsA(self: any, className: string): any
+function Methods.FindFirstChildWhichIsA(self: any, className: string, recursive: boolean?): any
 	for _, child in ipairs(dataOf[self].Children) do
 		if Methods.IsA(child, className) then
 			return child
+		end
+	end
+	if recursive then
+		for _, child in ipairs(dataOf[self].Children) do
+			local found = Methods.FindFirstChildWhichIsA(child, className, true)
+			if found ~= nil then
+				return found
+			end
 		end
 	end
 	return nil

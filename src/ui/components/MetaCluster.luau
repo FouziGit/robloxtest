@@ -299,7 +299,16 @@ function MetaCluster.new(props: Props): MetaCluster
 		button.Visible = false
 		Theme.minPixelSize(button, Theme.MinTouchTarget)
 		local fill = Theme.color(claim.Fill)
-		local seal = Seal.new({ Text = "", Fill = fill, Size = CLAIM_SEAL, Parent = button })
+		-- The seal at its size in the middle of the hit area, which a phone's floor makes larger than it: at its
+		-- corner it rode up out of its row, and its badge, on the area's corner, floated by the next seal.
+		local seal = Seal.new({
+			Text = "",
+			Fill = fill,
+			Size = CLAIM_SEAL,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Parent = button,
+		})
 		trove:Add(function()
 			seal:Destroy()
 		end)
@@ -309,7 +318,8 @@ function MetaCluster.new(props: Props): MetaCluster
 		icon.ZIndex = 4
 		icon.Parent = seal.Instance
 		-- On the primary yellow the badge is the sheet: a yellow blot on a yellow seal says nothing.
-		local badge = Badge.new(nil, button, if fill == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)
+		local badge =
+			Badge.new(nil, seal.Instance, if fill == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)
 		trove:Add(function()
 			badge:Destroy()
 		end)

@@ -8,6 +8,7 @@ local Harness = require("./harness")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -157,7 +158,7 @@ describe("the hub's meta cluster", function()
 		expect(
 			has(
 				cluster,
-				"Badge.new(nil, button, if fill == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)"
+				"Badge.new(nil, seal.Instance, if fill == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)"
 			)
 		).toBe(true)
 		expect(has(body(code(HUD_CONTROLLER), "refreshClaims"), "metaCluster:SetClaims(counts)")).toBe(true)
@@ -202,9 +203,15 @@ end)
 local PHONE_HEIGHTS = { 375, 390, 414 }
 local TOP_INSET = 36
 
--- The real cluster, built in `corner` (tests/engine.luau), with what it opened recorded.
-local function build(corner: string): (any, any, { string })
+-- The real cluster, built in `corner` (tests/engine.luau), with what it opened recorded; on a 667 x 375 phone
+-- when `phone`, whose touch floor makes a 44-pixel target larger than the designs it holds.
+local function build(corner: string, phone: boolean?): (any, any, { string })
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	if phone then
+		world.userInput.TouchEnabled = true
+		world.userInput.KeyboardEnabled = false
+		world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(667, 375)
+	end
 	local MetaCluster = world.require(string.gsub(CLUSTER, "%.luau$", ""))
 	local opened: { string } = {}
 	local holder = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
@@ -294,6 +301,51 @@ describe("the hub's meta cluster over the thumbstick, run", function()
 		expect(match:IsA("GuiButton")).toBe(true)
 		match.Activated:Fire()
 		expect(opened).toEqual({ "Play" })
+	end)
+end)
+
+describe("the hub's meta cluster at a phone's touch floor, run", function()
+	-- The floor (Theme.minPixelSize) makes a claim's and a circle's hit area larger than what it draws.
+	local function floored(button: any): number
+		local constraint = button:FindFirstChildOfClass("UISizeConstraint")
+		assert(constraint ~= nil, button:GetFullName() .. " has no touch floor: this gate would check nothing")
+		return constraint.MinSize.Y
+	end
+
+	local function centred(object: any, size: number)
+		expect(object.Size.X.Offset).toBe(size)
+		expect(object.Size.Y.Offset).toBe(size)
+		expect(object.Size.X.Scale).toBe(0)
+		expect(object.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+		expect(object.Position).toBe(roblox.UDim2.fromScale(0.5, 0.5))
+	end
+
+	it("draws each claim seal at its size in the middle of its hit area, badged on the seal", function()
+		local _world, cluster = build("Top", true)
+		local claims = cluster.Instance:FindFirstChild("Claims", true)
+		local seals = number(code(CLUSTER), "CLAIM_SEAL")
+		local checked = 0
+		for _, button in ipairs(claims:GetChildren()) do
+			if button:IsA("TextButton") then
+				checked += 1
+				expect(floored(button)).toBeGreaterThan(seals)
+				local seal = button:FindFirstChild("Seal")
+				centred(seal, seals)
+				expect(seal:FindFirstChild("Badge")).never.toBeNil()
+				expect(button:FindFirstChild("Badge")).toBeNil()
+			end
+		end
+		expect(checked).toBe(3)
+	end)
+
+	it("draws the Folios' + and the queue's cross at their size in the middle of theirs", function()
+		local _world, cluster = build("Top", true)
+		local circle = number(code(CLUSTER), "CIRCLE")
+		for _, name in ipairs({ "More", "Leave" }) do
+			local button = cluster.Instance:FindFirstChild(name, true)
+			expect(floored(button)).toBeGreaterThan(circle)
+			centred(button:FindFirstChild("Face"), circle)
+		end
 	end)
 end)
 

@@ -199,6 +199,29 @@ describe("MovementGuard: horizontal", function()
 	end)
 end)
 
+describe("MovementGuard: grants", function()
+	it("covers nothing and excuses nothing until the displacement it pays for shows", function()
+		local track = spawnedAt(0, STAND, 0)
+		for k = 1, RATE do
+			observe(track, at(k), 0, STAND, 0)
+		end
+		MovementGuard.grant(track, 22, 0, 0.22, at(RATE), 0.1, CONFIG)
+		-- Walking while the dash is awaited: its allowance is there, but it hides no segment from H2.
+		for k = RATE + 1, RATE + 10 do
+			observe(track, at(k), WALK * (k - RATE) * TICK, STAND, 0)
+		end
+		expect(track.Awaiting).toBe(true)
+		expect(track.GrantCoverUntil < at(RATE)).toBe(true)
+		expect(track.ActiveUntil <= at(RATE + 10)).toBe(true)
+		-- The dash shows: from this sample on it covers the body, its whole duration and the activation grace.
+		local x = WALK * 10 * TICK + 5
+		observe(track, at(RATE + 11), x, STAND, 0)
+		expect(track.Awaiting).toBe(false)
+		expect(track.GrantCoverUntil).toBe(at(RATE + 11))
+		expect(track.ActiveUntil).toBeCloseTo(at(RATE + 11) + 0.22 + CONFIG.ActivationGraceSeconds, 6)
+	end)
+end)
+
 describe("MovementGuard: vertical", function()
 	it("times the hang from the end of a grant's window, not from the last high point", function()
 		-- Walks off a ledge (ground top 100), dashes and chains a Ligature in the air -- their movers hold it

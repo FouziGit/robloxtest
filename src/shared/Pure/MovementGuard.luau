@@ -190,6 +190,10 @@ export type Track = {
 	AwaitUntil: number,
 	Awaiting: boolean,
 	GrantSeconds: number,
+	-- Until when a grant whose displacement showed carries the body, and the last tick one did: H2 leaves out
+	-- the segments it covered, and a flag under it is not struck. A grant still awaiting its displacement does
+	-- neither, or a dash fired on every cooldown and never played hid a speed hack two seconds out of 2.5.
+	ActiveUntil: number,
 	GrantCoverUntil: number,
 	-- The vertical references: the standing root height of the ground, the last explained high point, and
 	-- the one ascent a body may start without a probe having seen it leave the ground.
@@ -360,6 +364,7 @@ function MovementGuard.newTrack(config: Config): Track
 		AwaitUntil = 0,
 		Awaiting = false,
 		GrantSeconds = 0,
+		ActiveUntil = 0,
 		GrantCoverUntil = -math.huge,
 		GroundY = 0,
 		HighY = 0,
@@ -555,6 +560,7 @@ end
 function MovementGuard.spawned(track: Track, x: number, y: number, z: number, now: number, config: Config)
 	track.Pending = false
 	track.Allowance, track.Lift, track.WindowEnd, track.AwaitUntil, track.Awaiting = 0, 0, 0, 0, false
+	track.ActiveUntil = 0
 	track.ContactUntil = -math.huge
 	track.SafeCount = 0
 	track.WalkCount = 0
@@ -650,7 +656,6 @@ function MovementGuard.grant(
 	track.AwaitUntil = math.max(track.AwaitUntil, now + config.AwaitCapSeconds)
 	track.GrantSeconds = math.max(track.GrantSeconds, seconds)
 	track.Awaiting = true
-	track.GrantCoverUntil = now
 end
 
 -- MovementAudit's confirm probe, wider and deeper than the support probe, found ground under a body a flight
@@ -669,11 +674,13 @@ function MovementGuard.heard(track: Track): (number, number, number)
 end
 
 -- A grant starts counting once the motion it pays for shows up. Plain walking does not show it: a grant
--- played late must not have expired by the time it plays.
+-- played late must not have expired by the time it plays. From then on, and only then, it covers the body.
 local function activate(track: Track, now: number, config: Config)
 	if track.Awaiting then
 		track.Awaiting = false
 		track.WindowEnd = math.max(track.WindowEnd, now + track.GrantSeconds + config.ActivationGraceSeconds)
+		track.ActiveUntil = math.max(track.ActiveUntil, track.WindowEnd)
+		track.GrantCoverUntil = now
 	end
 end
 
@@ -1278,7 +1285,7 @@ end
 ----------------------------------------------------------------
 
 -- Whether this count of `kind` falls under an exemption: corrected all the same, never struck.
-local function exempt(track: Track, s: Sample, kind: Kind, live: boolean, config: Config): boolean
+local function exempt(track: Track, s: Sample, kind: Kind, config: Config): boolean
 	local now = s.At
 	if kind == "Invalid" then
 		return false
@@ -1287,7 +1294,7 @@ local function exempt(track: Track, s: Sample, kind: Kind, live: boolean, config
 	local returning = kind == "Teleport"
 		and now - track.LeftAt < config.ReturnExemptSeconds
 		and dist3(s.X, s.Y, s.Z, track.LeftX, track.LeftY, track.LeftZ) <= config.ArrivalRadiusStuds
-	return live
+	return now < track.ActiveUntil
 		or now < track.ContactUntil
 		or now < track.ExemptUntil
 		or s.Down
@@ -1315,7 +1322,7 @@ local function confirm(track: Track, s: Sample, step: Step, config: Config): Kin
 				end
 				episode.Count += 1
 				episode.LastCountAt = now
-				if exempt(track, s, kind, step.Live, config) then
+				if exempt(track, s, kind, config) then
 					episode.Exempt = true
 				end
 				if now < track.ContactUntil or now < track.ExemptUntil then
@@ -1359,9 +1366,7 @@ local function frozenAir(track: Track, s: Sample, step: Step, config: Config): V
 	end
 	table.insert(times, now)
 	local alive = s.LastInboundAt > track.LastMoveAt + step.Rtt + config.InboundMarginSeconds
-	local strikeable = alive
-		and #times >= config.FrozenStrikeRepeat
-		and not exempt(track, s, "Flight", step.Live, config)
+	local strikeable = alive and #times >= config.FrozenStrikeRepeat and not exempt(track, s, "Flight", config)
 	return verdict("Watch", "Flight", "frozen", strikeable, frozenFor, config.FrozenAirSeconds, 0, 0, 0)
 end
 
@@ -1414,10 +1419,11 @@ function MovementGuard.observe(track: Track, s: Sample, config: Config): Verdict
 	end
 
 	local live = grantLive(track, now)
-	if live then
-		track.GrantCoverUntil = now
-	else
+	if not live then
 		track.Allowance = 0
+	end
+	if now < track.ActiveUntil then
+		track.GrantCoverUntil = now
 	end
 	local step: Step = {
 		Rtt = rtt,

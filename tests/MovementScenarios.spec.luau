@@ -1238,6 +1238,15 @@ describe("MovementScenarios: cheats that pin a rule", function()
 	}, "strike")
 end)
 
+-- A Dash granted every `period` s from 1 s to `seconds`: its cooldown, and its ink paid back by regeneration.
+local function dashEvery(period: number, seconds: number): { Sim.Grant }
+	local grants: { Sim.Grant } = {}
+	for at = 1, seconds, period do
+		table.insert(grants, { at, "Dash", 100, 0, 0.22, 0.9 })
+	end
+	return grants
+end
+
 -- A match or boss pad: ArenaService stands its marker a body's height (3.5) over the floor, and MatchService and
 -- the Erasure's Encounter pivot the root 4 studs above the marker -- 4.5 studs over its standing height, in an
 -- arena 900 studs above the hub the body comes from.
@@ -1272,6 +1281,14 @@ describe("MovementScenarios: honest, the adversarial review's cases", function()
 			return nil, if t >= 2.1 and t < 3.6 then PAD_ROOT else nil
 		end,
 	}, "clean")
+	case({
+		Name = "walking 30 s with a Dash played on every cooldown",
+		Seconds = 30,
+		Latency = 0.05,
+		RemotesAlways = true,
+		Walk = walk(16),
+		Grants = dashEvery(2.5, 30),
+	}, "clean")
 end)
 
 describe("MovementScenarios: cheats, the adversarial review's cases", function()
@@ -1286,6 +1303,43 @@ describe("MovementScenarios: cheats, the adversarial review's cases", function()
 			shownAt = shownAt or t
 			return if t > (shownAt :: number) + 0.35 then home else nil, nil
 		end
+	end
+	-- A Dash fired on every cooldown kept a grant awaiting its displacement two seconds out of 2.5, and an
+	-- awaiting grant hid every segment from H2 and excused every flag: 0 strikes at up to 38 studs a second.
+	for _, speed in ipairs({ 24, 30, 38 }) do
+		case({
+			Name = ("speed hack %d studs/s, a Dash granted on every cooldown and never played"):format(speed),
+			Seconds = 30,
+			Latency = 0.05,
+			RemotesAlways = true,
+			IgnoreGrants = true,
+			Grants = dashEvery(2.5, 30),
+			Walk = walk(speed),
+		}, "strike")
+	end
+	-- A partner's light hits, one a second, keep a grant awaiting without a break: none may excuse the speed.
+	local lightHits: { Sim.Grant } = {}
+	for at = 1, 30 do
+		table.insert(lightHits, { at, "Knockback", 10, 0, 0.25, 1.9 })
+	end
+	case({
+		Name = "speed hack 30 studs/s under a partner's light hit every second, never played",
+		Seconds = 30,
+		Latency = 0.05,
+		RemotesAlways = true,
+		IgnoreGrants = true,
+		Grants = lightHits,
+		Walk = walk(30),
+	}, "strike")
+	for _, speed in ipairs({ 24, 34 }) do
+		case({
+			Name = ("speed hack %d studs/s, a Dash played on every cooldown"):format(speed),
+			Seconds = 30,
+			Latency = 0.05,
+			RemotesAlways = true,
+			Walk = walk(speed),
+			Grants = dashEvery(2.5, 30),
+		}, "strike")
 	end
 	case({
 		Name = "back to the hub after a server teleport, and again after every correction",

@@ -6,10 +6,18 @@
 -- page's inks before it was wired (CosmeticConfig's header says why each rule applies).
 --
 -- This file holds the catalogue to the bible and to its renderers, and the renderers to the catalogue.
+--
+-- D-148 amended rule 1 for what a body wears: an aura and a trail are coloured now, because in the page's
+-- charcoal the legendary "Illuminated Aura" drew a few black dots round a dark avatar. The colours are
+-- measured here with the metric tests/Config.spec.luau holds the pigments apart by, on every colour the
+-- renderer can draw (Pure/AuraMath.colors, the function CosmeticController paints with).
+local AssetIds = require("../src/shared/Config/AssetIds")
+local AuraMath = require("../src/shared/Pure/AuraMath")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
+local QualityConfig = require("../src/shared/Config/QualityConfig")
 local Strings = require("../src/shared/Strings")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
@@ -19,6 +27,14 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local PAGE = WorldConfig.Colors.Page
 local INK = WorldConfig.Colors.Ink
+local WHITE = { 255, 255, 255 }
+-- Rule 7's cyan, the colour of "us" (ThemeConfig.Ally on the interface's branch, D-147).
+local ALLY = { 115, 227, 255 }
+-- How far a worn colour stays from each pigment, from the ally's cyan, from white and from the page.
+local MIN_FROM_PIGMENT = 60
+local MIN_FROM_ALLY = 60
+local MIN_FROM_WHITE = 130
+local MIN_FROM_PAGE = 100
 
 -- The redmean distance tests/Config.spec.luau uses for the pigments, for the same question.
 local function distance(a: { number }, b: { number }): number
@@ -31,14 +47,6 @@ local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))
 end
 
-local function toSet(list: { string }): { [string]: boolean }
-	local set: { [string]: boolean } = {}
-	for _, value in ipairs(list) do
-		set[value] = true
-	end
-	return set
-end
-
 local function itemsIn(slot: string): { CosmeticConfig.CosmeticDef }
 	local found = {}
 	for _, item in ipairs(CosmeticConfig.Items) do
@@ -49,12 +57,18 @@ local function itemsIn(slot: string): { CosmeticConfig.CosmeticDef }
 	return found
 end
 
+local function isInk(tone: string): boolean
+	return table.find(CosmeticConfig.Inks, tone) ~= nil
+end
+
 describe("the tones a cosmetic is drawn in", function()
-	it("are the page's inks: never a colour, never white, and legible on vellum", function()
-		-- Rule 1: every saturated colour belongs to a glyph. Rule 7: white means invulnerable.
-		local count = 0
-		for name, rgb in pairs(CosmeticConfig.Tones) do
-			count += 1
+	it("keep the page's inks as inks: never a colour, never white, and legible on vellum", function()
+		-- Rule 1 for what is not worn: a kill effect, the dash's sketches, the kit outline.
+		for _, name in ipairs(CosmeticConfig.Inks) do
+			local rgb = CosmeticConfig.Tones[name]
+			if rgb == nil then
+				error(("the ink %s is not a tone"):format(name))
+			end
 			local high = math.max(rgb[1], rgb[2], rgb[3])
 			local low = math.min(rgb[1], rgb[2], rgb[3])
 			-- The thresholds tests/WorldConfig.spec.luau applies to the world's own colours: saturation above
@@ -72,6 +86,26 @@ describe("the tones a cosmetic is drawn in", function()
 			end
 			if distance(rgb, PAGE) < 150 then
 				error(("tone %s disappears into the page"):format(name))
+			end
+		end
+		expect(#CosmeticConfig.Inks).toBeGreaterThanOrEqual(3)
+	end)
+
+	it("give a kill effect an ink, never a colour: it lands in somebody else's fight", function()
+		for _, item in ipairs(itemsIn("KillEffect")) do
+			local tone = item.Look.Tone
+			if tone ~= nil and not isInk(tone) then
+				error(("%s is drawn in %s, which is not one of the page's inks"):format(item.Id, tone))
+			end
+		end
+	end)
+
+	it("are never white, which means invulnerable", function()
+		local count = 0
+		for name, rgb in pairs(CosmeticConfig.Tones) do
+			count += 1
+			if distance(rgb, WHITE) < MIN_FROM_WHITE then
+				error(("tone %s is %.0f from white"):format(name, distance(rgb, WHITE)))
 			end
 		end
 		expect(count).toBeGreaterThanOrEqual(3)
@@ -165,41 +199,361 @@ describe("a skin", function()
 	end)
 end)
 
+-- Every aura and trail, with the style data each of its layers is drawn from and the tone of that layer.
+type Layer = { Item: CosmeticConfig.CosmeticDef, Name: string, Style: CosmeticConfig.Style?, Tone: string? }
+local function wornLayers(): { Layer }
+	local layers: { Layer } = {}
+	for slot, styles in pairs({ Aura = CosmeticConfig.AuraStyles, Trail = CosmeticConfig.TrailStyles }) do
+		for _, item in ipairs(itemsIn(slot)) do
+			for index, name in ipairs(item.Look.Styles or {}) do
+				local tones = item.Look.Tones
+				table.insert(layers, {
+					Item = item,
+					Name = name,
+					Style = styles[name],
+					Tone = if tones ~= nil then tones[index] else item.Look.Tone,
+				})
+			end
+		end
+	end
+	return layers
+end
+
+local function emissionsOf(style: CosmeticConfig.Style): { CosmeticConfig.Emission }
+	return style.Emissions or {}
+end
+
+local function ribbonsOf(style: CosmeticConfig.Style): { CosmeticConfig.Ribbon }
+	return style.Ribbons or {}
+end
+
+-- Every colour one layer can put on screen: each stop of each of its emissions' and ribbons' ramps.
+local function colorsOf(layer: Layer): { { number } }
+	local rgb = CosmeticConfig.Tones[layer.Tone or ""]
+	local out: { { number } } = {}
+	local style = layer.Style
+	if rgb == nil or style == nil then
+		return out
+	end
+	local ramps: { AuraMath.Ramp } = {}
+	for _, emission in ipairs(emissionsOf(style)) do
+		table.insert(ramps, emission)
+	end
+	for _, ribbon in ipairs(ribbonsOf(style)) do
+		table.insert(ramps, { Dries = ribbon.Dries })
+	end
+	for _, ramp in ipairs(ramps) do
+		for _, stop in ipairs(AuraMath.colors(rgb, ramp, CosmeticConfig.Tones.Ink, CosmeticConfig.Flow.HoldShare)) do
+			table.insert(out, stop.Rgb)
+		end
+	end
+	return out
+end
+
+-- The most particles a look keeps alive at once at the High tier.
+local function liveOf(item: CosmeticConfig.CosmeticDef, styles: { [string]: CosmeticConfig.Style }): number
+	local total = 0
+	for _, name in ipairs(item.Look.Styles or {}) do
+		for _, emission in ipairs(emissionsOf(styles[name] or {})) do
+			total += AuraMath.live(emission)
+		end
+	end
+	return total
+end
+
 describe("an aura and a trail", function()
-	it("are built from styles the renderer draws, in a tone that exists", function()
-		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+	it("are built from styles that exist and draw something, each in a tone that exists", function()
+		for _, layer in ipairs(wornLayers()) do
+			local style = layer.Style
+			if style == nil then
+				error(("%s wears %s, which is not a %s style"):format(layer.Item.Id, layer.Name, layer.Item.Slot))
+			end
+			expect(#emissionsOf(style) + #ribbonsOf(style)).toBeGreaterThan(0)
+			if CosmeticConfig.Tones[layer.Tone or ""] == nil then
+				error(("%s's %s names no tone"):format(layer.Item.Id, layer.Name))
+			end
+		end
 		for slot, styles in pairs({ Aura = CosmeticConfig.AuraStyles, Trail = CosmeticConfig.TrailStyles }) do
-			local allowed = toSet(styles)
-			local table_ = controller:match("local " .. string.upper(slot) .. ": .-\n}\n") or ""
-			if table_ == "" then
-				error("CosmeticController has no " .. string.upper(slot) .. " style table")
-			end
-			for _, style in ipairs(styles) do
-				if not table_:find("\n\t" .. style .. " = function", 1, true) then
-					error(("CosmeticController draws no %s style %s"):format(slot, style))
-				end
-			end
 			for _, item in ipairs(itemsIn(slot)) do
-				local itemStyles = item.Look.Styles or {}
-				expect(#itemStyles).toBeGreaterThan(0)
-				for _, style in ipairs(itemStyles) do
-					if not allowed[style] then
-						error(("%s wears %s, which is not a %s style"):format(item.Id, style, slot))
-					end
+				local count = #(item.Look.Styles or {})
+				expect(count).toBeGreaterThan(0)
+				local tones = item.Look.Tones
+				if tones ~= nil and #tones ~= count then
+					error(("%s has %d styles and %d tones"):format(item.Id, count, #tones))
 				end
-				if CosmeticConfig.Tones[(item.Look.Tone or "") :: string] == nil then
-					error(item.Id .. " names no tone")
+			end
+			-- No style nobody wears: data with no purchase behind it is dead code.
+			for name in pairs(styles) do
+				local worn = false
+				for _, item in ipairs(itemsIn(slot)) do
+					worn = worn or table.find(item.Look.Styles or {}, name) ~= nil
+				end
+				if not worn then
+					error(("the %s style %s is worn by nothing"):format(slot, name))
 				end
 			end
 		end
 	end)
 
-	it("carry their rarity in craft: a legendary aura layers at least two styles", function()
-		for _, item in ipairs(itemsIn("Aura")) do
-			if item.Rarity == "Legendary" then
-				expect(#(item.Look.Styles or {})).toBeGreaterThanOrEqual(2)
+	it("are drawn by the renderer: every place, path, direction and texture is one it knows", function()
+		local math_ = strip(fs.readFile("src/shared/Pure/AuraMath.luau"))
+		local point = math_:match("function AuraMath%.point%(.-\nend\n") or ""
+		local path = math_:match("function AuraMath%.path%(.-\nend\n") or ""
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		local emission = controller:match("local EMISSION: .-\n}\n") or ""
+		-- A place kind AuraMath does not branch on falls through to an orbit: a typo would draw somewhere else.
+		local POINTS =
+			{ Ring = true, Feet = true, Floor = true, Hands = true, Behind = true, Orbit = true, Scrawl = true }
+		local PATHS = { Behind = true, Orbit = true, Scrawl = true }
+		for _, kind in ipairs({ "Ring", "Feet", "Floor", "Hands", "Behind" }) do
+			expect(point:find('kind == "' .. kind .. '"', 1, true)).never.toBe(nil)
+		end
+		for _, kind in ipairs({ "Behind", "Scrawl" }) do
+			expect(path:find('place.Kind == "' .. kind .. '"', 1, true)).never.toBe(nil)
+		end
+		for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+			for name, style in pairs(styles) do
+				for _, spec in ipairs(emissionsOf(style)) do
+					if not POINTS[spec.Place.Kind] then
+						error(("%s is born at a %s, which the renderer does not place"):format(name, spec.Place.Kind))
+					end
+					if emission:find("\n\t" .. spec.Emit .. " = Enum.NormalId.", 1, true) == nil then
+						error(
+							("%s emits %s, which the renderer does not turn into a direction"):format(name, spec.Emit)
+						)
+					end
+					local asset = AssetIds.Textures[spec.Texture]
+					if asset == nil or asset.Id == "" then
+						error(("%s is drawn with %s, which is not an uploaded texture"):format(name, spec.Texture))
+					end
+				end
+				for _, ribbon in ipairs(ribbonsOf(style)) do
+					if not PATHS[ribbon.Path.Kind] then
+						error(("%s runs a %s, which the renderer does not trace"):format(name, ribbon.Path.Kind))
+					end
+				end
 			end
 		end
+		-- Every emission and every ribbon of a style is built.
+		local build = controller:match("local function buildStyles%(.-\nend\n") or ""
+		expect(build:find("for _, emission in ipairs(style.Emissions or {}) do", 1, true)).never.toBe(nil)
+		expect(build:find("for _, ribbon in ipairs(style.Ribbons or {}) do", 1, true)).never.toBe(nil)
+		expect(build:find("look.Tones[index] else look.Tone", 1, true)).never.toBe(nil)
+	end)
+
+	it("are coloured, and never in a school's colour, white, or the ally's cyan", function()
+		-- D-148. Rule 2 read from the other side: a school IS its pigment, so what a body wears keeps a
+		-- measured distance from all five; rule 7: white is invulnerable, cyan is an ally.
+		local layers = wornLayers()
+		expect(#layers).toBeGreaterThanOrEqual(20)
+		for _, layer in ipairs(layers) do
+			local colours = colorsOf(layer)
+			expect(#colours).toBeGreaterThan(0)
+			for _, rgb in ipairs(colours) do
+				local what = ("%s's %s draws %d,%d,%d"):format(layer.Item.Id, layer.Name, rgb[1], rgb[2], rgb[3])
+				for _, pigment in ipairs(PigmentConfig.Order) do
+					local gap = distance(rgb, PigmentConfig.Colors[pigment])
+					if gap < MIN_FROM_PIGMENT then
+						error(("%s, %.0f from %s"):format(what, gap, pigment))
+					end
+				end
+				if distance(rgb, ALLY) < MIN_FROM_ALLY then
+					error(("%s, the ally's cyan"):format(what))
+				end
+				if distance(rgb, WHITE) < MIN_FROM_WHITE then
+					error(("%s, near white"):format(what))
+				end
+				if distance(rgb, PAGE) < MIN_FROM_PAGE then
+					error(("%s, lost on the page"):format(what))
+				end
+			end
+		end
+		-- And the headline -- what the shop shows, and the first thing seen -- is a colour, not an ink.
+		for _, slot in ipairs({ "Aura", "Trail" }) do
+			for _, item in ipairs(itemsIn(slot)) do
+				local tone = item.Look.Tone or ""
+				local rgb = CosmeticConfig.Tones[tone]
+				if rgb == nil or isInk(tone) then
+					error(("%s is headlined by %s, which is not a colour"):format(item.Id, tone))
+				end
+				local high = math.max(rgb[1], rgb[2], rgb[3])
+				local saturation = (high - math.min(rgb[1], rgb[2], rgb[3])) / high
+				if high / 255 < 0.2 or saturation <= 0.25 then
+					error(("%s's %s is too grey to be a colour: saturation %.2f"):format(item.Id, tone, saturation))
+				end
+			end
+		end
+	end)
+
+	it("carry their rarity in craft and intensity: one layer, two, three with a light core", function()
+		for _, slot in ipairs({ "Aura", "Trail" }) do
+			for _, item in ipairs(itemsIn(slot)) do
+				local want = CosmeticConfig.LayersByRarity[item.Rarity]
+				if #(item.Look.Styles or {}) ~= want then
+					error(
+						("%s is %s and layers %d styles, not %d"):format(
+							item.Id,
+							item.Rarity,
+							#(item.Look.Styles or {}),
+							want
+						)
+					)
+				end
+			end
+		end
+		expect(CosmeticConfig.LayersByRarity.Rare).toBe(1)
+		expect(CosmeticConfig.LayersByRarity.Epic).toBe(2)
+		expect(CosmeticConfig.LayersByRarity.Legendary).toBe(3)
+		-- A Legendary aura, and only a Legendary aura, wears exactly one core.
+		for _, item in ipairs(itemsIn("Aura")) do
+			local cores = 0
+			for _, name in ipairs(item.Look.Styles or {}) do
+				local style = CosmeticConfig.AuraStyles[name]
+				if style ~= nil and style.Core == true then
+					cores += 1
+				end
+			end
+			expect(cores).toBe(if item.Rarity == "Legendary" then 1 else 0)
+		end
+		for name, style in pairs(CosmeticConfig.TrailStyles) do
+			if style.Core == true then
+				error(("the trail style %s is a core: only an aura shines"):format(name))
+			end
+		end
+	end)
+
+	it("add light only at a core, and never a core alone on the page", function()
+		for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+			for name, style in pairs(styles) do
+				local lit, unlit = 0, 0
+				for _, emission in ipairs(emissionsOf(style)) do
+					local shines = (emission.Glow or 0) > 0 or (emission.Heat or 0) > 0
+					if shines and style.Core ~= true then
+						error(("%s adds light or heat and is not a core"):format(name))
+					end
+					if shines then
+						lit += 1
+					else
+						unlit += 1
+					end
+				end
+				if style.Core == true then
+					-- A heart that shines, and a halo of its tone round it (rule 10: a pale core alone is a smudge).
+					expect(lit).toBeGreaterThanOrEqual(1)
+					expect(unlit).toBeGreaterThanOrEqual(1)
+				end
+			end
+		end
+		-- The renderer lights nothing else: its only LightEmission on a particle is the one AuraMath.glow gives.
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		expect(controller:find("e.LightEmission = AuraMath.glow(spec.Glow, fighting, FIGHT.Glow)", 1, true)).never.toBe(
+			nil
+		)
+		for value in controller:gmatch("LightEmission = ([^\n]+)") do
+			if value ~= "AuraMath.glow(spec.Glow, fighting, FIGHT.Glow)" and value ~= "0" then
+				error("CosmeticController sets a LightEmission of " .. value)
+			end
+		end
+	end)
+
+	it("keep one body's particles within its budget, at every tier", function()
+		expect(CosmeticConfig.Budget.LiveParticles).toBeLessThanOrEqual(60)
+		local most = 0
+		for _, aura in ipairs(itemsIn("Aura")) do
+			for _, trail in ipairs(itemsIn("Trail")) do
+				local live = liveOf(aura, CosmeticConfig.AuraStyles) + liveOf(trail, CosmeticConfig.TrailStyles)
+				if live > CosmeticConfig.Budget.LiveParticles then
+					error(("%s with %s keeps %.1f particles alive"):format(aura.Id, trail.Id, live))
+				end
+				most = math.max(most, live)
+			end
+		end
+		-- Measured, so the gate is not passing on an empty catalogue.
+		expect(most).toBeGreaterThan(20)
+		for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+			for name, style in pairs(styles) do
+				for _, emission in ipairs(emissionsOf(style)) do
+					if AuraMath.live(emission) <= 0 then
+						error(("%s emits nothing"):format(name))
+					end
+				end
+			end
+		end
+		-- A tier scales the flow; the floor tier draws nobody else's; the local player's own survives it.
+		local floor = QualityConfig.Tiers[QualityConfig.Order[#QualityConfig.Order]].ParticleScale
+		expect(AuraMath.density(1, false, false, false, 0.4)).toBe(1)
+		expect(AuraMath.density(0.6, false, false, false, 0.4)).toBe(0.6)
+		expect(AuraMath.density(floor, false, true, false, 0.4)).toBe(0)
+		expect(AuraMath.density(floor, true, true, false, 0.4)).toBe(floor)
+		expect(floor).toBeGreaterThan(0)
+	end)
+
+	it("are emitted by the renderer on its own clock, never by the engine's Rate", function()
+		-- D-124: the engine thins a Rate about nine times at its automatic graphics quality, never an Emit.
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		local rates = 0
+		for value in controller:gmatch("%.Rate = ([^\n]+)") do
+			rates += 1
+			if value ~= "0" then
+				error("CosmeticController gives an emitter a Rate of " .. value)
+			end
+		end
+		expect(rates).toBe(1)
+		local emission = controller:match("local function buildEmission%(.-\nend\n") or ""
+		expect(emission:find("e.Rate = 0\n\te.Enabled = false", 1, true)).never.toBe(nil)
+		expect(emission:find("Owed = { Rate = spec.Rate * density, Carry = 0 }", 1, true)).never.toBe(nil)
+		local flow = controller:match("local function emitFlow%(.-\nend\n") or ""
+		expect(flow:find("local count = AuraMath.owed(flow.Owed, dt, FLOW.MaxStepSeconds)", 1, true)).never.toBe(nil)
+		expect(flow:find("flow.Emitter:Emit(1)", 1, true)).never.toBe(nil)
+		local beat = controller:match("local function onHeartbeat%(.-\nend\n") or ""
+		expect(beat:find("if moving or not flow.Moving then\n\t\t\t\t\temitFlow(entry, flow, dt, now)", 1, true)).never.toBe(
+			nil
+		)
+		expect(controller:find("RunService.Heartbeat:Connect(onHeartbeat)", 1, true)).never.toBe(nil)
+		-- The accumulator: a steady second owes its rate exactly, and a hitch is not paid back as a burst.
+		local flowState: AuraMath.Flow = { Rate = 12, Carry = 0 }
+		local total = 0
+		for _ = 1, 60 do
+			total += AuraMath.owed(flowState, 1 / 60, CosmeticConfig.Flow.MaxStepSeconds)
+		end
+		expect(total >= 11 and total <= 12).toBe(true)
+		local hitch: AuraMath.Flow = { Rate = 12, Carry = 0 }
+		expect(AuraMath.owed(hitch, 2, CosmeticConfig.Flow.MaxStepSeconds)).toBeLessThanOrEqual(
+			math.ceil(12 * CosmeticConfig.Flow.MaxStepSeconds)
+		)
+	end)
+
+	it("steps back while the local player fights: fewer, fainter, and unlit", function()
+		local fight = CosmeticConfig.Fight
+		expect(fight.Density).toBeLessThanOrEqual(0.4)
+		expect(fight.Density).toBeGreaterThan(0)
+		expect(fight.Transparency).toBeGreaterThanOrEqual(0.25)
+		expect(fight.Glow).toBe(0)
+		expect(AuraMath.density(1, true, false, true, fight.Density)).toBe(fight.Density)
+		expect(AuraMath.glow(0.6, true, fight.Glow)).toBe(0)
+		expect(AuraMath.glow(0.6, false, fight.Glow)).toBe(0.6)
+		local lifted = AuraMath.lifted({ 0, 0.9, 1 }, fight.Transparency)
+		expect(lifted[1]).toBe(fight.Transparency)
+		expect(lifted[2]).toBe(1)
+		expect(lifted[3]).toBe(1)
+		-- Wired: the match and the portals say when, and every piece reads it when it is built.
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		local start = controller:match("function CosmeticController%.Start%(.-\nend\n") or ""
+		expect(start:find("matchController.MatchChanged:Connect(refreshFight)", 1, true)).never.toBe(nil)
+		expect(start:find("travelController.FightChanged:Connect(refreshFight)", 1, true)).never.toBe(nil)
+		local refresh = controller:match("local function refreshFight%(.-\nend\n") or ""
+		expect(refresh:find("local now = matchController.getMatch() ~= nil or travelController.inFight()", 1, true)).never.toBe(
+			nil
+		)
+		expect(refresh:find("fighting = now\n\trebuildAll()", 1, true)).never.toBe(nil)
+		local density = controller:match("local function densityFor%(.-\nend\n") or ""
+		expect(density:find("floorTier, fighting, FIGHT.Density)", 1, true)).never.toBe(nil)
+		local emission = controller:match("local function buildEmission%(.-\nend\n") or ""
+		expect(emission:find("AuraMath.lifted(spec.Transparency, if fighting then FIGHT.Transparency else 0)", 1, true)).never.toBe(
+			nil
+		)
+		local ribbon = controller:match("local function buildRibbon%(.-\nend\n") or ""
+		expect(ribbon:find("spec.Transparency + (if fighting then FIGHT.Transparency else 0)", 1, true)).never.toBe(nil)
 	end)
 end)
 
@@ -349,17 +703,34 @@ describe("the VIP pass", function()
 end)
 
 describe("the renderer", function()
-	it("draws an aura where it can be seen, and nothing it may not draw", function()
+	it("draws an aura where it can be seen, big enough to see, and nothing it may not draw", function()
 		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
 		-- Found by review: motes born inside the torso, sorted behind it, were hidden for most of their life.
 		expect(controller:find("ZOffset = -", 1, true)).toBe(nil)
-		for _, style in ipairs({ "Motes", "Pages" }) do
-			local body = controller:match("\n\t" .. style .. " = function.-\n\tend,") or ""
-			expect(body:find("aroundBody(", 1, true)).never.toBe(nil)
+		for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+			for name, style in pairs(styles) do
+				for _, emission in ipairs(emissionsOf(style)) do
+					local place = emission.Place
+					if (place.Kind == "Ring" or place.Kind == "Orbit") and (place.Radius or 0) < 1.5 then
+						error(("%s is born inside the body"):format(name))
+					end
+					-- The motes that were 0.2 to 0.6 studs and shrank to nothing: a purchase nobody saw.
+					if math.max(table.unpack(emission.Size)) < 0.45 then
+						error(
+							("%s is never bigger than %.2f studs"):format(name, math.max(table.unpack(emission.Size)))
+						)
+					end
+				end
+				for _, ribbon in ipairs(ribbonsOf(style)) do
+					if ribbon.Width < 0.3 then
+						error(("%s is a hairline of %.2f studs"):format(name, ribbon.Width))
+					end
+				end
+			end
 		end
 		-- Rule 8: on the floor tier nothing of somebody else's, ribbons included.
 		local build = controller:match("local function buildStyles%(.-\nend\n") or ""
-		expect(build:find("if scale <= 0 then\n\t\treturn worn", 1, true)).never.toBe(nil)
+		expect(build:find("if density <= 0 then\n\t\treturn worn", 1, true)).never.toBe(nil)
 		-- A teleport wipes the ribbons rather than drawing a stroke across the jump.
 		expect(controller:find("TELEPORT_STUDS then\n\t\t\twipeRibbons(entry)", 1, true)).never.toBe(nil)
 	end)

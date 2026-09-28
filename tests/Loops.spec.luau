@@ -58,7 +58,7 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/client/Controllers/Posture.luau"] = { Count = 1, Why = "the joints of every character" },
 	["src/client/Controllers/CosmeticController.luau"] = {
 		Count = 1,
-		Why = "orbiting strokes and walking dust of every worn cosmetic",
+		Why = "the moving strokes and the driven particles of every worn cosmetic",
 	},
 	["src/client/Controllers/QualityController.luau"] = { Count = 1, Why = "the frame rate it decides the tier from" },
 	["src/client/Controllers/LockOnController.luau"] = {

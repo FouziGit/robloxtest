@@ -9,6 +9,10 @@
 -- Every colour is a role of WorldConfig.Battleground and every part is what its box says: a solid collides and
 -- blocks sight, everything else is drawn on the page and touches nothing. The markers are plain invisible
 -- parts, never SpawnLocations: HubSpawn must stay the only SpawnLocation in the world (ArenaService).
+--
+-- The solids -- the floor, the walls, the pillars, the stele and the cover -- also carry
+-- MovementGuardConfig.BarrierTag: the geometry no body may pass through, which is all the movement audit casts
+-- its noclip ray against. The kill plane, the rules and the camp touch nothing and are left out.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +24,7 @@ local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
 local BattlegroundLayout = require(Shared.Pure.BattlegroundLayout)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
+local MovementGuardConfig = require(script.Parent.Parent.Parent.Config.MovementGuardConfig)
 local Palette = require(Shared.Util.Palette)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local PortalGate = require(script.Parent.Parent.Parent.World.PortalGate)
@@ -89,6 +94,9 @@ local function buildBox(box: BattlegroundLayout.Box, parent: Model): Part
 	part.CanCollide = box.Solid
 	part.CanQuery = box.Solid
 	part.CanTouch = false
+	if box.Solid then
+		CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)
+	end
 	part.Parent = parent
 	return part
 end

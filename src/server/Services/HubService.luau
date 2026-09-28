@@ -20,7 +20,11 @@
 -- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
 -- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
 -- ShopKiosk, BattlegroundPortal, BossPortal.
+--
+-- The platform and its kerbs carry MovementGuardConfig.BarrierTag: the geometry no body may pass through,
+-- which is all the movement audit casts its noclip ray against. Nothing else here does.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -31,6 +35,7 @@ local World = script.Parent.Parent.World
 local Draw = require(World.Draw)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local Palette = require(Shared.Util.Palette)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local PortalGate = require(World.PortalGate)
@@ -161,6 +166,7 @@ local function buildPlatform(parent: Folder)
 		CFrame.new(0, -PLATFORM_THICKNESS_STUDS / 2, 0),
 		Palette.world(HUB.Platform)
 	)
+	CollectionService:AddTag(platform, MovementGuardConfig.BarrierTag)
 	platform.Parent = parent
 
 	-- A low kerb on all four sides: a visible edge that also stops a knockback from ending in a fall.
@@ -190,7 +196,9 @@ local function buildPlatform(parent: Folder)
 		},
 	}
 	for _, side in ipairs(sides) do
-		newPart(side.Name, side.Size, CFrame.new(side.Position), Palette.world(HUB.Kerb)).Parent = parent
+		local kerb = newPart(side.Name, side.Size, CFrame.new(side.Position), Palette.world(HUB.Kerb))
+		CollectionService:AddTag(kerb, MovementGuardConfig.BarrierTag)
+		kerb.Parent = parent
 	end
 end
 

@@ -3,17 +3,37 @@
 -- so their sources are read. The judge itself is pure and proved on whole motions elsewhere
 -- (tests/MovementScenarios.spec.luau); these gates are about what the services around it must keep doing
 -- for its verdicts to mean anything.
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
+local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
+local BotConfig = require("../src/shared/Config/BotConfig")
 local Harness = require("./harness")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local ANTICHEAT = "src/server/Services/AntiCheatService.luau"
 local COMBAT = "src/server/Services/CombatService.luau"
+local ARENA = "src/server/Services/ArenaService.luau"
+local HUB = "src/server/Services/HubService.luau"
+local BATTLEGROUND_MAP = "src/server/Services/BattlegroundService/Map.luau"
+local TAG_BARRIER = "CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)"
 local REGISTRY = "src/server/RemoteRegistry.luau"
 
 local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))
+end
+
+local function count(text: string, needle: string): number
+	local found, from = 0, 1
+	while true do
+		local at = text:find(needle, from, true)
+		if at == nil then
+			return found
+		end
+		found += 1
+		from = at + #needle
+	end
 end
 
 -- Whether `first` appears in `text`, and `later` after it.
@@ -117,5 +137,75 @@ describe("the trusted anchor", function()
 			expect(reset).toContain("state.ToleranceSpent = false")
 			expect(reset).toContain("state.Converging = false")
 		end
+	end)
+end)
+
+-- The noclip ray is cast against MovementGuardConfig.BarrierTag and nothing else: geometry left untagged can be
+-- walked through unseen, and a tagged part that touches nothing -- a kill zone, a marker -- would read an honest
+-- fall into it as a body passing through a floor.
+describe("the barriers", function()
+	it("are the arena's floor, walls, wall rules and cover walls", function()
+		expect(functionIn(ARENA, "local function asBarrier(")).toContain(
+			"CollectionService:AddTag(part, MovementGuardConfig.BarrierTag) return part"
+		)
+		expect(functionIn(ARENA, "local function buildTemplate(")).toContain(
+			"local floor = asBarrier( newPart( FLOOR_NAME,"
+		)
+		local walls = functionIn(ARENA, "local function buildWalls(")
+		expect(walls).toContain("asBarrier(newPart(wall.Name, wall.Size,")
+		expect(walls).toContain('asBarrier(newPart(wall.Name .. "Rule", ruleSize,')
+		expect(count(walls, "newPart(")).toBe(count(walls, "asBarrier(newPart("))
+		local covers = functionIn(ARENA, "local function buildCoverWalls(")
+		expect(covers).toContain('asBarrier(newPart("CoverWall" .. index,')
+		for _, header in ipairs({ "local function buildKillZone(", "local function buildMarker(" }) do
+			local builder = functionIn(ARENA, header)
+			expect(builder).never.toContain("asBarrier(")
+			expect(builder).never.toContain("AddTag(")
+		end
+		-- Only through asBarrier, so the list above is the whole of it: its definition and four builders.
+		local source = strip(fs.readFile(ARENA))
+		expect(count(source, "asBarrier(")).toBe(5)
+		expect(count(source, "BarrierTag")).toBe(1)
+	end)
+
+	it("are the hub platform and its kerbs, and nothing else there", function()
+		local platform = functionIn(HUB, "local function buildPlatform(")
+		expect(platform).toContain(
+			"CollectionService:AddTag(platform, MovementGuardConfig.BarrierTag) platform.Parent = parent"
+		)
+		expect(platform).toContain(
+			"local kerb = newPart(side.Name, side.Size, CFrame.new(side.Position), Palette.world(HUB.Kerb)) CollectionService:AddTag(kerb, MovementGuardConfig.BarrierTag)"
+		)
+		expect(count(strip(fs.readFile(HUB)), "BarrierTag")).toBe(2)
+	end)
+
+	it("are the Battleground's solids, which are its floor, walls, pillars, stele and cover", function()
+		local build = functionIn(BATTLEGROUND_MAP, "local function buildBox(")
+		expect(build).toContain("if box.Solid then " .. TAG_BARRIER .. " end")
+		expect(functionIn(BATTLEGROUND_MAP, "local function buildMarker(")).never.toContain("AddTag(")
+		expect(count(strip(fs.readFile(BATTLEGROUND_MAP)), "BarrierTag")).toBe(1)
+		-- And what is solid there is exactly the geometry a body stands on or runs into: never the kill plane,
+		-- a rule or the camp's wash.
+		local dressing: BattlegroundLayout.Dressing = {
+			FloorName = BattlegroundConfig.Anchors.Floor,
+			KillZoneName = BattlegroundConfig.Anchors.KillZone,
+			WallRuleStuds = WorldConfig.Arena.WallRuleStuds,
+			WallRuleProudStuds = WorldConfig.Arena.WallRuleProudStuds,
+			FlatThickness = WorldConfig.FlatThicknessStuds,
+			RuleTop = WorldConfig.Ladder.Rule,
+			CampTop = WorldConfig.Ladder.Training,
+			CampTransparency = WorldConfig.Battleground.CampTransparency,
+		}
+		local layout = BattlegroundLayout.build(BattlegroundConfig.Map, dressing, BotConfig.Path.RadiusStuds)
+		local barriers = { Floor = true, Wall = true, Pillar = true, Stele = true, Cover = true }
+		local seen: { [string]: boolean } = {}
+		for _, box in ipairs(layout.Boxes) do
+			expect(box.Solid).toBe(barriers[box.Role] == true)
+			seen[box.Role] = true
+		end
+		for role in pairs(barriers) do
+			expect(seen[role]).toBe(true)
+		end
+		expect(seen.KillZone).toBe(true)
 	end)
 end)

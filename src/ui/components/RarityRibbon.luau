@@ -115,15 +115,34 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 		gradient.Parent = shine
 		shine.Parent = pill
 
-		-- One sweep, a pause, the next; only while the ribbon is on a screen, and again when it comes back.
+		-- One sweep, a pause, the next; only while the ribbon is on a screen the player has open, and again
+		-- when it comes back. A closed screen is disabled, not destroyed (ScreenRoot): the ribbon is still in
+		-- the DataModel, and without the Enabled test it swept for the rest of the session.
 		local running = true
 		local sweeping = false
+		local watched: LayerCollector? = nil
+		local watching: RBXScriptConnection? = nil
+		local function unwatch()
+			local connection = watching
+			if connection ~= nil then
+				connection:Disconnect()
+				watching = nil
+			end
+		end
 		trove:Add(function()
 			running = false
+			unwatch()
 			Motion.cancel(gradient)
 		end)
+		local function shown(): boolean
+			if not gradient:IsDescendantOf(game) then
+				return false
+			end
+			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
+			return layer ~= nil and layer.Enabled
+		end
 		local function sweep()
-			if not running or not gradient:IsDescendantOf(game) then
+			if not running or not shown() then
 				sweeping = false
 				return
 			end
@@ -133,10 +152,21 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 				task.delay(Theme.Timing.ShimmerPauseSeconds, sweep)
 			end)
 		end
-		trove:Connect(pill.AncestryChanged, function()
-			if not sweeping and pill:IsDescendantOf(game) then
+		local function resume()
+			if running and not sweeping and shown() then
 				sweep()
 			end
+		end
+		trove:Connect(pill.AncestryChanged, function()
+			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
+			if layer ~= watched then
+				watched = layer
+				unwatch()
+				if layer ~= nil then
+					watching = layer:GetPropertyChangedSignal("Enabled"):Connect(resume)
+				end
+			end
+			resume()
 		end)
 	end
 

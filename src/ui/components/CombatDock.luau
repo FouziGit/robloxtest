@@ -44,10 +44,14 @@ export type Props = {
 	Screen: ScreenGui,
 	LayoutOrder: number?,
 	Width: number,
+	-- On touch the hotbar's pips ride across the top of the dock (PipRow).
+	Pips: boolean?,
 }
 
 export type CombatDock = {
 	Instance: Frame,
+	-- The row the hotbar's pips go in, when the dock was built with Pips.
+	PipRow: Frame?,
 	SetState: (self: CombatDock, state: State) -> (),
 	-- On touch the dock is never wider than the gap between the thumbs.
 	SetWidth: (self: CombatDock, width: number) -> (),
@@ -187,11 +191,12 @@ function CombatDock.new(props: Props): CombatDock
 	local low = false
 	local breath: Breath.Reader? = nil
 	local breathing: RBXScriptConnection? = nil
+	local height = HUD.DockHeight + (if props.Pips then HUD.HotbarPipsHeight + GAP else 0)
 
 	local dock = Instance.new("Frame")
 	dock.Name = "Dock"
 	dock.BackgroundTransparency = 1
-	dock.Size = UDim2.fromOffset(props.Width, HUD.DockHeight)
+	dock.Size = UDim2.fromOffset(props.Width, height)
 	dock.LayoutOrder = props.LayoutOrder or 0
 	trove:Add(dock)
 
@@ -233,6 +238,17 @@ function CombatDock.new(props: Props): CombatDock
 	layout.Padding = UDim.new(0, GAP)
 	layout.Parent = content
 	content.Parent = dock
+
+	local pipRow: Frame? = nil
+	if props.Pips then
+		local frame = Instance.new("Frame")
+		frame.Name = "Pips"
+		frame.BackgroundTransparency = 1
+		frame.Size = UDim2.new(1, 0, 0, HUD.HotbarPipsHeight)
+		frame.LayoutOrder = 0
+		frame.Parent = content
+		pipRow = frame
+	end
 
 	-- Health: the guard's diamond, the cyan bar with its Cinnabar ghost, the number.
 	local healthRow = row("Health", HEALTH_HEIGHT, 1, content)
@@ -371,7 +387,7 @@ function CombatDock.new(props: Props): CombatDock
 	end
 
 	local function setWidth(_self: CombatDock, width: number)
-		dock.Size = UDim2.fromOffset(width, HUD.DockHeight)
+		dock.Size = UDim2.fromOffset(width, height)
 	end
 
 	local function destroy(_self: CombatDock)
@@ -380,6 +396,7 @@ function CombatDock.new(props: Props): CombatDock
 
 	local object: CombatDock = {
 		Instance = dock,
+		PipRow = pipRow,
 		SetState = setState,
 		SetWidth = setWidth,
 		Destroy = destroy,

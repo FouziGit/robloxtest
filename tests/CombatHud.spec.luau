@@ -4,6 +4,7 @@
 -- burning, a dock that grows over the discs, a colour that loses its meaning -- and the numbers they are
 -- built from are checked here.
 local Harness = require("./harness")
+local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
@@ -13,6 +14,7 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local HUD_CONTROLLER = "src/client/Controllers/HudController.luau"
 local DOCK = "src/ui/components/CombatDock.luau"
+local HOTBAR = "src/ui/components/Hotbar.luau"
 local HUD = ThemeConfig.Hud
 local COLORS = ThemeConfig.Colors
 local GRAPHIC_CONTRAST = 3
@@ -146,5 +148,80 @@ describe("the combat dock", function()
 		local hud = code(HUD_CONTROLLER)
 		expect(has(hud, "inputController.TouchLayoutChanged:Connect(fitDock)")).toBe(true)
 		expect(has(hud, "Width = if touch then HUD.DockWidthTouchMax else HUD.DockWidthPointer,")).toBe(true)
+	end)
+end)
+
+describe("the hotbar", function()
+	it("draws every equipped glyph in its own pigment, over the keys that cast it", function()
+		local hotbar = code(HOTBAR)
+		local draw = body(hotbar, "draw")
+		expect(has(draw, "fill(slot, Theme.pigmentColor(def.Pigment), false)")).toBe(true)
+		expect(has(draw, "sigil.Text = PigmentConfig.Sigils[def.Pigment :: any]")).toBe(true)
+		local keys = body(hotbar, "drawKeys")
+		expect(has(keys, "for step, pigment in ipairs(def.Combo) do")).toBe(true)
+		expect(has(keys, "Key = keys[pigment]")).toBe(true)
+		-- Each key wears the strip of the pigment it presses: the legend of the keyboard.
+		expect(has(keys, "Pigment = pigment,")).toBe(true)
+		-- The sigil reads on whatever the chip is filled with.
+		expect(has(body(hotbar, "fill"), "sigil.TextColor3 = Theme.inkOn(color)")).toBe(true)
+		-- The player's own keys, for every pigment, on the device in use.
+		local refresh = body(code(HUD_CONTROLLER), "refreshHotbarKeys")
+		expect(has(refresh, "for _, pigment in ipairs(PigmentConfig.Order) do")).toBe(true)
+		expect(has(refresh, "keys[pigment] = saved[pigment] or defaults[pigment]")).toBe(true)
+		expect(has(refresh, 'hotbar:SetKeys(if gamepad then "Gamepad" else "Keyboard", keys)')).toBe(true)
+		expect(#PigmentConfig.Order).toBe(5)
+		local profile = body(code(HUD_CONTROLLER), "refreshProfile")
+		expect(has(profile, "hotbar:SetLoadout(data.Loadout.Slots)")).toBe(true)
+		expect(has(profile, "refreshHotbarKeys(data)")).toBe(true)
+	end)
+
+	it("drains a cooling glyph at the server's pace and pops it when it is ready, rebuilding nothing", function()
+		local hotbar = code(HOTBAR)
+		local state = body(hotbar, "setState")
+		expect(
+			has(state, "local fraction = if def.Cooldown > 0 then math.clamp(remaining / def.Cooldown, 0, 1) else 0")
+		).toBe(true)
+		local changed = string.find(state, "if fraction ~= slot.Fraction then", 1, true)
+		local sprung =
+			string.find(state, 'Motion.to(slot.Drain, { Size = UDim2.fromScale(1, fraction) }, "UiSnappy")', 1, true)
+		assert(changed ~= nil and sprung ~= nil, "the drain no longer springs to the cooldown")
+		expect(changed :: number).toBeLessThan(sprung :: number)
+		expect(has(state, "if slot.Remaining > 0 and remaining <= 0 then ready(slot) end")).toBe(true)
+		expect(number(hotbar, "READY_PUNCH")).toBe(1.12)
+		expect(has(body(hotbar, "ready"), "Motion.punch(slot.Scale, READY_PUNCH)")).toBe(true)
+		-- Five pushes a second allocate nothing: the slots are pooled by index.
+		expect(has(state, "Instance.new")).toBe(false)
+		expect(has(state, "Keycap.new")).toBe(false)
+		expect(has(state, "Motion.loop")).toBe(false)
+		expect(has(code(HUD_CONTROLLER), "hotbar:SetState(state)")).toBe(true)
+	end)
+
+	it("chalks a glyph the ink cannot pay for, and marks it with a drop", function()
+		local hotbar = code(HOTBAR)
+		local state = body(hotbar, "setState")
+		expect(has(state, "local unaffordable = state.Ink < def.Cost")).toBe(true)
+		expect(has(state, "if unaffordable then Theme.Colors.Chalk else Theme.pigmentColor(def.Pigment)")).toBe(true)
+		expect(has(state, "drop.Visible = unaffordable")).toBe(true)
+		expect(has(hotbar, 'Icon.new("Drop", DROP, Theme.Colors.InfoFill)')).toBe(true)
+		expect(ThemeConfig.contrast(COLORS.InfoFill, COLORS.Plate)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
+	end)
+
+	it("keys the slots with a pointer, and puts pips inside the dock on touch", function()
+		local hud = code(HUD_CONTROLLER)
+		expect(has(hud, 'Mode = if touch then "Pips" else "Slots",')).toBe(true)
+		expect(has(hud, "Parent = if touch then combatDock.PipRow or bottomStack else bottomStack,")).toBe(true)
+		expect(has(hud, "Pips = touch,")).toBe(true)
+		local hotbar = code(HOTBAR)
+		-- A cap on its three-unit lip fills the key strip exactly; ten pips still fit the touch dock.
+		expect(has(hotbar, "local CAP = HUD.HotbarKeyStrip - 3\n")).toBe(true)
+		local shrunk = HUD.HotbarPipsHeight - number(hotbar, "PIP_SHRINK")
+		local ten = 10 * shrunk + 9 * number(hotbar, "PIP_GAP")
+		expect(ten).toBeLessThanOrEqual(HUD.DockWidthTouchMax - 2 * number(code(DOCK), "PADDING"))
+		expect(HUD.HotbarSlot).toBe(56)
+		expect(HUD.HotbarPipsHeight).toBe(26)
+		local dock = code(DOCK)
+		expect(has(dock, "local height = HUD.DockHeight + (if props.Pips then HUD.HotbarPipsHeight + GAP else 0)")).toBe(
+			true
+		)
 	end)
 end)

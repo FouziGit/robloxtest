@@ -43,6 +43,7 @@ local STROKED_COMPONENTS = {
 	"ComboRow",
 	"ScoreBand",
 	"MetaCluster",
+	"Hotbar",
 }
 local BODY_CONTRAST = 4.5
 
@@ -61,6 +62,7 @@ local FIGHT_FILES = {
 	"src/client/Controllers/HudController.luau",
 	"src/ui/components/CombatDock.luau",
 	"src/ui/components/ComboRow.luau",
+	"src/ui/components/Hotbar.luau",
 }
 -- Rule 11: the value colours never enter a fight, by role, by helper, or through a chapter, a rarity or
 -- a rank.

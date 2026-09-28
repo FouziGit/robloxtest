@@ -304,6 +304,12 @@ ThemeConfig.Hud = {
 	DockWidthTouchMax = 300,
 	-- Health 26 + ink 14 + padding 10 * 2 + gap 10.
 	DockHeight = 70,
+	-- The hotbar: with a pointer, a slot per equipped glyph over the key strip that casts it, this far apart;
+	-- on touch, a row of pips across the top of the dock, this tall.
+	HotbarSlot = 56,
+	HotbarKeyStrip = 18,
+	HotbarGap = 8,
+	HotbarPipsHeight = 26,
 	-- Between the combo row and what is under it.
 	ChipRowGap = 8,
 	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.

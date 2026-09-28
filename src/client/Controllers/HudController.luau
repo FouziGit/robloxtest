@@ -4,6 +4,8 @@
 -- src/ui (D-147):
 --   MetaCluster   the level, its XP and the Folios (top-left), in the hub only
 --   CombatDock    the player's own health and ink, on an ink plate at the bottom centre, between the thumbs
+--   Hotbar        the equipped glyphs and their cooldowns, over the dock (the keys that cast them with a
+--                 pointer, pips inside the dock on touch)
 --   ComboRow      the sequence being pressed, the chain counter and the onboarding's ghost chips, above it
 --   ScoreBand     the match, at the top-centre while a snapshot is held
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
@@ -20,9 +22,11 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local Button = require(UI.components.Button)
 local CombatDock = require(UI.components.CombatDock)
 local ComboRow = require(UI.components.ComboRow)
+local Hotbar = require(UI.components.Hotbar)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
 local MetaCluster = require(UI.components.MetaCluster)
+local PigmentConfig = require(Shared.Config.PigmentConfig)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local ScoreBand = require(UI.components.ScoreBand)
 local ScreenRoot = require(UI.components.ScreenRoot)
@@ -37,7 +41,7 @@ local log = Log.new("HudController")
 
 export type ToastKind = Toast.Kind
 
-type CombatState = CombatDock.State
+type CombatState = CombatDock.State & Hotbar.State
 
 type Deps = {
 	Localize: any,
@@ -55,8 +59,9 @@ type Deps = {
 
 local DISPLAY_ORDER = Theme.Layers.Hud
 local HUD = ThemeConfig.Hud
--- The bottom stack, from the top: the combo row, then the dock.
+-- The bottom stack, from the top: the combo row, the hotbar (with a pointer), then the dock.
 local COMBO_ORDER = 1
+local HOTBAR_ORDER = 2
 local DOCK_ORDER = 3
 -- On touch the dock keeps this far off the nearest disc, in real pixels.
 local DOCK_DISC_CLEARANCE = 12
@@ -128,6 +133,7 @@ local root: ScreenRoot.ScreenRoot
 local metaCluster: MetaCluster.MetaCluster
 local combatDock: CombatDock.CombatDock
 local comboRow: ComboRow.ComboRow
+local hotbar: Hotbar.Hotbar
 local bottomStack: Frame
 local scoreBand: ScoreBand.ScoreBand
 local quickBar: Frame
@@ -256,6 +262,14 @@ local function buildBottomStack(parent: Instance, touch: boolean)
 		Screen = root.Instance,
 		LayoutOrder = DOCK_ORDER,
 		Width = if touch then HUD.DockWidthTouchMax else HUD.DockWidthPointer,
+		Pips = touch,
+	})
+	-- On touch the discs already name the pigments: the hotbar is a row of pips inside the dock.
+	hotbar = Hotbar.new({
+		Parent = if touch then combatDock.PipRow or bottomStack else bottomStack,
+		Mode = if touch then "Pips" else "Slots",
+		Localize = localize,
+		LayoutOrder = HOTBAR_ORDER,
 	})
 end
 
@@ -395,6 +409,7 @@ end
 
 local function refreshCombat(state: CombatState)
 	combatDock:SetState(state)
+	hotbar:SetState(state)
 	if state.Health <= 0 then
 		-- A caster who fell has no chain any more.
 		comboRow:FadeStreak()
@@ -413,6 +428,21 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	scoreBand:Set(snapshot)
 end
 
+-- The keys the hotbar draws under each glyph: the player's own for each pigment, on the device in use.
+local function refreshHotbarKeys(data: Types.ProfileData)
+	local gamepad = hintSource == "Gamepad"
+	local saved = if gamepad then data.Settings.Gamepad else data.Settings.Keyboard
+	-- The config maps are keyed by the ActionId union; the pigments are plain strings here.
+	local defaults: { [string]: string } = (
+		if gamepad then InputConfig.DefaultGamepad else InputConfig.DefaultKeyboard
+	) :: any
+	local keys: { [string]: string } = {}
+	for _, pigment in ipairs(PigmentConfig.Order) do
+		keys[pigment] = saved[pigment] or defaults[pigment]
+	end
+	hotbar:SetKeys(if gamepad then "Gamepad" else "Keyboard", keys)
+end
+
 local function refreshProfile(section: string)
 	local data: Types.ProfileData? = clientData.get()
 	if data == nil then
@@ -426,7 +456,11 @@ local function refreshProfile(section: string)
 	end
 	if section == "*" or section == "Settings" then
 		refreshQuickBar(data)
+		refreshHotbarKeys(data)
 		refreshPrefs(data)
+	end
+	if section == "*" or section == "Loadout" then
+		hotbar:SetLoadout(data.Loadout.Slots)
 	end
 end
 

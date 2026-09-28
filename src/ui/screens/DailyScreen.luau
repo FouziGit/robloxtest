@@ -75,8 +75,10 @@ local CHAPTER = "Daily"
 local STREAK_LENGTH = #DailyConfig.Streak
 local STREAK_SIZE = 26
 local LINE_SIZE = 16
--- The calendar: seven cards, the last twice as wide, and what each holds.
+-- The calendar: seven cards, the last twice as wide, and what each holds. It is CALENDAR_HEIGHT tall where the
+-- window has the room, and gives up height down to CALENDAR_MIN (what a card holds) where it has not.
 local CALENDAR_HEIGHT = 170
+local CALENDAR_MIN = 104
 local DAY_PADDING = 10
 local DAY_LABEL_SIZE = 14
 local AMOUNT_SIZE = 16
@@ -231,9 +233,18 @@ function DailyScreen.new(deps: Deps): Screen
 	local loading = ListRow.new({ Left = "", Variant = "Skeleton", LayoutOrder = 0, Parent = column })
 	own(trove, loading)
 
+	-- The calendar takes what the two lines under it leave: the content does not scroll, and a fixed calendar
+	-- pushed them out of a phone's window, the at-risk nudge first (tests/DailyFit.spec.luau).
 	local calendar = blank("Calendar", column)
-	calendar.Size = UDim2.new(1, 0, 0, CALENDAR_HEIGHT)
+	calendar.Size = UDim2.fromScale(1, 0)
 	calendar.LayoutOrder = 1
+	local calendarFill = Instance.new("UIFlexItem")
+	calendarFill.FlexMode = Enum.UIFlexMode.Fill
+	calendarFill.Parent = calendar
+	local calendarRange = Instance.new("UISizeConstraint")
+	calendarRange.MinSize = Vector2.new(0, CALENDAR_MIN)
+	calendarRange.MaxSize = Vector2.new(math.huge, CALENDAR_HEIGHT)
+	calendarRange.Parent = calendar
 	list(calendar, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
 	-- Six days share six eighths of the row, the seventh takes two: the gaps come off each in proportion.
 	local gaps = Theme.Sizes.Gap * (STREAK_LENGTH - 1)

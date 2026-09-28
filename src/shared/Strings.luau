@@ -440,11 +440,7 @@ Strings.Table = {
 		fr = "Achète le cosmétique sélectionné avec des Robux.",
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
-	["shop.rotation"] = { en = "Today's selection", fr = "Sélection du jour" },
 	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
-	["shop.balance"] = { en = "You have {amount} Folios", fr = "Tu as {amount} Folios" },
-	["shop.buyRobux"] = { en = "Buy with Robux", fr = "Acheter en Robux" },
-	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
 	["shop.notEnoughFolios"] = { en = "Not enough Folios.", fr = "Pas assez de Folios." },
@@ -712,6 +708,20 @@ Strings.Table = {
 	-- Slice F's shared words, entered with their first reader (D-148).
 	["common.retry"] = { en = "Retry", fr = "Réessayer" },
 	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
+	["time.hoursMinutes"] = { en = "{hours}h {minutes}m", fr = "{hours} h {minutes}" },
+	["common.cancel"] = { en = "Cancel", fr = "Annuler" },
+	["common.pendingTimeout"] = {
+		en = "No answer from the server. Try again.",
+		fr = "Pas de réponse du serveur. Réessaie.",
+	},
+	-- The shop (ShopScreen): the countdown to the next rotation, the Robux price, and the sheet that asks
+	-- before a Folios purchase.
+	["shop.nextRotation"] = { en = "New items in {time}", fr = "Nouveautés dans {time}" },
+	["shop.robuxPrice"] = { en = "R$ {price}", fr = "R$ {price}" },
+	["shop.confirm.title"] = { en = "Buy {name}?", fr = "Acheter {name} ?" },
+	["shop.confirm.balance"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
+	["shop.buy"] = { en = "Buy", fr = "Acheter" },
+	["shop.acquired"] = { en = "Acquired!", fr = "Acquis !" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

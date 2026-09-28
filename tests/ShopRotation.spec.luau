@@ -45,4 +45,18 @@ describe("ShopRotation", function()
 		expect(differs).toBe(true)
 		expect(ShopRotation.dayKey(86400 * 5 + 10)).toBe("S5")
 	end)
+
+	it("names the second the next rotation starts, and no second before it", function()
+		-- Mid-day, a server clock's fraction of a second, and the very first second of a day.
+		for _, now in ipairs({ 86400 * 5 + 10, 86400 * 20725 + 43200.75, 86400 * 7, 86400 * 7 - 1 }) do
+			local nextAt = ShopRotation.nextRotationAt(now)
+			expect(nextAt > now).toBe(true)
+			expect(ShopRotation.dayKey(nextAt) ~= ShopRotation.dayKey(now)).toBe(true)
+			expect(ShopRotation.dayKey(nextAt - 1)).toBe(ShopRotation.dayKey(now))
+			-- A day at most: the countdown never promises more than the rotation lasts.
+			expect(nextAt - now <= 86400).toBe(true)
+		end
+		expect(ShopRotation.nextRotationAt(86400 * 5 + 10)).toBe(86400 * 6)
+		expect(ShopRotation.nextRotationAt(86400 * 7)).toBe(86400 * 8)
+	end)
 end)

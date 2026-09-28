@@ -5,6 +5,9 @@ export type Item = { Id: string, Rarity: string, Sellable: boolean }
 
 local ShopRotation = {}
 
+-- A rotation lasts one UTC day.
+local SECONDS_PER_DAY = 86400
+
 local function hash(text: string): number
 	local value = 2166136261
 	for index = 1, #text do
@@ -51,7 +54,13 @@ function ShopRotation.select(
 end
 
 function ShopRotation.dayKey(unixTime: number): string
-	return "S" .. tostring(math.floor(unixTime / 86400))
+	return "S" .. tostring(math.floor(unixTime / SECONDS_PER_DAY))
+end
+
+-- When the rotation showing at `unixTime` gives way to the next: the start of the next UTC day, the very
+-- second `dayKey` changes. Always later than `unixTime`, even exactly on a day's first second.
+function ShopRotation.nextRotationAt(unixTime: number): number
+	return (math.floor(unixTime / SECONDS_PER_DAY) + 1) * SECONDS_PER_DAY
 end
 
 return ShopRotation

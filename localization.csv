@@ -54,8 +54,10 @@ boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+common.cancel,Cancel,Vellum,,Cancel,Annuler
 common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
+common.pendingTimeout,No answer from the server. Try again.,Vellum,,No answer from the server. Try again.,Pas de réponse du serveur. Réessaie.
 common.reset,Reset,Vellum,,Reset,Réinitialiser
 common.retry,Retry,Vellum,,Retry,Réessayer
 common.save,Save,Vellum,,Save,Sauvegarder
@@ -394,21 +396,24 @@ settings.tab.gamepad,Gamepad,Vellum,,Gamepad,Manette
 settings.tab.graphics,Graphics,Vellum,,Graphics,Graphismes
 settings.tab.keyboard,Keyboard,Vellum,,Keyboard,Clavier
 settings.title,Settings,Vellum,,Settings,Options
-shop.balance,You have {amount} Folios,Vellum,,You have {amount} Folios,Tu as {amount} Folios
+shop.acquired,Acquired!,Vellum,,Acquired!,Acquis !
+shop.buy,Buy,Vellum,,Buy,Acheter
 shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
-shop.buyRobux,Buy with Robux,Vellum,,Buy with Robux,Acheter en Robux
+shop.confirm.balance,{before} → {after} Folios,Vellum,,{before} → {after} Folios,{before} → {after} Folios
+shop.confirm.title,Buy {name}?,Vellum,,Buy {name}?,Acheter {name} ?
 shop.equip,Equip,Vellum,,Equip,Équiper
 shop.equipped,Equipped,Vellum,,Equipped,Équipé
+shop.nextRotation,New items in {time},Vellum,,New items in {time},Nouveautés dans {time}
 shop.notEnoughFolios,Not enough Folios.,Vellum,,Not enough Folios.,Pas assez de Folios.
-shop.owned,Owned,Vellum,,Owned,Possédé
 shop.purchased,Purchased: {name},Vellum,,Purchased: {name},Acheté : {name}
 shop.rarity.Common,Common,Vellum,,Common,Commun
 shop.rarity.Epic,Epic,Vellum,,Epic,Épique
 shop.rarity.Legendary,Legendary,Vellum,,Legendary,Légendaire
 shop.rarity.Rare,Rare,Vellum,,Rare,Rare
-shop.rotation,Today's selection,Vellum,,Today's selection,Sélection du jour
+shop.robuxPrice,R$ {price},Vellum,,R$ {price},R$ {price}
 shop.title,Shop,Vellum,,Shop,Boutique
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
+time.hoursMinutes,{hours}h {minutes}m,Vellum,,{hours}h {minutes}m,{hours} h {minutes}
 time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}

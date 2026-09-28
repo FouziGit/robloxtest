@@ -17,9 +17,9 @@ local BattlepassConfig = require(Shared.Config.BattlepassConfig)
 local Button = require(script.Parent.Parent.components.Button)
 local Claimables = require(Shared.Pure.Claimables)
 local DailyStreak = require(Shared.Pure.DailyStreak)
+local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
 local GameConfig = require(Shared.Config.GameConfig)
 local Icon = require(script.Parent.Parent.components.Icon)
-local Motion = require(script.Parent.Parent.Motion)
 local Panel = require(script.Parent.Parent.components.Panel)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
@@ -69,9 +69,7 @@ local SEAL_SIZE = 44
 local XP_BAR_WIDTH = 200
 local XP_BAR_HEIGHT = 12
 local XP_TEXT_SIZE = 16
-local COIN_SIZE = 26
 local PILL_HEIGHT = 44
-local PILL_PADDING = 12
 -- The Play tile: its share of the deck's width, its word, its line, and the ▶ on a blot of the sheet.
 local PLAY_SHARE = 0.4
 local PLAY_TEXT_SIZE = 40
@@ -160,7 +158,6 @@ function MenuScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
 	local t = deps.Localize.t
 	local screen: Screen
-	local folios: number? = nil
 
 	local root = ScreenRoot.new({
 		Name = "MenuScreen",
@@ -232,23 +229,9 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, xpBar)
 
-	-- The Folios: a pill of the sheet, the coin and the count, and the way to buy more beside it.
-	local pill = row("Folios", strip, Theme.Sizes.PaddingSmall)
-	pill.BackgroundTransparency = 0
-	pill.BackgroundColor3 = Theme.Colors.PanelRaised
-	pill.AutomaticSize = Enum.AutomaticSize.X
-	pill.Size = UDim2.fromOffset(0, PILL_HEIGHT)
-	pill.LayoutOrder = 3
-	Theme.corner(pill, Theme.Pill)
-	Theme.stroke(pill, "Accent", Theme.Sizes.StrokeThin)
-	local pillPadding = Instance.new("UIPadding")
-	pillPadding.PaddingLeft = UDim.new(0, PILL_PADDING)
-	pillPadding.PaddingRight = UDim.new(0, PILL_PADDING)
-	pillPadding.Parent = pill
-	local coin = Icon.new("Coin", COIN_SIZE)
-	coin.LayoutOrder = 1
-	coin.Parent = pill
-	local folioCount = textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, 2, pill)
+	-- The Folios, and the way to buy more beside them.
+	local pill = FoliosPill.new({ Height = PILL_HEIGHT, LayoutOrder = 3, Parent = strip })
+	own(trove, pill)
 
 	-- An icon on its own: as wide as it is tall, never the width of a word.
 	local function iconButton(name: string, text: string, icon: Icon.Name?, order: number, onClick: () -> ())
@@ -571,14 +554,7 @@ function MenuScreen.new(deps: Deps): Screen
 				xpBar:SetProgress(if needed > 0 then data.Progression.XP / needed else 0)
 				xpText.Text = t("level.xp", { xp = data.Progression.XP, needed = needed })
 			end
-			local amount = math.floor(data.Currency.Folios)
-			local previous = folios
-			folios = amount
-			if previous == nil or not screen.Visible then
-				folioCount.Text = tostring(amount)
-			elseif previous ~= amount then
-				Motion.countTo(folioCount, previous, amount, tostring)
-			end
+			pill:Set(data.Currency.Folios, screen.Visible)
 		end
 		local counts = claimables(data)
 		battlepassButton:SetBadge(if counts.Pass > 0 then counts.Pass else nil)

@@ -11,8 +11,9 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local MENU = "src/ui/screens/MenuScreen.luau"
 local PLAY = "src/ui/screens/PlayScreen.luau"
+local SHOP = "src/ui/screens/ShopScreen.luau"
 -- The screens of this slice, for the rules every one of them keeps.
-local SCREENS = { MENU, PLAY }
+local SCREENS = { MENU, PLAY, SHOP }
 local SERVER = "src/server"
 
 local function stripComments(source: string): string
@@ -26,6 +27,22 @@ end
 
 local function code(path: string): string
 	return stripComments(fs.readFile(path))
+end
+
+local function folded(path: string): string
+	return (string.gsub(code(path), "%s+", " "))
+end
+
+local function count(source: string, plain: string): number
+	local found, from = 0, 1
+	while true do
+		local at = string.find(source, plain, from, true)
+		if at == nil then
+			return found
+		end
+		found += 1
+		from = at + 1
+	end
 end
 
 local function collect(directory: string, out: { string })
@@ -150,5 +167,20 @@ describe("the play cards", function()
 		end
 		-- And the screen hears it from the HUD, which hears every message.
 		expect(string.find(code(PLAY), "trove:Connect(deps.HudController.Notified,", 1, true)).never.toBeNil()
+	end)
+end)
+
+describe("the shop", function()
+	it("buys with Folios only once the sheet has asked: never on one tap", function()
+		local shop = folded(SHOP)
+		-- One place sends the purchase, and it is the sheet's confirmation that reaches it.
+		expect(count(shop, 'fire("BuyCosmetic"')).toBe(1)
+		local buy = string.match(shop, "local function buy%(current: Purchase%)(.-) end local function ")
+		assert(buy ~= nil, "the shop has no buy(current): this gate would check nothing")
+		expect(string.find(buy :: string, 'fire("BuyCosmetic", current.CosmeticId)', 1, true)).never.toBeNil()
+		expect(count(shop, "buy(current)")).toBe(1)
+		expect(string.find(shop, "OnConfirm = function() buy(current) end", 1, true)).never.toBeNil()
+		-- The card's price opens the sheet.
+		expect(string.find(shop, "confirmPurchase(card.Entry)", 1, true)).never.toBeNil()
 	end)
 end)

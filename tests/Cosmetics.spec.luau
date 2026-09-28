@@ -20,6 +20,7 @@ local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local Strings = require("../src/shared/Strings")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
@@ -30,8 +31,9 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local PAGE = WorldConfig.Colors.Page
 local INK = WorldConfig.Colors.Ink
 local WHITE = { 255, 255, 255 }
--- Rule 7's cyan, the colour of "us" (ThemeConfig.Ally on the interface's branch, D-147).
-local ALLY = { 115, 227, 255 }
+-- Rule 7's cyan, the colour of "us": the one the interface draws (D-147), read where it is set, so a worn
+-- colour keeps its distance from the cyan the HUD shows and not from a copy of it.
+local ALLY = ThemeConfig.Colors.Ally
 -- How far a worn colour stays from each pigment, from the ally's cyan, from white and from the page.
 local MIN_FROM_PIGMENT = 60
 local MIN_FROM_ALLY = 60

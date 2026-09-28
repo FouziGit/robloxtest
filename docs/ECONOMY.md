@@ -77,9 +77,25 @@ Conversion implicite : 1 R$ ≈ 10-13 Folios. Un légendaire (8 000 Folios) vaut
 | Palier de pass bloqué (piste premium) | Pass premium | seulement depuis l'écran du pass |
 | Mort face à un joueur Orpiment | Pass Orpiment | max 1 / session, jamais avant le niveau 10 |
 | Loadout plein | Slots | seulement depuis l'écran de loadout |
-| Boutique | article en Folios insuffisant | bouton « Acheter avec Robux » explicite |
+| Boutique | article en Folios insuffisant | la fiche de confirmation le dit (solde après achat en rouge), grise « Acheter » et propose « Obtenir des Folios », qui ouvre l'onglet Folios ; le prix « R$ » de l'article reste sur sa carte |
 
 Règles globales : **aucun prompt dans les 3 premières minutes de la première session** (`Meta.FirstSessionPromptGate`), jamais plus d'un prompt toutes les 5 minutes, jamais pendant un match. Chaque prompt affiché / accepté / refusé est journalisé (`Analytics`).
+
+### Surfaces d'achat à l'initiative du joueur (D-147)
+
+La passe UI couleur ajoute des endroits où le joueur **choisit** d'acheter ; aucun n'ouvre quoi que ce soit de lui-même. Chacun n'ouvre la fenêtre d'achat de Roblox que sur un geste du joueur, et seulement pour une entrée qui a un id sur Roblox (`MonetizationConfig`, id non nul ; sinon le bouton est grisé). Le serveur reste l'autorité : il résout l'id, refuse ce qui est déjà possédé, un saut de paliers au dernier palier, un article sorti de la rotation, et le dit par un toast. Les garde-fous du tableau ci-dessus (première session, 5 minutes, jamais en match) continuent de régir les prompts contextuels, qui restent des toasts ; **aucun prompt automatique n'a été ajouté**.
+
+| Écran | Surface | Ce qu'elle déclenche | Garde-fou côté interface |
+|---|---|---|---|
+| Boutique, onglet « Du jour » | le prix en Folios de chaque article | la fiche de confirmation (l'article, le solde avant → après), puis `BuyCosmetic` sur « Acheter » ; jamais en un seul geste | « Acheter » grisé si le solde ne suffit pas ; l'achat attend la réponse du serveur (5 s au plus) |
+| Boutique, onglet « Du jour » | le prix « R$ » de chaque article | `PromptPurchase("Cosmetic", id)` | le produit de sa rareté doit exister sur Roblox |
+| Boutique, onglet « Folios » | les trois packs (1 000, 3 500, 8 000) | `PromptPurchase("Product", FolioSmall / FolioMedium / FolioLarge)` | id non nul |
+| Boutique, onglet « Pass et packs » | VIP, Slots d'équipement, Pigment Orpiment, Pack de skins ; Battle Pass Premium, +5 paliers, Boost d'XP | `PromptPurchase("Pass", clé)` ou `PromptPurchase("Product", clé)` | id non nul ; un pass possédé (et le premium de la saison) montre « Possédé » au lieu d'un prix ; +5 paliers grisé au dernier palier |
+| Battle Pass | « Obtenir le Premium », « +5 paliers » | `PromptPurchase("Product", PremiumPass / TierSkip5)` | « Obtenir le Premium » caché une fois le premium possédé ; +5 paliers grisé au dernier palier ; une récompense premium verrouillée montre le mot « Premium » et un cadenas, sans phrase de refus |
+| Équipement (tranche B) | « +4 emplacements », tant que `LoadoutSlots` n'est pas possédé | `PromptPurchase("Pass", LoadoutSlots)` | seulement depuis l'écran d'équipement (la ligne « Loadout plein » ci-dessus) |
+| Menu | le « + » à côté des Folios | ouvre la Boutique sur l'onglet Folios ; n'achète rien | — |
+
+Le Casier (onglet de la Boutique) ne vend rien : il montre ce que le joueur possède, pour l'équiper ou le retirer.
 
 ## 6. Premium Payouts
 

@@ -69,7 +69,6 @@ Strings.Table = {
 
 	-- Menu
 	["menu.title"] = { en = "Menu", fr = "Menu" },
-	["menu.settings"] = { en = "Settings", fr = "Options" },
 	["menu.battlepass"] = { en = "Battle Pass", fr = "Battle Pass" },
 	["menu.shop"] = { en = "Shop", fr = "Boutique" },
 	["menu.quests"] = { en = "Quests", fr = "Quêtes" },
@@ -487,7 +486,6 @@ Strings.Table = {
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.again"] = { en = "Play again", fr = "Rejouer" },
 	["match.watching"] = { en = "Watching {name}", fr = "Tu regardes {name}" },
-	["menu.invite"] = { en = "Invite a friend", fr = "Inviter un ami" },
 	["menu.inviteUnavailable"] = {
 		en = "Invites are not available here.",
 		fr = "Les invitations ne sont pas disponibles ici.",

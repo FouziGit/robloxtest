@@ -293,9 +293,12 @@ function DailyScreen.new(deps: Deps): Screen
 			rim.ZIndex = 6
 			Theme.corner(rim, UDim.new(0, Theme.Sizes.CornerCard))
 			Theme.stroke(rim, "Primary", LEGENDARY_RIM)
+			-- Over the rim, whose outline would otherwise strike its word through, and standing on the card's
+			-- top edge down to the padding the day's word starts under.
 			local ribbon = RarityRibbon.new("Legendary", t(Theme.rarity("Legendary").WordKey), face)
-			ribbon.Instance.AnchorPoint = Vector2.new(1, 0)
-			ribbon.Instance.Position = UDim2.new(1, -Theme.Sizes.PaddingSmall, 0, -Theme.Sizes.PaddingSmall * 1.5)
+			ribbon.Instance.AnchorPoint = Vector2.new(1, 1)
+			ribbon.Instance.Position = UDim2.new(1, -Theme.Sizes.PaddingSmall, 0, DAY_PADDING)
+			ribbon.Instance.ZIndex = rim.ZIndex + 1
 			own(trove, ribbon)
 		end
 

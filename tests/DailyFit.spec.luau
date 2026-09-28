@@ -121,6 +121,23 @@ describe("the daily reward on a phone, run", function()
 			expect(floor).toBeGreaterThanOrEqual(card)
 		end
 	end)
+
+	it("draws the week's ribbon over its gold rim, clear of the day's word", function()
+		local screen = build(844, 390)
+		local calendar = screen.Instance:FindFirstChild("Calendar", true)
+		local last = calendar:FindFirstChild("Day7")
+		local face = last:FindFirstChild("Face")
+		local rim = face:FindFirstChild("Rim")
+		local ribbon = face:FindFirstChild("Rarity")
+		assert(rim ~= nil and ribbon ~= nil, "the seventh day has no rim and ribbon: this gate would check nothing")
+		-- A sibling drawn under the rim had the rim's outline strike its word through (seen in Studio).
+		expect(ribbon.ZIndex).toBeGreaterThan(rim.ZIndex)
+		-- Its foot stands no lower than the padding the day's word starts under.
+		local top = face:FindFirstChild("Body"):FindFirstChildOfClass("UIPadding").PaddingTop.Offset
+		local foot = ribbon.Position.Y.Offset + ribbon.Size.Y.Offset * (1 - ribbon.AnchorPoint.Y)
+		expect(ribbon.Position.Y.Scale).toBe(0)
+		expect(foot).toBeLessThanOrEqual(top)
+	end)
 end)
 
 return nil

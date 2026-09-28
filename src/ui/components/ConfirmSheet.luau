@@ -204,6 +204,12 @@ function ConfirmSheet.new(props: Props): ConfirmSheet
 			return
 		end
 		closing = true
+		-- The answers are given: neither button is pressed again while the sheet slides away.
+		for _, button in ipairs({ cancelButton, confirmButton }) do
+			if not button:IsDisabled() then
+				button:SetDisabled(true)
+			end
+		end
 		ContextActionService:UnbindAction(cancelAction)
 		if GuiService.SelectedObject ~= nil and GuiService.SelectedObject:IsDescendantOf(scrim) then
 			GuiService.SelectedObject = nil

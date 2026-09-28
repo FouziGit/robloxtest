@@ -47,8 +47,15 @@ export type Purchases = {
 	Destroy: (self: Purchases) -> (),
 }
 
--- A purchase on its way: the sheet that asked, where its item is drawn, and the item the profile has to show.
-type Pending = { Sheet: ConfirmSheet.ConfirmSheet, Preview: Frame, CosmeticId: string, Waiting: boolean }
+-- A purchase on its way: the sheet that asked, where its item is drawn, the item the profile has to show,
+-- whether it waits for the server, and whether the item has come (the sheet then only says so, and goes).
+type Pending = {
+	Sheet: ConfirmSheet.ConfirmSheet,
+	Preview: Frame,
+	CosmeticId: string,
+	Waiting: boolean,
+	Done: boolean,
+}
 
 local Purchase = {}
 
@@ -122,9 +129,18 @@ function Purchase.new(context: Context): Purchases
 	end
 
 	-- The item is in the profile: the button flashes, the stamp comes down, the blots burst, the sheet goes.
+	-- Bought is bought: Buy says Owned once its flash is over, and buy() refuses the purchase from here on,
+	-- so a tap still landing on it in the 1.2 s before the sheet goes sends nothing.
 	local function acquired(pending: Pending)
 		settle(pending)
-		pending.Sheet.ConfirmButton:Flash("Success")
+		pending.Done = true
+		local confirm = pending.Sheet.ConfirmButton
+		confirm:Flash("Success")
+		task.delay(Theme.Timing.SuccessFlashSeconds, function()
+			if current == pending then
+				confirm:SetDisabled(true, "Owned", t("shop.owned"))
+			end
+		end)
 		Seal.new({
 			Text = t("shop.acquired"),
 			Fill = Theme.Colors.SuccessFill,
@@ -142,8 +158,10 @@ function Purchase.new(context: Context): Purchases
 		end)
 	end
 
+	-- Only the open sheet buys, once: not a sheet already closing (a tap on its Buy as it slides away after
+	-- Cancel), not a purchase waiting on the server, not one that went through.
 	local function buy(pending: Pending)
-		if pending.Waiting then
+		if current ~= pending or pending.Waiting or pending.Done then
 			return
 		end
 		pending.Waiting = true
@@ -222,7 +240,7 @@ function Purchase.new(context: Context): Purchases
 			end,
 			Parent = context.Card,
 		})
-		pending = { Sheet = sheet, Preview = swatch, CosmeticId = entry.CosmeticId, Waiting = false }
+		pending = { Sheet = sheet, Preview = swatch, CosmeticId = entry.CosmeticId, Waiting = false, Done = false }
 		current = pending
 		if short then
 			sheet.ConfirmButton:SetDisabled(true, "Locked", t("shop.notEnoughFolios"))

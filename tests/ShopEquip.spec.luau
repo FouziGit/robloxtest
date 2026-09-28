@@ -8,8 +8,10 @@ local Engine = require("./engine")
 local Harness = require("./harness")
 local Measure = require("./measure")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
+local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -252,7 +254,7 @@ local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (a
 	return screen, given
 end
 
-describe("the Shop's pushes, run", function()
+describe("the Shop's words and pushes, run", function()
 	it("is built when a rotation the server pushed before it reaches it as it listens", function()
 		local ShopRotation = require("../src/shared/Pure/ShopRotation")
 		-- The engine hands a remote's queued events to its first listener: the screen was still being built,
@@ -264,6 +266,31 @@ describe("the Shop's pushes, run", function()
 			return Engine.signal():Connect(handler)
 		end)
 		expect(screen.Instance:FindFirstChild(ITEM, true)).never.toBeNil()
+	end)
+
+	it("names the level Orpiment is free at, in the shop and in the offer the server makes", function()
+		local screen, given = builtWith(function(_name: string, handler: (...any) -> ()): any
+			return Engine.signal():Connect(handler)
+		end)
+		screen:Open({ Tab = "Passes" })
+		local params = given["pass.orpiment.desc"]
+		assert(params ~= nil, "the shop never writes the Orpiment pass: this gate would check nothing")
+		expect(params.level).toBe(ProgressionConfig.OrpimentUnlockLevel)
+		-- Every placeholder of every offer's words is one the shop fills, in both languages.
+		for _, catalog in ipairs({ MonetizationConfig.Passes, MonetizationConfig.Products } :: { any }) do
+			for _, offer in pairs(catalog) do
+				for _, locale in ipairs({ "en", "fr" }) do
+					local text = Strings.t(offer.DescKey, params, locale)
+					if string.find(text, "{", 1, true) ~= nil then
+						error(("%s (%s) leaves a placeholder: %s"):format(offer.DescKey, locale, text))
+					end
+				end
+			end
+		end
+		-- The server's offer toast gives the same words the same level.
+		local prompts = fs.readFile("src/server/Services/MonetizationService/Prompts.luau")
+		expect(string.find(prompts, "local DESC_PARAMS = { level = ProgressionConfig.OrpimentUnlockLevel }", 1, true)).never.toBeNil()
+		expect(string.find(prompts, 'deps.Notify.send(player, descKey, DESC_PARAMS, "Info")', 1, true)).never.toBeNil()
 	end)
 end)
 

@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Context = require(script.Parent.Context)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 
 local log = Log.new("MonetizationService")
 
@@ -33,6 +34,9 @@ type ReasonState = { At: number, Count: number }
 type PromptState = { LastAt: number, Reasons: { [string]: ReasonState } }
 
 local Rules = MonetizationConfig.Prompts
+-- What an offer's description names: the level Orpiment is free at (pass.orpiment.desc). Without it the
+-- toast printed "{level}".
+local DESC_PARAMS = { level = ProgressionConfig.OrpimentUnlockLevel }
 
 local OFFERS: { [string]: Offer } = {
 	-- Narrow loss: an XP boost turns the next run into progress.
@@ -164,7 +168,7 @@ function Prompts.maybePrompt(player: Player, reason: string): boolean
 	state.LastAt = now
 	reasonState.At = now
 	reasonState.Count += 1
-	deps.Notify.send(player, descKey, nil, "Info")
+	deps.Notify.send(player, descKey, DESC_PARAMS, "Info")
 	deps.Analytics.custom(player, Context.EventPromptShown, nil, { reason = reason, offer = offer.Key })
 	log.info("prompted %s with %s (%s)", player.Name, offer.Key, reason)
 	return true

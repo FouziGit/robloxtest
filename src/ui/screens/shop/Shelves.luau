@@ -24,6 +24,7 @@ local Icon = require(script.Parent.Parent.Parent.components.Icon)
 local ItemPreview = require(script.Parent.Parent.Parent.components.ItemPreview)
 local ListRow = require(script.Parent.Parent.Parent.components.ListRow)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
 local Sticker = require(script.Parent.Parent.Parent.components.Sticker)
 local Theme = require(script.Parent.Parent.Parent.Theme)
@@ -79,6 +80,9 @@ local COINS = 3
 -- An offer row: the name and what it gives, and its button or the owned seal.
 local OFFER_HEIGHT = 96
 local OFFER_DESC_SIZE = 16
+-- What an offer's description names: the level Orpiment is free at (pass.orpiment.desc). Without it the shop
+-- printed "{level}".
+local DESC_PARAMS = { level = ProgressionConfig.OrpimentUnlockLevel }
 local OWNED_SEAL = 28
 -- A locker card: its preview, its name, and the one button.
 local LOCKER_CELL = Vector2.new(200, 140)
@@ -186,7 +190,7 @@ function Shelves.folios(context: Context): Shelf
 		desc.TextWrapped = true
 		desc.TextColor3 = Theme.Colors.TextMuted
 		desc.AutomaticSize = Enum.AutomaticSize.Y
-		desc.Text = t(product.DescKey)
+		desc.Text = t(product.DescKey, DESC_PARAMS)
 
 		local button = Button.new({
 			Text = t("shop.buy"),
@@ -271,7 +275,7 @@ function Shelves.passes(context: Context): Shelf
 		desc.TextColor3 = Theme.Colors.TextMuted
 		desc.Size = UDim2.new(1, 0, 0, (OFFER_DESC_SIZE + 4) * 2)
 		desc.TextTruncate = Enum.TextTruncate.AtEnd
-		desc.Text = t(descKey)
+		desc.Text = t(descKey, DESC_PARAMS)
 
 		local right = blank("Offer")
 		right.AutomaticSize = Enum.AutomaticSize.X

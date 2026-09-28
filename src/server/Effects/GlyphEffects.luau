@@ -346,11 +346,17 @@ local function damageArea(ctx: Context, tracker: Tracker, center: Vector3, radiu
 	return damaged
 end
 
--- The same, for every live model overlapping an oriented box.
-local function damageBox(ctx: Context, tracker: Tracker, box: CFrame, size: Vector3): { Model }
+-- The same, for every live model overlapping an oriented box, and only those `keep` accepts when given.
+local function damageBox(
+	ctx: Context,
+	tracker: Tracker,
+	box: CFrame,
+	size: Vector3,
+	keep: ((Model) -> boolean)?
+): { Model }
 	local damaged: { Model } = {}
 	for _, model in ipairs(humanoidsInBox(box, size, ctx.Caster.Character)) do
-		if damageModel(ctx, tracker, model) then
+		if (keep == nil or keep(model)) and damageModel(ctx, tracker, model) then
 			table.insert(damaged, model)
 		end
 	end
@@ -409,6 +415,15 @@ local function inSight(from: Vector3, model: Model, character: Model?): boolean
 		return true
 	end
 	return (geometryStop(from, line / distance, distance, character) - from).Magnitude >= distance - EPSILON
+end
+
+-- Whether a body that a box swept along a line found is in the open from that line: seen from the point of
+-- the line abreast of it (its pivot's projection, kept on the `span` studs of line from `start`). The line was
+-- stopped only by a wall it crosses, and a box query sees through walls: a wall oblique or parallel to the
+-- line would otherwise let the side of the box run on behind it (D-144).
+local function inOpenFrom(start: Vector3, direction: Vector3, span: number, model: Model, character: Model?): boolean
+	local along = math.clamp((model:GetPivot().Position - start):Dot(direction), 0, span)
+	return inSight(start + direction * along, model, character)
 end
 
 -- Steps a projectile in the caller's thread: `velocity` studs/s, `gravity` studs/s² pulling it down
@@ -1512,11 +1527,13 @@ function GlyphEffects.Rubric(ctx: Context): number
 	end
 	local tracker = newTracker(ctx.Def, 1)
 	local points: { Vector3 } = {}
+	local length = (stop - start).Magnitude
 	for _, model in ipairs(candidates) do
 		if #points >= params.MaxTargets then
 			break
 		end
-		if damageModel(ctx, tracker, model) then
+		-- The line's box is HitRadius either side of it: a body in it behind a wall beside the line is spared.
+		if inOpenFrom(start, direction, length, model, character) and damageModel(ctx, tracker, model) then
 			table.insert(points, model:GetPivot().Position)
 			ctx.Combat.knockback(model, direction * params.Knockback, KNOCKBACK_DURATION)
 		end
@@ -1530,7 +1547,7 @@ function GlyphEffects.Rubric(ctx: Context): number
 		Targets = points,
 		Params = {
 			SpawnOffset = (start - muzzle).Magnitude,
-			Range = (stop - start).Magnitude,
+			Range = length,
 			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
@@ -1562,6 +1579,10 @@ function GlyphEffects.Swash(ctx: Context): number
 	local reached = 0
 	if clear then
 		local push = direction * params.Knockback + Vector3.yAxis * params.Lift
+		-- Its box is Width across the line: a body in it behind a wall beside the line is spared.
+		local function open(model: Model): boolean
+			return inOpenFrom(start, direction, span, model, character)
+		end
 		local previous, elapsed = 0, 0
 		while true do
 			reached = math.min(elapsed * params.Speed, span)
@@ -1569,7 +1590,8 @@ function GlyphEffects.Swash(ctx: Context): number
 			-- never lets it skip a body, and a thin wall never leaks the box behind it.
 			local near, far = previous - params.Depth / 2, math.min(reached + params.Depth / 2, span)
 			local box = CFrame.lookAlong(start + direction * ((near + far) / 2), direction)
-			for _, model in ipairs(damageBox(ctx, tracker, box, Vector3.new(params.Width, params.Height, far - near))) do
+			local size = Vector3.new(params.Width, params.Height, far - near)
+			for _, model in ipairs(damageBox(ctx, tracker, box, size, open)) do
 				ctx.Combat.knockback(model, push, KNOCKBACK_DURATION)
 			end
 			previous = reached

@@ -236,6 +236,45 @@ describe("a thing released ahead of the body", function()
 		expect(stitch:find("if clear then stop, last = stepProjectile(ctx, start,", 1, true)).never.toBe(nil)
 	end)
 
+	it("spares a body behind a wall beside the line its box is swept along", function()
+		-- Only the centre line is stopped by a wall, and only by one it crosses: the Swash's box is 12 wide and the
+		-- Rubric's 8, and a box query sees through walls. Behind a cover wall parallel to the line, or on the near
+		-- side of a Margin at 45 degrees (the box ran up to six studs past it), a body was cut or pierced.
+		local open = functionIn(EFFECTS, "local function inOpenFrom(")
+		expect(
+			open:find(
+				"local along = math.clamp((model:GetPivot().Position - start):Dot(direction), 0, span) return inSight(start + direction * along, model, character)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			functionIn(EFFECTS, "local function damageBox("):find(
+				"if (keep == nil or keep(model)) and damageModel(ctx, tracker, model) then",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local swash = functionIn(EFFECTS, "function GlyphEffects.Swash(")
+		expect(
+			swash:find(
+				"local function open(model: Model): boolean return inOpenFrom(start, direction, span, model, character) end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(swash:find("damageBox(ctx, tracker, box, size, open)", 1, true)).never.toBe(nil)
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		expect(
+			rubric:find(
+				"if inOpenFrom(start, direction, length, model, character) and damageModel(ctx, tracker, model) then",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(rubric:find("local length = (stop - start).Magnitude", 1, true)).never.toBe(nil)
+	end)
+
 	it("catches in flight only a body no wall hides from it", function()
 		-- The last clear step lies within one step of a wall's face, and a body hugging the far side of a cover
 		-- wall (2 thick) or a Margin (2.5) was inside the Stitch's HitRadius of it: caught, dragged into the wall

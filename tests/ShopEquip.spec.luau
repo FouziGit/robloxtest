@@ -214,4 +214,57 @@ describe("today's cards on a phone, run", function()
 	end
 end)
 
+-- The Shop built with `on` for a RemoteClient's listening, a Localize that keeps what each key was given.
+local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (any, { [string]: any })
+	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	local Screen = world.require("src/ui/screens/ShopScreen")
+	local given: { [string]: any } = {}
+	local data = {
+		Currency = { Folios = 0 },
+		Cosmetics = { Owned = {}, Equipped = {} },
+		Passes = {},
+		Battlepass = {},
+	}
+	local screen = Screen.new({
+		Localize = {
+			t = function(key: string, params: any?): string
+				given[key] = params
+				return key
+			end,
+		},
+		ClientData = {
+			get = function(): any
+				return data
+			end,
+			Changed = Engine.signal(),
+		},
+		RemoteClient = { fire = function() end, on = on },
+		InputController = { captureNext = function() end },
+		SoundController = { play = function() end },
+		HudController = { Notified = Engine.signal(), showLocalToast = function() end },
+		OnClose = function() end,
+		OnNavigate = function() end,
+		OnBack = function() end,
+		CanGoBack = function(): boolean
+			return false
+		end,
+	})
+	return screen, given
+end
+
+describe("the Shop's pushes, run", function()
+	it("is built when a rotation the server pushed before it reaches it as it listens", function()
+		local ShopRotation = require("../src/shared/Pure/ShopRotation")
+		-- The engine hands a remote's queued events to its first listener: the screen was still being built,
+		-- and its refresh read a screen it did not have yet (seen in Studio's output).
+		local screen = builtWith(function(name: string, handler: (...any) -> ()): any
+			if name == "ShopChanged" then
+				handler({ DayKey = ShopRotation.dayKey(os.time()), Entries = { { CosmeticId = ITEM } } })
+			end
+			return Engine.signal():Connect(handler)
+		end)
+		expect(screen.Instance:FindFirstChild(ITEM, true)).never.toBeNil()
+	end)
+end)
+
 return nil

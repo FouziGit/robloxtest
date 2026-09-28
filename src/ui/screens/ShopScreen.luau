@@ -607,7 +607,9 @@ function ShopScreen.new(deps: Deps): Screen
 	local function refresh()
 		local data = deps.ClientData.get()
 		if data ~= nil then
-			pill:Set(data.Currency.Folios, screen.Visible)
+			-- A rotation the server pushed before this screen was built reaches its first listener while the
+			-- screen is still being built, with no screen yet: then the pill is simply set, not counted up.
+			pill:Set(data.Currency.Folios, screen ~= nil and screen.Visible)
 		end
 		purchases:Refresh()
 		local current = shelf

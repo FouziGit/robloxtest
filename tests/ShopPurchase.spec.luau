@@ -7,6 +7,7 @@
 -- on screen to say so.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -106,34 +107,81 @@ local function sheetOpen(fixture: Fixture): boolean
 	return fixture.card:FindFirstChild("ConfirmSheet") ~= nil
 end
 
+-- A bare sheet over a card that holds two selectable buttons, the first of them focused, as a pad leaves it.
+local function sheetOnCard(gamepad: boolean): (any, any, any, { string }, { any })
+	local world = Engine.world({
+		Stubs = Engine.interfaceStubs(),
+		Services = {
+			ContextActionService = {
+				BindActionAtPriority = function() end,
+				UnbindAction = function() end,
+			},
+		},
+	})
+	world.userInput.GamepadEnabled = gamepad
+	local ConfirmSheet = world.require("src/ui/components/ConfirmSheet")
+	local card = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+	local buttons = {}
+	for index = 1, 2 do
+		local button = Engine.instance("TextButton", card)
+		button.Name = "CardButton" .. index
+		button.Selectable = true
+		table.insert(buttons, button)
+	end
+	world.guiService.SelectedObject = buttons[2]
+	local answers: { string } = {}
+	local sheet = ConfirmSheet.new({
+		Title = "",
+		Body = "",
+		Confirm = { Text = "yes" },
+		Cancel = { Text = "no" },
+		OnConfirm = function()
+			table.insert(answers, "yes")
+		end,
+		OnCancel = function()
+			table.insert(answers, "no")
+		end,
+		Parent = card,
+	})
+	world:advance(0.5)
+	return world, sheet, card, answers, buttons
+end
+
+describe("a confirm sheet on a gamepad, run", function()
+	it("keeps the D-pad on the sheet while it is open", function()
+		local world, sheet = sheetOnCard(true)
+		expect(world.guiService.SelectedObject).toBe(sheet.CancelButton.Instance)
+		local root = sheet.Instance:FindFirstChild("Sheet")
+		expect(root.SelectionGroup).toBe(true)
+		for _, side in ipairs({ "Up", "Down", "Left", "Right" }) do
+			expect(root["SelectionBehavior" .. side]).toBe(roblox.Enum.SelectionBehavior.Stop)
+		end
+	end)
+
+	it("gives the focus back where it was when it goes", function()
+		local world, sheet, _card, _answers, buttons = sheetOnCard(true)
+		sheet:Close()
+		expect(world.guiService.SelectedObject).toBe(buttons[2])
+	end)
+
+	it("gives it to the card when what had it went meanwhile", function()
+		local world, sheet, _card, _answers, buttons = sheetOnCard(true)
+		buttons[2]:Destroy()
+		sheet:Close()
+		expect(world.guiService.SelectedObject).toBe(buttons[1])
+	end)
+
+	it("leaves a pointer's selection empty", function()
+		local world, sheet = sheetOnCard(false)
+		world.guiService.SelectedObject = sheet.CancelButton.Instance
+		sheet:Close()
+		expect(world.guiService.SelectedObject).toBeNil()
+	end)
+end)
+
 describe("a confirm sheet closing, run", function()
 	it("takes no answer while it slides away", function()
-		local world = Engine.world({
-			Stubs = Engine.interfaceStubs(),
-			Services = {
-				ContextActionService = {
-					BindActionAtPriority = function() end,
-					UnbindAction = function() end,
-				},
-			},
-		})
-		local ConfirmSheet = world.require("src/ui/components/ConfirmSheet")
-		local card = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
-		local answers = {}
-		local sheet = ConfirmSheet.new({
-			Title = "",
-			Body = "",
-			Confirm = { Text = "yes" },
-			Cancel = { Text = "no" },
-			OnConfirm = function()
-				table.insert(answers, "yes")
-			end,
-			OnCancel = function()
-				table.insert(answers, "no")
-			end,
-			Parent = card,
-		})
-		world:advance(0.5)
+		local world, sheet, _card, answers = sheetOnCard(false)
 		sheet:Close()
 		world:advance(0.1)
 		sheet.ConfirmButton.Instance.Activated:Fire()

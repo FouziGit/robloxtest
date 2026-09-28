@@ -598,6 +598,7 @@ export type World = {
 	player: any,
 	playerGui: any,
 	guiService: any,
+	userInput: any,
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -653,6 +654,7 @@ function Engine.world(options: Options?): World
 		return roblox.Vector2.zero, roblox.Vector2.zero
 	end
 	world.guiService = guiService
+	world.userInput = userInput
 
 	local services: { [string]: any } = {
 		Players = players,

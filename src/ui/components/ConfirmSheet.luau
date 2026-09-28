@@ -4,8 +4,9 @@
 -- preview, and two buttons, the confirmation on the right. Nothing is bought on one tap anywhere else.
 --
 -- The safe answer is the default: the gamepad's focus lands on Cancel, and B cancels (bound above the
--- game's own actions and sunk, so it never also closes the screen behind). The sheet does not close
--- itself on an answer: the caller decides, because a purchase waits for the server before it goes.
+-- game's own actions and sunk, so it never also closes the screen behind). While the sheet is open the D-pad
+-- stays in it, and when it goes the focus goes back where it was. The sheet does not close itself on an
+-- answer: the caller decides, because a purchase waits for the server before it goes.
 
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
@@ -57,10 +58,29 @@ local CANCEL_PRIORITY = Enum.ContextActionPriority.High.Value + 1
 
 local opened = 0
 
+-- Whether the player can see `object` and select it: in the DataModel, selectable, and shown all the way up.
+local function selectable(object: GuiObject): boolean
+	if not object:IsDescendantOf(game) or not object.Selectable then
+		return false
+	end
+	local current: Instance? = object
+	while current ~= nil do
+		if current:IsA("GuiObject") and not (current :: GuiObject).Visible then
+			return false
+		elseif current:IsA("LayerCollector") then
+			return (current :: LayerCollector).Enabled
+		end
+		current = current.Parent
+	end
+	return false
+end
+
 function ConfirmSheet.new(props: Props): ConfirmSheet
 	local trove = Trove.new()
 	opened += 1
 	local cancelAction = "ConfirmSheetCancel" .. opened
+	-- Where the gamepad's focus was when the sheet opened: a card's price, Settings' Reset.
+	local returnFocus: GuiObject? = GuiService.SelectedObject
 
 	local scrim = Instance.new("Frame")
 	scrim.Name = "ConfirmSheet"
@@ -90,6 +110,13 @@ function ConfirmSheet.new(props: Props): ConfirmSheet
 	end)
 	local root = sheet.Instance
 	root.ZIndex = LAYER + 1
+	-- The D-pad stays on the sheet: the scrim only stops a pointer, and the buttons of the card behind it
+	-- (another card's Robux price) are still selectable.
+	root.SelectionGroup = true
+	root.SelectionBehaviorUp = Enum.SelectionBehavior.Stop
+	root.SelectionBehaviorDown = Enum.SelectionBehavior.Stop
+	root.SelectionBehaviorLeft = Enum.SelectionBehavior.Stop
+	root.SelectionBehaviorRight = Enum.SelectionBehavior.Stop
 	root.AutomaticSize = Enum.AutomaticSize.Y
 	local widest = Instance.new("UISizeConstraint")
 	widest.MaxSize = Vector2.new(WIDTH, math.huge)
@@ -211,8 +238,30 @@ function ConfirmSheet.new(props: Props): ConfirmSheet
 			end
 		end
 		ContextActionService:UnbindAction(cancelAction)
-		if GuiService.SelectedObject ~= nil and GuiService.SelectedObject:IsDescendantOf(scrim) then
-			GuiService.SelectedObject = nil
+		-- The focus goes back where it was, or, if that went meanwhile (a card rebuilt by the purchase), to
+		-- the first thing on the card: a pad left with no selection is dead until the player presses the
+		-- navigation button again (Panel).
+		local selected = GuiService.SelectedObject
+		if selected == nil or selected:IsDescendantOf(scrim) then
+			local target: GuiObject? = nil
+			if UserInputService.GamepadEnabled then
+				local previous = returnFocus
+				if previous ~= nil and not previous:IsDescendantOf(scrim) and selectable(previous) then
+					target = previous
+				else
+					for _, descendant in ipairs(props.Parent:GetDescendants()) do
+						if
+							descendant:IsA("GuiObject")
+							and not descendant:IsDescendantOf(scrim)
+							and selectable(descendant :: GuiObject)
+						then
+							target = descendant :: GuiObject
+							break
+						end
+					end
+				end
+			end
+			GuiService.SelectedObject = target
 		end
 		Motion.to(scrim, { BackgroundTransparency = 1 }, "Ui")
 		Motion.to(root, { Position = UDim2.new(0.5, 0, 1, SLIDE) }, "UiExit", function()

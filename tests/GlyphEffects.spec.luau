@@ -395,6 +395,23 @@ describe("the Dagger", function()
 		).never.toBe(nil)
 		expect(dagger:find("excludeParams(character, model)", 1, true)).never.toBe(nil)
 	end)
+
+	it("draws its flight where it flew, climb included", function()
+		-- The landing snaps to the ground behind the body, up to GroundSnapStuds below it: to a ledge eight studs
+		-- up and twelve across, the packet said a flat aim and the 3D length, and the strike was drawn 2.4 studs
+		-- past the landing and eight below it. The renderer lays every layer along the packet's Direction for
+		-- Range (VfxLibrary.Dagger, directionOf, never flattened).
+		local dagger = functionIn(EFFECTS, "function GlyphEffects.Dagger(")
+		expect(dagger:find("local flight = landing - start", 1, true)).never.toBe(nil)
+		expect(dagger:find("Direction = if flight.Magnitude > EPSILON then flight.Unit else aim,", 1, true)).never.toBe(
+			nil
+		)
+		expect(dagger:find("Range = flight.Magnitude,", 1, true)).never.toBe(nil)
+		expect(dagger:find("horizontal(flight)", 1, true)).toBe(nil)
+		local renderer = functionIn("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Dagger = function(")
+		expect(renderer:find("Direction = directionOf(packet),", 1, true)).never.toBe(nil)
+		expect(renderer:find("flatDirectionOf", 1, true)).toBe(nil)
+	end)
 end)
 
 describe("the second roster's hits", function()

@@ -899,7 +899,7 @@ VfxLibrary.Emboss = function(packet: Packet, _trove: TroveType, api: Api)
 end
 
 -- The Caret's step (D-126): Range is the distance from where the caster stood to where the server put him,
--- behind the body he strikes.
+-- behind the body he strikes, and Direction the flight's own, climbing to a ledge or down to a floor.
 VfxLibrary.Dagger = function(packet: Packet, _trove: TroveType, api: Api)
 	local def = GlyphConfig.ById.Dagger
 	api.Timeline.play("Dagger", {

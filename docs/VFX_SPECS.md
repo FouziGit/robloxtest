@@ -759,9 +759,12 @@ plan monté.
 **Comment il est construit.** Les deux bouts sont des gestes opposés, comme ceux de l'Insertion, dans
 l'autre école : au départ un trait de charbon dressé sur la place et des étincelles rejetées en arrière (le
 serveur a déjà déplacé le corps : l'anticipation est le trou qu'il laisse, deux images) ; entre les deux,
-une seule traînée verte, **à plat** et en quatre centièmes — sans arc, pour ne jamais passer pour le caret
+une seule traînée verte, **droite** et en quatre centièmes — sans arc, pour ne jamais passer pour le caret
 de l'Insertion — ; à l'arrivée, un coup de pinceau en travers du corps, des étincelles jetées dans son dos et
-un point chaud. Il va exactement où le serveur a posé le corps (`Reach = Range`). Ses cœurs restent sous le
+un point chaud. Il va exactement où le serveur a posé le corps (`Reach = Range`), le long du vol lui-même,
+montée comprise (`Direction`) : l'arrivée est posée au sol derrière le corps, sur un rebord au-dessus ou un
+sol en dessous, et une traînée tracée à plat dans l'axe pour la longueur du vol frappait l'air au-delà et
+en dessous de l'endroit où le lanceur réapparaît. Ses cœurs restent sous le
 seuil du halo : le Vert-de-gris chauffé vire au cyan, la couleur d'un allié.
 
 ## `Cartouche` — la Cartouche (Indigo, ultime)

@@ -8225,11 +8225,12 @@ local SWASH: Timeline = {
 -- emits, so, like the Caret's, its Anticipation is not a wind-up but the hole he left, two frames long.
 --
 -- Its two ends are opposite gestures, as the Caret's are, in the other school: a stroke of charcoal stood
--- on end through the departure and sparks thrown back off it; a single green streak between, flat and in
+-- on end through the departure and sparks thrown back off it; a single green streak between, straight and in
 -- four hundredths -- no Arc, so it is never mistaken for the Caret's rise and fall --; and at the arrival a
 -- brush stroke slashed across the body, sparks thrown back into its back and a hot point. It reaches
--- exactly where the server put the body (Reach = Params.Range, TravelFrom, D-126). Its cores stay under the
--- bloom (heated Verdigris turns cyan, an ally's colour, rule 7).
+-- exactly where the server put the body (Reach = Params.Range, TravelFrom, D-126), along the flight itself
+-- (the packet's Direction, climb included: the landing snaps to a ledge above or a floor below). Its cores
+-- stay under the bloom (heated Verdigris turns cyan, an ally's colour, rule 7).
 local DAGGER: Timeline = {
 	Intent = "Struck out where he stood, one green streak, written in again behind the body mid-cut",
 	Phases = {

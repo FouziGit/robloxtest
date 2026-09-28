@@ -1671,11 +1671,14 @@ function GlyphEffects.Dagger(ctx: Context): number
 				landingPosition(position + toward * reach, params.ClearanceRadius, params.GroundSnapStuds, character)
 			if landing ~= nil then
 				ctx.Combat.grantIFrames(ctx.Caster, params.IFrameSeconds)
+				-- The flight as it is, climb included: the landing snaps to the ground behind the body, a ledge
+				-- above or a floor below, and a streak drawn flat along the aim for its length struck the air
+				-- past and under where the caster reappears.
 				local flight = landing - start
 				ctx.Vfx.emit({
 					Id = ctx.Def.VfxId,
 					Origin = start,
-					Direction = horizontal(flight),
+					Direction = if flight.Magnitude > EPSILON then flight.Unit else aim,
 					Caster = ctx.Caster.UserId,
 					Targets = { landing, position },
 					Params = {

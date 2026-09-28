@@ -903,6 +903,42 @@ local function applyGuard(
 	return damage * (1 - CombatConfig.Block.DamageReduction), true
 end
 
+-- Everything a hit is turned away for before it is scaled, in one place: what ApplyDamage refuses and what
+-- canDamage answers (a glyph that commits to a body before it strikes it, D-135). Read-only: the per-source
+-- hit memory stays in ApplyDamage, because only a hit that is going to land may write it.
+local function refuses(source: Player?, targetModel: Model, now: number): boolean
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil or humanoid.Health <= 0 then
+		return true
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
+	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+		return true
+	end
+	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+	local targetState = stateOf(targetPlayer)
+	if isSpawnProtected(stateOf(source), sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
+		return true
+	end
+	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
+	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
+	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
+	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
+		return true
+	end
+	if targetState ~= nil and now < targetState.IFramesUntil then
+		return true
+	end
+	return not policy(source, targetModel)
+end
+
+-- Whether a hit from `source` on `targetModel` would be let through right now: the safe zone, a match's PvP
+-- rule, spawn protection, i-frames and a body on the ground, exactly as ApplyDamage judges them. For an effect
+-- that has to choose its body before it strikes (the Dagger moves its caster first).
+function CombatService.canDamage(source: Player, targetModel: Model): boolean
+	return not refuses(source, targetModel, os.clock())
+end
+
 -- `pigment` (glyph pigment, nil for melee / environment) colours the Hit packet clients render and
 -- drives the pigment interactions: it writes the mark of its own pigment on the target and reads
 -- the mark that amplifies it (docs/GAME_DESIGN.md §6).
@@ -919,28 +955,18 @@ function CombatService.ApplyDamage(
 		log.warn("ApplyDamage rejected (%s): invalid amount %s", kind, tostring(amount))
 		return result
 	end
-	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
-	if humanoid == nil or humanoid.Health <= 0 then
-		return result
-	end
 	local now = os.clock()
-	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
-	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+	if refuses(source, targetModel, now) then
 		return result
 	end
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil then
+		return result
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
 	local sourceState = stateOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
-
-	if isSpawnProtected(sourceState, sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
-		return result
-	end
-	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
-	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
-	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
-	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
-		return result
-	end
 
 	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
@@ -956,12 +982,6 @@ function CombatService.ApplyDamage(
 			return result
 		end
 		memory = existing
-	end
-	if targetState ~= nil and now < targetState.IFramesUntil then
-		return result
-	end
-	if not policy(source, targetModel) then
-		return result
 	end
 
 	local origin = positionOf(targetModel)

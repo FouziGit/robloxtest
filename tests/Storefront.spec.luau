@@ -5,6 +5,7 @@
 -- on one tap, a burst of claims the server would refuse, a red button where nothing is dangerous.
 local Harness = require("./harness")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local TokenBucket = require("../src/shared/Util/TokenBucket")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -14,8 +15,14 @@ local PLAY = "src/ui/screens/PlayScreen.luau"
 local SHOP = "src/ui/screens/ShopScreen.luau"
 local PURCHASE = "src/ui/screens/shop/Purchase.luau"
 local SHELVES = "src/ui/screens/shop/Shelves.luau"
+local PASS = "src/ui/screens/BattlepassScreen.luau"
+local PASS_CELL = "src/ui/screens/pass/Cell.luau"
+local PASS_TRACK = "src/ui/screens/pass/Track.luau"
+local REMOTES = "src/shared/Remotes.luau"
 -- The screens of this slice and their parts, for the rules every one of them keeps.
-local SCREENS = { MENU, PLAY, SHOP, PURCHASE, SHELVES }
+local SCREENS = { MENU, PLAY, SHOP, PURCHASE, SHELVES, PASS, PASS_CELL, PASS_TRACK }
+-- How much sooner than it was sent a claim may reach the server, one after another, over a real network.
+local NETWORK_JITTER = 0.05
 local SERVER = "src/server"
 
 local function stripComments(source: string): string
@@ -198,6 +205,14 @@ describe("the shop", function()
 		expect(string.find(shelves, "return pass ~= nil and pass.Id ~= 0", 1, true)).never.toBeNil()
 		expect(string.find(shelves, "return context.RobuxOffered(offer.Key)", 1, true)).never.toBeNil()
 		expect(string.find(shelves, "offer.Button:SetDisabled(not offerOpen(context, data, offer))", 1, true)).never.toBeNil()
+		-- The pass's own buttons: the premium track and the tier skip.
+		local pass = folded(PASS)
+		local offered = string.match(pass, "local function productOffered%(productKey: string%): boolean (.-) end")
+		expect(offered).toBe(
+			"local product = MonetizationConfig.Products[productKey] return product ~= nil and product.Id ~= 0"
+		)
+		expect(string.find(pass, 'premiumButton:SetDisabled(not productOffered("PremiumPass"))', 1, true)).never.toBeNil()
+		expect(string.find(pass, 'skipButton:SetDisabled(not productOffered("TierSkip5"))', 1, true)).never.toBeNil()
 	end)
 
 	it("opens on the tab it is asked for, and on no tab it does not have", function()
@@ -223,5 +238,62 @@ describe("the shop", function()
 		end
 		expect(asked >= 2).toBe(true)
 		expect(string.find(code(SHOP), "TAB_KEYS[args.Tab] ~= nil", 1, true)).never.toBeNil()
+	end)
+end)
+
+describe("the battle pass", function()
+	it("claims through a mirror of the remote's own bucket, and nowhere else", function()
+		local pass = folded(PASS)
+		local remote = string.match(pass, 'local CLAIM_REMOTE = "(%w+)"')
+		assert(remote ~= nil, "the pass names no CLAIM_REMOTE: this gate would check nothing")
+		expect(string.find(pass, "local CLAIM_RATE = Remotes.Definitions[CLAIM_REMOTE].Rate", 1, true)).never.toBeNil()
+		expect(string.find(pass, "TokenBucket.new(CLAIM_RATE.Capacity, CLAIM_RATE.Refill, os.clock())", 1, true)).never.toBeNil()
+		-- One send, and only once the mirror has given its token.
+		expect(count(pass, "fire(CLAIM_REMOTE")).toBe(1)
+		expect(
+			string.find(
+				pass,
+				"if TokenBucket.tryTake(bucket, now) then lastSent = now deps.RemoteClient.fire(CLAIM_REMOTE,",
+				1,
+				true
+			)
+		).never.toBeNil()
+		for _, path in ipairs(SCREENS) do
+			if path ~= PASS and string.find(code(path), remote :: string, 1, true) ~= nil then
+				error(("%s sends %s past the pass's pacing"):format(path, remote :: string))
+			end
+		end
+	end)
+
+	it("never sends a claim the server's bucket would refuse, even when the network bunches them", function()
+		local pass = code(PASS)
+		local spacing = tonumber(string.match(pass, "local CLAIM_SPACING = ([%d%.]+)"))
+		local margin = tonumber(string.match(pass, "local CLAIM_MARGIN = ([%d%.]+)"))
+		assert(spacing ~= nil and margin ~= nil, "the pass names no CLAIM_SPACING or CLAIM_MARGIN")
+		local rate = string.match(code(REMOTES), "ClaimBattlepassReward = %b{}")
+		assert(rate ~= nil, "Remotes has no ClaimBattlepassReward")
+		local capacity = tonumber(string.match(rate :: string, "Capacity = (%d+)"))
+		local refill = tonumber(string.match(rate :: string, "Refill = ([%d%.]+)"))
+		assert(capacity ~= nil and refill ~= nil, "ClaimBattlepassReward has no rate")
+		-- The screen's schedule for fifty claims at once (its pump), and the server's bucket receiving each
+		-- one NETWORK_JITTER early every other time.
+		local mirror = TokenBucket.new(capacity :: number, refill :: number, 0)
+		local server = TokenBucket.new(capacity :: number, refill :: number, 0)
+		local now, last = 0, -math.huge
+		for index = 1, 50 do
+			-- The pump: a spacing after the last send, and no sooner than the mirror holds a token and its margin.
+			local wait = math.max(0, (spacing :: number) - (now - last))
+			local shortfall = 1 + (margin :: number) - TokenBucket.available(mirror, now)
+			if shortfall > 0 then
+				wait = math.max(wait, shortfall / (refill :: number))
+			end
+			now += wait
+			assert(TokenBucket.tryTake(mirror, now), "the mirror refused its own schedule")
+			last = now
+			local arrival = if index % 2 == 0 then now - NETWORK_JITTER else now
+			if not TokenBucket.tryTake(server, arrival) then
+				error(("claim %d, sent at %.2fs, would be refused as abuse"):format(index, now))
+			end
+		end
 	end)
 end)

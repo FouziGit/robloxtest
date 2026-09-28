@@ -123,14 +123,11 @@ Strings.Table = {
 	["battlepass.tier"] = { en = "Tier {tier} / {max}", fr = "Palier {tier} / {max}" },
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
-	["battlepass.free"] = { en = "Free", fr = "Gratuit" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
 	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
-	["battlepass.claimed"] = { en = "Claimed", fr = "Récupéré" },
 	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
-	["battlepass.reward.none"] = { en = "No reward", fr = "Aucune récompense" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
 	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
@@ -739,6 +736,14 @@ Strings.Table = {
 	["cosmetics.slot.KillEffect"] = { en = "Takedown effects", fr = "Effets d'élimination" },
 	["cosmetics.slot.Title"] = { en = "Titles", fr = "Titres" },
 	["cosmetics.slot.Skin"] = { en = "Glyph skins", fr = "Apparences de glyphe" },
+	-- The battle pass (BattlepassScreen): its header's buttons, the showcase of the next reward, and a cell's
+	-- amounts. A cell is too narrow for "XP boost (30 min)": it shows the clock and the minutes.
+	["battlepass.getPremium"] = { en = "Get Premium", fr = "Obtenir le Premium" },
+	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout récupérer ({count})" },
+	["battlepass.nextReward"] = { en = "Next reward", fr = "Prochaine récompense" },
+	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
+	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
+	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

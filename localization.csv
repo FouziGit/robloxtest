@@ -16,17 +16,19 @@ battleground.full,The battleground is full. Try again in a moment.,Vellum,,The b
 battleground.status,{standing} Forgers standing · {defeated} defeated,Vellum,,{standing} Forgers standing · {defeated} defeated,{standing} Faussaires debout · {defeated} vaincus
 battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà récupéré.
 battlepass.claim,Claim,Vellum,,Claim,Récupérer
-battlepass.claimed,Claimed,Vellum,,Claimed,Récupéré
+battlepass.claimAll,Claim all ({count}),Vellum,,Claim all ({count}),Tout récupérer ({count})
 battlepass.completed,Completed!,Vellum,,Completed!,Terminé !
-battlepass.free,Free,Vellum,,Free,Gratuit
+battlepass.getPremium,Get Premium,Vellum,,Get Premium,Obtenir le Premium
+battlepass.nextReward,Next reward,Vellum,,Next reward,Prochaine récompense
 battlepass.notReached,Tier {tier} not reached yet.,Vellum,,Tier {tier} not reached yet.,Palier {tier} pas encore atteint.
 battlepass.premium,Premium,Vellum,,Premium,Premium
 battlepass.premiumRequired,Premium pass required.,Vellum,,Premium pass required.,Pass premium requis.
 battlepass.reward.cosmetic,Cosmetic: {name},Vellum,,Cosmetic: {name},Cosmétique : {name}
 battlepass.reward.folio,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
-battlepass.reward.none,No reward,Vellum,,No reward,Aucune récompense
+battlepass.reward.minutes,{minutes} min,Vellum,,{minutes} min,{minutes} min
 battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
+battlepass.tierShort,Tier {tier},Vellum,,Tier {tier},Palier {tier}
 battlepass.title,Battle Pass — Volume {season},Vellum,,Battle Pass — Volume {season},Battle Pass — Volume {season}
 battlepass.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 boss.announced,The Erasure comes for the page in {seconds}s!,Vellum,,The Erasure comes for the page in {seconds}s!,L'Effacement vient pour la page dans {seconds}s !
@@ -379,6 +381,7 @@ rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
 rank.script,Script,Vellum,,Script,Écriture
 rank.sketch,Sketch,Vellum,,Sketch,Esquisse
+reward.folios,+{amount},Vellum,,+{amount},+{amount}
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs

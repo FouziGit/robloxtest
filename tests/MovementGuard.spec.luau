@@ -386,6 +386,20 @@ describe("MovementGuard: server teleports", function()
 		expect(x).toBe(0)
 	end)
 
+	it("excuses a return near where a server teleport took the body from, never one a correction armed", function()
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 100, STAND, 0, at(1), 0, STAND, 0, STAND, CONFIG)
+		expect(track.LeftX).toBe(0)
+		expect(track.LeftAt).toBe(at(1))
+		-- Pulled back from 60, where the client had put the body: the stale samples from there are still known
+		-- (From), but a return there is no packet from before a server teleport.
+		MovementGuard.corrected(track, 95, STAND, 0, at(40), 60, STAND, 0, STAND, CONFIG)
+		expect(track.FromX).toBe(60)
+		expect(track.Pending).toBe(true)
+		expect(track.LeftX).toBe(0)
+		expect(track.LeftAt).toBe(at(1))
+	end)
+
 	it("scans for a landing on the sample that shows a pending teleport arrived", function()
 		-- Its settle can last a second, in which the body landed on the pad and jumped again: without the scan,
 		-- a hop on arrival read as a hang.
@@ -534,7 +548,7 @@ describe("MovementGuard: corrections", function()
 		expect(v.Action).toBe("Correct")
 		expect(v.Strikeable).toBe(true)
 		local x, y, z = MovementGuard.heard(track)
-		MovementGuard.teleported(track, v.X, v.Y, v.Z, at(RATE + 2), x, y, z, v.Y, CONFIG)
+		MovementGuard.corrected(track, v.X, v.Y, v.Z, at(RATE + 2), x, y, z, v.Y, CONFIG)
 		local again = observe(track, at(RATE + 3), math.huge, STAND, 0)
 		expect(again.Action).toBe("Correct")
 		expect(again.Strikeable).toBe(true)

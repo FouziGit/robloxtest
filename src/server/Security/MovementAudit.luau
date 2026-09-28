@@ -539,7 +539,7 @@ local function correct(body: Body, stand: number, verdict: MovementGuard.Verdict
 	deps.Reanchor(record.Player, target)
 	-- A point the body was believed at: ground under it only as the support probe finds it, never from deeper.
 	local groundY = if supportedAt(record, target, stand) then target.Y else nil
-	MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config)
+	MovementGuard.corrected(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config)
 	countCorrection(record, now)
 	report(record, verdict, now, "corrected", back, strike(record, verdict, now), false)
 end

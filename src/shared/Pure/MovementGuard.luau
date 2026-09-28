@@ -250,6 +250,13 @@ export type Track = {
 	Refusals: number,
 	RefusedAt: number,
 	ReturnUntil: number,
+	-- Where the last teleport the SERVER chose took the body from, and when. A correction never moves them: a
+	-- Teleport flag back near there soon after is a packet from before that teleport, not one a client earned by
+	-- bouncing back after every correction.
+	LeftX: number,
+	LeftY: number,
+	LeftZ: number,
+	LeftAt: number,
 	-- An impossible crossing waiting for its confirmation: the plane the body went through.
 	Beyond: boolean,
 	PlaneX: number,
@@ -403,6 +410,10 @@ function MovementGuard.newTrack(config: Config): Track
 		Refusals = 0,
 		RefusedAt = -math.huge,
 		ReturnUntil = -math.huge,
+		LeftX = 0,
+		LeftY = 0,
+		LeftZ = 0,
+		LeftAt = -math.huge,
 		Beyond = false,
 		PlaneX = 0,
 		PlaneY = 0,
@@ -551,12 +562,12 @@ function MovementGuard.spawned(track: Track, x: number, y: number, z: number, no
 	track.SpawnUntil = now + config.SpawnGraceSeconds
 end
 
--- The server moved the body: a server teleport or a correction. `from` is where the stream last put it, so
--- its stale samples are recognised by it. Grants survive: a client mover still running keeps carrying the
--- body from the new place. `groundY` is the standing root height of the ground under the destination, nil with
--- none: a pad drops a body a few studs above its floor, and the altitude rule must measure from that floor,
--- not from wherever the body stood before -- the hub, 900 studs under an arena.
-function MovementGuard.teleported(
+-- The server moved the body. `from` is where the stream last put it, so its stale samples are recognised by
+-- it. Grants survive: a client mover still running keeps carrying the body from the new place. `groundY` is the
+-- standing root height of the ground under the destination, nil with none: a pad drops a body a few studs above
+-- its floor, and the altitude rule must measure from that floor, not from wherever the body stood before -- the
+-- hub, 900 studs under an arena.
+local function pivot(
 	track: Track,
 	x: number,
 	y: number,
@@ -578,6 +589,42 @@ function MovementGuard.teleported(
 	track.ReturnUntil = -math.huge
 	track.TeleportAt = now
 	base(track, x, y, z, now, groundY)
+end
+
+-- A teleport the server chose (a pad, a portal, the hub, a Caret): a pivot, and a return near where it took the
+-- body from is excused for ReturnExemptSeconds (exempt).
+function MovementGuard.teleported(
+	track: Track,
+	x: number,
+	y: number,
+	z: number,
+	now: number,
+	fromX: number,
+	fromY: number,
+	fromZ: number,
+	groundY: number?,
+	config: Config
+)
+	pivot(track, x, y, z, now, fromX, fromY, fromZ, groundY, config)
+	track.LeftX, track.LeftY, track.LeftZ, track.LeftAt = fromX, fromY, fromZ, now
+end
+
+-- MovementAudit pulled the body back to a point it was believed at: a pivot, and nothing more. Taken for a
+-- teleport, it re-armed the return excuse on the very spot it pulled the body from, so a client that went back
+-- there after each correction was corrected forever and never struck.
+function MovementGuard.corrected(
+	track: Track,
+	x: number,
+	y: number,
+	z: number,
+	now: number,
+	fromX: number,
+	fromY: number,
+	fromZ: number,
+	groundY: number?,
+	config: Config
+)
+	pivot(track, x, y, z, now, fromX, fromY, fromZ, groundY, config)
 end
 
 -- The server granted a burst of `flat` horizontal and `lift` vertical studs over `seconds`. The client plays
@@ -1236,10 +1283,10 @@ local function exempt(track: Track, s: Sample, kind: Kind, live: boolean, config
 	if kind == "Invalid" then
 		return false
 	end
-	-- Sent back to where it came from by a stream still delivering the old place.
+	-- Sent back to where a server teleport took it from by a stream still delivering the old place.
 	local returning = kind == "Teleport"
-		and now - track.TeleportAt < config.ReturnExemptSeconds
-		and dist3(s.X, s.Y, s.Z, track.FromX, track.FromY, track.FromZ) <= config.ArrivalRadiusStuds
+		and now - track.LeftAt < config.ReturnExemptSeconds
+		and dist3(s.X, s.Y, s.Z, track.LeftX, track.LeftY, track.LeftZ) <= config.ArrivalRadiusStuds
 	return live
 		or now < track.ContactUntil
 		or now < track.ExemptUntil

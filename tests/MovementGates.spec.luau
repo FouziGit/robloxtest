@@ -530,7 +530,13 @@ describe("the movement audit", function()
 		local correct = audit("local function correct(")
 		expect(correct).toContain("local target = clearTarget(record, verdict, stand)")
 		expect(correct).toContain(
-			"local fromX, fromY, fromZ = MovementGuard.heard(track) body.Character:PivotTo(CFrame.new(target) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, target) local groundY = if supportedAt(record, target, stand) then target.Y else nil MovementGuard.teleported(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config) countCorrection(record, now)"
+			"local fromX, fromY, fromZ = MovementGuard.heard(track) body.Character:PivotTo(CFrame.new(target) * root.CFrame.Rotation) root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero deps.Reanchor(record.Player, target) local groundY = if supportedAt(record, target, stand) then target.Y else nil MovementGuard.corrected(track, target.X, target.Y, target.Z, now, fromX, fromY, fromZ, groundY, config) countCorrection(record, now)"
+		)
+		-- A correction is no server teleport: taken for one, it excused a body bouncing back to where it was pulled
+		-- from after every correction. Only MovementAudit.teleported, told by resyncPosition, arms that excuse.
+		expect(count(strip(fs.readFile(AUDIT_MODULE)), "MovementGuard.teleported(")).toBe(1)
+		expect(audit("function MovementAudit.teleported(")).toContain(
+			"MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, groundY, config)"
 		)
 		local clear = audit("local function clearTarget(")
 		expect(clear).toContain('MovementGuard.safePoint(record.Track, n, verdict.Kind == "Flight")')

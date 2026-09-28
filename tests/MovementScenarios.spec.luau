@@ -1273,3 +1273,39 @@ describe("MovementScenarios: honest, the adversarial review's cases", function()
 		end,
 	}, "clean")
 end)
+
+describe("MovementScenarios: cheats, the adversarial review's cases", function()
+	-- Shows the destination of every pivot for a moment, then puts the body back at `home`.
+	local function bounceTo(home: number): (t: number, x: number) -> (number?, number?)
+		local shownAt: number? = nil
+		return function(t: number, x: number): (number?, number?)
+			if math.abs(x - home) <= 1 then
+				shownAt = nil
+				return nil, nil
+			end
+			shownAt = shownAt or t
+			return if t > (shownAt :: number) + 0.35 then home else nil, nil
+		end
+	end
+	case({
+		Name = "back to the hub after a server teleport, and again after every correction",
+		Seconds = 40,
+		Latency = 0.05,
+		RemotesAlways = true,
+		Teleports = { { 2, 100, 3 } },
+		Cheat = bounceTo(0),
+	}, "strike")
+	local blinkBack = bounceTo(100)
+	case({
+		Name = "blink 100, then back to the blink spot after every correction",
+		Seconds = 40,
+		Latency = 0.05,
+		RemotesAlways = true,
+		Cheat = function(t: number, x: number): (number?, number?)
+			if t < 2 then
+				return nil, nil
+			end
+			return blinkBack(t, x)
+		end,
+	}, "strike")
+end)

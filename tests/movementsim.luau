@@ -538,7 +538,7 @@ local function run(sc: Scenario): Stats
 							local fromX, fromY, fromZ = MovementGuard.heard(track)
 							local ground = supportTop(floors, walls, v.X, v.Y, PROBE) ~= nil
 							local groundY = if ground then v.Y else nil
-							MovementGuard.teleported(track, v.X, v.Y, 0, now, fromX, fromY, fromZ, groundY, CONFIG)
+							MovementGuard.corrected(track, v.X, v.Y, 0, now, fromX, fromY, fromZ, groundY, CONFIG)
 						end
 						serverX, serverY = v.X, v.Y
 						table.insert(

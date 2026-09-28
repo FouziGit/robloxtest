@@ -500,12 +500,12 @@ end
 -- The caster's body is passed unconditionally. It costs one lookup, and only a layer that declared
 -- Follow ever uses it, so a timeline that does not need one is not paying for a decision the renderer
 -- would otherwise have to remember to make per glyph.
-local function playGlyph(id: string, packet: Packet, api: Api)
+local function playGlyph(id: string, packet: Packet, api: Api): number?
 	local def = GlyphConfig.ById[id]
 	local pigment = if def ~= nil then def.Pigment else stringParam(packet, "Pigment", "")
 	-- The radius the server struck with, when the packet carries one: what a zone's edge is drawn at.
 	local radius = numberParam(packet, "Radius", 0)
-	api.Timeline.play(id, {
+	local _, playId = api.Timeline.play(id, {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
 		Color = glyphColor(pigment, packet, api),
@@ -517,17 +517,18 @@ local function playGlyph(id: string, packet: Packet, api: Api)
 		-- A thrown glyph's name (the Blot's, D-123): its burst lands the drawn one where it burst.
 		Shot = shotKey(packet),
 	})
+	return playId
 end
 
 -- A charge held for exactly the time the server waits (GlyphEffects' charge, D-141): the Anticipation of `id`
 -- lasts the glyph's Params.Windup (tests/Flight.spec.luau), on the caster's body, which may walk while it
 -- winds. A lane it paints starts where the server's will: SpawnOffset ahead, Range long, both measured at
 -- the press, and Radius either side of it, the width the release strikes.
-local function playCharge(id: string, glyphId: string, packet: Packet, api: Api)
+local function playCharge(id: string, glyphId: string, packet: Packet, api: Api): number?
 	local def = GlyphConfig.ById[glyphId]
 	local direction = directionOf(packet)
 	local radius = numberParam(packet, "Radius", 0)
-	api.Timeline.play(id, {
+	local _, playId = api.Timeline.play(id, {
 		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
 		Direction = direction,
 		Color = glyphColor(def.Pigment, packet, api),
@@ -538,7 +539,50 @@ local function playCharge(id: string, glyphId: string, packet: Packet, api: Api)
 		Reach = math.max(numberParam(packet, "Range", 1), 1),
 		Radius = if radius > 0 then radius else nil,
 	})
+	return playId
 end
+
+-- The play each caster has running of an effect the server may still take back (GlyphEffects' retract, D-141):
+-- a charge broken before its release, a rush a dash ended, a frame its caster stopped. By caster, then by
+-- effect: a caster has one of each at a time. Forgotten with the player.
+local retractable: { [number]: { [string]: number? } } = {}
+
+-- Keeps `playId` as the play of `id` that `packet`'s caster may have taken back.
+local function remember(id: string, packet: Packet, playId: number?)
+	local caster = packet.Caster
+	if type(caster) ~= "number" then
+		return
+	end
+	local plays = retractable[caster]
+	if plays == nil then
+		plays = {}
+		retractable[caster] = plays
+	end
+	plays[id] = playId
+end
+
+-- Whether `packet` is the server taking back its caster's play of `id` (Params.Cancel): that play is cut on the
+-- spot -- nothing of it still to come is drawn, and what it has on screen goes -- and nothing else is played.
+local function retracted(id: string, packet: Packet, api: Api): boolean
+	local params = packet.Params
+	if params == nil or params.Cancel ~= true then
+		return false
+	end
+	local caster = packet.Caster
+	local plays = if type(caster) == "number" then retractable[caster] else nil
+	local playId = if plays ~= nil then plays[id] else nil
+	if plays ~= nil then
+		plays[id] = nil
+	end
+	if playId ~= nil then
+		api.Timeline.cancel(playId)
+	end
+	return true
+end
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	retractable[player.UserId] = nil
+end)
 
 VfxLibrary.Wash = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Wash", packet, api)
@@ -792,9 +836,12 @@ end
 -- Second roster (D-145), grouped by pigment
 ----------------------------------------------------------------
 
--- The coil wound in the hand for the Windup the server holds the caster through (D-141).
+-- The coil wound in the hand for the Windup the server holds the caster through (D-141), taken back when the
+-- charge breaks: no release will come.
 VfxLibrary.VoluteCharge = function(packet: Packet, _trove: TroveType, api: Api)
-	playCharge("VoluteCharge", "Volute", packet, api)
+	if not retracted("VoluteCharge", packet, api) then
+		remember("VoluteCharge", packet, playCharge("VoluteCharge", "Volute", packet, api))
+	end
 end
 
 -- Pressed into the nearest body, at the centre the server struck and by the radius it struck with.
@@ -802,13 +849,19 @@ VfxLibrary.Volute = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Volute", packet, api)
 end
 
+-- Taken back when its caster stops it before its last tick: the frame no longer hurts.
 VfxLibrary.Cartouche = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Cartouche", packet, api)
+	if not retracted("Cartouche", packet, api) then
+		remember("Cartouche", packet, playGlyph("Cartouche", packet, api))
+	end
 end
 
--- The drop swelling in the hands and the locked lane on the floor, measured at the press (D-141).
+-- The drop swelling in the hands and the locked lane on the floor, measured at the press (D-141), taken back
+-- when the charge breaks: a lane left painted would tell a player to leave a line that will not be ruled.
 VfxLibrary.RubricCharge = function(packet: Packet, _trove: TroveType, api: Api)
-	playCharge("RubricCharge", "Rubric", packet, api)
+	if not retracted("RubricCharge", packet, api) then
+		remember("RubricCharge", packet, playCharge("RubricCharge", "Rubric", packet, api))
+	end
 end
 
 -- The Strike's ruling (D-126), from the release packet: Origin is where the caster pressed, the lane the charge
@@ -829,8 +882,11 @@ VfxLibrary.Rubric = function(packet: Packet, _trove: TroveType, api: Api)
 	})
 end
 
+-- Taken back when a dash, a stun or a guard breaks the rush: its strokes still to come are never struck.
 VfxLibrary.Hatching = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Hatching", packet, api)
+	if not retracted("Hatching", packet, api) then
+		remember("Hatching", packet, playGlyph("Hatching", packet, api))
+	end
 end
 
 -- Named like the Brand (D-114): the Fizzle at its end lands the drawn flourish where the server's stopped.

@@ -577,6 +577,19 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 	return tracker.Count
 end
 
+-- Takes back, on every client, a play this cast began and will not finish (D-141): a charge broken before its
+-- release, a rush a dash ended, a frame whose caster stopped it. Left to play out, it draws a lane, strokes or a
+-- closing frame the server will never strike. Reliable, as the play is, so it never arrives first; from the
+-- cast's origin, as the play is, so it reaches whoever the play reached.
+local function retract(ctx: Context, vfxId: string)
+	ctx.Vfx.emit({
+		Id = vfxId,
+		Origin = ctx.Origin.Position,
+		Caster = ctx.Caster.UserId,
+		Params = { Cancel = true },
+	}, true)
+end
+
 -- A charged glyph's telegraph (D-141): one reliable `vfxId` packet, whose timeline's Anticipation lasts exactly
 -- `seconds` (tests hold it to Params.Windup), then a channel held for as long (D-142). Gives up on the frame the
 -- caster stops qualifying (stunned, guarding, dead, gone) or dashes out of it. Returns the frame to release
@@ -603,6 +616,7 @@ local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [st
 		elapsed += task.wait()
 		if not casterAlive(ctx) or not ctx.Combat.holdsChannel(ctx.Caster, token) then
 			ctx.Combat.endChannel(ctx.Caster, token)
+			retract(ctx, vfxId)
 			return nil
 		end
 	end
@@ -1518,6 +1532,7 @@ function GlyphEffects.Rubric(ctx: Context): number
 	-- ReleaseDriftStuds, the charge is lost; on it, the line leaves from the press, where the floor said.
 	local drift = frame.Position - origin
 	if Vector3.new(drift.X, 0, drift.Z).Magnitude > params.ReleaseDriftStuds then
+		retract(ctx, "RubricCharge")
 		return 0
 	end
 	local muzzle = origin
@@ -1705,12 +1720,18 @@ function GlyphEffects.Cartouche(ctx: Context): number
 	-- The first tick one interval after the seal: past CombatConfig.Hit.IFrameSeconds on the shared tag.
 	task.wait(params.TickInterval)
 	if not casterAlive(ctx) then
+		retract(ctx, ctx.Def.VfxId)
 		return seal.Count
 	end
 	local held = tickTracker(ctx.Def, params.TickDamage)
 	tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
 		slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
 	end, held)
+	-- The zone stops ticking on this alone, read on the frame it stopped: a frame stopped early is taken back,
+	-- with the presses it would still have drawn over players it no longer hurts.
+	if not casterAlive(ctx) then
+		retract(ctx, ctx.Def.VfxId)
+	end
 	local struck = seal.Count
 	for model in pairs(held.Hits) do
 		if seal.Hits[model] == nil then
@@ -1827,6 +1848,7 @@ function GlyphEffects.Hatching(ctx: Context): number
 	local size = Vector3.new(params.Width, params.Height, ctx.Def.Range)
 	local started = os.clock()
 	local lastStrokeAt = -math.huge
+	local landed = 0
 	for stroke = 1, params.Ticks do
 		if stroke > 1 then
 			-- On its beat, counted from the start: a late frame never pushes every later stroke back. Never inside
@@ -1860,6 +1882,11 @@ function GlyphEffects.Hatching(ctx: Context): number
 		end
 		-- After its hits: the memory they wrote runs from no later than this.
 		lastStrokeAt = os.clock()
+		landed += 1
+	end
+	-- Broken before its last stroke (a dash, a stun, a guard): the strokes still to come are not drawn either.
+	if landed < params.Ticks then
+		retract(ctx, ctx.Def.VfxId)
 	end
 	ctx.Combat.endChannel(ctx.Caster, token)
 	return tracker.Count

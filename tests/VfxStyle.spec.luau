@@ -240,6 +240,54 @@ describe("the impact's freeze frame", function()
 	end)
 end)
 
+describe("a play taken back", function()
+	it("is cut on every screen when the server gives up the cast it drew", function()
+		-- GlyphEffects.retract sends the effect's own id with Params.Cancel: a charge broken before its release,
+		-- a rush a dash ended, a frame its caster stopped. Each renderer keeps its caster's play and cuts it.
+		local plays = {
+			VoluteCharge = 'playCharge("VoluteCharge", "Volute", packet, api)',
+			RubricCharge = 'playCharge("RubricCharge", "Rubric", packet, api)',
+			Hatching = 'playGlyph("Hatching", packet, api)',
+			Cartouche = 'playGlyph("Cartouche", packet, api)',
+		}
+		for id, play in pairs(plays) do
+			local renderer = body(LIBRARY, ("VfxLibrary.%s = function("):format(id))
+			local line = ('if not retracted("%s", packet, api) then remember("%s", packet, %s) end'):format(
+				id,
+				id,
+				play
+			)
+			if renderer:find(line, 1, true) == nil then
+				error(("VfxLibrary.%s no longer cuts the play the server takes back"):format(id))
+			end
+		end
+		local cut = body(LIBRARY, "local function retracted(")
+		for _, line in ipairs({
+			"if params == nil or params.Cancel ~= true then return false end",
+			"if plays ~= nil then plays[id] = nil end",
+			"if playId ~= nil then api.Timeline.cancel(playId) end return true",
+		}) do
+			if cut:find(line, 1, true) == nil then
+				error("retracted no longer cuts the play it names: " .. line)
+			end
+		end
+		expect(body(LIBRARY, "local function remember("):find("plays[id] = playId", 1, true)).never.toBe(nil)
+		for _, header in ipairs({ "local function playGlyph(", "local function playCharge(" }) do
+			local played = body(LIBRARY, header)
+			expect(played:find("local _, playId = api.Timeline.play(", 1, true)).never.toBe(nil)
+			expect(played:find("return playId", 1, true)).never.toBe(nil)
+		end
+		-- Forgotten with the player, so the table never outgrows the server.
+		expect(
+			read(LIBRARY):find(
+				"Players.PlayerRemoving:Connect(function(player: Player) retractable[player.UserId] = nil end)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+end)
+
 describe("a spell born in the hand", function()
 	it("lights on the press, on this screen only", function()
 		local combo = body("src/client/Controllers/ComboController.luau", "local function onAction(")

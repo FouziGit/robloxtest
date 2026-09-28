@@ -93,7 +93,7 @@ describe("a charged glyph", function()
 		-- a late frame past its deadline is no break.
 		expect(
 			charge:find(
-				"if not casterAlive(ctx) or not ctx.Combat.holdsChannel(ctx.Caster, token) then ctx.Combat.endChannel(ctx.Caster, token) return nil end",
+				"if not casterAlive(ctx) or not ctx.Combat.holdsChannel(ctx.Caster, token) then ctx.Combat.endChannel(ctx.Caster, token) retract(ctx, vfxId) return nil end",
 				1,
 				true
 			)
@@ -132,6 +132,39 @@ describe("a charged glyph", function()
 	end)
 end)
 
+describe("a play the server will not finish", function()
+	it("is taken back on every path that gives up", function()
+		-- A charge broken before its release, a rush a dash ended, a frame its caster stopped: left to play out,
+		-- each drew a lane, strokes and shakes, or closing presses the server would never strike (D-141).
+		local take = functionIn(EFFECTS, "local function retract(")
+		expect(
+			take:find(
+				"ctx.Vfx.emit({ Id = vfxId, Origin = ctx.Origin.Position, Caster = ctx.Caster.UserId, Params = { Cancel = true }, }, true)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		expect(rubric:find('retract(ctx, "RubricCharge") return 0', 1, true)).never.toBe(nil)
+		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
+		expect(before(hatching, "local landed = 0", "for stroke = 1, params.Ticks do")).toBe(true)
+		expect(
+			before(hatching, "if landed < params.Ticks then retract(ctx, ctx.Def.VfxId) end", "ctx.Combat.endChannel(")
+		).toBe(true)
+		local cartouche = functionIn(EFFECTS, "function GlyphEffects.Cartouche(")
+		expect(
+			cartouche:find("if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) return seal.Count end", 1, true)
+		).never.toBe(nil)
+		expect(before(cartouche, "end, held)", "if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) end")).toBe(
+			true
+		)
+		-- The zone the Cartouche ticks through stops on that one question: read after it, it says whether it did.
+		local zone = functionIn(EFFECTS, "local function tickZone(")
+		expect(zone:find("if not casterAlive(ctx) then break end", 1, true)).never.toBe(nil)
+		expect(count(zone, "break")).toBe(1)
+	end)
+end)
+
 describe("the Rubric", function()
 	it("rules its line down the lane it painted, and loses a charge carried off it", function()
 		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
@@ -140,7 +173,7 @@ describe("the Rubric", function()
 		expect(rubric:find("local muzzle = origin", 1, true)).never.toBe(nil)
 		expect(rubric:find("local muzzle = frame.Position", 1, true)).toBe(nil)
 		local lost =
-			"local drift = frame.Position - origin if Vector3.new(drift.X, 0, drift.Z).Magnitude > params.ReleaseDriftStuds then return 0 end"
+			'local drift = frame.Position - origin if Vector3.new(drift.X, 0, drift.Z).Magnitude > params.ReleaseDriftStuds then retract(ctx, "RubricCharge") return 0 end'
 		expect(rubric:find(lost, 1, true)).never.toBe(nil)
 		-- Judged before anything is measured or struck from the release.
 		expect(before(rubric, lost, "local start, clear = launchPoint(muzzle,")).toBe(true)
@@ -178,7 +211,7 @@ describe("the Hatching", function()
 		expect(hatching:find("local lastStrokeAt = -math.huge", 1, true)).never.toBe(nil)
 		expect(
 			hatching:find(
-				"slowModel(ctx, model, params.SlowFactor, params.SlowDuration) end end lastStrokeAt = os.clock() end",
+				"slowModel(ctx, model, params.SlowFactor, params.SlowDuration) end end lastStrokeAt = os.clock() landed += 1 end",
 				1,
 				true
 			)

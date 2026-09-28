@@ -424,6 +424,54 @@ describe("MovementGuard: server teleports", function()
 		expect(track.LeftAt).toBe(at(1))
 	end)
 
+	it("measures a rise from where a teleport put the body until a probe sees it supported, and no higher", function()
+		-- A pad drops the root 4.5 studs over its standing height, and a client that was jumping when the pivot
+		-- reached it keeps rising from there: a jump and a double jump at most. Contact keeps the hang rule out.
+		local floor, root = 900 + STAND, 900 + STAND + 4.5
+		local near = { Supported = false, Contact = true }
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 0, root, 0, at(1), 0, STAND, 0, floor, CONFIG)
+		expect(track.ArrivalY).toBe(root)
+		expect(observe(track, at(2 * RATE), 0, root + 14, 0, near).Action).toBe("None")
+		expect(observe(track, at(2 * RATE + 1), 0, root + 15, 0, near).Rule).toBe("altitude")
+		-- Seen standing, it rises from its own standing height again.
+		local landed = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(landed, 0, root, 0, at(1), 0, STAND, 0, floor, CONFIG)
+		expect(observe(landed, at(2 * RATE), 0, floor, 0).Action).toBe("None")
+		expect(landed.ArrivalY).toBe(-math.huge)
+		expect(observe(landed, at(2 * RATE + 1), 0, floor + 15, 0, near).Rule).toBe("altitude")
+	end)
+
+	it("grants that rise to a teleport the server chose, never to a correction, a spawn or found ground", function()
+		local track = spawnedAt(0, STAND, 0)
+		MovementGuard.teleported(track, 0, STAND + 4.5, 0, at(1), 0, STAND, 0, STAND, CONFIG)
+		MovementGuard.corrected(track, 0, STAND + 4.5, 0, at(2), 0, STAND, 0, nil, CONFIG)
+		expect(track.ArrivalY).toBe(-math.huge)
+		MovementGuard.teleported(track, 0, STAND + 4.5, 0, at(3), 0, STAND, 0, STAND, CONFIG)
+		MovementGuard.spawned(track, 0, STAND, 0, at(4), CONFIG)
+		expect(track.ArrivalY).toBe(-math.huge)
+		MovementGuard.teleported(track, 0, STAND + 4.5, 0, at(5), 0, STAND, 0, STAND, CONFIG)
+		MovementGuard.groundFound(track, STAND, at(6))
+		expect(track.ArrivalY).toBe(-math.huge)
+	end)
+
+	it("times a fall after a pivot from when the stream can show it, a settle later", function()
+		-- A pad drops a small avatar (its root 1.4 studs over its feet) 6.1 studs over its standing height. Its
+		-- client falls only once the pivot reaches it, and the server sees that fall a round trip after the pivot:
+		-- timed from the pivot itself, the fall read as a hang, confirmed and struck at 0.25 s one way.
+		local small, rtt = 1.4, 0.5
+		local floor = 900 + small
+		local root = floor + 6.1
+		local track = spawnedAt(0, small, 0)
+		MovementGuard.teleported(track, 0, root, 0, at(20), 0, small, 0, floor, CONFIG)
+		for k = 21, 50 do
+			local falling = at(k) - at(20) - rtt
+			local y = if falling > 0 then math.max(floor, root - 0.5 * CONFIG.Gravity * falling * falling) else root
+			local fields = { Supported = y <= floor, Rtt = rtt, StandHeight = small }
+			expect(observe(track, at(k), 0, y, 0, fields).Action).toBe("None")
+		end
+	end)
+
 	it("scans for a landing on the sample that shows a pending teleport arrived", function()
 		-- Its settle can last a second, in which the body landed on the pad and jumped again: without the scan,
 		-- a hop on arrival read as a hang.
@@ -672,6 +720,27 @@ describe("MovementGuard: the round trip it reads", function()
 		local track = spawnedAt(0, STAND, 0)
 		observe(track, at(1), 0.5, STAND, 0, { Contact = true, Rtt = 60 })
 		expect(track.ContactUntil).toBeCloseTo(at(1) + CONFIG.MaxRttSeconds + CONFIG.ContactRttMarginSeconds, 6)
+	end)
+end)
+
+describe("MovementGuard.probe", function()
+	it("starts clear of the feet of a body shorter than it is wide, and reaches as far past them", function()
+		local radius, reach, clearance = 1.5, 1.5, 0.5
+		-- A default body: centred on the root and cast 3 studs, as the support probe always was.
+		local lift, depth = MovementGuard.probe(3, radius, reach, clearance)
+		expect(lift).toBe(0)
+		expect(depth).toBe(3)
+		-- A small avatar's root stands under the sphere's radius over its feet: centred there, the sphere started
+		-- inside its ground and never saw it.
+		expect((MovementGuard.probe(1.4, radius, reach, clearance))).toBeGreaterThan(0)
+		for _, stand in ipairs({ 0.8, 1.4, 1.8, 2.89, 3.19, 4.5 }) do
+			local up, cast = MovementGuard.probe(stand, radius, reach, clearance)
+			-- Where the sphere's bottom starts and ends, from the root.
+			local from, to = up - radius, up - radius - cast
+			expect(up >= 0).toBe(true)
+			expect(from >= clearance - stand - 1e-9).toBe(true)
+			expect(math.abs(to - (-stand - reach)) <= 1e-9).toBe(true)
+		end
 	end)
 end)
 

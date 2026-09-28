@@ -45,8 +45,9 @@ export type Deps = {
 	Registry: { lastInbound: (player: Player) -> number },
 	-- CombatService re-anchors OriginGuard's trusted position on a point this module pulled a body back to.
 	Reanchor: (player: Player, position: Vector3) -> (),
-	-- Where the engine puts a new body: the root of somebody standing on the hub's SpawnLocation, nil with none.
-	SpawnPoint: () -> Vector3?,
+	-- Where the engine puts a new body: the root of this character standing on the hub's SpawnLocation, nil with
+	-- none.
+	SpawnPoint: (character: Model) -> Vector3?,
 }
 
 type Record = {
@@ -266,7 +267,8 @@ local function holdsUp(instance: Instance): boolean
 	return not isBody
 end
 
--- A sphere cast straight down from `origin` to `reach` studs past the feet of a body standing `stand` high.
+-- A sphere cast straight down to `reach` studs past the feet of a body whose root, at `origin`, stands `stand`
+-- high, from clear of its feet (MovementGuard.probe): a sphere that started inside the ground would not see it.
 local function castDown(
 	params: RaycastParams,
 	origin: Vector3,
@@ -274,8 +276,8 @@ local function castDown(
 	radius: number,
 	reach: number
 ): RaycastResult?
-	local depth = math.max(stand - radius, 0) + reach
-	return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), params)
+	local lift, depth = MovementGuard.probe(stand, radius, reach, AUDIT.ProbeClearanceStuds)
+	return Workspace:Spherecast(origin + Vector3.new(0, lift, 0), radius, Vector3.new(0, -depth, 0), params)
 end
 
 -- The support probe: whether something that collides is right under the feet.
@@ -302,6 +304,16 @@ local function standHeight(humanoid: Humanoid?, root: BasePart): number
 		return AUDIT.DefaultStandHeightStuds
 	end
 	return humanoid.HipHeight + root.Size.Y / 2
+end
+
+-- The same for a whole character, as a default body while it has no root: every avatar is judged from its own
+-- standing height, a small one's root under 2 studs over its feet, an Rthro one's over 4.
+function MovementAudit.standingHeight(character: Model): number
+	local root = character:FindFirstChild(ROOT_PART_NAME)
+	if root == nil or not root:IsA("BasePart") then
+		return AUDIT.DefaultStandHeightStuds
+	end
+	return standHeight(character:FindFirstChildOfClass("Humanoid"), root)
 end
 
 local function walkSpeed(body: Body): number
@@ -757,7 +769,7 @@ local function adopt(record: Record, character: Model, now: number)
 	record.Overlap.FilterDescendantsInstances = { character }
 	record.HasLast = false
 	record.Flagged = false
-	local point = deps.SpawnPoint()
+	local point = deps.SpawnPoint(character)
 	if point == nil then
 		record.Track = MovementGuard.newTrack(config)
 		log.warn("no SpawnLocation to rebase %s on", record.Player.Name)
@@ -824,10 +836,7 @@ function MovementAudit.teleported(player: Player, position: Vector3)
 	end
 	local track = record.Track
 	local fromX, fromY, fromZ = MovementGuard.heard(track)
-	local root = character:FindFirstChild(ROOT_PART_NAME)
-	local stand = if root ~= nil and root:IsA("BasePart")
-		then standHeight(character:FindFirstChildOfClass("Humanoid"), root)
-		else AUDIT.DefaultStandHeightStuds
+	local stand = MovementAudit.standingHeight(character)
 	local groundY = groundUnder(record, position, stand)
 	MovementGuard.teleported(track, position.X, position.Y, position.Z, now, fromX, fromY, fromZ, groundY, config)
 end

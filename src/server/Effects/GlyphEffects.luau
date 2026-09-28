@@ -380,10 +380,41 @@ local function excludeParams(character: Model?, also: Model?): RaycastParams
 	return params
 end
 
+-- First obstruction of a beam, ignoring characters: the ray is re-cast past every model it crosses
+-- so a crowd never shortens the beam, and only walls, terrain and props stop it.
+local function geometryStop(start: Vector3, direction: Vector3, range: number, character: Model?): Vector3
+	local rayParams = excludeParams(character)
+	local filter: { Instance } = rayParams.FilterDescendantsInstances
+	for _ = 1, MAX_HITSCAN_CASTS do
+		local ray = Workspace:Raycast(start, direction * range, rayParams)
+		if ray == nil then
+			break
+		end
+		local model = characterOf(ray.Instance)
+		if model == nil then
+			return ray.Position
+		end
+		table.insert(filter, model)
+		rayParams.FilterDescendantsInstances = filter
+	end
+	return start + direction * range
+end
+
+-- Whether no wall stands between `from` and the model's pivot: bodies on the way do not count, only what
+-- geometryStop stops on. A sphere or a box query sees through walls; what it finds is kept only if this holds.
+local function inSight(from: Vector3, model: Model, character: Model?): boolean
+	local line = model:GetPivot().Position - from
+	local distance = line.Magnitude
+	if distance < EPSILON then
+		return true
+	end
+	return (geometryStop(from, line / distance, distance, character) - from).Magnitude >= distance - EPSILON
+end
+
 -- Steps a projectile in the caller's thread: `velocity` studs/s, `gravity` studs/s² pulling it down
 -- (0 = straight line). It stops on the first obstruction a ray finds — a Margin and the terrain
--- included, which is how Umber blocks projectiles —, on the first live model within `hitRadius`
--- (0 = no proximity scan: the blast of an exploding projectile finds its own targets), once
+-- included, which is how Umber blocks projectiles —, on the first live model within `hitRadius` that
+-- no wall hides (0 = no proximity scan: the blast of an exploding projectile finds its own targets), once
 -- `maxDistance` of path has been travelled or when the fuse burns out. Returns nil as soon as the
 -- cast stops qualifying (caster dead, guarding or stunned) so nothing lands afterwards -- and, always,
 -- where the projectile last was, which is where a Brand that fizzles is drawn drying out.
@@ -429,35 +460,19 @@ local function stepProjectile(
 		position += step
 		travelled += step.Magnitude
 		if hitRadius > 0 then
-			local nearest = nearestModel(humanoidsInRadius(position, hitRadius, character), position)
-			if nearest ~= nil then
-				return { Point = position, Model = nearest }, position
+			-- The nearest body in reach that no wall hides: one hugging the far side of a Margin or a cover wall is
+			-- inside the sphere and out of sight, and the next step's ray stops on the wall instead (D-144).
+			local nearby = humanoidsInRadius(position, hitRadius, character)
+			for _, model in ipairs(nearestModels(nearby, position, #nearby)) do
+				if inSight(position, model, character) then
+					return { Point = position, Model = model }, position
+				end
 			end
 		end
 		if elapsed >= fuse or travelled >= maxDistance then
 			return { Point = position, Model = nil }, position
 		end
 	end
-end
-
--- First obstruction of a beam, ignoring characters: the ray is re-cast past every model it crosses
--- so a crowd never shortens the beam, and only walls, terrain and props stop it.
-local function geometryStop(start: Vector3, direction: Vector3, range: number, character: Model?): Vector3
-	local rayParams = excludeParams(character)
-	local filter: { Instance } = rayParams.FilterDescendantsInstances
-	for _ = 1, MAX_HITSCAN_CASTS do
-		local ray = Workspace:Raycast(start, direction * range, rayParams)
-		if ray == nil then
-			break
-		end
-		local model = characterOf(ray.Instance)
-		if model == nil then
-			return ray.Position
-		end
-		table.insert(filter, model)
-		rayParams.FilterDescendantsInstances = filter
-	end
-	return start + direction * range
 end
 
 -- Where something released `offset` studs ahead of `from` starts, and whether it got there. A ray begun inside
@@ -1602,8 +1617,7 @@ function GlyphEffects.Dagger(ctx: Context): number
 			flat.Magnitude > EPSILON
 			and flat.Unit:Dot(aim) >= cone
 			and ctx.Combat.canDamage(ctx.Caster, model)
-			and (geometryStop(start, line.Unit, line.Magnitude, character) - start).Magnitude
-				>= line.Magnitude - EPSILON
+			and inSight(start, model, character)
 		then
 			local toward = flat.Unit
 			local extents = model:GetExtentsSize()

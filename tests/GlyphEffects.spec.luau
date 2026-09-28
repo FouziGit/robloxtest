@@ -236,6 +236,34 @@ describe("a thing released ahead of the body", function()
 		expect(stitch:find("if clear then stop, last = stepProjectile(ctx, start,", 1, true)).never.toBe(nil)
 	end)
 
+	it("catches in flight only a body no wall hides from it", function()
+		-- The last clear step lies within one step of a wall's face, and a body hugging the far side of a cover
+		-- wall (2 thick) or a Margin (2.5) was inside the Stitch's HitRadius of it: caught, dragged into the wall
+		-- and rooted, through the one answer the Stitch has. The Hairline and the Stipple fly the same way.
+		local step = functionIn(EFFECTS, "local function stepProjectile(")
+		expect(
+			step:find(
+				"local nearby = humanoidsInRadius(position, hitRadius, character) for _, model in ipairs(nearestModels(nearby, position, #nearby)) do if inSight(position, model, character) then return { Point = position, Model = model }, position end end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(step:find("nearestModel(", 1, true)).toBe(nil)
+		local sight = functionIn(EFFECTS, "local function inSight(")
+		expect(sight:find("local line = model:GetPivot().Position - from", 1, true)).never.toBe(nil)
+		expect(
+			sight:find(
+				"return (geometryStop(from, line / distance, distance, character) - from).Magnitude >= distance - EPSILON",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- The Dagger asks the same question of the body it would jump behind.
+		expect(
+			functionIn(EFFECTS, "function GlyphEffects.Dagger("):find("and inSight(start, model, character)", 1, true)
+		).never.toBe(nil)
+	end)
+
 	it("comes down on every client where the server's one ended", function()
 		for _, id in ipairs({ "Swash", "Stitch" }) do
 			local effect = functionIn(EFFECTS, "function GlyphEffects." .. id .. "(")

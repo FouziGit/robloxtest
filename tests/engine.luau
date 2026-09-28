@@ -533,6 +533,7 @@ export type Options = {
 
 export type World = {
 	game: any,
+	workspace: any,
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -555,6 +556,21 @@ function Engine.world(options: Options?): World
 	game.Name = "Game"
 	world.game = game
 
+	-- The camera a screen measures the viewport from: a 1080p desktop until a spec says otherwise.
+	local workspace = Engine.instance("Workspace", game)
+	workspace.Name = "Workspace"
+	local camera = Engine.instance("Camera", workspace)
+	camera.ViewportSize = roblox.Vector2.new(1920, 1080)
+	workspace.CurrentCamera = camera
+	world.workspace = workspace
+
+	-- A keyboard and a mouse, no touch and no pad, unless the spec says otherwise.
+	local userInput = Engine.instance("UserInputService", game)
+	userInput.TouchEnabled = false
+	userInput.KeyboardEnabled = true
+	userInput.MouseEnabled = true
+	userInput.GamepadEnabled = false
+
 	local services: { [string]: any } = {
 		RunService = {
 			Heartbeat = world.Heartbeat,
@@ -564,6 +580,8 @@ function Engine.world(options: Options?): World
 			end,
 		},
 		ReplicatedStorage = pathNode(REPLICATED_ROOT),
+		UserInputService = userInput,
+		Workspace = workspace,
 	}
 	for name, service in pairs(extraServices) do
 		services[name] = service
@@ -653,6 +671,7 @@ function Engine.world(options: Options?): World
 	local cache: { [string]: any } = {}
 	local environment: { [string]: any } = {
 		game = game,
+		workspace = workspace,
 		task = fakeTask,
 		typeof = typeOf,
 		warn = function(...: any)

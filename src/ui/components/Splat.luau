@@ -73,6 +73,9 @@ local function build(pool: Pool): GuiObject
 	pool.Live += 1
 	poolOf[splat] = pool
 	splat.Destroying:Once(function()
+		-- Out of the pool for good: a burst that hands it back after its screen destroyed it (a sheet closed
+		-- inside the burst's 0.6 s) must not put a locked instance where the next Splat.new takes from.
+		poolOf[splat] = nil
 		pool.Live -= 1
 		local index = table.find(pool.Free, splat)
 		if index ~= nil then

@@ -12,8 +12,10 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local MENU = "src/ui/screens/MenuScreen.luau"
 local PLAY = "src/ui/screens/PlayScreen.luau"
 local SHOP = "src/ui/screens/ShopScreen.luau"
--- The screens of this slice, for the rules every one of them keeps.
-local SCREENS = { MENU, PLAY, SHOP }
+local PURCHASE = "src/ui/screens/shop/Purchase.luau"
+local SHELVES = "src/ui/screens/shop/Shelves.luau"
+-- The screens of this slice and their parts, for the rules every one of them keeps.
+local SCREENS = { MENU, PLAY, SHOP, PURCHASE, SHELVES }
 local SERVER = "src/server"
 
 local function stripComments(source: string): string
@@ -172,15 +174,54 @@ end)
 
 describe("the shop", function()
 	it("buys with Folios only once the sheet has asked: never on one tap", function()
-		local shop = folded(SHOP)
-		-- One place sends the purchase, and it is the sheet's confirmation that reaches it.
-		expect(count(shop, 'fire("BuyCosmetic"')).toBe(1)
-		local buy = string.match(shop, "local function buy%(current: Purchase%)(.-) end local function ")
-		assert(buy ~= nil, "the shop has no buy(current): this gate would check nothing")
-		expect(string.find(buy :: string, 'fire("BuyCosmetic", current.CosmeticId)', 1, true)).never.toBeNil()
-		expect(count(shop, "buy(current)")).toBe(1)
-		expect(string.find(shop, "OnConfirm = function() buy(current) end", 1, true)).never.toBeNil()
-		-- The card's price opens the sheet.
-		expect(string.find(shop, "confirmPurchase(card.Entry)", 1, true)).never.toBeNil()
+		-- Nothing but the sheet's purchase sends it.
+		expect(count(folded(SHOP), '"BuyCosmetic"')).toBe(0)
+		expect(count(folded(SHELVES), '"BuyCosmetic"')).toBe(0)
+		local purchase = folded(PURCHASE)
+		expect(count(purchase, 'fire("BuyCosmetic"')).toBe(1)
+		local buy = string.match(purchase, "local function buy%(pending: Pending%)(.-) end local function ")
+		assert(buy ~= nil, "the purchase has no buy(pending): this gate would check nothing")
+		expect(string.find(buy :: string, 'fire("BuyCosmetic", pending.CosmeticId)', 1, true)).never.toBeNil()
+		-- And the one way to it is the sheet's confirmation.
+		expect(count(purchase, "buy(pending)")).toBe(1)
+		expect(string.find(purchase, "OnConfirm = function() buy(pending) end", 1, true)).never.toBeNil()
+		-- A card's price asks.
+		expect(string.find(folded(SHOP), "purchases:Ask(card.Entry)", 1, true)).never.toBeNil()
+	end)
+
+	it("offers a Robux product or pass only when it exists on Roblox", function()
+		local shelves = folded(SHELVES)
+		-- The packs and the products go through the shop's own rule (Reach.spec pins it), the passes check
+		-- their own id.
+		expect(string.find(folded(SHOP), "RobuxOffered = robuxOffered,", 1, true)).never.toBeNil()
+		expect(string.find(shelves, "button:SetDisabled(not context.RobuxOffered(key))", 1, true)).never.toBeNil()
+		expect(string.find(shelves, "return pass ~= nil and pass.Id ~= 0", 1, true)).never.toBeNil()
+		expect(string.find(shelves, "return context.RobuxOffered(offer.Key)", 1, true)).never.toBeNil()
+		expect(string.find(shelves, "offer.Button:SetDisabled(not offerOpen(context, data, offer))", 1, true)).never.toBeNil()
+	end)
+
+	it("opens on the tab it is asked for, and on no tab it does not have", function()
+		local tabs = string.match(code(SHOP), "local TAB_ORDER[^=]*= (%b{})")
+		assert(tabs ~= nil, "the shop names no TAB_ORDER: this gate would check nothing")
+		local known: { [string]: boolean } = {}
+		for id in string.gmatch(tabs :: string, '"(%w+)"') do
+			known[id] = true
+		end
+		-- Every tab anything asks for: the Menu's "+", the sheet of a player short of Folios.
+		local asked = 0
+		for id in string.gmatch(code(MENU), '{ Tab = "(%w+)" }') do
+			asked += 1
+			if not known[id] then
+				error(("the menu opens the shop on %s, a tab it does not have"):format(id))
+			end
+		end
+		for id in string.gmatch(code(SHOP), 'tabs:Select%("(%w+)"%)') do
+			asked += 1
+			if not known[id] then
+				error(("the shop selects %s, a tab it does not have"):format(id))
+			end
+		end
+		expect(asked >= 2).toBe(true)
+		expect(string.find(code(SHOP), "TAB_KEYS[args.Tab] ~= nil", 1, true)).never.toBeNil()
 	end)
 end)

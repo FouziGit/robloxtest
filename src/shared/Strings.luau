@@ -441,6 +441,7 @@ Strings.Table = {
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
 	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
+	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
 	["shop.notEnoughFolios"] = { en = "Not enough Folios.", fr = "Pas assez de Folios." },
@@ -722,6 +723,22 @@ Strings.Table = {
 	["shop.confirm.balance"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
 	["shop.buy"] = { en = "Buy", fr = "Acheter" },
 	["shop.acquired"] = { en = "Acquired!", fr = "Acquis !" },
+	["shop.getFolios"] = { en = "Get Folios", fr = "Obtenir des Folios" },
+	-- The shop's tabs, and the locker of what the player owns, by slot.
+	["shop.tab.today"] = { en = "Today", fr = "Du jour" },
+	["shop.tab.folios"] = { en = "Folios", fr = "Folios" },
+	["shop.tab.passes"] = { en = "Passes & packs", fr = "Pass et packs" },
+	["shop.tab.locker"] = { en = "Locker", fr = "Casier" },
+	["shop.unequip"] = { en = "Unequip", fr = "Retirer" },
+	["shop.locker.empty"] = {
+		en = "Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.",
+		fr = "Rien pour l'instant. Gagne des cosmétiques avec le Battle Pass ou achète-les dans la sélection du jour.",
+	},
+	["cosmetics.slot.Aura"] = { en = "Auras", fr = "Auras" },
+	["cosmetics.slot.Trail"] = { en = "Trails", fr = "Traînées" },
+	["cosmetics.slot.KillEffect"] = { en = "Takedown effects", fr = "Effets d'élimination" },
+	["cosmetics.slot.Title"] = { en = "Titles", fr = "Titres" },
+	["cosmetics.slot.Skin"] = { en = "Glyph skins", fr = "Apparences de glyphe" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

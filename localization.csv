@@ -116,6 +116,11 @@ cosmetic.title.TitleWanderer,Wanderer,Vellum,,Wanderer,Vagabond
 cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,Vellum,,None,Aucun
 cosmetics.notOwned,You do not own this cosmetic.,Vellum,,You do not own this cosmetic.,Tu ne possèdes pas ce cosmétique.
+cosmetics.slot.Aura,Auras,Vellum,,Auras,Auras
+cosmetics.slot.KillEffect,Takedown effects,Vellum,,Takedown effects,Effets d'élimination
+cosmetics.slot.Skin,Glyph skins,Vellum,,Glyph skins,Apparences de glyphe
+cosmetics.slot.Title,Titles,Vellum,,Titles,Titres
+cosmetics.slot.Trail,Trails,Vellum,,Trails,Traînées
 currency.folio,Folios,Vellum,,Folios,Folios
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
 daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
@@ -403,15 +408,23 @@ shop.confirm.balance,{before} → {after} Folios,Vellum,,{before} → {after} Fo
 shop.confirm.title,Buy {name}?,Vellum,,Buy {name}?,Acheter {name} ?
 shop.equip,Equip,Vellum,,Equip,Équiper
 shop.equipped,Equipped,Vellum,,Equipped,Équipé
+shop.getFolios,Get Folios,Vellum,,Get Folios,Obtenir des Folios
+shop.locker.empty,Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.,Vellum,,Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.,Rien pour l'instant. Gagne des cosmétiques avec le Battle Pass ou achète-les dans la sélection du jour.
 shop.nextRotation,New items in {time},Vellum,,New items in {time},Nouveautés dans {time}
 shop.notEnoughFolios,Not enough Folios.,Vellum,,Not enough Folios.,Pas assez de Folios.
+shop.owned,Owned,Vellum,,Owned,Possédé
 shop.purchased,Purchased: {name},Vellum,,Purchased: {name},Acheté : {name}
 shop.rarity.Common,Common,Vellum,,Common,Commun
 shop.rarity.Epic,Epic,Vellum,,Epic,Épique
 shop.rarity.Legendary,Legendary,Vellum,,Legendary,Légendaire
 shop.rarity.Rare,Rare,Vellum,,Rare,Rare
 shop.robuxPrice,R$ {price},Vellum,,R$ {price},R$ {price}
+shop.tab.folios,Folios,Vellum,,Folios,Folios
+shop.tab.locker,Locker,Vellum,,Locker,Casier
+shop.tab.passes,Passes & packs,Vellum,,Passes & packs,Pass et packs
+shop.tab.today,Today,Vellum,,Today,Du jour
 shop.title,Shop,Vellum,,Shop,Boutique
+shop.unequip,Unequip,Vellum,,Unequip,Retirer
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre

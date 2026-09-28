@@ -1,11 +1,11 @@
 --!strict
--- ShopScreen: today's cosmetic rotation (D-147), in the green Shop chapter. A track of item cards, the
--- Legendary first and twice as wide: each wears its rarity (colour, pips and word, since colour is never
--- the only cue), a preview of what it looks like, its name, a Folios price and a Robux one. The Folios
--- price opens a confirmation sheet with the balance before and after -- nothing is bought on one tap --
--- and the purchase waits for the server: the item turning up in the profile stamps it "Acquired!", a
--- refusal shakes the button, and no answer at all says so. The band holds the live Folios count, and a
--- line under it counts down to the next rotation.
+-- ShopScreen: the shop (D-147), in the green Shop chapter, in four tabs: today's rotation, the Folios
+-- packs, the passes and packs, and the locker of what the player owns (the last three are shop/Shelves).
+-- Today is a track of item cards, the Legendary first and twice as wide: each wears its rarity (colour,
+-- pips and word, since colour is never the only cue), a preview of what it looks like, its name, a Folios
+-- price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase): nothing is bought on one
+-- tap. The band holds the live Folios count; under Today's tab a line counts down to the next rotation.
+-- Opened with { Tab = "Folios" } (the Menu's "+", the sheet of a player short of Folios), it opens there.
 --
 -- The rotation comes from the server's ShopChanged snapshot; until one arrives (screens are built on
 -- their first Open, after the join-time push) the same deterministic rotation is derived locally from
@@ -22,21 +22,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Burst = require(script.Parent.Parent.components.Burst)
 local Button = require(script.Parent.Parent.components.Button)
-local ConfirmSheet = require(script.Parent.Parent.components.ConfirmSheet)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
 local Icon = require(script.Parent.Parent.components.Icon)
 local ItemPreview = require(script.Parent.Parent.components.ItemPreview)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
+local Purchase = require(script.Parent.shop.Purchase)
 local RarityRibbon = require(script.Parent.Parent.components.RarityRibbon)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
-local Seal = require(script.Parent.Parent.components.Seal)
+local Shelves = require(script.Parent.shop.Shelves)
 local ShopConfig = require(Shared.Config.ShopConfig)
 local ShopRotation = require(Shared.Pure.ShopRotation)
 local Sticker = require(script.Parent.Parent.components.Sticker)
+local Tabs = require(script.Parent.Parent.components.Tabs)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -73,8 +73,7 @@ export type Screen = {
 type Destroyable = { Destroy: (self: any) -> () }
 type Entry = Types.ShopEntry
 type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Action: Button.Button }
--- A Folios purchase on its way: the sheet that asked, and the item the profile has to show for it.
-type Purchase = { Sheet: ConfirmSheet.ConfirmSheet, Preview: Frame, CosmeticId: string, Pending: boolean }
+type TabId = "Today" | "Folios" | "Passes" | "Locker"
 
 local ShopScreen = {}
 
@@ -91,12 +90,17 @@ local LEGENDARY_RIM = 3
 local LINE_HEIGHT = 32
 local CLOCK_SIZE = 22
 local PILL_HEIGHT = 40
--- The sheet's own preview, the balance line, and what an acquired item is stamped with.
-local SHEET_SWATCH = 56
-local BALANCE_SIZE = 22
-local STAMP_SIZE = 96
--- How long the stamp shows before the sheet goes.
-local ACQUIRED_SECONDS = 1.2
+local TABS_HEIGHT = 48
+-- The tabs, in order, and the way each lays its content out: the cards scroll sideways, the lists down.
+local TAB_ORDER: { TabId } = { "Today", "Folios", "Passes", "Locker" }
+local TAB_KEYS: { [string]: string } = {
+	Today = "shop.tab.today",
+	Folios = "shop.tab.folios",
+	Passes = "shop.tab.passes",
+	Locker = "shop.tab.locker",
+}
+local TAB_MODES: { [string]: Panel.ContentMode } =
+	{ Today = "Track", Folios = "Track", Passes = "List", Locker = "List" }
 local SECONDS_PER_MINUTE = 60
 local SECONDS_PER_HOUR = 3600
 
@@ -235,14 +239,15 @@ end
 
 function ShopScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
-	local cardsTrove = trove:Extend()
+	local pageTrove = trove:Extend()
 	local t = deps.Localize.t
 	local screen: Screen
 	local cards: { Card } = {}
 	local snapshot: Types.ShopSnapshot = localSnapshot()
 	local signature = ""
 	local firstButton: GuiObject? = nil
-	local purchase: Purchase? = nil
+	local tab: TabId = "Today"
+	local shelf: Shelves.Shelf? = nil
 	-- Bumped at every Open and Close, so a countdown scheduled for an earlier visit stops.
 	local visit = 0
 
@@ -271,21 +276,28 @@ function ShopScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	root:SetCard(panel)
-
-	-- The track's canvas is as tall as its window: a card takes that height, and only scrolls sideways.
 	local content = panel.Content
-	content.CanvasSize = UDim2.fromScale(0, 1)
 
 	----------------------------------------------------------------
-	-- The band's Folios, and the countdown to the next rotation
+	-- The band's Folios, the tabs, and the countdown to the next rotation
 	----------------------------------------------------------------
 
 	local pill = FoliosPill.new({ Height = PILL_HEIGHT, Parent = panel.Right })
 	own(trove, pill)
 
-	panel:SetHeaderHeight(Theme.Sizes.PaddingSmall * 2 + LINE_HEIGHT)
+	-- The tabs, and under Today's the countdown; the tabs carry the touch minimum, which follows the viewport.
+	local function headerHeight(): number
+		local height = Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(TABS_HEIGHT)
+		if tab == "Today" then
+			height += Theme.Sizes.PaddingSmall + LINE_HEIGHT
+		end
+		return height
+	end
+	list(panel.Header, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
+
 	local rotationLine = blank("Rotation", panel.Header)
-	rotationLine.Size = UDim2.fromScale(1, 1)
+	rotationLine.Size = UDim2.new(1, 0, 0, LINE_HEIGHT)
+	rotationLine.LayoutOrder = 2
 	list(rotationLine, Enum.FillDirection.Horizontal, Theme.Sizes.PaddingSmall)
 	local clock = Icon.new("Clock", CLOCK_SIZE, Theme.Colors.TextMuted)
 	clock.LayoutOrder = 1
@@ -338,144 +350,22 @@ function ShopScreen.new(deps: Deps): Screen
 		return data.Cosmetics.Equipped[card.SlotKey] == card.Entry.CosmeticId
 	end
 
-	local function balance(): number
-		local data = deps.ClientData.get()
-		return if data ~= nil then math.floor(data.Currency.Folios) else 0
-	end
-
-	----------------------------------------------------------------
-	-- Buying: the sheet, the wait, the stamp
-	----------------------------------------------------------------
-
-	local function closeSheet()
-		local current = purchase
-		purchase = nil
-		if current ~= nil then
-			current.Sheet:Close()
-		end
-	end
-	trove:Add(function()
-		local current = purchase
-		purchase = nil
-		if current ~= nil then
-			current.Sheet:Destroy()
-		end
-	end)
-
-	local function settle(current: Purchase)
-		current.Pending = false
-		current.Sheet.ConfirmButton:SetPending(false)
-	end
-
-	-- The item is in the profile: the button flashes, the stamp comes down, the blots burst, the sheet goes.
-	local function acquired(current: Purchase)
-		settle(current)
-		current.Sheet.ConfirmButton:Flash("Success")
-		Seal.new({
-			Text = t("shop.acquired"),
-			Fill = Theme.Colors.SuccessFill,
-			Size = STAMP_SIZE,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Stamp = true,
-			Parent = current.Preview,
-		})
-		Burst.play(current.Preview, { Theme.Colors.SuccessFill, Theme.Colors.Primary, Theme.Colors.SuccessFill })
-		task.delay(ACQUIRED_SECONDS, function()
-			if purchase == current then
-				closeSheet()
-			end
-		end)
-	end
-
-	local function buy(current: Purchase)
-		if current.Pending then
-			return
-		end
-		current.Pending = true
-		current.Sheet.ConfirmButton:SetPending(true)
-		deps.RemoteClient.fire("BuyCosmetic", current.CosmeticId)
-		-- No answer in time: the button gives up by itself, and the player is told why.
-		task.delay(Theme.Timing.PendingTimeoutSeconds, function()
-			if purchase == current and current.Pending then
-				settle(current)
-				deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
-			end
-		end)
-	end
-
-	local function confirmPurchase(entry: Entry)
-		if purchase ~= nil then
-			return
-		end
-		local item = CosmeticConfig.ById[entry.CosmeticId]
-		if item == nil then
-			return
-		end
-		local before = balance()
-		local after = before - entry.PriceFolios
-
-		-- The item again, and what the purchase does to the balance.
-		local body = blank("Preview")
-		body.AutomaticSize = Enum.AutomaticSize.Y
-		body.Size = UDim2.fromScale(1, 0)
-		list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
-		local itemRow = blank("Item", body)
-		itemRow.Size = UDim2.new(1, 0, 0, SHEET_SWATCH)
-		itemRow.LayoutOrder = 1
-		list(itemRow, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
-		local swatch = blank("Swatch", itemRow)
-		swatch.Size = UDim2.fromOffset(SHEET_SWATCH, SHEET_SWATCH)
-		swatch.LayoutOrder = 1
-		ItemPreview.new(item, swatch, deps.Localize)
-		local name = textLabel("Name", Theme.Fonts.Bold, Theme.Sizes.TextButton, 2, itemRow)
-		name.Text = t(entry.NameKey)
-		local short = after < 0
-		local line = textLabel("Balance", Theme.Fonts.Numeric, BALANCE_SIZE, 2, body)
-		line.Text = t("shop.confirm.balance", { before = before, after = after })
-		-- Short of Folios: the line turns the red that only large text may wear, and Buy says why it waits.
-		line.TextColor3 = if short then Theme.Colors.Danger else Theme.Colors.Text
-
-		local current: Purchase
-		local sheet = ConfirmSheet.new({
-			Title = t("shop.confirm.title", { name = t(entry.NameKey) }),
-			Body = t(Theme.rarity(entry.Rarity).WordKey),
-			Preview = body,
-			Confirm = { Text = t("shop.buy") },
-			Cancel = { Text = t("common.cancel") },
-			OnConfirm = function()
-				buy(current)
-			end,
-			OnCancel = function()
-				if purchase == current and not current.Pending then
-					closeSheet()
-				end
-			end,
-			Parent = panel.Instance,
-		})
-		current = { Sheet = sheet, Preview = swatch, CosmeticId = entry.CosmeticId, Pending = false }
-		purchase = current
-		if short then
-			sheet.ConfirmButton:SetDisabled(true, "Locked", t("shop.notEnoughFolios"))
-		end
-	end
-
-	-- A refusal (not enough Folios, gone from the rotation, already owned) ends the wait with a shake; the
-	-- server's toast says which.
-	trove:Connect(deps.HudController.Notified, function(key: string, _params: any, kind: string)
-		local current = purchase
-		if current == nil or not current.Pending then
-			return
-		end
-		if kind == "Error" or key == "purchase.alreadyOwned" then
-			settle(current)
-			current.Sheet.ConfirmButton:Flash("Error")
-		end
-	end)
-
 	----------------------------------------------------------------
 	-- Intent
 	----------------------------------------------------------------
+
+	local tabs: Tabs.Tabs
+	local purchases = Purchase.new({
+		Localize = deps.Localize,
+		ClientData = deps.ClientData,
+		RemoteClient = deps.RemoteClient,
+		HudController = deps.HudController,
+		Card = panel.Instance,
+		ShowFolios = function()
+			tabs:Select("Folios")
+		end,
+	})
+	own(trove, purchases)
 
 	-- The client never sends a Roblox asset id: it names the developer product of the entry's rarity.
 	local function buyWithRobux(entry: Entry)
@@ -487,7 +377,7 @@ function ShopScreen.new(deps: Deps): Screen
 	end
 
 	----------------------------------------------------------------
-	-- Cards
+	-- Today's cards
 	----------------------------------------------------------------
 
 	local function buildCard(entry: Entry, item: CosmeticConfig.CosmeticDef, layoutOrder: number): Card
@@ -499,14 +389,14 @@ function ShopScreen.new(deps: Deps): Screen
 		holder.Size = if Theme.touchOnly()
 			then UDim2.new(0, width, 1, -Theme.Sizes.PaddingSmall)
 			else UDim2.fromOffset(width, CARD_HEIGHT)
-		cardsTrove:Add(holder)
+		pageTrove:Add(holder)
 		local sticker = Sticker.new({
 			Kind = "Card",
 			Fill = Theme.Colors.PanelRaised,
 			Elevation = CARD_ELEVATION,
 			Parent = holder,
 		})
-		own(cardsTrove, sticker)
+		own(pageTrove, sticker)
 		local face = sticker.Face
 		if legendary then
 			-- Full gold leaf: the rim of the one legendary in the rotation.
@@ -520,8 +410,7 @@ function ShopScreen.new(deps: Deps): Screen
 		local body = blank("Body", face)
 		body.Size = UDim2.fromScale(1, 1)
 		pad(body, CARD_PADDING)
-		local bodyLayout = list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
-		bodyLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+		list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
 
 		local well = blank("Preview", body)
 		well.BackgroundTransparency = 0
@@ -534,7 +423,7 @@ function ShopScreen.new(deps: Deps): Screen
 		wellFlex.Parent = well
 		ItemPreview.new(item, well, deps.Localize)
 		local ribbon = RarityRibbon.new(entry.Rarity, t(Theme.rarity(entry.Rarity).WordKey), face)
-		own(cardsTrove, ribbon)
+		own(pageTrove, ribbon)
 
 		local name = Instance.new("TextLabel")
 		name.Name = "Name"
@@ -573,11 +462,11 @@ function ShopScreen.new(deps: Deps): Screen
 				if isOwned(card.Entry) then
 					equip(card)
 				else
-					confirmPurchase(card.Entry)
+					purchases:Ask(card.Entry)
 				end
 			end,
 		})
-		own(cardsTrove, buyButton)
+		own(pageTrove, buyButton)
 
 		local product = MonetizationConfig.Products[entry.ProductKey]
 		local action = Button.new({
@@ -589,7 +478,7 @@ function ShopScreen.new(deps: Deps): Screen
 				buyWithRobux(card.Entry)
 			end,
 		})
-		own(cardsTrove, action)
+		own(pageTrove, action)
 
 		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }
 		return card
@@ -622,8 +511,7 @@ function ShopScreen.new(deps: Deps): Screen
 		return table.concat(parts, "|")
 	end
 
-	local function rebuild()
-		cardsTrove:Clean()
+	local function buildToday()
 		cards = {}
 		local entries = table.clone(snapshot.Entries)
 		table.sort(entries, function(a: Entry, b: Entry): boolean
@@ -637,19 +525,71 @@ function ShopScreen.new(deps: Deps): Screen
 		end
 	end
 
-	local function refreshFolios()
+	----------------------------------------------------------------
+	-- Tabs
+	----------------------------------------------------------------
+
+	-- Tears the page down and builds `next` in its place, in its own layout.
+	local function show(next: TabId)
+		tab = next
+		pageTrove:Clean()
+		cards = {}
+		shelf = nil
+		signature = ""
+		panel:SetContentMode(TAB_MODES[next])
+		if TAB_MODES[next] == "Track" then
+			-- A track's canvas is as tall as its window: a card takes that height, and only scrolls sideways.
+			content.CanvasSize = UDim2.fromScale(0, 1)
+		end
+		rotationLine.Visible = next == "Today"
+		-- The header's height follows the countdown line in or out.
+		panel:SetHeaderHeight(headerHeight)
+		if next == "Today" then
+			return
+		end
+		local context: Shelves.Context = {
+			Localize = deps.Localize,
+			ClientData = deps.ClientData,
+			RemoteClient = deps.RemoteClient,
+			Content = content,
+			Trove = pageTrove,
+			RobuxOffered = robuxOffered,
+		}
+		if next == "Folios" then
+			shelf = Shelves.folios(context)
+		elseif next == "Passes" then
+			shelf = Shelves.passes(context)
+		else
+			shelf = Shelves.locker(context)
+		end
+	end
+
+	local items: { Tabs.Item } = {}
+	for _, id in ipairs(TAB_ORDER) do
+		table.insert(items, { Id = id, Text = t(TAB_KEYS[id]) })
+	end
+
+	----------------------------------------------------------------
+	-- Refresh
+	----------------------------------------------------------------
+
+	local function refresh()
 		local data = deps.ClientData.get()
 		if data ~= nil then
 			pill:Set(data.Currency.Folios, screen.Visible)
 		end
-	end
-
-	local function refresh()
-		refreshFolios()
+		purchases:Refresh()
+		local current = shelf
+		if current ~= nil then
+			current.Refresh()
+			firstButton = current.Focus()
+			return
+		end
 		local wanted = signatureOf(snapshot)
 		if wanted ~= signature then
 			signature = wanted
-			rebuild()
+			pageTrove:Clean()
+			buildToday()
 		end
 		firstButton = nil
 		for _, card in ipairs(cards) do
@@ -663,14 +603,20 @@ function ShopScreen.new(deps: Deps): Screen
 				end
 			end
 		end
-		local current = purchase
-		local data = deps.ClientData.get()
-		if current ~= nil and current.Pending and data ~= nil then
-			if table.find(data.Cosmetics.Owned, current.CosmeticId) ~= nil then
-				acquired(current)
-			end
-		end
 	end
+
+	tabs = Tabs.new({
+		Items = items,
+		Selected = tab,
+		Chapter = CHAPTER,
+		LayoutOrder = 1,
+		Parent = panel.Header,
+		OnSelect = function(id: string)
+			show(id :: TabId)
+			refresh()
+		end,
+	})
+	own(trove, tabs)
 
 	-- A rotation from another day (the screen stayed alive across the UTC rollover) is replaced by the
 	-- one of the current day until the server pushes its own.
@@ -691,7 +637,13 @@ function ShopScreen.new(deps: Deps): Screen
 	end))
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
-		if section == "*" or section == "Cosmetics" or section == "Currency" then
+		if
+			section == "*"
+			or section == "Cosmetics"
+			or section == "Currency"
+			or section == "Passes"
+			or section == "Battlepass"
+		then
 			refresh()
 		end
 	end)
@@ -700,12 +652,19 @@ function ShopScreen.new(deps: Deps): Screen
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen, _args: any?)
+	local function open(self: Screen, args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
 		visit += 1
+		local wanted: TabId = "Today"
+		if type(args) == "table" and TAB_KEYS[args.Tab] ~= nil then
+			wanted = args.Tab
+		end
+		if wanted ~= tab then
+			tabs:Select(wanted)
+		end
 		adoptSnapshot()
 		refreshCountdown()
 		scheduleCountdown(visit)
@@ -720,7 +679,7 @@ function ShopScreen.new(deps: Deps): Screen
 		end
 		self.Visible = false
 		visit += 1
-		closeSheet()
+		purchases:Close()
 		panel:ReleaseGamepadFocus()
 		root:PlayExit()
 		deps.SoundController.play("UiClose")
@@ -739,6 +698,7 @@ function ShopScreen.new(deps: Deps): Screen
 		Close = close,
 		Destroy = destroy,
 	}
+	show(tab)
 	refresh()
 	return screen
 end

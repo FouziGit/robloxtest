@@ -16,6 +16,7 @@ local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
+local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local PortalConfig = require("../src/shared/Config/PortalConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
@@ -404,6 +405,80 @@ describe("DeveloperConfig", function()
 		-- casting, so it must stay something a human checks at a glance before publishing.
 		local dev = DeveloperConfig
 		expect(#dev.Names + #dev.UserIds <= 5).toBe(true)
+	end)
+end)
+
+-- The movement guard's thresholds (src/server, never replicated). The numbers were proved on the scenario
+-- suite (tests/MovementScenarios.spec.luau); these are the relations between them and the rest of the game
+-- that no single scenario pins.
+describe("MovementGuardConfig", function()
+	local guard = MovementGuardConfig
+
+	-- The honest juggle the guard is proved on: a melee finisher, Sweep, Rupture and the boss's heaviest
+	-- attack landing on one body in a row, each held for the knockback duration. The boss sends a share of
+	-- its push upward; that share is a local of WorldBossMode, so it is read from there.
+	local function juggle(): (number, number)
+		local bossLift = tonumber(
+			string.match(
+				fs.readFile("src/server/GameModes/WorldBossMode.luau"),
+				"\nlocal KNOCKBACK_LIFT_FACTOR = ([%d%.]+)\n"
+			)
+		)
+		if bossLift == nil then
+			error("WorldBossMode has no KNOCKBACK_LIFT_FACTOR: this gate would check nothing")
+		end
+		local sweep, rupture
+		for _, glyph in ipairs(GlyphConfig.Glyphs) do
+			if glyph.Effect == "Sweep" then
+				sweep = glyph.Params
+			elseif glyph.Effect == "Rupture" then
+				rupture = glyph.Params
+			end
+		end
+		assert(sweep ~= nil and rupture ~= nil, "the juggle's glyphs are gone")
+		local boss = 0
+		for _, attack in ipairs(WorldBossConfig.Attacks) do
+			boss = math.max(boss, attack.Knockback)
+		end
+		local seconds = CombatConfig.Hit.KnockbackDurationSeconds
+		local flat = (CombatConfig.Melee.FinisherKnockback + sweep.Push + boss) * seconds
+		local lift = (CombatConfig.Melee.FinisherLift + sweep.Lift + rupture.Launch + boss * bossLift) * seconds
+		return flat, lift
+	end
+
+	it("ships in Observe, one of the three rollout modes", function()
+		-- Observe logs, Correct also moves bodies back, Enforce also strikes. Leaving Observe is a decision
+		-- taken on the Studio checks and the live logs, so this line changes with it and never by accident.
+		expect(table.find({ "Observe", "Correct", "Enforce" }, guard.Mode)).never.toBeNil()
+		expect(guard.Mode).toBe("Observe")
+	end)
+
+	it("keeps the teleport slack under what would let a body sit beside a Caret destination", function()
+		-- Measured on the scenarios: at 25 a client that refuses a Caret's pivot and sits 50 studs away passes.
+		expect(guard.TeleportSlackStuds).toBeLessThan(25)
+	end)
+
+	it("pays the lift at the peak of the impulse curve", function()
+		-- The client's knockback mover follows (1 + e)(1 - a)^e: its peak, at a = 0, is the upper bound of
+		-- the overshoot at any frame rate.
+		expect(guard.LiftOvershoot).toBeCloseTo(1 + FeelConfig.Impulse.KnockbackExponent, 6)
+	end)
+
+	it("caps the grants above what the honest juggle banks, overshoot included", function()
+		local flat, lift = juggle()
+		expect(guard.MaxLiftStuds).toBeGreaterThanOrEqual(lift * guard.LiftOvershoot)
+		expect(guard.MaxAllowanceStuds).toBeGreaterThanOrEqual(flat * guard.HorizontalOvershoot)
+	end)
+
+	it("never grants a server move less than half a second of grace", function()
+		expect(guard.GraceMinSeconds).toBeGreaterThanOrEqual(0.5)
+		expect(guard.GraceMaxSeconds).toBeGreaterThanOrEqual(guard.GraceMinSeconds)
+	end)
+
+	it("kicks only past what the frozen-in-the-air rule needs to strike", function()
+		-- F3 is the least certain rule (the engine can throttle an honest body's physics mid-air): it strikes
+		-- only from its FrozenStrikeRepeat-th flag, and the kick needs more strikes than that.
+		expect(guard.KickThreshold).toBeGreaterThan(guard.FrozenStrikeRepeat)
 	end)
 end)
 

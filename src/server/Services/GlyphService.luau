@@ -48,7 +48,7 @@ type CombatApi = {
 	-- the client claims an implausible one.
 	trustedOrigin: (player: Player) -> CFrame?,
 	-- Called after an effect teleports its caster (Caret), so the trusted position follows.
-	resyncPosition: (player: Player) -> (),
+	resyncPosition: (player: Player, position: Vector3?) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
 	grantIFrames: (player: Player, seconds: number) -> (),

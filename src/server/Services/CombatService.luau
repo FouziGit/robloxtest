@@ -49,7 +49,12 @@ type MovementCommand =
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
 	| { Kind: "Stun", Seconds: number }
 type AntiCheatApi = {
-	strike: (player: Player, source: string, reason: string, kind: string?) -> (),
+	strike: (
+		player: Player,
+		source: string,
+		reason: string,
+		kind: ("Schema" | "RateLimit" | "Origin" | "Movement")?
+	) -> (),
 }
 type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
@@ -75,6 +80,7 @@ type GlyphApi = { getCooldowns: (player: Player) -> { [string]: number } }
 type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
 	fire: (name: string, player: Player, ...any) -> (),
+	lastInbound: (player: Player) -> number,
 }
 type Deps = {
 	Registry: Registry,

@@ -1,8 +1,9 @@
 --!strict
--- AntiCheatService: counts rejected remote calls per player inside a rolling window and kicks repeat
--- offenders. RemoteRegistry reports every rejection through `strike`.
+-- AntiCheatService: counts strikes per player inside a rolling window and kicks repeat offenders.
+-- RemoteRegistry reports every rejected remote call through `strike`; CombatService reports the positions
+-- it could not believe.
 --
--- The two rejection kinds are counted independently, each against its own threshold:
+-- The kinds are counted independently, each against its own threshold, so they never add up to a kick:
 --   "Schema"    (default) a payload Guard refused, a wrong direction or a wrong arity. Only a
 --               tampered or broken client produces one, so `GameConfig.Server.AbuseKickThreshold`
 --               (low) applies.
@@ -10,6 +11,8 @@
 --               the server's own acceptance interval, a laggy client re-sending), so they must never
 --               share the schema counter: they use `RATE_LIMIT_KICK_THRESHOLD` (much higher) and only
 --               sustained flooding, far above any human input rate, still reaches a kick.
+--   "Origin"    an action origin the server could not believe (see StrikeKind), on the schema threshold.
+--   "Movement"  a confirmed movement incident no exemption covered, on MovementGuardConfig.KickThreshold.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local Strings = require(Shared.Strings)
 
 local log = Log.new("AntiCheatService")
@@ -25,9 +29,13 @@ local log = Log.new("AntiCheatService")
 type Deps = { [string]: any }
 
 -- "Origin" is a character position the server could not believe (CombatService.trustedCFrame). It uses
--- the strict schema threshold, and CombatService only strikes after GameConfig.Latency
--- .ViolationsBeforeStrike consecutive implausible origins, so a kick needs a sustained stream of them.
-export type StrikeKind = "Schema" | "RateLimit" | "Origin"
+-- the strict schema threshold, and CombatService only strikes once GameConfig.Latency
+-- .ViolationsBeforeStrike implausible origins fall within ViolationWindowSeconds, so a kick needs a
+-- sustained stream of them.
+-- "Movement" is one confirmed movement incident: never one per sample, and never while contact, a grant,
+-- a spawn, a hitch or a stall can explain the motion. It has its own threshold, kept with the rest of the
+-- guard's numbers in src/server, where no client reads them.
+export type StrikeKind = "Schema" | "RateLimit" | "Origin" | "Movement"
 
 -- Rate-limit overflows tolerated inside `GameConfig.Server.AbuseWindowSeconds`. 600 over 60 s is a
 -- sustained 10 rejected calls per second: an order of magnitude above what any human input can
@@ -46,6 +54,9 @@ local function thresholdFor(kind: StrikeKind): number
 	if kind == "RateLimit" then
 		return RATE_LIMIT_KICK_THRESHOLD
 	end
+	if kind == "Movement" then
+		return MovementGuardConfig.KickThreshold
+	end
 	return GameConfig.Server.AbuseKickThreshold
 end
 
@@ -56,8 +67,8 @@ local function prune(list: { number }, now: number)
 	end
 end
 
--- Records one rejected call of `kind` from `source` (remote name). Kicks once the window holds the
--- threshold for that kind; the two kinds never add up to a kick together.
+-- Records one strike of `kind` from `source` (a remote name, or the check that struck). Kicks once the
+-- window holds the threshold for that kind; different kinds never add up to a kick together.
 function AntiCheatService.strike(player: Player, source: string, reason: string, kind: StrikeKind?)
 	if player.Parent ~= Players then
 		return
@@ -82,7 +93,7 @@ function AntiCheatService.strike(player: Player, source: string, reason: string,
 	if #list >= threshold then
 		strikes[player] = nil
 		log.warn(
-			"%s kicked: %d rejected %s calls within %ds",
+			"%s kicked: %d %s strikes within %ds",
 			player.Name,
 			threshold,
 			strikeKind,
@@ -102,10 +113,11 @@ end
 
 function AntiCheatService.Start()
 	log.info(
-		"started (kick after %d Schema or %d RateLimit strikes within %ds)",
+		"started (kick within %ds after %d Schema or Origin, %d RateLimit, or %d Movement strikes)",
+		GameConfig.Server.AbuseWindowSeconds,
 		GameConfig.Server.AbuseKickThreshold,
 		RATE_LIMIT_KICK_THRESHOLD,
-		GameConfig.Server.AbuseWindowSeconds
+		MovementGuardConfig.KickThreshold
 	)
 end
 

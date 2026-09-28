@@ -720,7 +720,8 @@ sceau de charbon se referme. Fixe, jamais une fenêtre, pour la raison de la Vol
 **Ce qu'il doit faire sentir.** Une ligne réglée d'un seul trait, plus lourde que la Rature.
 
 **Comment il est construit.** La structure de la Rature (D-126) : un porteur trace en huit centièmes, depuis
-la bouche, jusqu'où le rayon du serveur s'est arrêté — au-delà des trois corps qu'il peut traverser,
+la bouche au point d'appui — sur la ligne que la charge a peinte, d'où le serveur tire aussi (D-141) —,
+jusqu'où le rayon du serveur s'est arrêté — au-delà des trois corps qu'il peut traverser,
 jusqu'au mur —, trois rubans (pigment large, encre, filet chaud) tenus une demi-seconde, une secousse
 lourde au lâcher, et la ligne laissée brûlée sur la page à toute sa longueur. L'atterrissage sur chaque
 corps est le paquet `Hit` du serveur. `tests/VfxStyle.spec.luau` tient le porteur à la longueur du paquet et

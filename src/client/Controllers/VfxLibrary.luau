@@ -809,8 +809,9 @@ VfxLibrary.RubricCharge = function(packet: Packet, _trove: TroveType, api: Api)
 	playCharge("RubricCharge", "Rubric", packet, api)
 end
 
--- The Strike's ruling (D-126), from the release packet: Origin is where the caster let go, SpawnOffset the
--- gap to where the line starts (shorter against a wall, D-144), Range its length up to where the ray stopped.
+-- The Strike's ruling (D-126), from the release packet: Origin is where the caster pressed, the lane the charge
+-- painted (D-141), SpawnOffset the gap to where the line starts (shorter against a wall, D-144), Range its
+-- length up to where the ray stopped.
 VfxLibrary.Rubric = function(packet: Packet, _trove: TroveType, api: Api)
 	local def = GlyphConfig.ById.Rubric
 	local direction = directionOf(packet)

@@ -132,6 +132,23 @@ describe("a charged glyph", function()
 	end)
 end)
 
+describe("the Rubric", function()
+	it("rules its line down the lane it painted, and loses a charge carried off it", function()
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		-- The lane is painted from the press point; the line leaves from there too, never from where the caster
+		-- was pushed or slid to while the root held only his walk speed.
+		expect(rubric:find("local muzzle = origin", 1, true)).never.toBe(nil)
+		expect(rubric:find("local muzzle = frame.Position", 1, true)).toBe(nil)
+		local lost =
+			"local drift = frame.Position - origin if Vector3.new(drift.X, 0, drift.Z).Magnitude > params.ReleaseDriftStuds then return 0 end"
+		expect(rubric:find(lost, 1, true)).never.toBe(nil)
+		-- Judged before anything is measured or struck from the release.
+		expect(before(rubric, lost, "local start, clear = launchPoint(muzzle,")).toBe(true)
+		expect(before(rubric, lost, "damageModel(ctx, tracker, model)")).toBe(true)
+		expect((GlyphConfig.ById.Rubric.Params :: any).ReleaseDriftStuds).toBeGreaterThan(0)
+	end)
+end)
+
 describe("the Hatching", function()
 	it("holds its caster for the rush, and stops the stroke a dash broke it", function()
 		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")

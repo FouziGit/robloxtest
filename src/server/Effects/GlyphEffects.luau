@@ -1481,7 +1481,15 @@ function GlyphEffects.Rubric(ctx: Context): number
 		ctx.Movement.clearSlow(ctx.Caster, ctx.Def.Id) -- a broken charge frees its root at once
 		return 0
 	end
-	local muzzle = frame.Position
+	-- Ruled down the lane the charge painted, or not at all. The root is only a walk speed: a push it does not
+	-- hold against (a blast, a wave, a drag) or a client that ignores it carries the caster off the lane, and a
+	-- line fired from where he stands then would pierce a player who left the painted one. Off it by more than
+	-- ReleaseDriftStuds, the charge is lost; on it, the line leaves from the press, where the floor said.
+	local drift = frame.Position - origin
+	if Vector3.new(drift.X, 0, drift.Z).Magnitude > params.ReleaseDriftStuds then
+		return 0
+	end
+	local muzzle = origin
 	local start, clear = launchPoint(muzzle, direction, params.SpawnOffset, character)
 	local candidates: { Model }, stop: Vector3 = {}, start
 	if clear then

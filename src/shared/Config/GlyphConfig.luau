@@ -456,8 +456,10 @@ GlyphConfig.Glyphs = {
 	},
 	{
 		-- Charged hitscan: aim locked at the press, caster rooted (ChargeSlowFactor) and channelled for Windup s;
-		-- then one ray from SpawnOffset ahead (or from the wall in that gap, D-144) to Range or the first wall,
-		-- damaging up to MaxTargets bodies within HitRadius of it and pushing them along the aim.
+		-- then one ray from SpawnOffset ahead of the PRESS point (or from the wall in that gap, D-144) to Range or
+		-- the first wall, damaging up to MaxTargets bodies within HitRadius of it and pushing them along the aim.
+		-- A caster carried more than ReleaseDriftStuds off the press point by the release has lost the charge
+		-- (D-141): the client's round trip at a run, the slack the origin check also gives an action.
 		Id = "Rubric",
 		Pigment = "Cinnabar",
 		Combo = { "Cinnabar", "Indigo" },
@@ -471,7 +473,15 @@ GlyphConfig.Glyphs = {
 		Unlock = { Kind = "Level", Value = 33 },
 		NameKey = "glyph.Rubric.name",
 		DescriptionKey = "glyph.Rubric.desc",
-		Params = { Windup = 0.7, ChargeSlowFactor = 0, SpawnOffset = 3, HitRadius = 4, MaxTargets = 3, Knockback = 30 },
+		Params = {
+			Windup = 0.7,
+			ChargeSlowFactor = 0,
+			SpawnOffset = 3,
+			HitRadius = 4,
+			MaxTargets = 3,
+			Knockback = 30,
+			ReleaseDriftStuds = 6,
+		},
 	},
 	{
 		-- A flourish along the ground: its front moves at Speed from SpawnOffset to Range, stopping at the first

@@ -202,7 +202,8 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	miss.Visible = false
 	local missScale = Instance.new("UIScale")
 	missScale.Parent = miss
-	Sticker.new({ Kind = "Plate", Fill = Theme.Colors.Plate, Corner = Theme.Pill, Parent = miss, Name = "Pill" })
+	-- The pill hosts its plate: it is as wide as its word (Sticker's Host, D-170).
+	Sticker.new({ Kind = "Plate", Fill = Theme.Colors.Plate, Corner = Theme.Pill, Host = miss })
 	local missLabel = Instance.new("TextLabel")
 	missLabel.Name = "Text"
 	missLabel.BackgroundTransparency = 1

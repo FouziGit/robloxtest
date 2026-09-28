@@ -142,7 +142,8 @@ local function inkPill(name: string, order: number, parent: Instance, trove: Tro
 	pill.LayoutOrder = order
 	pill.Size = UDim2.fromOffset(0, PILL_HEIGHT)
 	pill.AutomaticSize = Enum.AutomaticSize.X
-	local plate = Sticker.new({ Kind = "Plate", Fill = Theme.Colors.Plate, Corner = Theme.Pill, Parent = pill })
+	-- The pill hosts its plate: it is as wide as its row (Sticker's Host, D-170).
+	local plate = Sticker.new({ Kind = "Plate", Fill = Theme.Colors.Plate, Corner = Theme.Pill, Host = pill })
 	trove:Add(function()
 		plate:Destroy()
 	end)
@@ -411,7 +412,8 @@ function MetaCluster.new(props: Props): MetaCluster
 	trove:Add(function()
 		Motion.cancel(stepsScale)
 	end)
-	local card = Sticker.new({ Kind = "Card", Fill = Theme.Colors.PanelRaised, Parent = steps, Name = "Card" })
+	-- The card is the frame's own: it is as tall as its list (Sticker's Host, D-170).
+	local card = Sticker.new({ Kind = "Card", Fill = Theme.Colors.PanelRaised, Host = steps })
 	trove:Add(function()
 		card:Destroy()
 	end)

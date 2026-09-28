@@ -61,19 +61,18 @@ function HudPlate.new(props: Props): HudPlate
 	frame.Visible = false
 	trove:Add(frame)
 
+	-- The frame hosts its plate (Sticker's Host, D-170): the content decides the height, and the plate, the
+	-- frame's own child, fills whatever it asks for.
 	local plate = Sticker.new({
 		Kind = "Plate",
 		Fill = Theme.Colors.Plate,
 		Corner = props.Corner or UDim.new(0, Theme.Sizes.CornerCard),
-		Size = UDim2.fromScale(1, 1),
-		Parent = frame,
-		Name = "Plate",
+		Host = frame,
 	})
 	trove:Add(function()
 		plate:Destroy()
 	end)
 
-	-- The content decides the height; the plate, sized to the frame, fills whatever it asks for.
 	local content = Instance.new("Frame")
 	content.Name = "Content"
 	content.BackgroundTransparency = 1

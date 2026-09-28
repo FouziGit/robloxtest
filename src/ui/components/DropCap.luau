@@ -45,7 +45,7 @@ function DropCap.new(letter: string, chapter: string, parent: Instance?): DropCa
 	trove:Add(function()
 		sticker:Destroy()
 	end)
-	local root = sticker.Instance
+	local root = sticker.Instance :: Frame
 	root.Rotation = TILT
 
 	-- The chapter's ring, inside the ink outline.

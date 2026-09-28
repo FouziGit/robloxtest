@@ -200,7 +200,7 @@ function GlyphCard.new(props: Props): GlyphCard
 	trove:Add(function()
 		sticker:Destroy()
 	end)
-	local root = sticker.Instance
+	local root = sticker.Instance :: Frame
 	local face = sticker.Face
 
 	-- The band, inside the face's ink outline, its bottom corners squared by a filler of its colour.

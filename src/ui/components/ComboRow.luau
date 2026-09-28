@@ -145,13 +145,12 @@ local function pill(name: string, height: number, order: number, trove: TroveObj
 	frame.Size = UDim2.fromOffset(0, height)
 	frame.AutomaticSize = Enum.AutomaticSize.X
 	frame.Visible = false
+	-- The pill hosts its plate: it is as wide as its row (Sticker's Host, D-170).
 	local plate = Sticker.new({
 		Kind = "Plate",
 		Fill = Theme.Colors.Plate,
 		Corner = Theme.Pill,
-		Size = UDim2.fromScale(1, 1),
-		Parent = frame,
-		Name = "Plate",
+		Host = frame,
 	})
 	trove:Add(function()
 		plate:Destroy()

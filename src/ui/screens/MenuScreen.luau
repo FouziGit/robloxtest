@@ -87,17 +87,6 @@ local function own(owner: typeof(Trove.new()), object: Destroyable)
 	end)
 end
 
--- The face a Button draws its content on: what a tile adds (the Play art, the stripe) goes on it, so it
--- rides the face when it is pressed.
-local function faceOf(button: Button.Button): Frame?
-	local sticker = button.Instance:FindFirstChild("Sticker")
-	local face = if sticker ~= nil then sticker:FindFirstChild("Face") else nil
-	if face ~= nil and face:IsA("Frame") then
-		return face
-	end
-	return nil
-end
-
 local function textLabel(name: string, font: Font, size: number, order: number, parent: Instance): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
@@ -396,7 +385,8 @@ function MenuScreen.new(deps: Deps): Screen
 	own(trove, loadoutButton)
 
 	-- The Play tile: a ► on a blot of the sheet, its word at poster size, and its line under it.
-	local playFace = faceOf(playButton)
+	-- What a tile adds (the Play art, the stripe) goes on its face, so it rides the face when it is pressed.
+	local playFace = playButton:Face()
 	local playLine: TextLabel? = nil
 	if playFace ~= nil then
 		local art = Instance.new("Frame")
@@ -451,7 +441,7 @@ function MenuScreen.new(deps: Deps): Screen
 	end
 
 	-- The Loadout tile holds the five pigments: their stripe along its foot, as on its chapter's band.
-	local loadoutFace = faceOf(loadoutButton)
+	local loadoutFace = loadoutButton:Face()
 	if loadoutFace ~= nil then
 		local stripe = row("Stripe", loadoutFace, 0)
 		stripe.AnchorPoint = Vector2.new(0.5, 1)

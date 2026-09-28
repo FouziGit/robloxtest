@@ -10,6 +10,14 @@
 --              background-transparency setting (UiPrefs), opaque for a player who asked for opaque
 --
 -- Callers parent their content to `Face`, so it rides the face when it moves.
+--
+-- A frame that sizes itself to its content (AutomaticSize) hosts its sticker (`Host`, D-170): the base, the
+-- face and the gloss are then its own children, each sized by scale to it. The engine resolves a scale-sized
+-- child of an automatically sized frame against the size its content gives it, but a scale-sized grandchild
+-- against the nearest ancestor of a fixed size, and grows the frame to hold that: a sticker filling a button
+-- from inside its own frame made the button as wide as the screen. So nothing under the face may take its
+-- size from the face along an axis the host sizes itself on either; the gloss is the face's sibling, and
+-- with it the face callers fill is a clear layer above it (`Face`), riding with the coloured one.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -37,6 +45,9 @@ export type Props = {
 	Outline: boolean?,
 	-- The outline's design thickness: Theme.Sizes.Stroke, or StrokeThin for a row, a chip or a keycap.
 	Stroke: number?,
+	-- Draw into this frame instead of a new one; Size, Position, AnchorPoint, LayoutOrder, Parent and Name are
+	-- then the host's own, and Destroy leaves it standing.
+	Host: GuiObject?,
 	Size: UDim2?,
 	Position: UDim2?,
 	AnchorPoint: Vector2?,
@@ -46,7 +57,8 @@ export type Props = {
 }
 
 export type Sticker = {
-	Instance: Frame,
+	Instance: GuiObject,
+	-- Where callers put content: the coloured face, or with a gloss the clear layer above both.
 	Face: Frame,
 	Base: Frame?,
 	SetFill: (self: Sticker, fill: Color3) -> (),
@@ -90,16 +102,23 @@ function Sticker.new(props: Props): Sticker
 	local strokeThickness = props.Stroke or Theme.Sizes.Stroke
 	local state: State = "Idle"
 
-	local root = Instance.new("Frame")
-	root.Name = props.Name or "Sticker"
-	root.BackgroundTransparency = 1
-	root.BorderSizePixel = 0
-	root.ClipsDescendants = false
-	root.Size = props.Size or UDim2.fromScale(1, 1)
-	root.Position = props.Position or UDim2.new()
-	root.AnchorPoint = props.AnchorPoint or Vector2.zero
-	root.LayoutOrder = props.LayoutOrder or 0
-	trove:Add(root)
+	local host = props.Host
+	local root: GuiObject
+	if host ~= nil then
+		root = host
+	else
+		local frame = Instance.new("Frame")
+		frame.Name = props.Name or "Sticker"
+		frame.BackgroundTransparency = 1
+		frame.BorderSizePixel = 0
+		frame.ClipsDescendants = false
+		frame.Size = props.Size or UDim2.fromScale(1, 1)
+		frame.Position = props.Position or UDim2.new()
+		frame.AnchorPoint = props.AnchorPoint or Vector2.zero
+		frame.LayoutOrder = props.LayoutOrder or 0
+		trove:Add(frame)
+		root = frame
+	end
 
 	local base: Frame? = nil
 	if kind ~= "Plate" then
@@ -113,6 +132,7 @@ function Sticker.new(props: Props): Sticker
 		Theme.corner(frame, corner)
 		Theme.stroke(frame, "Accent", strokeThickness)
 		frame.Parent = root
+		trove:Add(frame)
 		base = frame
 	end
 
@@ -128,19 +148,39 @@ function Sticker.new(props: Props): Sticker
 		Theme.stroke(face, "Accent", strokeThickness)
 	end
 	face.Parent = root
+	trove:Add(face)
 	trove:Add(function()
 		Motion.cancel(face)
 	end)
 
+	-- What rides with the face: the face, and with a gloss the gloss and the clear layer over it.
+	local riders: { Frame } = { face }
+	local surface = face
 	if props.Gloss == true then
 		local gloss = Instance.new("Frame")
 		gloss.Name = "Gloss"
 		gloss.BorderSizePixel = 0
 		gloss.BackgroundColor3 = Theme.Colors.PanelRaised
-		gloss.Size = UDim2.fromScale(1, GLOSS_HEIGHT)
+		gloss.ZIndex = 3
+		gloss.Size = UDim2.new(1, 0, GLOSS_HEIGHT, -GLOSS_HEIGHT * elevation)
 		Theme.corner(gloss, corner)
 		Theme.gradient("Gloss").Parent = gloss
-		gloss.Parent = face
+		gloss.Parent = root
+		trove:Add(gloss)
+		local top = Instance.new("Frame")
+		top.Name = "Top"
+		top.BackgroundTransparency = 1
+		top.BorderSizePixel = 0
+		top.ZIndex = 4
+		top.Size = face.Size
+		top.Parent = root
+		trove:Add(top)
+		riders = { face, gloss, top }
+		surface = top
+		trove:Add(function()
+			Motion.cancel(gloss)
+			Motion.cancel(top)
+		end)
 	end
 
 	if kind == "Plate" then
@@ -176,16 +216,24 @@ function Sticker.new(props: Props): Sticker
 			-- Back from anywhere with the overshoot: a released button springs up, and that is the click.
 			preset = "UiPop"
 		end
-		local goals = { Position = UDim2.fromOffset(0, y), BackgroundColor3 = color }
-		if animate then
-			Motion.to(face, goals, preset)
-		else
-			Motion.set(face, goals)
+		local position = UDim2.fromOffset(0, y)
+		for _, rider in ipairs(riders) do
+			local goals: { [string]: any } = { Position = position }
+			if rider == face then
+				goals.BackgroundColor3 = color
+			end
+			if animate then
+				Motion.to(rider, goals, preset)
+			else
+				Motion.set(rider, goals)
+			end
 		end
 	end
 
 	render(false)
-	root.Parent = props.Parent
+	if host == nil then
+		root.Parent = props.Parent
+	end
 
 	local function setFill(_self: Sticker, next: Color3)
 		fill = next
@@ -206,7 +254,7 @@ function Sticker.new(props: Props): Sticker
 
 	local object: Sticker = {
 		Instance = root,
-		Face = face,
+		Face = surface,
 		Base = base,
 		SetFill = setFill,
 		SetState = setState,

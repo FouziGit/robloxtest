@@ -119,11 +119,15 @@ function Keycap.new(props: Props): Keycap
 	trove:Add(function()
 		sticker:Destroy()
 	end)
-	local root = sticker.Instance
+	local root = sticker.Instance :: Frame
 	-- A word widens the cap; a letter keeps it square.
 	root.AutomaticSize = Enum.AutomaticSize.X
 
-	-- Invisible, and the only child the automatic width reads: the face and its lip fill whatever it asks.
+	-- Invisible, and what the automatic width is measured on: the face and its lip, the cap's own children,
+	-- fill whatever it asks. Nothing under the face takes its width from the face, or the engine would
+	-- measure it against the screen (D-170): the word is centred at its own width, and the pigment strip is
+	-- the cap's child, not the face's.
+	local pigment = props.Pigment
 	local measure = Instance.new("TextLabel")
 	measure.Name = "Measure"
 	measure.BackgroundTransparency = 1
@@ -140,21 +144,24 @@ function Keycap.new(props: Props): Keycap
 	local label = Instance.new("TextLabel")
 	label.Name = "Key"
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.AnchorPoint = Vector2.new(0.5, 0)
+	label.Position = UDim2.fromScale(0.5, 0)
+	label.Size = UDim2.fromScale(0, 1)
 	label.TextSize = TEXT_SIZE
 	label.TextColor3 = Theme.Colors.Text
 	label.Parent = sticker.Face
 
-	local pigment = props.Pigment
 	if pigment ~= nil then
 		local strip = Instance.new("Frame")
 		strip.Name = "Pigment"
 		strip.BorderSizePixel = 0
 		strip.BackgroundColor3 = Theme.pigmentColor(pigment)
 		strip.AnchorPoint = Vector2.new(0.5, 1)
-		strip.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin)
+		strip.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - ELEVATION)
 		strip.Size = UDim2.new(1, -Theme.Sizes.CornerKeycap * 2, 0, STRIP_HEIGHT)
-		strip.Parent = sticker.Face
+		strip.ZIndex = 3
+		strip.Parent = root
 	end
 
 	local function setKey(_self: Keycap?, key: string)

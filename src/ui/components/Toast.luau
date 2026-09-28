@@ -221,14 +221,14 @@ local function buildItem(
 	group.Position = UDim2.fromOffset(SLIDE, 0)
 	group.Parent = slot
 
+	-- The group hosts its card (Sticker's Host, D-170): a message's group is as tall as its words, and a
+	-- card filling it from a frame of its own was measured against the screen and ran down the whole lane.
 	local card = Sticker.new({
 		Kind = "Card",
 		Fill = if celebrate then Theme.Colors.Primary else Theme.Colors.PanelRaised,
 		Corner = UDim.new(0, Theme.Sizes.CornerCard),
 		Elevation = ELEVATION,
-		Size = UDim2.fromScale(1, 1),
-		Parent = group,
-		Name = "Card",
+		Host = group,
 	})
 	trove:Add(function()
 		card:Destroy()

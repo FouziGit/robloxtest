@@ -144,7 +144,7 @@ function Panel.new(props: Props): Panel
 	trove:Add(function()
 		card:Destroy()
 	end)
-	local frame = card.Instance
+	local frame = card.Instance :: Frame
 	local face = card.Face
 	face.ClipsDescendants = true
 

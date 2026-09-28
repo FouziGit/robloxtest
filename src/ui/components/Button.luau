@@ -62,6 +62,8 @@ export type Button = {
 	SetPending: (self: Button, pending: boolean) -> (),
 	Flash: (self: Button, kind: FlashKind) -> (),
 	SetBadge: (self: Button, value: Badge.Value?) -> (),
+	-- The face the button draws its content on, which rides a press; nil for a Ghost, which has none.
+	Face: (self: Button) -> Frame?,
 	Destroy: (self: Button) -> (),
 }
 
@@ -157,8 +159,11 @@ function Button.new(props: Props): Button
 	button.Size = props.Size or UDim2.fromOffset(0, Theme.Sizes.ButtonHeight)
 	button.LayoutOrder = props.LayoutOrder or 0
 	button.Selectable = not disabled
-	if not isTile then
-		-- As wide as its word: a French label is never cut.
+	local stretched = props.Size ~= nil and props.Size.X.Scale ~= 0
+	if not isTile and not stretched then
+		-- As wide as its word: a French label is never cut. A button its caller stretches by scale keeps that
+		-- width: sizing it automatically too, the engine dropped the width's offset (a card's Equip ran over
+		-- the card's own outline).
 		button.AutomaticSize = Enum.AutomaticSize.X
 	end
 	button.SelectionImageObject = trove:Add(Theme.focusRing(nil, look.Corner))
@@ -172,8 +177,10 @@ function Button.new(props: Props): Button
 	end)
 	Theme.minPixelSize(button, Theme.MinTouchTarget)
 
-	-- Invisible, and the only child the automatic width reads: its padding holds the icon and the margins,
-	-- its own size the minimum width. The face, its lip and the word fill whatever it asks for.
+	-- Invisible, and what the automatic width is measured on: its padding holds the icon and the margins, its
+	-- own size the minimum width. The face and its lip are the button's own children, sized by scale to
+	-- whatever it asks for (Sticker's Host), and the word is centred on the face at its own size: nothing
+	-- under the face takes its width from it, or the engine would measure it against the screen (D-170).
 	local measure = Instance.new("TextLabel")
 	measure.Name = "Measure"
 	measure.BackgroundTransparency = 1
@@ -191,7 +198,10 @@ function Button.new(props: Props): Button
 	local content = Instance.new("Frame")
 	content.Name = "Content"
 	content.BackgroundTransparency = 1
-	content.Size = UDim2.fromScale(1, 1)
+	content.AutomaticSize = Enum.AutomaticSize.XY
+	content.Size = UDim2.new()
+	content.AnchorPoint = Vector2.new(0.5, 0.5)
+	content.Position = UDim2.fromScale(0.5, 0.5)
 	content.ZIndex = 3
 	local contentLayout = Instance.new("UIListLayout")
 	contentLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -230,6 +240,8 @@ function Button.new(props: Props): Button
 
 	if isTile then
 		-- A tile is sized by its grid: its icon sits top-left and its word fills the bottom, scaled.
+		content.AutomaticSize = Enum.AutomaticSize.None
+		content.AnchorPoint = Vector2.zero
 		content.Size = UDim2.new(1, -Theme.Sizes.Padding * 2, 1, -Theme.Sizes.Padding * 2)
 		content.Position = UDim2.fromOffset(Theme.Sizes.Padding, Theme.Sizes.Padding)
 		contentLayout.FillDirection = Enum.FillDirection.Vertical
@@ -319,9 +331,7 @@ function Button.new(props: Props): Button
 				Corner = look.Corner,
 				Elevation = look.Elevation,
 				Gloss = look.Gloss,
-				Size = UDim2.fromScale(1, 1),
-				Parent = button,
-				Name = "Sticker",
+				Host = button,
 			})
 			content.Parent = face.Face
 			dots.Parent = face.Face
@@ -568,7 +578,8 @@ function Button.new(props: Props): Button
 		if success then
 			Motion.punch(scale, FOCUS_SCALE)
 		else
-			Motion.shake(face.Instance)
+			-- The word shakes on the face: the button itself is placed by its row's layout.
+			Motion.shake(content)
 		end
 		local shownFace = face
 		task.delay(Theme.Timing.SuccessFlashSeconds, function()
@@ -587,6 +598,11 @@ function Button.new(props: Props): Button
 			badge =
 				Badge.new(value, button, if look.Face == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)
 		end
+	end
+
+	local function faceOfButton(_self: Button): Frame?
+		local current = sticker
+		return if current ~= nil then current.Face else nil
 	end
 
 	local function destroy(_self: Button)
@@ -610,6 +626,7 @@ function Button.new(props: Props): Button
 		SetPending = setPending,
 		Flash = flash,
 		SetBadge = setBadge,
+		Face = faceOfButton,
 		Destroy = destroy,
 	}
 	return object

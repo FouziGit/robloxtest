@@ -222,9 +222,8 @@ function DailyScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	-- The content never scrolls: the calendar and its two lines stand in its window.
+	panel:SetContentMode("Fill")
 	local content = panel.Content
-	content.AutomaticCanvasSize = Enum.AutomaticSize.None
-	content.CanvasSize = UDim2.fromScale(1, 1)
 	local column = blank("Streak", content)
 	column.Size = UDim2.fromScale(1, 1)
 	list(column, Enum.FillDirection.Vertical, Theme.Sizes.Gap)

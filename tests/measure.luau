@@ -5,8 +5,10 @@
 -- Widths: a word is drawn at most CHAR_SHARE of its text size a character in the interface's faces, so a
 -- width from here is an upper bound, never the engine's own figure. Heights: down the chain of parents, each
 -- frame's scale of what its parent leaves (less the parent's UIPadding, and for a ScrollingFrame its canvas
--- less a horizontal bar's inset) plus its offset, floored and capped by its UISizeConstraint. List layouts
--- and automatic sizes are not modelled: measure the frames they do not size.
+-- less a horizontal bar's inset) plus its offset, floored and capped by its UISizeConstraint. A canvas is
+-- never shorter than its window, and its scale is of the ScrollingFrame's own parent, as the engine resolves
+-- it (measured in Studio, D-171). List layouts and automatic sizes are not modelled: measure the frames they
+-- do not size.
 local fs = require("@lune/fs")
 
 local Measure = {}
@@ -38,6 +40,28 @@ function Measure.buttonWidth(text: string, textSize: number, icon: boolean): num
 	return math.max(number(BUTTON, "MIN_WIDTH"), drawn)
 end
 
+-- The height `frame` leaves its children, on a ScreenGui `screenHeight` design units tall.
+local function room(frame: any, screenHeight: number): number
+	if frame:IsA("LayerCollector") then
+		return screenHeight
+	end
+	local available = Measure.heightOf(frame, screenHeight)
+	if frame:IsA("ScrollingFrame") then
+		local canvas = frame.CanvasSize
+		available = math.max(available, room(frame.Parent, screenHeight) * canvas.Y.Scale + canvas.Y.Offset)
+		local inset = frame.HorizontalScrollBarInset
+		if inset ~= nil and inset.Name == "ScrollBar" then
+			available -= frame.ScrollBarThickness or 0
+		end
+	end
+	local padding = frame:FindFirstChildOfClass("UIPadding")
+	if padding ~= nil then
+		local top, bottom = padding.PaddingTop, padding.PaddingBottom
+		available -= available * (top.Scale + bottom.Scale) + top.Offset + bottom.Offset
+	end
+	return available
+end
+
 -- The height `object` (an engine instance) is drawn at, on a ScreenGui `screenHeight` design units tall.
 function Measure.heightOf(object: any, screenHeight: number): number
 	if object:IsA("LayerCollector") then
@@ -45,21 +69,7 @@ function Measure.heightOf(object: any, screenHeight: number): number
 	end
 	local parent = object.Parent
 	assert(parent ~= nil, object:GetFullName() .. " is not on a screen")
-	local available = Measure.heightOf(parent, screenHeight)
-	if parent:IsA("ScrollingFrame") then
-		local canvas = parent.CanvasSize
-		available = available * canvas.Y.Scale + canvas.Y.Offset
-		local inset = parent.HorizontalScrollBarInset
-		if inset ~= nil and inset.Name == "ScrollBar" then
-			available -= parent.ScrollBarThickness or 0
-		end
-	end
-	local padding = parent:FindFirstChildOfClass("UIPadding")
-	if padding ~= nil then
-		local top, bottom = padding.PaddingTop, padding.PaddingBottom
-		available -= available * (top.Scale + bottom.Scale) + top.Offset + bottom.Offset
-	end
-	local height = available * object.Size.Y.Scale + object.Size.Y.Offset
+	local height = room(parent, screenHeight) * object.Size.Y.Scale + object.Size.Y.Offset
 	local constraint = object:FindFirstChildOfClass("UISizeConstraint")
 	if constraint ~= nil then
 		height = math.clamp(height, constraint.MinSize.Y, math.max(constraint.MinSize.Y, constraint.MaxSize.Y))

@@ -74,6 +74,10 @@ describe("the daily reward on a phone, run", function()
 					- padding.PaddingBottom.Offset
 				local column = content:FindFirstChild("Streak")
 				expect(column:FindFirstChild("AtRisk").Text).toBe("daily.atRisk")
+				-- The column is the window's height, no more: a canvas of fromScale(1, 1), which the engine
+				-- takes from the card rather than the window, left it the card's height with its header and
+				-- footer, and the content scrolled onto nothing (D-171).
+				expect(Measure.heightOf(column, screenHeight)).toBeLessThanOrEqual(window)
 				-- The calendar takes what the lines leave, down to its floor.
 				local calendar = column:FindFirstChild("Calendar")
 				local range = calendar:FindFirstChildOfClass("UISizeConstraint")

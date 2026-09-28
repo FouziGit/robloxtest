@@ -1,6 +1,6 @@
 --!strict
 -- CardContent: the scrolling part of a screen's card (D-147). What a screen puts in it is laid out as a list,
--- a grid of tiles, or a track that scrolls sideways. While a list runs on past the card's foot, a fade in the
+-- a grid of tiles, or a track that scrolls sideways; or it fills the window and never scrolls (Fill). While a list runs on past the card's foot, a fade in the
 -- card's own colour says so, with an arrow that bobs as long as its screen is up. And at an entrance the
 -- first children in view spring up one after another (ThemeConfig.Timing's stagger), the rest simply there.
 
@@ -12,7 +12,7 @@ local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 
-export type Mode = "List" | "Grid" | "Track"
+export type Mode = "List" | "Grid" | "Track" | "Fill"
 
 export type Props = {
 	Mode: Mode?,
@@ -63,7 +63,15 @@ local function makeLayout(content: ScrollingFrame, mode: Mode, gridCell: UDim2?)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	local sideways = mode == "Track"
 	content.ScrollingDirection = if sideways then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y
-	content.AutomaticCanvasSize = if sideways then Enum.AutomaticSize.X else Enum.AutomaticSize.Y
+	-- The canvas grows the way the content scrolls and is the window across it: a canvas of UDim2.new() is
+	-- drawn at least at the window's size, so a Track's card of scale 1 is as tall as the window, and a Fill's
+	-- canvas is the window. The engine resolves a canvas's scale against the scrolling frame's parent, as it
+	-- does a Size: fromScale(1, 1) made it taller than the window by the card's header and footer, the
+	-- content scrolled onto nothing, and a phone's Today cards ran under the card's foot (D-171).
+	content.AutomaticCanvasSize = if mode == "Fill"
+		then Enum.AutomaticSize.None
+		elseif sideways then Enum.AutomaticSize.X
+		else Enum.AutomaticSize.Y
 	content.CanvasSize = UDim2.new()
 	content.CanvasPosition = Vector2.zero
 	layout.Parent = content

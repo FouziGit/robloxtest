@@ -256,9 +256,8 @@ function MenuScreen.new(deps: Deps): Screen
 
 	-- The content never scrolls: its canvas is its window, and the deck fills it. With a pointer the two
 	-- rows stand at the tile height; on a phone they share what the card has.
+	panel:SetContentMode("Fill")
 	local content = panel.Content
-	content.AutomaticCanvasSize = Enum.AutomaticSize.None
-	content.CanvasSize = UDim2.fromScale(1, 1)
 
 	local deck = row("Deck", content, Theme.Sizes.Gap)
 	deck.Size = UDim2.fromScale(1, 1)

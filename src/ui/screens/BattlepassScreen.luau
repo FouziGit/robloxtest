@@ -365,9 +365,8 @@ function BattlepassScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	-- The content never scrolls: its canvas is its window, which the stage fills. The road scrolls itself.
+	panel:SetContentMode("Fill")
 	local content = panel.Content
-	content.AutomaticCanvasSize = Enum.AutomaticSize.None
-	content.CanvasSize = UDim2.fromScale(1, 1)
 	local stage = blank("Stage", content)
 	stage.Size = UDim2.fromScale(1, 1)
 	list(stage, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)

@@ -213,9 +213,8 @@ function PlayScreen.new(deps: Deps): Screen
 	root:SetCard(panel)
 
 	-- The cards fill the card's content, side by side; nothing scrolls.
+	panel:SetContentMode("Fill")
 	local content = panel.Content
-	content.AutomaticCanvasSize = Enum.AutomaticSize.None
-	content.CanvasSize = UDim2.fromScale(1, 1)
 	local deck = blank("Modes", content)
 	deck.Size = UDim2.fromScale(1, 1)
 	list(deck, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)

@@ -568,11 +568,9 @@ function ShopScreen.new(deps: Deps): Screen
 		cards = {}
 		shelf = nil
 		signature = ""
+		-- A track's canvas is as tall as its window (CardContent): a card takes that height, and only scrolls
+		-- sideways.
 		panel:SetContentMode(TAB_MODES[next])
-		if TAB_MODES[next] == "Track" then
-			-- A track's canvas is as tall as its window: a card takes that height, and only scrolls sideways.
-			content.CanvasSize = UDim2.fromScale(0, 1)
-		end
 		rotationLine.Visible = next == "Today"
 		-- The header's height follows the countdown line in or out.
 		panel:SetHeaderHeight(headerHeight)

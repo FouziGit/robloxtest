@@ -8,6 +8,9 @@
 --                    that child against the nearest ancestor of a fixed size, and grows to hold it: a sticker
 --                    filling a button from a frame of its own made the button as wide as the screen. With a
 --                    scale on that axis, it also drops a negative offset beside it.
+--   Canvases         A ScrollingFrame's CanvasSize scale is of the ScrollingFrame's parent, as a Size is, not of
+--                    its window (D-171): a canvas of fromScale(1, 1) in a window its parent's header and footer
+--                    shorten is taller than the window, and it scrolls onto nothing.
 local Layout = {}
 
 type Axis = "X" | "Y"
@@ -76,9 +79,35 @@ function Layout.automaticSizes(root: any): { string }
 	return found
 end
 
+function Layout.canvases(root: any): { string }
+	local found: { string } = {}
+	for _, frame in ipairs(root:GetDescendants()) do
+		if frame.ClassName == "ScrollingFrame" then
+			local canvas, size = frame.CanvasSize, frame.Size
+			for _, axis in ipairs(AXES) do
+				local scale = (canvas :: any)[axis].Scale
+				local own = (size :: any)[axis]
+				if scale ~= 0 and (own.Scale ~= 1 or own.Offset ~= 0) then
+					table.insert(
+						found,
+						("%s takes its canvas's %s from its parent, which is not its window"):format(
+							frame:GetFullName(),
+							axis
+						)
+					)
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- Every rule, on `root`.
 function Layout.check(root: any, _screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
+	for _, line in ipairs(Layout.canvases(root)) do
+		table.insert(found, line)
+	end
 	return found
 end
 

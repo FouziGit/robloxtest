@@ -88,3 +88,24 @@ describe("the Folios in a chapter band", function()
 		expect(showing).toBeGreaterThanOrEqual(4)
 	end)
 end)
+
+describe("a claim or a purchase the server never answers", function()
+	it("is said, on every button that waits for one", function()
+		-- Button gives up after Timing.PendingTimeoutSeconds and calls OnTimeout. Every screen that waits on a
+		-- claim or a purchase then says common.pendingTimeout, or hands the timeout to the one that does:
+		-- a silent button would read as a claim that worked.
+		local files = {}
+		collect("src/ui", files)
+		local waiting = 0
+		for _, path in ipairs(files) do
+			for body in string.gmatch(code(path), "OnTimeout = function%(%)(.-)\n%s*end,") do
+				waiting += 1
+				if not has(body, '"common.pendingTimeout"') and not has(body, "props.OnTimeout()") then
+					error(path .. " gives up on the server without saying so")
+				end
+			end
+		end
+		-- The Daily reward, the quest card and the Quests screen that words its timeout.
+		expect(waiting).toBeGreaterThanOrEqual(3)
+	end)
+end)

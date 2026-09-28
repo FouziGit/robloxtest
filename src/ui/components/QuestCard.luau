@@ -32,6 +32,8 @@ export type Props = {
 	ClaimText: string,
 	ClaimedText: string,
 	OnClaim: () -> (),
+	-- The claim was never answered in time (Button's OnTimeout): the caller says so, as every claim does.
+	OnTimeout: () -> (),
 	Name: string?,
 	Parent: Instance?,
 }
@@ -197,9 +199,10 @@ function QuestCard.new(props: Props): QuestCard
 			button:SetPending(true)
 			props.OnClaim()
 		end,
-		-- The server never answered: the button is back, and so is the wiggle.
+		-- The server never answered: the button is back, and so is the wiggle; the board says so.
 		OnTimeout = function()
 			pending = false
+			props.OnTimeout()
 		end,
 	})
 	trove:Add(function()

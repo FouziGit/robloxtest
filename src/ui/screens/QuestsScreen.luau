@@ -34,6 +34,8 @@ export type Deps = {
 	ClientData: { get: () -> Types.ProfileData?, Changed: any },
 	RemoteClient: { fire: (name: string, ...any) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
+	-- A claim the server never answers is said in the HUD's toasts, as the Daily reward and the Shop say it.
+	HudController: { showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> () },
 	OnClose: () -> (),
 	OnBack: () -> (),
 	CanGoBack: () -> boolean,
@@ -232,6 +234,9 @@ function QuestsScreen.new(deps: Deps): Screen
 				ClaimedText = t("quest.claimed"),
 				OnClaim = function()
 					deps.RemoteClient.fire("ClaimQuest", period, quest.Id)
+				end,
+				OnTimeout = function()
+					deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
 				end,
 				Name = quest.Id,
 				Parent = panel.Content,

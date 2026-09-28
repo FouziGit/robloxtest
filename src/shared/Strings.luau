@@ -470,7 +470,6 @@ Strings.Table = {
 	["match.victory"] = { en = "Victory!", fr = "Victoire !" },
 	["match.defeat"] = { en = "Defeat", fr = "Défaite" },
 	["match.draw"] = { en = "Draw", fr = "Égalité" },
-	["match.rewards"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["match.ratingUp"] = { en = "{rank}  {rating} (+{delta})", fr = "{rank}  {rating} (+{delta})" },
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
@@ -742,6 +741,10 @@ Strings.Table = {
 		en = "Set in the Roblox menu, under Settings.",
 		fr = "Se règle dans le menu Roblox, dans Paramètres.",
 	},
+	-- The Result: what the match paid, counted up on its chips, and the details folded on a phone.
+	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
+	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
+	["result.details"] = { en = "Details", fr = "Détails" },
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

@@ -1239,6 +1239,16 @@ describe("FeelConfig", function()
 		expect(FeelConfig.DamageNumbers.PopScale).toBeGreaterThan(1)
 	end)
 
+	it("sets damage taken apart from damage dealt, and an amplified hit a size up", function()
+		local numbers = FeelConfig.DamageNumbers
+		-- What you took drifts down while what you dealt rises: the direction is the first cue (D-147).
+		expect(numbers.TakenRiseStuds).toBeLessThan(0)
+		expect(numbers.AmplifiedScale).toBeGreaterThan(1)
+		expect(numbers.AmplifiedScale).toBeLessThan(2)
+		expect(numbers.BaseTextSize).toBeGreaterThanOrEqual(26)
+		expect(numbers.BaseTextSize).toBeLessThanOrEqual(40)
+	end)
+
 	it("keeps every haptic motor inside the range the engine accepts", function()
 		local count = 0
 		for name, pulse in pairs(FeelConfig.Haptics) do

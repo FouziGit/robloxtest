@@ -85,4 +85,12 @@ describe("the smallest text", function()
 		expect(baseSize("TextSmall") * floor >= 9).toBe(true)
 		expect(baseSize("TextBody") * floor >= 10.5).toBe(true)
 	end)
+
+	it("sets a button's word and a screen's title large enough to hit and to find on a phone", function()
+		-- D-147: the audit found a menu set at 10.9 points on a phone with no hierarchy. A button's word
+		-- stays bold at 13 points and up, a title at 18 and up.
+		local floor = ThemeConfig.Scale.TouchFloor
+		expect(baseSize("TextButton") * floor >= 13).toBe(true)
+		expect(baseSize("TextTitle") * floor >= 18).toBe(true)
+	end)
 end)

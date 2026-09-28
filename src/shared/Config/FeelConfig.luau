@@ -166,9 +166,14 @@ FeelConfig.DamageNumbers = {
 	PopScale = 1.45,
 	Tension = 320,
 	Friction = 18,
-	BaseTextSize = 26,
+	BaseTextSize = 30,
 	-- A big hit is a bigger number, up to this multiple of the base size.
 	MaxSizeScale = 1.9,
+	-- A hit amplified by a status is this much bigger again, and carries the status's tag.
+	AmplifiedScale = 1.35,
+	-- Damage TAKEN drifts down instead of rising (D-147): it reads as something falling on you, apart
+	-- from every number you dealt, before the colour is even read.
+	TakenRiseStuds = -1.6,
 	-- It holds full opacity for this fraction of its life, then fades. Fading from the first frame
 	-- makes every number look weak.
 	HoldFraction = 0.45,
@@ -206,6 +211,11 @@ FeelConfig.Springs = {
 	-- The ghost of a bar: what was just lost, catching up slowly and never overshooting -- an overshoot
 	-- on a health bar reads as health coming back.
 	UiGhost = { Tension = 28, Friction = 11 },
+	-- What the player is given (a reward, a badge, a splat, a button let go): overshoots by about a
+	-- quarter and settles, the "Back Out" of the tweens this replaces.
+	UiPop = { Tension = 600, Friction = 20 },
+	-- What leaves: almost critically damped, so a screen going away never bounces back into view.
+	UiExit = { Tension = 500, Friction = 42 },
 	Camera = { Tension = 180, Friction = 26 },
 }
 

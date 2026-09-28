@@ -676,6 +676,12 @@ Strings.Table = {
 		en = "Disconnected: too many invalid requests.",
 		fr = "Déconnecté : trop de requêtes invalides.",
 	},
+
+	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
+
+	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
+
+	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }
 
 -- Substitutes {name} placeholders. Missing params are left as-is.

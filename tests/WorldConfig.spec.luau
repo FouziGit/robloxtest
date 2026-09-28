@@ -31,10 +31,24 @@ local BUILDER_ROOT = "src/server"
 local PALETTE = "src/shared/Util/Palette.luau"
 
 -- The saturated roles of the interface's palette. A screen may say danger in Cinnabar; the WORLD may not
--- carry one for a whole session (docs/ART_BIBLE.md rule 1: every vivid colour on screen belongs to a
--- glyph). The hub's queue terminal wore an exact Indigo emblem, permanently, which is the longest-lived
--- thing on screen.
-local FORBIDDEN_THEME_ROLES = { "Info", "Danger", "Success", "Premium", "Ink" }
+-- carry one for a whole session (docs/ART_BIBLE.md rule 1: nothing drawn in the world is saturated). The
+-- hub's queue terminal wore an exact Indigo emblem, permanently, which is the longest-lived thing on screen.
+local FORBIDDEN_THEME_ROLES = {
+	"Info",
+	"Danger",
+	"Success",
+	"Premium",
+	"Ink",
+	-- The vivid roles of the interface (D-147): screen-space only, never the scenery.
+	"Primary",
+	"SuccessFill",
+	"InfoFill",
+	"DangerFill",
+	"Ally",
+	"Health",
+	"Epic",
+	"Bronze",
+}
 
 -- What has to be legible against what. A colour that matches the surface it is drawn on is not a subtle
 -- bug: it is nothing at all, which is what happened to every mark of the Erasure when the floor became

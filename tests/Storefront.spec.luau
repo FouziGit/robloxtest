@@ -10,6 +10,10 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local MENU = "src/ui/screens/MenuScreen.luau"
+local PLAY = "src/ui/screens/PlayScreen.luau"
+-- The screens of this slice, for the rules every one of them keeps.
+local SCREENS = { MENU, PLAY }
+local SERVER = "src/server"
 
 local function stripComments(source: string): string
 	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
@@ -22,6 +26,17 @@ end
 
 local function code(path: string): string
 	return stripComments(fs.readFile(path))
+end
+
+local function collect(directory: string, out: { string })
+	for _, entry in ipairs(fs.readDir(directory)) do
+		local path = directory .. "/" .. entry
+		if fs.isDir(path) then
+			collect(path, out)
+		elseif string.match(entry, "%.luau$") then
+			table.insert(out, path)
+		end
+	end
 end
 
 type Tile = { Name: string, Chapter: string, Order: number }
@@ -93,5 +108,47 @@ describe("the menu", function()
 				apart(tile, below)
 			end
 		end
+	end)
+end)
+
+describe("these screens", function()
+	it("never paint a button red: nothing in them is a danger", function()
+		for _, path in ipairs(SCREENS) do
+			local source = code(path)
+			if string.find(source, '"Danger"', 1, true) ~= nil then
+				error(("%s draws a Danger button: leaving a queue, buying or claiming is no danger"):format(path))
+			end
+		end
+	end)
+
+	it("keep no per-frame loop: their clocks tick on task.delay", function()
+		for _, path in ipairs(SCREENS) do
+			local source = code(path)
+			for _, signal in ipairs({ "Heartbeat", "RenderStepped", "Stepped", "PreRender", "PreSimulation" }) do
+				if string.find(source, signal, 1, true) ~= nil then
+					error(("%s listens to %s: a screen's clock is a task.delay a second"):format(path, signal))
+				end
+			end
+		end
+	end)
+end)
+
+describe("the play cards", function()
+	it("wait for the very message the server sends when the queue gives up", function()
+		local key = string.match(code(PLAY), 'local TIMED_OUT_KEY = "([%w%.]+)"')
+		assert(key ~= nil, "the play screen names no TIMED_OUT_KEY: this gate would check nothing")
+		local files: { string } = {}
+		collect(SERVER, files)
+		local sent = false
+		for _, path in ipairs(files) do
+			if string.find(code(path), ('send(player, "%s"'):format(key :: string), 1, true) ~= nil then
+				sent = true
+			end
+		end
+		if not sent then
+			error(("no server service sends %s: the timed-out card would never show"):format(key :: string))
+		end
+		-- And the screen hears it from the HUD, which hears every message.
+		expect(string.find(code(PLAY), "trove:Connect(deps.HudController.Notified,", 1, true)).never.toBeNil()
 	end)
 end)

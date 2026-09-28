@@ -459,7 +459,6 @@ Strings.Table = {
 	["queue.join"] = { en = "Join queue", fr = "Rejoindre la file" },
 	["queue.leave"] = { en = "Leave queue", fr = "Quitter la file" },
 	["queue.searching"] = { en = "Searching… {waited}s", fr = "Recherche… {waited}s" },
-	["queue.teamSize"] = { en = "{size}v{size}", fr = "{size}v{size}" },
 	["queue.waiting"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
 	["queue.joined"] = { en = "Queued for {mode}.", fr = "En file pour {mode}." },
 	["queue.left"] = { en = "You left the queue.", fr = "Tu as quitté la file." },
@@ -700,6 +699,19 @@ Strings.Table = {
 	["nav.back"] = { en = "Back", fr = "Retour" },
 
 	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
+	-- The play cards (PlayScreen): the tag on a ranked mode, its rule, and what the card says when the server
+	-- finds nobody. A mode of one round has its own rule: "first to 1 rounds" reads wrong in both languages.
+	["queue.ranked"] = { en = "Ranked", fr = "Classé" },
+	["queue.rule"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
+	["queue.rule.one"] = { en = "A single round decides", fr = "Une seule manche décide" },
+	["queue.timedOut.title"] = { en = "Nobody in the queue right now", fr = "Personne en file pour l'instant" },
+	["queue.timedOut.hint"] = {
+		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
+		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
+	},
+	-- Slice F's shared words, entered with their first reader (D-148).
+	["common.retry"] = { en = "Retry", fr = "Réessayer" },
+	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 

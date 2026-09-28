@@ -57,6 +57,7 @@ boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
 common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
 common.reset,Reset,Vellum,,Reset,Réinitialiser
+common.retry,Retry,Vellum,,Retry,Réessayer
 common.save,Save,Vellum,,Save,Sauvegarder
 cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
 cosmetic.AuraCrimson,Smoke Aura,Vellum,,Smoke Aura,Aura de Fumée
@@ -357,9 +358,13 @@ queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
 queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.
 queue.leave,Leave queue,Vellum,,Leave queue,Quitter la file
 queue.left,You left the queue.,Vellum,,You left the queue.,Tu as quitté la file.
+queue.ranked,Ranked,Vellum,,Ranked,Classé
+queue.rule,First to {rounds} rounds wins,Vellum,,First to {rounds} rounds wins,Le premier à {rounds} manches gagne
+queue.rule.one,A single round decides,Vellum,,A single round decides,Une seule manche décide
 queue.searching,Searching… {waited}s,Vellum,,Searching… {waited}s,Recherche… {waited}s
-queue.teamSize,{size}v{size},Vellum,,{size}v{size},{size}v{size}
 queue.timedOut,No opponent found. Try again!,Vellum,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
+queue.timedOut.hint,Try the Battleground or face the Erasure: their circles are in the hub.,Vellum,,Try the Battleground or face the Erasure: their circles are in the hub.,Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.
+queue.timedOut.title,Nobody in the queue right now,Vellum,,Nobody in the queue right now,Personne en file pour l'instant
 queue.title,Play,Vellum,,Play,Jouer
 queue.waiting,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
 rank.blank,Blank,Vellum,,Blank,Vierge
@@ -406,3 +411,4 @@ shop.title,Shop,Vellum,,Shop,Boutique
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
+time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}

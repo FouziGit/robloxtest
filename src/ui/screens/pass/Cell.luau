@@ -44,6 +44,8 @@ local Cell = {}
 local PADDING = 4
 local ICON = 32
 local AMOUNT_SIZE = 18
+-- A title's words fill the reward row, two lines at most, never smaller than this.
+local TITLE_MIN_TEXT = 11
 local CLAIM_HEIGHT = 40
 local PREMIUM_RIM = 3
 local CORNER_RING = 24
@@ -137,7 +139,28 @@ local function drawReward(parent: Frame, reward: BattlepassConfig.Reward, locali
 		)
 	else
 		local item = CosmeticConfig.ById[reward.Id]
-		if item ~= nil then
+		local textKey = if item ~= nil then item.Look.TextKey else nil
+		if item ~= nil and item.Slot == "Title" and textKey ~= nil then
+			-- A title is its own words, set to fill the row: on a scrap the size of an icon they were four
+			-- pixels tall.
+			icon.Visible = false
+			local words = Instance.new("TextLabel")
+			words.Name = "Title"
+			words.BackgroundTransparency = 1
+			words.Size = UDim2.fromScale(1, 1)
+			words.FontFace = Theme.Fonts.Title
+			words.TextScaled = true
+			words.TextWrapped = true
+			words.TextColor3 = Theme.Colors.Text
+			words.Text = localize.t(textKey)
+			words.LayoutOrder = 2
+			words.ZIndex = 4
+			local range = Instance.new("UITextSizeConstraint")
+			range.MinTextSize = TITLE_MIN_TEXT
+			range.MaxTextSize = AMOUNT_SIZE
+			range.Parent = words
+			words.Parent = line
+		elseif item ~= nil then
 			ItemPreview.new(item, icon, localize)
 		end
 	end

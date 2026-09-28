@@ -10,6 +10,7 @@
 --   onto nothing;
 -- - the menu's third tile of a row, 2 pixels too wide, wrapped under the other two;
 -- - a quest's count, a label sized to its words on a 14-unit bar, was cut to nothing.
+local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -290,6 +291,27 @@ describe("the parts, as Studio drew them", function()
 		expect(swash.Parent).toBe(row.Instance)
 		expect(swash.Parent:FindFirstChildOfClass("UIListLayout")).toBeNil()
 		expect(swash.ZIndex).toBeLessThan(row.Instance:FindFirstChild("Body").ZIndex)
+	end)
+
+	it("writes a title the pass rewards in words a player can read", function()
+		local world, parent, localize = bench()
+		local Cell = world.require("src/ui/screens/pass/Cell")
+		local title: string? = nil
+		for id, item in pairs(CosmeticConfig.ById) do
+			if item.Slot == "Title" and item.Look.TextKey ~= nil then
+				title = id
+				break
+			end
+		end
+		assert(title ~= nil, "no title in the catalog: this gate would check nothing")
+		local cell = Cell.new(5, "Free", { Kind = "Cosmetic", Id = title } :: any, localize, parent, function() end)
+		local root = if cell.Instance ~= nil then cell.Instance else parent
+		-- Not on a scrap the size of an icon: its words were four pixels tall there.
+		expect(root:FindFirstChild("Scrap", true)).toBeNil()
+		local words = root:FindFirstChild("Title", true)
+		assert(words ~= nil, "the title is not written: this gate would check nothing")
+		expect(words.Text).toBe(CosmeticConfig.ById[title :: string].Look.TextKey)
+		expect(words:FindFirstChildOfClass("UITextSizeConstraint").MinTextSize).toBeGreaterThanOrEqual(11)
 	end)
 end)
 

@@ -114,8 +114,11 @@ local CHAIN_KEY = "hud.cast.chain"
 -- The next pigments are hinted after one press or two: one step ahead, never the whole tree.
 local HINT_MIN_PRESSES = 1
 local HINT_MAX_PRESSES = 2
--- The name the sequence's hints go by on the touch discs (InputController.setHints).
+-- The names the sequence's hints and the onboarding's go by on the touch discs (InputController.setHints).
 local SEQUENCE_HINTS = "Sequence"
+local ONBOARDING_HINTS = "Onboarding"
+-- The daily reward opens by itself, once a session (offerDaily).
+local DAILY_SCREEN = "Daily"
 -- The rounds the centre splash already says (Banner, from the snapshots): the same words again as a toast
 -- would only be the same news twice. The player's own takedown pops at the centre too, and its toast keeps
 -- the XP it paid.
@@ -192,6 +195,9 @@ local claimsToken = 0
 -- The equipped glyphs as the touch discs weigh them, and the pigments the ink can pay for (touch only).
 local equipped: { TouchCluster.Recipe }? = nil
 local payable: { [string]: boolean } = {}
+-- The keys the hotbar draws, which the onboarding's ghosts stand under too.
+local hotbarKeys: ComboRow.Keys? = nil
+local dailyOffered = false
 local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
 local topStack: Frame
@@ -517,9 +523,11 @@ function HudController.setWarning(active: boolean)
 	end
 end
 
--- Shows `pigments` as ghost chips, or clears them with nil (OnboardingController).
+-- Shows `pigments` as ghost chips, or clears them with nil (OnboardingController): with a pointer each under
+-- the key that presses it, and on touch the discs that press them breathe.
 function HudController.showGhostSequence(pigments: { string }?)
-	comboRow:ShowGhosts(pigments)
+	comboRow:ShowGhosts(pigments, if hintSource == "Touch" then nil else hotbarKeys)
+	inputController.setHints(ONBOARDING_HINTS, pigments or {})
 end
 
 -- One accepted cast, with the chain length the server counted for it.
@@ -644,6 +652,23 @@ local function refreshHotbarKeys(data: Types.ProfileData)
 		keys[pigment] = saved[pigment] or defaults[pigment]
 	end
 	hotbar:SetKeys(if gamepad then "Gamepad" else "Keyboard", keys)
+	hotbarKeys = { Device = if gamepad then "Gamepad" else "Keyboard", Keys = keys }
+end
+
+-- Once a session, a moment after the HUD first sees the profile, the daily reward opens by itself if it waits
+-- and nothing else has the player: no fight, no queue, no screen open (D-147). A player who was busy then
+-- finds it on its claim seal.
+local function offerDaily()
+	if dailyOffered then
+		return
+	end
+	dailyOffered = true
+	task.delay(Theme.Timing.DailyAutoOpenDelaySeconds, function()
+		local waiting = Claims.count(clientData.get(), Workspace:GetServerTimeNow()).Daily > 0
+		if waiting and not (inMatch or inArena or queued) and not menuController.isOpen() then
+			menuController.open(DAILY_SCREEN)
+		end
+	end)
 end
 
 -- The equipped glyphs as the touch discs weigh them: which pigments lead to one, and at what ink.
@@ -682,6 +707,14 @@ local function refreshProfile(section: string)
 	if section == "*" or section == "Daily" or section == "Quests" or section == "Battlepass" then
 		refreshClaims()
 	end
+	if section == "*" or section == "Stats" or section == "Daily" then
+		metaCluster:SetChecklist({
+			Cast = data.Stats.GlyphsCast > 0,
+			Match = data.Stats.MatchesPlayed > 0,
+			Daily = data.Daily.LastClaimDay > 0,
+		})
+	end
+	offerDaily()
 end
 
 -- The Folios a reward names, for its chip: `folios` in most rewards, `amount` in the pass's and the season's.

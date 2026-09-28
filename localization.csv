@@ -188,6 +188,10 @@ hud.cast.failed,{name} failed,Vellum,,{name} failed,{name} a échoué
 hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
 hud.cast.notEnoughInk,Not enough ink,Vellum,,Not enough ink,Plus d'encre
 hud.cast.notEquipped,{name} is not in your loadout,Vellum,,{name} is not in your loadout,{name} n'est pas dans ton équipement
+hud.checklist.cast,Cast a glyph,Vellum,,Cast a glyph,Trace un glyphe
+hud.checklist.daily,Claim your daily reward,Vellum,,Claim your daily reward,Récupère ta récompense du jour
+hud.checklist.match,Play a match,Vellum,,Play a match,Joue un match
+hud.checklist.title,First steps,Vellum,,First steps,Premiers pas
 hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
 hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP

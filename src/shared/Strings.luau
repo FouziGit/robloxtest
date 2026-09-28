@@ -705,6 +705,11 @@ Strings.Table = {
 	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
 	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
 	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
+	-- A new player's first steps (MetaCluster), until all three are done.
+	["hud.checklist.title"] = { en = "First steps", fr = "Premiers pas" },
+	["hud.checklist.cast"] = { en = "Cast a glyph", fr = "Trace un glyphe" },
+	["hud.checklist.match"] = { en = "Play a match", fr = "Joue un match" },
+	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Récupère ta récompense du jour" },
 } :: { [string]: Entry }
 
 -- Substitutes {name} placeholders. Missing params are left as-is.

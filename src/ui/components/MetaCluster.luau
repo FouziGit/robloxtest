@@ -6,6 +6,8 @@
 --   Claims   a seal per kind of claim waiting -- the daily reward, quests, pass tiers -- each badged with how
 --            many, shown only while there is one, and opening its screen
 --   Queue    while the player queues: searching, for how long, and a cross to leave; the pill opens Play
+--   Steps    a new player's first three: cast a glyph, play a match, claim the daily reward -- ticked as they
+--            happen, stamped and folded away once all three are done
 --
 -- HudController places it (the bottom-left with a pointer, the engine's chat being top-left; the top-left on
 -- touch, the thumbstick's corner being bottom-left), feeds it the profile and the counts, and hides it in a
@@ -35,6 +37,8 @@ export type Localizer = { t: (key: string, params: { [string]: any }?) -> string
 export type Corner = "Top" | "Bottom"
 -- What waits to be claimed, by kind (Claimables.count).
 export type Claims = { Daily: number, Quests: number, Pass: number }
+-- The first steps done, from the profile: a glyph cast, a match played, a daily reward claimed.
+export type Checklist = { Cast: boolean, Match: boolean, Daily: boolean }
 
 export type Props = {
 	Parent: Instance,
@@ -51,6 +55,7 @@ export type MetaCluster = {
 	SetCurrency: (self: MetaCluster, currency: Types.CurrencyData) -> (),
 	SetClaims: (self: MetaCluster, claims: Claims) -> (),
 	SetQueue: (self: MetaCluster, queue: Types.QueueSnapshot) -> (),
+	SetChecklist: (self: MetaCluster, done: Checklist) -> (),
 	SetVisible: (self: MetaCluster, visible: boolean) -> (),
 	Destroy: (self: MetaCluster) -> (),
 }
@@ -87,6 +92,21 @@ local DOT_FILLS: { string } = { "Ally", "PanelRaised", "Ally" }
 local QUEUE_TEXT = 16
 local PLAY_SCREEN = "Play"
 local SECOND = 1
+-- The first steps: a sheet card, a box per step (chalk, then the claimed green with a tick), the screen each
+-- one leads to, and how long the stamp shows before the card folds.
+local STEPS_WIDTH = 280
+local STEPS_TITLE = 20
+local STEP_HEIGHT = 26
+local STEP_BOX = 20
+local STEP_TEXT = 16
+local STEPS_SEAL = 36
+local STAMP_SECONDS = 1
+type Step = { Kind: string, Key: string, Screen: string? }
+local STEPS: { Step } = {
+	{ Kind = "Cast", Key = "hud.checklist.cast" },
+	{ Kind = "Match", Key = "hud.checklist.match", Screen = "Play" },
+	{ Kind = "Daily", Key = "hud.checklist.daily", Screen = "Daily" },
+}
 
 local function textLabel(name: string, font: Font, size: number, color: Color3): TextLabel
 	local label = Instance.new("TextLabel")
@@ -386,6 +406,90 @@ function MetaCluster.new(props: Props): MetaCluster
 		props.OnOpen(PLAY_SCREEN)
 	end)
 
+	-- The first steps, under the rest.
+	local steps = Instance.new("Frame")
+	steps.Name = "Steps"
+	steps.BackgroundTransparency = 1
+	steps.LayoutOrder = 5
+	steps.Size = UDim2.fromOffset(STEPS_WIDTH, 0)
+	steps.AutomaticSize = Enum.AutomaticSize.Y
+	steps.Visible = false
+	steps.Parent = column
+	local stepsScale = Instance.new("UIScale")
+	stepsScale.Parent = steps
+	trove:Add(function()
+		Motion.cancel(stepsScale)
+	end)
+	local card = Sticker.new({ Kind = "Card", Fill = Theme.Colors.PanelRaised, Parent = steps, Name = "Card" })
+	trove:Add(function()
+		card:Destroy()
+	end)
+	local list = Instance.new("Frame")
+	list.Name = "List"
+	list.BackgroundTransparency = 1
+	list.Size = UDim2.fromScale(1, 0)
+	list.AutomaticSize = Enum.AutomaticSize.Y
+	list.ZIndex = 3
+	local listPadding = Instance.new("UIPadding")
+	listPadding.PaddingTop = UDim.new(0, Theme.Sizes.PaddingSmall + 4)
+	listPadding.PaddingLeft = UDim.new(0, pad)
+	listPadding.PaddingRight = UDim.new(0, pad)
+	-- Past the card's shadow, which the list stands over.
+	listPadding.PaddingBottom = UDim.new(0, pad + 5)
+	listPadding.Parent = list
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 4)
+	listLayout.Parent = list
+	list.Parent = steps
+	local stepsTitle = textLabel("Title", Theme.Fonts.Title, STEPS_TITLE, Theme.Colors.Text)
+	stepsTitle.Size = UDim2.new(1, 0, 0, STEPS_TITLE + 6)
+	stepsTitle.TextXAlignment = Enum.TextXAlignment.Left
+	stepsTitle.Text = localize.t("hud.checklist.title")
+	stepsTitle.Parent = list
+	type StepRow = { Box: Frame, Tick: TextLabel }
+	local stepRows: { [string]: StepRow } = {}
+	for index, step in ipairs(STEPS) do
+		local row = Instance.new("TextButton")
+		row.Name = step.Kind
+		row.AutoButtonColor = false
+		row.BackgroundTransparency = 1
+		row.Text = ""
+		row.Selectable = false
+		row.LayoutOrder = index
+		row.Size = UDim2.new(1, 0, 0, STEP_HEIGHT)
+		horizontal(row, GAP)
+		local box = Instance.new("Frame")
+		box.Name = "Box"
+		box.BorderSizePixel = 0
+		box.BackgroundColor3 = Theme.Colors.Chalk
+		box.Size = UDim2.fromOffset(STEP_BOX, STEP_BOX)
+		box.LayoutOrder = 1
+		Theme.corner(box, Theme.Sizes.CornerKeycap)
+		Theme.stroke(box, "Accent", Theme.Sizes.StrokeThin)
+		box.Parent = row
+		local tick = textLabel("Tick", Theme.Fonts.Bold, STEP_TEXT, Theme.Colors.Text)
+		tick.Size = UDim2.fromScale(1, 1)
+		tick.Text = Theme.Glyphs.Check
+		tick.Visible = false
+		tick.Parent = box
+		local words = textLabel("Text", Theme.Fonts.Body, STEP_TEXT, Theme.Colors.Text)
+		words.AutomaticSize = Enum.AutomaticSize.X
+		words.Size = UDim2.fromScale(0, 1)
+		words.LayoutOrder = 2
+		words.Text = localize.t(step.Key)
+		words.Parent = row
+		local screen = step.Screen
+		if screen ~= nil then
+			trove:Connect(row.Activated, function()
+				UiSound.play("UiClick")
+				props.OnOpen(screen)
+			end)
+		end
+		row.Parent = list
+		stepRows[step.Kind] = { Box = box, Tick = tick }
+	end
+
 	column.Parent = props.Parent
 
 	local shownLevel: number? = nil
@@ -475,6 +579,42 @@ function MetaCluster.new(props: Props): MetaCluster
 		end
 	end
 
+	-- Nil before the profile first says: a player with all three done never sees the card at all.
+	local allDone: boolean? = nil
+	local function setChecklist(_self: MetaCluster, done: Checklist)
+		for kind, row in pairs(stepRows) do
+			local ticked = (done :: any)[kind] == true
+			row.Box.BackgroundColor3 = if ticked then Theme.Colors.SuccessFill else Theme.Colors.Chalk
+			row.Tick.Visible = ticked
+		end
+		local all = done.Cast and done.Match and done.Daily
+		local before = allDone
+		allDone = all
+		if before == nil then
+			steps.Visible = not all
+			return
+		end
+		if all and not before then
+			-- Done: the card is stamped, then folds away.
+			Seal.new({
+				Text = Theme.Glyphs.Check,
+				Fill = Theme.Colors.SuccessFill,
+				Size = STEPS_SEAL,
+				Stamp = true,
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -GAP, 0, GAP),
+				Parent = card.Face,
+			})
+			task.delay(STAMP_SECONDS, function()
+				Motion.to(stepsScale, { Scale = 0 }, "UiExit", function()
+					if allDone then
+						steps.Visible = false
+					end
+				end)
+			end)
+		end
+	end
+
 	local function setVisible(_self: MetaCluster, visible: boolean)
 		column.Visible = visible
 	end
@@ -496,6 +636,7 @@ function MetaCluster.new(props: Props): MetaCluster
 		SetCurrency = setCurrency,
 		SetClaims = setClaims,
 		SetQueue = setQueue,
+		SetChecklist = setChecklist,
 		SetVisible = setVisible,
 		Destroy = destroy,
 	}

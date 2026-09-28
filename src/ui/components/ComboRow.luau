@@ -13,7 +13,8 @@
 --                  splat of the last pigment from four, and sends a ring out on every cast from six
 --   refusal        a cast refused (a cooldown, the ink, a sequence that matches nothing) is said under the
 --                  chips, which shake: never a toast at the top of the screen in the middle of a fight
---   ghosts         for a new player, the recipe to press, drawn after everything, faint (OnboardingController)
+--   ghosts         for a new player, the recipe to press, drawn after everything, faint (OnboardingController),
+--                  with a pointer each over the key the player has bound to it
 --
 -- A fight surface: the pigments are the schools' own and nothing wears a value colour (rule 11).
 
@@ -25,6 +26,7 @@ local Config = Shared:WaitForChild("Config")
 
 local GameConfig = require(Config:WaitForChild("GameConfig"))
 local GlyphConfig = require(Config:WaitForChild("GlyphConfig"))
+local Keycap = require(script.Parent.Keycap)
 local Motion = require(script.Parent.Parent.Motion)
 local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
 local Splat = require(script.Parent.Splat)
@@ -34,6 +36,8 @@ local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
 local Trove = require(Packages.Trove)
 
 export type Localizer = { t: (key: string, params: { [string]: any }?) -> string }
+-- The keys a player presses for each pigment, on the device they use (the hotbar's).
+export type Keys = { Device: Keycap.Device, Keys: { [string]: string } }
 
 export type Props = {
 	-- The HUD's bottom stack, which places the row over the hotbar and the dock.
@@ -49,8 +53,8 @@ export type ComboRow = {
 	SetContinuations: (self: ComboRow, pigments: { string }) -> (),
 	-- The glyph the sequence already is and the seconds the controller waits for more, or nil.
 	SetPreview: (self: ComboRow, glyphId: string?, windowSeconds: number?) -> (),
-	-- `pigments` as ghost chips, or none with nil.
-	ShowGhosts: (self: ComboRow, pigments: { string }?) -> (),
+	-- `pigments` as ghost chips, or none with nil; with `keys`, each stands under the key that presses it.
+	ShowGhosts: (self: ComboRow, pigments: { string }?, keys: Keys?) -> (),
 	-- One accepted cast, with the chain length the server counted for it and the glyph's pigment.
 	Cast: (self: ComboRow, chain: number, pigment: string?) -> (),
 	-- The chain is over: the counter fades, and the next cast starts again at one.
@@ -80,6 +84,10 @@ local PREVIEW_ORDER = 150
 local STREAK_ORDER = 160
 local GHOST_ORDER = 200
 local GHOST_TRANSPARENCY = 0.6
+-- The ghosts' keys: caps this tall over the ghost chips, this far above them. Over, not under: under the row
+-- stands the hotbar, which a cap there would cover.
+local GHOST_KEY = 20
+local GHOST_KEY_GAP = 4
 -- The preview pill.
 local PREVIEW_PADDING = 10
 local PREVIEW_TEXT = 20
@@ -216,6 +224,7 @@ function ComboRow.new(props: Props): ComboRow
 	local chipPigments: { string } = {}
 	local nexts: { Frame } = {}
 	local ghosts: { Frame } = {}
+	local ghostKeys: { Frame } = {}
 	local streak = 0
 	-- Bumped by every change, so the timer that ends a chain cannot end the one that replaced it.
 	local streakGeneration = 0
@@ -306,6 +315,25 @@ function ComboRow.new(props: Props): ComboRow
 	refusal.Parent = refusalAnchor
 	refusalAnchor.Parent = row
 
+	-- The ghosts' keys, over the right end of the row: the ghosts come after everything, so a slot as wide as a
+	-- chip per ghost, from the right, stands each cap over its chip.
+	local keyStrip = Instance.new("Frame")
+	keyStrip.Name = "GhostKeys"
+	keyStrip.BackgroundTransparency = 1
+	keyStrip.AnchorPoint = Vector2.new(1, 1)
+	keyStrip.Position = UDim2.new(1, 0, 0, -GHOST_KEY_GAP)
+	keyStrip.Size = UDim2.fromOffset(0, CHIP_SIZE)
+	keyStrip.AutomaticSize = Enum.AutomaticSize.X
+	keyStrip.ZIndex = 10
+	local keyLayout = Instance.new("UIListLayout")
+	keyLayout.FillDirection = Enum.FillDirection.Horizontal
+	keyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	keyLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	keyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	keyLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	keyLayout.Parent = keyStrip
+	keyStrip.Parent = row
+
 	row.Parent = props.Parent
 
 	-- Folds a chip out of the row and destroys it once it is gone.
@@ -364,8 +392,40 @@ function ComboRow.new(props: Props): ComboRow
 		replaceFaint(nexts, "Next", NEXT_ORDER, pigments)
 	end
 
-	local function showGhosts(_self: ComboRow, pigments: { string }?)
+	local function showGhosts(_self: ComboRow, pigments: { string }?, keys: Keys?)
 		replaceFaint(ghosts, "Ghost", GHOST_ORDER, pigments)
+		for _, slot in ipairs(ghostKeys) do
+			fold(slot)
+		end
+		table.clear(ghostKeys)
+		if pigments == nil or keys == nil then
+			return
+		end
+		for index, pigment in ipairs(pigments) do
+			local key = keys.Keys[pigment]
+			if key == nil then
+				continue
+			end
+			local slot = Instance.new("Frame")
+			slot.Name = "Key" .. index
+			slot.BackgroundTransparency = 1
+			slot.LayoutOrder = index
+			slot.Size = CHIP_COLLAPSED
+			slot.ClipsDescendants = true
+			local cap = Keycap.new({
+				Key = key,
+				Device = keys.Device,
+				Localize = localize,
+				Size = GHOST_KEY,
+				Pigment = pigment,
+				Parent = slot,
+			})
+			cap.Instance.AnchorPoint = Vector2.new(0.5, 1)
+			cap.Instance.Position = UDim2.fromScale(0.5, 1)
+			slot.Parent = keyStrip
+			Motion.to(slot, { Size = CHIP_OPEN }, "UiPop")
+			table.insert(ghostKeys, slot)
+		end
 	end
 
 	local function setPreview(_self: ComboRow, glyphId: string?, windowSeconds: number?)

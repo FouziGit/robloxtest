@@ -1,8 +1,9 @@
 --!strict
 -- A client, a network and a server around Pure/MovementGuard, for tests/MovementScenarios.spec.luau and
--- tests/MovementGuard.spec.luau. The client simulates its own body at 240 Hz (walking, jumping, the double
--- jump, the granted movers on their FeelMath.impulseSpeed curve at the client's frame rate) and replicates it
--- every SendEvery seconds with latency, stalls, jitter and spikes. The server ticks at GameConfig.Server's
+-- tests/MovementGuard.spec.luau. The client simulates its own body at 240 Hz, at the avatar's own standing height
+-- (walking, jumping, the double jump, the granted movers on their FeelMath.impulseSpeed curve at the client's
+-- frame rate, a server pivot that keeps the body's momentum or stops it) and replicates it every SendEvery
+-- seconds with latency, stalls, jitter and spikes. The server ticks at GameConfig.Server's
 -- rate and does what MovementAudit does: support probe, barrier ray, path scan, contact, WalkSpeed, grants and
 -- teleports, and a pivot on every correction. One horizontal axis (x) plus height (y).
 --
@@ -35,10 +36,12 @@ end
 
 local CONFIG = buildConfig()
 
--- An R15 body's standing root height: HipHeight 2 plus half its 2-stud root.
-local STAND = 3
--- The support probe reaches this far past the feet.
+-- An R15 body's standing root height: HipHeight 2 plus half its 2-stud root. A scenario's Stand says otherwise.
+local DEFAULT_STAND = 3
+-- The support probe: a sphere this wide, cast this far past the feet, from this far above them at the lowest.
+local RADIUS = MovementGuardConfig.GroundProbeRadiusStuds
 local PROBE = MovementGuardConfig.GroundProbeSlackStuds
+local CLEARANCE = MovementGuardConfig.ProbeClearanceStuds
 -- MovementAudit's probe under a server teleport's destination reaches a jump's fall past the feet.
 local TELEPORT_REACH = MovementGuard.maxRise(CONFIG)
 local CLIENT_STEP = 1 / 240
@@ -67,6 +70,8 @@ export type Scenario = {
 	StartY: number?,
 	-- Where the server spawned the body, when it is not the start.
 	SpawnPoint: { number }?,
+	-- The body's standing root height over its feet (HipHeight plus half its root), 3 when not given.
+	Stand: number?,
 	Floors: { Floor }?,
 	Walls: { Wall }?,
 	Walk: ((t: number) -> number)?,
@@ -99,6 +104,8 @@ export type Scenario = {
 	IgnoreGrants: boolean?,
 	-- The client never applies a server pivot.
 	CheatIgnoresPivot: boolean?,
+	-- The client keeps its vertical velocity, and whatever jump it has left, across a server pivot.
+	KeepsMomentum: boolean?,
 }
 
 export type Stats = {
@@ -108,29 +115,15 @@ export type Stats = {
 	Repivot: number,
 	-- The first correction, repivot or strikeable watch, for a failure message.
 	First: string?,
+	-- The highest the client's root went.
+	Peak: number,
 }
 
--- "clean": no correction, no repivot, no strike. "nostrike": corrections allowed, never a strike.
--- "correct": at least one correction or repivot. "strike": at least one strike.
-export type Expectation = "clean" | "nostrike" | "correct" | "strike"
+-- "silent": not even a watch. "clean": no correction, no repivot, no strike. "nostrike": corrections allowed, never
+-- a strike. "correct": at least one correction or repivot. "strike": at least one strike.
+export type Expectation = "silent" | "clean" | "nostrike" | "correct" | "strike"
 
 type Mover = { Duration: number, VX: number, VY: number, Exp: number, V: number, Since: number, El: number }
-
--- The top of the highest surface a probe from a root at (x, y) meets, reaching `reach` past the feet.
-local function supportTop(floors: { Floor }, walls: { Wall }, x: number, y: number, reach: number): number?
-	local found: number? = nil
-	for _, f in ipairs(floors) do
-		if x >= f.X0 - 1 and x <= f.X1 + 1 and y >= f.Top + STAND - 2.01 and y <= f.Top + STAND + reach then
-			found = math.max(found or -math.huge, f.Top)
-		end
-	end
-	for _, w in ipairs(walls) do
-		if x >= w.X0 - 1 and x <= w.X1 + 1 and y >= w.Top + STAND - 2.01 and y <= w.Top + STAND + reach then
-			found = math.max(found or -math.huge, w.Top)
-		end
-	end
-	return found
-end
 
 local function surfaces(floors: { Floor }, walls: { Wall }): { Floor }
 	local out: { Floor } = {}
@@ -143,10 +136,32 @@ local function surfaces(floors: { Floor }, walls: { Wall }): { Floor }
 	return out
 end
 
-local function landingTop(all: { Floor }, x: number, yFrom: number, yTo: number): number?
+-- The top of the highest surface MovementAudit's probe meets under a root at (x, y) standing `stand` high: its
+-- sphere cast down to `reach` past the feet from where MovementGuard.probe starts it. A surface the sphere
+-- started inside is never met, as a shape cast never sees what it starts in.
+local function supportTop(
+	floors: { Floor },
+	walls: { Wall },
+	x: number,
+	y: number,
+	stand: number,
+	reach: number
+): number?
+	local lift, depth = MovementGuard.probe(stand, RADIUS, reach, CLEARANCE)
+	local bottom = y + lift - RADIUS
+	local found: number? = nil
+	for _, s in ipairs(surfaces(floors, walls)) do
+		if x >= s.X0 - 1 and x <= s.X1 + 1 and s.Top < bottom and s.Top >= bottom - depth then
+			found = math.max(found or -math.huge, s.Top)
+		end
+	end
+	return found
+end
+
+local function landingTop(all: { Floor }, x: number, yFrom: number, yTo: number, stand: number): number?
 	local best: number? = nil
 	for _, f in ipairs(all) do
-		if x >= f.X0 and x <= f.X1 and yFrom >= f.Top + STAND - 1e-6 and yTo < f.Top + STAND then
+		if x >= f.X0 and x <= f.X1 and yFrom >= f.Top + stand - 1e-6 and yTo < f.Top + stand then
 			if best == nil or f.Top > best then
 				best = f.Top
 			end
@@ -278,7 +293,8 @@ local function run(sc: Scenario): Stats
 	local track = MovementGuard.newTrack(CONFIG)
 	math.randomseed(sc.Seed or 1)
 	local x = sc.StartX or 0
-	local y = sc.StartY or (floors[1].Top + STAND)
+	local stand = sc.Stand or DEFAULT_STAND
+	local y = sc.StartY or (floors[1].Top + stand)
 	local vy = 0
 	local grounded = true
 	local jumpCount = 0
@@ -314,7 +330,7 @@ local function run(sc: Scenario): Stats
 	local lastTick = 0
 	local frameEvery = 1 / fps
 	local nextFrame = 0
-	local stats: Stats = { Watch = 0, Correct = 0, Strike = 0, Repivot = 0, First = nil }
+	local stats: Stats = { Watch = 0, Correct = 0, Strike = 0, Repivot = 0, First = nil, Peak = y }
 	local jumps = sc.Jumps or {}
 	local djumps = table.clone(sc.DoubleJumps or {})
 	local ji, di = 1, 1
@@ -341,7 +357,18 @@ local function run(sc: Scenario): Stats
 					end
 				elseif p[2] == "pivot" and not sc.CheatIgnoresPivot then
 					local tp = p[3]
-					x, y, vy = tp[2], tp[3], 0
+					x, y = tp[2], tp[3]
+					if not sc.KeepsMomentum then
+						vy = 0
+					end
+					-- A pivot that puts the feet under a floor the root is still over: the Humanoid stands the body
+					-- up on it. A tall avatar's root stands higher than the 3.5 studs a hub or camp landing gives it.
+					for _, f in ipairs(all) do
+						if x >= f.X0 and x <= f.X1 and y > f.Top and y < f.Top + stand then
+							y = f.Top + stand
+							vy = math.max(vy, 0)
+						end
+					end
 				end
 			end
 		end
@@ -390,7 +417,7 @@ local function run(sc: Scenario): Stats
 		local nx = x + vx * CLIENT_STEP
 		-- Walls block a body whose feet are below their top (a cheat moves through them on its own).
 		for _, w in ipairs(walls) do
-			if ny - STAND < w.Top - 0.01 then
+			if ny - stand < w.Top - 0.01 then
 				if x <= w.X0 and nx > w.X0 then
 					nx = w.X0 - 1e-3
 				elseif x >= w.X1 and nx < w.X1 then
@@ -399,9 +426,9 @@ local function run(sc: Scenario): Stats
 			end
 		end
 		if mover == nil or mover.VY <= 0 then
-			local top = landingTop(all, nx, y, ny)
+			local top = landingTop(all, nx, y, ny, stand)
 			if top ~= nil and vy <= 0 then
-				ny = top + STAND
+				ny = top + stand
 				vy = 0
 				grounded = true
 				jumpCount = 0
@@ -417,7 +444,7 @@ local function run(sc: Scenario): Stats
 		if grounded then
 			local on = false
 			for _, f in ipairs(all) do
-				if nx >= f.X0 and nx <= f.X1 and math.abs(ny - (f.Top + STAND)) < 1e-3 then
+				if nx >= f.X0 and nx <= f.X1 and math.abs(ny - (f.Top + stand)) < 1e-3 then
 					on = true
 				end
 			end
@@ -426,6 +453,7 @@ local function run(sc: Scenario): Stats
 			end
 		end
 		x, y = nx, ny
+		stats.Peak = math.max(stats.Peak, y)
 		if sc.Cheat then
 			local cx, cy = sc.Cheat(t, x, y)
 			if cx ~= nil then
@@ -434,7 +462,7 @@ local function run(sc: Scenario): Stats
 			if cy ~= nil then
 				y = cy
 				vy = 0
-				grounded = supportTop(floors, walls, x, y, PROBE) ~= nil
+				grounded = supportTop(floors, walls, x, y, stand, PROBE) ~= nil
 			end
 		end
 		-- The uplink: what the client replicates, and when it reaches the server.
@@ -475,7 +503,7 @@ local function run(sc: Scenario): Stats
 				end
 				if not spawned then
 					spawned = true
-					local sp = sc.SpawnPoint or { sc.StartX or 0, sc.StartY or (floors[1].Top + STAND) }
+					local sp = sc.SpawnPoint or { sc.StartX or 0, sc.StartY or (floors[1].Top + stand) }
 					MovementGuard.spawned(track, sp[1], sp[2], 0, now, CONFIG)
 				end
 				for i = #serverEvents, 1, -1 do
@@ -496,8 +524,8 @@ local function run(sc: Scenario): Stats
 						else
 							local tp = e[3]
 							local fromX, fromY, fromZ = MovementGuard.heard(track)
-							local top = supportTop(floors, walls, tp[2], tp[3], TELEPORT_REACH)
-							local groundY = if top ~= nil then top + STAND else nil
+							local top = supportTop(floors, walls, tp[2], tp[3], stand, TELEPORT_REACH)
+							local groundY = if top ~= nil then top + stand else nil
 							MovementGuard.teleported(track, tp[2], tp[3], 0, now, fromX, fromY, fromZ, groundY, CONFIG)
 							serverX, serverY = tp[2], tp[3]
 							table.insert(
@@ -512,8 +540,8 @@ local function run(sc: Scenario): Stats
 					X = serverX,
 					Y = serverY,
 					Z = 0,
-					Supported = supportTop(floors, walls, serverX, serverY, PROBE) ~= nil,
-					StandHeight = STAND,
+					Supported = supportTop(floors, walls, serverX, serverY, stand, PROBE) ~= nil,
+					StandHeight = stand,
 					Down = within(sc.Down, now),
 					Contact = within(sc.Contact, now),
 					WalkSpeed = if sc.WalkSpeedAt then sc.WalkSpeedAt(now) else GameConfig.Movement.WalkSpeed,
@@ -543,7 +571,7 @@ local function run(sc: Scenario): Stats
 					if v.Action ~= "Watch" then
 						if v.Action == "Correct" then
 							local fromX, fromY, fromZ = MovementGuard.heard(track)
-							local ground = supportTop(floors, walls, v.X, v.Y, PROBE) ~= nil
+							local ground = supportTop(floors, walls, v.X, v.Y, stand, PROBE) ~= nil
 							local groundY = if ground then v.Y else nil
 							MovementGuard.corrected(track, v.X, v.Y, 0, now, fromX, fromY, fromZ, groundY, CONFIG)
 						end
@@ -562,7 +590,9 @@ local function run(sc: Scenario): Stats
 end
 
 local function meets(stats: Stats, expected: Expectation): boolean
-	if expected == "clean" then
+	if expected == "silent" then
+		return stats.Watch == 0 and stats.Correct == 0 and stats.Repivot == 0
+	elseif expected == "clean" then
 		return stats.Correct == 0 and stats.Repivot == 0 and stats.Strike == 0
 	elseif expected == "nostrike" then
 		return stats.Strike == 0

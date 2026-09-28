@@ -181,7 +181,7 @@ Ce qu'un match laisse derrière lui se voit surtout au match suivant. Enchaîner
 
 Commencer dans Studio avec **Test → Device** (l'émulateur), puis sur un vrai téléphone avec la copie de test.
 
-1. **Téléphone 812×375.** Attendu : les pictogrammes `▲ ≈ ■ » ✦` sont visibles et les libellés courts sont complets (`CAC`, `Ruée`, `Garde`, `Cible`, `Menu`). Aucun bouton ne fait moins de 44 px et rien ne recouvre le bouton de saut (`InputConfig.luau:161,165-172` ; `docs/STUDIO_SETUP.md` §5.4).
+1. **Téléphone 812×375.** Attendu : les pictogrammes `▲ ≈ ■ » ϟ` sont visibles et les libellés courts sont complets (`CAC`, `Ruée`, `Garde`, `Cible`, `Menu`). Aucun bouton ne fait moins de 44 px et rien ne recouvre le bouton de saut (`InputConfig.luau:161,165-172` ; `docs/STUDIO_SETUP.md` §5.4).
 2. **Bouton de verrou.** Attendu : le bouton est présent, libellé `Cible` en français et `Lock` en anglais (`Strings.luau:31`), et il verrouille puis relâche. `docs/STUDIO_SETUP.md` §5.4 ne le mentionne pas.
 3. **Menu ouvert.** Ouvrir n'importe quel écran. Attendu : les boutons de combat disparaissent et reviennent à la fermeture (`setSuspended`, `InputController.luau:5-7`).
 4. **Garde.** Maintenir le bouton Garde. Attendu : le personnage garde tant que le doigt reste appuyé (`docs/GAME_DESIGN.md:18`).

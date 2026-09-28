@@ -41,12 +41,18 @@ PigmentConfig.Colors = {
 -- sits beside Terre d'Ombre and Vert-de-gris. These labels never go through Strings.t, so a shape is
 -- the only thing that survives both locales. One distinct shape per pigment, so colour is not the
 -- only cue for a player who cannot separate the five hues.
+--
+-- The interface's face has neither the triangle nor the square: the engine draws them from its first
+-- fallback, Arimo; a shape Arimo lacks falls to the emoji fonts or to an empty box, as Orpiment's
+-- four-pointed star did.
+-- tests/Sigils.spec.luau holds each sigil to the codepoints tools/fonts/sigils.py proved Arimo draws.
+-- Orpiment's is the bolt (U+03DF, read as the stroke, never as a letter): the school that strikes at once.
 PigmentConfig.Sigils = {
 	Cinnabar = "▲",
 	Indigo = "≈",
 	Umber = "■",
 	Verdigris = "»",
-	Orpiment = "✦",
+	Orpiment = "ϟ",
 } :: { [PigmentId]: string }
 
 -- Strings keys for localized names.

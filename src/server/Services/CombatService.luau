@@ -593,13 +593,18 @@ local function playerRoot(player: Player): BasePart?
 	return if root ~= nil and root:IsA("BasePart") then root else nil
 end
 
--- Where the engine puts a new body: the root of somebody standing on the hub's SpawnLocation. nil with none.
-local function spawnPoint(): Vector3?
+-- Where the engine puts a new body: the root of `character` standing on the hub's SpawnLocation, at its own
+-- standing height (MovementAudit.standingHeight), a default body's for a player who has none yet. nil with no
+-- SpawnLocation.
+local function spawnPoint(character: Model?): Vector3?
 	local spawn = findSpawn()
 	if spawn == nil then
 		return nil
 	end
-	return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + MovementGuardConfig.DefaultStandHeightStuds, 0)
+	local stand = if character ~= nil
+		then MovementAudit.standingHeight(character)
+		else MovementGuardConfig.DefaultStandHeightStuds
+	return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + stand, 0)
 end
 
 -- Puts OriginGuard's anchor on `position` with a clean slate: no allowance, the tolerance whole, nothing
@@ -841,7 +846,7 @@ local function resetState(state: State, now: number, character: Model?)
 	if character ~= nil and state.TeleportCharacter == character then
 		return
 	end
-	anchorOn(state, spawnPoint(), now, true)
+	anchorOn(state, spawnPoint(character), now, true)
 	if character ~= nil then
 		MovementAudit.spawned(state.Player, character)
 	end

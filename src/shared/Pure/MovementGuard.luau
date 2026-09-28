@@ -199,6 +199,10 @@ export type Track = {
 	-- The vertical references: the standing root height of the ground, the last explained high point, and
 	-- the one ascent a body may start without a probe having seen it leave the ground.
 	GroundY: number,
+	-- Where the last server teleport put the root, until a probe sees the body supported: a pad drops it above
+	-- its standing height, and a client that was jumping when the pivot reached it can keep rising from there,
+	-- since it simulates its own body (the in-game review, D-137). -math.huge when there is none.
+	ArrivalY: number,
 	HighY: number,
 	HighAt: number,
 	AscentUntil: number,
@@ -374,6 +378,7 @@ function MovementGuard.newTrack(config: Config): Track
 		ActiveUntil = 0,
 		GrantCoverUntil = -math.huge,
 		GroundY = 0,
+		ArrivalY = -math.huge,
 		HighY = 0,
 		HighAt = 0,
 		AscentUntil = 0,
@@ -464,6 +469,16 @@ local function riseWithin(dt: number, config: Config): number
 	return v * dt - 0.25 * config.Gravity * dt * dt
 end
 
+-- MovementAudit's probes: a sphere of `radius` cast down from a root standing `stand` over its feet, to `reach`
+-- studs past the feet. A shape cast never sees what it starts inside, so the sphere starts with its bottom at
+-- least `clearance` above the feet: centred on the root, it would start inside the ground under any body whose
+-- root stands lower than the sphere is wide, and that body would never be seen supported. Returns how far above
+-- the root the sphere's centre starts, and how far it is cast.
+function MovementGuard.probe(stand: number, radius: number, reach: number, clearance: number): (number, number)
+	local drop = math.min(radius, math.max(stand - clearance, 0))
+	return radius - drop, stand + reach - drop
+end
+
 -- A NaN round trip reads as the worst one allowed, never as none.
 local function clampRtt(rtt: number, config: Config): number
 	return if rtt == rtt then math.clamp(rtt, 0, config.MaxRttSeconds) else config.MaxRttSeconds
@@ -551,6 +566,7 @@ local function base(track: Track, x: number, y: number, z: number, now: number, 
 		track.GroundY = groundY
 		track.TokenUsed = false
 	end
+	track.ArrivalY = -math.huge
 	track.HighY, track.HighAt = y, now
 	track.AscentUntil = now
 	track.SegCount = 0
@@ -609,7 +625,8 @@ local function pivot(
 end
 
 -- A teleport the server chose (a pad, a portal, the hub, a Caret): a pivot, and a return near where it took the
--- body from is excused for ReturnExemptSeconds (exempt).
+-- body from is excused for ReturnExemptSeconds (exempt). Until the body is seen supported, its own rise is
+-- measured from the destination when that stands above the ground under it (ArrivalY).
 function MovementGuard.teleported(
 	track: Track,
 	x: number,
@@ -624,6 +641,7 @@ function MovementGuard.teleported(
 )
 	pivot(track, x, y, z, now, fromX, fromY, fromZ, groundY, config)
 	track.LeftX, track.LeftY, track.LeftZ, track.LeftAt = fromX, fromY, fromZ, now
+	track.ArrivalY = y
 end
 
 -- MovementAudit pulled the body back to a point it was believed at: a pivot, and nothing more. Taken for a
@@ -674,6 +692,7 @@ end
 -- sample, and the flight incident ends without a correction.
 function MovementGuard.groundFound(track: Track, y: number, now: number)
 	track.GroundY = y
+	track.ArrivalY = -math.huge
 	track.HighY, track.HighAt = y, now
 	track.TokenUsed = false
 	track.Episodes.Flight = newEpisode()
@@ -766,7 +785,9 @@ local function verticalRule(track: Track, s: Sample, config: Config): (string?, 
 	local now = s.At
 	local held = grantLive(track, now) or now < track.ContactUntil
 	local rise = MovementGuard.maxRise(config) + track.Lift + config.AltitudeSlackStuds
-	local height = s.Y - track.GroundY
+	-- From the ground, or from where the last server teleport put the body while that is higher and no probe has
+	-- seen it supported since.
+	local height = s.Y - math.max(track.GroundY, track.ArrivalY)
 	if height > rise then
 		return "altitude", height, rise
 	end
@@ -780,8 +801,10 @@ local function verticalRule(track: Track, s: Sample, config: Config): (string?, 
 	if not s.Supported and not s.Down and not held then
 		local fresh = dist3(s.X, s.Y, s.Z, track.LastX, track.LastY, track.LastZ) > config.StillEpsilonStuds
 		if fresh then
-			-- A granted burst may hold the body up for its whole window: the hang is timed from its end.
-			local hang = now - math.max(track.HighAt, track.WindowEnd) - config.JitterSeconds
+			-- A granted burst may hold the body up for its whole window: the hang is timed from its end. A server
+			-- pivot drops the body only once its client has it, which the stream shows up to a settle later.
+			local settled = track.PendingSince + MovementGuard.settle(s.Rtt, config)
+			local hang = now - math.max(track.HighAt, track.WindowEnd, settled) - config.JitterSeconds
 			local need = 0.5 * config.Gravity * hang * hang - config.DropSlackStuds
 			if hang > config.HangGraceSeconds and drop < need then
 				return "hang", drop, need
@@ -1257,6 +1280,7 @@ local function judgeVertical(track: Track, s: Sample, step: Step, config: Config
 			track.Lift = 0
 		end
 		track.GroundY = s.Y
+		track.ArrivalY = -math.huge
 		track.HighY, track.HighAt = s.Y, now
 		track.TokenUsed = false
 		track.AscentUntil = now + config.AscentSeconds

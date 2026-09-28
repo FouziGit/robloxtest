@@ -253,7 +253,7 @@ local function offerOpen(context: Context, data: Types.ProfileData?, offer: Offe
 end
 
 -- Every game pass and every other Robux product, one row each: its name and what it gives, then the
--- price -- or, once owned, a ✓ seal.
+-- price -- or, once owned, a √ seal.
 function Shelves.passes(context: Context): Shelf
 	local t = context.Localize.t
 	local offers: { Offer } = {}

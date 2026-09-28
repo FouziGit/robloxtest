@@ -221,7 +221,7 @@ dans `src/shared/Config/ThemeConfig.luau`, chacun écrit une seule fois.
 | `Well` | `#2B271E` | le fond de l'encrier : pistes des barres, emplacements, douilles ; jamais du texte |
 | `Overlay` | `#17150F` | le voile derrière un écran ouvert |
 | `Primary` | `#FFD60A` | « vas-y, récupère, ça vaut » : bouton primaire, chapitres Jouer et Récompense du jour, Folio, XP, Légendaire, Codex ; jamais en combat |
-| `SuccessFill` | `#37B88D` | chapitre Boutique, tampon ✓, interrupteur allumé, « Acquis ! » ; jamais en combat |
+| `SuccessFill` | `#37B88D` | chapitre Boutique, tampon √, interrupteur allumé, « Acquis ! » ; jamais en combat |
 | `Success` | `#1A5846` | le succès en texte sur le papier |
 | `InfoFill` | `#4C7DFF` | chapitre Quêtes, Rare, rang Écriture, médaillon d'info, remplissage de la barre d'encre |
 | `Ink` | `#4C7DFF` | la barre d'encre |

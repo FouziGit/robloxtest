@@ -66,7 +66,7 @@ local XP_BAR_WIDTH = 200
 local XP_BAR_HEIGHT = 12
 local XP_TEXT_SIZE = 16
 local PILL_HEIGHT = 44
--- The Play tile: its share of the deck's width, its word, its line, and the ▶ on a blot of the sheet.
+-- The Play tile: its share of the deck's width, its word, its line, and the ► on a blot of the sheet.
 local PLAY_SHARE = 0.4
 local PLAY_TEXT_SIZE = 40
 local PLAY_LINE_SIZE = 18
@@ -395,7 +395,7 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, loadoutButton)
 
-	-- The Play tile: a ▶ on a blot of the sheet, its word at poster size, and its line under it.
+	-- The Play tile: a ► on a blot of the sheet, its word at poster size, and its line under it.
 	local playFace = faceOf(playButton)
 	local playLine: TextLabel? = nil
 	if playFace ~= nil then

@@ -176,6 +176,9 @@ MovementGuardConfig.WalkRing = 8
 -- The support probe: a sphere cast down from the root to a little past the feet.
 MovementGuardConfig.GroundProbeRadiusStuds = 1.5
 MovementGuardConfig.GroundProbeSlackStuds = 1.5
+-- Every probe starts with its sphere's bottom at least this far above the feet (MovementGuard.probe): a small
+-- avatar's root stands under 1.5 studs over its feet, and a sphere centred there started inside its ground.
+MovementGuardConfig.ProbeClearanceStuds = 0.5
 -- The last check before any flight correction: wider and deeper than the support probe.
 MovementGuardConfig.ConfirmProbeRadiusStuds = 2.5
 MovementGuardConfig.ConfirmProbeReachStuds = 4

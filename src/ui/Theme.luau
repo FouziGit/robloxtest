@@ -186,14 +186,16 @@ Theme.Layers = {
 	Toast = 50,
 }
 
--- Symbols the interface draws as text. Every one is in a block the engine's symbol fallback is proven to
--- render (the sigils already use it), and the arrows are set in Fonts.Symbol, the only face that has them.
+-- Symbols the interface draws as text. Every one is in both bundled faces of Arimo, the engine's first fallback,
+-- so it is drawn whatever face its label is set in (tests/Sigils.spec.luau, D-149); the arrows are set in
+-- Fonts.Symbol, the only face of the interface that has them. The cross, the tick, the play and the pip are the
+-- nearest shapes that are: the fallback has no ✕, ✓, ▶ or ◆ and would draw each as an empty box.
 Theme.Glyphs = {
-	Close = "✕",
-	Check = "✓",
-	Play = "▶",
+	Close = "×",
+	Check = "√",
+	Play = "►",
 	Down = "▼",
-	Pip = "◆",
+	Pip = "♦",
 	Dot = "●",
 	Back = "‹",
 	Next = "›",

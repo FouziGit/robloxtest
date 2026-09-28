@@ -91,11 +91,11 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | BossSpawn | 17 | 13 | 7 | 3.30 | 130 | 15 | 7 | 2 | 5 | 0 | 0 | 0 | 1 |
 | BossSweep | 20 | 15 | 8 | 4.00 | 98 | 19 | 8 | 6 | 4 | 0 | 0 | 0 | 1 |
 | Brand | 13 | 11 | 9 | 1.66 | 67 | 21 | 9 | 0 | 3 | 4 | 2 | 0 | 1 |
-| Caret | 16 | 12 | 9 | 1.57 | 37 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
+| Caret | 15 | 12 | 9 | 1.57 | 37 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
 | Cartouche | 29 | 21 | 10 | 5.73 | 216 | 22 | 10 | 6 | 3 | 0 | 0 | 0 | 2 |
 | Cast | 9 | 7 | 6 | 0.54 | 16 | 13 | 6 | 2 | 4 | 0 | 0 | 0 | 1 |
-| Colophon | 21 | 16 | 12 | 2.19 | 77 | 33 | 12 | 6 | 4 | 6 | 3 | 0 | 2 |
-| ColophonLink | 15 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
+| Colophon | 20 | 16 | 12 | 2.19 | 77 | 33 | 12 | 6 | 4 | 6 | 3 | 0 | 2 |
+| ColophonLink | 14 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
 | Dagger | 16 | 12 | 9 | 1.57 | 35 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
 | Emboss | 14 | 11 | 9 | 2.53 | 88 | 19 | 9 | 3 | 4 | 0 | 0 | 0 | 2 |
@@ -122,7 +122,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
 | Stitch | 13 | 9 | 7 | 1.53 | 32 | 20 | 7 | 1 | 2 | 6 | 3 | 0 | 1 |
 | StitchCatch | 8 | 8 | 7 | 1.15 | 16 | 16 | 6 | 3 | 2 | 2 | 1 | 0 | 1 |
-| Strike | 15 | 11 | 8 | 1.83 | 49 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| Strike | 14 | 11 | 8 | 1.83 | 49 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
 | Swash | 17 | 13 | 10 | 2.15 | 123 | 25 | 10 | 4 | 3 | 4 | 2 | 0 | 1 |
 | Sweep | 13 | 11 | 9 | 1.10 | 58 | 29 | 14 | 2 | 4 | 0 | 0 | 0 | 1 |
 | Tap | 4 | 4 | 4 | 0.25 | 10 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 1 |
@@ -131,7 +131,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
 | Watermark | 25 | 20 | 6 | 4.34 | 119 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 52 timelines et 747 couches, dont 602 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 52 timelines et 743 couches, dont 602 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.
@@ -154,6 +154,57 @@ Le troisième est un cliquet contre la dérive, pas une mesure : **aucun apparei
 et c'est le premier nombre à remplacer par une mesure. Une porte tient aussi le modèle de coût au rendu
 lui-même : si une couche empruntait une classe que le modèle ne connaît pas, chaque comparaison ci-dessus
 serait optimiste, donc le test relit les emprunts dans la source du rendu.
+
+## Ce que coûte ce qu'un corps porte
+
+Une aura et une traînée ne passent pas par `VfxTimeline` : `CosmeticController` les dessine à partir des
+données de `CosmeticConfig` (D-148), sur sa seule `Heartbeat`, et **émet lui-même chaque particule** — un
+accumulateur par émetteur, jamais un `Rate`, que le moteur éclaircirait d'environ neuf fois à sa qualité
+automatique (D-124). Le budget est donc tenu par le rendu, pas par le moteur :
+
+- **au plus 60 particules vivantes par corps** au niveau Élevé, aura et traînée ensemble
+  (`CosmeticConfig.Budget`) ; `tests/Cosmetics.spec.luau` calcule chaque paire aura × traînée et échoue
+  au-delà ;
+- chaque niveau multiplie le flux par son `ParticleScale` ; au niveau **Performance**, rien de ce que portent
+  les autres n'est dessiné, seulement ce que porte le joueur local ;
+- **en combat** (match classé, champ de bataille, arène de l'Effacement), tout ce qui est porté tombe à 0,4
+  de sa densité, 0,25 plus transparent et sans lumière (`CosmeticConfig.Fight`) ;
+- une image longue ne doit que 0,1 s de particules : un à-coup ne revient pas en rafale ;
+- chaque place est ajustée au corps qui la porte (`CosmeticConfig.Body`, D-148) : le corps est mesuré quand le
+  personnage arrive et chaque fois qu'un objet est porté — son tronc, sa tête et sa `HipHeight`, cinq recherches
+  parmi ses enfants —, jamais à l'image ; à l'image, l'ajustement coûte une multiplication par coordonnée.
+
+Sortie de `lune run scripts/cosmetic-cost`. « Vivantes » est le débit de chaque émetteur multiplié par sa vie
+la plus longue, au régime établi, puis par le `ParticleScale` du niveau ; « Rubans » compte les `Trail`, qui
+ne sont pas des particules.
+
+| Objet | Emplacement | Rareté | Couches | Émetteurs | Rubans | Vivantes Élevée | Vivantes Moyenne | Vivantes Basse | Vivantes Performance |
+|---|---|---|---|---|---|---|---|---|---|
+| AuraCodex | Aura | Legendary | 3 | 4 | 0 | 35.4 | 21.3 | 12.4 | 7.1 |
+| AuraVoid | Aura | Legendary | 3 | 4 | 0 | 40.6 | 24.4 | 14.2 | 8.1 |
+| GoldenInkAura | Aura | Legendary | 3 | 3 | 2 | 39.4 | 23.6 | 13.8 | 7.9 |
+| VipAura | Aura | Legendary | 3 | 4 | 0 | 42.0 | 25.2 | 14.7 | 8.4 |
+| AuraCrimson | Aura | Epic | 2 | 2 | 0 | 40.8 | 24.5 | 14.3 | 8.2 |
+| AuraStorm | Aura | Epic | 2 | 1 | 2 | 11.2 | 6.7 | 3.9 | 2.2 |
+| BlueInkAura | Aura | Epic | 2 | 2 | 0 | 13.8 | 8.3 | 4.8 | 2.8 |
+| VioletInkAura | Aura | Epic | 2 | 2 | 0 | 42.4 | 25.4 | 14.8 | 8.5 |
+| AuraEmber | Aura | Rare | 1 | 2 | 0 | 35.1 | 21.1 | 12.3 | 7.0 |
+| AuraFrost | Aura | Rare | 1 | 1 | 0 | 34.0 | 20.4 | 11.9 | 6.8 |
+| PalimpsestCape | Aura | Rare | 1 | 1 | 0 | 16.8 | 10.1 | 5.9 | 3.4 |
+| ScribeCloak | Trail | Epic | 2 | 1 | 1 | 5.6 | 3.4 | 2.0 | 1.1 |
+| TrailStorm | Trail | Epic | 2 | 1 | 2 | 5.6 | 3.4 | 2.0 | 1.1 |
+| SteelStylus | Trail | Rare | 1 | 0 | 1 | 0.0 | 0.0 | 0.0 | 0.0 |
+| TrailEmber | Trail | Rare | 1 | 1 | 0 | 12.6 | 7.6 | 4.4 | 2.5 |
+| TrailViolet | Trail | Rare | 1 | 0 | 1 | 0.0 | 0.0 | 0.0 | 0.0 |
+| TrailFolio | Trail | Common | 1 | 1 | 0 | 7.0 | 4.2 | 2.4 | 1.4 |
+| TrailSand | Trail | Common | 1 | 1 | 0 | 12.0 | 7.2 | 4.2 | 2.4 |
+
+Pire corps : VioletInkAura et TrailEmber, 55.0 particules vivantes au niveau Élevé, pour un budget de 60 (CosmeticConfig.Budget).
+En combat (CosmeticConfig.Fight) : 22.0 au niveau Élevé.
+
+Le coût d'instances est fixe et petit : une attache et un émetteur par émission, deux attaches et une
+`Trail` par ruban, construits une fois par objet porté et rendus au Trove de leur emplacement. Rien de cela
+n'a tourné sur un appareil : c'est ce que le rendu **demandera**, comme le reste de ce document.
 
 ## Le pooling
 
@@ -187,6 +238,7 @@ l'école précédente — ce que la règle 2 de la bible ne survit pas.
 | le pool crée bien moins qu'il ne prête | idem : plus de 5 000 prêts pour moins de 2 % de créations |
 | **un duel ne laisse aucune connexion derrière lui** | `tests/Loops.spec.luau` : une boucle par système, quinze en tout, chacune déclarée avec sa raison ; une seconde boucle dans un système qui en a déjà une échoue |
 | la densité plafonnée (règle 8) | `VfxTimelineConfig.MaxLiveLayers` = niveau Élevé, et la porte ci-dessus |
+| **un corps ne porte pas plus de 60 particules vivantes**, et tout ce qui est porté se tait en combat | `tests/Cosmetics.spec.luau` : chaque paire aura × traînée sous `CosmeticConfig.Budget`, l'émission pilotée (aucun `Rate`), la sourdine du combat branchée sur le match et les portails |
 | les empreintes ne peuvent évincer un résidu **à aucun niveau** | `tests/WorldConfig.spec.luau` : le seuil de retenue est une **fraction** du budget du niveau dessiné (0,66), et la somme seuil + empreintes tient dans le budget de chacun des quatre |
 | le modèle de coût emprunte ce que le rendu emprunte | `tests/EffectCost.spec.luau` relit les emprunts dans la source de `VfxTimeline` |
 

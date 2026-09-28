@@ -4,7 +4,7 @@
 -- No shadow: a list of fifty shadows is fifty frames more and a page that looks stacked, not listed.
 --
 --   Item       the card (the default)
---   Highlight  the card ringed in the primary yellow, with a ◆ tag: this tier, today, you
+--   Highlight  the card ringed in the primary yellow, with a ♦ tag: this tier, today, you
 --   Header     no card: a title in the poster face with a brush swash of the chapter under its baseline,
 --              and the right slot for a countdown
 --   Empty      no card: a grey blot and a line of lore, and the right slot for a button (Retry)
@@ -364,7 +364,7 @@ function ListRow.new(props: Props): ListRow
 		swash.ZIndex = 0
 		swash.Parent = left.Frame
 	elseif variant == "Highlight" then
-		-- A second ring, in the primary yellow, inside the ink one; and a ◆ tag on the corner.
+		-- A second ring, in the primary yellow, inside the ink one; and a ♦ tag on the corner.
 		local ring = Instance.new("Frame")
 		ring.Name = "Highlight"
 		ring.BackgroundTransparency = 1

@@ -1,5 +1,5 @@
 --!strict
--- Pips: a row of ◆, filled up to a count (D-147). Colour is never the only cue: a rarity shows its pips
+-- Pips: a row of ♦, filled up to a count (D-147). Colour is never the only cue: a rarity shows its pips
 -- beside its colour and its word, and two rarities never show the same number of them.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

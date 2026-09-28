@@ -1,6 +1,6 @@
 --!strict
 -- CircleButton: a pressable disc of the sheet with a sign on it, for a button too small for a word (D-147) --
--- the meta cluster's "+" and "✕", the spectate plate's previous and next. It sits on a chalk lip, lifts under
+-- the meta cluster's "+" and "×", the spectate plate's previous and next. It sits on a chalk lip, lifts under
 -- the pointer and sinks when pressed like every sticker you press, plays its own click, and its hit area is
 -- floored at a thumb's whatever the scale. Out of a gamepad's way unless it says otherwise; then its focus is
 -- the double ring, the fight's one where it stands in a fight (no value colour, docs/ART_BIBLE.md rule 11).
@@ -21,7 +21,7 @@ export type Props = {
 	OnClick: () -> (),
 	-- A gamepad may select it, with this focus ring.
 	Focus: Theme.FocusKind?,
-	-- Turns the sign: a "▶" turned half a turn points back.
+	-- Turns the sign: a "►" turned half a turn points back.
 	SignRotation: number?,
 	LayoutOrder: number?,
 	Parent: Instance?,

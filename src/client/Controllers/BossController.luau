@@ -228,7 +228,7 @@ local function buildWarning(hud: HudApi)
 	warning = plate
 end
 
--- Where the boss stands from the camera, as the rotation of a "▶" on the screen: straight up when it is ahead,
+-- Where the boss stands from the camera, as the rotation of a "►" on the screen: straight up when it is ahead,
 -- right when it is to the right. Nil when no boss body is in the world. Read once, when a warning shows.
 local function chevronRotation(): number?
 	local camera = workspace.CurrentCamera

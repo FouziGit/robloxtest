@@ -131,12 +131,12 @@ describe("the Battleground band", function()
 		function()
 			local changed = body(TRAVEL, "local function onBattlegroundChanged(")
 			requireAll(changed, {
-				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) end local hud = hudController if hud ~= nil then hud.leftPlace(BATTLEGROUND_ZONE) end return end",
+				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) refreshFight() end local hud = hudController if hud ~= nil then hud.leftPlace(BATTLEGROUND_ZONE) end return end",
 				'placeTitle.Text = localize.t("portal.battleground.name")',
 				'placeLine.Text = localize.t("battleground.status", {',
 				"standing = math.max(0, math.floor(snapshot.Standing)),",
 				"defeated = math.max(0, math.floor(snapshot.Defeated)),",
-				"if not member then member = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) end",
+				"if not member then member = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
 			}, "onBattlegroundChanged")
 			local travel = code(TRAVEL)
 			expect(travel:find('local MUSIC_SOURCE = "Battleground"', 1, true)).never.toBe(nil)
@@ -167,6 +167,63 @@ describe("the top-centre column", function()
 		expect(body(BOSS, "local function build("):find("local stack, layoutOrder = hud.topStack()", 1, true)).never.toBe(
 			nil
 		)
+	end)
+end)
+
+describe("a fight the portals know of", function()
+	-- D-148: while the local player fights, every aura on their screen steps back so the glyphs keep the colour
+	-- of the fight. A ranked match is MatchController's to say; the Battleground and the Erasure's arena are the
+	-- portals', and each way out of them has to end the fight, or an aura stays quiet in the hub for good.
+	it("holds while a member of the Battleground or inside the Erasure's arena, and says so once per change", function()
+		requireAll(body(TRAVEL, "local function refreshFight("), {
+			"local now = member or inArena",
+			"if now == fighting then return end",
+			"fighting = now TravelController.FightChanged:Fire(now)",
+		}, "refreshFight")
+		requireAll(body(TRAVEL, "function TravelController.inFight("), { "return fighting" }, "inFight")
+		expect(code(TRAVEL):find("TravelController.FightChanged = Signal.new()", 1, true)).never.toBe(nil)
+	end)
+
+	it("enters the arena by its gate and leaves it by the way back, a death, or the fight's end", function()
+		local travel = code(TRAVEL)
+		expect(travel:find('local ARENA_PORTAL = "WorldBoss"', 1, true)).never.toBe(nil)
+		local isPortal = false
+		for _, id in ipairs(PortalConfig.Ids) do
+			isPortal = isPortal or id == "WorldBoss"
+		end
+		expect(isPortal).toBe(true)
+		-- Any trip sets it: the gate in, the Return gate (or any other) out.
+		requireAll(body(TRAVEL, "local function onTravelled("), {
+			"inArena = id == ARENA_PORTAL refreshFight()",
+		}, "onTravelled")
+		requireAll(body(TRAVEL, "local function onBossChanged("), {
+			"if payload == nil then bossPhase = nil if inArena then inArena = false refreshFight() end return end",
+			-- The scheduled event pulls in everybody alive and in no match as it starts fighting, with no portal.
+			"if phase == PULL_PHASE and bossPhase == ANNOUNCED_PHASE and payload.Practice ~= true then",
+			"if matchController.getMatch() == nil then inArena = true refreshFight() end",
+			'bossPhase = if type(phase) == "string" then phase else nil',
+		}, "onBossChanged")
+		expect(travel:find('local ANNOUNCED_PHASE = "Announced"', 1, true)).never.toBe(nil)
+		expect(travel:find('local PULL_PHASE = "Fighting"', 1, true)).never.toBe(nil)
+		-- Two phases the server really sends, in that order.
+		expect(
+			code("src/shared/Types.luau"):find('export type BossPhaseSnapshot = "Announced" | "Fighting" |', 1, true)
+		).never.toBe(nil)
+		expect(body(TRAVEL, "function TravelController.Init("):find("matchController = deps.MatchController", 1, true)).never.toBe(
+			nil
+		)
+		requireAll(body(TRAVEL, "local function onRespawn("), {
+			"if inArena then inArena = false refreshFight() end",
+		}, "onRespawn")
+		-- Heard whatever the bands did: none of it draws.
+		local start = body(TRAVEL, "function TravelController.Start(")
+		local boss = start:find('remoteClient.on("BossChanged", onBossChanged)', 1, true)
+		local respawn = start:find("Players.LocalPlayer.CharacterAdded:Connect(onRespawn)", 1, true)
+		local built = start:find("if not build() then", 1, true)
+		expect(boss).never.toBe(nil)
+		expect(respawn).never.toBe(nil)
+		expect((boss :: number) < (built :: number)).toBe(true)
+		expect((respawn :: number) < (built :: number)).toBe(true)
 	end)
 end)
 

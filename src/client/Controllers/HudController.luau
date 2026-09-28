@@ -3,9 +3,8 @@
 -- places them, feeds them the data they draw and routes every server message. The pieces are components of
 -- src/ui (D-147):
 --   MetaCluster   the level, its XP and the Folios (top-left), in the hub only
---   CombatDock    the player's own health and ink (bottom-left with a pointer, bottom-centre above the combo
---                 row on touch, so they never cover the engine thumbstick)
---   ComboRow      the sequence being pressed, the chain counter and the onboarding's ghost chips
+--   CombatDock    the player's own health and ink, on an ink plate at the bottom centre, between the thumbs
+--   ComboRow      the sequence being pressed, the chain counter and the onboarding's ghost chips, above it
 --   ScoreBand     the match, at the top-centre while a snapshot is held
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
 -- button naming its key), the top-centre column the bands stack in (HudController.topStack), and the toast
@@ -24,12 +23,15 @@ local ComboRow = require(UI.components.ComboRow)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
 local MetaCluster = require(UI.components.MetaCluster)
+local QualityConfig = require(Shared.Config.QualityConfig)
 local ScoreBand = require(UI.components.ScoreBand)
 local ScreenRoot = require(UI.components.ScreenRoot)
 local Signal = require(Packages.Signal)
 local Theme = require(UI.Theme)
+local ThemeConfig = require(Shared.Config.ThemeConfig)
 local Toast = require(UI.components.Toast)
 local Types = require(Shared.Types)
+local UiPrefs = require(UI.UiPrefs)
 
 local log = Log.new("HudController")
 
@@ -48,17 +50,16 @@ type Deps = {
 	MenuController: any,
 	VfxController: any,
 	InputController: any,
+	QualityController: any,
 }
 
 local DISPLAY_ORDER = Theme.Layers.Hud
-local CHIP_SIZE = 36
-local COMBO_BOTTOM_MARGIN = 110 -- keeps the chips above the touch thumb cluster
--- On touch the bars sit above the combo row: the bottom-left corner belongs to the engine thumbstick.
-local BARS_TOUCH_BOTTOM_MARGIN = COMBO_BOTTOM_MARGIN + CHIP_SIZE + Theme.Sizes.Gap
--- Ceiling on the top-centre column (see buildTopStack). Measured from the phone the layout targets: a
--- 375-unit viewport leaves 498.5 padded units at scale 0.68, and the bars start BARS_TOUCH_BOTTOM_MARGIN
--- above the bottom, so this is what is left above them with a gap to spare.
-local TOP_STACK_MAX_HEIGHT = 240
+local HUD = ThemeConfig.Hud
+-- The bottom stack, from the top: the combo row, then the dock.
+local COMBO_ORDER = 1
+local DOCK_ORDER = 3
+-- On touch the dock keeps this far off the nearest disc, in real pixels.
+local DOCK_DISC_CLEARANCE = 12
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local GAMEPAD_PREFIX = "Gamepad"
 -- The kinds a server message may name. The HUD adds two of its own, by key: a celebration and a reward.
@@ -127,6 +128,7 @@ local root: ScreenRoot.ScreenRoot
 local metaCluster: MetaCluster.MetaCluster
 local combatDock: CombatDock.CombatDock
 local comboRow: ComboRow.ComboRow
+local bottomStack: Frame
 local scoreBand: ScoreBand.ScoreBand
 local quickBar: Frame
 local quickButtons: { Button.Button } = {}
@@ -138,6 +140,7 @@ local notifyWarned = false
 local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
 local menuController: any
 local inputController: any
+local qualityController: any
 local inMatch = false
 -- In the Battleground or the World Boss's arena (setPlace): a fight, like a match.
 local inArena = false
@@ -169,9 +172,9 @@ local function buildTopStack(parent: Instance)
 	-- Bounded and clipped. The column is as tall as its visible children, and a player can legitimately
 	-- hold a match snapshot and a World Boss snapshot at once: the server pushes BossChanged to everyone
 	-- on the server, not only to the participants. Without a ceiling the two bands could reach down into
-	-- the health and ink bars, which on touch sit bottom-centre in the same column of screen.
+	-- the combat dock, which sits bottom-centre in the same column of screen.
 	local ceiling = Instance.new("UISizeConstraint")
-	ceiling.MaxSize = Vector2.new(math.huge, TOP_STACK_MAX_HEIGHT)
+	ceiling.MaxSize = Vector2.new(math.huge, HUD.TopStackMaxHeight)
 	ceiling.Parent = topStack
 	topStack.ClipsDescendants = true
 	topStack.Parent = parent
@@ -228,27 +231,40 @@ local function buildQuickBar(parent: Instance)
 	end)
 end
 
+-- The bottom centre, between the thumbs: the combo row over the dock, off the bottom edge. The bottom-left
+-- corner is the engine thumbstick's on touch, and the bottom-right the discs' or the quick bar's.
+local function buildBottomStack(parent: Instance, touch: boolean)
+	bottomStack = Instance.new("Frame")
+	bottomStack.Name = "BottomStack"
+	bottomStack.BackgroundTransparency = 1
+	bottomStack.AnchorPoint = Vector2.new(0.5, 1)
+	bottomStack.Position = UDim2.new(0.5, 0, 1, -(if touch then HUD.DockBottomPadTouch else HUD.DockBottomPad))
+	bottomStack.Size = UDim2.new()
+	bottomStack.AutomaticSize = Enum.AutomaticSize.XY
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, HUD.ChipRowGap)
+	layout.Parent = bottomStack
+	bottomStack.Parent = parent
+
+	comboRow = ComboRow.new({ Parent = bottomStack, Localize = localize, LayoutOrder = COMBO_ORDER })
+	combatDock = CombatDock.new({
+		Parent = bottomStack,
+		Screen = root.Instance,
+		LayoutOrder = DOCK_ORDER,
+		Width = if touch then HUD.DockWidthTouchMax else HUD.DockWidthPointer,
+	})
+end
+
 local function build()
 	root = ScreenRoot.new({ Name = "Hud", DisplayOrder = DISPLAY_ORDER })
 	local content = root.Content
-	local pad = Theme.Sizes.Padding
 
 	metaCluster = MetaCluster.new({ Parent = content, Localize = localize })
-
-	local touch = UserInputService.TouchEnabled
-	combatDock = CombatDock.new({
-		Parent = content,
-		Localize = localize,
-		AnchorPoint = if touch then Vector2.new(0.5, 1) else Vector2.new(0, 1),
-		Position = if touch then UDim2.new(0.5, 0, 1, -BARS_TOUCH_BOTTOM_MARGIN) else UDim2.new(0, pad, 1, -pad),
-	})
-
-	comboRow = ComboRow.new({
-		Parent = content,
-		Localize = localize,
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -COMBO_BOTTOM_MARGIN),
-	})
+	buildBottomStack(content, UserInputService.TouchEnabled)
 
 	buildQuickBar(content)
 
@@ -283,6 +299,33 @@ local function placeToasts()
 	toast:SetTop(math.max(Theme.Sizes.Padding, top + TOAST_UNDER_MENU))
 end
 
+-- On touch the dock is as wide as the gap between the thumbs allows, and never wider than its token: from the
+-- centre of the screen to the nearest disc, less a clearance, on both sides (InputController.touchRects).
+local function fitDock()
+	local nearest = math.huge
+	for _, rect in pairs(inputController.touchRects()) do
+		nearest = math.min(nearest, rect.Min.X)
+	end
+	if nearest == math.huge then
+		return
+	end
+	local safeArea = root.Content
+	local centre = safeArea.AbsolutePosition.X + safeArea.AbsoluteSize.X / 2
+	local free = 2 * (nearest - DOCK_DISC_CLEARANCE - centre)
+	if free > 0 then
+		combatDock:SetWidth(math.min(HUD.DockWidthTouchMax, free / root:GetScale()))
+	end
+end
+
+-- The player's own settings the interface follows (UiPrefs): "shakes and flashes", and the lowest graphics
+-- tier, which draws no backdrop blots, shimmers or bursts.
+local function refreshPrefs(data: Types.ProfileData?)
+	if data ~= nil then
+		UiPrefs.setShakes(data.Settings.CameraShake ~= false)
+	end
+	UiPrefs.setLowQuality(qualityController.get() == QualityConfig.Order[#QualityConfig.Order])
+end
+
 -- A match or an arena: fewer messages at once, none in a value colour (rule 11), and no level or Folios.
 local function refreshFight()
 	local fighting = inMatch or inArena
@@ -296,7 +339,7 @@ end
 -- second ScreenGui at the same DisplayOrder, which had no defined draw order against this one.
 --
 -- At most three stack outside a match -- a portal band and a place band are about 50 units each and the boss
--- band 118 with its warning up -- which with the column's two gaps stays under TOP_STACK_MAX_HEIGHT. In a match
+-- band 118 with its warning up -- which with the column's two gaps stays under HUD.TopStackMaxHeight. In a match
 -- the portal and the place bands are never up: no circle moves a player in a match (PortalService), and a match
 -- ends a Battleground membership (BattlegroundService's roster).
 function HudController.topStack(band: ("Boss" | "Place" | "Portal")?): (Frame?, number)
@@ -383,6 +426,7 @@ local function refreshProfile(section: string)
 	end
 	if section == "*" or section == "Settings" then
 		refreshQuickBar(data)
+		refreshPrefs(data)
 	end
 end
 
@@ -465,6 +509,7 @@ function HudController.Init(deps: Deps)
 	matchController = deps.MatchController
 	menuController = deps.MenuController
 	inputController = deps.InputController
+	qualityController = deps.QualityController
 	build()
 end
 
@@ -490,6 +535,14 @@ function HudController.Start()
 	remoteClient.on("Notify", onNotify)
 	inputController.TouchLayoutChanged:Connect(placeToasts)
 	placeToasts()
+	if UserInputService.TouchEnabled then
+		inputController.TouchLayoutChanged:Connect(fitDock)
+		fitDock()
+	end
+	qualityController.Changed:Connect(function()
+		refreshPrefs(clientData.get())
+	end)
+	refreshPrefs(clientData.get())
 	log.info("started")
 end
 

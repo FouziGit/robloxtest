@@ -21,10 +21,10 @@ local Trove = require(Packages.Trove)
 export type Localizer = { t: (key: string, params: { [string]: any }?) -> string }
 
 export type Props = {
+	-- The HUD's bottom stack, which places the row above the dock.
 	Parent: Instance,
 	Localize: Localizer,
-	AnchorPoint: Vector2,
-	Position: UDim2,
+	LayoutOrder: number?,
 }
 
 export type ComboRow = {
@@ -91,8 +91,7 @@ function ComboRow.new(props: Props): ComboRow
 	local row = Instance.new("Frame")
 	row.Name = "Combo"
 	row.BackgroundTransparency = 1
-	row.AnchorPoint = props.AnchorPoint
-	row.Position = props.Position
+	row.LayoutOrder = props.LayoutOrder or 0
 	row.Size = UDim2.fromOffset(0, CHIP_SIZE)
 	row.AutomaticSize = Enum.AutomaticSize.X
 	trove:Add(row)

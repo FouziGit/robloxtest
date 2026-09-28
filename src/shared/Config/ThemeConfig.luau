@@ -290,6 +290,26 @@ ThemeConfig.Budget = {
 	MaxStaggered = 8,
 }
 
+-- The HUD's geometry, in design units (D-147): never scaled by the player's text size, and laid out to fit a
+-- landscape phone's height at the touch floor.
+ThemeConfig.Hud = {
+	-- The top-centre column's ceiling (HudController's topStack): what a 375-point phone leaves above the
+	-- bottom stack at the touch floor, with a gap to spare.
+	TopStackMaxHeight = 240,
+	-- The combat dock: centred at the bottom, off the bottom edge by this much with a pointer and on touch.
+	DockBottomPad = 16,
+	DockBottomPadTouch = 12,
+	DockWidthPointer = 460,
+	-- On touch it is also never wider than the gap between the thumbs (InputController.touchRects).
+	DockWidthTouchMax = 300,
+	-- Health 26 + ink 14 + padding 10 * 2 + gap 10.
+	DockHeight = 70,
+	-- Between the combo row and what is under it.
+	ChipRowGap = 8,
+	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
+	LowHealthFraction = 0.3,
+}
+
 -- docs/ART_BIBLE.md (D-147): a rounded poster face for titles (Fredoka One), a rounded grotesque for words
 -- (Nunito), a condensed grotesque for numbers (Oswald); the roman (Merriweather) keeps the lore, in
 -- italic, and the drop caps. Merriweather is also the only one of the four with the arrows.
@@ -334,8 +354,8 @@ end
 -- reports them.
 --   PointerFloor  mouse and gamepad: never smaller than designed
 --   TouchFloor    a touch-only device: a phone is small in points but held close, and the HUD and the
---                 panels are laid out to fit a landscape phone at this scale (HudController's
---                 TOP_STACK_MAX_HEIGHT is measured at it)
+--                 panels are laid out to fit a landscape phone at this scale (ThemeConfig.Hud is
+--                 measured at it)
 --   Max           a 4K monitor's 2160 points doubles the interface; beyond that it stops growing
 ThemeConfig.Scale = {
 	ReferenceHeight = 1080,

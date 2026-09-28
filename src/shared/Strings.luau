@@ -57,9 +57,6 @@ Strings.Table = {
 	["hud.hint.gamepad"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
 	-- The gamepad button that opens the menu (Enum.KeyCode.ButtonSelect), by the name players know it by.
 	["hud.key.select"] = { en = "Select", fr = "Sélection" },
-	["hud.ink"] = { en = "Ink", fr = "Encre" },
-	["hud.health"] = { en = "Health", fr = "Vie" },
-	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
 	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar

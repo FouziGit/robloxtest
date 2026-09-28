@@ -11,7 +11,8 @@
 --
 -- The helper section owns every shape the roster needs: spheres and boxes of live humanoids, a
 -- stepped projectile (straight or arcing under a gravity), a hitscan beam that only walls stop, a
--- ticking zone, a chain search and the raycast-validated teleport destination of Caret. An
+-- ticking zone, a chain search, the raycast-validated teleport destination of Caret, the point a thing
+-- released ahead of the body really starts from, and the charge a charged glyph holds its caster in. An
 -- effect adds geometry, never a new query or a magic number: all tuning comes from `Def.Params`.
 
 local CollectionService = game:GetService("CollectionService")
@@ -60,6 +61,13 @@ export type CombatApi = {
 	-- A stun or a slow on a body no player owns (a Forger): its owner holds it, under the glyph's id as a
 	-- player's slow is (`key`). Players go through Movement.
 	controlNpc: (targetModel: Model, kind: "Stun" | "Slow", seconds: number, factor: number, key: string) -> (),
+	-- Whether a hit on `targetModel` would be let through now, judged exactly as ApplyDamage judges it
+	-- (D-135): an effect that commits to a body before striking it asks first.
+	canDamage: (source: Player, targetModel: Model) -> boolean,
+	-- Holds the caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile. A dash breaks it, and
+	-- isChanneling is how the effect holding it finds out (D-136).
+	channel: (player: Player, seconds: number) -> (),
+	isChanneling: (player: Player) -> boolean,
 }
 export type VfxPacket = {
 	Id: string,
@@ -75,6 +83,8 @@ export type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?, alsoNear: V
 -- command again would let a future effect forget the second half.
 export type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
+	-- Lifts the slow a glyph put on its own caster, the moment the charge it held them for breaks.
+	clearSlow: (player: Player, key: string?) -> (),
 	applyStun: (player: Player, seconds: number) -> (),
 }
 export type Context = {
@@ -275,6 +285,12 @@ local function newTracker(def: GlyphDef, maxHits: number): Tracker
 	return { MaxHits = maxHits, Hits = {}, Count = 0, Tags = { def.Id, def.Archetype }, Amount = def.Damage }
 end
 
+-- An ultimate's ticks after its opening hit (D-139): their own amount, and only the glyph id as a tag -- the
+-- i-frame key and the skin (tags[1]) without the guard break an ultimate's archetype carries (tags[2]).
+local function tickTracker(def: GlyphDef, amount: number): Tracker
+	return { MaxHits = math.huge, Hits = {}, Count = 0, Tags = { def.Id }, Amount = amount }
+end
+
 -- Damages one model through the single damage path, honouring the per-cast hit cap. Returns whether
 -- damage landed: blocked-to-zero, spawn-protected and i-framed targets did not take any.
 local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolean
@@ -328,6 +344,17 @@ local function damageArea(ctx: Context, tracker: Tracker, center: Vector3, radiu
 	return damaged
 end
 
+-- The same, for every live model overlapping an oriented box.
+local function damageBox(ctx: Context, tracker: Tracker, box: CFrame, size: Vector3): { Model }
+	local damaged: { Model } = {}
+	for _, model in ipairs(humanoidsInBox(box, size, ctx.Caster.Character)) do
+		if damageModel(ctx, tracker, model) then
+			table.insert(damaged, model)
+		end
+	end
+	return damaged
+end
+
 local function horizontal(direction: Vector3): Vector3
 	local flat = Vector3.new(direction.X, 0, direction.Z)
 	if flat.Magnitude < EPSILON then
@@ -336,10 +363,18 @@ local function horizontal(direction: Vector3): Vector3
 	return flat.Unit
 end
 
-local function excludeParams(character: Model?): RaycastParams
+-- A ray that ignores the caster, and `also` when given: a body the ray starts inside of or next to.
+local function excludeParams(character: Model?, also: Model?): RaycastParams
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = if character ~= nil then { character } else {}
+	local filter: { Instance } = {}
+	if character ~= nil then
+		table.insert(filter, character)
+	end
+	if also ~= nil then
+		table.insert(filter, also)
+	end
+	params.FilterDescendantsInstances = filter
 	return params
 end
 
@@ -423,6 +458,14 @@ local function geometryStop(start: Vector3, direction: Vector3, range: number, c
 	return start + direction * range
 end
 
+-- Where something released `offset` studs ahead of `from` starts, and whether it got there. A ray begun inside
+-- a slab never reports that slab, so a caster hugging a Margin would shoot straight through it: the gap from
+-- the body to the release point is checked first, and a wall in it is where the thing ends (D-140).
+local function launchPoint(from: Vector3, direction: Vector3, offset: number, character: Model?): (Vector3, boolean)
+	local wall = geometryStop(from, direction, offset, character)
+	return wall, (wall - from).Magnitude >= offset - EPSILON
+end
+
 -- Hitscan: the models within `radius` of the beam between the caster and the first obstruction,
 -- nearest first, plus that stop point (the length the client draws).
 local function hitscan(
@@ -452,9 +495,11 @@ local function tickZone(
 	radius: number,
 	ticks: number,
 	interval: number,
-	onHit: ((Model) -> ())?
+	onHit: ((Model) -> ())?,
+	tracker: Tracker?
 ): number
-	local tracker = newTracker(ctx.Def, math.huge)
+	-- A zone of its own by default; an ultimate that opened with another hit hands its ticks' tracker in.
+	local zone = if tracker ~= nil then tracker else newTracker(ctx.Def, math.huge)
 	for tick = 1, ticks do
 		if tick > 1 then
 			task.wait(interval)
@@ -462,13 +507,13 @@ local function tickZone(
 				break
 			end
 		end
-		for _, model in ipairs(damageArea(ctx, tracker, center, radius)) do
+		for _, model in ipairs(damageArea(ctx, zone, center, radius)) do
 			if onHit ~= nil then
 				onHit(model)
 			end
 		end
 	end
-	return tracker.Count
+	return zone.Count
 end
 
 -- One damage pass around `point` and a push away from it for everything it hurt: horizontal `push` plus
@@ -498,6 +543,39 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 	local tracker = newTracker(ctx.Def, 1)
 	blast(ctx, tracker, point, radius, push, lift)
 	return tracker.Count
+end
+
+-- A charged glyph's telegraph (D-138): one reliable `vfxId` packet, whose timeline's Anticipation lasts exactly
+-- `seconds` (tests hold it to Params.Windup), then a channel held for as long (D-136). Gives up on the frame the
+-- caster stops qualifying (stunned, guarding, dead, gone) or dashes out of it. Returns the frame to release
+-- from, re-validated now (Scorch's rule), or nil. `extra` adds numbers the drawn charge needs.
+local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [string]: number }?): CFrame?
+	local packetParams: { [string]: any } = { Windup = seconds, Pigment = ctx.Def.Pigment }
+	if extra ~= nil then
+		for key, value in pairs(extra) do
+			packetParams[key] = value
+		end
+	end
+	-- A frame of grace (MAX_STEP_SECONDS) so the last poll does not read its own expiry as a break.
+	ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)
+	ctx.Vfx.emit({
+		Id = vfxId,
+		Origin = ctx.Origin.Position,
+		Direction = horizontal(ctx.Direction),
+		Caster = ctx.Caster.UserId,
+		Params = packetParams,
+	}, true)
+	local elapsed = 0
+	while elapsed < seconds do
+		elapsed += task.wait()
+		if not casterAlive(ctx) or not ctx.Combat.isChanneling(ctx.Caster) then
+			ctx.Combat.channel(ctx.Caster, 0)
+			return nil
+		end
+	end
+	local frame = ctx.Combat.trustedOrigin(ctx.Caster)
+	ctx.Combat.channel(ctx.Caster, 0)
+	return frame
 end
 
 ----------------------------------------------------------------
@@ -1332,6 +1410,400 @@ function GlyphEffects.Colophon(ctx: Context): number
 			Pigment = ctx.Def.Pigment,
 		},
 	}, true)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Volute: a coil of ink wound in the hand for Windup, then pressed into the closest body ahead
+----------------------------------------------------------------
+
+function GlyphEffects.Volute(ctx: Context): number
+	local params = ctx.Def.Params
+	local frame = charge(ctx, "VoluteCharge", params.Windup, nil)
+	if frame == nil then
+		return 0
+	end
+	-- From where the caster stands at the release, not at the press: they may walk while they wind it.
+	local look = horizontal(frame.LookVector)
+	local centre = frame.Position + look * params.Offset
+	local candidates = humanoidsInRadius(centre, params.HitRadius, ctx.Caster.Character)
+	local tracker = newTracker(ctx.Def, 1)
+	local points: { Vector3 } = {}
+	for _, model in ipairs(nearestModels(candidates, centre, #candidates)) do
+		if #points >= params.MaxTargets then
+			break
+		end
+		-- An ally or a protected body is refused inside ApplyDamage and skipped, as the Strike skips it.
+		if damageModel(ctx, tracker, model) then
+			local position = model:GetPivot().Position
+			table.insert(points, position)
+			local offset = position - frame.Position
+			local away = if Vector3.new(offset.X, 0, offset.Z).Magnitude > EPSILON then horizontal(offset) else look
+			ctx.Combat.knockback(model, away * params.Knockback + Vector3.yAxis * params.Lift, KNOCKBACK_DURATION)
+			stunModel(ctx, model, params.StunSeconds)
+		end
+	end
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = centre,
+		Direction = look,
+		Caster = ctx.Caster.UserId,
+		Targets = points,
+		Params = { Radius = params.HitRadius, Pigment = ctx.Def.Pigment },
+	}, true)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Rubric: a red line ruled after a still charge, piercing up to MaxTargets bodies
+----------------------------------------------------------------
+
+function GlyphEffects.Rubric(ctx: Context): number
+	local params = ctx.Def.Params
+	local character = ctx.Caster.Character
+	local direction = horizontal(ctx.Direction) -- locked at the press: the charge is the dodge window
+	local origin = ctx.Origin.Position
+	-- The lane the charge paints on the floor, measured now the way the release measures it.
+	local aimStart, aimClear = launchPoint(origin, direction, params.SpawnOffset, character)
+	local aimStop = if aimClear then geometryStop(aimStart, direction, ctx.Def.Range, character) else aimStart
+	-- Held still for the charge (a root is a slow of factor 0), under the glyph's own key.
+	if character ~= nil then
+		slowModel(ctx, character, params.ChargeSlowFactor, params.Windup)
+	end
+	local frame = charge(ctx, "RubricCharge", params.Windup, {
+		SpawnOffset = (aimStart - origin).Magnitude,
+		Range = (aimStop - aimStart).Magnitude,
+	})
+	if frame == nil then
+		ctx.Movement.clearSlow(ctx.Caster, ctx.Def.Id) -- a broken charge frees its root at once
+		return 0
+	end
+	local muzzle = frame.Position
+	local start, clear = launchPoint(muzzle, direction, params.SpawnOffset, character)
+	local candidates: { Model }, stop: Vector3 = {}, start
+	if clear then
+		candidates, stop = hitscan(ctx, start, direction, ctx.Def.Range, params.HitRadius)
+	end
+	local tracker = newTracker(ctx.Def, 1)
+	local points: { Vector3 } = {}
+	for _, model in ipairs(candidates) do
+		if #points >= params.MaxTargets then
+			break
+		end
+		if damageModel(ctx, tracker, model) then
+			table.insert(points, model:GetPivot().Position)
+			ctx.Combat.knockback(model, direction * params.Knockback, KNOCKBACK_DURATION)
+		end
+	end
+	-- Reliable: it pairs with the charge packet on the same channel, so it never arrives first.
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = muzzle,
+		Direction = direction,
+		Caster = ctx.Caster.UserId,
+		Targets = points,
+		Params = {
+			SpawnOffset = (start - muzzle).Magnitude,
+			Range = (stop - start).Magnitude,
+			Pigment = ctx.Def.Pigment,
+		},
+	}, true)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Swash: a flourish swept along the ground until a wall, cutting each body once
+----------------------------------------------------------------
+
+function GlyphEffects.Swash(ctx: Context): number
+	local params = ctx.Def.Params
+	local character = ctx.Caster.Character
+	local origin = ctx.Origin.Position
+	local direction = horizontal(ctx.Direction)
+	local start, clear = launchPoint(origin, direction, params.SpawnOffset, character)
+	local stop = if clear then geometryStop(start, direction, ctx.Def.Range - params.SpawnOffset, character) else start
+	local span = (stop - start).Magnitude
+	-- Named like the Brand's (D-114): the drawn flourish comes down where this one ended.
+	local shot = nextShot()
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = origin,
+		Direction = direction,
+		Caster = ctx.Caster.UserId,
+		Params = { Speed = params.Speed, SpawnOffset = params.SpawnOffset, Pigment = ctx.Def.Pigment, Shot = shot },
+	}, true)
+	local tracker = newTracker(ctx.Def, 1)
+	local reached = 0
+	if clear then
+		local push = direction * params.Knockback + Vector3.yAxis * params.Lift
+		local previous, elapsed = 0, 0
+		while true do
+			reached = math.min(elapsed * params.Speed, span)
+			-- Everything the edge crossed since the last step, Depth deep, never past the wall: a slow frame
+			-- never lets it skip a body, and a thin wall never leaks the box behind it.
+			local near, far = previous - params.Depth / 2, math.min(reached + params.Depth / 2, span)
+			local box = CFrame.lookAlong(start + direction * ((near + far) / 2), direction)
+			for _, model in ipairs(damageBox(ctx, tracker, box, Vector3.new(params.Width, params.Height, far - near))) do
+				ctx.Combat.knockback(model, push, KNOCKBACK_DURATION)
+			end
+			previous = reached
+			if reached >= span then
+				break
+			end
+			elapsed += task.wait(WAVE_STEP_SECONDS)
+			if not casterAlive(ctx) then
+				break
+			end
+		end
+	end
+	-- Always: the drawn flourish comes down where this one ended (the wall, its reach, or where its caster lost it).
+	ctx.Vfx.emit(
+		{ Id = "Fizzle", Origin = start + direction * reached, Caster = ctx.Caster.UserId, Params = { Shot = shot } },
+		true,
+		origin
+	)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Dagger: struck out here, written in again behind the nearest body ahead, and a cut in its back
+----------------------------------------------------------------
+
+function GlyphEffects.Dagger(ctx: Context): number
+	local params = ctx.Def.Params
+	local root = casterRoot(ctx)
+	local character: Model? = ctx.Caster.Character
+	if root == nil or character == nil then
+		return 0
+	end
+	-- The VALIDATED origin, never root.Position, for the Caret's reason: the jump re-anchors trust where it lands.
+	local start = ctx.Origin.Position
+	local aim = horizontal(ctx.Direction)
+	local cone = math.cos(math.rad(params.ConeDegrees))
+	local nearby = humanoidsInRadius(start, ctx.Def.Range, character)
+	for _, model in ipairs(nearestModels(nearby, start, #nearby)) do
+		local position = model:GetPivot().Position
+		local line = position - start
+		local flat = Vector3.new(line.X, 0, line.Z)
+		-- A body straight above or below has no "behind": skipped, never given a made-up direction. One the hit
+		-- would be refused on (an ally, the safe zone, i-frames) is never jumped to (D-135), nor one behind a wall.
+		if
+			flat.Magnitude > EPSILON
+			and flat.Unit:Dot(aim) >= cone
+			and ctx.Combat.canDamage(ctx.Caster, model)
+			and (geometryStop(start, line.Unit, line.Magnitude, character) - start).Magnitude
+				>= line.Magnitude - EPSILON
+		then
+			local toward = flat.Unit
+			local extents = model:GetExtentsSize()
+			local back = math.max(extents.X, extents.Z) / 2 + params.BehindStuds
+			-- Never through the wall at its back: the landing stops ClearanceRadius short of it.
+			local wall = Workspace:Raycast(position, toward * back, excludeParams(character, model))
+			local reach = if wall ~= nil
+				then math.max((wall.Position - position).Magnitude - params.ClearanceRadius, 0)
+				else back
+			local landing =
+				landingPosition(position + toward * reach, params.ClearanceRadius, params.GroundSnapStuds, character)
+			if landing ~= nil then
+				ctx.Combat.grantIFrames(ctx.Caster, params.IFrameSeconds)
+				local flight = landing - start
+				ctx.Vfx.emit({
+					Id = ctx.Def.VfxId,
+					Origin = start,
+					Direction = horizontal(flight),
+					Caster = ctx.Caster.UserId,
+					Targets = { landing, position },
+					Params = {
+						Range = flight.Magnitude,
+						IFrameSeconds = params.IFrameSeconds,
+						Pigment = ctx.Def.Pigment,
+					},
+				}, true)
+				character:PivotTo(CFrame.lookAlong(landing, -toward))
+				root.AssemblyLinearVelocity = Vector3.zero
+				-- Trust anchored on the point the server chose, as after the Caret.
+				ctx.Combat.resyncPosition(ctx.Caster, landing)
+				local tracker = newTracker(ctx.Def, 1)
+				-- After the jump, so the hit reads as coming from the back.
+				if damageModel(ctx, tracker, model) then
+					ctx.Combat.knockback(model, -toward * params.Knockback, KNOCKBACK_DURATION)
+				end
+				return tracker.Count
+			end
+		end
+	end
+	return 0
+end
+
+----------------------------------------------------------------
+-- Cartouche: a frame sealed around the caster, then ticks on whoever stays in it (Ultimate)
+----------------------------------------------------------------
+
+function GlyphEffects.Cartouche(ctx: Context): number
+	local params = ctx.Def.Params
+	local center = ctx.Origin.Position
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = center,
+		Direction = ctx.Direction,
+		Caster = ctx.Caster.UserId,
+		Params = { Radius = params.Radius, Duration = params.Ticks * params.TickInterval, Pigment = ctx.Def.Pigment },
+	}, true)
+	-- The seal: the ultimate's own hit, tagged with its archetype, so it breaks a guard and is the only stun.
+	local seal = newTracker(ctx.Def, 1)
+	for _, model in ipairs(damageArea(ctx, seal, center, params.Radius)) do
+		stunModel(ctx, model, params.StunSeconds)
+	end
+	-- The first tick one interval after the seal: past CombatConfig.Hit.IFrameSeconds on the shared tag.
+	task.wait(params.TickInterval)
+	if not casterAlive(ctx) then
+		return seal.Count
+	end
+	local held = tickTracker(ctx.Def, params.TickDamage)
+	tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
+		slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
+	end, held)
+	local struck = seal.Count
+	for model in pairs(held.Hits) do
+		if seal.Hits[model] == nil then
+			struck += 1
+		end
+	end
+	return struck
+end
+
+----------------------------------------------------------------
+-- Emboss: the page pressed outward from the caster, throwing back everything around
+----------------------------------------------------------------
+
+function GlyphEffects.Emboss(ctx: Context): number
+	local params = ctx.Def.Params
+	local origin = ctx.Origin.Position
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = origin,
+		Direction = ctx.Direction,
+		Caster = ctx.Caster.UserId,
+		Params = { Radius = params.Radius, Pigment = ctx.Def.Pigment },
+	})
+	local tracker = newTracker(ctx.Def, 1)
+	blast(ctx, tracker, origin, params.Radius, params.Push, params.Lift)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Stitch: a thrown stitch that catches the first body, drags it to the caster and roots it
+----------------------------------------------------------------
+
+function GlyphEffects.Stitch(ctx: Context): number
+	local params = ctx.Def.Params
+	local character = ctx.Caster.Character
+	local origin = ctx.Origin.Position
+	local direction = horizontal(ctx.Direction)
+	local fuse = math.min(params.Fuse, MAX_PROJECTILE_SECONDS)
+	-- Named like the Brand's (D-114): the drawn stitch comes down where this one caught or stopped.
+	local shot = nextShot()
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = origin,
+		Direction = direction,
+		Caster = ctx.Caster.UserId,
+		Params = {
+			Speed = params.Speed,
+			Fuse = fuse,
+			SpawnOffset = params.SpawnOffset,
+			Pigment = ctx.Def.Pigment,
+			Shot = shot,
+		},
+	}, true)
+	local start, clear = launchPoint(origin, direction, params.SpawnOffset, character)
+	local stop: ProjectileStop?, last = nil, start
+	if clear then
+		stop, last = stepProjectile(ctx, start, direction * params.Speed, 0, fuse, ctx.Def.Range, params.HitRadius)
+	end
+	local target = if stop ~= nil then stop.Model else nil
+	local tracker = newTracker(ctx.Def, 1)
+	-- Spent on the first body it meets, an ally included, as the Hairline and the Stipple are.
+	if target == nil or not damageModel(ctx, tracker, target) then
+		ctx.Vfx.emit({
+			Id = "Fizzle",
+			Origin = if stop ~= nil then stop.Point else last,
+			Caster = ctx.Caster.UserId,
+			Params = { Shot = shot },
+		}, true, origin)
+		return 0
+	end
+	local anchor = ctx.Combat.trustedOrigin(ctx.Caster) -- where the caster is NOW, validated
+	local here = if anchor ~= nil then anchor.Position else origin
+	local position = target:GetPivot().Position
+	local flat = Vector3.new(here.X - position.X, 0, here.Z - position.Z)
+	local pull = math.max(flat.Magnitude - params.PullStopStuds, 0)
+	if pull > EPSILON then
+		-- Exact distance: speed x duration = pull, which is also the travel the budget grants.
+		ctx.Combat.knockback(target, flat.Unit * (pull / params.PullSeconds), params.PullSeconds)
+	end
+	slowModel(ctx, target, params.RootSlowFactor, params.RootDuration)
+	ctx.Vfx.emit({
+		Id = "StitchCatch",
+		Origin = position,
+		Direction = if flat.Magnitude > EPSILON then flat.Unit else -direction,
+		Caster = ctx.Caster.UserId,
+		Params = {
+			PullSeconds = params.PullSeconds,
+			RootDuration = params.RootDuration,
+			Victim = target,
+			Pigment = ctx.Def.Pigment,
+			Shot = shot,
+		},
+	}, true, origin)
+	return tracker.Count
+end
+
+----------------------------------------------------------------
+-- Hatching: a channelled flurry of strokes in front of the caster, the last one launching
+----------------------------------------------------------------
+
+function GlyphEffects.Hatching(ctx: Context): number
+	local params = ctx.Def.Params
+	-- Held for the whole rush (D-136): no M1 on top of it, no other glyph, and a dash ends it.
+	ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)
+	ctx.Vfx.emit({
+		Id = ctx.Def.VfxId,
+		Origin = ctx.Origin.Position,
+		Direction = ctx.Direction,
+		Caster = ctx.Caster.UserId,
+		Params = { Pigment = ctx.Def.Pigment },
+	}, true)
+	local tracker = newTracker(ctx.Def, params.Ticks)
+	local size = Vector3.new(params.Width, params.Height, ctx.Def.Range)
+	local started = os.clock()
+	for stroke = 1, params.Ticks do
+		if stroke > 1 then
+			-- Against the start, not the last stroke: a late frame never pushes every later stroke back.
+			task.wait(math.max(started + (stroke - 1) * params.TickInterval - os.clock(), 0))
+			if not ctx.Combat.isChanneling(ctx.Caster) then
+				break
+			end
+		end
+		local frame = ctx.Combat.trustedOrigin(ctx.Caster) -- re-validated every stroke, as the Scorch's centre
+		if frame == nil or not casterAlive(ctx) then
+			break
+		end
+		local finisher = stroke == params.Ticks
+		for _, model in ipairs(damageBox(ctx, tracker, frame * CFrame.new(0, 0, -ctx.Def.Range / 2), size)) do
+			if finisher then
+				ctx.Combat.knockback(
+					model,
+					frame.LookVector * params.FinisherPush + Vector3.yAxis * params.FinisherLift,
+					KNOCKBACK_DURATION
+				)
+				stunModel(ctx, model, params.StunSeconds)
+			else
+				slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
+			end
+		end
+	end
+	ctx.Combat.channel(ctx.Caster, 0)
 	return tracker.Count
 end
 

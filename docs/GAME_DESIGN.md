@@ -44,7 +44,7 @@ Le résolveur (`ComboResolver`, module pur testé) applique :
 
 Le serveur re-résout la séquence reçue ; il ne fait jamais confiance au client pour l'identité du glyph.
 
-## 5. Roster (20 glyphes, Phase 2)
+## 5. Roster (28 glyphes)
 
 Archétypes : **Projectile** (ligne, esquivable), **AoE** (instantané devant soi), **Zone** (persistante, contrôle d'espace), **Mur** (défense), **Mobilité**, **Contre**, **Buff**, **Ultime** (long combo, gros coût, gros impact).
 
@@ -56,29 +56,37 @@ Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · 
 | Cinabre | C V | Ligature | Mobilité | 15 | 6 | 6 | dash court qui laisse une traînée brûlante 2 s |
 | Cinabre | C C V | Roussi | Zone | 35 | 12 | 10 ×3 | anneau autour de soi, zone anti-mêlée |
 | Cinabre | C C U | Pâté | Ultime | 50 | 20 | 40 | projectile lourd en cloche, AoE 10, brise la garde (40 × 1,25 sur cible *Éventée* = 50, le plafond) |
+| Cinabre | C I | Rubrique | Projectile | 24 | 6 | 25 | chargée 0,7 s sans bouger (canalisation), puis une ligne droite qui transperce 3 cibles, portée 85, arrêtée par un mur |
+| Cinabre | C U | Hachures | AoE | 25 | 7 | 5 ×5 | rafale canalisée devant soi (1,36 s), chaque trait ralentit, le dernier projette et étourdit 0,4 s |
 | Indigo | I I | Lavis | AoE | 22 | 5 | 18 | ligne, knockback |
 | Indigo | I C | Bavure | Zone | 28 | 8 | 8 ×3 | ralentit 60 % |
 | Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
 | Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s ; **pigment Terre d'Ombre** (le mur est la moitié Ombre du §6), combo Indigo |
+| Indigo | I U | Volute | AoE | 25 | 6 | 24 | chargée 0,4 s dans la main (canalisation), puis plaquée sur le corps le plus proche devant soi : projeté, étourdi 0,4 s |
+| Indigo | I I I I | Cartouche | Ultime | 50 | 20 | 28 + 4 ×5 | cadre de rayon 16 autour de soi : un sceau qui brise la garde et étourdit 0,4 s, puis 5 ticks qui ralentissent 50 % |
 | Terre d'Ombre | U U | Empattement | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
 | Terre d'Ombre | U I | Pointillé | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
 | Terre d'Ombre | U V | Dorure | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
 | Terre d'Ombre | U U U | Rupture | Ultime | 45 | 15 | 35 | AoE 18, envol, stun 0,8 s |
+| Terre d'Ombre | U C | Paraphe | AoE | 25 | 7 | 20 | vague au ras du sol (12 de large, 5 de haut) jusqu'à 45 studs, arrêtée au premier mur |
+| Terre d'Ombre | U U V | Gaufrage | AoE | 35 | 12 | 24 | souffle autour de soi (rayon 13) qui repousse de 25 studs, sans stun ni brise-garde |
 | Vert-de-gris | V V | Balayage | AoE | 15 | 3 | 12 | cône, gros knockback, applique *Éventé* |
 | Vert-de-gris | V C | Délié | Projectile | 15 | 3 | 14 | rapide, portée 60, applique *Éventé* |
 | Vert-de-gris | V V I | Spiral | Zone | 35 | 12 | 6 ×4 | attire vers le centre |
 | Vert-de-gris | V V U | Poncif | Zone | 30 | 10 | 5 ×3 | ralentit 30 %, brouille la vue (fog local) |
+| Vert-de-gris | V U | Obèle | Mobilité | 25 | 10 | 14 | réapparaît dans le dos du corps le plus proche devant soi (25 studs, cône de 35°) et le frappe ; sans cible, rien (l'encre reste dépensée) |
+| Vert-de-gris | V I | Chaînette | Contre | 25 | 10 | 10 | projectile qui ramène la première cible à 4 studs du lanceur et l'enracine 0,8 s |
 | Orpiment | O O | Rature | Projectile | 20 | 4 | 22 | hitscan instantané, portée 70 |
 | Orpiment | O V | Insertion | Mobilité | 20 | 7 | 0 | téléport 18 studs, 0,4 s d'i-frames |
 | Orpiment | O O U | Filigrane | Zone | 35 | 12 | 6 ×4 | micro-stun à chaque tick |
 | Orpiment | O O O O | Colophon | Ultime | 55 | 25 | 40 | chaîne sur 3 cibles, stun 0,6 s |
 
-Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 s ; DPS soutenu des 2 touches ≈ 4-6/s ; un Ultime ne dépasse jamais 50 % de la vie. Les 8 glyphes V1 sont conservés (Marque, Lavis, Empattement, Balayage, Bavure, Marge, Roussi, Rupture) avec les coûts d'encre ci-dessus.
+Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 s ; DPS soutenu des 2 touches ≈ 4-6/s ; un Ultime ne dépasse jamais 50 % de la vie, sceau et ticks compris (Cartouche : 28 + 4 × 5 = 48). Les 8 glyphes V1 sont conservés (Marque, Lavis, Empattement, Balayage, Bavure, Marge, Roussi, Rupture) avec les coûts d'encre ci-dessus.
 
 ### Déblocages
 
 - Par défaut : les 8 glyphes V1.
-- Niveau 5 : Délié, Pointillé · niveau 10 : Ligature, Reliure · niveau 15 : Dorure, Poncif · niveau 20 : Spiral · niveau 25 : Pâté.
+- Niveau 5 : Délié, Pointillé · niveau 8 : Volute · niveau 10 : Ligature, Reliure · niveau 12 : Paraphe · niveau 15 : Dorure, Poncif · niveau 18 : Hachures · niveau 20 : Spiral · niveau 22 : Chaînette · niveau 25 : Pâté · niveau 28 : Obèle · niveau 30 : Gaufrage · niveau 33 : Rubrique · niveau 36 : Cartouche.
 - **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Orpiment. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
 - **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les glyphes non équipés ne peuvent pas être lancés.
 
@@ -96,6 +104,10 @@ la troisième est un affichage. C'est la première qui porte la décision.
 
 L'annulation ne rend ni l'invulnérabilité ni le cooldown de la ruée : elle échange de l'encre contre du
 tempo. Un joueur à court d'encre ne peut pas annuler, ce qui est exactement la décision qu'on veut créer.
+
+**Canalisation** (D-136) : la Volute et la Rubrique pendant leur charge, les Hachures pendant leur rafale,
+tiennent leur lanceur — ni M1 ni autre glyphe. Une ruée la rompt et le glyphe est perdu, encre et recharge
+comprises ; lever la garde ou être étourdi aussi. C'est le prix d'un coup qu'on voit venir.
 
 ### Matrice outil → contre
 
@@ -125,6 +137,14 @@ ou en position.
 | Insertion (téléport) | Reliure à l'arrivée, Filigrane / Spiral sur la zone d'arrivée probable | poursuivre : 0,4 s d'i-frames seulement | cooldown 7 s |
 | Filigrane (micro-stuns) | Dorure, puis sortir : les stuns sont courts mais empilent | Insertion | 4 ticks, zone fixe |
 | Colophon (ultime, chaîne 3 cibles) | se séparer : la chaîne a besoin de cibles proches | Marge pour le premier maillon | combo à 4 touches, 55 encre, 25 s |
+| Volute (chargée, projette) | ruée pendant les 0,4 s de charge | garde (−70 %), Dorure (pas de projection) | la charge se voit dans la main, portée 8 |
+| Rubrique (ligne chargée) | quitter la ligne tracée au sol | Marge l'arrête ; étourdir le lanceur rompt la charge | 0,7 s de charge, lanceur immobile |
+| Paraphe (vague au sol) | Marge l'arrête | sauter au bon moment (5 de haut), ruée latérale (12 de large) | environ 0,55 s pour traverser 41 studs |
+| Obèle (dans le dos) | ruée : ses i-frames font qu'il ne vous choisit pas | dos au mur (pas de place derrière) ; garde | recharge 10 s, aucun étourdissement |
+| Cartouche (ultime, sceau puis ticks) | Dorure préventive | sortir du cadre après le sceau ; étourdir le lanceur arrête les ticks | combo à 4 touches, 50 encre, 20 s |
+| Gaufrage (souffle) | Dorure (immunité au knockback) | rester à plus de 13 studs | instantané, recharge 12 s |
+| Chaînette (ramène, enracine) | Marge l'arrête | ruée latérale ; Dorure (pas de traction) | projectile visible sur 32 studs |
+| Hachures (rafale canalisée) | ruée hors de la boîte (7 studs devant le lanceur) | garde | 1,36 s de rafale, seul le dernier trait projette |
 
 **Ce que la matrice garantit, et ce qu'elle ne garantit pas.** Aucun glyphe n'a pour seule réponse « avoir
 le même glyphe » : les trois réponses structurelles — **Marge** (arrêter ce qui vole), **Dorure** (absorber

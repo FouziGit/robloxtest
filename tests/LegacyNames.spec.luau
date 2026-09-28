@@ -33,12 +33,26 @@ describe("LegacyNames", function()
 	end)
 
 	it("covers the whole roster and the five schools", function()
-		expect(#GlyphConfig.Glyphs).toBe(20)
+		-- Every old id lands on a glyph that exists, and no glyph added since answers to an old name: a profile
+		-- holding it would have it rewritten on load into another glyph.
 		local mapped = 0
-		for _ in pairs(LegacyNames.Glyphs) do
+		for old, fresh in pairs(LegacyNames.Glyphs) do
+			if GlyphConfig.ById[fresh] == nil then
+				error(("LegacyNames maps %s to %s, which GlyphConfig does not declare"):format(old, fresh))
+			end
 			mapped += 1
 		end
 		expect(mapped).toBe(20)
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if LegacyNames.Glyphs[def.Id] ~= nil then
+				error(
+					("%s is an old identifier: migration would rewrite it to %s"):format(
+						def.Id,
+						LegacyNames.Glyphs[def.Id]
+					)
+				)
+			end
+		end
 		local pigments = 0
 		for _ in pairs(LegacyNames.Pigments) do
 			pigments += 1

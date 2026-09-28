@@ -130,18 +130,28 @@ glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,Vellum,,Hurls
 glyph.Brand.name,Brand,Vellum,,Brand,Marque
 glyph.Caret.desc,"Cross yourself out here and write yourself in further on, untouchable between the two.",Vellum,,"Cross yourself out here and write yourself in further on, untouchable between the two.","Rature-toi ici et réécris-toi plus loin, intouchable entre les deux."
 glyph.Caret.name,Caret,Vellum,,Caret,Insertion
+glyph.Cartouche.desc,"Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.",Vellum,,"Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.","Encadre d'encre le sol autour de toi : les ennemis pris dedans sont étourdis malgré leur garde, puis ralentis et blessés tant qu'ils y restent."
+glyph.Cartouche.name,Cartouche,Vellum,,Cartouche,Cartouche
 glyph.Colophon.desc,"Your signature leaps from body to body, and everyone it touches is signed.",Vellum,,"Your signature leaps from body to body, and everyone it touches is signed.","Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé."
 glyph.Colophon.name,Colophon,Vellum,,Colophon,Colophon
+glyph.Dagger.desc,"Vanish and reappear behind the nearest enemy in front of you, striking their back.",Vellum,,"Vanish and reappear behind the nearest enemy in front of you, striking their back.","Disparais et réapparais dans le dos de l'ennemi le plus proche devant toi, et frappe-le."
+glyph.Dagger.name,Dagger,Vellum,,Dagger,Obèle
+glyph.Emboss.desc,Presses the page outward from you: everyone around you is thrown back.,Vellum,,Presses the page outward from you: everyone around you is thrown back.,Repousse la page tout autour de toi : tous ceux qui t'entourent sont projetés.
+glyph.Emboss.name,Emboss,Vellum,,Emboss,Gaufrage
 glyph.Gilding.desc,Hardens your skin: less damage taken and no knockback for a few seconds.,Vellum,,Hardens your skin: less damage taken and no knockback for a few seconds.,Durcit ta peau : moins de dégâts subis et aucun recul pendant quelques secondes.
 glyph.Gilding.name,Gilding,Vellum,,Gilding,Dorure
 glyph.Hairline.desc,Throws a blade of wind that fans its target for your next fire glyph.,Vellum,,Throws a blade of wind that fans its target for your next fire glyph.,Trace un délié qui évente sa cible pour ton prochain glyphe de Cinabre.
 glyph.Hairline.name,Hairline,Vellum,,Hairline,Délié
+glyph.Hatching.desc,"A flurry of strokes in front of you, then a last one that launches.",Vellum,,"A flurry of strokes in front of you, then a last one that launches.","Une rafale de traits devant toi, puis un dernier qui projette."
+glyph.Hatching.name,Hatching,Vellum,,Hatching,Hachures
 glyph.Ligature.desc,A short dash that leaves a burning trail behind you.,Vellum,,A short dash that leaves a burning trail behind you.,Une ruée courte qui laisse une traînée brûlante derrière toi.
 glyph.Ligature.name,Ligature,Vellum,,Ligature,Ligature
 glyph.Margin.desc,Raises a defensive wall of mud in front of you.,Vellum,,Raises a defensive wall of mud in front of you.,Érige un mur de boue défensif devant toi.
 glyph.Margin.name,Margin,Vellum,,Margin,Marge
 glyph.Pounce.desc,A storm of sand that blinds and slows everyone inside it.,Vellum,,A storm of sand that blinds and slows everyone inside it.,Une tempête de sable qui aveugle et ralentit ceux qui s'y trouvent.
 glyph.Pounce.name,Pounce,Vellum,,Pounce,Poncif
+glyph.Rubric.desc,"Hold still to charge, then rule a thick red line straight ahead that pierces up to three enemies.",Vellum,,"Hold still to charge, then rule a thick red line straight ahead that pierces up to three enemies.","Charge sans bouger, puis trace droit devant une épaisse ligne rouge qui transperce jusqu'à trois ennemis."
+glyph.Rubric.name,Rubric,Vellum,,Rubric,Rubrique
 glyph.Rupture.desc,Slam the ground: a massive shockwave launches enemies.,Vellum,,Slam the ground: a massive shockwave launches enemies.,Frappe le sol : une onde de choc massive projette les ennemis.
 glyph.Rupture.name,Rupture,Vellum,,Rupture,Rupture
 glyph.Scorch.desc,A scorched ring that follows you: everything inside it burns.,Vellum,,A scorched ring that follows you: everything inside it burns.,Un anneau roussi qui te suit : tout ce qui s'y tient brûle.
@@ -152,10 +162,16 @@ glyph.Spiral.desc,A whirlwind that drags everyone caught in it toward its centre
 glyph.Spiral.name,Spiral,Vellum,,Spiral,Spirale
 glyph.Stipple.desc,Spits a fast bullet of mud that slows whoever it hits.,Vellum,,Spits a fast bullet of mud that slows whoever it hits.,Crache une balle de boue rapide qui ralentit sa cible.
 glyph.Stipple.name,Stipple,Vellum,,Stipple,Pointillé
+glyph.Stitch.desc,"Throws a stitch of ink that catches the first enemy in its path and drags them to you, rooted.",Vellum,,"Throws a stitch of ink that catches the first enemy in its path and drags them to you, rooted.","Lance une chaînette d'encre qui saisit le premier ennemi sur sa route et le ramène à toi, cloué au sol."
+glyph.Stitch.name,Stitch,Vellum,,Stitch,Chaînette
 glyph.Strike.desc,One stroke crosses out the first enemy in your line of sight.,Vellum,,One stroke crosses out the first enemy in your line of sight.,Un seul trait rature le premier ennemi dans ta ligne de vue.
 glyph.Strike.name,Strike,Vellum,,Strike,Rature
+glyph.Swash.desc,"Sweeps a wide flourish of ink along the ground, cutting through everyone in its path until a wall stops it.",Vellum,,"Sweeps a wide flourish of ink along the ground, cutting through everyone in its path until a wall stops it.","Lance au ras du sol un large paraphe d'encre qui tranche tous ceux qu'il traverse, jusqu'au premier mur."
+glyph.Swash.name,Swash,Vellum,,Swash,Paraphe
 glyph.Sweep.desc,A cone of wind violently pushes nearby enemies back.,Vellum,,A cone of wind violently pushes nearby enemies back.,Un cône de vent repousse violemment les ennemis proches.
 glyph.Sweep.name,Sweep,Vellum,,Sweep,Balayage
+glyph.Volute.desc,"Winds a coil of ink in your hand, then presses it into the closest enemy: hurled back and stunned.",Vellum,,"Winds a coil of ink in your hand, then presses it into the closest enemy: hurled back and stunned.","Enroule une volute d'encre dans ta main, puis la plaque sur l'ennemi le plus proche : projeté et étourdi."
+glyph.Volute.name,Volute,Vellum,,Volute,Volute
 glyph.Wash.desc,A wave surges forward and sweeps enemies away.,Vellum,,A wave surges forward and sweeps enemies away.,Une vague déferle et balaie les ennemis.
 glyph.Wash.name,Wash,Vellum,,Wash,Lavis
 glyph.Watermark.desc,A mark pressed into the ground: whoever stays in it is held by the page.,Vellum,,A mark pressed into the ground: whoever stays in it is held by the page.,Une marque pressée dans le sol : qui s'y attarde est retenu par la page.

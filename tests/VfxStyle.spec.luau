@@ -3,10 +3,12 @@
 -- ink with a heated core. Each rule here is one the lab showed breaking an effect -- a pale core alone on a
 -- pale page, a freeze frame that let a projectile fall behind its damage, a spell that appeared a round
 -- trip after the press -- and each is held on the data and on the renderer's own source.
+local AssetIds = require("../src/shared/Config/AssetIds")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
+local MeshConfig = require("../src/shared/Config/MeshConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
@@ -42,6 +44,7 @@ end
 
 local TIMELINE = "src/client/Controllers/VfxTimeline.luau"
 local CLOCK = "src/client/Controllers/VfxClock.luau"
+local LIBRARY = "src/client/Controllers/VfxLibrary.luau"
 
 local function eachLayer(fn: (id: string, phase: VfxTimelineConfig.Phase, layer: VfxTimelineConfig.Layer) -> ())
 	for id, timeline in pairs(TIMELINES) do
@@ -555,6 +558,16 @@ describe("a glyph on the server's own clock", function()
 		"Watermark",
 		"Colophon",
 		"ColophonLink",
+		-- The second roster (D-137), written on the frame of its damage from the start.
+		"Volute",
+		"Rubric",
+		"Swash",
+		"Dagger",
+		"Cartouche",
+		"Emboss",
+		"Stitch",
+		"StitchCatch",
+		"Hatching",
 	}
 
 	it("draws a glyph that strikes on its packet within two frames of it", function()
@@ -569,7 +582,8 @@ describe("a glyph on the server's own clock", function()
 	it("flies a projectile from where the server's is when the drawn one leaves", function()
 		-- GlyphEffects steps these from the packet: the drawn Hairline left 0.15 s late, twenty studs behind,
 		-- and struck a target at twenty-four before it had left the hand; the Stipple flew seventeen behind.
-		for _, id in ipairs({ "Hairline", "Stipple" }) do
+		-- The Stitch is stepped the same way.
+		for _, id in ipairs({ "Hairline", "Stipple", "Stitch" }) do
 			local def = GlyphConfig.ById[id]
 			local params = def.Params :: any
 			local lead = phaseLength(id, "Anticipation") + phaseLength(id, "Cast")
@@ -668,31 +682,36 @@ describe("a glyph on the server's own clock", function()
 		).never.toBe(nil)
 	end)
 
-	it("rules the Strike to where the server's ray stopped and steps the Caret to where it put the body", function()
-		-- D-126: both flew a fixed distance (70 and 18 studs) whatever the server measured, the Strike from the
-		-- caster rather than the muzzle.
-		for _, id in ipairs({ "Strike", "Caret" }) do
-			local carriers = 0
-			for _, phase in ipairs(TIMELINES[id].Phases) do
-				for _, layer in ipairs(phase.Layers) do
-					if layer.Kind == "Carrier" then
-						carriers += 1
-						expect(layer.TravelFrom).toBe("Reach")
-						expect(layer.Travel).toBe(1)
+	it(
+		"rules the Strike and the Rubric to where the ray stopped, steps the Caret and the Dagger to the body",
+		function()
+			-- D-126: both flew a fixed distance (70 and 18 studs) whatever the server measured, the Strike from the
+			-- caster rather than the muzzle. The Rubric is ruled and the Dagger steps the same way, from the start.
+			for _, id in ipairs({ "Strike", "Caret", "Rubric", "Dagger" }) do
+				local carriers = 0
+				for _, phase in ipairs(TIMELINES[id].Phases) do
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Carrier" then
+							carriers += 1
+							expect(layer.TravelFrom).toBe("Reach")
+							expect(layer.Travel).toBe(1)
+						end
 					end
 				end
+				expect(carriers).toBe(1)
+				local handler = body("src/client/Controllers/VfxLibrary.luau", ("VfxLibrary.%s = function("):format(id))
+				expect(handler:find('Reach = math.max(numberParam(packet, "Range", def.Range), 1),', 1, true)).never.toBe(
+					nil
+				)
 			end
-			expect(carriers).toBe(1)
-			local handler = body("src/client/Controllers/VfxLibrary.luau", ("VfxLibrary.%s = function("):format(id))
-			expect(handler:find('Reach = math.max(numberParam(packet, "Range", def.Range), 1),', 1, true)).never.toBe(
-				nil
-			)
+			for _, id in ipairs({ "Strike", "Rubric" }) do
+				local ruled = body("src/client/Controllers/VfxLibrary.luau", ("VfxLibrary.%s = function("):format(id))
+				expect(
+					ruled:find('Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),', 1, true)
+				).never.toBe(nil)
+			end
 		end
-		local strike = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Strike = function(")
-		expect(strike:find('Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),', 1, true)).never.toBe(
-			nil
-		)
-	end)
+	)
 
 	it("rules the Colophon to the first body it struck, then one stroke per jump of the server's chain", function()
 		-- D-127: a fixed sixty studs from the caster, then a stroke from EVERY body toward the next (the last
@@ -888,6 +907,238 @@ describe("a glyph on the server's own clock", function()
 		expect(#pools).toBe(params.TrailSegments)
 		for index, z in ipairs(pools) do
 			expect(z).toBe((index - 1) * params.TrailSpacing)
+		end
+	end)
+
+	it("sweeps the Swash's front from where the server's is when the drawn one leaves, never past its range", function()
+		-- GlyphEffects.Swash moves its front at Speed from SpawnOffset on the frame it emits, and stops it at the
+		-- glyph's Range from the caster, or sooner at a wall, where its Fizzle lands the drawn one.
+		local def = GlyphConfig.ById.Swash
+		local params = def.Params :: any
+		local lead = phaseLength("Swash", "Anticipation") + phaseLength("Swash", "Cast")
+		local carriers = 0
+		for _, phase in ipairs(TIMELINES.Swash.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Carrier" then
+					carriers += 1
+					local start = (layer.Offset :: { number })[3]
+					local travel = layer.Travel or 0
+					expect(math.abs(start - (params.SpawnOffset + params.Speed * lead))).toBeLessThanOrEqual(1)
+					expect(start + travel).toBeLessThanOrEqual(def.Range + 1e-6)
+					-- At the server's pace: its distance over its time.
+					expect(math.abs(travel / layer.For - params.Speed) / params.Speed).toBeLessThanOrEqual(0.05)
+				end
+			end
+		end
+		expect(carriers).toBe(1)
+	end)
+
+	it("draws the Swash on the server's front, as wide as its box, with nothing its landing would leave", function()
+		-- The server's front edge is Depth/2 ahead of where it has reached, and its box Width across
+		-- (GlyphEffects.Swash). The riding crescent's front is its offset plus the mesh's reach ahead of its pivot
+		-- at its end size; its width, the mesh's own across at that size. And a landing drains a trail, an
+		-- emitter, a light and a volume (VfxTimeline.land), never a plane: a riding Sprite of the Swash or the
+		-- Stitch would stay frozen where the flight stopped.
+		local params = GlyphConfig.ById.Swash.Params :: any
+		local crescent = MeshConfig.get("Crescent") :: MeshConfig.Mesh
+		local bodies, sprays = 0, 0
+		for _, phase in ipairs(TIMELINES.Swash.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Mesh" and layer.Ride == true then
+					bodies += 1
+					expect(layer.Mesh).toBe("Crescent")
+					local size = layer.EndSize or layer.Size or 1
+					local stretch = layer.EndStretch or layer.Stretch or { 1, 1, 1 }
+					local front = (layer.Offset :: { number })[3] - crescent.Min[3] * size * stretch[3]
+					expect(math.abs(front)).toBeLessThanOrEqual(params.Depth / 2)
+					local across = (crescent.Max[1] - crescent.Min[1]) * size * stretch[1]
+					expect(across).toBeLessThanOrEqual(params.Width + 0.5)
+					expect(across).toBeGreaterThanOrEqual(params.Width - 1)
+				elseif layer.Kind == "Emitter" and layer.Ride == true and layer.Area ~= nil then
+					-- The spray a player at the side reads: the box's width.
+					sprays += 1
+					expect(math.abs((layer.Area :: { number })[1] - params.Width)).toBeLessThanOrEqual(0.5)
+				end
+			end
+		end
+		expect(bodies).toBe(1)
+		expect(sprays).toBe(1)
+		for _, id in ipairs({ "Swash", "Stitch" }) do
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Kind == "Sprite" and layer.Ride == true then
+						error(("%s rides a plane its landing would leave frozen in the air"):format(id))
+					end
+				end
+			end
+		end
+	end)
+
+	it("strikes each of the Hatching's strokes on the server's beat, and only the last one heavy", function()
+		-- GlyphEffects.Hatching keeps its beat against its start: a stroke at k x TickInterval for k = 0 to
+		-- Ticks - 1, the last one launching. One shake per stroke, wherever it is declared, on its beat.
+		local params = GlyphConfig.ById.Hatching.Params :: any
+		local strokes: { [number]: number } = {}
+		local shakes = 0
+		local rush = false
+		local last = (params.Ticks - 1) * params.TickInterval
+		for _, phase in ipairs(TIMELINES.Hatching.Phases) do
+			local start = VfxTimelineConfig.phaseAt("Hatching", phase.Name, nil) :: number
+			for _, layer in ipairs(phase.Layers) do
+				local at = start + layer.At
+				if layer.Kind == "Shake" then
+					shakes += 1
+					local stroke = math.floor(at / params.TickInterval + 0.5)
+					if math.abs(at - stroke * params.TickInterval) > 0.035 then
+						error(("the Hatching shakes at %.2f s, off the server's beat"):format(at))
+					end
+					strokes[stroke] = (strokes[stroke] or 0) + 1
+					expect(layer.Profile == "Heavy").toBe(stroke == params.Ticks - 1)
+				elseif layer.Kind == "Emitter" and layer.Follow == true and layer.Driven == true then
+					-- The rush follows the caster, whose frame the server takes again on every stroke.
+					rush = rush or (at <= 0.05 and at + layer.For >= last - 0.035)
+				end
+			end
+		end
+		expect(shakes).toBe(params.Ticks)
+		for stroke = 0, params.Ticks - 1 do
+			if strokes[stroke] ~= 1 then
+				error(("the Hatching draws %d shakes on its stroke %d"):format(strokes[stroke] or 0, stroke))
+			end
+		end
+		expect(rush).toBe(true)
+	end)
+
+	it("seals the Cartouche to the server's radius on the packet, and presses its frame in on each tick", function()
+		-- GlyphEffects.Cartouche seals the whole Radius on the frame it emits, then ticks one interval later and
+		-- every interval after that: at k x TickInterval for k = 1 to Ticks (D-139).
+		local params = GlyphConfig.ById.Cartouche.Params :: any
+		local presses: { [number]: number } = {}
+		local rising: { [number]: boolean } = {}
+		local total, seals, spikes, floors = 0, 0, 0, 0
+		for _, phase in ipairs(TIMELINES.Cartouche.Phases) do
+			local start = VfxTimelineConfig.phaseAt("Cartouche", phase.Name, nil) :: number
+			for _, layer in ipairs(phase.Layers) do
+				local at = start + layer.At
+				if layer.Kind == "Emitter" and layer.Ring == true then
+					-- The rising rim, on the edge the server damages to.
+					local area = layer.Area :: { number }
+					expect(area[1]).toBe(area[3])
+					expect(math.abs(area[1] / 2 - params.Radius)).toBeLessThanOrEqual(1)
+					for tick = 1, params.Ticks do
+						local t = tick * params.TickInterval
+						if at <= t and at + layer.For >= t then
+							rising[tick] = true
+						end
+					end
+				elseif layer.Kind == "Mark" and layer.Texture == "ShockwaveRing" then
+					-- The frame pressing in, from the rim, on a tick.
+					total += 1
+					expect(layer.SizeFrom).toBe("Radius")
+					local tick = math.floor(at / params.TickInterval + 0.5)
+					if math.abs(at - tick * params.TickInterval) > 0.035 then
+						error(("the Cartouche presses at %.2f s, off the server's ticks"):format(at))
+					end
+					presses[tick] = (presses[tick] or 0) + 1
+				elseif layer.Kind == "Emitter" and layer.Role == "Core" then
+					-- The seal's heat, with the seal.
+					seals += 1
+					expect(at).toBeLessThanOrEqual(0.035)
+				elseif layer.Texture == "InkSpike" then
+					-- The stakes stand inside the frame.
+					spikes += 1
+					local offset = layer.Offset :: { number }
+					expect(math.sqrt(offset[1] ^ 2 + offset[3] ^ 2)).toBeLessThanOrEqual(params.Radius)
+				elseif layer.Kind == "Mark" and phase.Name == "Impact" then
+					-- The frame's edge and the flooded page, at the server's radius.
+					floors += 1
+					expect(layer.SizeFrom).toBe("Radius")
+				end
+			end
+		end
+		expect(seals).toBe(1)
+		expect(total).toBe(params.Ticks)
+		for tick = 1, params.Ticks do
+			if presses[tick] ~= 1 then
+				error(("the Cartouche presses %d times on its tick %d"):format(presses[tick] or 0, tick))
+			end
+			if not rising[tick] then
+				error(("the Cartouche's rim is not rising on its tick %d"):format(tick))
+			end
+		end
+		expect(spikes).toBeGreaterThanOrEqual(2)
+		expect(floors).toBe(2)
+		expect(body(LIBRARY, "VfxLibrary.Cartouche = function("):find('playGlyph("Cartouche", packet, api)', 1, true)).never.toBe(
+			nil
+		)
+		expect(body(LIBRARY, "local function playGlyph("):find("Radius = if radius > 0 then radius else nil,", 1, true)).never.toBe(
+			nil
+		)
+	end)
+
+	it("opens the Volute's and the Emboss's rings to the radius the server struck with", function()
+		-- Both send the radius they damaged (Params.HitRadius, Params.Radius) and playGlyph passes it on. Every
+		-- ring and ensō is measured by it, and the ring turned to the camera opens exactly to it: its ink sits
+		-- at AssetIds' measured reach of its plane.
+		local ink = AssetIds.Textures.ShockwaveRing.Ink :: { Least: number, Most: number }
+		for _, id in ipairs({ "Volute", "Emboss" }) do
+			local rings, opens = 0, 0
+			for _, phase in ipairs(TIMELINES[id].Phases) do
+				for _, layer in ipairs(phase.Layers) do
+					if layer.Texture == "ShockwaveRing" or layer.Texture == "SealRing" or layer.Mesh == "Enso" then
+						rings += 1
+						expect(layer.SizeFrom).toBe("Radius")
+					end
+					if layer.Kind == "Sprite" and layer.Texture == "ShockwaveRing" then
+						opens += 1
+						-- In radii: all the way to the damage, and never past it.
+						local reach = (layer.EndSize or layer.Size or 0) / 2
+						expect(reach * ink.Most).toBeLessThanOrEqual(1.02)
+						expect(reach * ink.Least).toBeGreaterThanOrEqual(0.95)
+					end
+				end
+			end
+			expect(rings).toBeGreaterThanOrEqual(2)
+			expect(opens).toBe(1)
+			expect(
+				body(LIBRARY, ("VfxLibrary.%s = function("):format(id)):find(
+					('playGlyph("%s", packet, api)'):format(id),
+					1,
+					true
+				)
+			).never.toBe(nil)
+		end
+	end)
+
+	it("binds the body the Stitch caught for as long as the server roots it", function()
+		-- GlyphEffects.Stitch names the body it caught (Params.Victim) and the renderer plays the catch on it:
+		-- its figure drawn for the whole root (D-125), and everything else of the catch on the body the server
+		-- drags, but for the print it leaves on the page.
+		local params = GlyphConfig.ById.Stitch.Params :: any
+		local figures = 0
+		for _, phase in ipairs(TIMELINES.StitchCatch.Phases) do
+			local start = VfxTimelineConfig.phaseAt("StitchCatch", phase.Name, nil) :: number
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Outline" then
+					figures += 1
+					expect(start + layer.At).toBe(0)
+					expect(math.abs(layer.For - params.RootDuration)).toBeLessThanOrEqual(1e-9)
+				elseif phase.Name == "Impact" and layer.Kind ~= "Mark" then
+					if layer.Follow ~= true then
+						error(("the Stitch's catch draws a %s beside the body it caught"):format(layer.Kind))
+					end
+				end
+			end
+		end
+		expect(figures).toBe(1)
+		local catch = body(LIBRARY, "VfxLibrary.StitchCatch = function(")
+		for _, line in ipairs({
+			'local body = if typeof(victim) == "Instance" and victim:IsA("Model") then rootOf(victim) else nil',
+			"Follow = body,",
+		}) do
+			if catch:find(line, 1, true) == nil then
+				error("VfxLibrary.StitchCatch no longer plays the catch on the body the server caught: " .. line)
+			end
 		end
 	end)
 end)

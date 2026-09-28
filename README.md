@@ -123,12 +123,13 @@ Principes non négociables (détail : [CLAUDE.md](CLAUDE.md), contrats : [docs/A
 
 ### Un glyph
 
-1. Une entrée dans `src/shared/Config/GlyphConfig.luau` (`Id`, `Pigment`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`). Le son du glyphe est celui de son pigment, par les couches `Sound` de sa timeline (`docs/VFX_SPECS.md`).
+1. Une entrée dans `src/shared/Config/GlyphConfig.luau` (`Id`, `Pigment`, `Combo`, `Cost`, `Cooldown`, `Damage`, `Range`, `Archetype`, `Effect`, `VfxId`, `Unlock`, `NameKey`, `DescriptionKey`, `Params`). L'`Id` est un vrai mot du métier du livre (`src/shared/Pure/LegacyNames.luau`) et ne se renomme plus une fois sauvegardé. Le son du glyphe est celui de son pigment, par les couches `Sound` de sa timeline (`docs/VFX_SPECS.md`).
 2. La fonction d'effet correspondante dans `src/server/Effects/GlyphEffects.luau` : `function(ctx) -> hitCount`, dégâts **uniquement** via `ctx.Combat.ApplyDamage`, aucun visuel.
-3. Le rendu dans `src/client/Controllers/VfxLibrary.luau`, indexé par `VfxId`.
-4. Les clés `glyph.<Id>.name` / `.desc` dans `src/shared/Strings.luau` (EN + FR).
+3. L'identifiant dans `VfxConfig.GlyphIds`, sa timeline dans `src/shared/Config/VfxTimelineConfig.luau` et le rendu dans `src/client/Controllers/VfxLibrary.luau`, indexé par `VfxId`.
+4. Les clés `glyph.<Id>.name` / `.desc` dans `src/shared/Strings.luau` (EN + FR), puis `lune run scripts/export-strings` pour régénérer `localization.csv`.
+5. Le nombre de glyphes (`ROSTER_SIZE`) dans `tests/Config.spec.luau`, et la ligne du glyphe dans `docs/GAME_DESIGN.md` §5 (et sa réponse dans la matrice du §5 bis).
 
-Le résolveur de combo, la validation serveur, les cooldowns, l'XP et le HUD suivent automatiquement. `tests/Config.spec.luau` vérifie l'unicité des combos et la présence des clés.
+Le résolveur de combo, la validation serveur, les cooldowns, l'XP et le HUD suivent automatiquement. `tests/Config.spec.luau` vérifie l'unicité des combos, les budgets de dégâts et la présence des clés ; `tests/EffectCoverage.spec.luau` que l'effet et le rendu existent.
 
 ### Un mode de jeu
 

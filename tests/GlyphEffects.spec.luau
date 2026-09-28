@@ -1,6 +1,9 @@
 --!strict
--- The shared helpers of GlyphEffects the new roster leans on. The module touches Roblox, so its source is
--- read here, the way tests/HitFeel.spec.luau and tests/Flight.spec.luau read it.
+-- The shared helpers of GlyphEffects the new roster leans on, and the rules the eight glyphs of the second
+-- roster (D-137) keep on the server. The module touches Roblox, so its source is read here, the way
+-- tests/HitFeel.spec.luau and tests/Flight.spec.luau read it; the numbers it reads come from the config.
+local CombatConfig = require("../src/shared/Config/CombatConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 
@@ -24,6 +27,16 @@ local function functionIn(path: string, header: string): string
 		error(header .. " has no end in " .. path)
 	end
 	return (source:sub(start, finish + 4):gsub("%s+", " "))
+end
+
+-- Whether `first` comes before `second` in `text`, both present: an order gate that found neither would pass.
+local function before(text: string, first: string, second: string): boolean
+	local a = text:find(first, 1, true)
+	local b = text:find(second, 1, true)
+	if a == nil or b == nil then
+		error(("%q or %q is missing: this gate would check nothing"):format(first, second))
+	end
+	return a < b
 end
 
 local function count(text: string, needle: string): number
@@ -63,6 +76,187 @@ describe("a glyph's hit", function()
 		expect(
 			functionIn(EFFECTS, "local function explode("):find(
 				"blast(ctx, tracker, point, radius, push, lift)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+end)
+
+describe("a charged glyph", function()
+	it("holds its caster for exactly the charge, and gives up the frame the hold breaks", function()
+		local charge = functionIn(EFFECTS, "local function charge(")
+		expect(charge:find("ctx.Combat.channel(ctx.Caster, seconds + MAX_STEP_SECONDS)", 1, true)).never.toBe(nil)
+		expect(
+			charge:find(
+				"if not casterAlive(ctx) or not ctx.Combat.isChanneling(ctx.Caster) then ctx.Combat.channel(ctx.Caster, 0) return nil end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- The telegraph says how long it lasts, and is reliable: the release packet must never overtake it.
+		expect(charge:find("{ Windup = seconds, Pigment = ctx.Def.Pigment }", 1, true)).never.toBe(nil)
+		expect(charge:find("Params = packetParams, }, true)", 1, true)).never.toBe(nil)
+		-- It releases from where the server believes the caster stands now, and lets go of them either way.
+		expect(
+			before(
+				charge,
+				"local frame = ctx.Combat.trustedOrigin(ctx.Caster)",
+				"ctx.Combat.channel(ctx.Caster, 0) return frame"
+			)
+		).toBe(true)
+		expect(
+			functionIn(EFFECTS, "function GlyphEffects.Volute("):find(
+				'charge(ctx, "VoluteCharge", params.Windup',
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		expect(rubric:find('charge(ctx, "RubricCharge", params.Windup', 1, true)).never.toBe(nil)
+		-- Rooted by its own slow for the charge, and freed at once when the charge breaks.
+		expect(before(rubric, "slowModel(ctx, character, params.ChargeSlowFactor, params.Windup)", "charge(ctx,")).toBe(
+			true
+		)
+		expect(rubric:find("if frame == nil then ctx.Movement.clearSlow(ctx.Caster, ctx.Def.Id) return 0 end", 1, true)).never.toBe(
+			nil
+		)
+		for _, id in ipairs({ "Volute", "Rubric" }) do
+			expect(GlyphConfig.ById[id].Params.Windup).toBeGreaterThan(0)
+		end
+	end)
+end)
+
+describe("the Hatching", function()
+	it("holds its caster for the rush, and stops the stroke a dash broke it", function()
+		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
+		local held = "ctx.Combat.channel(ctx.Caster, (params.Ticks - 1) * params.TickInterval + MAX_STEP_SECONDS)"
+		expect(before(hatching, held, "for stroke = 1, params.Ticks do")).toBe(true)
+		expect(hatching:find("if not ctx.Combat.isChanneling(ctx.Caster) then break end", 1, true)).never.toBe(nil)
+		expect(hatching:sub(-#"ctx.Combat.channel(ctx.Caster, 0) return tracker.Count end " - 1)).toBe(
+			" ctx.Combat.channel(ctx.Caster, 0) return tracker.Count end "
+		)
+	end)
+
+	it("strikes on a beat kept against its start, each stroke past the hit memory", function()
+		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
+		expect(
+			hatching:find("task.wait(math.max(started + (stroke - 1) * params.TickInterval - os.clock(), 0))", 1, true)
+		).never.toBe(nil)
+		-- The same glyph cannot hit the same body twice inside Hit.IFrameSeconds: a stroke closer than that, one
+		-- frame of lateness at 30 Hz included, would be swallowed.
+		expect(GlyphConfig.ById.Hatching.Params.TickInterval).toBeGreaterThan(CombatConfig.Hit.IFrameSeconds + 1 / 30)
+		expect(hatching:find("local frame = ctx.Combat.trustedOrigin(ctx.Caster)", 1, true)).never.toBe(nil)
+	end)
+end)
+
+describe("the Cartouche", function()
+	it("opens with a seal that breaks a guard, then ticks lighter under the glyph id alone", function()
+		local tick = functionIn(EFFECTS, "local function tickTracker(")
+		expect(tick:find("Tags = { def.Id }", 1, true)).never.toBe(nil)
+		expect(tick:find("Amount = amount", 1, true)).never.toBe(nil)
+		local zone = functionIn(EFFECTS, "local function tickZone(")
+		expect(zone:find("local zone = if tracker ~= nil then tracker else newTracker(ctx.Def, math.huge)", 1, true)).never.toBe(
+			nil
+		)
+		local cartouche = functionIn(EFFECTS, "function GlyphEffects.Cartouche(")
+		expect(cartouche:find("local seal = newTracker(ctx.Def, 1)", 1, true)).never.toBe(nil)
+		expect(cartouche:find("local held = tickTracker(ctx.Def, params.TickDamage)", 1, true)).never.toBe(nil)
+		expect(cartouche:find("end, held)", 1, true)).never.toBe(nil)
+		-- The first tick waits one interval past the seal: they share the glyph id, so the hit memory would
+		-- swallow a tick that came sooner.
+		expect(before(cartouche, "task.wait(params.TickInterval)", "tickZone(")).toBe(true)
+		expect(GlyphConfig.ById.Cartouche.Params.TickInterval).toBeGreaterThan(CombatConfig.Hit.IFrameSeconds)
+		-- Only the seal stuns; the ticks slow.
+		expect(count(cartouche, "stunModel(ctx,")).toBe(1)
+		expect(before(cartouche, "stunModel(ctx, model, params.StunSeconds)", "task.wait(params.TickInterval)")).toBe(
+			true
+		)
+		expect(cartouche:find("Radius = params.Radius,", 1, true)).never.toBe(nil)
+	end)
+end)
+
+describe("a thing released ahead of the body", function()
+	it("starts at the first wall between the body and its release point (D-140)", function()
+		local launch = functionIn(EFFECTS, "local function launchPoint(")
+		expect(launch:find("local wall = geometryStop(from, direction, offset, character)", 1, true)).never.toBe(nil)
+		expect(launch:find("return wall, (wall - from).Magnitude >= offset - EPSILON", 1, true)).never.toBe(nil)
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		expect(
+			rubric:find("local start, clear = launchPoint(muzzle, direction, params.SpawnOffset, character)", 1, true)
+		).never.toBe(nil)
+		expect(
+			rubric:find(
+				"if clear then candidates, stop = hitscan(ctx, start, direction, ctx.Def.Range, params.HitRadius) end",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local swash = functionIn(EFFECTS, "function GlyphEffects.Swash(")
+		expect(
+			swash:find("local start, clear = launchPoint(origin, direction, params.SpawnOffset, character)", 1, true)
+		).never.toBe(nil)
+		expect(
+			swash:find(
+				"local stop = if clear then geometryStop(start, direction, ctx.Def.Range - params.SpawnOffset, character) else start",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local stitch = functionIn(EFFECTS, "function GlyphEffects.Stitch(")
+		expect(
+			stitch:find("local start, clear = launchPoint(origin, direction, params.SpawnOffset, character)", 1, true)
+		).never.toBe(nil)
+		expect(stitch:find("if clear then stop, last = stepProjectile(ctx, start,", 1, true)).never.toBe(nil)
+	end)
+
+	it("comes down on every client where the server's one ended", function()
+		for _, id in ipairs({ "Swash", "Stitch" }) do
+			local effect = functionIn(EFFECTS, "function GlyphEffects." .. id .. "(")
+			expect(effect:find("local shot = nextShot()", 1, true)).never.toBe(nil)
+			expect(effect:find('Id = "Fizzle",', 1, true)).never.toBe(nil)
+			expect(
+				effect:find("Params = { Shot = shot } }", 1, true) or effect:find("Params = { Shot = shot },", 1, true)
+			).never.toBe(nil)
+		end
+		local stitch = functionIn(EFFECTS, "function GlyphEffects.Stitch(")
+		expect(before(stitch, 'Id = "StitchCatch",', "Shot = shot, }, }, true, origin)")).toBe(true)
+		expect(stitch:find("Victim = target,", 1, true)).never.toBe(nil)
+	end)
+end)
+
+describe("the Dagger", function()
+	it("jumps only to a body it may strike, and strikes it after the jump", function()
+		local dagger = functionIn(EFFECTS, "function GlyphEffects.Dagger(")
+		expect(before(dagger, "ctx.Combat.canDamage(ctx.Caster, model)", "character:PivotTo(")).toBe(true)
+		expect(before(dagger, "character:PivotTo(", "ctx.Combat.resyncPosition(ctx.Caster, landing)")).toBe(true)
+		expect(before(dagger, "ctx.Combat.resyncPosition(ctx.Caster, landing)", "damageModel(ctx, tracker, model)")).toBe(
+			true
+		)
+		-- From the validated origin, and landing where the Caret would: on ground, in the clear.
+		expect(dagger:find("local start = ctx.Origin.Position", 1, true)).never.toBe(nil)
+		expect(
+			dagger:find(
+				"landingPosition(position + toward * reach, params.ClearanceRadius, params.GroundSnapStuds, character)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(dagger:find("excludeParams(character, model)", 1, true)).never.toBe(nil)
+	end)
+end)
+
+describe("the second roster's hits", function()
+	it("send the radius the server struck with", function()
+		expect(functionIn(EFFECTS, "function GlyphEffects.Volute("):find("Radius = params.HitRadius,", 1, true)).never.toBe(
+			nil
+		)
+		expect(functionIn(EFFECTS, "function GlyphEffects.Emboss("):find("Radius = params.Radius,", 1, true)).never.toBe(
+			nil
+		)
+		expect(
+			functionIn(EFFECTS, "function GlyphEffects.Emboss("):find(
+				"blast(ctx, tracker, origin, params.Radius, params.Push, params.Lift)",
 				1,
 				true
 			)

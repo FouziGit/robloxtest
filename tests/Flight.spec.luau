@@ -184,6 +184,14 @@ describe("a landing", function()
 		expect(has(functionIn(LIBRARY, "VfxLibrary.Fizzle = function("), "api.Timeline.land(shot, packet.Origin)")).toBe(
 			true
 		)
+		-- A Stitch that caught a body lands on it, before the catch is drawn there.
+		local catch = functionIn(LIBRARY, "VfxLibrary.StitchCatch = function(")
+		local caught = catch:find("api.Timeline.land(shot, packet.Origin)", 1, true)
+		local drawn = catch:find('api.Timeline.play("StitchCatch"', 1, true)
+		expect(caught).never.toBe(nil)
+		expect(drawn).never.toBe(nil)
+		expect((caught :: number) < (drawn :: number)).toBe(true)
+		expect(VfxConfig.IdSet.StitchCatch).toBe(true)
 	end)
 
 	it("drops what is still to fly, brings the carrier down, drains what rode it, and moves what lingers", function()
@@ -303,5 +311,86 @@ describe("a carrier", function()
 		local carrier = functionIn(TIMELINE, "local function stepCarrier(")
 		expect(has(carrier, "CFrame.Angles(0, 0, spin * (now - entry.StartedAt))")).toBe(true)
 		expect(has(carrier, "1 / 60")).toBe(false)
+	end)
+end)
+
+describe("a charged glyph", function()
+	-- The Volute and the Rubric send two packets (D-138): the charge at the press, whose Anticipation is the
+	-- wind-up the server holds its caster through (GlyphEffects' charge), and the glyph at the release.
+	local CHARGES = { { Glyph = "Volute", Charge = "VoluteCharge" }, { Glyph = "Rubric", Charge = "RubricCharge" } }
+
+	it("draws its charge for exactly the wind-up the server waits, and nothing of the release", function()
+		for _, pair in ipairs(CHARGES) do
+			local windup = (GlyphConfig.ById[pair.Glyph].Params :: any).Windup
+			local timeline = VfxTimelineConfig.Timelines[pair.Charge]
+			local names: { string } = {}
+			for _, phase in ipairs(timeline.Phases) do
+				table.insert(names, phase.Name)
+			end
+			-- A wind-up and what it leaves: the release is the glyph's own packet.
+			expect(table.concat(names, " ")).toBe("Anticipation Residue")
+			local anticipation = timeline.Phases[1]
+			-- Fixed, never a window: a windowed phase is a boss warning to the runtime, never evicted, drawn
+			-- over budget, and it clears every floor volume near it.
+			expect(anticipation.Window).toBeNil()
+			local residue = VfxTimelineConfig.phaseAt(pair.Charge, "Residue", nil) :: number
+			expect(math.abs(residue - windup)).toBeLessThanOrEqual(1e-9)
+			-- Something drawn for the whole of it, on the caster's body: he may walk while it winds, and only a
+			-- lane lies on the floor.
+			local spans = false
+			for _, layer in ipairs(anticipation.Layers) do
+				local drawn = layer.Kind ~= "Sound" and layer.Kind ~= "Shake" and layer.Kind ~= "Flash"
+				if drawn and layer.At <= 1e-9 and layer.At + layer.For >= windup - 1e-9 then
+					spans = true
+				end
+				if drawn and layer.Kind ~= "Mark" and layer.Follow ~= true then
+					error(("%s draws a %s that stays where the charge began"):format(pair.Charge, layer.Kind))
+				end
+			end
+			expect(spans).toBe(true)
+			-- Played by its own renderer, sent by the server's charge, declared like every effect.
+			expect(
+				has(
+					functionIn(LIBRARY, ("VfxLibrary.%s = function("):format(pair.Charge)),
+					('playCharge("%s", "%s", packet, api)'):format(pair.Charge, pair.Glyph)
+				)
+			).toBe(true)
+			expect(
+				has(
+					functionIn(EFFECTS, ("function GlyphEffects.%s("):format(pair.Glyph)),
+					('charge(ctx, "%s", params.Windup'):format(pair.Charge)
+				)
+			).toBe(true)
+			expect(VfxConfig.IdSet[pair.Charge]).toBe(true)
+		end
+	end)
+
+	it("plays the charge on the caster, and its lane where the server measured it at the press", function()
+		local play = functionIn(LIBRARY, "local function playCharge(")
+		for _, line in ipairs({
+			'Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),',
+			"Follow = casterRoot(packet),",
+			'Reach = math.max(numberParam(packet, "Range", 1), 1),',
+		}) do
+			if not has(play, line) then
+				error("playCharge no longer draws the charge the server holds: " .. line)
+			end
+		end
+		-- The Rubric's lane runs from its release point to the wall the server found, measured by the ray.
+		local lanes = 0
+		for _, layer in ipairs(VfxTimelineConfig.Timelines.RubricCharge.Phases[1].Layers) do
+			if layer.Kind == "Mark" then
+				lanes += 1
+				expect(layer.SpanFrom).toBe("Reach")
+				expect(layer.Span).toBe(1)
+				expect(layer.OffsetFrom).toBe("Reach")
+				expect((layer.Offset :: { number })[3]).toBe(0.5)
+			end
+		end
+		expect(lanes).toBe(1)
+		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
+		expect(has(rubric, "SpawnOffset = (aimStart - origin).Magnitude, Range = (aimStop - aimStart).Magnitude,")).toBe(
+			true
+		)
 	end)
 end)

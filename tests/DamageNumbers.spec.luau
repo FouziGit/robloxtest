@@ -33,7 +33,37 @@ local function has(source: string, plain: string): boolean
 	return string.find(source, plain, 1, true) ~= nil
 end
 
+-- Every Luau file under `directory`, but the configs, whose tokens are what is looked for.
+local function readers(directory: string, out: { string })
+	for _, entry in ipairs(fs.readDir(directory)) do
+		local path = directory .. "/" .. entry
+		if fs.isDir(path) then
+			if entry ~= "Config" then
+				readers(path, out)
+			end
+		elseif string.match(entry, "%.luau$") then
+			table.insert(out, code(path))
+		end
+	end
+end
+
 describe("the damage numbers", function()
+	it("have no token nothing reads", function()
+		-- A token with no reader is a promise the game does not keep, and a test pinning its value passes
+		-- whatever the numbers do (TakenRiseStuds said damage taken drifted down; nothing drew it so).
+		local sources = {}
+		readers("src", sources)
+		local all = table.concat(sources, "\n")
+		local count = 0
+		for name in pairs(FeelConfig.DamageNumbers) do
+			count += 1
+			if string.find(all, "%." .. name .. "%f[^%w_]") == nil then
+				error(("FeelConfig.DamageNumbers.%s is read by nothing"):format(name))
+			end
+		end
+		expect(count).toBeGreaterThan(5)
+	end)
+
 	it("grow an amplified hit by the config's scale, with no number of their own", function()
 		local spawn = body(FEEL, "function Feel.damageNumber(")
 		expect(has(spawn, "if critical then sizeScale *= config.AmplifiedScale end")).toBe(true)

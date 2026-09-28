@@ -171,9 +171,6 @@ FeelConfig.DamageNumbers = {
 	MaxSizeScale = 1.9,
 	-- A hit amplified by a status is this much bigger again, and carries the status's tag.
 	AmplifiedScale = 1.35,
-	-- Damage TAKEN drifts down instead of rising (D-147): it reads as something falling on you, apart
-	-- from every number you dealt, before the colour is even read.
-	TakenRiseStuds = -1.6,
 	-- It holds full opacity for this fraction of its life, then fades. Fading from the first frame
 	-- makes every number look weak.
 	HoldFraction = 0.45,

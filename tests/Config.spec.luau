@@ -1239,10 +1239,8 @@ describe("FeelConfig", function()
 		expect(FeelConfig.DamageNumbers.PopScale).toBeGreaterThan(1)
 	end)
 
-	it("sets damage taken apart from damage dealt, and an amplified hit a size up", function()
+	it("draws an amplified hit a size up, from a base size that reads", function()
 		local numbers = FeelConfig.DamageNumbers
-		-- What you took drifts down while what you dealt rises: the direction is the first cue (D-147).
-		expect(numbers.TakenRiseStuds).toBeLessThan(0)
 		expect(numbers.AmplifiedScale).toBeGreaterThan(1)
 		expect(numbers.AmplifiedScale).toBeLessThan(2)
 		expect(numbers.BaseTextSize).toBeGreaterThanOrEqual(26)

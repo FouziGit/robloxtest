@@ -69,7 +69,7 @@ local TEXT_PAIRS = {
 	{ Ink = "TextInverse", On = "Epic", Ratio = BODY_CONTRAST, Where = "vellum text on Tyrian" },
 	{ Ink = "TextInverse", On = "Info", Ratio = BODY_CONTRAST, Where = "a sigil on an Indigo chip" },
 	{ Ink = "TextInverse", On = "Bronze", Ratio = BODY_CONTRAST, Where = "a sigil on an Umber chip, the Sketch seal" },
-	{ Ink = "PanelRaised", On = "Bronze", Ratio = BODY_CONTRAST, Where = "an Umber damage number in its stroke" },
+	{ Ink = "PanelRaised", On = "Bronze", Ratio = BODY_CONTRAST, Where = "an Umber glyph's name in its stroke" },
 	{ Ink = "PanelRaised", On = "Info", Ratio = BODY_CONTRAST, Where = "the Defeat title" },
 	{ Ink = "TextInverse", On = "Plate", Ratio = BODY_CONTRAST, Where = "text on a HUD plate or an ink band" },
 	{ Ink = "PanelRaised", On = "Plate", Ratio = BODY_CONTRAST, Where = "hero text on a plate" },
@@ -77,7 +77,7 @@ local TEXT_PAIRS = {
 	{ Ink = "Chalk", On = "Plate", Ratio = BODY_CONTRAST, Where = "a hint line on a HUD plate or a hub sign" },
 	{ Ink = "Primary", On = "Plate", Ratio = BODY_CONTRAST, Where = "the level and the Folios on hub plates" },
 	{ Ink = "Ally", On = "Plate", Ratio = BODY_CONTRAST, Where = "ally names, your share of the boss" },
-	{ Ink = "InfoFill", On = "Plate", Ratio = BODY_CONTRAST, Where = "an Indigo damage number, the ink value" },
+	{ Ink = "InfoFill", On = "Plate", Ratio = BODY_CONTRAST, Where = "an Indigo glyph's name on the preview pill" },
 	{ Ink = "DangerFill", On = "Plate", Ratio = BODY_CONTRAST, Where = "the boss's attack word" },
 	{ Ink = "Pigment.Orpiment", On = "Plate", Ratio = BODY_CONTRAST, Where = "an Orpiment damage number, the chain" },
 	{ Ink = "Pigment.Verdigris", On = "Plate", Ratio = BODY_CONTRAST, Where = "a Verdigris damage number, the chain" },
@@ -87,7 +87,6 @@ local TEXT_PAIRS = {
 	{ Ink = "Danger", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "large danger text on a card" },
 	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar sigil on its chip" },
 	{ Ink = "Danger", On = "Plate", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar damage number" },
-	{ Ink = "DangerFill", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "damage taken, in its sheet stroke" },
 }
 
 -- Graphics against what they are drawn on (WCAG 1.4.11: 3 for a part of the interface): a bar's fill on

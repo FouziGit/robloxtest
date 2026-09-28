@@ -376,11 +376,14 @@ local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityP
 		pill:Destroy()
 		billboard:Destroy()
 	end
-	prompt.Destroying:Once(function()
+	-- The pedestal's prompt lives for the whole session: this show's listener goes with this show, or every
+	-- walk up to the kiosk leaves one more behind, holding a pill already destroyed.
+	local destroying = prompt.Destroying:Once(function()
 		shownPrompts[prompt] = nil
 		dispose()
 	end)
 	prompt.PromptHidden:Once(function()
+		destroying:Disconnect()
 		if shownPrompts[prompt] == billboard then
 			shownPrompts[prompt] = nil
 		end

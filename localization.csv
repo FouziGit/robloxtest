@@ -204,6 +204,25 @@ hud.playerKill,You defeated {name}! +{xp} XP,Vellum,,You defeated {name}! +{xp} 
 hud.sequence.streak,×{count},Vellum,,×{count},×{count}
 hud.status.bonus,{status}: +{percent}% damage,Vellum,,{status}: +{percent}% damage,{status} : +{percent} % de dégâts
 hud.tierUp,Battle pass tier {tier} unlocked!,Vellum,,Battle pass tier {tier} unlocked!,Palier {tier} du pass débloqué !
+key.ButtonB,B,Vellum,,B,B
+key.ButtonL1,LB,Vellum,,LB,LB
+key.ButtonL2,LT,Vellum,,LT,LT
+key.ButtonL3,L3,Vellum,,L3,L3
+key.ButtonR1,RB,Vellum,,RB,RB
+key.ButtonR2,RT,Vellum,,RT,RT
+key.ButtonR3,R3,Vellum,,R3,R3
+key.ButtonSelect,Select,Vellum,,Select,Sélection
+key.ButtonX,X,Vellum,,X,X
+key.ButtonY,Y,Vellum,,Y,Y
+key.LeftAlt,Alt,Vellum,,Alt,Alt
+key.LeftControl,Ctrl,Vellum,,Ctrl,Ctrl
+key.LeftShift,Shift,Vellum,,Shift,Maj
+key.MouseButton1,Left click,Vellum,,Left click,Clic gauche
+key.MouseButton2,Right click,Vellum,,Right click,Clic droit
+key.MouseButton3,Middle click,Vellum,,Middle click,Clic molette
+key.RightAlt,Alt Gr,Vellum,,Alt Gr,Alt Gr
+key.RightControl,Right Ctrl,Vellum,,Right Ctrl,Ctrl droite
+key.RightShift,Right Shift,Vellum,,Right Shift,Maj droite
 kick.abuse,Disconnected: too many invalid requests.,Vellum,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
 kick.loadFailed,Could not load your data. Please try again in a minute.,Vellum,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
 kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,Vellum,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.

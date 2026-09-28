@@ -4,6 +4,7 @@
 -- colour-blind player still tells apart, and no value colour in a fight. Source-level where it has to
 -- be: a HUD file that names the primary yellow is only caught by reading it.
 local Harness = require("./harness")
+local InputConfig = require("../src/shared/Config/InputConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Strings = require("../src/shared/Strings")
@@ -13,6 +14,21 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local THEME = "src/ui/Theme.luau"
+local STICKER = "src/ui/components/Sticker.luau"
+-- The components of the colourful interface: every line they draw goes through Theme.stroke, which fixes
+-- its sizing mode and floors its thickness. Each one joins in the commit that builds or restyles it.
+local STROKED_COMPONENTS = {
+	"Sticker",
+	"Icon",
+	"Badge",
+	"Seal",
+	"Pips",
+	"Splat",
+	"DropCap",
+	"Keycap",
+	"RarityRibbon",
+	"ConfirmSheet",
+}
 local BODY_CONTRAST = 4.5
 
 -- Fight surfaces: what is on screen during a round. Each one is added here in the commit that makes it
@@ -406,5 +422,95 @@ describe("the theme", function()
 		expect(ThemeConfig.ringTransparency(0)[1][2]).toBeGreaterThan(0.5)
 		expect(ThemeConfig.ringTransparency(2)).toEqual(ThemeConfig.ringTransparency(1))
 		expect(ThemeConfig.ringTransparency(-1)).toEqual(ThemeConfig.ringTransparency(0))
+	end)
+end)
+
+describe("the sticker", function()
+	it("draws every line through Theme.stroke, fixed-size and floored at two pixels", function()
+		local theme = stripComments(fs.readFile(THEME))
+		local body = string.match(theme, "function Theme%.stroke%((.-)\nend\n")
+		assert(body ~= nil, "Theme.stroke is gone: this gate would check nothing")
+		expect(string.find(body :: string, "stroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize", 1, true)).never.toBeNil()
+		expect(
+			string.find(
+				body :: string,
+				"stroke.Thickness = math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())",
+				1,
+				true
+			)
+		).never.toBeNil()
+		expect(string.find(theme, "local MIN_STROKE_PIXELS = 2\n", 1, true)).never.toBeNil()
+		local found: { string } = {}
+		for _, name in ipairs(STROKED_COMPONENTS) do
+			local path = "src/ui/components/" .. name .. ".luau"
+			local code = stripComments(fs.readFile(path))
+			if
+				string.find(code, 'Instance.new("UIStroke")', 1, true) ~= nil
+				or string.find(code, "%.Thickness%s*=") ~= nil
+			then
+				table.insert(found, path)
+			end
+		end
+		if #found > 0 then
+			error("a line drawn around Theme.stroke:\n" .. table.concat(found, "\n"))
+		end
+		local sticker = stripComments(fs.readFile(STICKER))
+		expect(select(2, string.gsub(sticker, "Theme%.stroke%(", ""))).toBeGreaterThanOrEqual(2)
+	end)
+
+	it("wears its ink outline unless it is a plate (rule 11)", function()
+		local sticker = stripComments(fs.readFile(STICKER))
+		expect(
+			string.find(
+				sticker,
+				'local outline = if props.Outline ~= nil then props.Outline else kind ~= "Plate"',
+				1,
+				true
+			)
+		).never.toBeNil()
+		expect(string.find(sticker, 'if outline then\n%s+Theme%.stroke%(face, "Accent"')).never.toBeNil()
+	end)
+
+	it("keeps a badge out of red: nothing is wrong, something is owed", function()
+		local badge = stripComments(fs.readFile("src/ui/components/Badge.luau"))
+		expect(string.find(badge, "Danger")).toBeNil()
+		expect(string.find(badge, "Theme.Colors.Primary", 1, true)).never.toBeNil()
+	end)
+end)
+
+describe("the keycaps", function()
+	it("name every rebindable key that is more than a letter, in both languages", function()
+		local missing: { string } = {}
+		local count = 0
+		for key in pairs(InputConfig.AllowedKeyboard) do
+			if #key > 3 then
+				count += 1
+				if not Strings.has("key." .. key) then
+					table.insert(missing, key)
+				end
+			end
+		end
+		for key in pairs(InputConfig.AllowedGamepad) do
+			if string.sub(key, 1, 4) ~= "DPad" then
+				count += 1
+				if not Strings.has("key." .. key) then
+					table.insert(missing, key)
+				end
+			end
+		end
+		table.sort(missing)
+		if #missing > 0 then
+			error("keys a keycap cannot name: " .. table.concat(missing, ", "))
+		end
+		expect(count).toBeGreaterThanOrEqual(15)
+	end)
+
+	it("reads a key's word from Strings, and draws the D-pad as arrows", function()
+		local keycap = stripComments(fs.readFile("src/ui/components/Keycap.luau"))
+		expect(string.find(keycap, 'return localize.t("key." .. keyName)', 1, true)).never.toBeNil()
+		for _, pad in ipairs({ "DPadUp", "DPadRight", "DPadDown", "DPadLeft" }) do
+			expect(string.find(keycap, "\t" .. pad .. ' = "', 1, true)).never.toBeNil()
+		end
+		expect(string.find(keycap, "Theme.Fonts.Symbol", 1, true)).never.toBeNil()
 	end)
 end)

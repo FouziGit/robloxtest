@@ -677,6 +677,28 @@ Strings.Table = {
 		fr = "Déconnecté : trop de requêtes invalides.",
 	},
 
+	-- D-147 · slice F (components and shared)
+	-- The words on a keycap (Keycap.label): every rebindable key longer than a letter, in the player's language.
+	["key.LeftShift"] = { en = "Shift", fr = "Maj" },
+	["key.RightShift"] = { en = "Right Shift", fr = "Maj droite" },
+	["key.LeftControl"] = { en = "Ctrl", fr = "Ctrl" },
+	["key.RightControl"] = { en = "Right Ctrl", fr = "Ctrl droite" },
+	["key.LeftAlt"] = { en = "Alt", fr = "Alt" },
+	["key.RightAlt"] = { en = "Alt Gr", fr = "Alt Gr" },
+	["key.MouseButton1"] = { en = "Left click", fr = "Clic gauche" },
+	["key.MouseButton2"] = { en = "Right click", fr = "Clic droit" },
+	["key.MouseButton3"] = { en = "Middle click", fr = "Clic molette" },
+	["key.ButtonB"] = { en = "B", fr = "B" },
+	["key.ButtonX"] = { en = "X", fr = "X" },
+	["key.ButtonY"] = { en = "Y", fr = "Y" },
+	["key.ButtonL1"] = { en = "LB", fr = "LB" },
+	["key.ButtonR1"] = { en = "RB", fr = "RB" },
+	["key.ButtonL2"] = { en = "LT", fr = "LT" },
+	["key.ButtonR2"] = { en = "RT", fr = "RT" },
+	["key.ButtonL3"] = { en = "L3", fr = "L3" },
+	["key.ButtonR3"] = { en = "R3", fr = "R3" },
+	["key.ButtonSelect"] = { en = "Select", fr = "Sélection" },
+
 	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)

@@ -88,6 +88,8 @@ local GHOST_TRANSPARENCY = 0.6
 -- stands the hotbar, which a cap there would cover.
 local GHOST_KEY = 20
 local GHOST_KEY_GAP = 4
+-- The row's place among its siblings: above the dock and the hotbar (ZIndexBehavior.Sibling).
+local ROW_Z = 2
 -- The preview pill.
 local PREVIEW_PADDING = 10
 local PREVIEW_TEXT = 20
@@ -234,6 +236,9 @@ function ComboRow.new(props: Props): ComboRow
 	row.Name = "Combo"
 	row.BackgroundTransparency = 1
 	row.LayoutOrder = props.LayoutOrder or 0
+	-- Over what stands under it in the HUD's stack: its refusal hangs onto the hotbar's slots (pointer) or the
+	-- dock's plate (touch), which come after it and would paint over the whole row at the same ZIndex.
+	row.ZIndex = ROW_Z
 	row.Size = UDim2.fromOffset(0, CHIP_SIZE)
 	row.AutomaticSize = Enum.AutomaticSize.X
 	trove:Add(row)

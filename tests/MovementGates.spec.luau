@@ -422,9 +422,12 @@ describe("the movement audit", function()
 			expect(audit("local function supportedAt(")).toContain(
 				"local hit = castDown(record.Probe, origin, stand, AUDIT.GroundProbeRadiusStuds, AUDIT.GroundProbeSlackStuds) return hit ~= nil and holdsUp(hit.Instance)"
 			)
+			-- Every probe starts clear of the feet: a shape cast never sees what it starts inside, and a sphere centred on
+			-- a small avatar's root started inside its ground (MovementGuard.probe, proved in tests/MovementGuard.spec).
 			expect(audit("local function castDown(")).toContain(
-				"local depth = math.max(stand - radius, 0) + reach return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), params)"
+				"local lift, depth = MovementGuard.probe(stand, radius, reach, AUDIT.ProbeClearanceStuds) return Workspace:Spherecast(origin + Vector3.new(0, lift, 0), radius, Vector3.new(0, -depth, 0), params)"
 			)
+			expect(count(source, "Workspace:Spherecast(")).toBe(1)
 			local added = audit("function MovementAudit.add(")
 			expect(added).toContain("probe.FilterType = Enum.RaycastFilterType.Exclude probe.RespectCanCollide = true")
 			expect(added).toContain(

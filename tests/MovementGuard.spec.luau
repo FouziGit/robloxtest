@@ -723,6 +723,27 @@ describe("MovementGuard: the round trip it reads", function()
 	end)
 end)
 
+describe("MovementGuard.probe", function()
+	it("starts clear of the feet of a body shorter than it is wide, and reaches as far past them", function()
+		local radius, reach, clearance = 1.5, 1.5, 0.5
+		-- A default body: centred on the root and cast 3 studs, as the support probe always was.
+		local lift, depth = MovementGuard.probe(3, radius, reach, clearance)
+		expect(lift).toBe(0)
+		expect(depth).toBe(3)
+		-- A small avatar's root stands under the sphere's radius over its feet: centred there, the sphere started
+		-- inside its ground and never saw it.
+		expect((MovementGuard.probe(1.4, radius, reach, clearance))).toBeGreaterThan(0)
+		for _, stand in ipairs({ 0.8, 1.4, 1.8, 2.89, 3.19, 4.5 }) do
+			local up, cast = MovementGuard.probe(stand, radius, reach, clearance)
+			-- Where the sphere's bottom starts and ends, from the root.
+			local from, to = up - radius, up - radius - cast
+			expect(up >= 0).toBe(true)
+			expect(from >= clearance - stand - 1e-9).toBe(true)
+			expect(math.abs(to - (-stand - reach)) <= 1e-9).toBe(true)
+		end
+	end)
+end)
+
 describe("MovementGuard.touching", function()
 	local RADIUS = 6
 

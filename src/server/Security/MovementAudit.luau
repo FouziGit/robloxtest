@@ -266,7 +266,8 @@ local function holdsUp(instance: Instance): boolean
 	return not isBody
 end
 
--- A sphere cast straight down from `origin` to `reach` studs past the feet of a body standing `stand` high.
+-- A sphere cast straight down to `reach` studs past the feet of a body whose root, at `origin`, stands `stand`
+-- high, from clear of its feet (MovementGuard.probe): a sphere that started inside the ground would not see it.
 local function castDown(
 	params: RaycastParams,
 	origin: Vector3,
@@ -274,8 +275,8 @@ local function castDown(
 	radius: number,
 	reach: number
 ): RaycastResult?
-	local depth = math.max(stand - radius, 0) + reach
-	return Workspace:Spherecast(origin, radius, Vector3.new(0, -depth, 0), params)
+	local lift, depth = MovementGuard.probe(stand, radius, reach, AUDIT.ProbeClearanceStuds)
+	return Workspace:Spherecast(origin + Vector3.new(0, lift, 0), radius, Vector3.new(0, -depth, 0), params)
 end
 
 -- The support probe: whether something that collides is right under the feet.

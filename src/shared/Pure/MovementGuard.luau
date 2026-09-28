@@ -469,6 +469,16 @@ local function riseWithin(dt: number, config: Config): number
 	return v * dt - 0.25 * config.Gravity * dt * dt
 end
 
+-- MovementAudit's probes: a sphere of `radius` cast down from a root standing `stand` over its feet, to `reach`
+-- studs past the feet. A shape cast never sees what it starts inside, so the sphere starts with its bottom at
+-- least `clearance` above the feet: centred on the root, it would start inside the ground under any body whose
+-- root stands lower than the sphere is wide, and that body would never be seen supported. Returns how far above
+-- the root the sphere's centre starts, and how far it is cast.
+function MovementGuard.probe(stand: number, radius: number, reach: number, clearance: number): (number, number)
+	local drop = math.min(radius, math.max(stand - clearance, 0))
+	return radius - drop, stand + reach - drop
+end
+
 -- A NaN round trip reads as the worst one allowed, never as none.
 local function clampRtt(rtt: number, config: Config): number
 	return if rtt == rtt then math.clamp(rtt, 0, config.MaxRttSeconds) else config.MaxRttSeconds

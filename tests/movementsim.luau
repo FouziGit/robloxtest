@@ -38,8 +38,10 @@ local CONFIG = buildConfig()
 
 -- An R15 body's standing root height: HipHeight 2 plus half its 2-stud root. A scenario's Stand says otherwise.
 local DEFAULT_STAND = 3
--- The support probe reaches this far past the feet.
+-- The support probe: a sphere this wide, cast this far past the feet, from this far above them at the lowest.
+local RADIUS = MovementGuardConfig.GroundProbeRadiusStuds
 local PROBE = MovementGuardConfig.GroundProbeSlackStuds
+local CLEARANCE = MovementGuardConfig.ProbeClearanceStuds
 -- MovementAudit's probe under a server teleport's destination reaches a jump's fall past the feet.
 local TELEPORT_REACH = MovementGuard.maxRise(CONFIG)
 local CLIENT_STEP = 1 / 240
@@ -134,8 +136,9 @@ local function surfaces(floors: { Floor }, walls: { Wall }): { Floor }
 	return out
 end
 
--- The top of the highest surface a probe from a root at (x, y) standing `stand` high meets, reaching `reach` past
--- the feet.
+-- The top of the highest surface MovementAudit's probe meets under a root at (x, y) standing `stand` high: its
+-- sphere cast down to `reach` past the feet from where MovementGuard.probe starts it. A surface the sphere
+-- started inside is never met, as a shape cast never sees what it starts in.
 local function supportTop(
 	floors: { Floor },
 	walls: { Wall },
@@ -144,9 +147,11 @@ local function supportTop(
 	stand: number,
 	reach: number
 ): number?
+	local lift, depth = MovementGuard.probe(stand, RADIUS, reach, CLEARANCE)
+	local bottom = y + lift - RADIUS
 	local found: number? = nil
 	for _, s in ipairs(surfaces(floors, walls)) do
-		if x >= s.X0 - 1 and x <= s.X1 + 1 and y >= s.Top + stand - 2.01 and y <= s.Top + stand + reach then
+		if x >= s.X0 - 1 and x <= s.X1 + 1 and s.Top < bottom and s.Top >= bottom - depth then
 			found = math.max(found or -math.huge, s.Top)
 		end
 	end

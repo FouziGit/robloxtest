@@ -162,6 +162,9 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	track.BackgroundColor3 = Theme.Colors.Well
 	track.BackgroundTransparency = 0
 	Theme.corner(track, Theme.Pill)
+	-- The inkwell is 1.23 against the ink plate: without the sheet's ring the empty part of the track is lost,
+	-- and at low health a sliver of fill says nothing of how much is gone (tracks on plates carry a Ring).
+	Theme.stroke(track, "PanelRaised", Theme.Sizes.StrokeThin)
 	local fill = blank("Fill", track)
 	fill.Size = UDim2.fromScale(1, 1)
 	fill.BackgroundColor3 = Theme.Colors.PanelRaised

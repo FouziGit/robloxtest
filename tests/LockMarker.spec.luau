@@ -3,6 +3,7 @@
 -- target's name and health, a warning before the lock breaks, a chevron toward a target out of view, and a
 -- word for a press that locks nothing. It is drawn in the world, so it stays in ink (docs/ART_BIBLE.md rule
 -- 1). The edge arithmetic is pure and run here; the rest is engine code, held by reading it.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local LockOnConfig = require("../src/shared/Config/LockOnConfig")
 local ScreenEdge = require("../src/shared/Pure/ScreenEdge")
@@ -210,3 +211,26 @@ describe("the lock's mark", function()
 		expect(has(marker, "missLabel.TextColor3 = Theme.Colors.TextInverse")).toBe(true)
 	end)
 end)
+
+describe("the lock's plate, run", function()
+	it("rings the health track in the sheet, which the inkwell alone does not show on the plate", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local LockMarker = world.require("src/ui/components/LockMarker")
+		local Theme = world.require("src/ui/Theme")
+		LockMarker.new(world.playerGui, 34, {
+			t = function(key: string): string
+				return key
+			end,
+		})
+		local track = world.playerGui:FindFirstChild("LockPlate"):FindFirstChild("Health", true)
+		expect(track).never.toBeNil()
+		expect(track.BackgroundColor3).toBe(Theme.Colors.Well)
+		local ring = track:FindFirstChildOfClass("UIStroke")
+		expect(ring).never.toBeNil()
+		expect(ring.Color).toBe(Theme.Colors.PanelRaised)
+		expect(ThemeConfig.contrast(COLORS.Well, COLORS.Plate)).toBeLessThan(3)
+		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(3)
+	end)
+end)
+
+return nil

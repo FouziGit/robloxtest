@@ -1059,6 +1059,41 @@ describe("a glyph on the server's own clock", function()
 		end
 	end)
 
+	it("leaves the Hatching's cuts where its strokes landed, not where the rush began", function()
+		-- The server takes its caster's frame again on every stroke and the caster may walk after a slowed victim
+		-- the whole rush: what the page keeps longer than one stroke is laid under the body, when it is laid.
+		local params = GlyphConfig.ById.Hatching.Params :: any
+		local laid = 0
+		for _, phase in ipairs(TIMELINES.Hatching.Phases) do
+			for _, layer in ipairs(phase.Layers) do
+				local lasting = layer.For > params.TickInterval
+				if (layer.Kind == "Mark" or phase.Name == "Residue") and lasting and layer.Follow ~= true then
+					error(("the Hatching lays a %s where the rush began"):format(layer.Kind))
+				end
+				if layer.Kind == "Mark" then
+					laid += 1
+				end
+			end
+		end
+		expect(laid).toBeGreaterThanOrEqual(2)
+		-- Laid once from the body and never moved with it.
+		local activate = body(TIMELINE, "local function activate(")
+		expect(
+			activate:find(
+				'local body: BasePart? = context.Follow if layer.Kind == "Mark" and layer.Follow == true and body ~= nil and body.Parent ~= nil then base = body.CFrame end',
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			body(TIMELINE, "local function stepLive("):find(
+				'elseif entry.Layer.Follow == true and kind ~= "Mark" then followBody(entry) end',
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+
 	it("strikes each of the Hatching's strokes on the server's beat, and only the last one heavy", function()
 		-- GlyphEffects.Hatching keeps its beat against its start: a stroke at k x TickInterval for k = 0 to
 		-- Ticks - 1, the last one launching. One shake per stroke, wherever it is declared, on its beat.

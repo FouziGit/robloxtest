@@ -823,8 +823,13 @@ portée du lanceur, **qui le suit** (le serveur reprend son cadre à chaque trai
 est son sens. Sur chaque trait du serveur (0 ; 0,34 ; 0,68 ; 1,02 s), un coup de pinceau en travers de la
 boîte, penché dans l'autre sens que le précédent, un point chaud, la voix d'impact et une secousse ; sur le
 dernier (1,36 s), son anneau, une gerbe d'encre qui monte avec le corps qu'il projette et la seule secousse
-lourde. Une lumière qui monte vers la fin. Les tests tiennent une secousse par trait, sur son temps, la
-dernière seule lourde, et le flou jusqu'au dernier trait.
+lourde. Une lumière qui monte vers la fin. Ce que la page garde est **posé sous le corps**, là où il est
+quand la marque est posée (une `Mark` qui suit est posée une fois, jamais traînée) : les entailles au premier
+trait, l'empreinte et la poussière où la rafale finit — le lanceur peut marcher derrière un corps ralenti
+pendant toute la rafale, jusqu'à une vingtaine de studs, et l'empreinte du lancer restait au départ. Repris
+si une ruée, un étourdissement ou la garde rompt la rafale (D-141). Les tests tiennent une secousse par trait,
+sur son temps, la dernière seule lourde, le flou jusqu'au dernier trait, et chaque marque durable posée sous
+le corps.
 
 ---
 

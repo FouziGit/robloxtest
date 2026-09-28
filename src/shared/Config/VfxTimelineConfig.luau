@@ -138,6 +138,10 @@ export type Layer = {
 	-- three pooled instances to do it.
 	--
 	-- A layer that follows nothing is not drawn, and the runtime says so once, naming the timeline.
+	--
+	-- A Mark is on the page and never moves: one that Follows is laid under the body where it stands when the
+	-- mark is laid, turned the way it faces, and stays there -- what a rush the server re-reads every stroke
+	-- leaves where it was struck, not where the rush began.
 	Follow: boolean?,
 	-- Carrier only: studs travelled over the layer's duration. The distance is scaled by Context.Scale
 	-- like everything else, so one timeline serves a short poke and a long-range projectile.
@@ -9427,9 +9431,10 @@ local HATCHING: Timeline = {
 					Brightness = 1.6,
 					EndBrightness = 2.8,
 				},
-				-- The cuts the page keeps under the rush.
+				-- The cuts the page keeps under the rush, laid under the body where the first stroke falls.
 				{
 					Kind = "Mark",
+					Follow = true,
 					At = 0,
 					For = 1.8,
 					Ease = "Quint",
@@ -9660,8 +9665,11 @@ local HATCHING: Timeline = {
 			Name = "Residue",
 			Duration = 1.4,
 			Layers = {
+				-- Where the rush ended, under the body the server launched from: the caster may have walked after a
+				-- slowed victim the whole rush, twenty studs from where it began.
 				{
 					Kind = "Mark",
+					Follow = true,
 					At = 0,
 					For = 1.4,
 					Ease = "Quint",
@@ -9675,6 +9683,7 @@ local HATCHING: Timeline = {
 				},
 				{
 					Kind = "Emitter",
+					Follow = true,
 					At = 0,
 					For = 0.5,
 					Texture = "DustMote",

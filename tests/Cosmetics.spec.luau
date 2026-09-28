@@ -1055,4 +1055,30 @@ describe("a place round the body", function()
 		local beat = controller:match("local function onHeartbeat%(.-\nend\n") or ""
 		expect(beat:find("run(runner, entry.Fit, now)", 1, true)).never.toBe(nil)
 	end)
+
+	it("sends the Soot's sparks up round the whole body, knees to crown, flaring as they rise", function()
+		-- Seen in game from behind: the Soot was a few puffs between the feet, and the legs hid most of them.
+		local soot = CosmeticConfig.AuraStyles.Soot
+		local sparks: CosmeticConfig.Emission? = nil
+		local column: CosmeticConfig.Emission? = nil
+		for _, emission in ipairs(emissionsOf(soot)) do
+			if emission.Place.Kind == "Ring" then
+				sparks = emission
+			elseif emission.Place.Kind == "Feet" then
+				column = emission
+			end
+		end
+		if sparks == nil or column == nil then
+			error("the Soot is not a column from the feet and sparks round the body")
+		end
+		expect(sparks.Emit).toBe("Up")
+		expect(sparks.Rise or 0).toBeGreaterThan(0)
+		-- Knees to crown on the standard body: from halfway down to its feet to most of the way up to its crown.
+		expect(sparks.Place.Low or 0).toBeLessThanOrEqual(-0.5 * BODY.Standing)
+		expect(sparks.Place.High or 0).toBeGreaterThanOrEqual(0.8 * BODY.Crown)
+		expect(sparks.Glint or 0).toBeGreaterThan(0)
+		expect(sparks.Flickers or 0).toBeGreaterThanOrEqual(2)
+		-- Sparks, smaller than the smoke they rise through.
+		expect(math.max(table.unpack(sparks.Size))).toBeLessThan(math.max(table.unpack(column.Size)))
+	end)
 end)

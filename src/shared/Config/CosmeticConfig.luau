@@ -560,19 +560,20 @@ CosmeticConfig.AuraStyles = {
 			},
 		},
 	},
-	-- Graphite: the same column, each mote catching the light three times as it climbs.
+	-- Graphite: the same column, each mote catching the light three times as it climbs -- large enough to be a
+	-- flake of silver, not a pale blob (seen in game: at 0.65 studs they were faint).
 	Glints = {
 		Emissions = {
 			{
 				Texture = "DustMote",
 				Place = { Kind = "Ring", Radius = 1.8, Low = -2.4, High = 1.4 },
-				Rate = 14,
+				Rate = 17,
 				Lifetime = { 1.4, 2 },
 				Speed = { 0.3, 0.8 },
 				Emit = "Up",
 				Spread = 15,
-				Size = { 0.5, 0.65, 0 },
-				Transparency = { 0.25, 0, 1 },
+				Size = { 0.6, 0.85, 0 },
+				Transparency = { 0.15, 0, 1 },
 				Rise = 1.4,
 				Glint = 0.3,
 				Flickers = 3,
@@ -599,40 +600,60 @@ CosmeticConfig.AuraStyles = {
 	},
 	-- Embers leaving the feet in a column, cooling toward soot as they climb -- no further than a coal's burnt
 	-- orange: an ember darkened on toward ink crosses Umber's brown on the way (tests/Cosmetics.spec.luau
-	-- measured 38 from Umber at 0.85).
+	-- measured 38 from Umber at 0.85). The column is as wide as the stance, and sparks fly up round the whole
+	-- body, knees to crown, flaring as they go: seen in game from behind, a column between the feet alone was a
+	-- few puffs the legs hid.
 	Soot = {
 		Emissions = {
 			{
 				Texture = "SmokeSoft",
-				Place = { Kind = "Feet", Radius = 1.1, Lift = 0.3 },
-				Rate = 16,
-				Lifetime = { 1.1, 1.6 },
+				Place = { Kind = "Feet", Radius = 1.4, Lift = 0.3 },
+				Rate = 13,
+				Lifetime = { 1.2, 1.7 },
 				Speed = { 2.5, 4 },
 				Emit = "Up",
 				Spread = 15,
-				Size = { 0.5, 0.8, 0.3 },
+				Size = { 0.8, 1.3, 0.6 },
 				Transparency = { 0.1, 0.15, 1 },
 				Drag = 0.9,
 				Rise = 0.4,
 				Spin = 90,
 				Dries = 0.4,
-			},
+			} :: Emission,
+			{
+				Texture = "DustMote",
+				Place = { Kind = "Ring", Radius = 1.7, Low = -2, High = 2.2 },
+				Rate = 10,
+				Lifetime = { 0.9, 1.3 },
+				Speed = { 0.8, 1.6 },
+				Emit = "Up",
+				Spread = 25,
+				Size = { 0.5, 0.55, 0 },
+				Transparency = { 0.1, 0, 1 },
+				Rise = 2,
+				Drag = 0.4,
+				Stretch = 0.5,
+				Dries = 0.3,
+				Glint = 0.4,
+				Flickers = 3,
+			} :: Emission,
 		},
 	},
-	-- Tongues of ink rising from the feet and darkening as the air takes them.
+	-- Tongues of ink rising from the feet to the chest and darkening as the air takes them (seen in game:
+	-- smaller and slower, they never left the feet).
 	Wisps = {
 		Emissions = {
 			{
 				Texture = "SmokeSoft",
-				Place = { Kind = "Feet", Radius = 0.9, Lift = 0.2 },
-				Rate = 6,
-				Lifetime = { 1.6, 2.1 },
-				Speed = { 1.6, 2.6 },
+				Place = { Kind = "Feet", Radius = 1.1, Lift = 0.2 },
+				Rate = 8,
+				Lifetime = { 1.8, 2.3 },
+				Speed = { 2.2, 3.2 },
 				Emit = "Up",
 				Spread = 18,
-				Size = { 0.9, 1.8, 2.4 },
+				Size = { 1.2, 2.4, 3.2 },
 				Transparency = { 0.6, 0.25, 1 },
-				Drag = 0.7,
+				Drag = 0.6,
 				Spin = 40,
 				Dries = 0.55,
 			},

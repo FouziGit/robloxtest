@@ -187,9 +187,9 @@ ne sont pas des particules.
 | AuraCrimson | Aura | Epic | 2 | 2 | 0 | 40.8 | 24.5 | 14.3 | 8.2 |
 | AuraStorm | Aura | Epic | 2 | 1 | 2 | 11.2 | 6.7 | 3.9 | 2.2 |
 | BlueInkAura | Aura | Epic | 2 | 2 | 0 | 13.8 | 8.3 | 4.8 | 2.8 |
-| VioletInkAura | Aura | Epic | 2 | 2 | 0 | 36.6 | 22.0 | 12.8 | 7.3 |
-| AuraEmber | Aura | Rare | 1 | 1 | 0 | 25.6 | 15.4 | 9.0 | 5.1 |
-| AuraFrost | Aura | Rare | 1 | 1 | 0 | 28.0 | 16.8 | 9.8 | 5.6 |
+| VioletInkAura | Aura | Epic | 2 | 2 | 0 | 42.4 | 25.4 | 14.8 | 8.5 |
+| AuraEmber | Aura | Rare | 1 | 2 | 0 | 35.1 | 21.1 | 12.3 | 7.0 |
+| AuraFrost | Aura | Rare | 1 | 1 | 0 | 34.0 | 20.4 | 11.9 | 6.8 |
 | PalimpsestCape | Aura | Rare | 1 | 1 | 0 | 16.8 | 10.1 | 5.9 | 3.4 |
 | ScribeCloak | Trail | Epic | 2 | 1 | 1 | 5.6 | 3.4 | 2.0 | 1.1 |
 | TrailStorm | Trail | Epic | 2 | 1 | 2 | 5.6 | 3.4 | 2.0 | 1.1 |
@@ -199,8 +199,8 @@ ne sont pas des particules.
 | TrailFolio | Trail | Common | 1 | 1 | 0 | 7.0 | 4.2 | 2.4 | 1.4 |
 | TrailSand | Trail | Common | 1 | 1 | 0 | 12.0 | 7.2 | 4.2 | 2.4 |
 
-Pire corps : VipAura et TrailEmber, 54.6 particules vivantes au niveau Élevé, pour un budget de 60 (CosmeticConfig.Budget).
-En combat (CosmeticConfig.Fight) : 21.9 au niveau Élevé.
+Pire corps : VioletInkAura et TrailEmber, 55.0 particules vivantes au niveau Élevé, pour un budget de 60 (CosmeticConfig.Budget).
+En combat (CosmeticConfig.Fight) : 22.0 au niveau Élevé.
 
 Le coût d'instances est fixe et petit : une attache et un émetteur par émission, deux attaches et une
 `Trail` par ruban, construits une fois par objet porté et rendus au Trove de leur emplacement. Rien de cela

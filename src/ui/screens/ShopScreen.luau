@@ -377,8 +377,23 @@ function ShopScreen.new(deps: Deps): Screen
 		deps.RemoteClient.fire("PromptPurchase", "Cosmetic", entry.CosmeticId)
 	end
 
+	-- Waits for the server's answer, which it pushes on every path (a refusal too): a second tap before it
+	-- sent the same equip twice.
 	local function equip(card: Card)
+		card.Buy:SetPending(true)
 		deps.RemoteClient.fire("EquipCosmetic", card.SlotKey, card.Entry.CosmeticId)
+	end
+
+	-- The Cosmetics push that answers an equip: every button waiting on one is let go.
+	local function settleEquips()
+		for _, card in ipairs(cards) do
+			card.Buy:SetPending(false)
+		end
+		local current = shelf
+		local settle = if current ~= nil then current.Settle else nil
+		if settle ~= nil then
+			settle()
+		end
 	end
 
 	----------------------------------------------------------------
@@ -470,6 +485,9 @@ function ShopScreen.new(deps: Deps): Screen
 					purchases:Ask(card.Entry)
 				end
 			end,
+			OnTimeout = function()
+				deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
+			end,
 		})
 		own(pageTrove, buyButton)
 
@@ -559,6 +577,7 @@ function ShopScreen.new(deps: Deps): Screen
 			Content = content,
 			Trove = pageTrove,
 			RobuxOffered = robuxOffered,
+			HudController = deps.HudController,
 		}
 		if next == "Folios" then
 			shelf = Shelves.folios(context)
@@ -645,6 +664,9 @@ function ShopScreen.new(deps: Deps): Screen
 	end))
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
+		if section == "*" or section == "Cosmetics" then
+			settleEquips()
+		end
 		if
 			section == "*"
 			or section == "Cosmetics"

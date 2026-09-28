@@ -41,6 +41,8 @@ export type Context = {
 	Trove: typeof(Trove.new()),
 	-- The Shop's own rule for a Robux product: it is configured and exists on Roblox.
 	RobuxOffered: (productKey: string) -> boolean,
+	-- An equip the server never answers is said on the HUD's toast column, as a purchase's is.
+	HudController: { showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> () },
 }
 
 export type Shelf = {
@@ -48,6 +50,9 @@ export type Shelf = {
 	Refresh: () -> (),
 	-- The first thing a gamepad can press on the shelf.
 	Focus: () -> GuiObject?,
+	-- The server answered an equip (it pushes Cosmetics on every path, a refusal too): what waited on it is
+	-- let go. Only the locker equips.
+	Settle: (() -> ())?,
 }
 
 type Offer = { Key: string, Kind: "Pass" | "Product", Button: Button.Button, Owned: Frame }
@@ -414,10 +419,16 @@ function Shelves.locker(context: Context): Shelf
 			Chapter = CHAPTER,
 			LayoutOrder = 2,
 			Parent = body,
+			-- Waits for the server's answer: a second tap before it sent the same equip twice, or, once the
+			-- push had landed, took off what the player had just put on.
 			OnClick = function()
 				local data = context.ClientData.get()
 				local wearing = data ~= nil and equipped(data, entry)
+				entry.Button:SetPending(true)
 				context.RemoteClient.fire("EquipCosmetic", slotKey, if wearing then "" else item.Id)
+			end,
+			OnTimeout = function()
+				context.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
 			end,
 		})
 		shelfTrove:Add(function()
@@ -516,6 +527,11 @@ function Shelves.locker(context: Context): Shelf
 		Focus = function(): GuiObject?
 			local first = cards[1]
 			return if first ~= nil then first.Button.Instance else nil
+		end,
+		Settle = function()
+			for _, entry in ipairs(cards) do
+				entry.Button:SetPending(false)
+			end
 		end,
 	}
 end

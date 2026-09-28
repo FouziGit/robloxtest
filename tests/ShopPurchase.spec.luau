@@ -27,12 +27,6 @@ type Fixture = {
 local function setup(folios: number): Fixture
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
-		Services = {
-			ContextActionService = {
-				BindActionAtPriority = function() end,
-				UnbindAction = function() end,
-			},
-		},
 	})
 	local Purchase = world.require("src/ui/screens/shop/Purchase")
 	local screen = Engine.instance("ScreenGui", world.playerGui)
@@ -111,12 +105,6 @@ end
 local function sheetOnCard(gamepad: boolean): (any, any, any, { string }, { any })
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
-		Services = {
-			ContextActionService = {
-				BindActionAtPriority = function() end,
-				UnbindAction = function() end,
-			},
-		},
 	})
 	world.userInput.GamepadEnabled = gamepad
 	local ConfirmSheet = world.require("src/ui/components/ConfirmSheet")

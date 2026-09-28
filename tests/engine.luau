@@ -599,6 +599,7 @@ export type World = {
 	playerGui: any,
 	guiService: any,
 	userInput: any,
+	actions: { [string]: (string, any, any) -> any },
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -628,6 +629,11 @@ function Engine.world(options: Options?): World
 	camera.ViewportSize = roblox.Vector2.new(1920, 1080)
 	workspace.CurrentCamera = camera
 	world.workspace = workspace
+	-- The servers' clock: the real time the world began, moved on by the world's own.
+	local began = os.time()
+	workspace.GetServerTimeNow = function(): number
+		return began + world.now
+	end
 
 	-- A keyboard and a mouse, no touch and no pad, unless the spec says otherwise.
 	local userInput = Engine.instance("UserInputService", game)
@@ -664,7 +670,23 @@ function Engine.world(options: Options?): World
 	world.guiService = guiService
 	world.userInput = userInput
 
+	-- The actions bound through ContextActionService, by name: what a spec presses a key or a button with.
+	local actions: { [string]: (string, any, any) -> any } = {}
+	world.actions = actions
+	local contextActions = {
+		BindAction = function(_self: any, name: string, handler: any)
+			actions[name] = handler
+		end,
+		BindActionAtPriority = function(_self: any, name: string, handler: any)
+			actions[name] = handler
+		end,
+		UnbindAction = function(_self: any, name: string)
+			actions[name] = nil
+		end,
+	}
+
 	local services: { [string]: any } = {
+		ContextActionService = contextActions,
 		Players = players,
 		GuiService = guiService,
 		RunService = {

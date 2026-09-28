@@ -522,10 +522,11 @@ end
 -- A charge held for exactly the time the server waits (GlyphEffects' charge, D-141): the Anticipation of `id`
 -- lasts the glyph's Params.Windup (tests/Flight.spec.luau), on the caster's body, which may walk while it
 -- winds. A lane it paints starts where the server's will: SpawnOffset ahead, Range long, both measured at
--- the press.
+-- the press, and Radius either side of it, the width the release strikes.
 local function playCharge(id: string, glyphId: string, packet: Packet, api: Api)
 	local def = GlyphConfig.ById[glyphId]
 	local direction = directionOf(packet)
+	local radius = numberParam(packet, "Radius", 0)
 	api.Timeline.play(id, {
 		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
 		Direction = direction,
@@ -535,6 +536,7 @@ local function playCharge(id: string, glyphId: string, packet: Packet, api: Api)
 		Follow = casterRoot(packet),
 		Hand = casterHand(packet),
 		Reach = math.max(numberParam(packet, "Range", 1), 1),
+		Radius = if radius > 0 then radius else nil,
 	})
 end
 

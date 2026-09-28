@@ -5,6 +5,8 @@
 -- one whose caster was stunned mid-flight did too. Then, reviewed and measured live: at full range the
 -- burst reached the client a frame after the drawn flight ended in three throws out of four, so the trail
 -- vanished at once and the dust hung at the thrower's hand; and a tail sound kept playing in the pool.
+local AssetIds = require("../src/shared/Config/AssetIds")
+local BotConfig = require("../src/shared/Config/BotConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
@@ -371,12 +373,19 @@ describe("a charged glyph", function()
 			'Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),',
 			"Follow = casterRoot(packet),",
 			'Reach = math.max(numberParam(packet, "Range", 1), 1),',
+			'local radius = numberParam(packet, "Radius", 0)',
+			"Radius = if radius > 0 then radius else nil,",
 		}) do
 			if not has(play, line) then
 				error("playCharge no longer draws the charge the server holds: " .. line)
 			end
 		end
-		-- The Rubric's lane runs from its release point to the wall the server found, measured by the ray.
+		-- The Rubric's lane runs from its release point to the wall the server found, measured by the ray, and is
+		-- as wide as what the line pierces: the ray's box, HitRadius either side (the Radius the charge carries),
+		-- and the stud a body reaches out from its root. Drawn in the blot, whose ink stops at 0.53 to 0.83 of its
+		-- plane, it was under a stud wide: a player three studs clear of it was still pierced.
+		local hitRadius = (GlyphConfig.ById.Rubric.Params :: any).HitRadius
+		local danger = 2 * (hitRadius + BotConfig.Reach.TargetRadiusStuds)
 		local lanes = 0
 		for _, layer in ipairs(VfxTimelineConfig.Timelines.RubricCharge.Phases[1].Layers) do
 			if layer.Kind == "Mark" then
@@ -385,12 +394,24 @@ describe("a charged glyph", function()
 				expect(layer.Span).toBe(1)
 				expect(layer.OffsetFrom).toBe("Reach")
 				expect((layer.Offset :: { number })[3]).toBe(0.5)
+				expect(layer.SizeFrom).toBe("Radius")
+				local ink = (AssetIds.Textures :: any)[layer.Texture].Ink :: { Least: number, Most: number }
+				for _, size in ipairs({ layer.Size or 0, layer.EndSize or layer.Size or 0 }) do
+					local wide = size * hitRadius * ink.Least
+					expect(wide).toBeGreaterThanOrEqual(danger)
+					expect(wide).toBeLessThanOrEqual(danger * 1.05)
+				end
+				-- Its ink runs the whole reach, to within the texture's measured edge.
+				expect((layer.Span :: number) * ink.Least).toBeGreaterThanOrEqual(0.99)
 			end
 		end
 		expect(lanes).toBe(1)
 		local rubric = functionIn(EFFECTS, "function GlyphEffects.Rubric(")
-		expect(has(rubric, "SpawnOffset = (aimStart - origin).Magnitude, Range = (aimStop - aimStart).Magnitude,")).toBe(
-			true
-		)
+		expect(
+			has(
+				rubric,
+				"SpawnOffset = (aimStart - origin).Magnitude, Range = (aimStop - aimStart).Magnitude, Radius = params.HitRadius,"
+			)
+		).toBe(true)
 	end)
 end)

@@ -7588,7 +7588,8 @@ local VOLUTE: Timeline = {
 -- danger telegraph (art bible rule 7): the one charge in the game a target must be able to read. The
 -- server locks the aim at the press and roots the caster for Params.Windup (D-141, D-142), so the lane is
 -- known from the first frame, and it is painted on the floor from the release point to the wall the server
--- found (Origin is the muzzle, Reach the ray's length, both measured at the press). It darkens toward the
+-- found (Origin is the muzzle, Reach the ray's length, both measured at the press), as wide as the ray's
+-- reach either side of it (Radius, its HitRadius). It darkens toward the
 -- release, on Quad In: the last third reads as "now". In the hands, a vermilion drop swells in three hot
 -- pulses while a seal of charcoal closes on it. Fixed, never windowed, for the Volute's charge's reason.
 local RUBRIC_CHARGE: Timeline = {
@@ -7708,20 +7709,23 @@ local RUBRIC_CHARGE: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The lane, from the release point to the wall, darkening as the release comes.
+				-- The lane, from the release point to the wall, darkening as the release comes: as wide as what the
+				-- line will pierce, the ray's box (HitRadius, the Radius the charge carries) either side of it and the
+				-- stud a body reaches out from its root, in the bar whose ink runs to its plane's edge (AssetIds). A
+				-- player standing clear of it is clear of the line.
 				{
 					Kind = "Mark",
 					At = 0,
 					For = 0.7,
 					Ease = "Quad",
 					EaseDirection = "In",
-					Texture = "InkBlot",
+					Texture = "TelegraphBar",
 					Offset = { 0, 0.04, 0.5 },
 					OffsetFrom = "Reach",
 					Span = 1,
 					SpanFrom = "Reach",
-					Size = 0.5,
-					EndSize = 0.8,
+					Size = 2.55,
+					SizeFrom = "Radius",
 					Transparency = 0.7,
 					EndTransparency = 0.35,
 				},

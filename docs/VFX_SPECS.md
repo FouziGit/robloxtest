@@ -712,7 +712,11 @@ rouge est l'avertissement (bible, règle 7).
 **Comment il est construit.** La visée est figée à l'appui et le lanceur immobile : la ligne est donc connue
 dès la première image, et elle est **tracée au sol** du point de lâcher jusqu'au mur que le serveur a trouvé
 (le paquet porte `SpawnOffset` et `Range` mesurés à l'appui), en fonçant sur Quad In — le dernier tiers se
-lit « maintenant ». Dans les mains, une goutte vermillon gonfle en trois pulsations chaudes pendant qu'un
+lit « maintenant ». Elle est **aussi large que ce que la ligne transperce** : la boîte du rayon, `HitRadius`
+de chaque côté (le `Radius` que porte la charge), plus le stud dont un corps déborde de sa racine, dans la
+barre dont l'encre va jusqu'au bord de son plan (`TelegraphBar`) ; qui se tient hors d'elle est hors de la
+ligne. Tracée à la tache, dont l'encre s'arrête entre 0,53 et 0,83 de son plan, elle faisait moins d'un stud
+de large pour un rayon qui en frappe dix. Dans les mains, une goutte vermillon gonfle en trois pulsations chaudes pendant qu'un
 sceau de charbon se referme. Fixe, jamais une fenêtre, pour la raison de la Volute.
 
 ## `Rubric` — la Rubrique (Cinabre, hitscan chargé)

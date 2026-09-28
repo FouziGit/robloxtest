@@ -1506,6 +1506,7 @@ function GlyphEffects.Rubric(ctx: Context): number
 	local frame = charge(ctx, "RubricCharge", params.Windup, {
 		SpawnOffset = (aimStart - origin).Magnitude,
 		Range = (aimStop - aimStart).Magnitude,
+		Radius = params.HitRadius,
 	})
 	if frame == nil then
 		ctx.Movement.clearSlow(ctx.Caster, ctx.Def.Id) -- a broken charge frees its root at once

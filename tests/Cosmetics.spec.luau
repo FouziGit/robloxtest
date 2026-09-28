@@ -244,11 +244,13 @@ describe("a kill effect", function()
 		expect(service:find('Id = "KillEffect"', 1, true)).never.toBe(nil)
 		-- Reliable: one packet per kill, and a dropped one is a paid effect that never draws.
 		expect(service:find("Params = { Effect = item.Id },\n\t}, true)", 1, true)).never.toBe(nil)
-		-- Only a player or a training proof: not the World Boss, whose last hit ends on BossDefeated.
+		-- Only a player, a training proof or a Forger (D-131): not the World Boss, whose last hit ends on
+		-- BossDefeated.
 		local killed = service:match("local function onKilled%(.-\nend\n") or ""
 		-- The exact guard, not the words: a condition that merely mentions them can guard nothing.
 		local guard = "if\n\t\tPlayers:GetPlayerFromCharacter(victimModel) == nil\n"
-			.. "\t\tand not CollectionService:HasTag(victimModel, GameConfig.Enemy.Tag)\n\tthen\n\t\treturn\n\tend"
+			.. "\t\tand not CollectionService:HasTag(victimModel, GameConfig.Enemy.Tag)\n"
+			.. "\t\tand not CollectionService:HasTag(victimModel, BotConfig.Tag)\n\tthen\n\t\treturn\n\tend"
 		expect(killed:find(guard, 1, true)).never.toBe(nil)
 		local library = strip(fs.readFile("src/client/Controllers/VfxLibrary.luau"))
 		local renderer = library:match("VfxLibrary%.KillEffect = function.-\nend\n") or ""

@@ -69,6 +69,24 @@ function FeelMath.impulseSpeed(alpha: number, exponent: number): number
 	return (1 + e) * (1 - a) ^ e
 end
 
+-- The mean of impulseSpeed between two alphas of the same impulse, for a mover that holds one velocity per
+-- step instead of following the curve continuously (a server-driven knockback steps once per tick).
+--
+-- It is the curve's integral over the step divided by the step: (1 - a0)^(1 + e) - (1 - a1)^(1 + e), over
+-- (a1 - a0). Held for each step's share of the duration, the steps therefore add up to EXACTLY the distance
+-- of the flat velocity, however coarse the steps are. Sampling impulseSpeed at the start of each step
+-- instead overshoots, by 31 % in five steps at the knockback's exponent. A step of no length (or a backwards
+-- one) is the curve's own value at `fromAlpha`.
+function FeelMath.impulseStep(fromAlpha: number, toAlpha: number, exponent: number): number
+	local a0 = clamp01(fromAlpha)
+	local a1 = clamp01(toAlpha)
+	local e = math.max(exponent, 0)
+	if a1 <= a0 then
+		return FeelMath.impulseSpeed(a0, e)
+	end
+	return ((1 - a0) ^ (1 + e) - (1 - a1) ^ (1 + e)) / (a1 - a0)
+end
+
 -- Linear interpolation, clamped: used wherever a value has to stay inside its two ends whatever the
 -- caller passes.
 function FeelMath.lerp(from: number, to: number, alpha: number): number

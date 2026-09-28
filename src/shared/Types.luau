@@ -84,7 +84,7 @@ export type StatsData = {
 
 export type QuestProgress = { [string]: number } -- questId -> progress
 export type QuestSetData = {
-	PeriodKey: string, -- day or week key the set belongs to
+	PeriodKey: string, -- day or week key the set belongs to, with the pool revision it was drawn at (QuestLogic.setKey)
 	Progress: QuestProgress,
 	Claimed: { [string]: boolean },
 }
@@ -98,6 +98,13 @@ export type DailyData = {
 	Streak: number,
 	FirstWinDay: number,
 	PremiumBonusDay: number,
+	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each
+	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), and
+	-- practice fights against the Erasure that paid out (WorldBossConfig.Practice).
+	ForgerDay: number,
+	ForgerFolios: number,
+	PracticeDay: number,
+	PracticePaid: number,
 }
 
 export type PurchasesData = {
@@ -256,7 +263,8 @@ export type LeaderboardEntry = {
 	RankKey: string, -- Strings key of the rank tier
 }
 
--- World Boss state replicated to everyone on the server while the event runs (BossChanged).
+-- World Boss state (BossChanged): replicated to everyone on the server while the event runs, and to its own
+-- participants only while a practice does.
 export type BossPhaseSnapshot = "Announced" | "Fighting" | "Defeated" | "Expired"
 
 export type BossSnapshot = {
@@ -268,6 +276,21 @@ export type BossSnapshot = {
 	Participants: number,
 	TelegraphKey: string?, -- Strings key of the attack being telegraphed, nil when none
 	MyShare: number, -- 0..1, the receiving player's damage contribution
+	Practice: boolean, -- a practice one player opened from the hub's gate (D-132), not the scheduled event
+}
+
+-- The Battleground as its member sees it (BattlegroundChanged), or nil once they are no longer one: how many
+-- Forgers stand on the page, and how many this member has defeated since they came in.
+export type BattlegroundSnapshot = {
+	Standing: number,
+	Defeated: number,
+}
+
+-- The portal circle a player stands in (PortalChanged), or nil once they step out or set off: where it leads
+-- (a PortalConfig.PortalId) and how long, from now, they must stay in it before it takes them.
+export type PortalSnapshot = {
+	Id: string,
+	Seconds: number,
 }
 
 -- One purchasable entry of today's rotation (ShopChanged).

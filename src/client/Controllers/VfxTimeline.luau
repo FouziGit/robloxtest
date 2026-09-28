@@ -177,6 +177,11 @@ local warnedTextures: { [string]: boolean } = {}
 -- ends, so a layer that outlives the flight falls back to standing still rather than following a
 -- part that has gone back to the pool.
 local carriers: { [number]: BasePart } = {}
+-- The sounds each play started, so a play taken back (cancel) is silenced too: a sound is fire-and-forget
+-- and would otherwise warn of a blow that never comes for the rest of its length. Swept of the finished
+-- ones (their holder destroyed by SoundController) every time a sound is added, so it never outgrows the
+-- sounds still playing.
+local playSounds: { [number]: { Sound } } = {}
 -- The play each thrown thing in flight belongs to, by its Shot, until it lands or its carrier ends.
 local shots: { [string]: number } = {}
 local warnedFollow: { [string]: boolean } = {}
@@ -1286,6 +1291,26 @@ local function followRate(entry: Live, rate: number)
 	end
 end
 
+-- Remembers a sound under the play that started it, first dropping every sound whose holder is gone.
+local function keepSound(playId: number, started: Sound)
+	for id, kept in pairs(playSounds) do
+		for index = #kept, 1, -1 do
+			if kept[index].Parent == nil then
+				table.remove(kept, index)
+			end
+		end
+		if #kept == 0 then
+			playSounds[id] = nil
+		end
+	end
+	local list = playSounds[playId]
+	if list == nil then
+		list = {}
+		playSounds[playId] = list
+	end
+	table.insert(list, started)
+end
+
 local function activate(item: Pending, now: number)
 	local id = item.Id
 	local layer = item.Layer
@@ -1361,7 +1386,11 @@ local function activate(item: Pending, now: number)
 		-- Anchored to the part rather than to a point, so a tail flies with the body it is the tail of.
 		-- The Sound is parented to a pooled part; SoundController's Debris net destroys the Sound itself,
 		-- so the part goes back to the pool clean.
-		sound.play(key, position, { Fit = if layer.Fit == true then item.Seconds else nil, Anchor = anchor })
+		local started: Sound? =
+			sound.play(key, position, { Fit = if layer.Fit == true then item.Seconds else nil, Anchor = anchor })
+		if started ~= nil then
+			keepSound(item.PlayId, started)
+		end
 		local duck = layer.Duck
 		if duck ~= nil and duck > 0 then
 			sound.duck(duck)
@@ -1720,11 +1749,12 @@ end
 --------------------------------------------------------------------------------------------------
 
 -- Queues every layer of `id` against `context`. Returns false for an unknown id, which the caller logs
--- once; a missing timeline must not stop the packet that asked for it from doing everything else.
-function VfxTimeline.play(id: string, context: Context): boolean
+-- once; a missing timeline must not stop the packet that asked for it from doing everything else. Returns
+-- true and the play's id otherwise, which is what VfxTimeline.cancel takes back.
+function VfxTimeline.play(id: string, context: Context): (boolean, number?)
 	local timeline = VfxTimelineConfig.Timelines[id]
 	if timeline == nil then
-		return false
+		return false, nil
 	end
 	local steady = VfxTimelineConfig.steady(timeline)
 	local now = clockOf(steady)
@@ -1776,7 +1806,41 @@ function VfxTimeline.play(id: string, context: Context): boolean
 			end
 		end
 	end
-	return true
+	return true, playId
+end
+
+-- Takes back a play the server called off before it was due -- a Forger's wind-up cut by a stagger or by its
+-- death (D-133): nothing of it still to come is drawn, and what it has on screen goes on the next frame. A
+-- warning left painted after its blow was dropped tells a player to dodge nothing, and so does one still
+-- heard: the sounds it started are stopped. False when nothing of that play was left.
+function VfxTimeline.cancel(playId: number): boolean
+	local found = false
+	local started = playSounds[playId]
+	if started ~= nil then
+		playSounds[playId] = nil
+		for _, playing in ipairs(started) do
+			if playing.Parent ~= nil then
+				playing:Stop()
+				found = true
+			end
+		end
+	end
+	local index = 1
+	while index <= #pending do
+		if pending[index].PlayId == playId then
+			table.remove(pending, index)
+			found = true
+		else
+			index += 1
+		end
+	end
+	for _, entry in ipairs(live) do
+		if entry.PlayId == playId then
+			entry.EndsAt = clockOf(entry.Steady)
+			found = true
+		end
+	end
+	return found
 end
 
 -- Brings the play carrying `shot` down at `point`, where the server burst it or where it fizzled (D-114).

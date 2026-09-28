@@ -7,10 +7,11 @@
 -- new. Movement stays the player's own -- a sideways dash while locked is a sideways dodge.
 --
 -- What a lock can take is what the player can hurt: in a match, the other team's living players; in the
--- hub, the training proofs; in the World Boss arena, the boss. It lets go when the target dies, leaves,
--- goes out of reach or stops being an opponent, when the local character dies or is eliminated, and when
--- a menu opens (the key that would let go is unbound behind it). A target knocked down is kept: the fall
--- after a finisher is the moment to stay on them. It is not taken, though, while it lies there.
+-- hub, the training proofs; in the World Boss arena, the boss; in the Battleground, the Forgers. It lets
+-- go when the target dies, leaves, goes out of reach or stops being an opponent, when the local character
+-- dies or is eliminated, and when a menu opens (the key that would let go is unbound behind it). A target
+-- knocked down is kept: the fall after a finisher is the moment to stay on them. It is not taken, though,
+-- while it lies there.
 --
 -- One loop, on PreSimulation: the facing is written just before physics steps, so the server's next
 -- look at the character already faces the target.
@@ -24,6 +25,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local BotConfig = require(Shared.Config.BotConfig)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local LockMarker = require(UI.components.LockMarker)
@@ -35,7 +37,7 @@ local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local log = Log.new("LockOnController")
 
 type Deps = { Feel: any, InputController: any, MatchController: any }
-type Kind = "Player" | "Proof" | "Boss"
+type Kind = "Player" | "Proof" | "Boss" | "Bot"
 type Lock = { Model: Model, Humanoid: Humanoid, Root: BasePart, Kind: Kind }
 
 local ACTION = "LockOn"
@@ -87,7 +89,8 @@ end
 
 -- Every opponent this client may lock right now. In a match, the other teams' living players -- and
 -- nothing at all for a local player who is out and watching a teammate, or before the snapshot has
--- said which team is theirs. Outside one, the proofs and the boss: the hub has no fight between players.
+-- said which team is theirs. Outside one, the proofs, the boss and the Forgers: the hub and the
+-- Battleground have no fight between players.
 local function opponents(): { Lock }
 	local out: { Lock } = {}
 	local match = matchController.getMatch()
@@ -122,6 +125,13 @@ local function opponents(): { Lock }
 	end
 	for _, model in ipairs(CollectionService:GetTagged(WorldBossConfig.Boss.Tag)) do
 		local lock = lockOf(model, "Boss")
+		if lock ~= nil then
+			table.insert(out, lock)
+		end
+	end
+	-- A Forger keeps its tag until its body is gone, so a corpse is refused by its health, like any other.
+	for _, model in ipairs(CollectionService:GetTagged(BotConfig.Tag)) do
+		local lock = lockOf(model, "Bot")
 		if lock ~= nil then
 			table.insert(out, lock)
 		end
@@ -257,6 +267,8 @@ local function holds(lock: Lock): boolean
 		return Players:GetPlayerFromCharacter(lock.Model) ~= nil
 	elseif lock.Kind == "Proof" then
 		return CollectionService:HasTag(lock.Model, GameConfig.Enemy.Tag)
+	elseif lock.Kind == "Bot" then
+		return CollectionService:HasTag(lock.Model, BotConfig.Tag)
 	end
 	return CollectionService:HasTag(lock.Model, WorldBossConfig.Boss.Tag)
 end

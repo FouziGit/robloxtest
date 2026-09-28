@@ -853,3 +853,31 @@ Balayage aux largeurs exactes, la crue et le refuge de l'Éruption dans leurs de
 plaques couchées et orientées. Tant que les PNG ne sont pas en ligne, ce sont des plaques nues ; l'image
 telle qu'elle est écrite ici reste à voir. Les dix-neuf glyphes de la passe 4 restent, eux, non éprouvés
 en jeu.
+
+---
+
+# Les Faussaires
+
+## `ForgerTell` — le coup qui vient (D-131, D-133)
+
+**Ce qu'il doit faire sentir.** Qu'un coup arrive, d'où, jusqu'où et quand, pendant la demi-seconde que
+le serveur attend avant de frapper. C'est le seul avertissement d'un combat contre la page : un Faussaire
+n'a pas de visage, et l'animation seule arrive trop tard pour qu'on y réagisse.
+
+**Ce qu'il a remplacé.** Rien : les Faussaires sont nouveaux.
+
+**Comment il est construit.** La grammaire des télégraphes de l'Effacement, à l'encre du corps du
+Faussaire, jamais dans son rouge. Le rectangle que le serveur jugera — la boîte d'un coup, la ligne d'un
+tir et sa largeur, rayon de la cible compris — est peint dès la première image (`TelegraphBar` plein-bord,
+mesuré par `Radius` et `Reach` du paquet), puis rempli en deux moitiés qui foncent du Faussaire vers le
+bord ; le bord est réglé d'un stud, ce qui dit où s'arrête une ligne de soixante studs. La fenêtre est
+celle du paquet (`Window`), donc le coup tombe quand la peinture est pleine, pour chaque étape d'un
+enchaînement. À la fin, une tache d'encre éclate à la main qui frappe et un éclat de craie — la couleur
+des barres du Faussaire — s'ouvre dessus : l'instant où il fallait avoir bougé. La peinture se lève en un
+quart de seconde quand le coup tombe ; ce que le coup laisse, c'est le trait du poing (`Melee`) ou le
+rayon (`Strike`). Joué sans lumière (`Unlit`) : seul le cœur d'un glyphe brille. Le son est
+l'avertissement de l'Effacement étiré à la fenêtre, plus bas (`ForgerWarn`).
+
+**Pas encore vu.** Ni au labo ni dans un client vivant : les planches, les notes et les deux tours de la
+recette `vellum-vfx` restent à faire, et les Faussaires ne sortent pas sans. `tests/ForgerTell.spec.luau`
+tient déjà la couverture de chaque figure, la fenêtre et les champs du paquet.

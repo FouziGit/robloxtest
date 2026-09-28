@@ -32,6 +32,15 @@ WorldConfig.Colors = {
 -- The one material. docs/ART_BIBLE.md: SmoothPlastic at zero reflectance; no metal, no glass, no neon.
 WorldConfig.Material = "SmoothPlastic"
 
+-- Everything drawn flat on a floor -- a ruling, a seal, a wash -- is a slab this thick, sunk INTO the floor
+-- so only its top sliver shows and nothing stands proud of the ground a character walks on.
+WorldConfig.FlatThicknessStuds = 0.2
+-- Where each of those slabs puts its top face, in studs above the floor's. Every rung is under the 0.03 an
+-- effect's ground mark lifts itself by (src/client/Controllers/VfxTimeline.luau), so a burn is never drawn
+-- underneath a piece of decoration -- and each rung clears the one below it, because two coplanar faces
+-- flicker. One ladder for every builder: the hub, its portal gates and the Battleground.
+WorldConfig.Ladder = { Training = 0.008, Rule = 0.016, SealRim = 0.024, Seal = 0.028 }
+
 -- The hub: a page with an ink border, a chalk seal at its centre for the spawn, a grey ring for the
 -- training ground, charcoal furniture.
 WorldConfig.Hub = {
@@ -72,6 +81,9 @@ WorldConfig.HubAnchors = {
 	Panel = "Panel",
 	BoardGui = "Board",
 	Entries = "Entries",
+	-- The two portal gates (PortalConfig): the way to the Battleground and to the Erasure.
+	BattlegroundPortal = "BattlegroundPortal",
+	BossPortal = "BossPortal",
 }
 
 -- The hub boards' face (D-128), in the pixels of a SurfaceGui drawn at PixelsPerStud: the server's rows and
@@ -136,6 +148,70 @@ WorldConfig.Proof = {
 	-- The cross: arm length, arm thickness, depth; and where it sits on the body's front face.
 	MarkStuds = { 1.1, 0.16, 0.12 },
 	MarkOffset = { 0, 0.4, -0.56 },
+}
+
+-- A portal gate (D-130): an ink gateway over a chalk seal on an ink rim. In the space of its base -- a point
+-- on the floor's top face whose LookVector points to where players come from -- with R the zone's radius
+-- (PortalConfig.ZoneRadiusStuds): the seal is 2R across, so the circle a player sees is exactly the zone the
+-- server measures, and the rim shows SealRimStuds around it; the two posts stand behind the circle, their
+-- inner faces OpeningStuds apart and their front faces on its back edge; the lintel, LintelStuds square,
+-- spans both posts' outer faces on top of them; the panel hangs in front of the lintel and carries the
+-- emblem. tests/Hub.spec.luau and tests/Config.spec.luau place that footprint in the hub and in the arena.
+WorldConfig.Portal = {
+	Frame = "Ink",
+	Seal = "Chalk",
+	SealRim = "Ink",
+	Emblem = "Ink",
+	PostStuds = { 1.5, 12, 1.5 },
+	OpeningStuds = 11,
+	LintelStuds = 1.5,
+	PanelStuds = { 6, 4, 0.5 },
+	SealRimStuds = 1.2,
+	-- Rotations (degrees) of the bars inside each gate's emblem ring, as on the hub's pedestals: shapes only,
+	-- never text, so every viewer reads the same sign and each client words it in its own language.
+	Emblems = { Battleground = { -60, 0, 60 }, WorldBoss = { 90 }, Return = { 0 } } :: { [string]: { number } },
+}
+
+-- The Battleground (D-131): a page walled in bone like an arena, ruled in ink like the hub, with bone pillars,
+-- a chalk stele at its centre and ink cover. The camp, where players arrive and heal, is washed grey behind
+-- an ink line. Every Role of BattlegroundLayout's boxes is a key of this table.
+WorldConfig.Battleground = {
+	Floor = "Page",
+	Wall = "Bone",
+	WallRule = "Ink",
+	Rule = "Ink",
+	Cover = "Ink",
+	Pillar = "Bone",
+	PillarRule = "Ink",
+	Stele = "Chalk",
+	SteleRule = "Ink",
+	Camp = "Wash",
+	CampLine = "Ink",
+	KillZone = "Page",
+	Marker = "Page",
+	CampTransparency = 0.4,
+}
+
+-- The Forgers (D-131): figures of ink -- writing that fights back -- told apart by the chalk bars on their
+-- chests, never by a colour. Each bar is welded to the UpperTorso's front at Offset, sized by Size, both
+-- scaled with the tier's BotConfig Scale.
+WorldConfig.Forgers = {
+	Body = "Ink",
+	Mark = "Chalk",
+	Marks = {
+		-- One stroke: a smudge.
+		Smudger = { { Size = { 1.2, 0.22, 0.12 }, Offset = { 0, 0.2, -0.55 } } },
+		-- A cross: a nib.
+		Quill = {
+			{ Size = { 1.1, 0.16, 0.12 }, Offset = { 0, 0.2, -0.55 } },
+			{ Size = { 0.16, 1.1, 0.12 }, Offset = { 0, 0.2, -0.55 } },
+		},
+		-- Two strokes, one over the other: writing over writing.
+		Overwriter = {
+			{ Size = { 1.3, 0.16, 0.12 }, Offset = { 0, 0.45, -0.55 } },
+			{ Size = { 1.3, 0.16, 0.12 }, Offset = { 0, -0.05, -0.55 } },
+		},
+	} :: { [string]: { { Size: Triple, Offset: Triple } } },
 }
 
 -- L'Effacement. A blank figure -- the absence of writing -- inside the hull WorldBossConfig.Boss.BodySize

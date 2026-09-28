@@ -326,6 +326,17 @@ describe("the wiring of a lock", function()
 		)
 		expect(has(opponents, "CollectionService:GetTagged(GameConfig.Enemy.Tag)")).toBe(true)
 		expect(has(opponents, "CollectionService:GetTagged(WorldBossConfig.Boss.Tag)")).toBe(true)
+		-- The Forgers, outside a match only (D-131): a lock on one is held while it keeps its own tag, which it
+		-- does until its body is gone, so a corpse is let go by its health like any other.
+		local match = opponents:find("if match ~= nil then", 1, true)
+		local forgers = opponents:find(
+			'for _, model in ipairs(CollectionService:GetTagged(BotConfig.Tag)) do local lock = lockOf(model, "Bot")',
+			1,
+			true
+		)
+		expect(match).never.toBe(nil)
+		expect(forgers).never.toBe(nil)
+		expect((match :: number) < (forgers :: number)).toBe(true)
 		local lockOf = functionIn(CONTROLLER, "local function lockOf(")
 		expect(has(lockOf, "model == player.Character then return nil end")).toBe(true)
 		expect(has(lockOf, "humanoid.Health <= 0")).toBe(true)
@@ -340,6 +351,9 @@ describe("the wiring of a lock", function()
 		expect(has(holds, "return Players:GetPlayerFromCharacter(lock.Model) ~= nil")).toBe(true)
 		expect(has(holds, "return CollectionService:HasTag(lock.Model, GameConfig.Enemy.Tag)")).toBe(true)
 		expect(has(holds, "return CollectionService:HasTag(lock.Model, WorldBossConfig.Boss.Tag)")).toBe(true)
+		expect(has(holds, 'elseif lock.Kind == "Bot" then return CollectionService:HasTag(lock.Model, BotConfig.Tag)')).toBe(
+			true
+		)
 	end)
 
 	it("binds above the default camera, and shift-lock no longer shares the dash's key", function()

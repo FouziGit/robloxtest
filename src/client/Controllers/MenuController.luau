@@ -9,7 +9,9 @@
 -- a single UiOpen/UiClose is heard per transition whatever the entry point.
 --
 -- Matches drive two transitions: the screen in front is closed when a match starts (a suspended input
--- would make the countdown unplayable) and the result screen is opened when one ends.
+-- would make the countdown unplayable) and the result screen is opened when one ends. A portal that has just
+-- moved the player closes it too (TravelController.Travelled): a circle takes whoever stands in it, menu open
+-- or not, and nobody may arrive among the Forgers or before the Erasure with their input suspended.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -48,6 +50,7 @@ type Deps = {
 	SoundController: any,
 	MatchController: any,
 	HudController: any,
+	TravelController: any,
 }
 
 local SCREENS_FOLDER = "screens"
@@ -70,6 +73,7 @@ local MenuController = {}
 
 local inputController: any
 local matchController: any
+local travelController: any
 local screenDeps: { [string]: any }
 local screens: { [string]: Screen } = {}
 local current: string? = nil
@@ -185,6 +189,7 @@ end
 function MenuController.Init(deps: Deps)
 	inputController = deps.InputController
 	matchController = deps.MatchController
+	travelController = deps.TravelController
 	screenDeps = {
 		Localize = deps.Localize,
 		ClientData = deps.ClientData,
@@ -203,6 +208,7 @@ function MenuController.Start()
 	GuiService.MenuOpened:Connect(MenuController.close)
 	matchController.MatchChanged:Connect(onMatchChanged)
 	matchController.MatchEnded:Connect(onMatchEnded)
+	travelController.Travelled:Connect(MenuController.close)
 	log.info("started")
 end
 

@@ -48,6 +48,11 @@ ProgressionConfig.XP = {
 	QuestDaily = 250,
 	QuestWeekly = 900,
 	FirstWinOfDay = 500,
+	-- The Battleground's Forgers, keyed by BotConfig's RewardKey. XP has no cap there; their Folios below stop
+	-- at BotConfig.Credit.DailyFolioCap a day.
+	BotSmudger = 30,
+	BotQuill = 35,
+	BotOverwriter = 100,
 }
 
 -- Folios rewards.
@@ -62,6 +67,9 @@ ProgressionConfig.Folios = {
 	QuestDaily = 50,
 	QuestWeekly = 200,
 	FirstWinOfDay = 100,
+	BotSmudger = 1,
+	BotQuill = 1,
+	BotOverwriter = 4,
 }
 
 -- Battlepass XP mirrors player XP with this multiplier.

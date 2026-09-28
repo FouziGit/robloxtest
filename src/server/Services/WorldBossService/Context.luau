@@ -1,6 +1,7 @@
 --!strict
 -- Shared types, constants and Workspace queries of the WorldBossService folder. Every submodule
--- receives the same injected Deps table and keeps no state here.
+-- receives the same injected Deps table and keeps no state here; the fight itself is the Slot record,
+-- which WorldBossService creates and hands to the submodules that read or change it.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +14,7 @@ local MatchConfig = require(Shared.Config.MatchConfig)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
+local WorldBossMode = require(script.Parent.Parent.Parent.GameModes.WorldBossMode)
 
 -- Mirrors ArenaService.Arena: acquire() validates the spawn pads and the kill zone before handing one
 -- over, so both are guaranteed here. The Boss arena carries its player ring in Spawns[1].
@@ -23,6 +25,14 @@ export type Arena = {
 	Spawns: { { BasePart } },
 	KillZone: BasePart,
 }
+
+-- Which fight holds the one encounter slot: the scheduled event, or a practice one player opened from the
+-- hub's gate (D-132). There is never more than one fight, so the kind is a property of the slot.
+export type Kind = "Event" | "Practice"
+
+-- How a participant was let go (Audience.release): through a gate, or taken by a ranked match. Only a walk-out
+-- through a gate costs the player who opened a practice its early-empty penalty (Admission.closedEmpty).
+export type Release = "Gate" | "Match"
 
 export type ProfileData = Types.ProfileData
 export type DataApi = {
@@ -112,6 +122,25 @@ export type Boss = {
 	ContactNextAt: { [number]: number }, -- user id -> os.clock of its next contact tick
 }
 
+-- The one encounter slot and the fight it holds (D-132). WorldBossService creates the record once and hands
+-- the same table to every submodule that reads or changes the fight: its fields are reassigned as fights open
+-- and close, the table never is, so no submodule can hold a stale copy of the fight.
+export type Slot = {
+	Kind: Kind,
+	State: WorldBossMode.State?, -- non-nil from the announce (or a practice's opening) to the end of the cleanup
+	Boss: Boss?, -- non-nil from the spawn to the end of the cleanup
+	Trove: TroveType?, -- what the fight owns: the arena, the boss model, its health connection
+	Participants: { number }, -- user ids, in ring-spawn order
+	Departed: { [number]: Release }, -- participants let go since, and how (a gate, or a practice's by a match)
+	Reentries: { [number]: number }, -- times each participant walked back in through the hub's gate
+	GrowthOwed: { [number]: true }, -- practice joiners it has not grown for yet: their first hit does (Admission)
+	Starter: number?, -- who opened the practice in the slot, and when (BossPractice.startPenalty)
+	StartedAt: number,
+	EmptySince: number?, -- when a practice's arena last emptied, while it waits for a returner
+	PhaseEndsAt: number,
+	NextEventAt: number, -- when the scheduled event is next announced
+}
+
 local Context = {}
 
 Context.ArenaId = "Boss" -- the MatchConfig.Arenas entry ArenaService builds the event arena from
@@ -132,6 +161,25 @@ Context.SpawnVfxId = "BossSpawn"
 Context.PhaseVfxId = "BossPhase"
 Context.DefeatVfxId = "BossDefeated"
 Context.Epsilon = 1e-3
+
+-- An empty slot, the event's, with nothing scheduled yet.
+function Context.newSlot(): Slot
+	return {
+		Kind = "Event",
+		State = nil,
+		Boss = nil,
+		Trove = nil,
+		Participants = {},
+		Departed = {},
+		Reentries = {},
+		GrowthOwed = {},
+		Starter = nil,
+		StartedAt = 0,
+		EmptySince = nil,
+		PhaseEndsAt = 0,
+		NextEventAt = 0,
+	}
+end
 
 -- Root of a player's live character, or nil while dead, unloaded or gone.
 function Context.liveRoot(player: Player): BasePart?
@@ -177,13 +225,29 @@ function Context.eligiblePlayers(match: MatchApi): { Player }
 	return result
 end
 
+-- The root of `player`'s live character while it stands in the arena around `center`, nil otherwise.
+local function rootInArena(player: Player, center: Vector3): BasePart?
+	local root = Context.liveRoot(player)
+	if root ~= nil and (root.Position - center).Magnitude <= Context.ArenaReachStuds then
+		return root
+	end
+	return nil
+end
+
+-- Whether `player` is alive and standing in the arena around `center`: what the end of a fight asks before it
+-- sends anybody back to the hub, so a participant who has since gone to a ranked match, the Battleground or
+-- the hub is left where they are.
+function Context.inArena(player: Player, center: Vector3): boolean
+	return rootInArena(player, center) ~= nil
+end
+
 -- Participants still standing in the arena. A participant who dies respawns at the hub SpawnLocation,
 -- so the boss must never take the whole world into account: it would walk out of its own arena.
 function Context.arenaRoots(userIds: { number }, center: Vector3): { BasePart }
 	local roots: { BasePart } = {}
 	for _, player in ipairs(Context.livePlayers(userIds)) do
-		local root = Context.liveRoot(player)
-		if root ~= nil and (root.Position - center).Magnitude <= Context.ArenaReachStuds then
+		local root = rootInArena(player, center)
+		if root ~= nil then
 			table.insert(roots, root)
 		end
 	end

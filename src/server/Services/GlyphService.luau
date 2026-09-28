@@ -89,7 +89,10 @@ type QuestApi = { report: (player: Player, event: string, amount: number) -> () 
 -- no-cost casting into a ranked match or a World Boss, where it takes real rating and real rewards from
 -- other players.
 type MatchApi = { isInMatch: (player: Player) -> boolean }
-type WorldBossApi = { isLive: () -> boolean }
+-- isLive is the scheduled event only; a practice's participants are refused through isEngaged (D-132).
+type WorldBossApi = { isLive: () -> boolean, isEngaged: (player: Player) -> boolean }
+-- The Battleground pays for every Forger (D-131): a member standing on its page is refused free casting too.
+type BattlegroundApi = { isInside: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -102,6 +105,7 @@ type Deps = {
 	Quest: QuestApi,
 	Match: MatchApi,
 	WorldBoss: WorldBossApi,
+	Battleground: BattlegroundApi,
 	-- The skin a caster wears on a glyph, written into the packets of that cast (D-109).
 	Cosmetic: { skinShade: (player: Player, glyphId: string) -> number },
 }
@@ -131,6 +135,7 @@ local progression: ProgressionApi
 local quest: QuestApi
 local match: MatchApi
 local worldBoss: WorldBossApi
+local battleground: BattlegroundApi
 
 local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 -- Per player: glyph id -> os.clock timestamp at which it can be cast again.
@@ -145,10 +150,11 @@ local chainLength: { [Player]: number } = {}
 -- A developer account testing the roster in the hub: no ink, and cooldowns collapsed to
 -- DeveloperConfig.MinRecastSeconds.
 --
--- Deliberately refused inside a ranked match and during a World Boss event. Both pay out to other
--- players: a free-casting account would take real Elo from a real opponent and write it to the live
--- seasonal ladder, and would swallow a share of a boss payout that is divided between participants. The
--- hub is where the roster is meant to be tried, and the hub pays nobody.
+-- Deliberately refused inside a ranked match, during a World Boss event, in a practice against the Erasure
+-- and on the Battleground's page. All of them pay out: a free-casting account would take real Elo from a real
+-- opponent and write it to the live seasonal ladder, would swallow a share of a boss payout that is divided
+-- between participants, and would farm a practice's pay or the Forgers' XP and Folios at no cost. The hub is
+-- where the roster is meant to be tried.
 --
 -- The CastGlyph token bucket still applies: it is flood protection against an untrusted client, not an
 -- economy rule, so a developer is throttled to its refill rate like everybody else. That bounds the real
@@ -160,7 +166,10 @@ local function freeCasting(player: Player): boolean
 	if not DeveloperConfig.isDeveloper(player.UserId, player.Name) then
 		return false
 	end
-	return not match.isInMatch(player) and not worldBoss.isLive()
+	return not match.isInMatch(player)
+		and not worldBoss.isLive()
+		and not worldBoss.isEngaged(player)
+		and not battleground.isInside(player)
 end
 
 local function cooldownsOf(player: Player): { [string]: number }
@@ -402,6 +411,7 @@ function GlyphService.Init(deps: Deps)
 	quest = deps.Quest
 	match = deps.Match
 	worldBoss = deps.WorldBoss
+	battleground = deps.Battleground
 end
 
 function GlyphService.Start()

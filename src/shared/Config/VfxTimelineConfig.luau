@@ -8917,6 +8917,168 @@ local BOSS_DEFEATED: Timeline = {
 	},
 }
 
+-- The Forgers' tell (D-131, D-133). Every blow a Forger swings or looses is announced by the server for the
+-- whole of its wind-up, on the aim it froze when the wind-up began (BattlegroundService's Attacks.windup): the
+-- one warning a fight against the page's own writing gives, so it has to be a rule a player reads from any
+-- camera in the half second it lasts, and it is drawn on the server's time, never held by an impact's freeze.
+--
+-- It is the Erasure's grammar in the page's ink: the floor the blow will cover painted from the first frame --
+-- a rectangle along the aim, a swing's box or a bolt's line at its width -- filling from the Forger to its far
+-- edge as the blow comes, that edge ruled so a sixty-stud line says where it stops, and the window heard in the
+-- boss's own stretched warning, quieter. Never in the boss's red: that colour is the Erasure's, and ten Forgers
+-- painting it would teach a player to stop reading it. At the very end the hand that strikes flashes chalk --
+-- the Forger's own mark, on a blot of ink so it reads against the page behind it -- which is the moment the
+-- player should already have moved.
+--
+-- Measured on the packet, never authored in studs: Radius is half the width the server hits and Reach how far
+-- along the aim it hits, from the Forger (VfxLibrary.ForgerTell), and tests/ForgerTell.spec.luau samples every
+-- tier to prove the paint covers the blow. Played unlit: a Forger is no glyph, and only a glyph's core shines.
+-- The paint lifts off the page as the blow lands, in a quarter of a second, rather than lying where it would
+-- read as floor that still hurts; what the blow itself leaves is the Melee stroke's and the Strike's.
+local FORGER_TELL: Timeline = {
+	Intent = "The floor a Forger's blow will cover, inked from the first frame and filling to its edge as it comes",
+	Phases = {
+		{
+			Name = "Anticipation",
+			-- For a play that carried no window: the shortest first wind-up any Forger shows
+			-- (BotConfig.MinWindupSeconds).
+			Duration = 0.5,
+			Window = true,
+			Layers = {
+				-- The warning, stretched to the window: a shorter wind-up is the same sound, higher and faster.
+				{ Kind = "Sound", At = 0, For = 1, Sfx = "ForgerWarn", Fit = true },
+				-- The rule: the whole floor the blow covers, readable from its first frame, darkening toward it.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 2,
+					Span = 1,
+					Offset = { 0, 0, 0.5 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.7,
+					EndTransparency = 0.4,
+				},
+				-- The fill: the near half, then the far half, each darkening as it comes -- the ink running from
+				-- the Forger out to the edge the blow reaches.
+				{
+					Kind = "Mark",
+					At = 0.04,
+					For = 0.96,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 2,
+					Span = 0.5,
+					Offset = { 0, 0.05, 0.25 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.62,
+					EndTransparency = 0.15,
+				},
+				{
+					Kind = "Mark",
+					At = 0.4,
+					For = 0.6,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 2,
+					Span = 0.5,
+					Offset = { 0, 0.05, 0.75 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.62,
+					EndTransparency = 0.15,
+				},
+				-- The far edge, ruled a stud across whatever the reach: where the blow stops.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 1,
+					Ease = "Sine",
+					EaseDirection = "In",
+					Texture = "TelegraphBar",
+					Size = 2,
+					Span = 1,
+					Offset = { 0, 0.1, 1 },
+					SizeFrom = "Radius",
+					OffsetFrom = "Reach",
+					Transparency = 0.4,
+					EndTransparency = 0.1,
+				},
+				-- The hand that strikes: a blot of ink popping open, and the chalk flash on it.
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					Role = "Ink",
+					At = 0.86,
+					For = 0.08,
+					Offset = { 0, 0, 0.3 },
+					Texture = "InkBlot",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.16, 0.18 },
+					Spread = 0,
+					Size = 0.4,
+					EndSize = 2.4,
+					Pop = 0.25,
+					Transparency = 0.05,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Emitter",
+					Anchor = "Hand",
+					At = 0.88,
+					For = 0.08,
+					Offset = { 0, 0, 0.4 },
+					Texture = "InkBlot",
+					Burst = 1,
+					Speed = { 0, 0 },
+					Lifetime = { 0.12, 0.14 },
+					Spread = 0,
+					Size = 0.2,
+					EndSize = 1.4,
+					Pop = 0.25,
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+			},
+		},
+		{
+			Name = "Residue",
+			Duration = 0.25,
+			Layers = {
+				-- The paint lifting off the page as the blow lands, above whatever tell the next blow of a chain
+				-- has already laid there.
+				{
+					Kind = "Mark",
+					At = 0,
+					For = 0.25,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Texture = "TelegraphBar",
+					Size = 2,
+					Span = 1,
+					Offset = { 0, 0.15, 0.5 },
+					SizeFrom = "Radius",
+					SpanFrom = "Reach",
+					OffsetFrom = "Reach",
+					Transparency = 0.3,
+					EndTransparency = 1,
+				},
+			},
+		},
+	},
+}
+
 -- The four KillEffect cosmetics (CosmeticConfig, D-109): what a killer's page does where the victim fell.
 -- They are the one family of timelines that is never a pigment. A kill is not a spell, and a kill effect
 -- drawn in a school's colour would put a fifth attack on screen that hurts nobody (docs/ART_BIBLE.md
@@ -9268,6 +9430,7 @@ VfxTimelineConfig.Timelines = {
 	BossFury = BOSS_FURY,
 	BossPhase = BOSS_PHASE,
 	BossDefeated = BOSS_DEFEATED,
+	ForgerTell = FORGER_TELL,
 	KillTear = KILL_TEAR,
 	KillRedaction = KILL_REDACTION,
 	KillScraps = KILL_SCRAPS,

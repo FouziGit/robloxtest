@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local BotConfig = require(Shared.Config.BotConfig)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
@@ -201,9 +202,11 @@ function CosmeticService.skinShade(player: Player, glyphId: string): number
 end
 
 -- A kill by a player who wears a KillEffect: the effect is drawn where the victim fell, facing away from
--- the killer. Only a player's character or a training proof: the World Boss is killed by the whole raid,
--- and its last hit already ends on BossDefeated -- one player's cosmetic over it is two endings at once.
--- Training proofs count, because the hub is where a player sees what they bought.
+-- the killer. Only a player's character, a training proof or a Forger: the World Boss is killed by the whole
+-- raid, and its last hit already ends on BossDefeated -- one player's cosmetic over it is two endings at once.
+-- Training proofs count, because the hub is where a player sees what they bought, and the Battleground's
+-- Forgers because they are the kills a player makes most (D-131). A dead Forger keeps its tag until its body
+-- is removed, so this holds whichever of Died and Killed the engine delivers first.
 local function onKilled(sourceUserId: number, victimModel: Model)
 	if sourceUserId == 0 then
 		return
@@ -211,6 +214,7 @@ local function onKilled(sourceUserId: number, victimModel: Model)
 	if
 		Players:GetPlayerFromCharacter(victimModel) == nil
 		and not CollectionService:HasTag(victimModel, GameConfig.Enemy.Tag)
+		and not CollectionService:HasTag(victimModel, BotConfig.Tag)
 	then
 		return
 	end

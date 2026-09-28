@@ -5,14 +5,20 @@
 --   * each leaderboard board's title in its band, and its empty state while the ladder has no row --
 --     the boards used to stand as blank cream panels, and a blank panel says nothing, not "no one yet";
 --   * the queue terminal's and the shop kiosk's names above them, and a prompt at each that opens the
---     Play or the Shop screen -- they looked like the way in to a match or the shop and did nothing.
+--     Play or the Shop screen -- they looked like the way in to a match or the shop and did nothing;
+--   * over every portal gate (D-130), wherever it stands -- the hub's two, the Battleground's camp, the
+--     Erasure's arena -- where its circle leads and what it asks: stay in it. No prompt and no remote: the
+--     server moves whoever stands in the circle (PortalService), so there is nothing here to press.
 -- Everything is built into this player's PlayerGui (a SurfaceGui or BillboardGui adorned to the server's
--- part, and a prompt that only this client has), and rebuilt when the server rebuilds the hub.
+-- part, and a prompt that only this client has), and rebuilt when the server rebuilds the hub; a gate's
+-- words come and go with its seal (PortalConfig.SealTag), which is how the arena copies and anything the
+-- place streams in or out are worded without a list of them.
 --
 -- A prompt is live only when its key is free: not while a screen is open (the key would swap screens, and
 -- abort a rebind capture waiting for that very key), and not while the player has bound that key to an
 -- action (InputConfig.HubPrompt is a rebindable key: E cast a glyph and opened the shop at once).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -23,6 +29,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
+local PortalConfig = require(Shared.Config.PortalConfig)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
@@ -44,6 +51,11 @@ local PLATE_SIZE = UDim2.fromOffset(280, 52)
 local PLATE_STUDS_ABOVE = 5
 local PLATE_MAX_DISTANCE = 160
 local PLATE_STROKE = 2
+-- A gate's plate: two lines, its destination in the title face and what the circle asks under it, standing
+-- clear over the lintel (WorldConfig.Portal: the posts are twelve studs and the lintel a stud and a half).
+local SEAL_PLATE_SIZE = UDim2.fromOffset(300, 78)
+local SEAL_PLATE_STUDS_ABOVE = 15
+local SEAL_NAME_SHARE = 0.6
 -- The prompt at a pedestal: close enough that it is the one the player walks up to.
 local PROMPT_DISTANCE_STUDS = 12
 
@@ -56,6 +68,8 @@ local clientData: any
 local signs = Trove.new()
 local gui: Folder? = nil
 local prompts: { ProximityPrompt } = {}
+-- The words over each gate standing in the world, by its seal.
+local sealSigns: { [BasePart]: typeof(Trove.new()) } = {}
 
 -- Whether the player bound one of the prompt's keys to an action.
 local function promptKeyTaken(): boolean
@@ -151,28 +165,23 @@ local function wordBoard(folder: Instance, boardId: string, trove: typeof(Trove.
 	refresh()
 end
 
--- A pedestal's name above it, and the prompt that opens its screen.
-local function wordPedestal(
-	folder: Instance,
-	anchor: string,
-	nameKey: string,
-	actionKey: string,
-	screen: string,
+-- A plate of page edged in ink, `above` studs over `adornee` and facing whoever looks at it: `name` in the
+-- title face, and under it `hint` when there is one. The size of a line of title text (or two) in screen
+-- pixels, so it reads at any distance on the hub and does not shrink with it. Named after what it words: the
+-- model `adornee` belongs to.
+local function namePlate(
+	adornee: BasePart,
+	name: string,
+	hint: string?,
+	above: number,
 	trove: typeof(Trove.new())
-)
-	local model = folder:WaitForChild(anchor, ANCHOR_WAIT_SECONDS)
-	local panel = if model ~= nil then model:WaitForChild(ANCHORS.Panel, ANCHOR_WAIT_SECONDS) else nil
-	if panel == nil or not panel:IsA("BasePart") then
-		log.warn("%s has no %s to word", anchor, ANCHORS.Panel)
-		return
-	end
-	local name = localize.t(nameKey)
-
+): BillboardGui
+	local owner = adornee.Parent
 	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "Sign_" .. anchor
-	billboard.Adornee = panel
-	billboard.Size = PLATE_SIZE
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, PLATE_STUDS_ABOVE, 0)
+	billboard.Name = "Sign_" .. (if owner ~= nil then owner.Name else adornee.Name)
+	billboard.Adornee = adornee
+	billboard.Size = if hint ~= nil then SEAL_PLATE_SIZE else PLATE_SIZE
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, above, 0)
 	billboard.MaxDistance = PLATE_MAX_DISTANCE
 	billboard.LightInfluence = 0
 	billboard.ResetOnSpawn = false
@@ -192,8 +201,33 @@ local function wordPedestal(
 	stroke.Parent = plate
 	plate.Parent = billboard
 	local label = textLabel("Name", name, Theme.Sizes.TextTitle, Theme.Colors.Text, plate)
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.fromScale(1, if hint ~= nil then SEAL_NAME_SHARE else 1)
+	if hint ~= nil then
+		local line = textLabel("Hint", hint, Theme.Sizes.TextBody, Theme.Colors.TextMuted, plate)
+		line.Position = UDim2.fromScale(0, SEAL_NAME_SHARE)
+		line.Size = UDim2.fromScale(1, 1 - SEAL_NAME_SHARE)
+	end
 	billboard.Parent = gui
+	return billboard
+end
+
+-- A pedestal's name above it, and the prompt that opens its screen.
+local function wordPedestal(
+	folder: Instance,
+	anchor: string,
+	nameKey: string,
+	actionKey: string,
+	screen: string,
+	trove: typeof(Trove.new())
+)
+	local model = folder:WaitForChild(anchor, ANCHOR_WAIT_SECONDS)
+	local panel = if model ~= nil then model:WaitForChild(ANCHORS.Panel, ANCHOR_WAIT_SECONDS) else nil
+	if panel == nil or not panel:IsA("BasePart") then
+		log.warn("%s has no %s to word", anchor, ANCHORS.Panel)
+		return
+	end
+	local name = localize.t(nameKey)
+	namePlate(panel, name, nil, PLATE_STUDS_ABOVE, trove)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Open_" .. screen
@@ -219,6 +253,46 @@ local function wordPedestal(
 	end)
 	prompt.Parent = panel
 	refreshPrompts()
+end
+
+-- The words over the gate `seal` stands at the foot of: where its circle leads and how to go there, in this
+-- player's language. A seal that names no destination this client knows is left unworded, and the log says so.
+local function wordSeal(seal: BasePart)
+	local id = seal:GetAttribute(PortalConfig.SealAttribute)
+	local zone = if type(id) == "string" then PortalConfig.Zones[id] else nil
+	if zone == nil then
+		log.warn(
+			"%s is a seal that leads nowhere: %s is %s",
+			seal:GetFullName(),
+			PortalConfig.SealAttribute,
+			tostring(id)
+		)
+		return
+	end
+	local trove = Trove.new()
+	sealSigns[seal] = trove
+	namePlate(seal, localize.t(zone.NameKey), localize.t(zone.HintKey), SEAL_PLATE_STUDS_ABOVE, trove)
+end
+
+local function unwordSeal(seal: BasePart)
+	local trove = sealSigns[seal]
+	if trove ~= nil then
+		sealSigns[seal] = nil
+		trove:Destroy()
+	end
+end
+
+-- A tagged part is worded while it stands in the Workspace, as PortalService only counts those.
+local function onSealAdded(instance: Instance)
+	if instance:IsA("BasePart") and instance:IsDescendantOf(Workspace) and sealSigns[instance] == nil then
+		wordSeal(instance)
+	end
+end
+
+local function onSealRemoved(instance: Instance)
+	if instance:IsA("BasePart") then
+		unwordSeal(instance)
+	end
 end
 
 -- Words the hub `folder` the server just built, replacing whatever worded the previous one.
@@ -261,6 +335,12 @@ function HubSignsController.Start()
 	local existing = Workspace:FindFirstChild(ANCHORS.Folder)
 	if existing ~= nil then
 		wordHub(existing)
+	end
+
+	CollectionService:GetInstanceAddedSignal(PortalConfig.SealTag):Connect(onSealAdded)
+	CollectionService:GetInstanceRemovedSignal(PortalConfig.SealTag):Connect(onSealRemoved)
+	for _, seal in ipairs(CollectionService:GetTagged(PortalConfig.SealTag)) do
+		onSealAdded(seal)
 	end
 	log.info("started")
 end

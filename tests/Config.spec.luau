@@ -1,18 +1,23 @@
 --!strict
 -- Invariants of the pure config modules.
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
+local BossPractice = require("../src/shared/Pure/BossPractice")
+local BotConfig = require("../src/shared/Config/BotConfig")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local ComboResolver = require("../src/shared/Pure/ComboResolver")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
+local Gate = require("./gate")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
+local PortalConfig = require("../src/shared/Config/PortalConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local RankTiers = require("../src/shared/Pure/RankTiers")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
@@ -21,6 +26,8 @@ local Spring = require("../src/shared/Pure/Spring")
 local Strings = require("../src/shared/Strings")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -595,7 +602,9 @@ describe("VfxConfig", function()
 			seen[id] = true
 			expect(VfxConfig.IdSet[id]).toBe(true)
 		end
-		expect(#VfxConfig.Ids).toBe(#VfxConfig.GlyphIds + #VfxConfig.CombatIds + #VfxConfig.BossIds)
+		expect(#VfxConfig.Ids).toBe(
+			#VfxConfig.GlyphIds + #VfxConfig.CombatIds + #VfxConfig.BossIds + #VfxConfig.ForgerIds
+		)
 		expect(VfxConfig.isId("NotAnEffect")).toBe(false)
 		for _, glyph in ipairs(GlyphConfig.Glyphs) do
 			expect(VfxConfig.isId(glyph.VfxId)).toBe(true)
@@ -655,6 +664,320 @@ describe("WorldBossConfig", function()
 			expect(axis).toBeGreaterThan(0)
 		end
 		expect(WorldBossConfig.Rewards.KillBonusShare).toBeGreaterThan(WorldBossConfig.Rewards.MinShareToReward)
+	end)
+end)
+
+-- The Forgers (D-131): an opponent a player can always outrun, that announces every blow for at least the
+-- time a player needs to read it, cannot be hovered over forever, and pays what the economy expects.
+describe("BotConfig", function()
+	local tiers = BotConfig.Tiers
+	-- The engine's default gravity, which the place keeps (tests/LockOn.spec.luau).
+	local GRAVITY = 196.2
+
+	it("walks every tier under a player's pace and tells every blow for at least the minimums", function()
+		-- Under half a second a tell is shorter than a human reaction: the blow is a coin flip, not a read.
+		expect(BotConfig.MinWindupSeconds).toBeGreaterThanOrEqual(0.5)
+		expect(BotConfig.MinChainGapSeconds).toBeGreaterThan(0)
+		local count = 0
+		for id, tier in pairs(tiers) do
+			count += 1
+			if tier.WalkSpeed >= GameConfig.Movement.WalkSpeed then
+				error(("%s walks at %d: a player could never kite it"):format(id, tier.WalkSpeed))
+			end
+			local melee = tier.Melee
+			local steps = #melee.Damage
+			expect(steps).toBeGreaterThanOrEqual(1)
+			expect(melee.WindupSeconds).toBeGreaterThanOrEqual(BotConfig.MinWindupSeconds)
+			-- A chain gap is the wind-up of a middle step, a finisher gap that of the last one.
+			if steps >= 3 then
+				expect(melee.ChainGapSeconds).toBeGreaterThanOrEqual(BotConfig.MinChainGapSeconds)
+			end
+			if steps >= 2 then
+				expect(melee.FinisherGapSeconds).toBeGreaterThanOrEqual(BotConfig.MinChainGapSeconds)
+			end
+			local bolt = tier.Bolt
+			if bolt ~= nil then
+				expect(bolt.WindupSeconds).toBeGreaterThanOrEqual(BotConfig.MinWindupSeconds)
+			end
+		end
+		expect(count).toBe(3)
+	end)
+
+	it("throws nothing past the page or its packets, and never whiffs forever at a player over its head", function()
+		local reach = BotConfig.Reach.UnreachableHeightStuds
+		for id, tier in pairs(tiers) do
+			local heights = { tier.Melee.HalfHeight }
+			local bolt = tier.Bolt
+			if bolt ~= nil then
+				expect(bolt.Range).toBeLessThan(GameConfig.Vfx.BroadcastRadiusStuds)
+				expect(bolt.Range).toBeLessThan(BattlegroundConfig.Map.Size)
+				expect(bolt.MinRange).toBeLessThan(bolt.Range)
+				table.insert(heights, bolt.HalfHeight)
+			end
+			-- Past this a player is ignored after a while; anything lower, each blow can still reach.
+			for _, half in ipairs(heights) do
+				if reach >= half then
+					error(("%s hits %.1f studs up and down, under the %.1f a hover must clear"):format(id, half, reach))
+				end
+			end
+		end
+	end)
+
+	it("pays every tier's kill from the progression tables", function()
+		for id, tier in pairs(tiers) do
+			local xp = ProgressionConfig.XP[tier.RewardKey]
+			local folios = ProgressionConfig.Folios[tier.RewardKey]
+			if xp == nil or xp <= 0 or folios == nil or folios <= 0 then
+				error(("%s pays %s, which ProgressionConfig does not price"):format(id, tier.RewardKey))
+			end
+		end
+		local credit = BotConfig.Credit
+		expect(credit.DailyFolioCap).toBeGreaterThan(0)
+		expect(credit.AssistShare).toBeGreaterThan(0)
+		expect(credit.AssistShare).toBeLessThanOrEqual(1)
+	end)
+
+	it("fills every slot with a tier, and fields all of them before the Battleground is full", function()
+		expect(#BotConfig.Roster).toBe(BotConfig.MaxBots)
+		for slot, tierId in ipairs(BotConfig.Roster) do
+			if tiers[tierId] == nil then
+				error(("slot %d is %s, which is not a tier"):format(slot, tierId))
+			end
+		end
+		expect(BotConfig.BaseCount).toBeGreaterThanOrEqual(1)
+		expect(BotConfig.BaseCount).toBeLessThanOrEqual(BotConfig.MaxBots)
+		local full = BotConfig.BaseCount + BotConfig.PerExtraMember * (BattlegroundConfig.MaxMembers - 1)
+		expect(full).toBeGreaterThanOrEqual(BotConfig.MaxBots)
+		-- A slot refills only once the body it held is gone.
+		local respawn = BotConfig.Respawn
+		expect(respawn.MinSeconds).toBeGreaterThanOrEqual(BotConfig.CorpseSeconds)
+		expect(respawn.BaseSeconds).toBeGreaterThanOrEqual(respawn.MinSeconds)
+		expect(respawn.StepSeconds).toBeGreaterThanOrEqual(0)
+	end)
+
+	it("spares a player through their spawn protection and stuns them no longer than a player would", function()
+		expect(BotConfig.ArrivalGraceSeconds).toBeGreaterThanOrEqual(GameConfig.Spawn.ProtectionSeconds)
+		expect(BotConfig.MeleeHitStunSeconds).toBe(CombatConfig.Melee.HitStunSeconds)
+	end)
+
+	it("thinks on the gameplay tick, rests a player between two chains, and plays its clips at a sane pace", function()
+		expect(GameConfig.Server.TickRate % BotConfig.ThinkHz).toBe(0)
+		expect(BotConfig.Targeting.TargetRestSeconds).toBeGreaterThan(0)
+		expect(BotConfig.Targeting.PostFinisherRestSeconds).toBeGreaterThanOrEqual(0)
+		local clip = BotConfig.ClipSpeed
+		expect(clip.Min).toBeGreaterThan(0)
+		expect(clip.Min).toBeLessThanOrEqual(1)
+		expect(clip.Max).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("walks by waypoints it can tell apart, toward a goal never stale enough to leave it out of reach", function()
+		local path = BotConfig.Path
+		-- Reached from further than one grid step, the next waypoint counts as reached from the one before, and
+		-- a Forger cuts the corner the graph went around.
+		expect(path.WaypointReachedStuds).toBeLessThan(BattlegroundConfig.Map.Grid.StepStuds)
+		expect(path.RepathSeconds).toBeGreaterThanOrEqual(1 / BotConfig.ThinkHz)
+		expect(path.WalkClipThreshold).toBeGreaterThan(0)
+		for id, tier in pairs(tiers) do
+			local swing = tier.Melee.Range - BotConfig.Targeting.MeleeStartInsetStuds
+			if path.RepathStuds >= swing then
+				error(
+					("%s swings from %.1f studs; a goal %d studs stale can stop it short"):format(
+						id,
+						swing,
+						path.RepathStuds
+					)
+				)
+			end
+			expect(path.WalkClipThreshold).toBeLessThan(tier.WalkSpeed)
+		end
+	end)
+
+	it("looks under the cover, so the cover hides", function()
+		local eyes = BattlegroundConfig.StandingRootStuds + BotConfig.Reach.SightHeightStuds
+		expect(eyes).toBeLessThan(BattlegroundConfig.Map.CoverHeight)
+	end)
+
+	it("throws a Forger with a force that beats gravity and is never unbounded", function()
+		local force = BotConfig.ShoveForcePerMass
+		expect(isFinite(force)).toBe(true)
+		expect(force).toBeGreaterThan(GRAVITY)
+	end)
+
+	it("keeps a body that can die, cannot climb or leap onto a perch, and never falls over on its own", function()
+		local disabled: { [string]: boolean } = {}
+		for _, state in ipairs(BotConfig.Humanoid.DisabledStates) do
+			disabled[state] = true
+		end
+		-- Disabling these would leave a Forger that cannot die, or cannot walk.
+		for _, kept in ipairs({ "Dead", "Running", "RunningNoPhysics", "Physics" }) do
+			if disabled[kept] then
+				error(("a Forger cannot enter the %s state: it could never leave the page"):format(kept))
+			end
+		end
+		-- The cover is only no perch because nobody can get onto it: a Forger no more than a player.
+		for _, needed in ipairs({ "Climbing", "Jumping", "FallingDown", "Ragdoll", "Seated" }) do
+			if not disabled[needed] then
+				error(("a Forger may still enter the %s state on its own"):format(needed))
+			end
+		end
+		-- The server cannot word a name in each player's language (EnemyService, the Erasure): none shows.
+		expect(BotConfig.Humanoid.NameDisplayDistance).toBe(0)
+		expect(BotConfig.Humanoid.HealthDisplayDistance).toBeGreaterThan(0)
+	end)
+
+	it("walks on the engine's own clips, at a pace it can divide by", function()
+		local locomotion = BotConfig.Locomotion
+		for _, id in ipairs({ locomotion.Walk, locomotion.Idle }) do
+			if string.match(id, "^rbxassetid://%d+$") == nil then
+				error(("%s is not an asset id"):format(id))
+			end
+		end
+		expect(locomotion.WalkReferenceSpeed).toBeGreaterThan(0)
+	end)
+
+	it("heals a member in the camp only between hits, and empties an idle page", function()
+		expect(BotConfig.Camp.RegenPerSecond).toBeGreaterThan(0)
+		-- Longer than the gap between two blows of a chain: a player cannot heal mid-combo by stepping in.
+		for id, tier in pairs(tiers) do
+			if BotConfig.Camp.QuietSeconds <= tier.Melee.ChainGapSeconds then
+				error(("%s chains faster than the camp's quiet"):format(id))
+			end
+		end
+		expect(BotConfig.ActiveWindowSeconds).toBeGreaterThan(0)
+		expect(BotConfig.IdleDespawnSeconds).toBeGreaterThan(0)
+		expect(BotConfig.Reach.TargetRadiusStuds).toBeGreaterThan(0)
+	end)
+end)
+
+describe("BattlegroundConfig: membership", function()
+	it("holds every place a member can stand and brings a death inside back to the camp", function()
+		-- Up to the top of the walls: a member thrown against one is still on the page.
+		expect(BattlegroundConfig.BoundsHeightStuds).toBeGreaterThanOrEqual(BattlegroundConfig.Map.WallHeight)
+		expect(BattlegroundConfig.BoundsDepthStuds).toBeGreaterThan(0)
+		-- A body falling off is let go before it reaches the kill plane, which is under the floor.
+		expect(BattlegroundConfig.BoundsDepthStuds).toBeLessThan(-BattlegroundConfig.Map.KillZoneDepth)
+		expect(BattlegroundConfig.RespawnRedirectGraceSeconds).toBeGreaterThan(0)
+		expect(type(BattlegroundConfig.RespawnInside)).toBe("boolean")
+		expect(PortalConfig.StreamTimeoutSeconds).toBeGreaterThan(0)
+		expect(PortalConfig.StreamTimeoutSeconds).toBeLessThanOrEqual(5)
+	end)
+end)
+
+-- The portals (D-130): a zone a player stands in, worded by each client, placed where nobody lands in it.
+describe("PortalConfig", function()
+	-- A number of a service that needs an engine to require.
+	local function sourceNumber(path: string, name: string): number
+		local value = string.match(fs.readFile(path), "\nlocal " .. name .. " = (%d+)\n")
+		if value == nil then
+			error(("%s has no numeric %s: this gate would check nothing"):format(path, name))
+		end
+		return tonumber(value) :: number
+	end
+
+	it("words every portal in both languages and asks a short, deliberate stay", function()
+		local ids: { [string]: boolean } = {}
+		for _, id in ipairs(PortalConfig.Ids) do
+			ids[id] = true
+			local zone = PortalConfig.Zones[id]
+			if zone == nil then
+				error(("portal %s has no zone"):format(id))
+			end
+			expect(Strings.has(zone.NameKey)).toBe(true)
+			expect(Strings.has(zone.HintKey)).toBe(true)
+			expect(zone.DwellSeconds).toBeGreaterThan(0.5)
+			expect(zone.DwellSeconds).toBeLessThan(5)
+			if WorldConfig.Portal.Emblems[id] == nil then
+				error(("portal %s has no emblem on its gate"):format(id))
+			end
+		end
+		expect(#PortalConfig.Ids).toBe(3)
+		for id in pairs(PortalConfig.Zones) do
+			expect(ids[id]).toBe(true)
+		end
+		for id in pairs(WorldConfig.Portal.Emblems) do
+			expect(ids[id]).toBe(true)
+		end
+	end)
+
+	it("holds a standing player, looks on the gameplay tick, and never chains its invulnerability", function()
+		expect(PortalConfig.ZoneHeightStuds).toBeGreaterThan(BattlegroundConfig.StandingRootStuds)
+		expect(GameConfig.Server.TickRate % PortalConfig.CheckHz).toBe(0)
+		-- A trip is over before the next can start: the arrival's invulnerability never runs into another.
+		expect(PortalConfig.CooldownSeconds).toBeGreaterThan(PortalConfig.EntryIFrameSeconds)
+	end)
+
+	it("gives every tagged thing a tag of its own", function()
+		local tags = {
+			PortalConfig.SealTag,
+			BotConfig.Tag,
+			GameConfig.Enemy.Tag,
+			WorldBossConfig.Boss.Tag,
+			WorldConfig.Glyphs.CollisionTag,
+		}
+		local seen: { [string]: boolean } = {}
+		for _, tag in ipairs(tags) do
+			if seen[tag] then
+				error(("the tag %s means two things"):format(tag))
+			end
+			seen[tag] = true
+		end
+	end)
+
+	it("hangs a gate's panel between its posts", function()
+		local portal = WorldConfig.Portal
+		expect(portal.PanelStuds[1]).toBeLessThanOrEqual(portal.OpeningStuds)
+		expect(portal.PanelStuds[2]).toBeLessThan(portal.PostStuds[2])
+	end)
+
+	it("stands the Erasure's arena gate inside its walls, clear of every place a player is put down", function()
+		local size = MatchConfig.Arenas.Boss.Size
+		local inset = size / 2 - PortalConfig.BossArenaGateInsetStuds
+		local x, z = -inset, -inset
+		-- Facing the arena's centre.
+		local look = 1 / math.sqrt(2)
+		for _, corner in ipairs(Gate.corners(x, z, look, look)) do
+			expect(math.abs(corner[1])).toBeLessThan(size / 2)
+			expect(math.abs(corner[2])).toBeLessThan(size / 2)
+		end
+		-- The ring the arena puts its players down on (ArenaService), however many markers it holds.
+		local ring = size / 2 - sourceNumber("src/server/Services/ArenaService.luau", "RING_MARGIN_STUDS")
+		expect(math.sqrt(x * x + z * z) - ring).toBeGreaterThan(PortalConfig.ZoneRadiusStuds + 2)
+	end)
+end)
+
+-- Practice against the Erasure (D-132): one encounter slot shared with the event, so a practice must fit
+-- between two events, be no stronger than the event, and pay a fraction of it, a few times a day.
+describe("WorldBossConfig.Practice", function()
+	local practice = WorldBossConfig.Practice
+	local schedule = WorldBossConfig.Schedule
+
+	it("fits between two events, and keeps an empty arena only briefly", function()
+		expect(practice.FightSeconds + practice.CleanupSeconds).toBeLessThan(schedule.IntervalSeconds)
+		expect(practice.EmptyGraceSeconds).toBeLessThan(practice.FightSeconds)
+		expect(practice.EarlyEmptySeconds).toBeLessThan(practice.FightSeconds)
+		expect(practice.StartCooldownSeconds).toBeLessThanOrEqual(practice.EarlyEmptyCooldownSeconds)
+		expect(practice.MaxReentries).toBeGreaterThanOrEqual(0)
+	end)
+
+	it("is an Erasure no stronger than the event's", function()
+		expect(practice.Health).toBeLessThanOrEqual(practice.HealthCap)
+		expect(practice.HealthCap).toBeLessThanOrEqual(WorldBossConfig.Health.Max)
+		expect(practice.HealthPerJoiner).toBeGreaterThan(0)
+	end)
+
+	it("pays a share of the event a few times a day, never twice in one fight's time on a server", function()
+		local factor = practice.RewardFactor
+		expect(factor).toBeGreaterThanOrEqual(0)
+		expect(factor).toBeLessThanOrEqual(1)
+		if factor > 0 then
+			-- A solo top share still sees both of its lines.
+			for _, amounts in ipairs({ ProgressionConfig.XP, ProgressionConfig.Folios }) do
+				expect(BossPractice.scaled(amounts.BossParticipation, factor)).toBeGreaterThanOrEqual(1)
+				expect(BossPractice.scaled(amounts.BossKillBonus, factor)).toBeGreaterThanOrEqual(1)
+			end
+		end
+		expect(practice.RewardsPerDay).toBeGreaterThan(0)
+		expect(practice.RewardGapSeconds).toBeGreaterThanOrEqual(practice.FightSeconds + practice.CleanupSeconds)
 	end)
 end)
 

@@ -149,8 +149,9 @@ local function migrateV1(raw: { [string]: any }, result: { [string]: any }, seas
 end
 
 -- Copies every key of `source` that exists in `target` (recursively for tables), keeping the
--- template's shape; unknown keys are dropped, type mismatches keep the template value.
-local function overlay(target: { [string]: any }, source: { [string]: any })
+-- template's shape; type mismatches keep the template value. Unknown keys are dropped, unless
+-- `keepUnknown`: then they are carried over untouched (see `newer` in migrate).
+local function overlay(target: { [string]: any }, source: { [string]: any }, keepUnknown: boolean)
 	for key, templateValue in pairs(target) do
 		local incoming = source[key]
 		if incoming == nil then
@@ -161,10 +162,17 @@ local function overlay(target: { [string]: any }, source: { [string]: any })
 				-- arrays and free-form maps are replaced wholesale
 				target[key] = deepCopy(incoming)
 			else
-				overlay(templateValue, incoming)
+				overlay(templateValue, incoming, keepUnknown)
 			end
 		elseif type(templateValue) == type(incoming) then
 			target[key] = incoming
+		end
+	end
+	if keepUnknown then
+		for key, incoming in pairs(source) do
+			if target[key] == nil then
+				target[key] = deepCopy(incoming)
+			end
 		end
 	end
 end
@@ -341,20 +349,29 @@ function DataMigration.migrate(
 
 	local version = if isInteger(raw.DataVersion) then raw.DataVersion else 1
 	info.From = version
+	-- A profile a newer build wrote, loaded by this one: during a rollout, a player who joins a friend on a
+	-- server still running this version. Its keys this build has never heard of are the newer build's, and
+	-- dropping them reset whatever they held (the daily caps once: a player hopped to an old server, and
+	-- came back with a fresh 150 Folios to earn). They are kept, and the profile keeps its version, or the
+	-- newer build would run its upgrades a second time over the defaults this one wrote for the old keys.
+	-- It only protects a change that raised CurrentVersion, so any later change to the profile's shape
+	-- raises it, even one with no upgrade step. A key a newer build retyped still falls back here: this
+	-- build could not read it.
+	local newer = version > DataMigration.CurrentVersion
 
 	if version <= 1 then
 		migrateV1(raw, result, seasonId)
 		info.Migrated = true
 	else
 		local seasonTemplate = result.Battlepass._template
-		overlay(result, raw)
+		overlay(result, raw, newer)
 		-- Battlepass is a free-form map of seasons: make sure every season has the full shape.
 		if type(raw.Battlepass) == "table" then
 			result.Battlepass = {}
 			for id, seasonData in pairs(raw.Battlepass) do
 				if type(id) == "string" and id ~= "_template" and type(seasonData) == "table" then
 					local season = deepCopy(seasonTemplate)
-					overlay(season, seasonData)
+					overlay(season, seasonData, newer)
 					result.Battlepass[id] = season
 				end
 			end
@@ -373,7 +390,7 @@ function DataMigration.migrate(
 		info.Migrated = true
 	end
 
-	result.DataVersion = DataMigration.CurrentVersion
+	result.DataVersion = if newer then version else DataMigration.CurrentVersion
 	result.Battlepass._template = nil
 	return result, info
 end

@@ -7,6 +7,10 @@
 -- Phase transitions are announced through the HUD toasts (announced / started / defeated / expired),
 -- once per transition: the server pushes the same phase many times per event.
 --
+-- A practice (D-132) is the same Erasure in the same band, titled as a practice, and sent to its own
+-- participants only. It opens straight into its fight -- it is never Announced -- so it never pulses the
+-- page's lighting, which is the scheduled event's arrival and nobody else's.
+--
 -- The band is a child of the HUD's top-centre column (HudController.topStack), not a ScreenGui of its
 -- own: three overlays pinned to the same rectangle drew over each other. It still lives and dies with
 -- the event, by its Visible flag.
@@ -229,6 +233,7 @@ local function read(payload: any): Types.BossSnapshot?
 		Participants = math.max(0, math.floor(finite(payload.Participants, 0))),
 		TelegraphKey = if type(payload.TelegraphKey) == "string" then payload.TelegraphKey else nil,
 		MyShare = math.clamp(finite(payload.MyShare, 0), 0, 1),
+		Practice = payload.Practice == true,
 	}
 end
 
@@ -242,7 +247,8 @@ local function refresh()
 		warningLabel.Visible = false
 		return
 	end
-	titleLabel.Text = localize.t("boss.name")
+	-- A practice is the same Erasure, and says it is one: its band must not read as the server-wide event.
+	titleLabel.Text = localize.t(if current.Practice then "boss.practice.title" else "boss.name")
 	healthBar:SetProgress(if current.MaxHealth > 0 then current.Health / current.MaxHealth else 0)
 	healthBar:SetLabel(localize.t("boss.health", {
 		health = math.floor(current.Health + 0.5),

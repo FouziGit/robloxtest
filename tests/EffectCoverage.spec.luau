@@ -163,3 +163,41 @@ describe("world boss effect coverage", function()
 		expect(found).toBe(3)
 	end)
 end)
+
+-- The Battleground's Forgers name their effects in BattlegroundService's own Context, like the Erasure's
+-- bookends: the tell of every wind-up, and the players' own stroke for their swings. A renderer renamed on
+-- either side would drop every tell a player is owed, silently: VfxController warns once and draws nothing.
+describe("forger effect coverage", function()
+	local renderers = declaredMembers(VFX_PATH, "VfxLibrary")
+
+	it("declares and renders the tell and the stroke the Forgers emit", function()
+		local source = fs.readFile("src/server/Services/BattlegroundService/Context.luau")
+		local found = 0
+		for _, field in ipairs({ "TellVfxId", "MeleeVfxId" }) do
+			local id = string.match(source, "Context%." .. field .. ' = "([%w_]+)"')
+			if id == nil then
+				error(("BattlegroundService Context has no %s; this test is checking nothing"):format(field))
+			end
+			found += 1
+			if not VfxConfig.IdSet[id] then
+				error(("Context.%s is %s, which VfxConfig does not declare"):format(field, id))
+			end
+			if not renderers[id] then
+				error(("Context.%s is %s, and VfxLibrary has no renderer for it"):format(field, id))
+			end
+		end
+		expect(found).toBe(2)
+		-- The tell is the Forgers' own: declared among their ids, and nowhere else.
+		local tell = string.match(source, 'Context%.TellVfxId = "([%w_]+)"')
+		expect(table.find(VfxConfig.ForgerIds, tell)).never.toBe(nil)
+		expect(table.find(VfxConfig.CombatIds, tell)).toBe(nil)
+	end)
+
+	it("draws the bolt through the renderer of the glyph it borrows", function()
+		-- A bolt is the Strike's beam (Attacks.resolveBolt), with no caster.
+		local attacks = fs.readFile("src/server/Services/BattlegroundService/Attacks.luau")
+		expect(attacks:find("local STRIKE = GlyphConfig.ById.Strike", 1, true)).never.toBe(nil)
+		expect(attacks:find("Id = STRIKE.VfxId,", 1, true)).never.toBe(nil)
+		expect(renderers[GlyphConfig.ById.Strike.VfxId]).toBe(true)
+	end)
+end)

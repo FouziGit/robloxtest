@@ -9,6 +9,11 @@ action.melee,Melee,Vellum,,Melee,Corps à corps
 action.melee.short,Melee,Vellum,,Melee,CAC
 action.menu,Menu,Vellum,,Menu,Menu
 action.menu.short,Menu,Vellum,,Menu,Menu
+battleground.campHit,Hits from the camp don't count. Step out to fight.,Vellum,,Hits from the camp don't count. Step out to fight.,Les coups portés depuis le camp ne comptent pas. Sors pour te battre.
+battleground.entered,The Forgers have seen you.,Vellum,,The Forgers have seen you.,Les Faussaires t'ont vu.
+battleground.folioCap,Forgers pay no more Folios today. XP still counts.,Vellum,,Forgers pay no more Folios today. XP still counts.,Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
+battleground.full,The battleground is full. Try again in a moment.,Vellum,,The battleground is full. Try again in a moment.,Le champ de bataille est plein. Réessaie dans un instant.
+battleground.status,{standing} Forgers standing · {defeated} defeated,Vellum,,{standing} Forgers standing · {defeated} defeated,{standing} Faussaires debout · {defeated} vaincus
 battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà récupéré.
 battlepass.claim,Claim,Vellum,,Claim,Récupérer
 battlepass.claimed,Claimed,Vellum,,Claimed,Récupéré
@@ -36,6 +41,15 @@ boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche
 boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
 boss.name,The Erasure,Vellum,,The Erasure,L'Effacement
 boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}
+boss.portal.announced,The Erasure arrives in {seconds}s: you will be drawn in.,Vellum,,The Erasure arrives in {seconds}s: you will be drawn in.,L'Effacement arrive dans {seconds} s : tu y seras appelé.
+boss.portal.busy,No arena is free. Try again in a moment.,Vellum,,No arena is free. Try again in a moment.,Aucune arène libre. Réessaie dans un instant.
+boss.portal.closing,This fight is ending. Try again in a moment.,Vellum,,This fight is ending. Try again in a moment.,Ce combat se termine. Réessaie dans un instant.
+boss.portal.cooldown,Practice again in {seconds}s.,Vellum,,Practice again in {seconds}s.,Nouvel entraînement dans {seconds} s.
+boss.portal.eventSoon,The Erasure itself comes in {seconds}s: no practice now.,Vellum,,The Erasure itself comes in {seconds}s: no practice now.,Le vrai Effacement arrive dans {seconds} s : pas d'entraînement maintenant.
+boss.portal.noReentry,You have used your returns for this fight.,Vellum,,You have used your returns for this fight.,Tu as épuisé tes retours pour ce combat.
+boss.practice.dailyDone,Practice rewards are done for today.,Vellum,,Practice rewards are done for today.,Les récompenses d'entraînement sont épuisées pour aujourd'hui.
+boss.practice.noReward,Practice rewards come back in {minutes} min.,Vellum,,Practice rewards come back in {minutes} min.,Les récompenses d'entraînement reviennent dans {minutes} min.
+boss.practice.title,The Erasure · practice,Vellum,,The Erasure · practice,L'Effacement · entraînement
 boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward: +{xp} XP, +{folios} Folios","Récompense de l'Effacement : +{xp} XP, +{folios} Folios"
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
@@ -249,6 +263,14 @@ pigment.indigo,Indigo,Vellum,,Indigo,Indigo
 pigment.orpiment,Orpiment,Vellum,,Orpiment,Orpiment
 pigment.umber,Umber,Vellum,,Umber,Terre d'Ombre
 pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
+portal.battleground.name,Battleground,Vellum,,Battleground,Champ de bataille
+portal.cooldown,Wait a moment before travelling again.,Vellum,,Wait a moment before travelling again.,Attends un instant avant de repartir.
+portal.entering,Stay in the circle: {place},Vellum,,Stay in the circle: {place},Reste dans le cercle : {place}
+portal.hint.enter,Stay in the circle to enter,Vellum,,Stay in the circle to enter,Reste dans le cercle pour entrer
+portal.hint.return,Stay in the circle to go back,Vellum,,Stay in the circle to go back,Reste dans le cercle pour revenir
+portal.return.name,Back to the hub,Vellum,,Back to the hub,Retour au hub
+portal.unavailable,This way is closed for now.,Vellum,,This way is closed for now.,Ce passage est fermé pour l'instant.
+portal.worldBoss.name,Face the Erasure,Vellum,,Face the Erasure,Affronter l'Effacement
 product.cosmetic,Cosmetic,Vellum,,Cosmetic,Cosmétique
 product.cosmetic.desc,Buy the selected cosmetic with Robux.,Vellum,,Buy the selected cosmetic with Robux.,Achète le cosmétique sélectionné avec des Robux.
 product.folioLarge,"8,000 Folios",Vellum,,"8,000 Folios",8 000 Folios
@@ -283,6 +305,7 @@ quest.completed,Quest completed: {name},Vellum,,Quest completed: {name},Quête t
 quest.daily,Daily quests,Vellum,,Daily quests,Quêtes journalières
 quest.dealDamage,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégâts
 quest.defeatDummies,Defeat {target} training dummies,Vellum,,Defeat {target} training dummies,Détruis {target} mannequins
+quest.defeatForgers,Defeat {target} Forgers,Vellum,,Defeat {target} Forgers,Vaincs {target} Faussaires
 quest.defeatPlayers,Defeat {target} players,Vellum,,Defeat {target} players,Vaincs {target} joueurs
 quest.hitGlyphs,Hit enemies with {target} glyphs,Vellum,,Hit enemies with {target} glyphs,Touche des ennemis avec {target} glyphes
 quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target} times,Affronte l'Effacement {target} fois

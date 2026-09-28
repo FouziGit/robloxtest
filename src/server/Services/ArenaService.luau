@@ -12,6 +12,10 @@
 --
 -- The kill zone is exposed, not armed: it is an environment kill, and CombatService.ApplyDamage needs
 -- a source, so MatchService owns the reaction (eliminate the participant that falls into it).
+--
+-- The Erasure's arena also carries a Return gate (World/PortalGate, D-130): whoever stands in its circle is
+-- taken back to the hub, which is the way out of a fight they no longer want. Its seal waits in ServerStorage
+-- with the template and opens nothing there; PortalService only watches the seals of live copies.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +27,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local Palette = require(Shared.Util.Palette)
+local PortalConfig = require(Shared.Config.PortalConfig)
+local PortalGate = require(script.Parent.Parent.World.PortalGate)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("ArenaService")
@@ -270,6 +276,12 @@ local function buildTemplate(arenaId: string, def: ArenaDef): Template
 		end
 		names[1] = teamNames
 		buildMarker(BOSS_SPAWN_NAME, CFrame.new(0, markerY, 0), spawnsFolder)
+		-- The Return gate, inset from one corner and facing the centre, where the players stand: its posts
+		-- inside the walls and its circle well clear of every pad of the ring (tests/Config.spec.luau).
+		local inset = def.Size / 2 - PortalConfig.BossArenaGateInsetStuds
+		local gate = Vector3.new(-inset, floorTop, -inset)
+		local base = CFrame.lookAt(gate, Vector3.new(0, floorTop, 0))
+		PortalGate.build(model, PortalConfig.Anchors.ReturnGate, base, "Return")
 	end
 
 	-- Kept out of the world until a match asks for a copy.

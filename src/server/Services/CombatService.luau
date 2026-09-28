@@ -32,6 +32,8 @@ export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean 
 export type CombatState = { Ink: number, MaxInk: number, InCombat: boolean, Blocking: boolean, Stunned: boolean }
 export type Policy = (source: Player?, targetModel: Model) -> boolean
 export type Action = "Melee" | "Dash" | "BlockStart" | "BlockEnd"
+-- A glyph's hold on a body that is not a player's (controlNpc): a stun, or a slow by a factor.
+export type ControlKind = "Stun" | "Slow"
 
 type ProfileData = Types.ProfileData
 type DataApi = {
@@ -185,6 +187,16 @@ CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Mode
 -- Fired once per dash the server actually granted (ink spent, cooldown armed). `cancelled` is true when
 -- the dash cut a finisher's recovery short (CombatConfig.Dash.CancelCost).
 CombatService.Dashed = Signal.new() -- (player: Player, cancelled: boolean)
+-- A knockback approved for a body no player owns (knockback). A player's character is moved by its own
+-- client through a MovementCommand; nothing moves a server-owned body unless its owner listens here --
+-- the Battleground's Forgers do (D-131). Anchored bodies (the training proofs, the Erasure) have no
+-- listener and stay where they are.
+CombatService.Shoved = Signal.new() -- (targetModel: Model, velocity: Vector3, duration: number)
+-- A glyph's stun or slow on a body no player owns (controlNpc): players are held through MovementService,
+-- which only knows players, so the owner of any other body listens here. Its last argument is the glyph's
+-- id: two glyphs' slows stay apart, as MovementService keeps a player's.
+-- (targetModel: Model, kind: ControlKind, seconds: number, factor: number, key: string)
+CombatService.Controlled = Signal.new()
 
 local registry: Registry
 local dataService: DataApi
@@ -522,6 +534,66 @@ function CombatService.trustedOrigin(player: Player): CFrame?
 		return nil
 	end
 	return trustedCFrame(state, root, os.clock(), true)
+end
+
+-- Where the server last believed `player` stood: the anchor the per-tick sampling keeps, read as it is. Never
+-- judged here and never counted as an action, so reading it can neither move the anchor nor strike anyone --
+-- which is what a watcher that asks every tick needs (the Battleground's roster, and anything else that must
+-- know where a player is without taking the client's word for it). nil right after a respawn, until the next
+-- tick samples the new body.
+function CombatService.trustedPosition(player: Player): Vector3?
+	local state = states[player]
+	if state == nil then
+		return nil
+	end
+	return state.TrustedPosition
+end
+
+-- Heals a live player by `amount`, but only once they have taken no damage for `quietSeconds`, and never past
+-- their MaxHealth. Returns what was healed. A place that heals (the Battleground's camp) goes through this so
+-- it can never heal somebody in the middle of taking hits, and never a dead body.
+function CombatService.heal(player: Player, amount: number, quietSeconds: number): number
+	if not isFiniteNonNegative(amount) or not isFiniteNonNegative(quietSeconds) then
+		log.warn("heal rejected for %s: amount %s, quiet %s", player.Name, tostring(amount), tostring(quietSeconds))
+		return 0
+	end
+	local state = states[player]
+	if state == nil then
+		return 0
+	end
+	local humanoid = state.Humanoid
+	if humanoid == nil or humanoid.Parent ~= state.Character or humanoid.Health <= 0 then
+		return 0
+	end
+	if os.clock() - state.LastDamageTakenAt < quietSeconds then
+		return 0
+	end
+	local healed = math.min(amount, humanoid.MaxHealth - humanoid.Health)
+	if healed <= 0 then
+		return 0
+	end
+	humanoid.Health += healed
+	return healed
+end
+
+-- A glyph's stun (factor 0) or slow (0 <= factor <= 1) on a body that is not a player's, for `seconds`, under
+-- the source `key` (the glyph's id, as MovementService.applySlow takes it): fires Controlled for whoever owns
+-- that body. A player's character is refused, because players are held through MovementService, and a second
+-- path would let the two disagree about how long somebody is held.
+function CombatService.controlNpc(targetModel: Model, kind: ControlKind, seconds: number, factor: number, key: string)
+	if Players:GetPlayerFromCharacter(targetModel) ~= nil then
+		log.warn("controlNpc rejected: %s is a player's character", targetModel.Name)
+		return
+	end
+	if seconds ~= seconds or seconds <= 0 or seconds == math.huge or not (factor >= 0 and factor <= 1) then
+		log.warn("controlNpc rejected (%s): seconds %s, factor %s", kind, tostring(seconds), tostring(factor))
+		return
+	end
+	if type(key) ~= "string" or key == "" then
+		log.warn("controlNpc rejected (%s): invalid key %s", kind, tostring(key))
+		return
+	end
+	CombatService.Controlled:Fire(targetModel, kind, seconds, factor, key)
 end
 
 -- Guard drop (manual release, auto-release, guard break, death): starts the block cooldown.
@@ -996,11 +1068,13 @@ function CombatService.ApplyDamage(
 end
 
 -- Server-approved knockback, applied by the owning client (characters are client-simulated).
--- NPCs (anchored dummies, bosses) ignore it. A Gilding target keeps its ground: "la Terre bloque"
--- of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
+-- Any other body is announced on Shoved for whoever moves it: the Forgers are thrown by their service, the
+-- anchored dummies and the Erasure have no listener and ignore it. A Gilding target keeps its ground: "la
+-- Terre bloque" of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
 function CombatService.knockback(targetModel: Model, velocity: Vector3, duration: number)
 	local player = Players:GetPlayerFromCharacter(targetModel)
 	if player == nil then
+		CombatService.Shoved:Fire(targetModel, velocity, duration)
 		return
 	end
 	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")

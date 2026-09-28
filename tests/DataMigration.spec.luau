@@ -1,6 +1,7 @@
 --!strict
 local DataMigration = require("../src/shared/Pure/DataMigration")
 local Harness = require("./harness")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -54,7 +55,16 @@ local function template(): { [string]: any }
 			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
 			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
 		},
-		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = 0,
+			Streak = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+			ForgerDay = 0,
+			ForgerFolios = 0,
+			PracticeDay = 0,
+			PracticePaid = 0,
+		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
@@ -219,6 +229,114 @@ describe("DataMigration", function()
 		expect(tpl.Progression.Level).toBe(1)
 		expect(tpl.Battlepass._template).never.toBeNil()
 		expect(tpl.Cosmetics.Owned).toEqual({})
+	end)
+end)
+
+-- The daily caps kept in the profile (D-131, D-132): a count an old profile lacks arrives at zero through the
+-- template, with no version bump, and the template the service ships is the one these cases load over.
+describe("DataMigration daily caps", function()
+	-- The keys of one flat `Name = {` ... `}` table in a source file, or of the type `export type Name = {`,
+	-- read with the comments stripped so a word before a colon in prose is never taken for a field.
+	local function keysOf(path: string, opening: string, separator: string): { string }
+		local source = (fs.readFile(path):gsub("%-%-[^\n]*", ""))
+		local start = source:find(opening, 1, true)
+		if start == nil then
+			error(("%s has no %s: this gate would check nothing"):format(path, opening))
+		end
+		local finish = source:find("}", start + #opening, true) :: number
+		local keys: { string } = {}
+		for key in string.gmatch(source:sub(start + #opening, finish), "([%w_]+)%s*" .. separator) do
+			table.insert(keys, key)
+		end
+		table.sort(keys)
+		return keys
+	end
+
+	it("gives a profile saved before them its counters at zero, and keeps its streak", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Daily = { LastClaimDay = 20100, Streak = 6, FirstWinDay = 20100, PremiumBonusDay = 20099 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
+		expect(data.Daily.Streak).toBe(6)
+		expect(data.Daily.PremiumBonusDay).toBe(20099)
+		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
+			expect(data.Daily[key]).toBe(0)
+		end
+	end)
+
+	it("loads over the service's own template, whose Daily section is the profile's type", function()
+		local service = keysOf("src/server/Services/DataService.luau", "\n\t\tDaily = {", "=")
+		local declared = keysOf("src/shared/Types.luau", "export type DailyData = {", ":")
+		local copied: { string } = {}
+		for key in pairs(template().Daily) do
+			table.insert(copied, key)
+		end
+		table.sort(copied)
+		expect(#service).toBe(8)
+		expect(service).toEqual(declared)
+		expect(service).toEqual(copied)
+	end)
+end)
+
+-- A server still on this version while a newer one rolls out: whatever the newer build added to the
+-- profile must come back intact, however many times the player hops onto this version first.
+describe("DataMigration from a newer build", function()
+	local NEXT = DataMigration.CurrentVersion + 1
+
+	local function written(): { [string]: any }
+		return {
+			DataVersion = NEXT,
+			Currency = { Folios = 300, Seals = 4 },
+			Daily = { Streak = 2, ForgerDay = 20500, ForgerFolios = 150, NextCap = 3 },
+			Battlepass = { S1 = { Tier = 5, Echo = { true } } },
+			Ledger = { Pages = 12 },
+		}
+	end
+
+	it("keeps the keys and the version it cannot read, and fills the ones it can", function()
+		local data, info = DataMigration.migrate(written(), template(), "S1")
+		expect(info).toEqual({ From = NEXT, Migrated = false })
+		expect(data.DataVersion).toBe(NEXT)
+		expect(data.Currency.Seals).toBe(4)
+		expect(data.Daily.NextCap).toBe(3)
+		expect(data.Battlepass.S1.Echo).toEqual({ true })
+		expect(data.Ledger).toEqual({ Pages = 12 })
+		-- The keys this build knows load as always.
+		expect(data.Daily.ForgerFolios).toBe(150)
+		expect(data.Daily.PracticePaid).toBe(0)
+		expect(data.Battlepass.S1.Premium).toBe(false)
+	end)
+
+	it("still carries them after a second load by this version", function()
+		local once = DataMigration.migrate(written(), template(), "S1")
+		local twice = DataMigration.migrate(once, template(), "S1")
+		expect(twice.DataVersion).toBe(NEXT)
+		expect(twice.Daily.NextCap).toBe(3)
+		expect(twice.Ledger).toEqual({ Pages = 12 })
+	end)
+
+	-- Only the keys it has never heard of pass untouched: a known key the newer build retyped would reach
+	-- code that reads it as its own type, so it still falls back to the template.
+	it("keeps the template's value for a key the newer build retyped", function()
+		local raw = written()
+		raw.Currency.Folios = { Balance = 300 }
+		raw.Daily.Streak = "2"
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Currency.Folios).toBe(0)
+		expect(data.Daily.Streak).toBe(0)
+		expect(data.Currency.Seals).toBe(4)
+	end)
+
+	it("drops unknown keys from a profile of its own version or older", function()
+		local raw = written()
+		raw.DataVersion = DataMigration.CurrentVersion
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
+		expect(data.Currency.Seals).toBeNil()
+		expect(data.Daily.NextCap).toBeNil()
+		expect(data.Ledger).toBeNil()
 	end)
 end)
 

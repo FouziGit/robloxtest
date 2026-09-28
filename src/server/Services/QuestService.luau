@@ -1,8 +1,10 @@
 --!strict
 -- QuestService: the single writer of ProfileData.Quests. The active set of a period is selected
--- deterministically from QuestConfig.Pool for the current period key (QuestLogic.select), so every
--- player on every server shares the same daily / weekly quests and the client can rebuild the list
--- from the replicated section alone. A day or week rollover resets the set (QuestLogic.ensurePeriod).
+-- deterministically from QuestConfig.Pool for the key the set stores (QuestLogic.select), so every
+-- player on every server whose set carries that key shares the same quests, and the client can
+-- rebuild the list from the replicated section alone. A day or week rollover resets the set
+-- (QuestLogic.ensurePeriod) and stores the new period's key with the pool revision it is drawn from,
+-- which the set keeps to the end of its period.
 --
 -- This service never decides that a gameplay event happened: the services that own the gameplay call
 -- `report(player, event, amount)` with the event strings QuestConfig documents. The only signal it
@@ -65,9 +67,6 @@ type Deps = {
 	Combat: CombatApi,
 }
 
--- One period's live quests, cached until its period key changes.
-type Selection = { PeriodKey: string, Quests: { QuestDef } }
-
 local PERIOD_ORDER: { Period } = { "Daily", "Weekly" }
 -- Keyed by period id so a Period value reads as a plain string key.
 local PERIOD_DEFS = (
@@ -88,7 +87,10 @@ local progression: ProgressionApi
 local currency: CurrencyApi
 local combat: CombatApi
 
-local selections: { [string]: Selection } = {}
+-- Live quests by set key. Deterministic, so shared by every player whose set carries the key: one key per
+-- period, and one more for the rest of a period that a deploy grew the pool in. Never pruned: a few
+-- short lists a day for the life of a server.
+local selections: { [string]: { QuestDef } } = {}
 -- Players whose Quests section changed since the last flush.
 local pending: { [Player]: true } = {}
 local accumulator = 0
@@ -109,33 +111,29 @@ local function push(player: Player)
 	dataService.push(player, "Quests")
 end
 
--- Live quests of `period` for the period containing `now`. Deterministic, so the cache is shared by
--- every player and only rebuilt on a rollover.
-local function selectionFor(period: Period, now: number): Selection
-	local periodKey = QuestLogic.periodKey(period, now)
-	local cached = selections[period]
-	if cached ~= nil and cached.PeriodKey == periodKey then
+-- Live quests of `period` for the set key `setKey`.
+local function questsFor(period: Period, setKey: string): { QuestDef }
+	local cached = selections[setKey]
+	if cached ~= nil then
 		return cached
 	end
-	local selection: Selection = {
-		PeriodKey = periodKey,
-		Quests = QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, periodKey),
-	}
-	selections[period] = selection
-	log.info("%s set %s: %d quests", period, periodKey, #selection.Quests)
-	return selection
+	local quests = QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, setKey)
+	selections[setKey] = quests
+	log.info("%s set %s: %d quests", period, setKey, #quests)
+	return quests
 end
 
 -- Aligns the stored set with the live period and hands back both. A rollover clears the progress and
--- is replicated at once so the client never shows yesterday's quests.
+-- is replicated at once so the client never shows yesterday's quests. The quests are the stored key's,
+-- never the live one's: a set drawn before a deploy grew the pool keeps its quests until its period ends.
 local function ensureSet(player: Player, data: ProfileData, period: Period, now: number): (SetData, { QuestDef })
-	local selection = selectionFor(period, now)
 	local set = setFor(data, period)
-	if QuestLogic.ensurePeriod(set, selection.PeriodKey) then
+	local setKey = QuestLogic.setKey(QuestLogic.periodKey(period, now), QuestConfig.PoolRevision)
+	if QuestLogic.ensurePeriod(set, setKey) then
 		push(player)
-		log.info("%s: %s quests reset for %s", player.Name, period, selection.PeriodKey)
+		log.info("%s: %s quests reset for %s", player.Name, period, setKey)
 	end
-	return set, selection.Quests
+	return set, questsFor(period, set.PeriodKey)
 end
 
 -- True when `event` can still advance one of the active quests. A read-only relevance test: it keeps

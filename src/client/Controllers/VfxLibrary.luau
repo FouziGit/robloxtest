@@ -1103,4 +1103,70 @@ VfxLibrary.BossPhase = function(packet: Packet, _trove: TroveType, api: Api)
 	playBossEvent("BossPhase", packet, api)
 end
 
+----------------------------------------------------------------
+-- The Battleground's Forgers (D-131)
+----------------------------------------------------------------
+
+-- A Forger's tell is drawn in the Forger's own two inks, never in the Erasure's danger colour (FORGER_TELL in
+-- Config/VfxTimelineConfig): its body's charcoal on the floor (a mark takes the play's Ink), and the chalk of
+-- the bars on its chest in the flash at its hand.
+local FORGER_INK = Palette.world(WorldConfig.Forgers.Body)
+local FORGER_CHALK = Palette.world(WorldConfig.Forgers.Mark)
+
+-- The hand a Forger strikes with (Params.Actor, the body the server owns), for the flash at the end of its
+-- tell. nil when the body is gone or has not streamed in: the flash is then drawn at the Forger's feet.
+local function actorHand(packet: Packet): BasePart?
+	local params = packet.Params
+	local actor = if params ~= nil then params.Actor else nil
+	if typeof(actor) ~= "Instance" or not actor:IsA("Model") then
+		return nil
+	end
+	local hand = actor:FindFirstChild(VfxConfig.Hand)
+	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
+end
+
+-- A length the packet measures the tell by, or nil when it carried none that can be drawn: every layer measured
+-- by a missing length is then left out (and the runtime says so) rather than painted at a guess, which would
+-- tell a player they stand outside a blow that reaches them.
+local function measureParam(packet: Packet, key: string): number?
+	local value = numberParam(packet, key, 0)
+	return if value > 0 then value else nil
+end
+
+-- The play of the tell each Forger shows, by its slot (Params.Forger): what a retraction takes back. A slot
+-- holds one Forger and a Forger shows one tell at a time, so this never holds more than BotConfig.MaxBots.
+local forgerTells: { [number]: number } = {}
+
+-- A Forger winding up a blow (D-131): the floor it will cover, for exactly the window the server waits
+-- (Params.Seconds), measured on what the server will hit -- Width across the aim, Range along it from the
+-- Forger (BattlegroundService's Attacks.windup). The Origin is already the floor under the Forger. A packet
+-- with Params.Cancel is the server taking that Forger's tell back (Attacks.retract): its blow will not come.
+VfxLibrary.ForgerTell = function(packet: Packet, _trove: TroveType, api: Api)
+	local forger = numberParam(packet, "Forger", 0)
+	local params = packet.Params
+	if params ~= nil and params.Cancel == true then
+		local playId = forgerTells[forger]
+		forgerTells[forger] = nil
+		if playId ~= nil then
+			api.Timeline.cancel(playId)
+		end
+		return
+	end
+	local width = measureParam(packet, "Width")
+	local _, playId = api.Timeline.play("ForgerTell", {
+		Origin = packet.Origin,
+		Direction = flatDirectionOf(packet),
+		Color = FORGER_CHALK,
+		Ink = FORGER_INK,
+		-- A packet with no window warns for the phase's own Duration, which a zero asks for.
+		Window = numberParam(packet, "Seconds", 0),
+		Radius = if width ~= nil then width / 2 else nil,
+		Reach = measureParam(packet, "Range"),
+		-- A Forger is no glyph: nothing of it shines (docs/ART_BIBLE.md rule 10).
+		Unlit = true,
+		Hand = actorHand(packet),
+	})
+	forgerTells[forger] = playId
+end
+
 return VfxLibrary

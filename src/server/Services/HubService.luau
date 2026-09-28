@@ -1,7 +1,8 @@
 --!strict
 -- HubService: builds the whole hub in code at Start (nothing is authored in Studio). One Workspace
 -- folder holds the platform, the single SpawnLocation (HubSpawn), the training ring marker, the
--- QueueTerminal, one LeaderboardBoard_<boardId> per RankingConfig board and the ShopKiosk. The
+-- QueueTerminal, one LeaderboardBoard_<boardId> per RankingConfig board, the ShopKiosk, and the two portal
+-- gates on the platform's empty north (D-130): the way to the Battleground and the way to the Erasure. The
 -- folder is destroyed and rebuilt at Start so a Rojo re-sync or a re-run never leaves two hubs.
 --
 -- Signage rule: a SurfaceGui parented to a server-built part is byte-identical for every viewer, so
@@ -12,19 +13,27 @@
 -- and ratings are not localizable text -- so they expose an empty row container that LeaderboardService
 -- fills, under a title band the client writes in.
 --
+-- A gate is built by World/PortalGate, as the Return gates of the Erasure's arena and of the Battleground
+-- are, and moves nobody itself: the circle at its foot is watched by PortalService. The drawing this service
+-- shares with it -- parts, flat discs, emblems -- is World/Draw.
+--
 -- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
 -- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
--- ShopKiosk.
+-- ShopKiosk, BattlegroundPortal, BossPortal.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Ui = ReplicatedStorage:WaitForChild("UI")
+local World = script.Parent.Parent.World
 
+local Draw = require(World.Draw)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
+local PortalConfig = require(Shared.Config.PortalConfig)
+local PortalGate = require(World.PortalGate)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Theme = require(Ui.Theme)
 local WorldConfig = require(Shared.Config.WorldConfig)
@@ -38,7 +47,13 @@ type CombatApi = { resyncPosition: (player: Player, position: Vector3?) -> () }
 type Deps = { Combat: CombatApi }
 
 type BoardLayout = { BoardId: string, PanelCFrame: CFrame }
-type Layout = { Boards: { BoardLayout }, QueueCFrame: CFrame, ShopCFrame: CFrame }
+type Layout = {
+	Boards: { BoardLayout },
+	QueueCFrame: CFrame,
+	ShopCFrame: CFrame,
+	BattlegroundPortalCFrame: CFrame,
+	BossPortalCFrame: CFrame,
+}
 
 local ANCHORS = WorldConfig.HubAnchors
 local BOARD = WorldConfig.HubBoard
@@ -56,17 +71,10 @@ local PLATFORM_EDGE_HEIGHT_STUDS = 2
 -- reported its 12-stud diameter there and floated the six proofs 6.5 studs up; standing the box ON the
 -- platform still left both of them one stud high. The seal a player sees is the two discs drawn over it.
 local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
--- Vertical thickness of everything drawn flat on the page. All of it is sunk INTO the platform and shows
--- only its top sliver, so nothing stands proud of the floor a character walks on.
-local FLAT_THICKNESS_STUDS = 0.2
--- The ladder, in studs above the platform's top face (y = 0). Every rung is under the 0.03 an effect's
--- ground mark lifts itself by (src/client/Controllers/VfxTimeline.luau), so a burn is never drawn
--- underneath a piece of hub decoration -- and each rung clears the one below it, because two coplanar
--- faces flicker.
-local TRAINING_TOP_STUDS = 0.008
-local RULE_TOP_STUDS = 0.016
-local SEAL_RIM_TOP_STUDS = 0.024
-local SEAL_TOP_STUDS = 0.028
+-- Everything drawn flat on the page is sunk into the platform, and its top face sits on a rung of the
+-- ladder every floor builder shares (WorldConfig.Ladder), in studs above the platform's top face (y = 0).
+local FLAT_THICKNESS_STUDS = WorldConfig.FlatThicknessStuds
+local LADDER = WorldConfig.Ladder
 -- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
 -- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
@@ -83,12 +91,13 @@ local PEDESTAL_BASE_SIZE_STUDS = Vector3.new(7, 1, 7)
 local PEDESTAL_COLUMN_SIZE_STUDS = Vector3.new(2.5, 4, 2.5)
 local PEDESTAL_PANEL_SIZE_STUDS = Vector3.new(6, 4, 0.5)
 local PEDESTAL_PANEL_TILT_DEGREES = 18
-local EMBLEM_PIXELS_PER_STUD = 64
-local EMBLEM_STROKE_PIXELS = 6
 -- Rotations (degrees) of the bars inside the emblem ring: a pair of crossed blades for the queue
 -- terminal, an upright cross for the shop kiosk. Shapes only, never text.
 local QUEUE_EMBLEM_BARS = { -28, 28 }
 local SHOP_EMBLEM_BARS = { 0, 90 }
+-- The two gates, on a ring either side of the empty north (-pi/2), where nothing else stands: the boards
+-- are south and the terminal and the kiosk east and west. tests/Hub.spec.luau recomputes their clearance.
+local PORTALS = PortalConfig.Hub
 -- Returning players land on a small ring around the spawn so a whole team never stacks on one point.
 local RETURN_SLOT_COUNT = 8
 local RETURN_RADIUS_STUDS = 9
@@ -131,21 +140,18 @@ local function computeLayout(): Layout
 		Boards = boards,
 		QueueCFrame = facingCenter(ringPosition(0, PROP_RING_RADIUS_STUDS, 0)),
 		ShopCFrame = facingCenter(ringPosition(math.pi, PROP_RING_RADIUS_STUDS, 0)),
+		-- A gate's base faces the spawn, where its players come from.
+		BattlegroundPortalCFrame = facingCenter(
+			ringPosition(-math.pi / 2 - PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0)
+		),
+		BossPortalCFrame = facingCenter(
+			ringPosition(-math.pi / 2 + PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0)
+		),
 	}
 end
 
-local function newPart(name: string, size: Vector3, cframe: CFrame, color: Color3): Part
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.CFrame = cframe
-	part.Anchored = true
-	part.Color = color
-	part.Material = Palette.material()
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	return part
-end
+-- An anchored part in the world's one material: World/Draw's, which the portal gates are built with too.
+local newPart = Draw.part
 
 local function buildPlatform(parent: Folder)
 	local half = PLATFORM_SIZE_STUDS / 2
@@ -188,27 +194,11 @@ local function buildPlatform(parent: Folder)
 	end
 end
 
--- A cylinder's flat faces are on its X axis, so a disc is rolled a quarter turn to lie flat. `top` is
--- where its upper face lands, in studs above the platform.
-local function flatDisc(name: string, diameter: number, top: number, color: Color3): Part
-	local part = newPart(
-		name,
-		Vector3.new(FLAT_THICKNESS_STUDS, diameter, diameter),
-		CFrame.new(0, top - FLAT_THICKNESS_STUDS / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		color
-	)
-	part.Shape = Enum.PartType.Cylinder
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	return part
-end
-
 -- The ruling of a manuscript page: one inset rectangle of thin ink lines drawn on the platform.
 local function buildRuling(parent: Folder)
 	local half = PLATFORM_SIZE_STUDS / 2 - HUB.RuleInsetStuds
 	local width = HUB.RuleWidthStuds
-	local centerY = RULE_TOP_STUDS - FLAT_THICKNESS_STUDS / 2
+	local centerY = LADDER.Rule - FLAT_THICKNESS_STUDS / 2
 	local length = half * 2 + width
 	local along = Vector3.new(length, FLAT_THICKNESS_STUDS, width)
 	local across = Vector3.new(width, FLAT_THICKNESS_STUDS, length)
@@ -229,9 +219,10 @@ end
 
 local function buildSpawn(parent: Folder): SpawnLocation
 	-- The seal: an ink rim with a chalk disc inside it, both decoration on top of the pad.
-	flatDisc("HubSpawnRim", SPAWN_SIZE_STUDS.X + HUB.SpawnRimStuds * 2, SEAL_RIM_TOP_STUDS, Palette.world(HUB.SpawnRim)).Parent =
+	local rimDiameter = SPAWN_SIZE_STUDS.X + HUB.SpawnRimStuds * 2
+	Draw.flatDisc("HubSpawnRim", rimDiameter, Vector3.zero, LADDER.SealRim, Palette.world(HUB.SpawnRim)).Parent = parent
+	Draw.flatDisc("HubSpawnSeal", SPAWN_SIZE_STUDS.X, Vector3.zero, LADDER.Seal, Palette.world(HUB.Spawn)).Parent =
 		parent
-	flatDisc("HubSpawnSeal", SPAWN_SIZE_STUDS.X, SEAL_TOP_STUDS, Palette.world(HUB.Spawn)).Parent = parent
 
 	local spawnPart = Instance.new("SpawnLocation")
 	spawnPart.Name = ANCHORS.Spawn
@@ -252,63 +243,19 @@ local function buildSpawn(parent: Folder): SpawnLocation
 	return spawnPart
 end
 
--- The training ground, washed in grey. Sunk into the platform so only TRAINING_TOP_STUDS of it shows:
+-- The training ground, washed in grey. Sunk into the platform so only LADDER.Training of it shows:
 -- at its old 0.2 of thickness it stood over every ground mark an effect lifts (0.04 and up), so a burn
 -- inside the ring was drawn under a sixty-percent-opaque disc.
 local function buildTrainingMarker(parent: Folder)
-	local marker = flatDisc("TrainingArea", TRAINING_RADIUS_STUDS * 2, TRAINING_TOP_STUDS, Palette.world(HUB.Training))
+	local marker = Draw.flatDisc(
+		"TrainingArea",
+		TRAINING_RADIUS_STUDS * 2,
+		Vector3.zero,
+		LADDER.Training,
+		Palette.world(HUB.Training)
+	)
 	marker.Transparency = TRAINING_MARKER_TRANSPARENCY
 	marker.Parent = parent
-end
-
--- Neutral emblem: a ring plus straight bars, no text, identical for every viewer.
-local function buildEmblem(panel: BasePart, accent: Color3, bars: { number })
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Emblem"
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = EMBLEM_PIXELS_PER_STUD
-	gui.LightInfluence = 0
-
-	local background = Instance.new("Frame")
-	background.Name = "Background"
-	background.Size = UDim2.fromScale(1, 1)
-	background.BackgroundColor3 = Theme.Colors.Panel
-	background.BorderSizePixel = 0
-	background.Parent = gui
-
-	local ring = Instance.new("Frame")
-	ring.Name = "Ring"
-	ring.AnchorPoint = Vector2.new(0.5, 0.5)
-	ring.Position = UDim2.fromScale(0.5, 0.5)
-	ring.Size = UDim2.fromScale(0.8, 0.8)
-	ring.SizeConstraint = Enum.SizeConstraint.RelativeYY
-	ring.BackgroundTransparency = 1
-	ring.Parent = background
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = ring
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = accent
-	stroke.Thickness = EMBLEM_STROKE_PIXELS
-	stroke.Parent = ring
-
-	for index, rotation in ipairs(bars) do
-		local bar = Instance.new("Frame")
-		bar.Name = "Bar" .. index
-		bar.AnchorPoint = Vector2.new(0.5, 0.5)
-		bar.Position = UDim2.fromScale(0.5, 0.5)
-		bar.Size = UDim2.fromScale(0.12, 0.6)
-		bar.SizeConstraint = Enum.SizeConstraint.RelativeYY
-		bar.Rotation = rotation
-		bar.BackgroundColor3 = accent
-		bar.BorderSizePixel = 0
-		bar.Parent = ring
-	end
-
-	gui.Parent = panel
 end
 
 -- Pedestal = base + column + tilted emblem panel, grouped in a Model under the anchor name.
@@ -340,7 +287,7 @@ local function buildPedestal(parent: Folder, name: string, baseCFrame: CFrame, a
 	local panel = newPart(ANCHORS.Panel, PEDESTAL_PANEL_SIZE_STUDS, panelCFrame, Palette.world(HUB.Pedestal))
 	panel.Parent = model
 
-	buildEmblem(panel, accent, bars)
+	Draw.emblem(panel, accent, bars)
 	model.PrimaryPart = base
 	model.Parent = parent
 end
@@ -454,6 +401,8 @@ function HubService.Start()
 	local emblem = Palette.world(HUB.Emblem)
 	buildPedestal(folder, ANCHORS.Queue, layout.QueueCFrame, emblem, QUEUE_EMBLEM_BARS)
 	buildPedestal(folder, ANCHORS.Shop, layout.ShopCFrame, emblem, SHOP_EMBLEM_BARS)
+	PortalGate.build(folder, ANCHORS.BattlegroundPortal, layout.BattlegroundPortalCFrame, "Battleground")
+	PortalGate.build(folder, ANCHORS.BossPortal, layout.BossPortalCFrame, "WorldBoss")
 	for _, board in ipairs(layout.Boards) do
 		buildBoard(folder, board)
 	end

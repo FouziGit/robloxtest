@@ -171,10 +171,13 @@ function QuestsScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	-- Quests selected for the period the profile is on. A profile that has never been through the
-	-- server's period check carries no key yet: the current one is derived from the same pure helper.
+	-- server's period check carries no key yet: the current one is derived from the same pure helpers, at the
+	-- pool revision the server stores (QuestService), so the draw shown is the draw the server will keep.
 	local function activeQuests(period: string, set: Types.QuestSetData): { QuestDef }
 		local typed: Period = asPeriod(period)
-		local key = if set.PeriodKey ~= "" then set.PeriodKey else QuestLogic.periodKey(typed, os.time())
+		local key = if set.PeriodKey ~= ""
+			then set.PeriodKey
+			else QuestLogic.setKey(QuestLogic.periodKey(typed, os.time()), QuestConfig.PoolRevision)
 		return QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key)
 	end
 

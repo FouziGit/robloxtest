@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local BossPractice = require(Shared.Pure.BossPractice)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
@@ -62,7 +63,8 @@ local CONTACT_RADIUS_STUDS = WorldBossConfig.contactRadius()
 -- Share of the horizontal push sent upwards, so an attack throws its targets instead of sliding them
 -- along the floor (the blasts of GlyphEffects are shaped the same way).
 local KNOCKBACK_LIFT_FACTOR = 0.35
--- A reward is never rounded down to nothing: the smallest rewarded share still pays one point.
+-- A share is never rounded down to nothing: the smallest rewarded share still pays one point before a
+-- practice's factor, if any, scales it (rewardFor).
 local MIN_REWARD = 1
 local DEFAULT_FACING = Vector3.new(0, 0, -1)
 local EPSILON = 1e-3
@@ -100,10 +102,11 @@ end
 -- Event state
 ----------------------------------------------------------------
 
--- Fresh state for an event fought by `participants` players. Every attack starts on its own cooldown,
--- so the first minute already has the rhythm of the rest of the fight instead of a double opener.
-function WorldBossMode.newState(participants: number, now: number): State
-	local health = WorldBossConfig.healthFor(participants)
+-- Fresh state for a fight by `participants` players, with `maxHealth` when the caller sets it (a practice,
+-- WorldBossConfig.Practice) and the event's WorldBossConfig.healthFor otherwise. Every attack starts on its
+-- own cooldown, so the first minute already has the rhythm of the rest of the fight instead of a double opener.
+function WorldBossMode.newState(participants: number, now: number, maxHealth: number?): State
+	local health = maxHealth or WorldBossConfig.healthFor(participants)
 	local cooldowns: { [string]: number } = {}
 	for _, attack in ipairs(WorldBossConfig.Attacks) do
 		cooldowns[attack.Id] = now + attack.CooldownSeconds
@@ -131,15 +134,29 @@ end
 
 -- Records the boss health and answers whether the fight moved into another phase (worth a log and an
 -- immediate snapshot: the phase changes how fast the boss moves and warns).
+--
+-- A phase is only ever entered, never left. In the event the health only falls, so this changes nothing
+-- there; in a practice a joiner's first hit raises the health (`grow`), and the fraction climbing back over a
+-- threshold must not hand the boss back its slower rhythm, or a practice could be reset to phase 1 by joining.
 function WorldBossMode.setHealth(state: State, health: number): boolean
 	state.Health = math.clamp(health, 0, state.MaxHealth)
 	local fraction = if state.MaxHealth > 0 then state.Health / state.MaxHealth else 0
-	local index = WorldBossConfig.phaseFor(fraction)
+	local index = math.max(state.PhaseIndex, WorldBossConfig.phaseFor(fraction))
 	if index == state.PhaseIndex then
 		return false
 	end
 	state.PhaseIndex = index
 	return true
+end
+
+-- A practice growing by `added` health for a player who joined it (BossPractice.growthOnHit): the maximum and
+-- the health left both rise, so the damage already dealt stays dealt and the shares keep adding up to it.
+function WorldBossMode.grow(state: State, added: number)
+	if added <= 0 then
+		return
+	end
+	state.MaxHealth += added
+	state.Health += added
 end
 
 function WorldBossMode.moveSpeed(state: State): number
@@ -170,16 +187,22 @@ end
 -- What a damage share is worth: nil under WorldBossConfig.Rewards.MinShareToReward (the player was
 -- there but did nothing), the participation reward scaled by the share otherwise, plus the kill bonus
 -- above KillBonusShare. docs/ECONOMY.md §2 quotes the numbers a top contributor takes home.
-function WorldBossMode.rewardFor(share: number): Reward?
-	if share < REWARDS.MinShareToReward then
+--
+-- `factor` is the fraction of all that a practice pays (WorldBossConfig.Practice.RewardFactor); the event
+-- passes none and pays in full. Each amount is scaled once, after the share, through BossPractice.scaled, so
+-- a practice can round a small line down to nothing (the service credits no zero). A factor of zero or less
+-- pays nothing at all.
+function WorldBossMode.rewardFor(share: number, factor: number?): Reward?
+	local scale = factor or 1
+	if share < REWARDS.MinShareToReward or scale <= 0 then
 		return nil
 	end
 	local bonus = share >= REWARDS.KillBonusShare
 	return {
-		Xp = math.max(MIN_REWARD, math.floor(XP.BossParticipation * share + 0.5)),
-		Folios = math.max(MIN_REWARD, math.floor(FOLIOS.BossParticipation * share + 0.5)),
-		BonusXp = if bonus then XP.BossKillBonus else 0,
-		BonusFolios = if bonus then FOLIOS.BossKillBonus else 0,
+		Xp = BossPractice.scaled(math.max(MIN_REWARD, math.floor(XP.BossParticipation * share + 0.5)), scale),
+		Folios = BossPractice.scaled(math.max(MIN_REWARD, math.floor(FOLIOS.BossParticipation * share + 0.5)), scale),
+		BonusXp = if bonus then BossPractice.scaled(XP.BossKillBonus, scale) else 0,
+		BonusFolios = if bonus then BossPractice.scaled(FOLIOS.BossKillBonus, scale) else 0,
 	}
 end
 
@@ -295,8 +318,14 @@ end
 -- Replication
 ----------------------------------------------------------------
 
--- Wire state of the event (BossChanged). MyShare is filled per receiver by WorldBossService.
-function WorldBossMode.snapshot(state: State, secondsLeft: number, myShare: number): Types.BossSnapshot
+-- Wire state of the fight (BossChanged). MyShare is filled per receiver by WorldBossService; `practice` says
+-- the fight is a practice (D-132), which the HUD titles as such.
+function WorldBossMode.snapshot(
+	state: State,
+	secondsLeft: number,
+	myShare: number,
+	practice: boolean
+): Types.BossSnapshot
 	local attack = state.Attack
 	return {
 		Phase = state.Phase,
@@ -307,6 +336,7 @@ function WorldBossMode.snapshot(state: State, secondsLeft: number, myShare: numb
 		Participants = state.Participants,
 		TelegraphKey = if attack ~= nil then attack.NameKey else nil,
 		MyShare = myShare,
+		Practice = practice,
 	}
 end
 

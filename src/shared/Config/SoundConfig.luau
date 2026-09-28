@@ -146,6 +146,10 @@ SoundConfig.Sfx = {
 	BossWarn = sound("boss_warn.wav", 2.00, 0.6, 0.0),
 	BossImpact = sound("boss_impact.wav", 0.90, 0.85, 0.04),
 	BossDefeat = sound("boss_defeat.wav", 2.20, 0.8, 0.0),
+	-- The Forgers' wind-ups (the ForgerTell timeline, D-133): a warning the server times sounds like one,
+	-- whoever gives it, so the ear learns one sound for "a blow is coming". The Erasure's own file, stretched
+	-- to each window like the boss's, and quieter: ten Forgers warn far more often than one boss.
+	ForgerWarn = sound("boss_warn.wav", 2.00, 0.35, 0.0),
 
 	-- The sequence: one note per pigment, played up a scale by ComboController, and its three endings.
 	NoteCinnabar = sound("note_cinnabar.wav", 0.70, 0.5, 0.0),

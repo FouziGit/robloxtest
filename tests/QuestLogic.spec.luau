@@ -3,6 +3,7 @@ local Harness = require("./harness")
 local QuestConfig = require("../src/shared/Config/QuestConfig")
 local QuestLogic = require("../src/shared/Pure/QuestLogic")
 local Strings = require("../src/shared/Strings")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -85,5 +86,188 @@ describe("QuestLogic", function()
 		end
 		expect(#QuestLogic.select(QuestConfig.Pool, "Daily", QuestConfig.Periods.Daily.Count, "D1")).toBe(3)
 		expect(#QuestLogic.select(QuestConfig.Pool, "Weekly", QuestConfig.Periods.Weekly.Count, "W1")).toBe(3)
+	end)
+end)
+
+-- A deploy that grows the pool must not redraw a period already under way: players who had claimed
+-- today's quests were handed new ones to claim again. A set keeps the pool revision it was drawn from.
+describe("QuestLogic pool revisions", function()
+	-- Every revision's pool, in pool order. A revision is only ever appended here: removing or moving
+	-- an entry would change the draw of sets already stored.
+	local LAUNCH = {
+		"DailyCastGlyphs",
+		"DailyHitGlyphs",
+		"DailyDummies",
+		"DailyWin",
+		"DailyPlay",
+		"DailyDamage",
+		"DailyDash",
+		"DailyMelee",
+		"DailyChain",
+		"DailyCancel",
+		"WeeklyWins",
+		"WeeklyKills",
+		"WeeklyBoss",
+		"WeeklyCasts",
+		"WeeklyDamage",
+	}
+	local FORGERS = table.clone(LAUNCH)
+	table.insert(FORGERS, 11, "DailyForgers")
+	local PINNED = { LAUNCH, FORGERS }
+
+	local function idsOf(quests: { QuestConfig.QuestDef }): { string }
+		local ids = {}
+		for _, def in ipairs(quests) do
+			table.insert(ids, def.Id)
+		end
+		return ids
+	end
+
+	-- The pool as it stood at `revision`, rebuilt from the pinned ids rather than from `Since`, and
+	-- without any `Since`: a plain pool, drawn the way every pool was before revisions existed.
+	local function poolAt(revision: number): { QuestConfig.QuestDef }
+		local byId = {}
+		for _, def in ipairs(QuestConfig.Pool) do
+			local plain = table.clone(def)
+			plain.Since = nil
+			byId[def.Id] = plain
+		end
+		local pool = {}
+		for _, id in ipairs(PINNED[revision]) do
+			table.insert(pool, byId[id])
+		end
+		return pool
+	end
+
+	-- The first day from D20000 whose draw differs between `revision` - 1 and `revision`.
+	local function dayRedrawnBy(revision: number): number
+		for day = 20000, 20400 do
+			local before = QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision - 1))
+			local after = QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision))
+			if table.concat(idsOf(before), ",") ~= table.concat(idsOf(after), ",") then
+				return day
+			end
+		end
+		error("no day in D20000..D20400 is redrawn by revision " .. revision .. ": this test would prove nothing")
+	end
+
+	it("pins each revision's pool", function()
+		expect(#PINNED).toBe(QuestConfig.PoolRevision)
+		for revision = 1, QuestConfig.PoolRevision do
+			local ids = {}
+			for _, def in ipairs(QuestConfig.Pool) do
+				if (def.Since or 1) <= revision then
+					table.insert(ids, def.Id)
+				end
+			end
+			expect(ids).toEqual(PINNED[revision])
+		end
+		for _, def in ipairs(QuestConfig.Pool) do
+			if def.Since ~= nil then
+				expect(def.Since).toBeGreaterThanOrEqual(2)
+				expect(def.Since).toBeLessThanOrEqual(QuestConfig.PoolRevision)
+				expect(def.Since).toBe(math.floor(def.Since))
+			end
+		end
+	end)
+
+	it("names the revision in the key from the second pool on", function()
+		expect(QuestLogic.setKey("D20725", 1)).toBe("D20725")
+		expect(QuestLogic.setKey("D20725", 2)).toBe("D20725@2")
+		expect(QuestLogic.setKey("W2960", 3)).toBe("W2960@3")
+	end)
+
+	it("draws every key of a revision from that revision's pool alone", function()
+		for revision = 1, QuestConfig.PoolRevision do
+			local pool = poolAt(revision)
+			for day = 20000, 20400 do
+				local key = QuestLogic.setKey("D" .. day, revision)
+				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key))).toEqual(
+					idsOf(QuestLogic.select(pool, "Daily", 3, "D" .. day))
+				)
+			end
+			for week = 2900, 2960 do
+				local key = QuestLogic.setKey("W" .. week, revision)
+				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key))).toEqual(
+					idsOf(QuestLogic.select(pool, "Weekly", 3, "W" .. week))
+				)
+			end
+		end
+	end)
+
+	it("keeps a set drawn before the pool grew until its period ends", function()
+		local day = dayRedrawnBy(QuestConfig.PoolRevision)
+		local stored = "D" .. day
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, stored)
+		local set = newSet(stored)
+		for _, def in ipairs(drawn) do
+			set.Progress[def.Id] = def.Target
+			set.Claimed[def.Id] = true
+		end
+
+		-- The deploy: the live key now carries the grown pool's revision, on the same day.
+		local live = QuestLogic.setKey(stored, QuestConfig.PoolRevision)
+		expect(QuestLogic.ensurePeriod(set, live)).toBe(false)
+		expect(set.PeriodKey).toBe(stored)
+		local kept = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey)
+		expect(idsOf(kept)).toEqual(idsOf(drawn))
+		-- The quests the grown pool would have drawn today are not in the set, so none can be claimed.
+		local keptIds = idsOf(kept)
+		local newcomers = 0
+		for _, def in ipairs(QuestLogic.select(QuestConfig.Pool, "Daily", 3, live)) do
+			if not table.find(keptIds, def.Id) then
+				newcomers += 1
+			end
+		end
+		expect(newcomers).toBeGreaterThan(0)
+		for _, def in ipairs(kept) do
+			expect(QuestLogic.canClaim(set, def)).toBe(false)
+		end
+
+		-- The next day is drawn from the grown pool.
+		local tomorrow = QuestLogic.setKey("D" .. (day + 1), QuestConfig.PoolRevision)
+		expect(QuestLogic.ensurePeriod(set, tomorrow)).toBe(true)
+		expect(set.PeriodKey).toBe(tomorrow)
+		expect(set.Claimed).toEqual({})
+		expect(QuestLogic.ensurePeriod(set, tomorrow)).toBe(false)
+	end)
+
+	-- The server is where the rule holds or not: drawn from the live key, a set kept from before the deploy
+	-- gets the grown pool's quests, and the claims start over. Read as text, since Lune cannot run a service.
+	it("has QuestService draw every set from the key it stores", function()
+		local source = (fs.readFile("src/server/Services/QuestService.luau"):gsub("%-%-[^\n]*", ""))
+		local function body(header: string): string
+			local start = source:find(header, 1, true)
+			if start == nil then
+				error(("QuestService has no %s: this gate would check nothing"):format(header))
+			end
+			local finish = source:find("\nend\n", start, true)
+			return (source:sub(start, finish or #source):gsub("%s+", " "))
+		end
+		local ensure = body("local function ensureSet(")
+		expect(ensure).toContain("QuestLogic.setKey(QuestLogic.periodKey(period, now), QuestConfig.PoolRevision)")
+		expect(ensure).toContain("if QuestLogic.ensurePeriod(set, setKey) then")
+		expect(ensure).toContain("return set, questsFor(period, set.PeriodKey)")
+		expect(body("local function questsFor(")).toContain(
+			"QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, setKey)"
+		)
+		-- One draw, one caller of it: no other path reaches the quests by the live key.
+		local _, draws = source:gsub("QuestLogic%.select%(", "")
+		local _, uses = source:gsub("questsFor%(", "")
+		expect(draws).toBe(1)
+		expect(uses).toBe(2)
+	end)
+
+	it("has the quests screen draw a keyless set at the revision the server will store", function()
+		local source = (fs.readFile("src/ui/screens/QuestsScreen.luau"):gsub("%-%-[^\n]*", ""))
+		local start = source:find("local function activeQuests(", 1, true)
+		if start == nil then
+			error("QuestsScreen has no activeQuests: this gate would check nothing")
+		end
+		local finish = source:find("\n\tend\n", start, true)
+		local active = (source:sub(start, finish or #source):gsub("%s+", " "))
+		expect(active).toContain("QuestLogic.setKey(QuestLogic.periodKey(typed, os.time()), QuestConfig.PoolRevision)")
+		local _, bare = active:gsub("else QuestLogic%.periodKey%(", "")
+		expect(bare).toBe(0)
 	end)
 end)

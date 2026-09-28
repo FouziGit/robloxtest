@@ -12,6 +12,7 @@ local Effects = script.Parent.Effects
 local AnalyticsService = require(Services.AnalyticsService)
 local AntiCheatService = require(Services.AntiCheatService)
 local ArenaService = require(Services.ArenaService)
+local BattlegroundService = require(Services.BattlegroundService)
 local BattlepassService = require(Services.BattlepassService)
 local CombatService = require(Services.CombatService)
 local CosmeticService = require(Services.CosmeticService)
@@ -31,6 +32,7 @@ local MatchmakingService = require(Services.MatchmakingService)
 local MonetizationService = require(Services.MonetizationService)
 local MovementService = require(Services.MovementService)
 local NotifyService = require(Services.NotifyService)
+local PortalService = require(Services.PortalService)
 local ProgressionService = require(Services.ProgressionService)
 local QuestService = require(Services.QuestService)
 local RankingService = require(Services.RankingService)
@@ -85,6 +87,8 @@ local deps = {
 	Shop = ShopService,
 	Monetization = MonetizationService,
 	WorldBoss = WorldBossService,
+	Battleground = BattlegroundService,
+	Portal = PortalService,
 }
 
 -- Dependency order: each service only reads services listed before it.
@@ -116,6 +120,11 @@ local ordered: { Entry } = {
 	{ Name = "MatchService", Service = MatchService },
 	{ Name = "MatchmakingService", Service = MatchmakingService },
 	{ Name = "WorldBossService", Service = WorldBossService },
+	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
+	{ Name = "BattlegroundService", Service = BattlegroundService },
+	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
+	-- finds the seals already standing.
+	{ Name = "PortalService", Service = PortalService },
 	-- Last: it applies pass ownership through Loadout / Cosmetic / Battlepass, which must all be up.
 	{ Name = "MonetizationService", Service = MonetizationService },
 }

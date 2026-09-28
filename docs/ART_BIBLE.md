@@ -149,6 +149,7 @@ préparée sur laquelle on écrit ce qui doit durer.
 | World Boss | **L'Effacement** (The Erasure) | ce qui vient effacer la page |
 | mannequin | **Épreuve** (Proof) | une épreuve d'imprimerie, ce sur quoi on essaie |
 | ryo (monnaie) | **Folio** (Folio) | un feuillet de manuscrit : dans Vellum, la page est la monnaie |
+| ennemi du champ de bataille | **Faussaire** (Forger) | une écriture qui contrefait la page et se retourne contre qui la lit ; figures d'encre marquées de craie, jamais d'une couleur (D-131) |
 
 ### Les cinq écoles
 

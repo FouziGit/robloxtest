@@ -181,6 +181,31 @@ function Encounter.build(arena: Arena, health: number): Boss
 	}
 end
 
+-- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss. The
+-- opening of a fight places everybody through here, and so does the hub's gate for whoever joins it later.
+function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: Vector3)
+	local pads = arena.Spawns[1]
+	if pads == nil or #pads == 0 then
+		log.warn("arena %s has no player pad: %s stays where they are", arena.Id, player.Name)
+		return
+	end
+	local character = player.Character
+	if character == nil then
+		return
+	end
+	local pad = pads[((slot - 1) % #pads) + 1]
+	local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
+	character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+	local root = character.PrimaryPart
+	if root ~= nil then
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+	end
+	-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on the pad
+	-- the server chose, or the first hit this player lands on the boss is built back where they stood.
+	deps.Combat.resyncPosition(player, position)
+end
+
 -- Drops every participant on its own pad of the arena ring, facing the boss.
 function Encounter.place(arena: Arena, userIds: { number }, center: Vector3)
 	local pads = arena.Spawns[1]
@@ -190,20 +215,8 @@ function Encounter.place(arena: Arena, userIds: { number }, center: Vector3)
 	end
 	for index, userId in ipairs(userIds) do
 		local player = Players:GetPlayerByUserId(userId)
-		local character = if player ~= nil then player.Character else nil
-		if character ~= nil then
-			local pad = pads[((index - 1) % #pads) + 1]
-			local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
-			character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
-			local root = character.PrimaryPart
-			if root ~= nil then
-				root.AssemblyLinearVelocity = Vector3.zero
-				root.AssemblyAngularVelocity = Vector3.zero
-			end
-			-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on
-			-- the pad the server chose, or the first hit this player lands on the boss is built back where
-			-- they stood.
-			deps.Combat.resyncPosition(player, position)
+		if player ~= nil then
+			Encounter.placeOne(arena, player, index, center)
 		end
 	end
 end

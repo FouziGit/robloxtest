@@ -161,8 +161,17 @@ Remotes.Definitions = {
 	MatchChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- End-of-match summary (Types.MatchOutcome), sent once before the return to the hub.
 	MatchEnded = { Kind = "RemoteEvent", Direction = "ServerToClient" },
-	-- World Boss state for everyone on the server (Types.BossSnapshot), or nil when no event runs.
+	-- World Boss state (Types.BossSnapshot): to everyone on the server during the event, to its own
+	-- participants during a practice (D-132); nil when no fight runs, and to a participant who left a practice.
 	BossChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The Battleground for one of its members (Types.BattlegroundSnapshot), or nil when they leave it.
+	BattlegroundChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The portal circle a player stands in and how long they must stay (Types.PortalSnapshot), or nil once they
+	-- step out or set off. There is no client-to-server remote for travelling, and there must never be one
+	-- (D-130): the server moves whoever it trusts to be standing in a circle, and the client is only told.
+	PortalChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- Where a portal just took the player (a PortalConfig.PortalId), once they have arrived.
+	Travelled = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Today's shop rotation with ownership resolved for the receiver (Types.ShopSnapshot).
 	ShopChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 } :: { [string]: Definition }

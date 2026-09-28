@@ -175,9 +175,16 @@ VfxConfig.BossIds = {
 	"BossDefeated",
 } :: { string }
 
+-- Emitted by the Battleground's Forgers (D-131), besides the players' own Melee stroke and the Strike beam they
+-- reuse for their blows: the tell of every wind-up, for as long as the server makes it wait (BattlegroundService's
+-- Context.TellVfxId).
+VfxConfig.ForgerIds = {
+	"ForgerTell",
+} :: { string }
+
 VfxConfig.Ids = {} :: { string }
 VfxConfig.IdSet = {} :: { [string]: boolean }
-for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds, VfxConfig.BossIds }) do
+for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds, VfxConfig.BossIds, VfxConfig.ForgerIds }) do
 	for _, id in ipairs(list) do
 		table.insert(VfxConfig.Ids, id)
 		VfxConfig.IdSet[id] = true

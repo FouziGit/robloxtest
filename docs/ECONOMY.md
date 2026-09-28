@@ -22,11 +22,17 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Quête journalière | 50 | ×2 | 100 |
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
+| Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
+| Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour (profil), 1 / 20 min ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios / jour via le bonus dédié.
+
+Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
+
+**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub en donnent déjà environ 19 000, écart plus grand encore, qui demande sa propre revue. À mesurer en jeu avant d'ajuster.
 
 ## 3. Puits de Folios (boutique cosmétique)
 

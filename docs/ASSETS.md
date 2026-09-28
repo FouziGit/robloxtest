@@ -43,7 +43,7 @@ mono, déterministe — aucune fonction de la libm sur le chemin par échantillo
 |---|---|---|
 | `{cinnabar,indigo,umber,verdigris}_{attack,body,tail,impact}.wav`, `orpiment_{attack,body,impact}.wav` (19) | `pigments.py` | les voix de chaque pigment, nommées par les timelines ; l'Orpiment ne vole jamais et n'a pas de queue |
 | `melee_1..3.wav`, `melee_finisher.wav`, `dash.wav`, `impact_hit.wav`, `block_start.wav`, `impact_block.wav`, `guard_break.wav` | `kit.py` | le kit de mêlée et la garde |
-| `boss_arrival.wav`, `boss_warn.wav`, `boss_impact.wav`, `boss_defeat.wav` | `kit.py` | L'Effacement ; `boss_warn` est étiré à la fenêtre d'avertissement |
+| `boss_arrival.wav`, `boss_warn.wav`, `boss_impact.wav`, `boss_defeat.wav` | `kit.py` | L'Effacement ; `boss_warn` est étiré à la fenêtre d'avertissement, et sert aussi, plus bas, à la préparation des Faussaires (`ForgerWarn`, D-133) |
 | `note_{pigment}.wav` (5), `sequence_resolve.wav`, `sequence_fail.wav`, `sequence_dissipate.wav` | `kit.py` | la séquence musicale |
 | `ui_click.wav`, `ui_open.wav`, `ui_close.wav`, `ui_error.wav`, `claim.wav`, `level_up.wav`, `tier_up.wav`, `kill.wav`, `match_start.wav`, `match_win.wav`, `match_lose.wav`, `countdown.wav` | `kit.py` | interface et retours personnels |
 | `music_hub.wav`, `music_match.wav`, `music_boss.wav` | `music.py` | les trois boucles, 16 kHz, couture par fondu |

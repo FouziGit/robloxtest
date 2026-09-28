@@ -57,6 +57,9 @@ export type CombatApi = {
 	-- The caster origin the server is willing to believe, re-validated at call time. An effect that keeps
 	-- damaging around the caster must follow this, not the raw root.
 	trustedOrigin: (player: Player) -> CFrame?,
+	-- A stun or a slow on a body no player owns (a Forger): its owner holds it, under the glyph's id as a
+	-- player's slow is (`key`). Players go through Movement.
+	controlNpc: (targetModel: Model, kind: "Stun" | "Slow", seconds: number, factor: number, key: string) -> (),
 }
 export type VfxPacket = {
 	Id: string,
@@ -287,6 +290,29 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	end
 	tracker.Hits[model] = (hits or 0) + 1
 	return true
+end
+
+-- Holds a model the glyph just hit for `seconds`. A player is stunned by MovementService; any other body
+-- is handed to whoever owns it (CombatService.controlNpc), so a stun glyph stops a Forger too. Every control
+-- a glyph applies goes through this or slowModel: a site that asked Movement directly reached players only.
+local function stunModel(ctx: Context, model: Model, seconds: number)
+	local player = playerOf(model)
+	if player ~= nil then
+		ctx.Movement.applyStun(player, seconds)
+	else
+		ctx.Combat.controlNpc(model, "Stun", seconds, 0, ctx.Def.Id)
+	end
+end
+
+-- Slows a model the glyph just hit to `factor` of its pace for `seconds` (a root is a factor of 0), keyed by
+-- the glyph for players and for any other body, handed to its owner.
+local function slowModel(ctx: Context, model: Model, factor: number, seconds: number)
+	local player = playerOf(model)
+	if player ~= nil then
+		ctx.Movement.applySlow(player, ctx.Def.Id, factor, seconds)
+	else
+		ctx.Combat.controlNpc(model, "Slow", seconds, factor, ctx.Def.Id)
+	end
 end
 
 -- Damages every live model within `radius` of `center` and returns the models actually damaged in
@@ -588,10 +614,7 @@ function GlyphEffects.Serif(ctx: Context): number
 		end
 		local point = origin + direction * (params.StartOffset + (index - 1) * params.Spacing)
 		for _, model in ipairs(damageArea(ctx, tracker, point, params.HitRadius)) do
-			local player = playerOf(model)
-			if player ~= nil then
-				ctx.Movement.applyStun(player, params.Stun)
-			end
+			stunModel(ctx, model, params.Stun)
 		end
 	end
 	return tracker.Count
@@ -641,10 +664,7 @@ function GlyphEffects.Bleed(ctx: Context): number
 	}, true)
 
 	return tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
-		local player = playerOf(model)
-		if player ~= nil then
-			ctx.Movement.applySlow(player, ctx.Def.Id, params.SlowFactor, params.SlowDuration)
-		end
+		slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
 	end)
 end
 
@@ -805,10 +825,7 @@ function GlyphEffects.Rupture(ctx: Context): number
 	local launch = Vector3.yAxis * params.Launch
 	for _, model in ipairs(damageArea(ctx, tracker, origin, params.Radius)) do
 		ctx.Combat.knockback(model, launch, KNOCKBACK_DURATION)
-		local player = playerOf(model)
-		if player ~= nil then
-			ctx.Movement.applyStun(player, params.Stun)
-		end
+		stunModel(ctx, model, params.Stun)
 	end
 	return tracker.Count
 end
@@ -934,11 +951,8 @@ function GlyphEffects.Binding(ctx: Context): number
 	for _, model in ipairs(targets) do
 		if damageModel(ctx, tracker, model) then
 			table.insert(points, model:GetPivot().Position)
-			local player = playerOf(model)
-			if player ~= nil then
-				-- Root, not stun: WalkSpeed pinned at zero leaves the victim able to fight back.
-				ctx.Movement.applySlow(player, ctx.Def.Id, params.RootSlowFactor, params.RootDuration)
-			end
+			-- Root, not stun: WalkSpeed pinned at zero leaves the victim able to fight back.
+			slowModel(ctx, model, params.RootSlowFactor, params.RootDuration)
 		end
 	end
 	ctx.Vfx.emit({
@@ -996,10 +1010,7 @@ function GlyphEffects.Stipple(ctx: Context): number
 	if not damageModel(ctx, tracker, target) then
 		return 0
 	end
-	local player = playerOf(target)
-	if player ~= nil then
-		ctx.Movement.applySlow(player, ctx.Def.Id, params.SlowFactor, params.SlowDuration)
-	end
+	slowModel(ctx, target, params.SlowFactor, params.SlowDuration)
 	return tracker.Count
 end
 
@@ -1123,10 +1134,7 @@ function GlyphEffects.Pounce(ctx: Context): number
 	}, true)
 
 	return tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
-		local player = playerOf(model)
-		if player ~= nil then
-			ctx.Movement.applySlow(player, ctx.Def.Id, params.SlowFactor, params.SlowDuration)
-		end
+		slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
 	end)
 end
 
@@ -1263,10 +1271,7 @@ function GlyphEffects.Watermark(ctx: Context): number
 	}, true)
 
 	return tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
-		local player = playerOf(model)
-		if player ~= nil then
-			ctx.Movement.applyStun(player, params.StunSeconds)
-		end
+		stunModel(ctx, model, params.StunSeconds)
 	end)
 end
 
@@ -1302,10 +1307,7 @@ function GlyphEffects.Colophon(ctx: Context): number
 		local position = link:GetPivot().Position
 		table.insert(points, position)
 		if damageModel(ctx, tracker, link) then
-			local player = playerOf(link)
-			if player ~= nil then
-				ctx.Movement.applyStun(player, params.StunSeconds)
-			end
+			stunModel(ctx, link, params.StunSeconds)
 			ctx.Combat.knockback(link, horizontal(position - previous) * params.Knockback, KNOCKBACK_DURATION)
 		end
 		previous = position

@@ -2,7 +2,8 @@
 -- Quest selection, progress and claims. Pure module: no requires, no Roblox globals.
 
 export type Period = "Daily" | "Weekly"
-export type QuestDef = { Id: string, Period: Period, Event: string, Target: number, NameKey: string }
+-- `Since`: the pool revision that added the quest (QuestConfig.PoolRevision); none for the first pool.
+export type QuestDef = { Id: string, Period: Period, Event: string, Target: number, NameKey: string, Since: number? }
 export type SetData = { PeriodKey: string, Progress: { [string]: number }, Claimed: { [string]: boolean } }
 export type Status = { Id: string, Progress: number, Target: number, Claimed: boolean, Completed: boolean }
 
@@ -27,6 +28,28 @@ function QuestLogic.periodKey(period: Period, unixTime: number): string
 	return "W" .. tostring(QuestLogic.weekIndex(unixTime))
 end
 
+-- A set's key names its period and the pool revision its quests were drawn from: "D20725" for the
+-- first pool, "D20725@2" for the second. The revision stays with the set until its period ends, so a
+-- deploy that adds a quest to the pool changes nobody's quests before their next day or week. Drawn
+-- again from the grown pool, today's set changed under players who had already claimed it, and the
+-- quests that newly entered it paid on top of the ones they had claimed. A key stored before revisions
+-- existed has none, and reads as the first pool: the one it was drawn from.
+local function splitKey(setKey: string): (string, number)
+	local periodKey, revision = string.match(setKey, "^(.*)@(%d+)$")
+	if periodKey ~= nil and revision ~= nil then
+		return periodKey, tonumber(revision) :: number
+	end
+	return setKey, 1
+end
+
+-- The key of a set drawn now, in the period `periodKey`, from the pool at `revision`.
+function QuestLogic.setKey(periodKey: string, revision: number): string
+	if revision <= 1 then
+		return periodKey
+	end
+	return periodKey .. "@" .. tostring(revision)
+end
+
 local function hash(text: string): number
 	local value = 2166136261
 	for index = 1, #text do
@@ -35,11 +58,14 @@ local function hash(text: string): number
 	return value
 end
 
--- Deterministic selection of `count` distinct quests of `period` for `periodKey`.
-function QuestLogic.select(pool: { QuestDef }, period: Period, count: number, periodKey: string): { QuestDef }
+-- Deterministic selection of `count` distinct quests of `period` for the set key `setKey`. Only the
+-- quests of the key's pool revision are candidates, and the draw hashes the period alone, so a key from
+-- the first pool draws exactly what it drew before the pool grew.
+function QuestLogic.select(pool: { QuestDef }, period: Period, count: number, setKey: string): { QuestDef }
+	local periodKey, revision = splitKey(setKey)
 	local candidates = {}
 	for _, def in ipairs(pool) do
-		if def.Period == period then
+		if def.Period == period and (def.Since or 1) <= revision then
 			table.insert(candidates, def)
 		end
 	end
@@ -57,12 +83,14 @@ function QuestLogic.select(pool: { QuestDef }, period: Period, count: number, pe
 	return selected
 end
 
--- Resets the set when the period changed. Returns true if a reset happened.
-function QuestLogic.ensurePeriod(set: SetData, periodKey: string): boolean
-	if set.PeriodKey == periodKey then
+-- Resets the set when the period of `setKey` is not the set's own, and stores `setKey`. Within one
+-- period the stored key stays, and with it the revision the set was drawn from. Returns true if a reset
+-- happened.
+function QuestLogic.ensurePeriod(set: SetData, setKey: string): boolean
+	if (splitKey(set.PeriodKey)) == (splitKey(setKey)) then
 		return false
 	end
-	set.PeriodKey = periodKey
+	set.PeriodKey = setKey
 	set.Progress = {}
 	set.Claimed = {}
 	return true

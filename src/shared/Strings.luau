@@ -282,6 +282,7 @@ Strings.Table = {
 	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
 	["quest.hitGlyphs"] = { en = "Hit enemies with {target} glyphs", fr = "Touche des ennemis avec {target} glyphes" },
 	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
+	["quest.defeatForgers"] = { en = "Defeat {target} Forgers", fr = "Vaincs {target} Faussaires" },
 	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
 	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
 	["quest.dealDamage"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
@@ -481,6 +482,41 @@ Strings.Table = {
 	["leaderboard.youUnlisted"] = { en = "You: outside the top {count}", fr = "Toi : hors du top {count}" },
 	["leaderboard.unranked"] = { en = "Unranked — play a ranked match", fr = "Non classé — joue un match classé" },
 
+	-- The portals (D-130): the name of each seal and what it asks of whoever stands in it (PortalConfig.Zones).
+	["portal.battleground.name"] = { en = "Battleground", fr = "Champ de bataille" },
+	["portal.worldBoss.name"] = { en = "Face the Erasure", fr = "Affronter l'Effacement" },
+	["portal.return.name"] = { en = "Back to the hub", fr = "Retour au hub" },
+	["portal.hint.enter"] = { en = "Stay in the circle to enter", fr = "Reste dans le cercle pour entrer" },
+	["portal.hint.return"] = { en = "Stay in the circle to go back", fr = "Reste dans le cercle pour revenir" },
+	["portal.unavailable"] = { en = "This way is closed for now.", fr = "Ce passage est fermé pour l'instant." },
+	-- The band that fills while its player stands in a circle (TravelController): {place} is the seal's name.
+	["portal.entering"] = { en = "Stay in the circle: {place}", fr = "Reste dans le cercle : {place}" },
+	-- A circle stood in just after a trip: step out, then back in, once this has passed (PortalService).
+	["portal.cooldown"] = {
+		en = "Wait a moment before travelling again.",
+		fr = "Attends un instant avant de repartir.",
+	},
+
+	-- The Battleground and its Forgers (D-131).
+	["battleground.entered"] = { en = "The Forgers have seen you.", fr = "Les Faussaires t'ont vu." },
+	-- The member's band (TravelController): Forgers on the page now, and how many they helped defeat.
+	["battleground.status"] = {
+		en = "{standing} Forgers standing · {defeated} defeated",
+		fr = "{standing} Faussaires debout · {defeated} vaincus",
+	},
+	["battleground.full"] = {
+		en = "The battleground is full. Try again in a moment.",
+		fr = "Le champ de bataille est plein. Réessaie dans un instant.",
+	},
+	["battleground.folioCap"] = {
+		en = "Forgers pay no more Folios today. XP still counts.",
+		fr = "Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
+	["battleground.campHit"] = {
+		en = "Hits from the camp don't count. Step out to fight.",
+		fr = "Les coups portés depuis le camp ne comptent pas. Sors pour te battre.",
+	},
+
 	-- L'Effacement (the World Boss, docs/GAME_DESIGN.md §7)
 	["boss.name"] = { en = "The Erasure", fr = "L'Effacement" },
 	["boss.announced"] = {
@@ -507,6 +543,37 @@ Strings.Table = {
 	["boss.attack.eruption"] = { en = "Eruption", fr = "Éruption" },
 	["boss.attack.fury"] = { en = "Fury", fr = "Furie" },
 	["boss.incoming"] = { en = "{attack} incoming!", fr = "{attack} en approche !" },
+	-- Practice against the Erasure and joining a fight through the hub's gate (D-132).
+	["boss.practice.title"] = { en = "The Erasure · practice", fr = "L'Effacement · entraînement" },
+	["boss.portal.announced"] = {
+		en = "The Erasure arrives in {seconds}s: you will be drawn in.",
+		fr = "L'Effacement arrive dans {seconds} s : tu y seras appelé.",
+	},
+	["boss.portal.eventSoon"] = {
+		en = "The Erasure itself comes in {seconds}s: no practice now.",
+		fr = "Le vrai Effacement arrive dans {seconds} s : pas d'entraînement maintenant.",
+	},
+	["boss.portal.closing"] = {
+		en = "This fight is ending. Try again in a moment.",
+		fr = "Ce combat se termine. Réessaie dans un instant.",
+	},
+	["boss.portal.cooldown"] = { en = "Practice again in {seconds}s.", fr = "Nouvel entraînement dans {seconds} s." },
+	["boss.portal.busy"] = {
+		en = "No arena is free. Try again in a moment.",
+		fr = "Aucune arène libre. Réessaie dans un instant.",
+	},
+	["boss.portal.noReentry"] = {
+		en = "You have used your returns for this fight.",
+		fr = "Tu as épuisé tes retours pour ce combat.",
+	},
+	["boss.practice.noReward"] = {
+		en = "Practice rewards come back in {minutes} min.",
+		fr = "Les récompenses d'entraînement reviennent dans {minutes} min.",
+	},
+	["boss.practice.dailyDone"] = {
+		en = "Practice rewards are done for today.",
+		fr = "Les récompenses d'entraînement sont épuisées pour aujourd'hui.",
+	},
 
 	-- Loadout
 	["loadout.title"] = { en = "Loadout", fr = "Équipement" },

@@ -97,6 +97,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | ColophonLink | 15 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
 | Explosion | 17 | 14 | 11 | 3.22 | 60 | 38 | 18 | 4 | 4 | 0 | 0 | 0 | 1 |
+| ForgerTell | 8 | 7 | 6 | 2.25 | 2 | 12 | 6 | 4 | 2 | 0 | 0 | 0 | 0 |
 | Gilding | 18 | 15 | 11 | 4.00 | 134 | 26 | 10 | 11 | 3 | 0 | 0 | 0 | 1 |
 | Hairline | 12 | 9 | 8 | 0.99 | 42 | 19 | 8 | 0 | 3 | 4 | 2 | 0 | 2 |
 | Hit | 10 | 9 | 7 | 2.58 | 36 | 16 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
@@ -119,7 +120,7 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
 | Watermark | 25 | 20 | 6 | 4.34 | 119 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 40 timelines et 569 couches, dont 467 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 41 timelines et 577 couches, dont 474 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.

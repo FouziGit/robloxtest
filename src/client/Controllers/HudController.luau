@@ -7,7 +7,8 @@
 --
 -- While MatchController holds a match snapshot, a compact band is shown at the top-center: round, phase
 -- timer (the countdown number while the round has not started), score and both team rosters with a
--- dead / alive marker. It disappears as soon as the snapshot is nil.
+-- dead / alive marker. It disappears as soon as the snapshot is nil. The boss band, the portal band and the
+-- Battleground's band stack in the same column (HudController.topStack).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -96,10 +97,12 @@ local QUICK_SCREENS: { { Screen: string, NameKey: string, Variant: Button.Varian
 local MENU_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
 -- Match band (top-center, hidden outside a match).
 local BAND_WIDTH = 360
--- Order inside the top-centre column (see buildTopStack). The boss band takes BOSS_BAND_ORDER, which
--- BossController reads through HudController.topStack.
+-- Order inside the top-centre column (see buildTopStack): the match band this module draws, and the three bands
+-- other controllers draw there, each reading its place through HudController.topStack -- the portal circle the
+-- player stands in first, because it is about to move them; the boss after the match; the place they are in
+-- last, since it says nothing new until they leave it (TravelController, BossController).
 local MATCH_BAND_ORDER = 1
-local BOSS_BAND_ORDER = 2
+local BAND_ORDERS: { [string]: number } = { Portal = 0, Boss = 2, Place = 3 }
 local BAND_ROW_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
 local BAND_HERO_HEIGHT = Theme.Sizes.TextHero + Theme.Sizes.PaddingSmall
 local ROSTER_COLUMN_WIDTH = (BAND_WIDTH - Theme.Sizes.Gap) / 2
@@ -216,7 +219,8 @@ end
 -- child, so a hidden band costs no gap.
 --
 -- LayoutOrder is deliberate: persistent state first (match, then boss), transient messages last, so a
--- toast can never push the information the player needs off its place.
+-- toast can never push the information the player needs off its place. The portal circle a player stands in
+-- goes above them all and the place they are in below (MATCH_BAND_ORDER, BAND_ORDERS).
 local function buildTopStack(parent: Instance)
 	topStack = Instance.new("Frame")
 	topStack.Name = "TopStack"
@@ -413,11 +417,16 @@ local function build()
 	toast = Toast.new({ Name = "Toasts", Parent = toastRoot.Content })
 end
 
--- The top-centre column the match band, the boss band and the toasts share, plus the LayoutOrder the
--- boss band must use. BossController parents its band here instead of opening a second ScreenGui at the
--- same DisplayOrder, which had no defined draw order against this one.
-function HudController.topStack(): (Frame?, number)
-	return topStack, BOSS_BAND_ORDER
+-- The top-centre column the bands share, plus the LayoutOrder the band `band` must use: the boss's by default,
+-- the portal circle's and the place's for TravelController. They parent their bands here instead of opening a
+-- second ScreenGui at the same DisplayOrder, which had no defined draw order against this one.
+--
+-- At most three stack outside a match -- a portal band and a place band are about 50 units each and the boss
+-- band 118 with its warning up -- which with the column's two gaps stays under TOP_STACK_MAX_HEIGHT. In a match
+-- the portal and the place bands are never up: no circle moves a player in a match (PortalService), and a match
+-- ends a Battleground membership (BattlegroundService's roster).
+function HudController.topStack(band: ("Boss" | "Place" | "Portal")?): (Frame?, number)
+	return topStack, BAND_ORDERS[band or "Boss"]
 end
 
 local function makeChip(index: number, pigment: string): Frame

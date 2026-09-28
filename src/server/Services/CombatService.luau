@@ -115,6 +115,7 @@ type State = {
 	BlockCooldownUntil: number,
 	DashCooldownUntil: number,
 	IFramesUntil: number,
+	ChannelUntil: number, -- os.clock until which a charged glyph or a rush holds its caster (D-136)
 	MeleeIndex: number,
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
@@ -670,6 +671,7 @@ local function resetState(state: State, now: number)
 	state.BlockCooldownUntil = 0
 	state.DashCooldownUntil = 0
 	state.IFramesUntil = 0
+	state.ChannelUntil = 0
 	state.MeleeIndex = 0
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
@@ -792,6 +794,7 @@ local function onPlayerAdded(player: Player)
 		BlockCooldownUntil = 0,
 		DashCooldownUntil = 0,
 		IFramesUntil = 0,
+		ChannelUntil = 0,
 		MeleeIndex = 0,
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
@@ -1128,6 +1131,20 @@ function CombatService.grantIFrames(player: Player, seconds: number)
 	state.IFramesUntil = math.max(state.IFramesUntil, os.clock() + seconds)
 end
 
+-- A charged glyph or a rush holds its caster for `seconds` (0 ends it): no M1 and no other glyph meanwhile,
+-- and a dash breaks it -- the effect polls isChanneling and gives up (D-136).
+function CombatService.channel(player: Player, seconds: number)
+	if seconds ~= seconds or seconds < 0 or seconds == math.huge then
+		log.warn("channel rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return
+	end
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	state.ChannelUntil = os.clock() + seconds
+end
+
 function CombatService.applyStoneSkin(player: Player): boolean
 	local state = states[player]
 	if state == nil then
@@ -1188,7 +1205,7 @@ local function onMelee(player: Player, state: State, now: number)
 	if character == nil or root == nil then
 		return
 	end
-	if movement.isStunned(player) or state.Blocking then
+	if movement.isStunned(player) or state.Blocking or now < state.ChannelUntil then
 		return
 	end
 	local melee = CombatConfig.Melee
@@ -1286,6 +1303,7 @@ local function onDash(player: Player, state: State, now: number)
 	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
+	state.ChannelUntil = 0 -- a dash is the way out of a charge or a rush (D-136)
 	local direction = dashDirection(humanoid, root)
 	CombatService.grantMovement(player, {
 		Kind = "Dash",
@@ -1496,6 +1514,11 @@ end
 
 function CombatService.isStunned(player: Player): boolean
 	return movement.isStunned(player)
+end
+
+function CombatService.isChanneling(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and os.clock() < state.ChannelUntil
 end
 
 -- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.

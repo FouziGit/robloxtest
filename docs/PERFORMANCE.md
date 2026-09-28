@@ -199,9 +199,9 @@ le niveau **Performance**.
 | Budget | Limite | Comment il est tenu |
 |---|---|---|
 | boucles par image | **aucune nouvelle** : une seule dans `src/ui` (`Motion`) | `tests/Loops.spec.luau`. Le chevron du verrou tourne dans la boucle que `LockOnController` avait déjà ; la recharge du dash, l'attente de la file et le tour de minuit sont des `task.delay` |
-| boucles d'attente (respiration, vague, battement) par écran | ≤ 3 (`Budget.MaxIdleLoops`) | `Motion.loop` compte les boucles de chaque écran et laisse immobile celle de trop (D-165) ; les badges et les disques suggérés respirent chacun sur **une** valeur partagée (`Breath`), hors de tout écran ; les trois points de la file, comme ceux d'un bouton en attente, suivent **une** vague ; au HUD en combat : le battement de la barre basse et le vignettage |
-| reflets animés par écran | ≤ 3 (`Budget.MaxAnimatedGradients`) | `RarityRibbon` compte les lustres de chaque écran ; celui de trop reste immobile (D-165) |
-| objets GUI du HUD en combat | téléphone ≤ 180, disques tactiles compris (`Budget.MaxHudObjects`) ; pointeur ≤ 340 (`Budget.MaxHudObjectsPointer`) | `tests/HudBudget.spec.luau` construit le vrai HUD (moteur de test `tests/engine.luau`) dans un 3 contre 3 avec les dix emplacements du pass et compte les objets affichés (D-166) |
+| boucles d'attente (respiration, vague, battement) par écran | ≤ 3 (`Budget.MaxIdleLoops`) | `Motion.loop` compte les boucles de chaque écran et laisse immobile celle de trop (D-167) ; les badges et les disques suggérés respirent chacun sur **une** valeur partagée (`Breath`), hors de tout écran ; les trois points de la file, comme ceux d'un bouton en attente, suivent **une** vague ; au HUD en combat : le battement de la barre basse et le vignettage |
+| reflets animés par écran | ≤ 3 (`Budget.MaxAnimatedGradients`) | `RarityRibbon` compte les lustres de chaque écran ; celui de trop reste immobile (D-167) |
+| objets GUI du HUD en combat | téléphone ≤ 180, disques tactiles compris (`Budget.MaxHudObjects`) ; pointeur ≤ 340 (`Budget.MaxHudObjectsPointer`) | `tests/HudBudget.spec.luau` construit le vrai HUD (moteur de test `tests/engine.luau`) dans un 3 contre 3 avec les dix emplacements du pass et compte les objets affichés (D-168) |
 | taches (`Splat`) par écran | ≤ 12 (`Budget.MaxSplats`) | pool par `ScreenGui` ; la tache d'un disque tactile est créée à sa première pression, gardée, et rendue au pool (hors du disque) avant que le disque ne parte |
 | `CanvasGroup` | 1 passagère à la sortie d'un écran, 1 par toast visible ; **jamais dans le HUD** | le voile de recharge du dash coupe un disque par un simple cadre découpant |
 | allocations par poussée à 5 Hz | aucune instance | emplacements de la barre de glyphes et pastilles de l'équipe en pool ; les disques abordables sont écrits dans une table réutilisée (`TouchCluster.affordable`) |
@@ -214,7 +214,7 @@ objets que le code construit et laisse visibles, pas un relevé du moteur de Rob
 dix emplacements du pass : **171** sur un téléphone (92 pour le HUD, 79 pour les dix disques tactiles),
 **335** avec un pointeur, dont la barre de glyphes écrit les touches de chaque glyphe sur des capuchons et dont
 le bouton Menu porte le sien. Les 180 que la passe visait sont ceux du téléphone ; le pointeur est tenu sous
-340 (D-166).
+340 (D-168).
 
 **Non mesuré.** Les objets du pass à l'ouverture (visé ≤ 700) et des autres écrans (≤ 400), et le coût des
 ressorts à l'entrée d'un écran, demandent Studio : compteurs `DebugSettings` de l'interface et MicroProfiler

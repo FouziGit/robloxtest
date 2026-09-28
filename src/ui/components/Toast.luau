@@ -98,7 +98,7 @@ local SIGNS: { [string]: string } = {
 }
 -- In a fight a success is a tick of ink on the sheet: the green is a value colour, which no fight shows
 -- (docs/ART_BIBLE.md rule 11), and next to the cyan of a takedown pop it read as a second "us". The spec's
--- toast section asks for the green everywhere; its colour rules win (D-161).
+-- toast section asks for the green everywhere; its colour rules win (D-163).
 local FIGHT_FILLS: { [string]: Color3 } = {
 	Success = Theme.Colors.PanelRaised,
 }

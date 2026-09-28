@@ -679,7 +679,7 @@ Strings.Table = {
 		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
 		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
 	},
-	-- Slice F's shared words, entered with their first reader (D-148).
+	-- Slice F's shared words, entered with their first reader (D-150).
 	["common.retry"] = { en = "Retry", fr = "Réessayer" },
 	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
 	["time.hoursMinutes"] = { en = "{hours}h {minutes}m", fr = "{hours} h {minutes}" },

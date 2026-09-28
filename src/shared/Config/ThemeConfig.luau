@@ -284,7 +284,7 @@ ThemeConfig.TextScale = { Medium = 1, Large = 1.15, Larger = 1.3, Largest = 1.3 
 -- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent. And what the HUD
 -- draws in a fight, in GuiObjects shown, with every slot a pass opens and a full 3v3 in the band: on a phone
 -- with its touch discs, the budget the colour pass set; with a pointer, whose hotbar spells each glyph's
--- keys and whose Menu names its own, the ceiling it is built to (tests/HudBudget.spec.luau, D-166).
+-- keys and whose Menu names its own, the ceiling it is built to (tests/HudBudget.spec.luau, D-168).
 ThemeConfig.Budget = {
 	MaxSplats = 12,
 	MaxAnimatedGradients = 3,

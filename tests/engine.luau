@@ -616,6 +616,7 @@ export type World = {
 	guiService: any,
 	userInput: any,
 	actions: { [string]: (string, any, any) -> any },
+	bindings: { [string]: { Priority: number?, Inputs: { any } } },
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -686,18 +687,31 @@ function Engine.world(options: Options?): World
 	world.guiService = guiService
 	world.userInput = userInput
 
-	-- The actions bound through ContextActionService, by name: what a spec presses a key or a button with.
+	-- The actions bound through ContextActionService, by name: what a spec presses a key or a button with, and
+	-- at what priority and on which inputs each was bound.
 	local actions: { [string]: (string, any, any) -> any } = {}
+	local bindings: { [string]: { Priority: number?, Inputs: { any } } } = {}
 	world.actions = actions
+	world.bindings = bindings
 	local contextActions = {
-		BindAction = function(_self: any, name: string, handler: any)
+		BindAction = function(_self: any, name: string, handler: any, _touch: boolean, ...: any)
 			actions[name] = handler
+			bindings[name] = { Priority = nil, Inputs = { ... } }
 		end,
-		BindActionAtPriority = function(_self: any, name: string, handler: any)
+		BindActionAtPriority = function(
+			_self: any,
+			name: string,
+			handler: any,
+			_touch: boolean,
+			priority: number,
+			...: any
+		)
 			actions[name] = handler
+			bindings[name] = { Priority = priority, Inputs = { ... } }
 		end,
 		UnbindAction = function(_self: any, name: string)
 			actions[name] = nil
+			bindings[name] = nil
 		end,
 	}
 

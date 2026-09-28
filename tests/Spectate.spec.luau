@@ -3,9 +3,11 @@
 -- that says it once and leaves -- and its discs step round the living teammates, keeping the one chosen
 -- while they live. A fight surface: ink and the sheet, and the fight's focus ring for a gamepad. Engine code,
 -- held by reading it.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local Strings = require("../src/shared/Strings")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -131,3 +133,61 @@ describe("watching after being eliminated", function()
 		expect(has(folded("src/ui/Theme.luau"), 'if kind == "Fight" then "PanelRaised" else "Primary"')).toBe(true)
 	end)
 end)
+
+describe("watching on a gamepad, run", function()
+	local function plate(gamepad: boolean): (any, any, { number })
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		world.userInput.GamepadEnabled = gamepad
+		local SpectatePlate = world.require("src/ui/components/SpectatePlate")
+		local parent = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+		local shown = SpectatePlate.new({
+			Parent = parent,
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+		})
+		local steps: { number } = {}
+		shown:Show("Ada", function(step: number)
+			table.insert(steps, step)
+		end)
+		return world, shown, steps
+	end
+
+	local function press(world: any, key: string): any
+		local handler = world.actions.SpectateStep
+		assert(handler ~= nil, "no step is bound")
+		return handler(
+			"SpectateStep",
+			roblox.Enum.UserInputState.Begin,
+			{ KeyCode = (roblox.Enum.KeyCode :: any)[key] }
+		)
+	end
+
+	it("steps back and on with the shoulders while the plate shows, above the game's own actions", function()
+		local world, _plate, steps = plate(true)
+		local binding = world.bindings.SpectateStep
+		expect(binding).never.toBeNil()
+		expect(binding.Priority).toBeGreaterThan(roblox.Enum.ContextActionPriority.High.Value)
+		expect(press(world, "ButtonL1")).toBe(roblox.Enum.ContextActionResult.Sink)
+		expect(press(world, "ButtonR1")).toBe(roblox.Enum.ContextActionResult.Sink)
+		expect(steps).toEqual({ -1, 1 })
+	end)
+
+	it("names the shoulders on caps for a pad, and not for a pointer", function()
+		local _world, withPad = plate(true)
+		expect(withPad.Instance:FindFirstChild("ButtonL1", true).Visible).toBe(true)
+		expect(withPad.Instance:FindFirstChild("ButtonR1", true).Visible).toBe(true)
+		local _pointerWorld, withMouse = plate(false)
+		expect(withMouse.Instance:FindFirstChild("ButtonL1", true).Visible).toBe(false)
+	end)
+
+	it("lets the shoulders go when the plate does", function()
+		local world, shown = plate(true)
+		shown:Hide()
+		expect(world.actions.SpectateStep).toBeNil()
+	end)
+end)
+
+return nil

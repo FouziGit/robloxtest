@@ -948,10 +948,20 @@ local function coMoving(ax: number, ay: number, az: number, bx: number, by: numb
 	return a > slack and b > slack and (ax * bx + ay * by + az * bz) / (a * b) >= config.CoMoveDot
 end
 
--- Which bodies touch another this tick, from their roots and last tick's displacements and flags. Body i
--- touches j when their roots are within `radius`. That contact does not count for i when j was flagged last
--- tick and both moved beyond the teleport slack the same way: a fling victim is thrown away from its flinger
--- and keeps the exemption, two cheaters teleporting together do not.
+-- The closest two roots came within the tick, each moving in a straight line from where it was to where it is:
+-- (sx, sy, sz) is how far apart they are now, (vx, vy, vz) how much that changed over the tick.
+local function sweptApart(sx: number, sy: number, sz: number, vx: number, vy: number, vz: number): number
+	local squared = vx * vx + vy * vy + vz * vz
+	local back = if squared > 0 then math.clamp((sx * vx + sy * vy + sz * vz) / squared, 0, 1) else 0
+	return dist3(sx, sy, sz, back * vx, back * vy, back * vz)
+end
+
+-- Which bodies touch another this tick, from their roots, this tick's displacements and last tick's flags. Body i
+-- touches j when their roots are within `radius`. A body that swept through another between two ticks never is:
+-- then only the one that moved less was touched -- a client can replicate its body from one side of a victim to
+-- the other in one tick, and the victim's own client, which drew it passing, is the one thrown. That contact does
+-- not count for i when j was flagged last tick and both moved beyond the teleport slack the same way: a fling
+-- victim is thrown away from its flinger and keeps the exemption, two cheaters teleporting together do not.
 function MovementGuard.touching(
 	xs: { number },
 	ys: { number },
@@ -967,12 +977,17 @@ function MovementGuard.touching(
 	local touched = table.create(count, false)
 	for i = 1, count - 1 do
 		for j = i + 1, count do
-			if dist3(xs[i], ys[i], zs[i], xs[j], ys[j], zs[j]) <= radius then
+			local sx, sy, sz = xs[j] - xs[i], ys[j] - ys[i], zs[j] - zs[i]
+			local met = dist3(sx, sy, sz, 0, 0, 0) <= radius
+			local swept = not met
+				and sweptApart(sx, sy, sz, dxs[j] - dxs[i], dys[j] - dys[i], dzs[j] - dzs[i]) <= radius
+			if met or swept then
 				local together = coMoving(dxs[i], dys[i], dzs[i], dxs[j], dys[j], dzs[j], config)
-				if not (together and flagged[j]) then
+				local slower = dist3(dxs[i], dys[i], dzs[i], 0, 0, 0) <= dist3(dxs[j], dys[j], dzs[j], 0, 0, 0)
+				if (met or slower) and not (together and flagged[j]) then
 					touched[i] = true
 				end
-				if not (together and flagged[i]) then
+				if (met or not slower) and not (together and flagged[i]) then
 					touched[j] = true
 				end
 			end

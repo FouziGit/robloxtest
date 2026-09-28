@@ -725,6 +725,25 @@ describe("MovementGuard.touching", function()
 		local short = { CONFIG.TeleportSlackStuds, 0, 0 }
 		expect(touching({ { 0, 3, 0 }, { 3, 3, 0 } }, { short, short }, { true, true })).toEqual({ true, true })
 	end)
+
+	it("touches the body another swept through between two ticks, and only that one", function()
+		-- The flinger replicated itself from 20 studs on one side of its victim to 20 on the other within one tick:
+		-- no tick ever saw them within the radius, but the victim's client drew it passing and was thrown. The
+		-- flinger, which did the passing, earns nothing by it.
+		expect(touching({ { 20, 3, 0 }, { 0, 3, 0 } }, { { 40, 0, 0 }, STILL }, { false, false })).toEqual({
+			false,
+			true,
+		})
+		expect(touching({ { 0, 3, 0 }, { 20, 3, 0 } }, { STILL, { 40, 0, 0 } }, { false, false })).toEqual({
+			true,
+			false,
+		})
+		-- A pass that never came within the radius touches nobody: 8 studs to the side.
+		expect(touching({ { 20, 3, 8 }, { 0, 3, 0 } }, { { 40, 0, 0 }, STILL }, { false, false })).toEqual({
+			false,
+			false,
+		})
+	end)
 end)
 
 describe("MovementGuard.carried", function()

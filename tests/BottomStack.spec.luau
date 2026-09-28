@@ -8,6 +8,8 @@
 -- included: the dock's plate hid its words on a phone, the hotbar's slots with a pointer.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -109,6 +111,62 @@ describe("the HUD's bottom stack, run", function()
 		end
 		expect(checked).toBeGreaterThan(0)
 		expect(paintsOver(pill, dock.Instance)).toBe(true)
+	end)
+end)
+
+-- The touch dock with its pips, `glyphs` of them, at `width` (CombatDock.SetWidth, as HudController.fitDock
+-- sets it): how wide each pip is drawn, and the room the row has.
+local function pipsAt(width: number, glyphs: number): (number, number, number)
+	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	local CombatDock = world.require("src/ui/components/CombatDock")
+	local Hotbar = world.require("src/ui/components/Hotbar")
+	local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+	local gui = Engine.instance("ScreenGui", world.playerGui)
+	local dock = CombatDock.new({ Parent = gui, Screen = gui, LayoutOrder = 1, Width = width, Pips = true })
+	dock:SetWidth(width)
+	local hotbar = Hotbar.new({
+		Parent = dock.PipRow,
+		Mode = "Pips",
+		Localize = {
+			t = function(key: string): string
+				return key
+			end,
+		},
+		LayoutOrder = 1,
+	})
+	local ids = {}
+	for index = 1, glyphs do
+		table.insert(ids, GlyphConfig.Glyphs[index].Id)
+	end
+	hotbar:SetLoadout(ids)
+	local padding = dock.PipRow.Parent:FindFirstChildOfClass("UIPadding")
+	local inner = width - padding.PaddingLeft.Offset - padding.PaddingRight.Offset
+	local gap = hotbar.Instance:FindFirstChildOfClass("UIListLayout").Padding.Offset
+	local pip = hotbar.Instance:FindFirstChild("Pip1")
+	local round = pip:FindFirstChildOfClass("UIAspectRatioConstraint")
+	assert(round ~= nil and round.AspectRatio == 1, "a pip is no longer kept round: this gate would check nothing")
+	-- Round within its share of the row and the row's height.
+	local share = inner * pip.Size.X.Scale + pip.Size.X.Offset
+	local side = math.min(share, dock.PipRow.Size.Y.Offset)
+	return side, gap, inner
+end
+
+describe("the touch dock's pips, run", function()
+	it("fit every slot a pass opens in the narrowest dock", function()
+		local most = ProgressionConfig.Loadout.MaxSlots
+		for count = ProgressionConfig.Loadout.BaseSlots, most do
+			local side, gap, inner = pipsAt(ThemeConfig.Hud.DockWidthTouchMin, count)
+			local row = count * side + (count - 1) * gap
+			if row > inner then
+				error(("%d pips need %.1f units and the narrowest dock has %.1f"):format(count, row, inner))
+			end
+			expect(side).toBeGreaterThan(0)
+		end
+	end)
+
+	it("keeps a few pips at the row's height", function()
+		local side = pipsAt(ThemeConfig.Hud.DockWidthTouchMax, 6)
+		expect(side).toBe(ThemeConfig.Hud.HotbarPipsHeight)
 	end)
 end)
 

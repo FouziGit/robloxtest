@@ -232,11 +232,9 @@ describe("the hotbar", function()
 		expect(has(hud, "Parent = if touch then combatDock.PipRow or bottomStack else bottomStack,")).toBe(true)
 		expect(has(hud, "Pips = touch,")).toBe(true)
 		local hotbar = code(HOTBAR)
-		-- A cap on its three-unit lip fills the key strip exactly; ten pips still fit the touch dock.
+		-- A cap on its three-unit lip fills the key strip exactly. How many pips fit the dock is run in
+		-- tests/BottomStack.spec.luau.
 		expect(has(hotbar, "local CAP = HUD.HotbarKeyStrip - 3\n")).toBe(true)
-		local shrunk = HUD.HotbarPipsHeight - number(hotbar, "PIP_SHRINK")
-		local ten = 10 * shrunk + 9 * number(hotbar, "PIP_GAP")
-		expect(ten).toBeLessThanOrEqual(HUD.DockWidthTouchMax - 2 * number(code(DOCK), "PADDING"))
 		expect(HUD.HotbarSlot).toBe(56)
 		expect(HUD.HotbarPipsHeight).toBe(26)
 		local dock = code(DOCK)

@@ -87,9 +87,6 @@ local DROP = 14
 -- A key cap stands on a 3-unit lip: a cap of 15 fills the key strip exactly.
 local CAP = HUD.HotbarKeyStrip - 3
 local CAP_GAP = 2
--- More slots than this and the pips shrink by two, so ten still fit the dock.
-local PIPS_FULL = 6
-local PIP_SHRINK = 2
 local PIP_GAP = 3
 local READY_PUNCH = 1.12
 local FLASH_FROM = 0.2
@@ -263,6 +260,11 @@ local function buildPip(index: number, parent: Instance): Slot
 	pip.ClipsDescendants = true
 	Theme.corner(pip, Theme.Pill)
 	Theme.stroke(pip, "Accent", Theme.Sizes.StrokeThin)
+	-- Round in whatever share of the row setLoadout gives it, and never taller than the row.
+	local round = Instance.new("UIAspectRatioConstraint")
+	round.AspectRatio = 1
+	round.AspectType = Enum.AspectType.FitWithinMaxSize
+	round.Parent = pip
 	local scale = Instance.new("UIScale")
 	scale.Parent = pip
 	pip.Parent = parent
@@ -371,8 +373,16 @@ function Hotbar.new(props: Props): Hotbar
 	end
 
 	local function setLoadout(_self: Hotbar, next: { string })
+		local count = 0
+		for _, glyphId in ipairs(next) do
+			if GlyphConfig.byId(glyphId) ~= nil then
+				count += 1
+			end
+		end
+		-- A pip's share of the dock's row, less its share of the gaps (rounded up, a UDim's offset being whole):
+		-- as many as a pass allows fit the narrowest dock, and a few stay the row's height.
+		local pipShare = UDim2.new(1 / math.max(count, 1), -math.ceil(PIP_GAP * (count - 1) / math.max(count, 1)), 1, 0)
 		local shown = 0
-		local pipSize = HUD.HotbarPipsHeight - (if #next > PIPS_FULL then PIP_SHRINK else 0)
 		for _, glyphId in ipairs(next) do
 			local def = GlyphConfig.byId(glyphId)
 			if def ~= nil then
@@ -385,7 +395,7 @@ function Hotbar.new(props: Props): Hotbar
 				local current = slot :: Slot
 				current.Root.Visible = true
 				if pips then
-					current.Root.Size = UDim2.fromOffset(pipSize, pipSize)
+					current.Root.Size = pipShare
 				end
 				if current.GlyphId ~= def.Id then
 					draw(current, def)

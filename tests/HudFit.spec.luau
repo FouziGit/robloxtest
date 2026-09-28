@@ -6,7 +6,11 @@
 -- height a landscape phone gives at the touch floor, and the smallest window a pointer plays in. How wide the
 -- dock may be between a phone's thumbs is tests/TouchCluster.spec.luau's, which lays the discs out on the
 -- phones themselves.
+local Engine = require("./engine")
 local Harness = require("./harness")
+local InputConfig = require("../src/shared/Config/InputConfig")
+local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
 
@@ -15,12 +19,18 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local HUD = ThemeConfig.Hud
 local HUD_CONTROLLER = "src/client/Controllers/HudController.luau"
 local DOCK = "src/ui/components/CombatDock.luau"
+local BUTTON = "src/ui/components/Button.luau"
+local KEYCAP = "src/ui/components/Keycap.luau"
 -- The safe area's own insets, top and bottom together, at most.
 local SAFE_SLACK = 2 * 16
 -- Landscape phones by their height in points: the small one, the 12-to-14 one, the Plus-sized one.
 local PHONE_HEIGHTS = { 375, 390, 414 }
--- The smallest window a mouse or a gamepad plays in.
+-- The smallest window a mouse or a gamepad plays in, and its width at 16:9.
 local POINTER_HEIGHT = 720
+local POINTER_WIDTH = 1280
+-- The widest a character of the interface's faces is drawn, as a share of its text size: a word is measured
+-- this generously, since Lune cannot lay text out.
+local CHAR_SHARE = 0.7
 
 local function code(path: string): string
 	local withoutBlocks = string.gsub(fs.readFile(path), "%-%-%[%[.-%]%]", " ")
@@ -98,6 +108,50 @@ describe("the HUD's fit", function()
 	it("stacks them in the smallest window a pointer plays in, at the pointer's floor", function()
 		expect(ThemeConfig.scaleFor(POINTER_HEIGHT, false)).toBe(ThemeConfig.Scale.PointerFloor)
 		expect(top() + pointerBottom()).toBeLessThanOrEqual(room(POINTER_HEIGHT, false))
+	end)
+
+	it("keeps the quick bar beside the bottom stack in the narrowest window a pointer plays in", function()
+		-- The bar is a column in the bottom-right corner: its widest row is its width.
+		local bar = code(HUD_CONTROLLER)
+		local build = string.match(bar, "local function buildQuickBar%(.-\nend\n")
+		assert(build ~= nil, "no buildQuickBar: this gate would check nothing")
+		expect(has(build, "layout.FillDirection = Enum.FillDirection.Vertical")).toBe(true)
+		expect(has(build, "quickBar.AnchorPoint = Vector2.new(1, 1)")).toBe(true)
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		local button = code(BUTTON)
+		local function buttonWidth(text: string): number
+			local drawn = number(button, "PADDING_X") * 2
+				+ number(button, "ICON_SIZE")
+				+ number(button, "GAP")
+				+ (utf8.len(text) :: number) * CHAR_SHARE * Theme.Sizes.TextButton
+			return math.max(number(button, "MIN_WIDTH"), drawn)
+		end
+		local keycap = code(KEYCAP)
+		local function capWidth(text: string): number
+			return number(keycap, "PADDING") * 2 + (utf8.len(text) :: number) * CHAR_SHARE * number(keycap, "TEXT_SIZE")
+		end
+		local widest = 0
+		for _, locale in ipairs(Strings.Locales) do
+			for _, key in ipairs({ "queue.title", "menu.shop", "leaderboard.title" }) do
+				widest = math.max(widest, buttonWidth(Strings.t(key, nil, locale)))
+			end
+			-- The Menu's row: its key cap, on the default key of either device, and the button.
+			for _, cap in ipairs({ InputConfig.DefaultKeyboard.Menu, Strings.t("key.ButtonSelect", nil, locale) }) do
+				widest = math.max(
+					widest,
+					capWidth(cap) + Theme.Sizes.Gap + buttonWidth(Strings.t("action.menu", nil, locale))
+				)
+			end
+		end
+		-- The bottom stack at its widest with a pointer: the dock, or a hotbar of every slot a pass opens.
+		local slots = ProgressionConfig.Loadout.MaxSlots
+		local hotbar = slots * HUD.HotbarSlot + (slots - 1) * HUD.HotbarGap
+		local stackRight = POINTER_WIDTH / 2 + math.max(HUD.DockWidthPointer, hotbar) / 2
+		local barLeft = POINTER_WIDTH - Theme.Sizes.Padding - widest
+		if stackRight + Theme.Sizes.Gap > barLeft then
+			error(("the quick bar starts at %.1f, the bottom stack ends at %.1f"):format(barLeft, stackRight))
+		end
 	end)
 
 	it("keeps the dock's widest inside the gap a phone's thumbs leave", function()

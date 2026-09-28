@@ -417,16 +417,17 @@ describe("the hub's shortcuts", function()
 				'local QUICK_ICONS: { [string]: Icon.Name } = { Play = "Play", Shop = "Coin", Leaderboard = "Podium" }'
 			)
 		).toBe(true)
-		expect(has(hud, "quickButton(entry.NameKey, entry.Variant, index, QUICK_ICONS[entry.Screen], function()")).toBe(
-			true
-		)
+		expect(
+			has(hud, "quickButton(entry.NameKey, entry.Variant, index, QUICK_ICONS[entry.Screen], quickBar, function()")
+		).toBe(true)
 		local key = body(hud, "refreshMenuKey")
 		expect(has(key, 'local saved = if device == "Gamepad" then data.Settings.Gamepad else data.Settings.Keyboard')).toBe(
 			true
 		)
 		expect(has(key, "local key = saved[MENU_ACTION] or defaults[MENU_ACTION]")).toBe(true)
-		expect(has(key, "LayoutOrder = #QUICK_SCREENS + 1,")).toBe(true)
-		expect(has(hud, 'quickButton(MENU_NAME_KEY, "Secondary", #QUICK_SCREENS + 2, "Burger", function()')).toBe(true)
+		-- In the Menu's own row, before the button.
+		expect(has(key, "LayoutOrder = 1, Parent = menuRow,")).toBe(true)
+		expect(has(hud, 'quickButton(MENU_NAME_KEY, "Secondary", 2, "Burger", menuRow, function()')).toBe(true)
 		-- The button plays its own click now: the bar no longer doubles it.
 		expect(has(body(hud, "quickButton"), "soundController.play")).toBe(false)
 	end)

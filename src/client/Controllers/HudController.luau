@@ -142,7 +142,10 @@ local TOAST_UNDER_MENU = 8
 -- shortcuts are hidden in a match, where queueing and shopping mean nothing. A pointer affordance: its
 -- buttons are not gamepad-selectable -- the engine's navigation would carry a selection out of an open
 -- panel into them, under its overlay, and leave it there when the panel closed; Select is the gamepad's
--- way to the menu.
+-- way to the menu. It stands as a column in that corner, the Menu at the foot: a row of four words was 630
+-- to 690 units wide and covered the right third of the dock's bars on any window narrower than about 1880
+-- (a 1366 laptop lays out 1366 units wide), and a column a word wide stays clear of the bottom stack from the
+-- narrowest window a pointer plays in (tests/HudFit.spec.luau).
 local QUICK_SCREENS: { { Screen: string, NameKey: string, Variant: Button.Variant } } = {
 	{ Screen = "Play", NameKey = "queue.title", Variant = "Primary" },
 	{ Screen = "Shop", NameKey = "menu.shop", Variant = "Secondary" },
@@ -191,6 +194,8 @@ local banner: Banner.Banner
 -- The match snapshot before the latest, which the splashes are told apart from.
 local lastMatch: Types.MatchSnapshot? = nil
 local quickBar: Frame
+-- The Menu button and its key cap, side by side at the foot of the quick bar.
+local menuRow: Frame
 local quickButtons: { Button.Button } = {}
 local menuButton: Button.Button
 -- The key that opens the menu, drawn beside the Menu button for the device in use.
@@ -253,13 +258,13 @@ local function buildTopStack(parent: Instance)
 	topStack.Parent = parent
 end
 
--- A button as wide as its label: the bar reads right to left from the corner, whatever the language. The
--- button plays its own click.
+-- A button as wide as its label, hugging the right edge whatever the language. The button plays its own click.
 local function quickButton(
 	nameKey: string,
 	variant: Button.Variant,
 	order: number,
 	icon: Icon.Name,
+	parent: Instance,
 	onClick: () -> ()
 ): Button.Button
 	local button = Button.new({
@@ -269,7 +274,7 @@ local function quickButton(
 		Icon = icon,
 		Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
 		LayoutOrder = order,
-		Parent = quickBar,
+		Parent = parent,
 		OnClick = onClick,
 	})
 	button.Instance.AutomaticSize = Enum.AutomaticSize.X
@@ -288,9 +293,9 @@ local function buildQuickBar(parent: Instance)
 	quickBar.AutomaticSize = Enum.AutomaticSize.XY
 	quickBar.Visible = false -- refreshQuickBar shows it for the device in use
 	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	layout.Parent = quickBar
@@ -299,13 +304,27 @@ local function buildQuickBar(parent: Instance)
 	for index, entry in ipairs(QUICK_SCREENS) do
 		table.insert(
 			quickButtons,
-			quickButton(entry.NameKey, entry.Variant, index, QUICK_ICONS[entry.Screen], function()
+			quickButton(entry.NameKey, entry.Variant, index, QUICK_ICONS[entry.Screen], quickBar, function()
 				menuController.open(entry.Screen)
 			end)
 		)
 	end
-	-- The key cap stands between the shortcuts and the Menu button (refreshMenuKey).
-	menuButton = quickButton(MENU_NAME_KEY, "Secondary", #QUICK_SCREENS + 2, "Burger", function()
+	menuRow = Instance.new("Frame")
+	menuRow.Name = "MenuRow"
+	menuRow.BackgroundTransparency = 1
+	menuRow.LayoutOrder = #QUICK_SCREENS + 1
+	menuRow.Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight)
+	menuRow.AutomaticSize = Enum.AutomaticSize.XY
+	local rowLayout = Instance.new("UIListLayout")
+	rowLayout.FillDirection = Enum.FillDirection.Horizontal
+	rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rowLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	rowLayout.Parent = menuRow
+	menuRow.Parent = quickBar
+	-- The key cap stands before the Menu button (refreshMenuKey).
+	menuButton = quickButton(MENU_NAME_KEY, "Secondary", 2, "Burger", menuRow, function()
 		menuController.toggle()
 	end)
 end
@@ -622,8 +641,8 @@ local function refreshMenuKey(source: string, data: Types.ProfileData)
 		Key = key,
 		Device = device,
 		Localize = localize,
-		LayoutOrder = #QUICK_SCREENS + 1,
-		Parent = quickBar,
+		LayoutOrder = 1,
+		Parent = menuRow,
 		Name = "MenuKey",
 	})
 end

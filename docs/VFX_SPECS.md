@@ -688,7 +688,8 @@ dégradé du pigment qui gonfle en tournant, un sceau de charbon qui se referme 
 puis qui claque au lâcher —, l'encre aspirée dans la paume par un flux piloté (sa densité est la charge,
 D-124), un point chaud à mi-course, et une lumière qui **monte** vers le lâcher au lieu de retomber.
 L'anticipation est **fixe**, jamais une fenêtre : une phase fenêtrée est un avertissement de boss pour le
-moteur (jamais évincée, dessinée hors budget, et elle éteint les volumes au sol autour d'elle).
+moteur (jamais évincée, dessinée hors budget, et elle éteint les volumes au sol autour d'elle). Elle est
+pourtant jouée sur l'horloge du serveur (`Steady`), comme une fenêtre : le lâcher vient quand elle finit.
 `tests/Flight.spec.luau` la tient à `Windup`, sur le corps, avec une couche qui dure toute la charge.
 
 ## `Volute` — la Volute (Indigo, mêlée chargée)
@@ -717,7 +718,8 @@ de chaque côté (le `Radius` que porte la charge), plus le stud dont un corps d
 barre dont l'encre va jusqu'au bord de son plan (`TelegraphBar`) ; qui se tient hors d'elle est hors de la
 ligne. Tracée à la tache, dont l'encre s'arrête entre 0,53 et 0,83 de son plan, elle faisait moins d'un stud
 de large pour un rayon qui en frappe dix. Dans les mains, une goutte vermillon gonfle en trois pulsations chaudes pendant qu'un
-sceau de charbon se referme. Fixe, jamais une fenêtre, pour la raison de la Volute.
+sceau de charbon se referme. Fixe, jamais une fenêtre, pour la raison de la Volute ; jouée sur l'horloge du
+serveur (`Steady`) : un gel d'impact ne la retarde pas sur le coup qu'elle annonce.
 
 ## `Rubric` — la Rubrique (Cinabre, hitscan chargé)
 

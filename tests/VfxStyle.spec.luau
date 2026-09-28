@@ -204,6 +204,12 @@ describe("the impact's freeze frame", function()
 		expect(VfxTimelineConfig.steady(TIMELINES.Wash)).toBe(true)
 		expect(VfxTimelineConfig.steady(TIMELINES.Explosion)).toBe(false)
 		expect(VfxTimelineConfig.steady(TIMELINES.Hit)).toBe(false)
+		-- A charge ends when the server strikes (D-141): held by the hits landed while it winds, the Rubric's lane
+		-- still showed a tenth or two short of "now" on the screen of the body it then pierced.
+		expect(VfxTimelineConfig.steady(TIMELINES.VoluteCharge)).toBe(true)
+		expect(VfxTimelineConfig.steady(TIMELINES.RubricCharge)).toBe(true)
+		expect(VfxTimelineConfig.steady({ Intent = "fixture", Phases = {}, Steady = true })).toBe(true)
+		expect(VfxTimelineConfig.steady({ Intent = "fixture", Phases = {} })).toBe(false)
 		local windowed = 0
 		for id, timeline in pairs(TIMELINES) do
 			for _, phase in ipairs(timeline.Phases) do

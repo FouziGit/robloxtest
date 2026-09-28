@@ -333,8 +333,9 @@ describe("a charged glyph", function()
 			expect(table.concat(names, " ")).toBe("Anticipation Residue")
 			local anticipation = timeline.Phases[1]
 			-- Fixed, never a window: a windowed phase is a boss warning to the runtime, never evicted, drawn
-			-- over budget, and it clears every floor volume near it.
+			-- over budget, and it clears every floor volume near it. But on the server's clock, as a window is.
 			expect(anticipation.Window).toBeNil()
+			expect(VfxTimelineConfig.steady(timeline)).toBe(true)
 			local residue = VfxTimelineConfig.phaseAt(pair.Charge, "Residue", nil) :: number
 			expect(math.abs(residue - windup)).toBeLessThanOrEqual(1e-9)
 			-- Something drawn for the whole of it, on the caster's body: he may walk while it winds, and only a

@@ -301,6 +301,10 @@ export type Timeline = {
 	-- Why this effect looks the way it does, for whoever changes it next. Not player-visible.
 	Intent: string,
 	Phases: { Phase },
+	-- Drawn on the server's own time though it flies no carrier and fills no window: a charge whose
+	-- Anticipation is the wind-up the server waits through before it strikes (D-141). Held by an impact, its
+	-- "now" would come after the blow it announces.
+	Steady: boolean?,
 }
 
 local VfxTimelineConfig = {}
@@ -7286,6 +7290,8 @@ local COLOPHON_LINK: Timeline = {
 -- holds it there.
 local VOLUTE_CHARGE: Timeline = {
 	Intent = "Ink wound into a turning coil in the palm while the server waits; the release is the Volute's own packet",
+	-- Counted on the server's clock: the release comes when the wind-up ends, whatever hits land meanwhile.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -7594,6 +7600,8 @@ local VOLUTE: Timeline = {
 -- pulses while a seal of charcoal closes on it. Fixed, never windowed, for the Volute's charge's reason.
 local RUBRIC_CHARGE: Timeline = {
 	Intent = "A vermilion drop swells in the hands in three pulses while the locked lane is ruled on the floor to the wall",
+	-- Counted on the server's clock: a lane still short of "now" when the line pierces tells its target a lie.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -11975,10 +11983,13 @@ function VfxTimelineConfig.duration(timeline: Timeline): number
 	return math.max(longest, phaseStart)
 end
 
--- Whether a timeline is drawn on the server's own time: it flies a Carrier the server steps, or fills a
--- window the server waits through. Such a play runs on VfxClock's steady clock, which an impact's hold
--- never stops (D-119): held, it would fall behind the damage it draws.
+-- Whether a timeline is drawn on the server's own time: it flies a Carrier the server steps, fills a
+-- window the server waits through, or says so (a charge, Timeline.Steady). Such a play runs on VfxClock's
+-- steady clock, which an impact's hold never stops (D-119): held, it would fall behind the damage it draws.
 function VfxTimelineConfig.steady(timeline: Timeline): boolean
+	if timeline.Steady == true then
+		return true
+	end
 	for _, phase in ipairs(timeline.Phases) do
 		if phase.Window == true then
 			return true

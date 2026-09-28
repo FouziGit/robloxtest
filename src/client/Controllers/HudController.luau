@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
+local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
@@ -25,6 +26,7 @@ local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressBar = require(UI.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(UI.components.ScreenRoot)
+local Signal = require(Packages.Signal)
 local Theme = require(UI.Theme)
 local Toast = require(UI.components.Toast)
 local Types = require(Shared.Types)
@@ -113,6 +115,10 @@ local ALIVE_GLYPH = "●"
 local DEAD_GLYPH = "✕"
 
 local HudController = {}
+
+-- Every server message, (key, params, kind), fired before the HUD shows anything of it: a screen that waits
+-- for one listens here instead of reading a toast (the Play screen and queue.timedOut, D-147).
+HudController.Notified = Signal.new()
 
 local localize: any
 local clientData: any
@@ -775,6 +781,7 @@ local function onNotify(payload: any)
 	end
 	local params = if type(payload.Params) == "table" then payload.Params else nil
 	local kind: ToastKind = if TOAST_KINDS[payload.Kind] then payload.Kind else "Info"
+	HudController.Notified:Fire(payload.Key, params, kind)
 	if toast == nil then
 		-- Same reason as showLocalToast: a HUD that never built must not turn every server message into
 		-- an error on the remote handler.

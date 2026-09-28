@@ -564,6 +564,21 @@ local function onMenuClose(_actionName: string, state: Enum.UserInputState): Enu
 	return Enum.ContextActionResult.Sink
 end
 
+-- B on a gamepad walks back through the screens a player opened one from another, and closes the first
+-- (MenuController.back, D-147). It lives with MenuClose and goes with it during a rebind capture, since B is a
+-- key a player may bind; and it is deferred for the same reason: closing the last screen binds the game's
+-- actions again, B among them.
+local MENU_BACK_ACTION = "MenuBack"
+local MENU_BACK_KEY = Enum.KeyCode.ButtonB
+
+local function onMenuBack(_actionName: string, state: Enum.UserInputState): Enum.ContextActionResult?
+	if state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+	task.defer(menuController.back)
+	return Enum.ContextActionResult.Sink
+end
+
 local function bindMenuClose()
 	if menuCloseBound then
 		return
@@ -580,6 +595,10 @@ local function bindMenuClose()
 		ACTION_PRIORITY,
 		table.unpack(inputs)
 	)
+	-- A player who made B their Menu key closes with it, like any Menu key.
+	if table.find(inputs, MENU_BACK_KEY) == nil then
+		ContextActionService:BindActionAtPriority(MENU_BACK_ACTION, onMenuBack, false, ACTION_PRIORITY, MENU_BACK_KEY)
+	end
 end
 
 local function unbindMenuClose()
@@ -588,6 +607,7 @@ local function unbindMenuClose()
 	end
 	menuCloseBound = false
 	ContextActionService:UnbindAction(MENU_CLOSE_ACTION)
+	ContextActionService:UnbindAction(MENU_BACK_ACTION)
 end
 
 local function applyBindings()

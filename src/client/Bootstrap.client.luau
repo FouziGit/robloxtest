@@ -89,6 +89,21 @@ for _, name in ipairs(ORDER) do
 	end
 end
 
+-- The interface's two doors to the client (D-147), opened before any screen or the HUD is built: the
+-- player's own Roblox accessibility settings, which every spring and background reads, and the sound a
+-- component plays on its own (src/ui never requires a controller). Guarded like a controller: a failure here
+-- costs the interface its sound or its preferences, never the client.
+log.try("wire the interface", function()
+	local UI = ReplicatedStorage:WaitForChild("UI")
+	require(UI:WaitForChild("UiPrefs")).start()
+	local soundController = deps.SoundController
+	if soundController ~= nil then
+		require(UI:WaitForChild("UiSound")).setPlayer(soundController.play)
+	else
+		log.warn("SoundController did not load: the interface plays no sound")
+	end
+end)
+
 for _, name in ipairs(loaded) do
 	local controller = deps[name]
 	if type(controller.Init) == "function" then

@@ -391,6 +391,38 @@ describe("the interface's motion", function()
 		end
 	)
 
+	it("calms the pop and the exit under reduced motion, to springs that barely overshoot", function()
+		-- GuiService.ReducedMotionEnabled (UiPrefs): the same movements, without the overshoot. A damping
+		-- ratio of 0.7 overshoots by under 5 %.
+		local motion = stripComments(fs.readFile("src/ui/Motion.luau"))
+		local body = string.match(motion, "local REDUCED[^=]*= (%b{})")
+		assert(body ~= nil, "Motion no longer maps its presets under reduced motion: this gate would check nothing")
+		expect(string.find(motion, "if UiPrefs%.reducedMotion%(%) then%s+chosen = REDUCED%[chosen%] or chosen")).never.toBeNil()
+		local mapped: { [string]: string } = {}
+		for pair in string.gmatch(body :: string, '%w+ = "%w+"') do
+			local from, to = string.match(pair, '^(%w+) = "(%w+)"$')
+			mapped[from :: string] = to :: string
+		end
+		local line = string.match(motion, "export type Preset = ([^\n]+)")
+		assert(line ~= nil, "Motion no longer declares its presets")
+		for name in string.gmatch(line :: string, '"(%w+)"') do
+			local calm = FeelConfig.Springs[mapped[name] or name]
+			assert(calm ~= nil, ("%s falls back to a preset FeelConfig does not have"):format(name))
+			local ratio = calm.Friction / (2 * math.sqrt(calm.Tension))
+			if ratio < 0.7 then
+				error(("%s still overshoots under reduced motion (damping %.2f)"):format(name, ratio))
+			end
+		end
+	end)
+
+	it("staggers no more entrances than the budget allows", function()
+		expect(ThemeConfig.Timing.StaggerMax).toBeGreaterThan(0)
+		expect(ThemeConfig.Timing.StaggerMax).toBeLessThanOrEqual(ThemeConfig.Budget.MaxStaggered)
+		expect(ThemeConfig.Timing.StaggerSeconds).toBeGreaterThan(0)
+		-- The whole entrance of a full list stays under a fifth of a second of waiting.
+		expect(ThemeConfig.Timing.StaggerSeconds * (ThemeConfig.Timing.StaggerMax - 1)).toBeLessThanOrEqual(0.3)
+	end)
+
 	it("is springs: nothing in src/ui tweens", function()
 		local found = offenders({ "src/ui" }, { "TweenService", "TweenInfo" }, never)
 		if #found > 0 then
@@ -432,5 +464,57 @@ describe("the interface's colours and fonts", function()
 		local theme = stripComments(fs.readFile(THEME))
 		expect(string.find(theme, "Color3%.fromRGB%(") ~= nil).toBe(true)
 		expect(string.find(theme, "Font%.new%(") ~= nil).toBe(true)
+	end)
+end)
+
+describe("the player's own settings", function()
+	it("scale the text for every size Roblox offers, and never under the design", function()
+		local dump = fs.readFile(GLOBAL_TYPES)
+		local block = string.match(dump, "EnumPreferredTextSize_INTERNAL extends Enum with\n(.-)\tfunction")
+		assert(block ~= nil, "the engine's text sizes are no longer in globalTypes.d.luau")
+		local count = 0
+		for name in string.gmatch(block :: string, "\t(%w+): EnumPreferredTextSize\n") do
+			count += 1
+			local scale = ThemeConfig.TextScale[name]
+			if scale == nil then
+				error(("Roblox offers the text size %s, which ThemeConfig.TextScale does not scale"):format(name))
+			end
+			expect(scale).toBeGreaterThanOrEqual(1)
+		end
+		expect(count).toBeGreaterThanOrEqual(4)
+		expect(ThemeConfig.TextScale.Medium).toBe(1)
+		for name in pairs(ThemeConfig.TextScale) do
+			if string.find(block :: string, "\t" .. name .. ": EnumPreferredTextSize\n", 1, true) == nil then
+				error(("ThemeConfig.TextScale names %s, which Roblox does not offer"):format(name))
+			end
+		end
+	end)
+
+	it("are read through a guard, each of the three", function()
+		-- A property the engine refuses must cost a warning and its neutral value, never the interface.
+		local prefs = stripComments(fs.readFile("src/ui/UiPrefs.luau"))
+		local watched = string.match(prefs, "local WATCHED = (%b{})")
+		assert(watched ~= nil, "UiPrefs no longer lists what it follows")
+		for _, property in ipairs({ "ReducedMotionEnabled", "PreferredTextSize", "PreferredTransparency" }) do
+			expect(string.find(watched :: string, '"' .. property .. '"', 1, true)).never.toBeNil()
+		end
+		expect(string.find(prefs, "local function read%(property: string%): any%s+local ok, value = pcall%(")).never.toBeNil()
+		expect(string.find(prefs, "(GuiService :: any)[property]", 1, true)).never.toBeNil()
+		-- Nowhere else is GuiService read for them.
+		local unguarded = string.gsub(prefs, "local WATCHED = %b{}", "")
+		expect(string.find(unguarded, "GuiService%.ReducedMotionEnabled")).toBeNil()
+		expect(string.find(unguarded, "GuiService%.PreferredTextSize")).toBeNil()
+		expect(string.find(unguarded, "GuiService%.PreferredTransparency")).toBeNil()
+	end)
+
+	it("are started, and the interface given its sound, before any screen is built", function()
+		local bootstrap = stripComments(fs.readFile("src/client/Bootstrap.client.luau"))
+		local wiring = string.find(bootstrap, 'require(UI:WaitForChild("UiPrefs")).start()', 1, true)
+		local sound =
+			string.find(bootstrap, 'require(UI:WaitForChild("UiSound")).setPlayer(soundController.play)', 1, true)
+		local initPass = string.find(bootstrap, "controller.Init", 1, true)
+		assert(wiring ~= nil and sound ~= nil and initPass ~= nil, "the interface is not wired in the client bootstrap")
+		expect(wiring :: number).toBeLessThan(initPass :: number)
+		expect(sound :: number).toBeLessThan(initPass :: number)
 	end)
 end)

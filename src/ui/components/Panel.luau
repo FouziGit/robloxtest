@@ -76,6 +76,10 @@ export type Panel = {
 	-- (`target` defaults to the close button) and hand it back on Close.
 	FocusForGamepad: (self: Panel, target: GuiObject?) -> (),
 	ReleaseGamepadFocus: (self: Panel) -> (),
+	-- Runs `rebuild`, which may destroy the control the pad is on (a socket taken off, a card leaving its tab,
+	-- a claim that landed). When the selection was in this panel before and is gone after, it goes to what
+	-- `fallback` names (FocusForGamepad's target), instead of leaving the D-pad dead.
+	KeepGamepadFocus: (self: Panel, rebuild: () -> (), fallback: () -> GuiObject?) -> (),
 	Destroy: (self: Panel) -> (),
 }
 
@@ -444,6 +448,20 @@ function Panel.new(props: Props): Panel
 		releaseFocus()
 	end
 
+	local function keepGamepadFocus(self: Panel, rebuild: () -> (), fallback: () -> GuiObject?)
+		local before = GuiService.SelectedObject
+		local inside = before ~= nil and before:IsDescendantOf(frame)
+		rebuild()
+		if not inside then
+			return
+		end
+		local after = GuiService.SelectedObject
+		if after ~= nil and after:IsDescendantOf(game) then
+			return
+		end
+		focusForGamepad(self, fallback())
+	end
+
 	local function destroy(_self: Panel)
 		releaseFocus()
 		trove:Destroy()
@@ -465,6 +483,7 @@ function Panel.new(props: Props): Panel
 		PlayExit = playExit,
 		FocusForGamepad = focusForGamepad,
 		ReleaseGamepadFocus = releaseGamepadFocus,
+		KeepGamepadFocus = keepGamepadFocus,
 		Destroy = destroy,
 	}
 	return object

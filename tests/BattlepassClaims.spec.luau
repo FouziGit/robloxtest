@@ -21,14 +21,19 @@ type Fixture = {
 	fired: { { any } },
 }
 
-local function setup(tier: number): Fixture
+local function setup(tier: number, claimed: { number }?, gamepad: boolean?): Fixture
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	world.userInput.GamepadEnabled = gamepad == true
 	local Screen = world.require("src/ui/screens/BattlepassScreen")
 	local fired: { { any } } = {}
 	local changed = Engine.signal()
+	local claimedFree = {}
+	for _, done in ipairs(claimed or {}) do
+		claimedFree[tostring(done)] = true
+	end
 	local data = {
 		Battlepass = {
-			[SEASON] = { Tier = tier, XP = 0, Premium = false, ClaimedFree = {}, ClaimedPremium = {} },
+			[SEASON] = { Tier = tier, XP = 0, Premium = false, ClaimedFree = claimedFree, ClaimedPremium = {} },
 		},
 	}
 	local screen = Screen.new({
@@ -161,6 +166,29 @@ describe("the battle pass's claims, run", function()
 		expect(claimAll(fixture).Visible).toBe(false)
 		fixture.world:advance(TIMEOUT)
 		expect(claimAll(fixture).Visible).toBe(true)
+	end)
+end)
+
+describe("the battle pass on a gamepad, run", function()
+	it("hands the pad on to the next claim when the one it was on lands", function()
+		-- Tiers 3, 4 and 5 wait: once 3 lands, Claim all still shows, and the pad goes on down the road.
+		local fixture = setup(5, { 1, 2 }, true)
+		local third = claimButton(fixture, 3)
+		fixture.world.guiService.SelectedObject = third
+		third.Activated:Fire()
+		fixture.world:advance(0.2)
+		land(fixture, 3)
+		expect(Engine.destroyed(third)).toBe(true)
+		expect(fixture.world.guiService.SelectedObject).toBe(claimButton(fixture, 4))
+	end)
+
+	it("leaves the pad alone when it was not on the pass", function()
+		local fixture = setup(4, { 1, 2 }, true)
+		fixture.world.guiService.SelectedObject = nil
+		claimButton(fixture, 3).Activated:Fire()
+		fixture.world:advance(0.2)
+		land(fixture, 3)
+		expect(fixture.world.guiService.SelectedObject).toBeNil()
 	end)
 end)
 

@@ -43,6 +43,8 @@ export type Track = {
 	SetWiggling: (self: Track, on: boolean) -> (),
 	-- The Claim button of `tier`, when one of its rewards waits.
 	ClaimOf: (self: Track, tier: number) -> GuiObject?,
+	-- The Claim button of the earliest built tier with a reward waiting.
+	FirstClaim: (self: Track) -> GuiObject?,
 	Destroy: (self: Track) -> (),
 }
 
@@ -333,6 +335,16 @@ function Track.new(props: Props): Track
 		return nil
 	end
 
+	local function firstClaim(self: Track): GuiObject?
+		local earliest: number? = nil
+		for tier in pairs(columns) do
+			if (earliest == nil or tier < earliest) and claimOf(self, tier) ~= nil then
+				earliest = tier
+			end
+		end
+		return if earliest ~= nil then claimOf(self, earliest) else nil
+	end
+
 	local function destroy(_self: Track)
 		trove:Destroy()
 	end
@@ -347,6 +359,7 @@ function Track.new(props: Props): Track
 		CentreOn = centreOn,
 		SetWiggling = setWiggling,
 		ClaimOf = claimOf,
+		FirstClaim = firstClaim,
 		Destroy = destroy,
 	}
 	return object

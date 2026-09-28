@@ -484,7 +484,24 @@ function BattlepassScreen.new(deps: Deps): Screen
 		end
 	end
 
-	refresh = function()
+	-- Claim all, else the current tier's own claim, else the premium track, else the cross.
+	local function focusTarget(): GuiObject?
+		if claimAllButton.Instance.Visible and not claimAllButton:IsDisabled() then
+			return claimAllButton.Instance
+		end
+		local season = currentSeason()
+		local claim = road:ClaimOf(if season ~= nil then season.Tier else 1)
+		if claim ~= nil then
+			return claim
+		end
+		if premiumButton.Instance.Visible and not premiumButton:IsDisabled() then
+			return premiumButton.Instance
+		end
+		return nil
+	end
+
+	-- The header, the road, Claim all and the showcase, from the profile.
+	local function paintAll()
 		local season = currentSeason()
 		local tier = if season ~= nil then season.Tier else 1
 		local xp = if season ~= nil then season.XP else 0
@@ -522,6 +539,14 @@ function BattlepassScreen.new(deps: Deps): Screen
 		showNext(season)
 	end
 
+	-- A claim that lands takes its Claim button with it (Cell), and the pad was on it: it goes on to the
+	-- earliest claim still waiting, or to what the screen opens on.
+	refresh = function()
+		panel:KeepGamepadFocus(paintAll, function()
+			return road:FirstClaim() or focusTarget()
+		end)
+	end
+
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Battlepass" then
 			refresh()
@@ -531,22 +556,6 @@ function BattlepassScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 	-- Screen API
 	----------------------------------------------------------------
-
-	-- Claim all, else the current tier's own claim, else the premium track, else the cross.
-	local function focusTarget(): GuiObject?
-		if claimAllButton.Instance.Visible and not claimAllButton:IsDisabled() then
-			return claimAllButton.Instance
-		end
-		local season = currentSeason()
-		local claim = road:ClaimOf(if season ~= nil then season.Tier else 1)
-		if claim ~= nil then
-			return claim
-		end
-		if premiumButton.Instance.Visible and not premiumButton:IsDisabled() then
-			return premiumButton.Instance
-		end
-		return nil
-	end
 
 	local function open(self: Screen, _args: any?)
 		if self.Visible then

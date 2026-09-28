@@ -8,6 +8,7 @@
 -- slots than fit, and it shakes when a full loadout refuses a glyph (Shake): the track sits in a holder
 -- outside any layout, free to move.
 
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -119,6 +120,13 @@ function SocketBar.new(props: Props): SocketBar
 	end)
 
 	local function set(_self: SocketBar, sockets: { LoadoutEdit.Socket })
+		-- The row is rebuilt, and the socket the pad is on with it (A on a socket takes its glyph off): the pad
+		-- stays at the same place in the row, on the glyph that slides into it, or on the last one left.
+		local selected = GuiService.SelectedObject
+		local focused: number? = if selected ~= nil and selected:IsDescendantOf(track)
+			then (selected :: GuiObject).LayoutOrder
+			else nil
+		local filled: { TextButton } = {}
 		socketTrove:Clean()
 		for index, socket in ipairs(sockets) do
 			local id = socket.Id
@@ -135,6 +143,7 @@ function SocketBar.new(props: Props): SocketBar
 					UiSound.play("UiClick")
 					props.OnSocket(id)
 				end)
+				table.insert(filled, circle)
 			elseif socket.Kind == "Locked" then
 				circle = disc(Theme.Colors.Chalk, Theme.Sizes.StrokeThin, index)
 				local lock = Icon.new("Lock", SIZE * LOCK_SCALE, Theme.Colors.TextMuted)
@@ -147,6 +156,10 @@ function SocketBar.new(props: Props): SocketBar
 			end
 			circle.Parent = track
 			socketTrove:Add(circle)
+		end
+		if focused ~= nil then
+			-- None left: nil, and the screen places the pad (Panel:KeepGamepadFocus).
+			GuiService.SelectedObject = filled[math.min(focused, #filled)]
 		end
 	end
 

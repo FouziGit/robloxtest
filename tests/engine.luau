@@ -635,6 +635,14 @@ function Engine.world(options: Options?): World
 	userInput.KeyboardEnabled = true
 	userInput.MouseEnabled = true
 	userInput.GamepadEnabled = false
+	userInput.GetLastInputType = function(self: any): any
+		return if self.GamepadEnabled
+			then roblox.Enum.UserInputType.Gamepad1
+			else roblox.Enum.UserInputType.MouseButton1
+	end
+	userInput.GetFocusedTextBox = function(): any
+		return nil
+	end
 
 	-- The local player and their PlayerGui, where every screen is parented.
 	local players = Engine.instance("Players", game)

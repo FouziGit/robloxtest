@@ -372,17 +372,23 @@ function LoadoutScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- A change rebuilds the sockets and, on the Equipped tab, the cards: the pad goes on to the first card the
+	-- player can act on when what it was on went with them.
 	render = function()
-		local data = deps.ClientData.get()
-		slotsLabel.Text = t("loadout.slots", { used = #equipped, total = totalSlots() })
-		-- Offered until the pass is owned.
-		moreSlots.Instance.Visible = data ~= nil and data.Passes[PASS_KEY] ~= true
-		sockets:Set(LoadoutEdit.sockets(equipped, totalSlots(), SHOWN_SOCKETS))
-		local stale = next(cards) == nil and data ~= nil
-		if stale or (currentTab == EQUIPPED_TAB and builtSignature ~= signatureOf(equipped)) then
-			buildTab()
-		end
-		renderCards()
+		panel:KeepGamepadFocus(function()
+			local data = deps.ClientData.get()
+			slotsLabel.Text = t("loadout.slots", { used = #equipped, total = totalSlots() })
+			-- Offered until the pass is owned.
+			moreSlots.Instance.Visible = data ~= nil and data.Passes[PASS_KEY] ~= true
+			sockets:Set(LoadoutEdit.sockets(equipped, totalSlots(), SHOWN_SOCKETS))
+			local stale = next(cards) == nil and data ~= nil
+			if stale or (currentTab == EQUIPPED_TAB and builtSignature ~= signatureOf(equipped)) then
+				buildTab()
+			end
+			renderCards()
+		end, function()
+			return firstButton
+		end)
 	end
 
 	----------------------------------------------------------------

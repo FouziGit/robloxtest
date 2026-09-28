@@ -284,8 +284,14 @@ function MenuScreen.new(deps: Deps): Screen
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	gridLayout.FillDirectionMaxCells = GRID_COLUMNS
 	gridLayout.CellPadding = UDim2.fromOffset(Theme.Sizes.Gap, Theme.Sizes.Gap)
-	gridLayout.CellSize =
-		UDim2.new(1 / GRID_COLUMNS, -Theme.Sizes.Gap * (GRID_COLUMNS - 1) / GRID_COLUMNS, 0.5, -Theme.Sizes.Gap / 2)
+	-- An offset is a whole number of pixels: the gaps' share of each cell is rounded up, or the third cell of a
+	-- row ran two pixels past the grid and wrapped under the other two.
+	gridLayout.CellSize = UDim2.new(
+		1 / GRID_COLUMNS,
+		-math.ceil(Theme.Sizes.Gap * (GRID_COLUMNS - 1) / GRID_COLUMNS),
+		0.5,
+		-math.ceil(Theme.Sizes.Gap / 2)
+	)
 	gridLayout.Parent = grid
 
 	-- The grid reads left to right, top to bottom, by LayoutOrder: Shop, Leaderboard, Pass over Quests,

@@ -8,6 +8,8 @@
 --                    that child against the nearest ancestor of a fixed size, and grows to hold it: a sticker
 --                    filling a button from a frame of its own made the button as wide as the screen. With a
 --                    scale on that axis, it also drops a negative offset beside it.
+--   Shared rows      An offset is a whole number of pixels: cells that share a row by scale, each less its
+--                    share of the gaps, overrun the row by every fraction the engine drops.
 --   Canvases         A ScrollingFrame's CanvasSize scale is of the ScrollingFrame's parent, as a Size is, not of
 --                    its window (D-171): a canvas of fromScale(1, 1) in a window its parent's header and footer
 --                    shorten is taller than the window, and it scrolls onto nothing.
@@ -79,6 +81,59 @@ function Layout.automaticSizes(root: any): { string }
 	return found
 end
 
+-- The GuiObjects a layout under `parent` places.
+local function placed(parent: any): { any }
+	local objects = {}
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:IsA("GuiObject") and child.Visible ~= false then
+			table.insert(objects, child)
+		end
+	end
+	return objects
+end
+
+function Layout.sharedRows(root: any): { string }
+	local found: { string } = {}
+	for _, layout in ipairs(root:GetDescendants()) do
+		if layout.ClassName == "UIGridLayout" then
+			local columns = layout.FillDirectionMaxCells or 0
+			local cell = layout.CellSize.X
+			if columns > 1 and math.abs(cell.Scale * columns - 1) < 1e-4 then
+				local over = columns * cell.Offset + (columns - 1) * layout.CellPadding.X.Offset
+				if over > 0 then
+					table.insert(
+						found,
+						("%s: a row of %d cells overruns its grid by %d"):format(layout:GetFullName(), columns, over)
+					)
+				end
+			end
+		elseif
+			layout.ClassName == "UIListLayout"
+			and layout.FillDirection ~= nil
+			and layout.FillDirection.Name == "Horizontal"
+		then
+			local objects = placed(layout.Parent)
+			local scale, offset = 0, 0
+			local shared = #objects >= 2
+			for _, object in ipairs(objects) do
+				shared = shared and object.Size.X.Scale > 0
+				scale += object.Size.X.Scale
+				offset += object.Size.X.Offset
+			end
+			if shared and math.abs(scale - 1) < 1e-4 then
+				local over = offset + (#objects - 1) * layout.Padding.Offset
+				if over > 0 then
+					table.insert(
+						found,
+						("%s: %d frames sharing the row overrun it by %d"):format(layout:GetFullName(), #objects, over)
+					)
+				end
+			end
+		end
+	end
+	return found
+end
+
 function Layout.canvases(root: any): { string }
 	local found: { string } = {}
 	for _, frame in ipairs(root:GetDescendants()) do
@@ -106,6 +161,9 @@ end
 function Layout.check(root: any, _screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
 	for _, line in ipairs(Layout.canvases(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.sharedRows(root)) do
 		table.insert(found, line)
 	end
 	return found

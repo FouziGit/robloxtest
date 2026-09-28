@@ -255,7 +255,8 @@ function DailyScreen.new(deps: Deps): Screen
 		local sticker = Sticker.new({
 			Kind = "Card",
 			Fill = Theme.Colors.PanelRaised,
-			Size = UDim2.new(unit * share, -gaps * unit * share, 1, 0),
+			-- A whole number of pixels, rounded up: a truncated share ran the row past the calendar's edge.
+			Size = UDim2.new(unit * share, -math.ceil(gaps * unit * share), 1, 0),
 			LayoutOrder = index,
 			Parent = calendar,
 			Name = "Day" .. tostring(index),

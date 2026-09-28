@@ -7,7 +7,8 @@
 -- - the quick bar's buttons, the meta cluster, the first-steps card and the toasts, all automatically sized, grew
 --   to the screen's width or height around a sticker that filled them from a frame of its own;
 -- - the Daily, the Menu, Play and the pass took their canvas from the card rather than its window, and scrolled
---   onto nothing.
+--   onto nothing;
+-- - the menu's third tile of a row, 2 pixels too wide, wrapped under the other two.
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")

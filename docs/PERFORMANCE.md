@@ -190,6 +190,27 @@ l'école précédente — ce que la règle 2 de la bible ne survit pas.
 | les empreintes ne peuvent évincer un résidu **à aucun niveau** | `tests/WorldConfig.spec.luau` : le seuil de retenue est une **fraction** du budget du niveau dessiné (0,66), et la somme seuil + empreintes tient dans le budget de chacun des quatre |
 | le modèle de coût emprunte ce que le rendu emprunte | `tests/EffectCost.spec.luau` relit les emprunts dans la source de `VfxTimeline` |
 
+## L'interface (D-147) : ce qu'elle a le droit de coûter
+
+La passe couleur ajoute des ressorts, des taches et des boucles d'attente ; leurs plafonds sont des jetons
+(`ThemeConfig.Budget`) et des règles tenues par des tests. Cible : un téléphone moyen au plancher de 0,68 et
+le niveau **Performance**.
+
+| Budget | Limite | Comment il est tenu |
+|---|---|---|
+| boucles par image | **aucune nouvelle** : une seule dans `src/ui` (`Motion`) | `tests/Loops.spec.luau`. Le chevron du verrou tourne dans la boucle que `LockOnController` avait déjà ; la recharge du dash, l'attente de la file et le tour de minuit sont des `task.delay` |
+| boucles d'attente (respiration, vague, battement) par écran | ≤ 3 (`Budget.MaxIdleLoops`) | les badges et les disques suggérés respirent chacun sur **une** valeur partagée (`Breath`) ; les trois points de la file suivent **une** vague ; au HUD en combat : le battement de la barre basse et le vignettage |
+| taches (`Splat`) par écran | ≤ 12 (`Budget.MaxSplats`) | pool par `ScreenGui` ; la tache d'un disque tactile est créée à sa première pression, gardée, et rendue au pool (hors du disque) avant que le disque ne parte |
+| `CanvasGroup` | 1 passagère à la sortie d'un écran, 1 par toast visible ; **jamais dans le HUD** | le voile de recharge du dash coupe un disque par un simple cadre découpant |
+| allocations par poussée à 5 Hz | aucune instance | emplacements de la barre de glyphes et pastilles de l'équipe en pool ; les disques abordables sont écrits dans une table réutilisée (`TouchCluster.affordable`) |
+| mouvement réduit | boucles arrêtées, éclats remplacés par des fondus, pas de décalage d'entrée | `UiPrefs.reducedMotion()` lu dans `Motion` et ses aides |
+| niveau le plus bas | pas de reflets animés, pas de taches de fond, pas d'éclats à la pression | `UiPrefs.setLowQuality`, poussé par `HudController` |
+
+**Non mesuré.** Le nombre d'objets GUI (visé : HUD en combat ≤ 180, pass à l'ouverture ≤ 700, autres écrans
+≤ 400) et le coût des ressorts à l'entrée d'un écran demandent Studio : compteurs `DebugSettings` de
+l'interface et MicroProfiler sur l'appareil émulé « iPhone 12 / Galaxy S10 » à 0,68
+(`docs/STUDIO_SETUP.md` §11). Les chiffres mesurés viendront ici.
+
 ## Ce qui n'est pas mesuré
 
 **Aucun nombre d'images par seconde de ce document ne vient d'un appareil.** Les coûts sont ce que le

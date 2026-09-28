@@ -296,6 +296,8 @@ ThemeConfig.Hud = {
 	-- The top-centre column's ceiling (HudController's topStack): what a 375-point phone leaves above the
 	-- bottom stack at the touch floor, with a gap to spare.
 	TopStackMaxHeight = 240,
+	-- And how far under the safe area's top edge the column starts.
+	TopPad = 12,
 	-- The combat dock: centred at the bottom, off the bottom edge by this much with a pointer and on touch.
 	DockBottomPad = 16,
 	DockBottomPadTouch = 12,

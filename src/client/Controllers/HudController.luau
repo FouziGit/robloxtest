@@ -233,7 +233,7 @@ local function buildTopStack(parent: Instance)
 	topStack.Name = "TopStack"
 	topStack.BackgroundTransparency = 1
 	topStack.AnchorPoint = Vector2.new(0.5, 0)
-	topStack.Position = UDim2.new(0.5, 0, 0, Theme.Sizes.Padding)
+	topStack.Position = UDim2.new(0.5, 0, 0, HUD.TopPad)
 	topStack.Size = UDim2.fromOffset(0, 0)
 	topStack.AutomaticSize = Enum.AutomaticSize.XY
 	local layout = Instance.new("UIListLayout")

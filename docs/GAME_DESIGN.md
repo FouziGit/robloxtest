@@ -12,8 +12,8 @@
 | Action | Clavier (défaut) | Manette | Tactile |
 |---|---|---|---|
 | Cinabre / Indigo / Terre d'Ombre / Vert-de-gris | `J` / `K` / `L` / `H` | D-pad haut / droite / bas / gauche | boutons colorés, pouce droit |
-| Orpiment (débloquée) | `U` | `Y` | bouton jaune |
-| Corps à corps (M1) | clic gauche | `X` | bouton |
+| Orpiment (débloquée) | `U` | `Y` | disque jaune, absent tant qu'elle n'est pas débloquée |
+| Corps à corps (M1) | clic gauche | `X` | disque, le plus grand |
 | Dash | Maj gauche | `B` | bouton |
 | Garde | `F` | `LT` | bouton (maintenir) |
 | Verrouiller un adversaire | clic molette | `R3` | bouton |
@@ -21,6 +21,13 @@
 | Saut / double saut | Espace ×2 | `A` ×2 | bouton saut Roblox |
 
 Aucune touche par défaut n'entre en conflit avec WASD (QWERTY), ZQSD (AZERTY), le zoom (I/O), le classement (Tab) ni le sac (1-9). Tout est réassignable (clavier et manette) dans les options.
+
+**Ce que le HUD dit des contrôles (D-147).**
+- **La barre de glyphes.** Avec une souris ou une manette, un emplacement par glyphe équipé, et sous lui sa recette en touches liées : chaque touche porte la bande du pigment qu'elle presse (« J » sur Cinabre). C'est la légende du clavier. La recharge s'écoule sur la puce au rythme du serveur ; un glyphe que l'encre ne paie pas passe à la craie avec une goutte. Au toucher, une rangée de pastilles dans le dock.
+- **La pilule d'aperçu.** Quand la séquence est déjà un glyphe et que le contrôleur attend de voir si elle s'allonge, « → Brand » s'affiche dans la couleur du glyphe au-dessus des puces, sur un trait qui s'écoule : l'attente de prolongation se lit comme un choix, pas comme un retard. Son coût est marqué sur la barre d'encre, qui clignote avant la dernière pression si l'encre manque.
+- **La pilule de refus.** Un lancer refusé (recharge, encre, verrouillé, séquence sans recette) se dit sous les puces, qui tremblent, jamais par un toast en haut de l'écran ; une recharge fait aussi clignoter l'emplacement du glyphe.
+- **Les disques tactiles.** Chaque pigment dans sa couleur exacte sur sa lèvre, le kit sur une plaque d'encre ; le corps à corps est le plus grand. Après une ou deux pressions, les disques qui prolongent la séquence respirent ; un pigment qui ne mène à aucun glyphe payable pâlit ; le dash montre sa recharge. Un pigment verrouillé n'a pas de disque.
+- **Le verrou.** Le losange d'encre porte une plaque avec le nom et la vie de la cible, pâlit à la craie vingt studs avant la rupture, et un chevron au bord de l'écran montre une cible hors champ. Un verrou qui ne trouve rien dit « Aucune cible ».
 
 ## 3. Ressources et kit de base
 
@@ -204,5 +211,11 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 ## 9. Rétention
 
 Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
+
+**Ce que l'interface en montre (D-147).**
+- **Les badges.** Ce qui attend d'être récupéré (récompense du jour, quêtes terminées, paliers du pass) est compté par `Claimables` et badgé : sur le bouton Menu, et dans l'amas méta du hub, un sceau par sorte, dans la couleur de l'écran qu'il ouvre, visible seulement quand il y a quelque chose. Jamais en combat.
+- **La récompense du jour s'ouvre seule**, une fois par session, trois secondes après l'arrivée du profil, si elle attend et que rien d'autre ne retient le joueur (ni combat, ni file, ni écran ouvert).
+- **Les premiers pas.** Sous l'amas méta, une carte pour un nouveau joueur : tracer un glyphe, jouer un match, récupérer la récompense du jour, cochées depuis le profil seul (aucun champ nouveau) ; les deux dernières ouvrent leur écran. Une fois les trois faites, la carte est tamponnée et se replie.
+- **Les puces fantômes** de la première recette reviennent après une séquence qui n'a pas abouti, jusqu'au premier glyphe compté par le serveur.
 
 Détails économiques : `docs/ECONOMY.md`.

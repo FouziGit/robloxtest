@@ -167,7 +167,21 @@ describe("the Hatching", function()
 	it("strikes on a beat kept against its start, each stroke past the hit memory", function()
 		local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
 		expect(
-			hatching:find("task.wait(math.max(started + (stroke - 1) * params.TickInterval - os.clock(), 0))", 1, true)
+			hatching:find(
+				"local due = math.max( started + (stroke - 1) * params.TickInterval, lastStrokeAt + CombatConfig.Hit.IFrameSeconds + EPSILON ) task.wait(math.max(due - os.clock(), 0))",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- A stroke that came late pushes only the next one, past the memory its hits wrote: the stamp is taken
+		-- after them, at the end of the stroke.
+		expect(hatching:find("local lastStrokeAt = -math.huge", 1, true)).never.toBe(nil)
+		expect(
+			hatching:find(
+				"slowModel(ctx, model, params.SlowFactor, params.SlowDuration) end end lastStrokeAt = os.clock() end",
+				1,
+				true
+			)
 		).never.toBe(nil)
 		-- The same glyph cannot hit the same body twice inside Hit.IFrameSeconds: a stroke closer than that, one
 		-- frame of lateness at 30 Hz included, would be swallowed.

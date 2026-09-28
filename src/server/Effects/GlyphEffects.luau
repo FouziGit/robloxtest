@@ -1825,10 +1825,17 @@ function GlyphEffects.Hatching(ctx: Context): number
 	local tracker = newTracker(ctx.Def, params.Ticks)
 	local size = Vector3.new(params.Width, params.Height, ctx.Def.Range)
 	local started = os.clock()
+	local lastStrokeAt = -math.huge
 	for stroke = 1, params.Ticks do
 		if stroke > 1 then
-			-- Against the start, not the last stroke: a late frame never pushes every later stroke back.
-			task.wait(math.max(started + (stroke - 1) * params.TickInterval - os.clock(), 0))
+			-- On its beat, counted from the start: a late frame never pushes every later stroke back. Never inside
+			-- the hit memory the last stroke wrote (Hit.IFrameSeconds from its hits) either: after a stroke that came
+			-- late, the next one on its beat would be refused on every body the last one struck, the finisher too.
+			local due = math.max(
+				started + (stroke - 1) * params.TickInterval,
+				lastStrokeAt + CombatConfig.Hit.IFrameSeconds + EPSILON
+			)
+			task.wait(math.max(due - os.clock(), 0))
 			if not ctx.Combat.holdsChannel(ctx.Caster, token) then
 				break
 			end
@@ -1850,6 +1857,8 @@ function GlyphEffects.Hatching(ctx: Context): number
 				slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
 			end
 		end
+		-- After its hits: the memory they wrote runs from no later than this.
+		lastStrokeAt = os.clock()
 	end
 	ctx.Combat.endChannel(ctx.Caster, token)
 	return tracker.Count

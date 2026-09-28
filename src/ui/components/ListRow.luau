@@ -356,13 +356,16 @@ function ListRow.new(props: Props): ListRow
 			Theme.corner(bar, Theme.Pill)
 			swash = bar
 		end
+		-- On the row itself, under the body: the title's slot lays its children out in a row, and a swash
+		-- inside it took half the slot and pushed the title off to the right.
+		-- Its top meets the foot of the title, which the row centres.
+		local inset = padding.PaddingLeft.Offset
 		swash.Name = "Swash"
 		swash.BorderSizePixel = 0
-		swash.AnchorPoint = Vector2.new(0, 1)
-		swash.Position = UDim2.new(0, 0, 1, SWASH_HEIGHT / 2)
-		swash.Size = UDim2.new(0.5, 0, 0, SWASH_HEIGHT)
-		swash.ZIndex = 0
-		swash.Parent = left.Frame
+		swash.Position = UDim2.new(0, inset, 0.5, HEADER_SIZE / 2)
+		swash.Size = UDim2.new(0.5, -inset, 0, SWASH_HEIGHT)
+		swash.ZIndex = 1
+		swash.Parent = frame
 	elseif variant == "Highlight" then
 		-- A second ring, in the primary yellow, inside the ink one; and a ♦ tag on the corner.
 		local ring = Instance.new("Frame")

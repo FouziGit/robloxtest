@@ -278,6 +278,19 @@ describe("the parts, as Studio drew them", function()
 		button:SetDisabled(false)
 		expect(rim.Visible).toBe(true)
 	end)
+
+	it("lays a section's swash on the row, under its title, not in the title's row", function()
+		local world, parent = bench()
+		local ListRow = world.require("src/ui/components/ListRow")
+		local row = ListRow.new({ Left = "quest.daily", Right = "quest.resetsIn", Variant = "Header", Parent = parent })
+		local swash = row.Instance:FindFirstChild("Swash", true)
+		assert(swash ~= nil, "the header has no swash: this gate would check nothing")
+		-- Its parent lays nothing out: in the title's slot, a list, it took half the slot and pushed the title
+		-- off to the right.
+		expect(swash.Parent).toBe(row.Instance)
+		expect(swash.Parent:FindFirstChildOfClass("UIListLayout")).toBeNil()
+		expect(swash.ZIndex).toBeLessThan(row.Instance:FindFirstChild("Body").ZIndex)
+	end)
 end)
 
 return nil

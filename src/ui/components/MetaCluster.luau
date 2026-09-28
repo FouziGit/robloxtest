@@ -13,6 +13,11 @@
 -- touch, the thumbstick's corner being bottom-left), feeds it the profile and the counts, and hides it in a
 -- fight -- a match or an arena -- which shows no value colour (docs/ART_BIBLE.md rule 11). It requires no
 -- controller: what it opens and the queue it leaves are the HUD's callbacks.
+--
+-- Top-left, the column still stands over the side of the screen the engine's thumbstick takes, whose frame
+-- starts a third of the way down: whatever takes a tap there takes it from a thumb that meant to walk. So
+-- there the Folios, the claims and the queue share one row under the level, which ends above that frame on
+-- the smallest phone (tests/MetaCluster.spec.luau), and the first steps under it are read, not pressed.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -233,8 +238,22 @@ function MetaCluster.new(props: Props): MetaCluster
 		xpBar:Destroy()
 	end)
 
+	-- What the player taps: in the column with a pointer, in one row under the level on touch.
+	local tray: Instance = column
+	if not bottom then
+		local row = Instance.new("Frame")
+		row.Name = "Tray"
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = 2
+		row.Size = UDim2.fromOffset(0, PILL_HEIGHT)
+		row.AutomaticSize = Enum.AutomaticSize.X
+		horizontal(row, GAP)
+		row.Parent = column
+		tray = row
+	end
+
 	-- The Folios: the coin, the count, and the way to more.
-	local folios = inkPill("Folios", 2, column, trove)
+	local folios = inkPill("Folios", 2, tray, trove)
 	local foliosRow = folios:FindFirstChild("Row") :: Frame
 	local coin = Icon.new("Coin", COIN)
 	coin.LayoutOrder = 1
@@ -265,7 +284,7 @@ function MetaCluster.new(props: Props): MetaCluster
 	claimsRow.AutomaticSize = Enum.AutomaticSize.X
 	claimsRow.Visible = false
 	horizontal(claimsRow, GAP)
-	claimsRow.Parent = column
+	claimsRow.Parent = tray
 	type ClaimSeal = { Button: TextButton, Badge: Badge.Badge }
 	local claimSeals: { [string]: ClaimSeal } = {}
 	for index, claim in ipairs(CLAIMS) do
@@ -303,7 +322,7 @@ function MetaCluster.new(props: Props): MetaCluster
 	end
 
 	-- The queue: the dots in a wave, the wait, the cross that leaves; the pill itself opens Play.
-	local queue = inkPill("Queue", 4, column, trove)
+	local queue = inkPill("Queue", 4, tray, trove)
 	queue.Visible = false
 	local queueScale = Instance.new("UIScale")
 	queueScale.Parent = queue
@@ -412,12 +431,26 @@ function MetaCluster.new(props: Props): MetaCluster
 	type StepRow = { Box: Frame, Tick: TextLabel }
 	local stepRows: { [string]: StepRow } = {}
 	for index, step in ipairs(STEPS) do
-		local row = Instance.new("TextButton")
+		-- A row a pointer clicks; on touch a row only read, under the thumbstick's frame.
+		local row: GuiObject
+		if bottom then
+			local button = Instance.new("TextButton")
+			button.AutoButtonColor = false
+			button.Text = ""
+			button.Selectable = false
+			local screen = step.Screen
+			if screen ~= nil then
+				trove:Connect(button.Activated, function()
+					UiSound.play("UiClick")
+					props.OnOpen(screen)
+				end)
+			end
+			row = button
+		else
+			row = Instance.new("Frame")
+		end
 		row.Name = step.Kind
-		row.AutoButtonColor = false
 		row.BackgroundTransparency = 1
-		row.Text = ""
-		row.Selectable = false
 		row.LayoutOrder = index
 		row.Size = UDim2.new(1, 0, 0, STEP_HEIGHT)
 		horizontal(row, GAP)
@@ -441,13 +474,6 @@ function MetaCluster.new(props: Props): MetaCluster
 		words.LayoutOrder = 2
 		words.Text = localize.t(step.Key)
 		words.Parent = row
-		local screen = step.Screen
-		if screen ~= nil then
-			trove:Connect(row.Activated, function()
-				UiSound.play("UiClick")
-				props.OnOpen(screen)
-			end)
-		end
 		row.Parent = list
 		stepRows[step.Kind] = { Box = box, Tick = tick }
 	end

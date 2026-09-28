@@ -3,6 +3,7 @@
 -- per kind of claim waiting, and the queue while the player waits. It may show value colours, being the hub's
 -- alone (tests/UiColor.spec.luau holds that the HUD hides it in a fight). Engine code, held by reading it,
 -- with the colours it draws checked against each other.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
@@ -196,3 +197,104 @@ describe("the hub's meta cluster", function()
 		end
 	)
 end)
+
+-- Landscape phones by their height in points, and the top bar over their game in pixels (TouchCluster.spec).
+local PHONE_HEIGHTS = { 375, 390, 414 }
+local TOP_INSET = 36
+
+-- The real cluster, built in `corner` (tests/engine.luau), with what it opened recorded.
+local function build(corner: string): (any, any, { string })
+	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	local MetaCluster = world.require(string.gsub(CLUSTER, "%.luau$", ""))
+	local opened: { string } = {}
+	local holder = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+	local cluster = MetaCluster.new({
+		Parent = holder,
+		Localize = {
+			t = function(key: string): string
+				return key
+			end,
+		},
+		Corner = corner,
+		OnOpen = function(screen: string)
+			table.insert(opened, screen)
+		end,
+		OnLeaveQueue = function() end,
+	})
+	cluster:SetChecklist({ Cast = false, Match = false, Daily = false })
+	return world, cluster, opened
+end
+
+describe("the hub's meta cluster over the thumbstick, run", function()
+	it("puts every tap it has on touch in one row under the level", function()
+		local _world, cluster = build("Top")
+		local column = cluster.Instance
+		local tray = column:FindFirstChild("Tray")
+		expect(tray).never.toBeNil()
+		expect(tray.LayoutOrder).toBeLessThan(column:FindFirstChild("Steps").LayoutOrder)
+		for _, name in ipairs({ "Folios", "Claims", "Queue" }) do
+			expect(tray:FindFirstChild(name)).never.toBeNil()
+		end
+		local buttons = 0
+		for _, part in ipairs(column:GetDescendants()) do
+			if part:IsA("GuiButton") then
+				buttons += 1
+				if not part:IsDescendantOf(tray) then
+					error(("%s takes a tap outside the row under the level"):format(part:GetFullName()))
+				end
+			end
+		end
+		expect(buttons).toBeGreaterThan(0)
+	end)
+
+	it("ends that row above the thumbstick's frame on every landscape phone", function()
+		-- PlayerModule's DynamicThumbstick takes a touch that begins over the left 40 % of its ScreenGui and its
+		-- lower two thirds; that ScreenGui sits under the top bar, as the HUD's safe area does.
+		local world, cluster = build("Top")
+		local Theme = world.require("src/ui/Theme")
+		local column = cluster.Instance
+		local gap = column:FindFirstChildOfClass("UIListLayout").Padding.Offset
+		local level = column:FindFirstChild("Level").Size.Y.Offset
+		local tray = column:FindFirstChild("Tray").Size.Y.Offset
+		for _, points in ipairs(PHONE_HEIGHTS) do
+			local scale = ThemeConfig.scaleFor(points, true)
+			local inset = TOP_INSET / scale
+			local frameTop = inset + (points / scale - inset) / 3
+			-- The row's taps stand centred on it, floored at the touch minimum.
+			local tallest = math.max(tray, Theme.MinTouchTarget / scale)
+			local bottom = inset + column.Position.Y.Offset + level + gap + tray / 2 + tallest / 2
+			if bottom > frameTop then
+				error(
+					("on a %d-point phone the cluster takes taps down to %.1f, the thumbstick from %.1f"):format(
+						points,
+						bottom,
+						frameTop
+					)
+				)
+			end
+		end
+	end)
+
+	it("lets a thumb on the first steps walk, where a pointer still clicks them", function()
+		local _touchWorld, touch = build("Top")
+		for _, part in ipairs(touch.Instance:FindFirstChild("Steps"):GetDescendants()) do
+			if part:IsA("GuiButton") then
+				error(("%s takes a tap under the thumbstick's frame"):format(part:GetFullName()))
+			end
+		end
+		local _pointerWorld, pointer, opened = build("Bottom")
+		expect(pointer.Instance:FindFirstChild("Tray")).toBeNil()
+		local steps = pointer.Instance:FindFirstChild("Steps")
+		local match
+		for _, part in ipairs(steps:GetDescendants()) do
+			if part.Name == "Match" then
+				match = part
+			end
+		end
+		expect(match:IsA("GuiButton")).toBe(true)
+		match.Activated:Fire()
+		expect(opened).toEqual({ "Play" })
+	end)
+end)
+
+return nil

@@ -215,7 +215,7 @@ Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion 
 **Ce que l'interface en montre (D-147).**
 - **Les badges.** Ce qui attend d'être récupéré (récompense du jour, quêtes terminées, paliers du pass) est compté par `Claimables` et badgé : sur le bouton Menu, et dans l'amas méta du hub, un sceau par sorte, dans la couleur de l'écran qu'il ouvre, visible seulement quand il y a quelque chose. Jamais en combat.
 - **La récompense du jour s'ouvre seule**, une fois par session, trois secondes après l'arrivée du profil, si elle attend et que rien d'autre ne retient le joueur (ni combat, ni file, ni écran ouvert).
-- **Les premiers pas.** Sous l'amas méta, une carte pour un nouveau joueur : tracer un glyphe, jouer un match, récupérer la récompense du jour, cochées depuis le profil seul (aucun champ nouveau) ; les deux dernières ouvrent leur écran. Une fois les trois faites, la carte est tamponnée et se replie.
+- **Les premiers pas.** Sous l'amas méta, une carte pour un nouveau joueur : tracer un glyphe, jouer un match, récupérer la récompense du jour, cochées depuis le profil seul (aucun champ nouveau) ; les deux dernières ouvrent leur écran à la souris ; au toucher la carte se lit seulement, parce qu'elle est sous le cadre du joystick du moteur (D-156). Une fois les trois faites, la carte est tamponnée et se replie.
 - **Les puces fantômes** de la première recette reviennent après une séquence qui n'a pas abouti, jusqu'au premier glyphe compté par le serveur.
 
 Détails économiques : `docs/ECONOMY.md`.

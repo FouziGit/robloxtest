@@ -698,6 +698,8 @@ Strings.Table = {
 	["key.ButtonL3"] = { en = "L3", fr = "L3" },
 	["key.ButtonR3"] = { en = "R3", fr = "R3" },
 	["key.ButtonSelect"] = { en = "Select", fr = "Sélection" },
+	-- The way back on a screen opened from another one (ChapterBand).
+	["nav.back"] = { en = "Back", fr = "Retour" },
 
 	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
 

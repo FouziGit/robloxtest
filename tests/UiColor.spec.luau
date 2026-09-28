@@ -34,6 +34,10 @@ local STROKED_COMPONENTS = {
 	"ProgressBar",
 	"Toggle",
 	"Slider",
+	"ScreenRoot",
+	"Panel",
+	"ChapterBand",
+	"CardContent",
 }
 local BODY_CONTRAST = 4.5
 

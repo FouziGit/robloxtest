@@ -380,4 +380,30 @@ function ThemeConfig.labelRole(fill: string): string
 	return "PanelRaised"
 end
 
+-- The letters a drop cap can hold, by code point: ASCII's, and Latin-1's, which carry French's accented
+-- capitals (É, À, Ç). Latin-1 files two signs among its letters, and they are not letters.
+local LETTER_RANGES = { { 65, 90 }, { 97, 122 }, { 192, 255 } }
+local LATIN1_SIGNS = { [215] = true, [247] = true } -- × and ÷
+
+-- A screen title split for its drop cap (D-147): the first character, when it is a letter, and the rest --
+-- "Quêtes" is "Q" then "uêtes", as a manuscript opens a chapter. A title that opens on anything else (a
+-- digit, a quote, a sign) has no drop cap and stays whole.
+function ThemeConfig.dropCap(title: string): (string?, string)
+	if title == "" or utf8.len(title) == nil then
+		return nil, title
+	end
+	local second = utf8.offset(title, 2) :: number
+	local first = string.sub(title, 1, second - 1)
+	local codepoint = utf8.codepoint(first)
+	if LATIN1_SIGNS[codepoint] then
+		return nil, title
+	end
+	for _, range in ipairs(LETTER_RANGES) do
+		if codepoint >= range[1] and codepoint <= range[2] then
+			return first, string.sub(title, second)
+		end
+	end
+	return nil, title
+end
+
 return ThemeConfig

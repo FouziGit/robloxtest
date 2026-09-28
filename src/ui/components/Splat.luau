@@ -82,6 +82,31 @@ local function build(pool: Pool): GuiObject
 	return splat
 end
 
+-- The property a splat's colour and its transparency live in: the image's, or the disc's when the texture
+-- is missing.
+local function transparencyProperty(splat: GuiObject): string
+	return if splat:IsA("ImageLabel") then "ImageTransparency" else "BackgroundTransparency"
+end
+
+-- Recolours a splat: a header band's drips, a backdrop taking the Result's outcome.
+function Splat.tint(splat: GuiObject, color: Color3)
+	if splat:IsA("ImageLabel") then
+		splat.ImageColor3 = color
+	else
+		splat.BackgroundColor3 = color
+	end
+end
+
+-- Springs a splat's transparency to `transparency` on `preset`, or writes it at once without one.
+function Splat.fade(splat: GuiObject, transparency: number, preset: Motion.Preset?)
+	local goals = { [transparencyProperty(splat)] = transparency }
+	if preset == nil then
+		Motion.set(splat, goals)
+	else
+		Motion.to(splat, goals, preset)
+	end
+end
+
 -- A splat under `props.Parent`, or nil when that screen has spent its budget.
 function Splat.new(props: Props): GuiObject?
 	local screen = screenOf(props.Parent)
@@ -113,14 +138,8 @@ function Splat.new(props: Props): GuiObject?
 	object.AnchorPoint = props.AnchorPoint or Vector2.new(0.5, 0.5)
 	object.Rotation = props.Rotation or 0
 	object.ZIndex = props.ZIndex or 1
-	local transparency = props.Transparency or 0
-	if object:IsA("ImageLabel") then
-		object.ImageColor3 = props.Tint
-		object.ImageTransparency = transparency
-	else
-		object.BackgroundColor3 = props.Tint
-		object.BackgroundTransparency = transparency
-	end
+	Splat.tint(object, props.Tint)
+	Splat.fade(object, props.Transparency or 0)
 	object.Parent = props.Parent
 	return object
 end

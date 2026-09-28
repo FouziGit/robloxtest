@@ -224,6 +224,8 @@ local FALLBACK_VIEWPORT = Vector2.new(Theme.ReferenceHeight * 16 / 9, Theme.Refe
 local function touchOnly(): boolean
 	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 end
+-- The same test, for a component laid out per device: a screen card has no size cap on a phone.
+Theme.touchOnly = touchOnly
 
 function Theme.scaleFor(viewportSize: Vector2): number
 	return ThemeConfig.scaleFor(viewportSize.Y, touchOnly())

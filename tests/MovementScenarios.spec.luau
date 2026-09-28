@@ -8,7 +8,7 @@
 local Harness = require("./harness")
 local Sim = require("./movementsim")
 
-local describe, it = Harness.describe, Harness.it
+local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local function case(sc: Sim.Scenario, expected: Sim.Expectation)
 	it(("%s: %s"):format(expected, sc.Name), function()
@@ -1403,4 +1403,219 @@ describe("MovementScenarios: cheats, the adversarial review's cases", function()
 			return blinkBack(t, x)
 		end,
 	}, "strike")
+end)
+
+-- The in-game review (D-137): every avatar judged from its own standing height, and a jump carried across a
+-- server pivot. The developer's avatar stands 2.89 studs over its feet (tools/animations/rigs/developer.json),
+-- today's default description 3.19, a small one under the support probe's 1.5-stud width, an Rthro one 4.5. A
+-- client simulates its own body: a jump taken as a portal fires can keep rising from the destination
+-- (KeepsMomentum), as the developer's session showed. Each case must be silent: not even a watch.
+local AVATARS: { { any } } = { { "small", 1.4 }, { "the developer's", 2.89 }, { "default", 3.19 }, { "Rthro", 4.5 } }
+-- The hub at 0, the Erasure's arena 900 over it, the Battleground's page at X = 1500.
+local ERASURE_FLOOR = 900
+local WORLD = {
+	{ X0 = -100, X1 = 100, Top = 0, Tagged = true },
+	{ X0 = -60, X1 = 60, Top = ERASURE_FLOOR, Tagged = true },
+	{ X0 = 1415, X1 = 1585, Top = 0, Tagged = true },
+}
+-- Where each server placement puts a root: a boss or match pad, 4 studs over a marker that stands 3.5 over the
+-- floor, and the hub's return ring and the Battleground's camp, 3.5 over the floor, whatever the avatar.
+local ERASURE_PAD = ERASURE_FLOOR + 3.5 + 4
+local LANDING = 3.5
+
+local function steps(from: number, step: number, count: number): { number }
+	local out: { number } = {}
+	for i = 0, count - 1 do
+		table.insert(out, from + i * step)
+	end
+	return out
+end
+
+-- Every combination of one value from each list, in order.
+local function product(lists: { { number } }): { { number } }
+	local rows: { { number } } = { {} }
+	for _, list in ipairs(lists) do
+		local grown: { { number } } = {}
+		for _, row in ipairs(rows) do
+			for _, value in ipairs(list) do
+				local longer = table.clone(row)
+				table.insert(longer, value)
+				table.insert(grown, longer)
+			end
+		end
+		rows = grown
+	end
+	return rows
+end
+
+-- One case over every row: silent on each, or a failure naming the rows that were not.
+local function silentOver(label: string, rows: { { number } }, make: ({ number }) -> Sim.Scenario)
+	it(("silent: %s, %d variants"):format(label, #rows), function()
+		local failures = {}
+		for _, row in ipairs(rows) do
+			local stats = Sim.run(make(row))
+			if not Sim.meets(stats, "silent") then
+				local shown = {}
+				for _, value in ipairs(row) do
+					table.insert(shown, ("%g"):format(value))
+				end
+				table.insert(failures, ("%s: %s"):format(table.concat(shown, " "), Sim.describe(stats)))
+			end
+		end
+		if #failures > 0 then
+			error(table.concat(failures, "\n"), 0)
+		end
+	end)
+end
+
+-- A trip from `from` to `to` at 2 s, at 0.1 and 0.25 s one way: a jump taken in 5 ms steps around the moment the
+-- pivot reaches the client, and the double jump 0.2 to 0.35 s after it, near its apex.
+local function carriedJump(label: string, stand: number, from: { number }, to: { number })
+	silentOver(label, product({ { 0.1, 0.25 }, steps(0, 0.005, 41), { 0.2, 0.25, 0.3, 0.35 } }), function(row)
+		local jumpAt = 1.85 + row[1] + row[2]
+		return {
+			Name = label,
+			Seconds = 4,
+			Latency = row[1],
+			Stand = stand,
+			Floors = WORLD,
+			StartX = from[1],
+			StartY = from[2] + stand,
+			Walk = walk(16),
+			Jumps = { jumpAt },
+			DoubleJumps = { jumpAt + row[3] },
+			Teleports = { { 2, to[1], to[2] } },
+			KeepsMomentum = true,
+		}
+	end)
+end
+
+describe("MovementScenarios: honest, every avatar from its own height (in-game review)", function()
+	it("the simulator carries a jump across a pivot only for a client that keeps its momentum", function()
+		-- A jump taken just before the pivot reaches the client, and the double jump near its apex.
+		local function risesOverPad(keeps: boolean): number
+			local stats = Sim.run({
+				Name = "carried",
+				Seconds = 4,
+				Latency = 0.1,
+				Floors = WORLD,
+				Jumps = { 2.105 },
+				DoubleJumps = { 2.4 },
+				Teleports = { { 2, 0, ERASURE_PAD } },
+				KeepsMomentum = keeps,
+			})
+			return stats.Peak - ERASURE_PAD
+		end
+		expect(risesOverPad(true)).toBeGreaterThan(10)
+		expect(risesOverPad(false)).toBeLessThan(1)
+	end)
+	for _, avatar in ipairs(AVATARS) do
+		local name, stand = avatar[1] :: string, avatar[2] :: number
+		local who = ("%s avatar (%.2f)"):format(name, stand)
+		case({
+			Name = who .. ": spawn, walk, jump and double jump at the apex",
+			Seconds = 6,
+			Latency = 0.1,
+			Stand = stand,
+			RemotesAlways = true,
+			Walk = walk(16),
+			Jumps = { 1, 3.5 },
+			DoubleJumps = { 1.255, 3.85 },
+		}, "silent")
+		case({
+			Name = who .. ": spawn and bunny-hop, double jump at every apex",
+			Seconds = 8,
+			Latency = 0.1,
+			Stand = stand,
+			RemotesAlways = true,
+			Walk = walk(16),
+			Jumps = { 0.5 },
+			DoubleJumps = { 0.755 },
+			AutoJumpOn = 0,
+		}, "silent")
+		case({
+			Name = who .. ": stands on a crate 8 s, remotes arriving",
+			Seconds = 12,
+			Latency = 0.1,
+			Stand = stand,
+			RemotesAlways = true,
+			Floors = { { X0 = -1e9, X1 = 1e9, Top = 0 }, { X0 = 6, X1 = 14, Top = 4 } },
+			Walk = function(t: number): number
+				return if t < 2.6 then 4 else 0
+			end,
+			Jumps = { 1 },
+			DoubleJumps = { 1.25 },
+		}, "silent")
+		-- A pad drops every root 7.5 studs over the floor: a small avatar falls 6.1 of them, once its client has
+		-- the pivot. 19 latencies from 0.05 to 0.5 s one way, three jitters, the round trip read right and twice
+		-- over, two seeds.
+		silentOver(
+			who .. ", a pad drop",
+			product({ steps(0.05, 0.025, 19), { 0, 0.05, 0.1 }, { 1, 2 }, { 1, 2 } }),
+			function(row)
+				return {
+					Name = "pad drop",
+					Seconds = 5,
+					Latency = row[1],
+					Jitter = row[2],
+					RttScale = row[3],
+					Seed = row[4],
+					Stand = stand,
+					Floors = WORLD,
+					Walk = walk(8),
+					Teleports = { { 2, 0, ERASURE_PAD } },
+				}
+			end
+		)
+		carriedJump(who .. ", portal to the Erasure's arena while jumping", stand, { 0, 0 }, { 0, ERASURE_PAD })
+		carriedJump(who .. ", return gate to the hub while jumping", stand, { 10, ERASURE_FLOOR }, { 9, LANDING })
+		carriedJump(who .. ", portal to the Battleground's camp while jumping", stand, { 0, 0 }, { 1441, LANDING })
+		case({
+			Name = who .. ": portal round trip, hub to the arena and back, jumping each time",
+			Seconds = 9,
+			Latency = 0.15,
+			Stand = stand,
+			Floors = WORLD,
+			Walk = walk(16),
+			Jumps = { 1.9, 5.9 },
+			DoubleJumps = { 2.3, 6.3 },
+			Teleports = { { 2, 0, ERASURE_PAD }, { 6, 9, LANDING } },
+			KeepsMomentum = true,
+		}, "silent")
+	end
+end)
+
+describe("MovementScenarios: cheats, the arrival's own rise (in-game review)", function()
+	-- The rise a pad arrival allows is a jump and a double jump over where the pad put the body, and only until it
+	-- lands: neither lets a client climb on.
+	for _, avatar in ipairs(AVATARS) do
+		local name, stand = avatar[1] :: string, avatar[2] :: number
+		case({
+			Name = ("%s avatar (%.2f): arrives on a pad and climbs 25 over it at 12 studs/s"):format(name, stand),
+			Seconds = 8,
+			Latency = 0.1,
+			RemotesAlways = true,
+			Stand = stand,
+			Floors = WORLD,
+			Teleports = { { 2, 0, ERASURE_PAD } },
+			Cheat = function(t: number): (number?, number?)
+				return nil, if t >= 2.2 then ERASURE_PAD + math.min(25, 12 * (t - 2.2)) else nil
+			end,
+		}, "strike")
+		case({
+			Name = ("%s avatar (%.2f): lands after a pad drop, then climbs 16 over its standing height"):format(
+				name,
+				stand
+			),
+			Seconds = 8,
+			Latency = 0.1,
+			RemotesAlways = true,
+			Stand = stand,
+			Floors = WORLD,
+			Teleports = { { 2, 0, ERASURE_PAD } },
+			Cheat = function(t: number): (number?, number?)
+				return nil, if t >= 4 then ERASURE_FLOOR + stand + math.min(16, 12 * (t - 4)) else nil
+			end,
+		}, "strike")
+	end
 end)

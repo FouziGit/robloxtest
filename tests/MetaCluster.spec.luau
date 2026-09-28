@@ -208,9 +208,7 @@ local TOP_INSET = 36
 local function build(corner: string, phone: boolean?): (any, any, { string })
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	if phone then
-		world.userInput.TouchEnabled = true
-		world.userInput.KeyboardEnabled = false
-		world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(667, 375)
+		Engine.phone(world, 667, 375)
 	end
 	local MetaCluster = world.require(string.gsub(CLUSTER, "%.luau$", ""))
 	local opened: { string } = {}

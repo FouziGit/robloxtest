@@ -9,7 +9,9 @@
 -- the board when they are listed, from the profile's ranked record otherwise -- with a way to find their
 -- row. The first three stand on a podium (LeaderboardView), the rest are rows with a seal of their tier:
 -- the illuminated rank ladder, read from the rank key the server wrote on each row. The player's own row
--- is ringed, and pinned at the foot of the card while it is scrolled out of sight.
+-- is ringed, and pinned at the foot of the card while it is scrolled out of sight. Pinned, it says what the
+-- standing says, and a tap on it finds the row: the standing then steps aside, which on a phone is the
+-- difference between one row of the list in view and more than two (tests/LeaderboardFit.spec.luau).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -121,13 +123,16 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	})
 	own(trove, panel)
 	root:SetCard(panel)
-	-- The tabs and the standing's button carry the touch minimum, which follows the viewport.
-	panel:SetHeaderHeight(function()
-		return Theme.Sizes.PaddingSmall * 2
-			+ Theme.touchTargetHeight(TABS_HEIGHT)
-			+ Theme.Sizes.Gap
-			+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-	end)
+	-- The tabs and the standing's button carry the touch minimum, which follows the viewport. The standing is
+	-- not there while the player's own row is pinned.
+	local function headerHeight(): number
+		local tabsHeight = Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(TABS_HEIGHT)
+		if pinned then
+			return tabsHeight
+		end
+		return tabsHeight + Theme.Sizes.Gap + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	end
+	panel:SetHeaderHeight(headerHeight)
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical
@@ -270,17 +275,30 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		end
 		pinned = hidden
 		pinnedTrove:Clean()
+		-- The header's height follows: SetFooterHeight below lays the card out again.
+		standing.Visible = not hidden
 		if hidden and entry ~= nil then
-			own(
-				pinnedTrove,
-				Standings.row({
-					Entry = entry,
-					Variant = "Highlight",
-					Rating = rating(entry),
-					LayoutOrder = 1,
-					Parent = panel.Footer,
-				})
-			)
+			local pinnedRow = Standings.row({
+				Entry = entry,
+				Variant = "Highlight",
+				Rating = rating(entry),
+				LayoutOrder = 1,
+				Parent = panel.Footer,
+			})
+			own(pinnedTrove, pinnedRow)
+			-- The standing's "Find me", while the standing steps aside: a tap on the pinned row.
+			local find = Instance.new("TextButton")
+			find.Name = "FindMe"
+			find.AutoButtonColor = false
+			find.BackgroundTransparency = 1
+			find.Text = ""
+			find.Size = UDim2.fromScale(1, 1)
+			find.ZIndex = 10
+			find.Parent = pinnedRow.Instance
+			pinnedTrove:Connect(find.Activated, function()
+				deps.SoundController.play("UiClick")
+				findMe()
+			end)
 			panel:SetFooterHeight(function()
 				return Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.RowHeight)
 			end)

@@ -10,7 +10,6 @@ local Measure = require("./measure")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
-local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -19,19 +18,11 @@ local SLOT = "Trail"
 
 type Fixture = { world: any, screen: any, data: any, changed: any, equips: { { any } }, shopChanged: any }
 
--- A phone's top bar, in pixels.
-local TOP_INSET = 36
-
 -- The Shop open on `tab`; on a touch phone `phone` points wide and tall when given.
 local function setup(tab: string, phone: { number }?): Fixture
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	if phone ~= nil then
-		world.userInput.TouchEnabled = true
-		world.userInput.KeyboardEnabled = false
-		world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(phone[1], phone[2])
-		world.guiService.GetGuiInset = function(): (any, any)
-			return roblox.Vector2.new(0, TOP_INSET), roblox.Vector2.zero
-		end
+		Engine.phone(world, phone[1], phone[2])
 	end
 	local ShopRotation = world.require("src/shared/Pure/ShopRotation")
 	local Screen = world.require("src/ui/screens/ShopScreen")

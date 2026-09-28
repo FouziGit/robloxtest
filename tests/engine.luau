@@ -901,4 +901,20 @@ function Engine.world(options: Options?): World
 	return world
 end
 
+-- A phone's top bar, in pixels (tests/TouchCluster.spec.luau).
+Engine.TOP_INSET = 36
+
+-- Makes `world` a landscape phone `width` x `height` points: a touch screen with no keyboard, and the top
+-- bar over its game. Returns the height of its screens in design units, at the scale the interface takes.
+function Engine.phone(world: any, width: number, height: number): number
+	world.userInput.TouchEnabled = true
+	world.userInput.KeyboardEnabled = false
+	world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(width, height)
+	world.guiService.GetGuiInset = function(): (any, any)
+		return roblox.Vector2.new(0, Engine.TOP_INSET), roblox.Vector2.zero
+	end
+	local Theme = world.require("src/ui/Theme")
+	return height / Theme.activeScale()
+end
+
 return Engine

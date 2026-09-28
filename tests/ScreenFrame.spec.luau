@@ -214,17 +214,11 @@ describe("the card", function()
 end)
 
 describe("the safe area, run", function()
-	-- A phone's top bar, in pixels.
-	local INSET = 36
+	local INSET = Engine.TOP_INSET
 
 	local function phoneRoot(): (any, any)
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
-		world.userInput.TouchEnabled = true
-		world.userInput.KeyboardEnabled = false
-		world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(667, 375)
-		world.guiService.GetGuiInset = function(): (any, any)
-			return roblox.Vector2.new(0, INSET), roblox.Vector2.zero
-		end
+		Engine.phone(world, 667, 375)
 		local ScreenRoot = world.require("src/ui/components/ScreenRoot")
 		local root = ScreenRoot.new({ Name = "Hud" })
 		root.Instance.Parent = world.playerGui

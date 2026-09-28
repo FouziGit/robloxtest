@@ -316,7 +316,9 @@ ThemeConfig.Hud = {
 	-- The hotbar: with a pointer, a slot per equipped glyph over the key strip that casts it, this far apart;
 	-- on touch, a row of pips across the top of the dock, this tall.
 	HotbarSlot = 56,
-	HotbarKeyStrip = 18,
+	-- A cap of 19 on its 3-unit lip: its pigment strip leaves the letter 13 (D-172). At 18 a cap of 15 left
+	-- it 9, and the letter stood on the strip.
+	HotbarKeyStrip = 22,
 	HotbarGap = 8,
 	HotbarPipsHeight = 26,
 	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it.

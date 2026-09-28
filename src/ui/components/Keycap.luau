@@ -127,14 +127,20 @@ function Keycap.new(props: Props): Keycap
 	-- fill whatever it asks. Nothing under the face takes its width from the face, or the engine would
 	-- measure it against the screen (D-170): the word is centred at its own width, and the pigment strip is
 	-- the cap's child, not the face's.
+	--
+	-- A pigment strip takes the foot of the face: the word stands over it, set no taller than what it leaves.
+	-- A hotbar's cap (19 units, D-172) sets it at 13; a word of 16 on the cap of 15 it was lost its foot under
+	-- the strip.
 	local pigment = props.Pigment
+	local reserve = if pigment ~= nil then STRIP_HEIGHT + Theme.Sizes.StrokeThin else 0
+	local textSize = math.min(TEXT_SIZE, height - reserve)
 	local measure = Instance.new("TextLabel")
 	measure.Name = "Measure"
 	measure.BackgroundTransparency = 1
 	measure.TextTransparency = 1
 	measure.AutomaticSize = Enum.AutomaticSize.X
 	measure.Size = UDim2.fromOffset(height, height)
-	measure.TextSize = TEXT_SIZE
+	measure.TextSize = textSize
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, PADDING)
 	padding.PaddingRight = UDim.new(0, PADDING)
@@ -147,8 +153,8 @@ function Keycap.new(props: Props): Keycap
 	label.AutomaticSize = Enum.AutomaticSize.X
 	label.AnchorPoint = Vector2.new(0.5, 0)
 	label.Position = UDim2.fromScale(0.5, 0)
-	label.Size = UDim2.fromScale(0, 1)
-	label.TextSize = TEXT_SIZE
+	label.Size = UDim2.new(0, 0, 1, -reserve)
+	label.TextSize = textSize
 	label.TextColor3 = Theme.Colors.Text
 	label.Parent = sticker.Face
 

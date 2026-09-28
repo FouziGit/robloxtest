@@ -87,7 +87,7 @@ local DRAIN_TRANSPARENCY = 0.35
 local SECONDS_TEXT = 16
 local SECONDS_STROKE = 2
 local DROP = 14
--- A key cap stands on a 3-unit lip: a cap of 15 fills the key strip exactly.
+-- A key cap stands on a 3-unit lip: a cap of 19 fills the key strip exactly.
 local CAP = HUD.HotbarKeyStrip - 3
 local CAP_GAP = 2
 local PIP_GAP = 3

@@ -16,6 +16,7 @@ local Harness = require("./harness")
 local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Layout = require("./layout")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -213,6 +214,48 @@ describe("the interface, held to the engine's layouts", function()
 		world:advance(0.2)
 		expect(#root.Content:GetDescendants()).toBeGreaterThan(10)
 		expectClean(root.Instance, DESKTOP_HEIGHT)
+	end)
+end)
+
+-- A world with a screen to build parts on, and a Localize that answers keys.
+local function bench(): (any, any, any)
+	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	local ScreenRoot = world.require("src/ui/components/ScreenRoot")
+	local root = ScreenRoot.new({ Name = "Bench", DisplayOrder = 1 })
+	root.Instance.Parent = world.playerGui
+	local localize = {
+		t = function(key: string): string
+			return key
+		end,
+	}
+	return world, root.Content, localize
+end
+
+describe("the parts, as Studio drew them", function()
+	it("sets a hotbar key's letter whole above its pigment strip, at 13 or more", function()
+		local world, parent, localize = bench()
+		local Keycap = world.require("src/ui/components/Keycap")
+		local height = ThemeConfig.Hud.HotbarKeyStrip - 3
+		local cap = Keycap.new({
+			Key = "J",
+			Device = "Keyboard",
+			Localize = localize,
+			Size = height,
+			Pigment = "Cinnabar",
+			Parent = parent,
+		})
+		local word = cap.Instance:FindFirstChild("Key", true)
+		local strip = cap.Instance:FindFirstChild("Pigment")
+		assert(word ~= nil and strip ~= nil, "the cap has no word or no strip: this gate would check nothing")
+		local reserve = strip.Size.Y.Offset + world.require("src/ui/Theme").Sizes.StrokeThin
+		-- The word's box ends where the strip begins, and its letters fit the box.
+		expect(word.Size.Y.Scale).toBe(1)
+		expect(word.Size.Y.Offset).toBe(-reserve)
+		expect(word.TextSize).toBeLessThanOrEqual(height - reserve)
+		expect(word.TextSize).toBeGreaterThanOrEqual(13)
+		-- A cap with no strip keeps its whole face and its full size.
+		local plain = Keycap.new({ Key = "M", Device = "Keyboard", Localize = localize, Parent = parent })
+		expect(plain.Instance:FindFirstChild("Key", true).TextSize).toBe(16)
 	end)
 end)
 

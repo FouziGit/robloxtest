@@ -1,80 +1,75 @@
 --!strict
--- LoadoutScreen: which glyphs the player takes into a fight. The header counts the used slots against
--- the ones the profile owns (ProgressionConfig base + purchased extras) and warns when every slot is
--- taken; the content lists the equipped glyphs, then the whole GlyphConfig roster grouped by pigment
--- with each entry's combo, stats and state (equipped, equippable or locked by level / by pigment).
+-- LoadoutScreen: which glyphs the player takes into a fight, on the ink band of the Loadout chapter with its
+-- five-pigment stripe (D-147). Across the top, the socket bar: one socket per slot the player may fill,
+-- holding the equipped glyphs in their order (tap one to take it off), the free ones empty, and the ones
+-- a pass would open locked; beside it the count, and -- only here, where a full loadout is felt -- the
+-- offer of four more slots. Under it, the tabs: what is equipped, then one tab per pigment with its sigil
+-- and its colour, so no page is the whole roster. The page is a grid of GlyphCards: each glyph's recipe as
+-- the player presses it, its numbers, its lore, and Equip, Unequip, "Slots full" or why it is locked.
 --
--- A click toggles the entry in a local mirror of the list and sends the complete new list through
--- SetLoadout. The server validates it (unlocks, slot count) and pushes the Loadout section back, which
--- re-syncs the mirror: the list shown is always the last one the server accepted.
+-- A change toggles the glyph in a local mirror of the list (LoadoutEdit) and sends the complete new list
+-- through SetLoadout. The server validates it and pushes the Loadout section back, which re-syncs the
+-- mirror: the list shown is always the last one the server accepted. After each change a strip rises from
+-- the foot of the card for a few seconds, saying what changed, with the way to undo it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
+local GlyphCard = require(script.Parent.Parent.components.GlyphCard)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local ListRow = require(script.Parent.Parent.components.ListRow)
+local LoadoutEdit = require(Shared.Pure.LoadoutEdit)
+local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
+local SocketBar = require(script.Parent.Parent.components.SocketBar)
+local Tabs = require(script.Parent.Parent.components.Tabs)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
+local UndoStrip = require(script.Parent.Parent.components.UndoStrip)
 
 export type Deps = {
 	Localize: { t: (key: string, params: { [string]: any }?) -> string },
 	ClientData: { get: () -> Types.ProfileData?, Changed: any },
 	RemoteClient: { fire: (name: string, ...any) -> () },
-	InputController: { captureNext: (kind: string, callback: (keyName: string?) -> ()) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
 	OnClose: () -> (),
-	OnNavigate: (id: string) -> (),
+	OnBack: () -> (),
+	CanGoBack: () -> boolean,
 }
 
 export type Screen = {
 	Instance: ScreenGui,
 	Visible: boolean,
-	Open: (self: Screen) -> (),
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 }
 
 type Destroyable = { Destroy: (self: any) -> () }
 type GlyphDef = GlyphConfig.GlyphDef
-type Entry = { Def: GlyphDef, Lock: TextLabel, Button: Button.Button }
 
 local LoadoutScreen = {}
 
-local OVERLAY_TRANSPARENCY = 0.45
-local BUTTON_WIDTH = 150
-local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
-local LINE_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
-local ENTRY_ROW_HEIGHT = NAME_HEIGHT + LINE_HEIGHT * 3 + Theme.Sizes.Padding
-local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
-local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2 + STATUS_HEIGHT * 2
+local CHAPTER = "Loadout"
+local EQUIPPED_TAB = "Equipped"
+local PASS_KEY = "LoadoutSlots"
 local BASE_SLOTS = ProgressionConfig.Loadout.BaseSlots
--- Layout bands: the equipped section first, then one band per pigment.
-local EQUIPPED_BASE = 1
-local PIGMENT_BASE = 100
-local PIGMENT_STRIDE = 100
--- Locale independent separator between combo glyphs (same convention as the HUD combo chips).
-local GLYPH_SEPARATOR = " "
-
--- Dimmed backdrop that also swallows clicks so the world under the menu is not interacted with.
-local function makeOverlay(parent: Instance): Frame
-	local overlay = Instance.new("Frame")
-	overlay.Name = "Overlay"
-	overlay.BackgroundColor3 = Theme.Colors.Overlay
-	overlay.BackgroundTransparency = OVERLAY_TRANSPARENCY
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Active = true
-	overlay.Parent = parent
-	return overlay
-end
+-- The bar always shows every slot a pass could open, so the locked ones say what there is to get.
+local SHOWN_SOCKETS = ProgressionConfig.Loadout.MaxSlots
+local TABS_HEIGHT = 48
+-- A glyph card: its band, its recipe, its numbers, two lines of lore and the action, on a lip.
+local CARD_HEIGHT = 250
+local COLUMNS_POINTER = 3
+local COLUMNS_TOUCH = 2
+local SKELETON_CELLS = 3
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
@@ -82,119 +77,126 @@ local function own(owner: typeof(Trove.new()), object: Destroyable)
 	end)
 end
 
-local function comboSigils(def: GlyphDef): string
-	local parts: { string } = {}
-	for _, pigment in ipairs(def.Combo) do
-		table.insert(parts, PigmentConfig.Sigils[pigment :: any] or pigment)
-	end
-	return table.concat(parts, GLYPH_SEPARATOR)
-end
-
-local function makeStatusLabel(name: string, color: Color3, order: number, parent: Instance): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
-	label.LayoutOrder = order
-	label.FontFace = Theme.Fonts.Bold
-	label.TextSize = Theme.Sizes.TextBody
-	label.TextColor3 = color
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTruncate = Enum.TextTruncate.AtEnd
-	label.Text = ""
-	label.Parent = parent
-	return label
-end
-
-local function makeLine(
-	name: string,
-	height: number,
-	size: number,
-	color: Color3,
-	bold: boolean,
-	order: number,
-	parent: Instance
-): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(1, 0, 0, height)
-	label.LayoutOrder = order
-	label.FontFace = if bold then Theme.Fonts.Bold else Theme.Fonts.Body
-	label.TextSize = size
-	label.TextColor3 = color
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextTruncate = Enum.TextTruncate.AtEnd
-	label.Text = ""
-	label.Parent = parent
-	return label
-end
-
--- Left slot of a roster row: name, combo, stats and the lock reason (empty while unlocked).
-local function makeEntryLabel(): (Frame, TextLabel, TextLabel, TextLabel, TextLabel)
-	local frame = Instance.new("Frame")
-	frame.Name = "Glyph"
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.Size = UDim2.fromScale(1, 1)
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = frame
-
-	local name = makeLine("Name", NAME_HEIGHT, Theme.Sizes.TextLarge, Theme.Colors.Text, true, 1, frame)
-	local combo = makeLine("Combo", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 2, frame)
-	local stats = makeLine("Stats", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 3, frame)
-	-- Muted, not Cinnabar: a locked glyph is information, and thirteen pixels of Cinnabar on the shaded
-	-- sheet measures 2.94 against it (docs/ART_BIBLE.md rule 7, and the contrast floor).
-	local lock = makeLine("Lock", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.TextMuted, false, 4, frame)
-	return frame, name, combo, stats, lock
-end
-
 function LoadoutScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
-	local equippedTrove = trove:Extend()
+	local tabTrove = trove:Extend()
 	local t = deps.Localize.t
 	local screen: Screen
-	local entries: { Entry } = {}
 	local equipped: { string } = {}
+	local currentTab = EQUIPPED_TAB
+	local cards: { [string]: GlyphCard.GlyphCard } = {}
+	-- The equipped list the Equipped tab was built from: that tab is rebuilt when the list changes.
+	local builtSignature: string? = nil
+	local device: GlyphCard.Device = GlyphCard.device()
 	local firstButton: GuiObject? = nil
 
-	local root = ScreenRoot.new({ Name = "LoadoutScreen", DisplayOrder = Theme.Layers.Screen })
+	local root = ScreenRoot.new({
+		Name = "LoadoutScreen",
+		DisplayOrder = Theme.Layers.Screen,
+		Chapter = CHAPTER,
+		TextScalable = true,
+	})
 	own(trove, root)
 	root.Instance.Enabled = false
 
-	local overlay = makeOverlay(root.Content)
-
 	local panel = Panel.new({
 		Title = t("loadout.title"),
+		Chapter = CHAPTER,
+		ContentMode = "Grid",
+		GridCell = UDim2.new(
+			1 / (if Theme.touchOnly() then COLUMNS_TOUCH else COLUMNS_POINTER),
+			-Theme.Sizes.Gap,
+			0,
+			CARD_HEIGHT
+		),
 		Closable = true,
 		OnClose = function()
 			screen:Close()
 			deps.OnClose()
 		end,
-		Parent = overlay,
+		OnBack = deps.OnBack,
+		ShowBack = deps.CanGoBack,
+		Localize = deps.Localize,
+		Parent = root.Content,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(HEADER_HEIGHT)
+	root:SetCard(panel)
+	-- The sockets row and the tabs both carry the touch minimum, which follows the viewport.
+	panel:SetHeaderHeight(function()
+		return Theme.Sizes.PaddingSmall * 2
+			+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+			+ Theme.Sizes.Gap
+			+ Theme.touchTargetHeight(TABS_HEIGHT)
+	end)
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical
 	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	headerLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	headerLayout.Parent = panel.Header
 
-	local slotsLabel = makeStatusLabel("Slots", Theme.Colors.Accent, 1, panel.Header)
-	local fullLabel = makeStatusLabel("Full", Theme.Colors.TextMuted, 2, panel.Header)
+	----------------------------------------------------------------
+	-- The socket bar, the count and the offer
+	----------------------------------------------------------------
 
-	local equippedHeader = ListRow.new({
-		Left = t("loadout.equipped"),
-		LayoutOrder = EQUIPPED_BASE,
-		Name = "EquippedHeader",
-		Parent = panel.Content,
+	local socketRow = Instance.new("Frame")
+	socketRow.Name = "Sockets"
+	socketRow.BackgroundTransparency = 1
+	socketRow.Size = UDim2.new(1, 0, 0, Theme.touchTargetHeight(Theme.Sizes.ButtonHeight))
+	socketRow.LayoutOrder = 1
+	local rowLayout = Instance.new("UIListLayout")
+	rowLayout.FillDirection = Enum.FillDirection.Horizontal
+	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rowLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	rowLayout.Parent = socketRow
+	socketRow.Parent = panel.Header
+	trove:Add(Theme.bindScale(function()
+		socketRow.Size = UDim2.new(1, 0, 0, Theme.touchTargetHeight(Theme.Sizes.ButtonHeight))
+	end))
+
+	-- The bar takes what the count and the offer leave. A tap on an equipped glyph takes it off: wired below,
+	-- once the toggle exists.
+	local toggleById: (id: string) -> ()
+	local sockets = SocketBar.new({
+		OnSocket = function(id: string)
+			toggleById(id)
+		end,
+		LayoutOrder = 1,
+		Parent = socketRow,
 	})
-	own(trove, equippedHeader)
+	own(trove, sockets)
+	local socketFill = Instance.new("UIFlexItem")
+	socketFill.FlexMode = Enum.UIFlexMode.Fill
+	socketFill.Parent = sockets.Instance
+
+	local slotsLabel = Instance.new("TextLabel")
+	slotsLabel.Name = "Count"
+	slotsLabel.BackgroundTransparency = 1
+	slotsLabel.AutomaticSize = Enum.AutomaticSize.X
+	slotsLabel.Size = UDim2.fromScale(0, 1)
+	slotsLabel.LayoutOrder = 2
+	slotsLabel.FontFace = Theme.Fonts.Numeric
+	slotsLabel.TextSize = Theme.Sizes.NumSmall
+	slotsLabel.TextColor3 = Theme.Colors.Text
+	slotsLabel.Text = ""
+	slotsLabel.Parent = socketRow
+
+	-- The offer of more slots lives here and nowhere else (docs/ECONOMY.md §5: a full loadout is where it
+	-- is wanted). The server prompts; the button only asks.
+	local moreSlots = Button.new({
+		Name = "MoreSlots",
+		Text = t("loadout.moreSlots", { count = ProgressionConfig.Loadout.PassExtraSlots }),
+		Variant = "Premium",
+		LayoutOrder = 3,
+		Parent = socketRow,
+		OnClick = function()
+			deps.RemoteClient.fire("PromptPurchase", "Pass", PASS_KEY)
+		end,
+	})
+	own(trove, moreSlots)
+	-- Greyed while the pass has no id to sell (MonetizationConfig), like every offer in the Shop.
+	moreSlots:SetDisabled(MonetizationConfig.Passes[PASS_KEY].Id == 0)
 
 	----------------------------------------------------------------
 	-- Profile reads
@@ -240,163 +242,222 @@ function LoadoutScreen.new(deps: Deps): Screen
 		end
 	end
 
-	----------------------------------------------------------------
-	-- Rendering
-	----------------------------------------------------------------
-
-	local function renderEquipped()
-		equippedTrove:Clean()
-		for index, id in ipairs(equipped) do
-			local def = GlyphConfig.ById[id]
-			if def == nil then
-				continue
-			end
-			local row = ListRow.new({
-				Left = t(def.NameKey),
-				Right = t("loadout.combo", { combo = comboSigils(def) }),
-				LayoutOrder = EQUIPPED_BASE + index,
-				Name = "Equipped" .. tostring(index),
-				Parent = panel.Content,
-			})
-			own(equippedTrove, row)
-		end
-	end
-
-	local function renderEntries(data: Types.ProfileData?, full: boolean)
-		firstButton = nil
-		for _, entry in ipairs(entries) do
-			local def = entry.Def
-			local isEquipped = table.find(equipped, def.Id) ~= nil
-			if not isUnlocked(data, def) then
-				entry.Lock.Text = lockReason(def)
-				entry.Button:SetText(t("common.locked"))
-				entry.Button:SetVariant("Secondary")
-				entry.Button:SetDisabled(true)
-				continue
-			end
-			entry.Lock.Text = ""
-			if isEquipped then
-				entry.Button:SetText(t("loadout.unequip"))
-				entry.Button:SetVariant("Danger")
-				entry.Button:SetDisabled(false)
-			else
-				entry.Button:SetText(t("loadout.equip"))
-				entry.Button:SetVariant(if full then "Secondary" else "Primary")
-				entry.Button:SetDisabled(full)
-			end
-			-- Gamepad focus goes to the first button the player can actually press.
-			if firstButton == nil and not entry.Button:IsDisabled() then
-				firstButton = entry.Button.Instance
-			end
-		end
-	end
-
-	local function render()
-		local total = totalSlots()
-		local full = #equipped >= total
-		slotsLabel.Text = t("loadout.slots", { used = #equipped, total = total })
-		fullLabel.Text = if full then t("loadout.full") else ""
-		renderEquipped()
-		renderEntries(deps.ClientData.get(), full)
+	-- The keys each pigment is bound to on the device in hand, from the player's own settings.
+	local function bindingsFor(kind: GlyphCard.Device): { [string]: string }
+		local data = deps.ClientData.get()
+		return GlyphCard.bindings(if data ~= nil then data.Settings else nil, kind)
 	end
 
 	----------------------------------------------------------------
-	-- Intent
+	-- Intent: a change, and the way to undo it
 	----------------------------------------------------------------
 
-	-- Toggles the entry in the local mirror and sends the whole list; the server has the last word.
+	local render: () -> ()
+
+	local undoStrip = UndoStrip.new({ ActionText = t("common.undo"), Parent = panel.Instance })
+	own(trove, undoStrip)
+
+	-- What changed, and the way back to the list before it.
+	local function showUndo(outcome: LoadoutEdit.Outcome, def: GlyphDef, previous: { string })
+		local key = if outcome == "Equipped" then "loadout.equippedToast" else "loadout.unequippedToast"
+		undoStrip:Show(t(key, { name = t(def.NameKey) }), function()
+			equipped = previous
+			render()
+			deps.RemoteClient.fire("SetLoadout", previous)
+		end)
+	end
+
+	-- A full loadout refuses: the socket bar shakes, and nothing is sent.
+	local function refuse()
+		sockets:Shake()
+	end
+
+	-- Toggles the glyph in the local mirror and sends the whole list; the server has the last word.
 	local function toggle(def: GlyphDef)
-		deps.SoundController.play("UiClick")
-		local updated: { string } = {}
-		local removed = false
-		for _, id in ipairs(equipped) do
-			if id == def.Id then
-				removed = true
-			else
-				table.insert(updated, id)
-			end
-		end
-		if not removed then
-			if #updated >= totalSlots() then
-				render() -- every slot is taken: the header says so and nothing is sent
-				return
-			end
-			table.insert(updated, def.Id)
+		local previous = table.clone(equipped)
+		local updated: { string }, outcome: LoadoutEdit.Outcome = LoadoutEdit.toggle(equipped, def.Id, totalSlots())
+		if outcome == "Full" then
+			refuse()
+			return
 		end
 		equipped = updated
 		render()
 		deps.RemoteClient.fire("SetLoadout", updated)
+		showUndo(outcome, def, previous)
 	end
 
-	----------------------------------------------------------------
-	-- Roster
-	----------------------------------------------------------------
-
-	for pigmentIndex, pigmentId in ipairs(PigmentConfig.Order) do
-		local base = PIGMENT_BASE + (pigmentIndex - 1) * PIGMENT_STRIDE
-		local header = ListRow.new({
-			Left = t(PigmentConfig.NameKeys[pigmentId :: any]),
-			LayoutOrder = base,
-			Name = pigmentId .. "Header",
-			Parent = panel.Content,
-		})
-		own(trove, header)
-
-		local offset = 0
-		for _, def in ipairs(GlyphConfig.Glyphs) do
-			if def.Pigment ~= pigmentId then
-				continue
-			end
-			offset += 1
-			local frame, name, combo, stats, lock = makeEntryLabel()
-			name.Text = t(def.NameKey)
-			combo.Text = t("loadout.combo", { combo = comboSigils(def) })
-			stats.Text = t("loadout.stats", { damage = def.Damage, cost = def.Cost, cooldown = def.Cooldown })
-			local button = Button.new({
-				Text = t("loadout.equip"),
-				Variant = "Secondary",
-				Disabled = true,
-				Size = UDim2.fromOffset(BUTTON_WIDTH, Theme.Sizes.ButtonHeight),
-				OnClick = function()
-					toggle(def)
-				end,
-			})
-			own(trove, button)
-			local row = ListRow.new({
-				Left = frame,
-				Right = button.Instance,
-				Height = ENTRY_ROW_HEIGHT,
-				LayoutOrder = base + offset,
-				Name = def.Id,
-				Parent = panel.Content,
-			})
-			own(trove, row)
-			table.insert(entries, { Def = def, Lock = lock, Button = button })
+	toggleById = function(id: string)
+		local def = GlyphConfig.ById[id]
+		if def ~= nil then
+			toggle(def)
 		end
 	end
+
+	----------------------------------------------------------------
+	-- Rendering
+	----------------------------------------------------------------
+
+	local function signatureOf(list: { string }): string
+		return table.concat(list, "|")
+	end
+
+	-- The glyphs of the open tab: the equipped ones in their slots' order, or one pigment's in the roster's.
+	local function tabGlyphs(): { GlyphDef }
+		local defs: { GlyphDef } = {}
+		if currentTab == EQUIPPED_TAB then
+			for _, id in ipairs(equipped) do
+				table.insert(defs, GlyphConfig.ById[id])
+			end
+		else
+			for _, def in ipairs(GlyphConfig.Glyphs) do
+				if def.Pigment == currentTab then
+					table.insert(defs, def)
+				end
+			end
+		end
+		return defs
+	end
+
+	local function buildTab()
+		tabTrove:Clean()
+		cards = {}
+		builtSignature = signatureOf(equipped)
+		panel.Content.CanvasPosition = Vector2.zero
+		if deps.ClientData.get() == nil then
+			-- No profile yet: chalk where the cards will be.
+			for index = 1, SKELETON_CELLS do
+				own(
+					tabTrove,
+					ListRow.new({ Variant = "Skeleton", Left = "", LayoutOrder = index, Parent = panel.Content })
+				)
+			end
+			return
+		end
+		local bindings = bindingsFor(device)
+		for index, def in ipairs(tabGlyphs()) do
+			local card = GlyphCard.new({
+				Def = def,
+				Localize = deps.Localize,
+				Bindings = bindings,
+				Device = device,
+				OnAction = function()
+					toggle(def)
+				end,
+				OnRefused = refuse,
+				LayoutOrder = index,
+				Parent = panel.Content,
+			})
+			own(tabTrove, card)
+			cards[def.Id] = card
+		end
+	end
+
+	local function renderCards()
+		local data = deps.ClientData.get()
+		local full = #equipped >= totalSlots()
+		firstButton = nil
+		for index, def in ipairs(tabGlyphs()) do
+			local card = cards[def.Id]
+			if card == nil then
+				continue
+			end
+			local state: LoadoutEdit.CardState =
+				LoadoutEdit.cardState(isUnlocked(data, def), table.find(equipped, def.Id) ~= nil, full)
+			card:SetState(state, if state == "Locked" then lockReason(def) else nil)
+			-- Gamepad focus goes to the first card the player can act on.
+			if firstButton == nil and (state == "Available" or state == "Equipped") then
+				firstButton = card.Button.Instance
+			end
+			card.Instance.LayoutOrder = index
+		end
+	end
+
+	render = function()
+		local data = deps.ClientData.get()
+		slotsLabel.Text = t("loadout.slots", { used = #equipped, total = totalSlots() })
+		-- Offered until the pass is owned.
+		moreSlots.Instance.Visible = data ~= nil and data.Passes[PASS_KEY] ~= true
+		sockets:Set(LoadoutEdit.sockets(equipped, totalSlots(), SHOWN_SOCKETS))
+		local stale = next(cards) == nil and data ~= nil
+		if stale or (currentTab == EQUIPPED_TAB and builtSignature ~= signatureOf(equipped)) then
+			buildTab()
+		end
+		renderCards()
+	end
+
+	----------------------------------------------------------------
+	-- Tabs
+	----------------------------------------------------------------
+
+	local tabItems: { Tabs.Item } = { { Id = EQUIPPED_TAB, Text = t("loadout.equipped") } }
+	for _, pigment in ipairs(PigmentConfig.Order) do
+		local id: string = pigment
+		local sigil: string = (PigmentConfig.Sigils :: any)[id]
+		table.insert(tabItems, {
+			Id = id,
+			Text = sigil .. " " .. t((PigmentConfig.NameKeys :: any)[id]),
+			Tint = Theme.pigmentColor(id),
+		})
+	end
+	local tabs = Tabs.new({
+		Items = tabItems,
+		Selected = currentTab,
+		Chapter = CHAPTER,
+		LayoutOrder = 2,
+		Parent = panel.Header,
+		-- Tabs make no sound of their own (a Button does): the click is the screen's.
+		OnSelect = function(id: string)
+			deps.SoundController.play("UiClick")
+			currentTab = id
+			buildTab()
+			renderCards()
+		end,
+	})
+	own(trove, tabs)
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Loadout" or section == "Unlocks" or section == "Progression" then
 			syncEquipped()
 			render()
+		elseif section == "Passes" then
+			render()
+		elseif section == "Settings" then
+			local bindings = bindingsFor(device)
+			for _, card in pairs(cards) do
+				card:SetRecipe(bindings, device)
+			end
+		end
+	end)
+
+	-- The recipes follow the hand: a player who picks up a pad sees its buttons.
+	trove:Connect(UserInputService.LastInputTypeChanged, function()
+		local latest: GlyphCard.Device = GlyphCard.device()
+		if latest == device then
+			return
+		end
+		device = latest
+		local bindings = bindingsFor(device)
+		for _, card in pairs(cards) do
+			card:SetRecipe(bindings, device)
 		end
 	end)
 
 	syncEquipped()
+	buildTab()
 	render()
 
 	----------------------------------------------------------------
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen)
+	local function open(self: Screen, _args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
 		syncEquipped()
 		render()
-		root.Instance.Enabled = true
+		root:PlayEnter()
 		panel:FocusForGamepad(firstButton)
 		deps.SoundController.play("UiOpen")
 	end
@@ -406,8 +467,10 @@ function LoadoutScreen.new(deps: Deps): Screen
 			return
 		end
 		self.Visible = false
+		-- Off at once: the card fades as one piece, and a group inside it would be a group in a group.
+		undoStrip:Hide(false)
 		panel:ReleaseGamepadFocus()
-		root.Instance.Enabled = false
+		root:PlayExit()
 		deps.SoundController.play("UiClose")
 	end
 

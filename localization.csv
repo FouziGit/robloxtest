@@ -58,6 +58,8 @@ common.locked,Locked,Vellum,,Locked,Verrouillé
 common.ok,OK,Vellum,,OK,OK
 common.reset,Reset,Vellum,,Reset,Réinitialiser
 common.save,Save,Vellum,,Save,Sauvegarder
+common.seconds,{seconds}s,Vellum,,{seconds}s,{seconds} s
+common.undo,Undo,Vellum,,Undo,Annuler
 cosmetic.AuraCodex,Codex Aura,Vellum,,Codex Aura,Aura du Codex
 cosmetic.AuraCrimson,Smoke Aura,Vellum,,Smoke Aura,Aura de Fumée
 cosmetic.AuraEmber,Soot Aura,Vellum,,Soot Aura,Aura de Suie
@@ -240,18 +242,19 @@ level.max,Max level,Vellum,,Max level,Niveau max
 level.title,Level {level},Vellum,,Level {level},Niveau {level}
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
-loadout.combo,Sequence: {combo},Vellum,,Sequence: {combo},Séquence : {combo}
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé
-loadout.full,Every slot is taken.,Vellum,,Every slot is taken.,Tous les slots sont pris.
+loadout.equippedToast,{name} equipped,Vellum,,{name} equipped,{name} équipé
+loadout.fullShort,Slots full,Vellum,,Slots full,Emplacements pleins
 loadout.invalid,Invalid loadout.,Vellum,,Invalid loadout.,Équipement invalide.
 loadout.locked,Unlocks at level {level},Vellum,,Unlocks at level {level},Se débloque au niveau {level}
 loadout.lockedPigment,Requires the {pigment} pigment,Vellum,,Requires the {pigment} pigment,Nécessite le pigment {pigment}
+loadout.moreSlots,+{count} slots,Vellum,,+{count} slots,+{count} emplacements
 loadout.saved,Loadout saved!,Vellum,,Loadout saved!,Équipement sauvegardé !
 loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} slots
-loadout.stats,{damage} damage · {cost} ink · {cooldown}s,Vellum,,{damage} damage · {cost} ink · {cooldown}s,{damage} dégâts · {cost} encre · {cooldown}s
 loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
+loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
 match.again,Play again,Vellum,,Play again,Rejouer
 match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
 match.countdown,{seconds},Vellum,,{seconds},{seconds}

@@ -621,7 +621,6 @@ Strings.Table = {
 	["loadout.equip"] = { en = "Equip", fr = "Équiper" },
 	["loadout.unequip"] = { en = "Unequip", fr = "Retirer" },
 	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
-	["loadout.full"] = { en = "Every slot is taken.", fr = "Tous les slots sont pris." },
 	["loadout.locked"] = { en = "Unlocks at level {level}", fr = "Se débloque au niveau {level}" },
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
@@ -629,11 +628,6 @@ Strings.Table = {
 	["loadout.caughtUp"] = {
 		en = "New glyphs unlocked: {count}. Add them to your loadout.",
 		fr = "Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.",
-	},
-	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
-	["loadout.stats"] = {
-		en = "{damage} damage · {cost} ink · {cooldown}s",
-		fr = "{damage} dégâts · {cost} encre · {cooldown}s",
 	},
 
 	-- Cosmetics
@@ -709,6 +703,14 @@ Strings.Table = {
 	["time.daysHours"] = { en = "{days}d {hours}h", fr = "{days} j {hours} h" },
 	-- The quests board: when each section is drawn again.
 	["quest.resetsIn"] = { en = "Resets in {time}", fr = "Réinitialisation dans {time}" },
+	-- A number of seconds, beside a clock (a glyph's cooldown on its card).
+	["common.seconds"] = { en = "{seconds}s", fr = "{seconds} s" },
+	-- The loadout: a full loadout's Equip, the offer of the pass's slots, and the strip that undoes a change.
+	["loadout.fullShort"] = { en = "Slots full", fr = "Emplacements pleins" },
+	["loadout.moreSlots"] = { en = "+{count} slots", fr = "+{count} emplacements" },
+	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
+	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
+	["common.undo"] = { en = "Undo", fr = "Annuler" },
 
 	-- D-147 · slice C (HUD, toasts, world)
 } :: { [string]: Entry }

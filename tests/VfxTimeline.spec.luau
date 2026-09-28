@@ -501,6 +501,45 @@ describe("vfx timelines", function()
 		end
 	end)
 
+	it("plays a glyph's own timeline in that glyph's pigment", function()
+		-- pigmentsOf takes a glyph's timeline to be played in its GlyphConfig pigment; this holds the renderers
+		-- that play one by name to it. A renderer passing another school resolves that school's voices: a
+		-- Brand played in Orpiment asks for OrpimentTail on every throw, the warning the Strike's tail gave.
+		local path = "src/client/Controllers/VfxLibrary.luau"
+		local plays = 0
+		for id, args in folded(path):gmatch('[Tt]imeline%.play%("(%w+)", (%b{})') do
+			if GlyphConfig.ById[id] ~= nil and args:find("Pigment =", 1, true) ~= nil then
+				plays += 1
+			end
+		end
+		local held = 0
+		for name, renderer in pairs(bodies(path, "\nVfxLibrary%.(%w+) = function%(")) do
+			for id, args in renderer:gmatch('[Tt]imeline%.play%("(%w+)", (%b{})') do
+				local def = GlyphConfig.ById[id]
+				local passed = args:match("Pigment = ([^,}]+)")
+				if def ~= nil and passed ~= nil then
+					passed = passed:match("^%s*(.-)%s*$") :: string
+					local reads = passed == "def.Pigment"
+						and renderer:find(("local def = GlyphConfig.ById.%s "):format(id), 1, true) ~= nil
+					if passed ~= ('"%s"'):format(def.Pigment) and not reads then
+						error(
+							("VfxLibrary.%s plays %s in %s, not in its pigment %s"):format(
+								name,
+								id,
+								passed,
+								def.Pigment
+							)
+						)
+					end
+					held += 1
+				end
+			end
+		end
+		-- Every such play sits in a renderer, so none is left unread.
+		expect(plays > 0).toBe(true)
+		expect(held).toBe(plays)
+	end)
+
 	it("plays the detonation in the pigment of every glyph that blows up, and of no other", function()
 		-- The Explosion renderer passes the packet's pigment, which is the one GlyphEffects' explode sends: the
 		-- glyph's own, from each glyph that calls it. PLAYED_FOR.Explosion is that list of glyphs.

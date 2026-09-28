@@ -110,7 +110,7 @@ local ROSTER_ROW_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
 local COUNTDOWN_PHASE = "Countdown"
 -- Icon glyphs, locale independent (same convention as the panel close button).
 local ALIVE_GLYPH = "●"
-local DEAD_GLYPH = "✕"
+local DEAD_GLYPH = "×"
 
 local HudController = {}
 

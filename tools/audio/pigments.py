@@ -233,7 +233,8 @@ def orpiment_impact(rng: Rng) -> Buf:
 
 LAYERS = ("attack", "body", "tail", "impact")
 # Orpiment has no tail. A tail is the voice of a flight, and nothing of the school that strikes at once
-# ever flies: its four glyphs have no Travel phase, so a tail for it would be a file nothing can play.
+# ever flies: the Travel of its Strike, Caret and Colophon is a stroke ruled in a few hundredths, heard in
+# the snap and the crack, so a tail for it would be a file no timeline may play (tests/VfxTimeline.spec.luau).
 MATTERS = {
     "cinnabar": (cinnabar_attack, cinnabar_body, cinnabar_tail, cinnabar_impact),
     "indigo": (indigo_attack, indigo_body, indigo_tail, indigo_impact),

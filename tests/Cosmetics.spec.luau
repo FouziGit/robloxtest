@@ -391,18 +391,23 @@ describe("an aura and a trail", function()
 				end
 			end
 		end
-		-- And the headline -- what the shop shows, and the first thing seen -- is a colour, not an ink.
+		-- And every tone -- the headline, what the shop shows and the first thing seen, and the tone of each
+		-- layer -- is a colour, not an ink: a legendary with two of its three layers back in charcoal would
+		-- keep every distance above and show a few black dots again (found by review).
 		for _, slot in ipairs({ "Aura", "Trail" }) do
 			for _, item in ipairs(itemsIn(slot)) do
-				local tone = item.Look.Tone or ""
-				local rgb = CosmeticConfig.Tones[tone]
-				if rgb == nil or isInk(tone) then
-					error(("%s is headlined by %s, which is not a colour"):format(item.Id, tone))
-				end
-				local high = math.max(rgb[1], rgb[2], rgb[3])
-				local saturation = (high - math.min(rgb[1], rgb[2], rgb[3])) / high
-				if high / 255 < 0.2 or saturation <= 0.25 then
-					error(("%s's %s is too grey to be a colour: saturation %.2f"):format(item.Id, tone, saturation))
+				local tones = table.clone(item.Look.Tones or {})
+				table.insert(tones, item.Look.Tone or "")
+				for _, tone in ipairs(tones) do
+					local rgb = CosmeticConfig.Tones[tone]
+					if rgb == nil or isInk(tone) then
+						error(("%s is drawn in %s, which is not a colour"):format(item.Id, tone))
+					end
+					local high = math.max(rgb[1], rgb[2], rgb[3])
+					local saturation = (high - math.min(rgb[1], rgb[2], rgb[3])) / high
+					if high / 255 < 0.2 or saturation <= 0.25 then
+						error(("%s's %s is too grey to be a colour: saturation %.2f"):format(item.Id, tone, saturation))
+					end
 				end
 			end
 		end

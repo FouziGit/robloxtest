@@ -15,6 +15,10 @@
 -- aura and trail on this screen steps back (CosmeticConfig.Fight: fewer, fainter, unlit), so the glyphs keep
 -- the colour of the fight.
 --
+-- Every place is drawn round the standard body and fitted to the wearer's own (CosmeticConfig.Body): a trunk
+-- wider than the standard one hid what was born against it. The body is measured when the character is tracked
+-- and again whenever a look is put on -- a respawn is a new character -- and never per frame.
+--
 -- One Heartbeat for everything that moves (paths, flows); no connection per character beyond the attribute
 -- signals, and every instance lives in the Trove of the slot that built it, so a change of cosmetic, a
 -- respawn or a departure leaves nothing behind.
@@ -75,8 +79,8 @@ type Tracked = {
 	Character: Model,
 	Root: BasePart,
 	IsLocal: boolean,
-	-- Where the ground is under the root, in root space (negative).
-	Floor: number,
+	-- The body every place is fitted to, as last measured: its floor, its width and its height.
+	Fit: AuraMath.Fit,
 	Slots: { [string]: Worn },
 	Trove: TroveType,
 	-- Where the root was last frame; nil until the first frame is seen.
@@ -85,6 +89,8 @@ type Tracked = {
 
 local ATTRIBUTE_PREFIX = "Cosmetic"
 local SLOTS = { "Aura", "Trail", "Title" }
+-- The trunk of an R15 body and of an R6 one: the parts a body's width is read from.
+local TRUNK = { "UpperTorso", "LowerTorso", "Torso" }
 -- Below this horizontal speed a character is standing, and a trail's particles are not laid.
 local MOVING_STUDS_PER_SECOND = 1.5
 -- How far a title is read from: past this it is noise over a crowd.
@@ -156,6 +162,34 @@ local function densityFor(entry: Tracked): number
 	return AuraMath.density(tier.ParticleScale, entry.IsLocal, floorTier, fighting, FIGHT.Density)
 end
 
+-- The body a look is fitted to (AuraMath.fit), from the character's own trunk and head, found by name among its
+-- children. A hat, wings, a cape or layered clothing keep their Handle inside their Accessory, and a tool its
+-- parts inside the Tool, so none of them is read -- GetExtentsSize reads them all, and a body with wings would
+-- wear its aura past their tips; nor are the arms, whose reach is a pose, not a size. The floor is where a
+-- Humanoid stands its root, HipHeight plus half the root over it; a body without one, or an R6 body (whose
+-- HipHeight is 0), is given the usual depth.
+local function measure(character: Model, root: BasePart): AuraMath.Fit
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local standing = if humanoid ~= nil and humanoid.HipHeight > 0
+		then humanoid.HipHeight + root.Size.Y / 2
+		else CosmeticConfig.FloorDepth
+	local spans: { AuraMath.Span } = {}
+	for _, name in ipairs(TRUNK) do
+		local part = character:FindFirstChild(name)
+		if part ~= nil and part:IsA("BasePart") then
+			table.insert(spans, { Offset = root.CFrame:PointToObjectSpace(part.Position).X, Size = part.Size.X })
+		end
+	end
+	local head = character:FindFirstChild("Head")
+	local crown = if head ~= nil and head:IsA("BasePart")
+		then root.CFrame:PointToObjectSpace(head.Position).Y + head.Size.Y / 2
+		else nil
+	return AuraMath.fit(
+		{ HalfWidth = AuraMath.halfWidth(spans), Standing = standing, Crown = crown },
+		CosmeticConfig.Body
+	)
+end
+
 local function newWorn(): Worn
 	return { Trove = Trove.new(), Flows = {}, Runners = {}, Ribbons = {} }
 end
@@ -185,7 +219,7 @@ local function buildEmission(
 	e.LightInfluence = 0
 	e.Brightness = 1
 	e.Lifetime = NumberRange.new(spec.Lifetime[1], spec.Lifetime[2])
-	e.Speed = NumberRange.new(spec.Speed[1], spec.Speed[2])
+	e.Speed = NumberRange.new(AuraMath.speed(spec.Speed, spec.Emit, entry.Fit))
 	e.Size = evenly(spec.Size)
 	e.Transparency = evenly(AuraMath.lifted(spec.Transparency, if fighting then FIGHT.Transparency else 0))
 	e.SpreadAngle = Vector2.new(spec.Spread or 0, spec.Spread or 0)
@@ -217,8 +251,8 @@ local function buildEmission(
 	})
 end
 
-local function run(runner: Runner, now: number)
-	local x, y, z = AuraMath.path(runner.Path, runner.Stroke, runner.Count, now)
+local function run(runner: Runner, fit: AuraMath.Fit, now: number)
+	local x, y, z = AuraMath.path(runner.Path, fit, runner.Stroke, runner.Count, now)
 	runner.Upper.Position = Vector3.new(x, y + runner.HalfWidth, z)
 	runner.Lower.Position = Vector3.new(x, y - runner.HalfWidth, z)
 end
@@ -237,7 +271,7 @@ local function buildRibbon(worn: Worn, entry: Tracked, spec: CosmeticConfig.Ribb
 			Lower = attachment(worn, entry.Root),
 			HalfWidth = spec.Width / 2,
 		}
-		run(runner, now)
+		run(runner, entry.Fit, now)
 		local trail = Instance.new("Trail")
 		trail.Attachment0 = runner.Upper
 		trail.Attachment1 = runner.Lower
@@ -270,6 +304,7 @@ local function buildStyles(
 	if density <= 0 then
 		return worn
 	end
+	entry.Fit = measure(entry.Character, entry.Root)
 	for index, name in ipairs(look.Styles or {}) do
 		local style = styles[name]
 		if style == nil then
@@ -356,16 +391,6 @@ local function untrack(character: Model)
 	entry.Trove:Destroy()
 end
 
--- The ground under a root, in its own space: a Humanoid stands its root HipHeight plus half the root above
--- the floor; a body without one (or an R6 body, whose HipHeight is 0) is given the usual depth.
-local function floorOf(character: Model, root: BasePart): number
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid ~= nil and humanoid.HipHeight > 0 then
-		return -(humanoid.HipHeight + root.Size.Y / 2)
-	end
-	return -CosmeticConfig.FloorDepth
-end
-
 local function track(player: Player, character: Model)
 	if tracked[character] ~= nil then
 		return
@@ -378,7 +403,7 @@ local function track(player: Player, character: Model)
 		Character = character,
 		Root = root,
 		IsLocal = player == Players.LocalPlayer,
-		Floor = floorOf(character, root),
+		Fit = measure(character, root),
 		Slots = {},
 		Trove = Trove.new(),
 	}
@@ -423,8 +448,7 @@ local function emitFlow(entry: Tracked, flow: Flow, dt: number, now: number)
 	local count = AuraMath.owed(flow.Owed, dt, FLOW.MaxStepSeconds)
 	for _ = 1, count do
 		flow.Side = -flow.Side
-		local x, y, z =
-			AuraMath.point(flow.Place, entry.Floor, now, random:NextNumber(), random:NextNumber(), flow.Side)
+		local x, y, z = AuraMath.point(flow.Place, entry.Fit, now, random:NextNumber(), random:NextNumber(), flow.Side)
 		local at = Vector3.new(x, y, z)
 		local axis = Vector3.new(0, y, 0)
 		if (flow.Emit == "In" or flow.Emit == "Out") and (at - axis).Magnitude > 1e-3 then
@@ -450,7 +474,7 @@ local function onHeartbeat(dt: number)
 		local moving = (entry.Root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)).Magnitude > MOVING_STUDS_PER_SECOND
 		for _, worn in pairs(entry.Slots) do
 			for _, runner in ipairs(worn.Runners) do
-				run(runner, now)
+				run(runner, entry.Fit, now)
 			end
 			for _, flow in ipairs(worn.Flows) do
 				if moving or not flow.Moving then

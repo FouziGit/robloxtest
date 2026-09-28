@@ -23,6 +23,7 @@ local Strings = require("../src/shared/Strings")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
+local serde = require("@lune/serde")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -777,5 +778,281 @@ describe("the renderer", function()
 		expect(service:find('ATTRIBUTE_PREFIX = "Cosmetic"', 1, true)).never.toBe(nil)
 		expect(controller:find('ATTRIBUTE_PREFIX = "Cosmetic"', 1, true)).never.toBe(nil)
 		expect(controller:find("GetAttributeChangedSignal(ATTRIBUTE_PREFIX .. slot)", 1, true)).never.toBe(nil)
+	end)
+end)
+
+-- A rig measured in Studio (tools/animations/rigs): each part's size, the Humanoid's HipHeight, and each joint's
+-- two offsets, which place every part's centre in its root's space at rest.
+type Rig = {
+	hipHeight: number,
+	parts: { [string]: { size: { number } } },
+	joints: { { part0: string, part1: string, c0: { number }, c1: { number } } },
+}
+
+local function rigOf(name: string): Rig
+	return serde.decode("json", fs.readFile(("tools/animations/rigs/%s.json"):format(name)))
+end
+
+-- Where every part's centre is in the root's space, walked down the joints from the root: one pass per joint at
+-- most, since each pass that places nothing ends the walk.
+local function centresOf(rig: Rig): { [string]: { number } }
+	local at: { [string]: { number } } = { HumanoidRootPart = { 0, 0, 0 } }
+	for _ = 1, #rig.joints do
+		local placed = false
+		for _, joint in ipairs(rig.joints) do
+			local parent = at[joint.part0]
+			if parent ~= nil and at[joint.part1] == nil then
+				at[joint.part1] = {
+					parent[1] + joint.c0[1] - joint.c1[1],
+					parent[2] + joint.c0[2] - joint.c1[2],
+					parent[3] + joint.c0[3] - joint.c1[3],
+				}
+				placed = true
+			end
+		end
+		if not placed then
+			break
+		end
+	end
+	return at
+end
+
+-- A rig as the renderer measures a body (CosmeticController's measure): its trunk, the height its root stands
+-- over its feet, and its crown over its root.
+local function measuredOf(rig: Rig): AuraMath.Measured
+	local at = centresOf(rig)
+	local spans: { AuraMath.Span } = {}
+	for _, name in ipairs({ "UpperTorso", "LowerTorso", "Torso" }) do
+		local part = rig.parts[name]
+		if part ~= nil then
+			table.insert(spans, { Offset = at[name][1], Size = part.size[1] })
+		end
+	end
+	return {
+		HalfWidth = AuraMath.halfWidth(spans),
+		Standing = rig.hipHeight + rig.parts.HumanoidRootPart.size[2] / 2,
+		Crown = at.Head[2] + rig.parts.Head.size[2] / 2,
+	}
+end
+
+local BODY = CosmeticConfig.Body
+-- The standard body itself, as a fit: every place exactly as it is drawn.
+local DESIGNED = AuraMath.fit({ HalfWidth = BODY.HalfWidth, Standing = BODY.Standing, Crown = BODY.Crown }, BODY)
+
+-- Every place and path of every worn style, with the style's name.
+type Placed = { Name: string, Place: CosmeticConfig.Place, Count: number, Ribbon: boolean }
+local function everyPlace(): { Placed }
+	local out: { Placed } = {}
+	for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+		for name, style in pairs(styles) do
+			for _, emission in ipairs(emissionsOf(style)) do
+				table.insert(out, { Name = name, Place = emission.Place, Count = 1, Ribbon = false })
+			end
+			for _, ribbon in ipairs(ribbonsOf(style)) do
+				table.insert(out, { Name = name, Place = ribbon.Path, Count = ribbon.Count, Ribbon = true })
+			end
+		end
+	end
+	return out
+end
+
+-- Where a place puts something on a body, at a few fixed draws: `v` 0 and 1 are the bottom and the top of a
+-- Ring or a Behind, and each stroke of a ribbon is taken at three moments of its turn.
+local function samples(placed: Placed, fit: AuraMath.Fit): { { number } }
+	local out: { { number } } = {}
+	for _, now in ipairs({ 0, 0.37, 1.1 }) do
+		if placed.Ribbon then
+			for stroke = 1, placed.Count do
+				local x, y, z = AuraMath.path(placed.Place, fit, stroke, placed.Count, now)
+				table.insert(out, { x, y, z })
+			end
+		else
+			for _, v in ipairs({ 0, 1 }) do
+				local x, y, z = AuraMath.point(placed.Place, fit, now, 0.3, v, 1)
+				table.insert(out, { x, y, z })
+			end
+		end
+	end
+	return out
+end
+
+local function across(point: { number }): number
+	return math.sqrt(point[1] * point[1] + point[3] * point[3])
+end
+
+describe("a place round the body", function()
+	it("is drawn round the standard body, as measured in Studio", function()
+		-- The data was tuned round a default avatar; the numbers it is fitted from are that avatar's, read off the
+		-- rig measured in Studio, so a standard body wears every place exactly as it is drawn.
+		local standard = AuraMath.fit(measuredOf(rigOf("standard")), BODY)
+		expect(standard.Width).toBe(1)
+		expect(standard.Up).toBeCloseTo(1, 2)
+		expect(standard.Down).toBeCloseTo(1, 2)
+		expect(DESIGNED.Width).toBe(1)
+		expect(DESIGNED.Up).toBe(1)
+		expect(DESIGNED.Down).toBe(1)
+	end)
+
+	it("is fitted to a wide body: out past its trunk, as high as its crown and down to its own feet", function()
+		-- Seen in game on the developer's avatar, a trunk 3.49 studs wide: every Ring drawn round a 2-stud trunk was
+		-- born against its skin or inside it, and hidden there.
+		local measured = measuredOf(rigOf("developer"))
+		local halfWidth = measured.HalfWidth :: number
+		expect(halfWidth).toBeGreaterThan(1.7)
+		local fit = AuraMath.fit(measured, BODY)
+		expect(fit.Width).toBeCloseTo(halfWidth / BODY.HalfWidth, 3)
+		expect(fit.Floor).toBeCloseTo(-measured.Standing, 3)
+		local checked = 0
+		for _, placed in ipairs(everyPlace()) do
+			local kind = placed.Place.Kind
+			local on, drawn = samples(placed, fit), samples(placed, DESIGNED)
+			for index, point in ipairs(on) do
+				local design = drawn[index]
+				local what = ("%s's %s, sample %d"):format(placed.Name, kind, index)
+				if math.abs(across(point) - across(design) * fit.Width) > 1e-6 then
+					error(
+						("%s is %.2f from the axis, not %.2f"):format(what, across(point), across(design) * fit.Width)
+					)
+				end
+				local want = if kind == "Feet" or kind == "Floor"
+					then fit.Floor + (placed.Place.Lift or 0)
+					else design[2] * (if design[2] >= 0 then fit.Up else fit.Down)
+				if math.abs(point[2] - want) > 1e-6 then
+					error(("%s is at height %.2f, not %.2f"):format(what, point[2], want))
+				end
+				-- Outside the body: at least the margin the standard body is drawn with, 1.5 of its half-widths.
+				if (kind == "Ring" or kind == "Orbit") and across(point) < 1.5 * halfWidth then
+					error(
+						("%s is born %.2f from the axis, inside a trunk %.2f wide"):format(
+							what,
+							across(point),
+							halfWidth
+						)
+					)
+				end
+				checked += 1
+			end
+		end
+		expect(checked).toBeGreaterThan(100)
+		-- Colour drawn in from a ring fitted wider still reaches the body: at its fastest, over its longest life, it
+		-- crosses from the ring to inside the trunk, as it does round the standard body. Anything else keeps its
+		-- speed.
+		local drawnIn = 0
+		for _, styles in ipairs({ CosmeticConfig.AuraStyles, CosmeticConfig.TrailStyles }) do
+			for name, style in pairs(styles) do
+				for _, emission in ipairs(emissionsOf(style)) do
+					for _, body in ipairs({ { DESIGNED, BODY.HalfWidth }, { fit, halfWidth } }) do
+						local on: AuraMath.Fit, trunk: number = body[1], body[2]
+						local slowest, fastest = AuraMath.speed(emission.Speed, emission.Emit, on)
+						if emission.Emit ~= "In" then
+							expect(slowest).toBe(emission.Speed[1])
+							expect(fastest).toBe(emission.Speed[2])
+							continue
+						end
+						local x, _, z = AuraMath.point(emission.Place, on, 0, 0.3, 0.5, 1)
+						local short = math.sqrt(x * x + z * z) - fastest * emission.Lifetime[2]
+						if short > trunk then
+							error(
+								("%s's colour dies %.2f from the axis, outside a trunk %.2f wide"):format(
+									name,
+									short,
+									trunk
+								)
+							)
+						end
+						drawnIn += 1
+					end
+				end
+			end
+		end
+		expect(drawnIn).toBeGreaterThanOrEqual(2)
+	end)
+
+	it("never draws a place in for a small body, nor under its floor, nor past its bounds for a huge one", function()
+		local small = AuraMath.fit({ HalfWidth = 0.6, Standing = 1.4, Crown = 1.1 }, BODY)
+		expect(small.Width).toBe(1)
+		expect(small.Down).toBeLessThan(1)
+		expect(small.Up).toBeLessThan(1)
+		for _, fit in ipairs({ small, DESIGNED, AuraMath.fit(measuredOf(rigOf("developer")), BODY) }) do
+			for _, placed in ipairs(everyPlace()) do
+				local on, drawn = samples(placed, fit), samples(placed, DESIGNED)
+				for index, point in ipairs(on) do
+					if across(point) < across(drawn[index]) - 1e-6 then
+						error(("%s's %s is drawn in, under its designed radius"):format(placed.Name, placed.Place.Kind))
+					end
+					if point[2] < fit.Floor then
+						error(("%s's %s is born under the floor"):format(placed.Name, placed.Place.Kind))
+					end
+				end
+			end
+		end
+		local huge = AuraMath.fit({ HalfWidth = 9, Standing = 20, Crown = 20 }, BODY)
+		expect(huge.Width).toBe(BODY.MaxWidth)
+		expect(huge.Up).toBe(BODY.Height[2])
+		expect(huge.Down).toBe(BODY.Height[2])
+		expect(huge.Floor).toBe(-20)
+		local tiny = AuraMath.fit({ HalfWidth = 0.1, Standing = 0.2, Crown = 0.1 }, BODY)
+		expect(tiny.Up).toBe(BODY.Height[1])
+		expect(tiny.Down).toBe(BODY.Height[1])
+		-- A body with no trunk, or no head, is fitted as the standard one is drawn.
+		expect(AuraMath.halfWidth({})).toBe(nil)
+		local bare = AuraMath.fit({ Standing = BODY.Standing }, BODY)
+		expect(bare.Width).toBe(1)
+		expect(bare.Up).toBe(1)
+		expect(BODY.MaxWidth).toBeGreaterThan(1)
+		expect(BODY.Height[1]).toBeGreaterThan(0)
+	end)
+
+	it("measures a body from its own trunk and head, never an accessory, a cape or a tool", function()
+		-- An accessory's Handle sits inside its Accessory and a tool's parts inside the Tool: a body's own parts are
+		-- the character's children. GetExtentsSize, a bounding box or a search of the descendants would read a pair
+		-- of wings, a cape or a sword, and wear an aura out past their tips.
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		expect(controller:find('local TRUNK = { "UpperTorso", "LowerTorso", "Torso" }\n', 1, true)).never.toBe(nil)
+		local measure = controller:match("local function measure%(.-\nend\n") or ""
+		expect(
+			measure:find("for _, name in ipairs(TRUNK) do\n\t\tlocal part = character:FindFirstChild(name)\n", 1, true)
+		).never.toBe(nil)
+		expect(measure:find('local head = character:FindFirstChild("Head")\n', 1, true)).never.toBe(nil)
+		expect(measure:find("CosmeticConfig.Body", 1, true)).never.toBe(nil)
+		for _, reach in ipairs({
+			"GetExtentsSize",
+			"GetBoundingBox",
+			"GetDescendants",
+			"GetChildren",
+			"FindFirstChildWhichIsA",
+			"FindFirstDescendant",
+		}) do
+			if controller:find(reach, 1, true) ~= nil then
+				error("CosmeticController measures a body with " .. reach)
+			end
+		end
+		-- Nor a search by name that goes down into the accessories.
+		expect(measure:find(", true)", 1, true)).toBe(nil)
+		-- The trunk's widest part, wherever it sits to the side of the root.
+		expect(AuraMath.halfWidth({ { Offset = 0, Size = 2 }, { Offset = -0.25, Size = 3 } })).toBe(1.75)
+	end)
+
+	it("is measured when a look is put on and when a character is new, never per frame", function()
+		local controller = strip(fs.readFile("src/client/Controllers/CosmeticController.luau"))
+		local calls = 0
+		for _ in controller:gmatch("measure%(") do
+			calls += 1
+		end
+		-- Its definition, the new character, and a look put on.
+		expect(calls).toBe(3)
+		local build = controller:match("local function buildStyles%(.-\nend\n") or ""
+		expect(build:find("entry.Fit = measure(entry.Character, entry.Root)", 1, true)).never.toBe(nil)
+		local track = controller:match("local function track%(.-\nend\n") or ""
+		expect(track:find("Fit = measure(character, root),", 1, true)).never.toBe(nil)
+		-- And every place is drawn on the body so measured.
+		local flow = controller:match("local function emitFlow%(.-\nend\n") or ""
+		expect(flow:find("AuraMath.point(flow.Place, entry.Fit, now,", 1, true)).never.toBe(nil)
+		local runner = controller:match("local function run%(.-\nend\n") or ""
+		expect(runner:find("AuraMath.path(runner.Path, fit, runner.Stroke, runner.Count, now)", 1, true)).never.toBe(
+			nil
+		)
+		local beat = controller:match("local function onHeartbeat%(.-\nend\n") or ""
+		expect(beat:find("run(runner, entry.Fit, now)", 1, true)).never.toBe(nil)
 	end)
 end)

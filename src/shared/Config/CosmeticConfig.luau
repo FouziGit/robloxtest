@@ -439,8 +439,9 @@ CosmeticConfig.Tones = {
 -- what the dash's sketches and the kit outline read.
 CosmeticConfig.Inks = { "Ink", "Graphite", "Wash" } :: { string }
 
--- Where a particle is born or a moving point runs, in the wearer's root space (studs, +Y up, +Z behind), as
--- Pure/AuraMath reads it (AuraMath.point, AuraMath.path):
+-- Where a particle is born or a moving point runs, drawn round the standard body (Body below) in its root space
+-- (studs, +Y up, +Z behind) and fitted to each wearer's own, as Pure/AuraMath reads it (AuraMath.point,
+-- AuraMath.path):
 --   Ring   -- anywhere on a cylinder of Radius, between Low and High
 --   Feet   -- anywhere on a disc of Radius at the floor, Lift above it
 --   Floor  -- the floor under the body, Lift above it
@@ -522,8 +523,19 @@ CosmeticConfig.Fight = { Density = 0.4, Transparency = 0.25, Glow = 0 }
 -- burst), and how much of a particle's life it keeps its tone before it dries or after it has cooled.
 CosmeticConfig.Flow = { MaxStepSeconds = 0.1, HoldShare = 0.3 }
 
--- Where the floor is under a body with no Humanoid to say so: this far below its root.
+-- Where the floor is under a body with no Humanoid to say so (or an R6 body, whose HipHeight is 0): this far
+-- below its root.
 CosmeticConfig.FloorDepth = 3
+
+-- The body every Place is drawn round: the standard R15 avatar as measured in Studio
+-- (tools/animations/rigs/standard.json), a trunk 2 studs wide, its root standing 3.19 studs over its feet and its
+-- crown 2.26 over its root. Drawn round it alone, a place was on the skin of a wider body or inside it: seen in
+-- game on the developer's avatar, a trunk 3.49 studs wide, the Soot's embers hid between its legs and the
+-- Graphite's glints sat on its surface. So every wearer is measured when an aura or a trail is put on, and each
+-- place is fitted to it (AuraMath.fit): a radius or a depth grows with its trunk, never below its design and at
+-- most MaxWidth times it (the developer's is 1.78); a height follows its crown above the root and its feet below
+-- it, within Height either way.
+CosmeticConfig.Body = { HalfWidth = 1, Standing = 3.19, Crown = 2.26, MaxWidth = 2.5, Height = { 0.4, 2 } }
 
 -- The light core's path: a small comet of colour going round the chest, never inside the body.
 local CORE_PATH: Place = { Kind = "Orbit", Radius = 1.9, Height = 0.6, Seconds = 2.8, Bob = 0.4 }

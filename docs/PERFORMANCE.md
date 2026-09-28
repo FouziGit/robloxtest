@@ -169,7 +169,10 @@ automatique (D-124). Le budget est donc tenu par le rendu, pas par le moteur :
   les autres n'est dessiné, seulement ce que porte le joueur local ;
 - **en combat** (match classé, champ de bataille, arène de l'Effacement), tout ce qui est porté tombe à 0,4
   de sa densité, 0,25 plus transparent et sans lumière (`CosmeticConfig.Fight`) ;
-- une image longue ne doit que 0,1 s de particules : un à-coup ne revient pas en rafale.
+- une image longue ne doit que 0,1 s de particules : un à-coup ne revient pas en rafale ;
+- chaque place est ajustée au corps qui la porte (`CosmeticConfig.Body`, D-148) : le corps est mesuré quand le
+  personnage arrive et chaque fois qu'un objet est porté — son tronc, sa tête et sa `HipHeight`, cinq recherches
+  parmi ses enfants —, jamais à l'image ; à l'image, l'ajustement coûte une multiplication par coordonnée.
 
 Sortie de `lune run scripts/cosmetic-cost`. « Vivantes » est le débit de chaque émetteur multiplié par sa vie
 la plus longue, au régime établi, puis par le `ParticleScale` du niveau ; « Rubans » compte les `Trail`, qui

@@ -370,17 +370,21 @@ local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityP
 	Motion.set(scale, { Scale = PROMPT_FROM_SCALE })
 	Motion.to(scale, { Scale = 1 }, "UiPop")
 	-- A hub rebuilt under a shown prompt takes the prompt with it: its pill goes too.
+	-- The pill's plate follows the player's transparency setting until it is destroyed itself: gone with the
+	-- billboard, never left listening.
+	local function dispose()
+		pill:Destroy()
+		billboard:Destroy()
+	end
 	prompt.Destroying:Once(function()
 		shownPrompts[prompt] = nil
-		billboard:Destroy()
+		dispose()
 	end)
 	prompt.PromptHidden:Once(function()
 		if shownPrompts[prompt] == billboard then
 			shownPrompts[prompt] = nil
 		end
-		Motion.to(scale, { Scale = 0 }, "UiExit", function()
-			billboard:Destroy()
-		end)
+		Motion.to(scale, { Scale = 0 }, "UiExit", dispose)
 	end)
 end
 

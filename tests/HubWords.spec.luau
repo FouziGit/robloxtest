@@ -114,9 +114,9 @@ describe("the hub's words", function()
 		expect(has(shown, 'Motion.set(scale, { Scale = PROMPT_FROM_SCALE }) Motion.to(scale, { Scale = 1 }, "UiPop")')).toBe(
 			true
 		)
-		expect(has(shown, 'Motion.to(scale, { Scale = 0 }, "UiExit", function() billboard:Destroy() end)')).toBe(true)
-		expect(has(shown, "prompt.Destroying:Once(function() shownPrompts[prompt] = nil billboard:Destroy() end)")).toBe(
-			true
-		)
+		expect(has(shown, 'Motion.to(scale, { Scale = 0 }, "UiExit", dispose)')).toBe(true)
+		-- The pill's plate goes with it, or its connection to the player's settings would outlive it.
+		expect(has(shown, "local function dispose() pill:Destroy() billboard:Destroy() end")).toBe(true)
+		expect(has(shown, "prompt.Destroying:Once(function() shownPrompts[prompt] = nil dispose() end)")).toBe(true)
 	end)
 end)

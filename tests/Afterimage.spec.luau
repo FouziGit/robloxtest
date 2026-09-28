@@ -73,8 +73,10 @@ describe("a dash's sketch", function()
 		local along: { [number]: number } = {}
 		for _, placed in ipairs(sketches) do
 			local layer = placed.Layer
-			-- A dodge names no school: ink, never a pigment.
+			-- A dodge names no school: ink, never a pigment. One of the page's inks by name, not merely a tone:
+			-- since D-148 the tones also hold what a body wears, gold leaf and lapis among them.
 			expect((CosmeticConfig.Tones :: any)[layer.Tone]).never.toBe(nil)
+			expect(table.find(CosmeticConfig.Inks, layer.Tone)).never.toBe(nil)
 			expect((PigmentConfig.Colors :: any)[layer.Tone]).toBe(nil)
 			-- A highlight is not drawn over a part that is at all transparent: a print goes by its size.
 			expect(layer.Transparency).toBe(nil)
@@ -174,8 +176,10 @@ describe("a dash's sketch", function()
 		expect(config.ShrinkShare > 0 and config.ShrinkShare <= 1).toBe(true)
 		-- Ink outlined in ink; the dasher's own paler than anyone else's.
 		expect((CosmeticConfig.Tones :: any)[config.Outline]).never.toBe(nil)
+		expect(table.find(CosmeticConfig.Inks, config.Outline)).never.toBe(nil)
 		local own = (CosmeticConfig.Tones :: any)[config.OwnTone]
 		expect(own).never.toBe(nil)
+		expect(table.find(CosmeticConfig.Inks, config.OwnTone)).never.toBe(nil)
 		for _, placed in ipairs(layersOf("Afterimage")) do
 			expect(luminance(own) > luminance((CosmeticConfig.Tones :: any)[placed.Layer.Tone])).toBe(true)
 		end

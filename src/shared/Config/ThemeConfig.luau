@@ -302,6 +302,9 @@ ThemeConfig.Hud = {
 	DockWidthPointer = 460,
 	-- On touch it is also never wider than the gap between the thumbs (InputController.touchRects).
 	DockWidthTouchMax = 300,
+	-- Nor narrower than this, which holds six pips: where the discs reach the middle of a small phone, the dock
+	-- keeps this width and slides left of them instead (TouchCluster.dockSpan).
+	DockWidthTouchMin = 200,
 	-- Health 26 + ink 14 + padding 10 * 2 + gap 10.
 	DockHeight = 70,
 	-- The hotbar: with a pointer, a slot per equipped glyph over the key strip that casts it, this far apart;

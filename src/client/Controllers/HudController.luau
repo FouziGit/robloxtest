@@ -10,11 +10,13 @@
 --   ScoreBand     the match, at the top-centre while a snapshot is held
 --   Banner        the match's centre splashes (found, the count, the fight, a round) and the takedown pop
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
--- button naming its key), the top-centre column the bands stack in (HudController.topStack), and the toast
--- lane. Every visible text goes through Localize; server Notify payloads carry Strings keys, never text.
+-- button beside the key that opens it, badged with what waits to be claimed), on touch the Play sticker left of
+-- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
+-- visible text goes through Localize; server Notify payloads carry Strings keys, never text.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -22,11 +24,14 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 
 local Banner = require(UI.components.Banner)
 local Button = require(UI.components.Button)
+local Claims = require(UI.Claims)
 local CombatDock = require(UI.components.CombatDock)
 local ComboRow = require(UI.components.ComboRow)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Hotbar = require(UI.components.Hotbar)
+local Icon = require(UI.components.Icon)
 local InputConfig = require(Shared.Config.InputConfig)
+local Keycap = require(UI.components.Keycap)
 local Log = require(Shared.Util.Log)
 local MatchSplash = require(Shared.Pure.MatchSplash)
 local MetaCluster = require(UI.components.MetaCluster)
@@ -38,6 +43,7 @@ local Signal = require(Packages.Signal)
 local Theme = require(UI.Theme)
 local ThemeConfig = require(Shared.Config.ThemeConfig)
 local Toast = require(UI.components.Toast)
+local TouchCluster = require(Shared.Pure.TouchCluster)
 local Types = require(Shared.Types)
 local UiPrefs = require(UI.UiPrefs)
 
@@ -67,9 +73,11 @@ local HUD = ThemeConfig.Hud
 local COMBO_ORDER = 1
 local HOTBAR_ORDER = 2
 local DOCK_ORDER = 3
--- On touch the dock keeps this far off the nearest disc, in real pixels.
+-- On touch the dock keeps this far off the nearest disc, in real pixels, and stays between these widths.
 local DOCK_DISC_CLEARANCE = 12
+local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }
 local MENU_ACTION: InputConfig.ActionId = "Menu"
+local MENU_NAME_KEY = "action.menu"
 local GAMEPAD_PREFIX = "Gamepad"
 -- The kinds a server message may name. The HUD adds two of its own, by key: a celebration and a reward.
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
@@ -106,6 +114,8 @@ local CHAIN_KEY = "hud.cast.chain"
 -- The next pigments are hinted after one press or two: one step ahead, never the whole tree.
 local HINT_MIN_PRESSES = 1
 local HINT_MAX_PRESSES = 2
+-- The name the sequence's hints go by on the touch discs (InputController.setHints).
+local SEQUENCE_HINTS = "Sequence"
 -- The rounds the centre splash already says (Banner, from the snapshots): the same words again as a toast
 -- would only be the same news twice. The player's own takedown pops at the centre too, and its toast keeps
 -- the XP it paid.
@@ -132,7 +142,12 @@ local QUICK_SCREENS: { { Screen: string, NameKey: string, Variant: Button.Varian
 	{ Screen = "Shop", NameKey = "menu.shop", Variant = "Secondary" },
 	{ Screen = "Leaderboard", NameKey = "leaderboard.title", Variant = "Secondary" },
 }
-local MENU_KEYS: { [string]: string } = { Keyboard = "hud.hint.keyboard", Gamepad = "hud.hint.gamepad" }
+-- Each shortcut's icon, before its word (D-147).
+local QUICK_ICONS: { [string]: Icon.Name } = { Play = "Play", Shop = "Coin", Leaderboard = "Podium" }
+-- On a phone the queue is one tap away too: a Play sticker left of the Menu disc, in the hub (D-147).
+local PLAY_SCREEN = "Play"
+local PLAY_STICKER_HEIGHT = 44
+local PLAY_STICKER_GAP = 8
 -- Order inside the top-centre column (see buildTopStack): the match band this module draws, and the three bands
 -- other controllers draw there, each reading its place through HudController.topStack -- the portal circle the
 -- player stands in first, because it is about to move them; the boss after the match; the place they are in
@@ -168,6 +183,15 @@ local lastMatch: Types.MatchSnapshot? = nil
 local quickBar: Frame
 local quickButtons: { Button.Button } = {}
 local menuButton: Button.Button
+-- The key that opens the menu, drawn beside the Menu button for the device in use.
+local menuKey: Keycap.Keycap? = nil
+local menuKeyDevice: Keycap.Device? = nil
+local playSticker: Button.Button? = nil
+-- A newer count of the claims supersedes the turn of the day the older one waited for.
+local claimsToken = 0
+-- The equipped glyphs as the touch discs weigh them, and the pigments the ink can pay for (touch only).
+local equipped: { TouchCluster.Recipe }? = nil
+local payable: { [string]: boolean } = {}
 local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
 local topStack: Frame
@@ -179,6 +203,7 @@ local qualityController: any
 local inMatch = false
 -- In the Battleground or the World Boss's arena (setPlace): a fight, like a match.
 local inArena = false
+local queued = false
 
 -- The one top-centre column. The match band, the World Boss band and the toast queue all used to
 -- declare the same anchor and the same position, so they drew on top of each other: a round-won toast
@@ -215,19 +240,24 @@ local function buildTopStack(parent: Instance)
 	topStack.Parent = parent
 end
 
--- A button as wide as its label: the bar reads right to left from the corner, whatever the language.
-local function quickButton(nameKey: string, variant: Button.Variant, order: number, onClick: () -> ()): Button.Button
+-- A button as wide as its label: the bar reads right to left from the corner, whatever the language. The
+-- button plays its own click.
+local function quickButton(
+	nameKey: string,
+	variant: Button.Variant,
+	order: number,
+	icon: Icon.Name,
+	onClick: () -> ()
+): Button.Button
 	local button = Button.new({
 		Name = nameKey,
 		Text = "",
 		Variant = variant,
+		Icon = icon,
 		Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
 		LayoutOrder = order,
 		Parent = quickBar,
-		OnClick = function()
-			soundController.play("UiClick")
-			onClick()
-		end,
+		OnClick = onClick,
 	})
 	button.Instance.AutomaticSize = Enum.AutomaticSize.X
 	button.Instance.Selectable = false
@@ -256,14 +286,34 @@ local function buildQuickBar(parent: Instance)
 	for index, entry in ipairs(QUICK_SCREENS) do
 		table.insert(
 			quickButtons,
-			quickButton(entry.NameKey, entry.Variant, index, function()
+			quickButton(entry.NameKey, entry.Variant, index, QUICK_ICONS[entry.Screen], function()
 				menuController.open(entry.Screen)
 			end)
 		)
 	end
-	menuButton = quickButton("Menu", "Secondary", #QUICK_SCREENS + 1, function()
+	-- The key cap stands between the shortcuts and the Menu button (refreshMenuKey).
+	menuButton = quickButton(MENU_NAME_KEY, "Secondary", #QUICK_SCREENS + 2, "Burger", function()
 		menuController.toggle()
 	end)
+end
+
+-- The touch Play sticker, placed once the discs are (placePlaySticker).
+local function buildPlaySticker(parent: Instance)
+	local sticker = Button.new({
+		Name = "PlaySticker",
+		Text = localize.t("queue.title"),
+		Variant = "Primary",
+		Icon = "Play",
+		Size = UDim2.fromOffset(0, PLAY_STICKER_HEIGHT),
+		Parent = parent,
+		OnClick = function()
+			menuController.open(PLAY_SCREEN)
+		end,
+	})
+	sticker.Instance.AnchorPoint = Vector2.new(1, 0.5)
+	sticker.Instance.Selectable = false
+	sticker.Instance.Visible = false
+	playSticker = sticker
 end
 
 -- The bottom centre, between the thumbs: the combo row over the dock, off the bottom edge. The bottom-left
@@ -310,6 +360,9 @@ local function build()
 	buildBottomStack(content, UserInputService.TouchEnabled)
 
 	buildQuickBar(content)
+	if UserInputService.TouchEnabled then
+		buildPlaySticker(content)
+	end
 
 	buildTopStack(content)
 	scoreBand = ScoreBand.new({ Parent = topStack, Localize = localize, LayoutOrder = MATCH_BAND_ORDER })
@@ -344,7 +397,8 @@ local function placeToasts()
 end
 
 -- On touch the dock is as wide as the gap between the thumbs allows, and never wider than its token: from the
--- centre of the screen to the nearest disc, less a clearance, on both sides (InputController.touchRects).
+-- centre of the screen to the nearest disc, less a clearance, on both sides (InputController.touchRects). On a
+-- phone too small for that, the whole bottom stack slides left of the discs (TouchCluster.dockSpan).
 local function fitDock()
 	local nearest = math.huge
 	for _, rect in pairs(inputController.touchRects()) do
@@ -355,10 +409,9 @@ local function fitDock()
 	end
 	local safeArea = root.Content
 	local centre = safeArea.AbsolutePosition.X + safeArea.AbsoluteSize.X / 2
-	local free = 2 * (nearest - DOCK_DISC_CLEARANCE - centre)
-	if free > 0 then
-		combatDock:SetWidth(math.min(HUD.DockWidthTouchMax, free / root:GetScale()))
-	end
+	local width, offset = TouchCluster.dockSpan(nearest, centre, root:GetScale(), DOCK_SPAN)
+	combatDock:SetWidth(width)
+	bottomStack.Position = UDim2.new(0.5, offset, 1, -HUD.DockBottomPadTouch)
 end
 
 -- The player's own settings the interface follows (UiPrefs): "shakes and flashes", and the lowest graphics
@@ -370,12 +423,58 @@ local function refreshPrefs(data: Types.ProfileData?)
 	UiPrefs.setLowQuality(qualityController.get() == QualityConfig.Order[#QualityConfig.Order])
 end
 
+-- What waits to be claimed (Claims), as a badge on the Menu button: none in a fight, where the badge's yellow
+-- would be a value colour (rule 11). A new day brings a new daily reward and new quests with no change to the
+-- profile, so the count is made again when the day turns.
+local function refreshClaims()
+	local now = Workspace:GetServerTimeNow()
+	local counts = Claims.count(clientData.get(), now)
+	menuButton:SetBadge(if inMatch or inArena then nil else counts.Total)
+	claimsToken += 1
+	local token = claimsToken
+	task.delay(Claims.secondsToNextDay(now), function()
+		if token == claimsToken then
+			refreshClaims()
+		end
+	end)
+end
+
+-- What only the hub shows (rule 11): the shortcuts and the Play sticker, both in the value yellow, and the
+-- claims. The sticker also stands aside while the player queues, and until the discs are laid out.
+local function refreshHub()
+	local hub = not (inMatch or inArena)
+	for _, button in ipairs(quickButtons) do
+		button.Instance.Visible = hub
+	end
+	local sticker = playSticker
+	if sticker ~= nil then
+		sticker.Instance.Visible = hub and not queued and inputController.touchRects()[MENU_ACTION] ~= nil
+	end
+	refreshClaims()
+end
+
 -- A match or an arena: fewer messages at once, none in a value colour (rule 11), and no level or Folios.
 local function refreshFight()
 	local fighting = inMatch or inArena
 	toast:SetMaxVisible(if fighting then Theme.Timing.Toast.MaxVisibleMatch else Theme.Timing.Toast.MaxVisibleHub)
 	toast:Hold(if fighting then FIGHT_HELD else {})
 	metaCluster:SetVisible(not (inMatch or inArena))
+	refreshHub()
+end
+
+-- The Play sticker, left of the Menu disc and level with it, in the HUD's design units.
+local function placePlaySticker()
+	local sticker = playSticker
+	local menu = inputController.touchRects()[MENU_ACTION]
+	if sticker == nil or menu == nil then
+		return
+	end
+	local safeArea = root.Content
+	local scale = root:GetScale()
+	local right = (menu.Min.X - safeArea.AbsolutePosition.X) / scale - PLAY_STICKER_GAP
+	local middle = ((menu.Min.Y + menu.Max.Y) / 2 - safeArea.AbsolutePosition.Y) / scale
+	sticker.Instance.Position = UDim2.fromOffset(right, middle)
+	refreshHub()
 end
 
 -- The top-centre column the bands share, plus the LayoutOrder the band `band` must use: the boss's by default,
@@ -416,11 +515,14 @@ local function onLocalCast(glyphId: string, chain: number)
 	comboRow:Cast(chain, if def ~= nil then def.Pigment else nil)
 end
 
--- The sequence as it grows: its chips, and the pigments that go on from it after a press or two.
+-- The sequence as it grows: its chips, and the pigments that go on from it after a press or two -- faint
+-- chips after the live ones, and on touch the discs that go on breathing, where the thumb is.
 local function onSequence(sequence: { string })
 	comboRow:SetSequence(sequence)
 	local hinted = #sequence >= HINT_MIN_PRESSES and #sequence <= HINT_MAX_PRESSES
-	comboRow:SetContinuations(if hinted then comboController.continuations(sequence) else {})
+	local nexts = if hinted then comboController.continuations(sequence) else {}
+	comboRow:SetContinuations(nexts)
+	inputController.setHints(SEQUENCE_HINTS, nexts)
 end
 
 -- The glyph the sequence already is, while the controller waits for more: named over the chips, and its cost
@@ -442,14 +544,31 @@ local function sourceFor(inputType: Enum.UserInputType): string
 	return "Keyboard"
 end
 
--- The Menu button names the key that opens the menu. On a gamepad that is an Enum.KeyCode name, which
--- reads as code ("ButtonSelect"), so the button's own name is shown instead.
-local function menuKeyText(source: string, data: Types.ProfileData): string
-	if source == "Gamepad" then
-		return localize.t("hud.key.select")
+-- The key that opens the menu, the player's own on the device in use, as a cap beside the Menu button (a
+-- pad's button by the name players know it by: Keycap.label). A cap is rebuilt only when the device changes,
+-- since a pad's cap is round.
+local function refreshMenuKey(source: string, data: Types.ProfileData)
+	local device: Keycap.Device = if source == "Gamepad" then "Gamepad" else "Keyboard"
+	local saved = if device == "Gamepad" then data.Settings.Gamepad else data.Settings.Keyboard
+	local defaults = if device == "Gamepad" then InputConfig.DefaultGamepad else InputConfig.DefaultKeyboard
+	local key = saved[MENU_ACTION] or defaults[MENU_ACTION]
+	local current = menuKey
+	if current ~= nil and menuKeyDevice == device then
+		current:SetKey(key)
+		return
 	end
-	local saved = data.Settings.Keyboard
-	return saved[MENU_ACTION] or InputConfig.DefaultKeyboard[MENU_ACTION]
+	if current ~= nil then
+		current:Destroy()
+	end
+	menuKeyDevice = device
+	menuKey = Keycap.new({
+		Key = key,
+		Device = device,
+		Localize = localize,
+		LayoutOrder = #QUICK_SCREENS + 1,
+		Parent = quickBar,
+		Name = "MenuKey",
+	})
 end
 
 local function refreshQuickBar(data: Types.ProfileData)
@@ -462,15 +581,20 @@ local function refreshQuickBar(data: Types.ProfileData)
 	for index, entry in ipairs(QUICK_SCREENS) do
 		local button = quickButtons[index]
 		button:SetText(localize.t(entry.NameKey))
-		button.Instance.Visible = not inMatch
+		button.Instance.Visible = not (inMatch or inArena)
 	end
-	menuButton:SetText(localize.t(MENU_KEYS[source], { menu = menuKeyText(source, data) }))
+	menuButton:SetText(localize.t(MENU_NAME_KEY))
+	refreshMenuKey(source, data)
 	quickBar.Visible = true
 end
 
 local function refreshCombat(state: CombatState)
 	combatDock:SetState(state)
 	hotbar:SetState(state)
+	local recipes = equipped
+	if recipes ~= nil then
+		inputController.setAffordable(TouchCluster.affordable(recipes, state.Ink, payable))
+	end
 	if state.Health <= 0 then
 		-- A caster who fell has no chain any more.
 		comboRow:FadeStreak()
@@ -481,9 +605,6 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	local active = snapshot ~= nil
 	if active ~= inMatch then
 		inMatch = active
-		for _, button in ipairs(quickButtons) do
-			button.Instance.Visible = not active
-		end
 		refreshFight()
 	end
 	scoreBand:Set(snapshot)
@@ -512,6 +633,18 @@ local function refreshHotbarKeys(data: Types.ProfileData)
 	hotbar:SetKeys(if gamepad then "Gamepad" else "Keyboard", keys)
 end
 
+-- The equipped glyphs as the touch discs weigh them: which pigments lead to one, and at what ink.
+local function recipesOf(slots: { string }): { TouchCluster.Recipe }
+	local recipes: { TouchCluster.Recipe } = {}
+	for _, id in ipairs(slots) do
+		local def = GlyphConfig.byId(id)
+		if def ~= nil then
+			table.insert(recipes, { Combo = def.Combo, Cost = def.Cost })
+		end
+	end
+	return recipes
+end
+
 local function refreshProfile(section: string)
 	local data: Types.ProfileData? = clientData.get()
 	if data == nil then
@@ -530,6 +663,11 @@ local function refreshProfile(section: string)
 	end
 	if section == "*" or section == "Loadout" then
 		hotbar:SetLoadout(data.Loadout.Slots)
+		equipped = recipesOf(data.Loadout.Slots)
+		refreshCombat(combatController.getState())
+	end
+	if section == "*" or section == "Daily" or section == "Quests" or section == "Battlepass" then
+		refreshClaims()
 	end
 end
 
@@ -658,7 +796,15 @@ function HudController.Start()
 	if UserInputService.TouchEnabled then
 		inputController.TouchLayoutChanged:Connect(fitDock)
 		fitDock()
+		inputController.TouchLayoutChanged:Connect(placePlaySticker)
+		placePlaySticker()
 	end
+	matchController.QueueChanged:Connect(function(snapshot: Types.QueueSnapshot)
+		queued = snapshot.Queued
+		refreshHub()
+	end)
+	queued = matchController.getQueue().Queued
+	refreshHub()
 	qualityController.Changed:Connect(function()
 		refreshPrefs(clientData.get())
 	end)

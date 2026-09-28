@@ -53,10 +53,6 @@ Strings.Table = {
 	["hud.tierUp"] = { en = "Battle pass tier {tier} unlocked!", fr = "Palier {tier} du pass débloqué !" },
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
-	["hud.hint.keyboard"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
-	["hud.hint.gamepad"] = { en = "Menu ({menu})", fr = "Menu ({menu})" },
-	-- The gamepad button that opens the menu (Enum.KeyCode.ButtonSelect), by the name players know it by.
-	["hud.key.select"] = { en = "Select", fr = "Sélection" },
 	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar

@@ -169,6 +169,10 @@ InputConfig.Touch = {
 	Margin = 16,
 	JumpReserve = { Width = 150, Height = 150 },
 	Positions = touchPositions,
+	-- A disc drawn bigger than the others, by this factor (D-147): Melee, the one the thumb goes to most
+	-- and finds without looking. 44 points on a phone for the rest, 55 for it. The layout spaces every
+	-- pair by their own radii (TouchCluster), so a bigger disc never overlaps its neighbours.
+	SizeScale = { Melee = 1.25 } :: { [ActionId]: number },
 }
 
 -- Names of Strings keys for action labels.

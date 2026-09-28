@@ -153,8 +153,18 @@ describe("the combat dock", function()
 		expect(HUD.DockWidthTouchMax * ThemeConfig.Scale.TouchFloor).toBeLessThanOrEqual(264)
 		local fit = body(code(HUD_CONTROLLER), "fitDock")
 		expect(has(fit, "nearest = math.min(nearest, rect.Min.X)")).toBe(true)
-		expect(has(fit, "local free = 2 * (nearest - DOCK_DISC_CLEARANCE - centre)")).toBe(true)
-		expect(has(fit, "combatDock:SetWidth(math.min(HUD.DockWidthTouchMax, free / root:GetScale()))")).toBe(true)
+		-- The span itself is TouchCluster.dockSpan's, run on real phones in tests/TouchCluster.spec.luau.
+		expect(has(fit, "local width, offset = TouchCluster.dockSpan(nearest, centre, root:GetScale(), DOCK_SPAN)")).toBe(
+			true
+		)
+		expect(has(fit, "combatDock:SetWidth(width)")).toBe(true)
+		expect(has(fit, "bottomStack.Position = UDim2.new(0.5, offset, 1, -HUD.DockBottomPadTouch)")).toBe(true)
+		expect(
+			has(
+				code(HUD_CONTROLLER),
+				"local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }"
+			)
+		).toBe(true)
 		local hud = code(HUD_CONTROLLER)
 		expect(has(hud, "inputController.TouchLayoutChanged:Connect(fitDock)")).toBe(true)
 		expect(has(hud, "Width = if touch then HUD.DockWidthTouchMax else HUD.DockWidthPointer,")).toBe(true)
@@ -353,9 +363,10 @@ describe("the combo row", function()
 		expect(has(sequence, "local hinted = #sequence >= HINT_MIN_PRESSES and #sequence <= HINT_MAX_PRESSES")).toBe(
 			true
 		)
-		expect(
-			has(sequence, "comboRow:SetContinuations(if hinted then comboController.continuations(sequence) else {})")
-		).toBe(true)
+		expect(has(sequence, "local nexts = if hinted then comboController.continuations(sequence) else {}")).toBe(true)
+		expect(has(sequence, "comboRow:SetContinuations(nexts)")).toBe(true)
+		-- On touch the same pigments breathe on their discs, and nothing else does.
+		expect(has(sequence, "inputController.setHints(SEQUENCE_HINTS, nexts)")).toBe(true)
 		expect(has(code(COMBO_CONTROLLER), "return ComboResolver.continuations(resolver, pending)")).toBe(true)
 		expect(has(code(COMBO_ROW), 'replaceFaint(nexts, "Next", NEXT_ORDER, pigments)')).toBe(true)
 	end)

@@ -46,6 +46,7 @@ local STROKED_COMPONENTS = {
 	"Hotbar",
 	"HudPlate",
 	"Banner",
+	"TouchButton",
 }
 local BODY_CONTRAST = 4.5
 

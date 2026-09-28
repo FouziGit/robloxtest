@@ -100,6 +100,18 @@ function OriginGuard.follow(
 	return "Refused", 0, advance, toleranceSpent
 end
 
+-- How long the anchor, chasing at the ceiling, may need to close `gap` on a body that keeps walking straight away
+-- at `pace`, never more than `cap`: the time a stall's catch-up is given before a refused action counts again.
+-- A body faster than that pace is not converging, and a latch it could renew by standing still once would let it
+-- attack from positions the server never believed without ever being counted.
+function OriginGuard.convergeSeconds(gap: number, pace: number, cap: number, config: Config): number
+	local closing = config.MaxSpeedStudsPerSecond - pace
+	if closing <= 0 then
+		return cap
+	end
+	return math.clamp(gap / closing, 0, cap)
+end
+
 -- Below this much horizontal length, a look vector says nothing about which way a body faces.
 local FLAT_LOOK_MIN = 0.2
 

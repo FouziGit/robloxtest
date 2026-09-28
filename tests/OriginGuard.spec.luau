@@ -1,6 +1,8 @@
 --!strict
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local MovementGuard = require("../src/shared/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
@@ -159,19 +161,22 @@ describe("OriginGuard.follow", function()
 	end)
 end)
 
--- CombatService.trustedCFrame on one horizontal axis: the anchor, its clock, the tolerance, the converging
--- flag, the violations and the server-granted allowance, driven through OriginGuard.follow the way the service
--- drives it. The service itself needs an engine; tests/MovementGates.spec.luau holds its source to this shape.
+-- CombatService.trustedCFrame on one horizontal axis: the anchor, its clock, the tolerance, how long it converges,
+-- the violations, the server-granted allowance and the last server pivot, driven through OriginGuard.follow the way
+-- the service drives it. The service itself needs an engine; tests/MovementGates.spec.luau holds its source to
+-- this shape. `Rtt` is the round trip the movement audit reads for the player.
 type Anchor = {
 	X: number,
 	At: number,
 	Spent: boolean,
-	Converging: boolean,
+	ConvergingUntil: number,
 	Violations: { number },
 	Refusals: number,
 	Strikes: number,
 	Allowance: number,
 	AllowanceUntil: number,
+	TeleportAt: number,
+	Rtt: number,
 }
 
 local function newAnchor(): Anchor
@@ -179,13 +184,24 @@ local function newAnchor(): Anchor
 		X = 0,
 		At = 0,
 		Spent = false,
-		Converging = false,
+		ConvergingUntil = -math.huge,
 		Violations = {},
 		Refusals = 0,
 		Strikes = 0,
 		Allowance = 0,
 		AllowanceUntil = 0,
+		TeleportAt = -math.huge,
+		Rtt = 0,
 	}
+end
+
+-- CombatService.resyncPosition: anchorOn the destination, then the pivot starts settling.
+local function teleportTo(anchor: Anchor, x: number, now: number)
+	anchor.X, anchor.At, anchor.Spent = x, now, false
+	anchor.Allowance, anchor.AllowanceUntil = 0, 0
+	anchor.ConvergingUntil = -math.huge
+	table.clear(anchor.Violations)
+	anchor.TeleportAt = now
 end
 
 -- CombatService.allowTravel: `studs` more for `seconds` plus `grace`, capped, sharing the later deadline.
@@ -201,12 +217,20 @@ end
 local function judgeAt(anchor: Anchor, seen: number, now: number, action: boolean): (OriginGuard.Verdict, number)
 	local elapsed = now - anchor.At
 	local live = if now < anchor.AllowanceUntil then anchor.Allowance else 0
-	local result, left, advance, spent =
-		OriginGuard.follow(math.abs(seen - anchor.X), elapsed, live, action, anchor.Spent, CONFIG)
+	local travelled = math.abs(seen - anchor.X)
+	local result, left, advance, spent = OriginGuard.follow(travelled, elapsed, live, action, anchor.Spent, CONFIG)
+	if
+		result ~= "Still"
+		and result ~= "Accepted"
+		and now - anchor.TeleportAt < MovementGuard.settle(anchor.Rtt, Sim.config)
+	then
+		anchor.At = now
+		return result, anchor.X
+	end
 	anchor.Allowance = left
 	anchor.Spent = spent
 	if result == "Accepted" then
-		anchor.Converging = false
+		anchor.ConvergingUntil = -math.huge
 		anchor.X, anchor.At = seen, now
 		return result, seen
 	end
@@ -214,14 +238,20 @@ local function judgeAt(anchor: Anchor, seen: number, now: number, action: boolea
 		return result, seen
 	end
 	if elapsed >= MovementGuardConfig.StallSeconds then
-		anchor.Converging = true
+		anchor.ConvergingUntil = now
+			+ OriginGuard.convergeSeconds(
+				travelled - advance,
+				MovementGuardConfig.StallSpeedStudsPerSecond,
+				MovementGuardConfig.StallCapSeconds,
+				CONFIG
+			)
 	end
 	anchor.X += math.sign(seen - anchor.X) * advance
 	anchor.At = now
 	if result == "Tolerated" then
 		return result, seen
 	end
-	if result == "Refused" and action and not anchor.Converging then
+	if result == "Refused" and action and now >= anchor.ConvergingUntil then
 		anchor.Refusals += 1
 		local cutoff = now - GameConfig.Latency.ViolationWindowSeconds
 		while #anchor.Violations > 0 and anchor.Violations[1] < cutoff do
@@ -348,6 +378,133 @@ describe("the trusted anchor, chasing", function()
 			expect(anchor.Refusals).toBe(0)
 			expect(anchor.Strikes).toBe(0)
 			expect(clamped).toBeLessThanOrEqual(row[2])
+		end
+	end)
+
+	-- A body sampled every tick and swinging at the combo's cadence from `from` s for `seconds`, at `where(t)`.
+	-- Returns the swings counted as violations.
+	local function swingAlong(where: (number) -> number, from: number, seconds: number): number
+		local melee = CombatConfig.Melee
+		local swing = (3 * melee.HitIntervalSeconds + melee.FinisherCooldownSeconds) / #melee.Damage
+		local anchor = newAnchor()
+		local nextSwing = from
+		for tick = 1, math.round((from + seconds) * RATE) do
+			local now = tick * TICK
+			judgeAt(anchor, where(now), now, false)
+			if now >= nextSwing then
+				nextSwing += swing
+				judgeAt(anchor, where(now), now + TICK / 2, true)
+			end
+		end
+		return anchor.Refusals
+	end
+
+	it("keeps counting a runner who stood still once and blinked, once the chase could have caught up", function()
+		-- The latch lasted until the next accepted sample, which a client outrunning the chase never sends: 1.2 s
+		-- of stillness and one 30-stud blink, then 60 or 100 studs a second, turned off every violation for good.
+		for _, speed in ipairs({ 60, 100 }) do
+			local runner = function(t: number): number
+				return if t < 1.2 then 0 else speed * (t - 1.2)
+			end
+			local blinker = function(t: number): number
+				if t < 1.2 then
+					return 0
+				end
+				return if t < 1.25 then 30 else 30 + speed * (t - 1.25)
+			end
+			local plain = swingAlong(runner, 1.5, 20)
+			expect(plain).toBeGreaterThan(20)
+			-- The blink buys the half second the chase needs to close its 10 studs, and nothing more.
+			expect(swingAlong(blinker, 1.5, 20)).toBeGreaterThanOrEqual(plain - 2)
+		end
+	end)
+
+	it("never counts an honest walker's swings while the chase closes even the longest stall it forgives", function()
+		for _, stall in ipairs({ 8, 12, 14 }) do
+			local walker = function(t: number): number
+				-- The uplink is silent from 1 s: the server keeps seeing where it stopped.
+				local heard = if t >= 1 and t <= 1 + stall then 1 else t
+				return WALK * heard
+			end
+			expect(swingAlong(walker, 0.5, stall + 15)).toBe(0)
+		end
+	end)
+end)
+
+describe("OriginGuard.convergeSeconds", function()
+	it("is the time the chase needs to close a gap on a body walking away at the pace, capped", function()
+		local closing = CONFIG.MaxSpeedStudsPerSecond - 20
+		expect(OriginGuard.convergeSeconds(100, 20, 10, CONFIG)).toBeCloseTo(100 / closing, 6)
+		expect(OriginGuard.convergeSeconds(0, 20, 10, CONFIG)).toBe(0)
+		expect(OriginGuard.convergeSeconds(1000, 20, 10, CONFIG)).toBe(10)
+		-- A pace the chase cannot beat never closes: the cap.
+		expect(OriginGuard.convergeSeconds(1, CONFIG.MaxSpeedStudsPerSecond, 10, CONFIG)).toBe(10)
+	end)
+end)
+
+-- A server teleport at 0 s from `from` to `to`, whose stale samples -- the body where it stood before the pivot
+-- reached the client -- arrive every tick for `stale` s, the body at `to` after that. Swings at `swings` s. Returns
+-- the anchor, its farthest point from `to` and where each swing was resolved.
+local function afterTeleport(
+	from: number,
+	to: number,
+	rtt: number,
+	stale: number,
+	swings: { number }
+): (Anchor, number, { number })
+	local anchor = newAnchor()
+	anchor.Rtt = rtt
+	teleportTo(anchor, to, 0)
+	local farthest, resolved = 0, {}
+	local next = 1
+	for tick = 1, math.round((stale + 1.5) * RATE) do
+		local now = tick * TICK
+		local seen = if now < stale then from else to
+		judgeAt(anchor, seen, now, false)
+		farthest = math.max(farthest, math.abs(anchor.X - to))
+		while next <= #swings and swings[next] <= now do
+			local _, at = judgeAt(anchor, seen, swings[next], true)
+			table.insert(resolved, at)
+			next += 1
+		end
+	end
+	return anchor, farthest, resolved
+end
+
+describe("the trusted anchor after a server teleport", function()
+	it("keeps a Battleground arrival inside the page while the hub's stale samples arrive", function()
+		-- Roster.stays drops a member whose trusted position leaves the page's bounds. Chased two studs a tick back
+		-- toward the hub, an arrival 15 studs inside the west wall left them after 0.4 s of stale samples.
+		local map = BattlegroundConfig.Map
+		local half = map.Size / 2
+		for _, arrival in ipairs(map.Arrivals) do
+			for _, rtt in ipairs({ 0.1, 0.2, 0.3, 0.4, 0.6, 0.9 }) do
+				local landing = map.Origin[1] + arrival.X
+				-- The pivot takes one way to reach the client, the body's new place one way back, and a tick.
+				local stale = rtt + TICK
+				local anchor, farthest = afterTeleport(0, landing, rtt, stale, {})
+				expect(farthest).toBe(0)
+				expect(anchor.X - map.Origin[1] >= -half).toBe(true)
+			end
+		end
+	end)
+
+	it("resolves the first swing after a Caret where the body landed, and counts none of the swings before", function()
+		local range = 0
+		for _, glyph in ipairs(GlyphConfig.Glyphs) do
+			if glyph.Effect == "Caret" then
+				range = glyph.Range
+			end
+		end
+		expect(range).toBeGreaterThan(CombatConfig.Melee.Range)
+		for _, rtt in ipairs({ 0.2, 0.3, 0.5 }) do
+			local stale = rtt + TICK
+			-- One swing while the stream still carries the start, one on the first tick the landing shows.
+			local swings = { stale / 2, stale + TICK / 2 }
+			local anchor, _, resolved = afterTeleport(-range, 0, rtt, stale, swings)
+			expect(resolved[1]).toBe(0)
+			expect(resolved[2]).toBe(0)
+			expect(anchor.Refusals).toBe(0)
 		end
 	end)
 end)

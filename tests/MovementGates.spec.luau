@@ -121,26 +121,56 @@ describe("the trusted anchor", function()
 		)
 	end)
 
-	it("chases, and counts no violation while it converges after a stall", function()
+	it("chases, and counts no violation while it converges after a stall, for as long as that can take", function()
 		local trusted = functionIn(COMBAT, "local function trustedCFrame(")
-		expect(trusted).toContain("if elapsed >= MovementGuardConfig.StallSeconds then state.Converging = true end")
+		-- Bounded: a latch that lasted until the next accepted sample let one second of stillness and one blink
+		-- turn off every Origin violation of a client that then kept outrunning the chase.
+		expect(trusted).toContain(
+			"if elapsed >= MovementGuardConfig.StallSeconds then state.ConvergingUntil = now + OriginGuard.convergeSeconds( travelled - advance, MovementGuardConfig.StallSpeedStudsPerSecond, MovementGuardConfig.StallCapSeconds, GUARD ) end"
+		)
 		-- The clock restarts with every step of the chase, so the anchor never gains faster than the ceiling.
 		expect(trusted).toContain(
 			"local chased = trusted + flatDelta.Unit * advance local anchor = Vector3.new(chased.X, position.Y, chased.Z) state.TrustedPosition = anchor state.TrustedAt = now"
 		)
-		expect(ordered(trusted, 'if verdict == "Accepted" then state.Converging = false', "return observed")).toBe(true)
+		expect(ordered(trusted, 'if verdict == "Accepted" then state.ConvergingUntil = -math.huge', "return observed")).toBe(
+			true
+		)
 		expect(trusted).toContain(
-			'if verdict == "Refused" and strikeOnFailure and not state.Converging then countViolation('
+			'if verdict == "Refused" and strikeOnFailure and now >= state.ConvergingUntil then countViolation('
 		)
 		local _, violations = trusted:gsub("countViolation%(", "")
 		expect(violations).toBe(1)
+		expect(strip(fs.readFile(COMBAT))).never.toContain("Converging =")
+	end)
+
+	it("holds its anchor, whole, through a server pivot's stale samples", function()
+		local trusted = functionIn(COMBAT, "local function trustedCFrame(")
+		-- Before anything the verdict would change is stored: no advance, no allowance, no tolerance. Only the clock
+		-- restarts, so the budget cannot grow through the wait into accepting a stale sample.
+		expect(trusted).toContain(
+			'OriginGuard.follow(travelled, elapsed, allowance, strikeOnFailure, state.ToleranceSpent, GUARD) if verdict ~= "Still" and verdict ~= "Accepted" and settling(state, now) then state.TrustedAt = now return CFrame.new(trusted) * (observed - position) end state.TravelAllowanceStuds = allowanceLeft'
+		)
+		-- The window the audit waits out after a pivot, on the round trip the audit reads.
+		expect(functionIn(COMBAT, "local function settling(")).toContain(
+			"local since = now - state.TeleportAt return since < AUDIT.SettleMaxSeconds and since < MovementGuard.settle(MovementAudit.rtt(state.Player), AUDIT)"
+		)
+		expect(functionIn(GUARD, "local function pending(")).toContain(
+			"local settle = MovementGuard.settle(s.Rtt, config) if age < settle then return none() end"
+		)
+		-- Every server pivot starts it: a teleport, and the audit's own correction or repivot.
+		expect(functionIn(COMBAT, "function CombatService.resyncPosition(")).toContain(
+			"anchorOn(state, position, now, true) state.TeleportAt = now"
+		)
+		expect(functionIn(COMBAT, "local function reanchor(")).toContain(
+			"local now = os.clock() anchorOn(state, position, now, false) state.TeleportAt = now"
+		)
 	end)
 
 	it("starts every body and every server teleport with the tolerance whole and nothing converging", function()
 		-- One place resets the anchor, and every way onto a new point goes through it.
 		local anchor = functionIn(COMBAT, "local function anchorOn(")
 		expect(anchor).toContain(
-			"state.TrustedPosition = position state.TrustedAt = now state.TravelAllowanceStuds = 0 state.TravelAllowanceUntil = 0 state.ToleranceSpent = false state.Converging = false if clearViolations then table.clear(state.OriginViolations) end"
+			"state.TrustedPosition = position state.TrustedAt = now state.TravelAllowanceStuds = 0 state.TravelAllowanceUntil = 0 state.ToleranceSpent = false state.ConvergingUntil = -math.huge state.TeleportAt = -math.huge if clearViolations then table.clear(state.OriginViolations) end"
 		)
 		local resync = functionIn(COMBAT, "function CombatService.resyncPosition(")
 		expect(resync).toContain(
@@ -150,7 +180,7 @@ describe("the trusted anchor", function()
 		expect(reset).toContain("anchorOn(state, spawnPoint(), now, true)")
 		-- A correction keeps the violations: pulling a body back absolves nothing.
 		expect(functionIn(COMBAT, "local function reanchor(")).toContain(
-			"if state ~= nil then anchorOn(state, position, os.clock(), false) end"
+			"if state ~= nil then local now = os.clock() anchorOn(state, position, now, false)"
 		)
 		-- Neither sets the anchor by hand, so neither can forget a field of it.
 		for _, entry in ipairs({ resync, reset }) do
@@ -202,7 +232,7 @@ describe("the movement audit's wiring", function()
 		function()
 			local resync = functionIn(COMBAT, "function CombatService.resyncPosition(")
 			expect(resync).toContain(
-				"anchorOn(state, position, now, true) state.TeleportCharacter = player.Character MovementAudit.teleported(player, position) end"
+				"anchorOn(state, position, now, true) state.TeleportAt = now state.TeleportCharacter = player.Character MovementAudit.teleported(player, position) end"
 			)
 			expect(ordered(resync, "if position == nil then", "return end anchorOn(state, position")).toBe(true)
 			expect(count(resync, "MovementAudit.")).toBe(1)

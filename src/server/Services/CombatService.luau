@@ -150,12 +150,16 @@ type State = {
 	-- .follow). Only an action sets it; an Accepted sample clears it.
 	ToleranceSpent: boolean,
 	-- The anchor fell behind across a stall (a non-Accepted verdict after MovementGuardConfig.StallSeconds
-	-- of silence) and is still chasing. A refused action counts no violation meanwhile: the gap is the
+	-- of silence) and is chasing until this os.clock: as long as closing that gap on a body walking away
+	-- could take (OriginGuard.convergeSeconds). A refused action counts no violation meanwhile: the gap is the
 	-- connection's, and the action is already resolved from the anchor. Cleared by an Accepted sample.
-	Converging: boolean,
+	ConvergingUntil: number,
 	-- The body the last server teleport (resyncPosition with a position) moved. With deferred signals a new body's
 	-- CharacterAdded can run after the teleport that placed it, and must not put the anchors back on the spawn.
 	TeleportCharacter: Model?,
+	-- When the server last pivoted this body (a teleport, or the movement audit pulling it back): until the pivot
+	-- has settled, the client may still replicate where it stood before, and the anchor is held (settling).
+	TeleportAt: number,
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -471,6 +475,14 @@ local function isSanePosition(position: Vector3): boolean
 	return math.abs(position.X) <= limit and math.abs(position.Y) <= limit and math.abs(position.Z) <= limit
 end
 
+-- Whether the server pivoted this body so recently that what the client replicates may still be where it stood
+-- before the pivot reached it: MovementGuard.settle of the round trip the audit reads, which the audit waits out
+-- too. The first test only spares reading the round trip on every tick.
+local function settling(state: State, now: number): boolean
+	local since = now - state.TeleportAt
+	return since < AUDIT.SettleMaxSeconds and since < MovementGuard.settle(MovementAudit.rtt(state.Player), AUDIT)
+end
+
 -- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
 -- passes false: it moves the anchor, and must neither strike, nor absolve, nor spend the tolerance.
 --
@@ -485,9 +497,18 @@ end
 -- body that fell behind is caught up with rather than refused forever, and a held spoof is believed only
 -- after it has cost the time it would have taken to walk there.
 --
+-- Except while a server pivot settles: the observation that does not fit is where the body stood before the
+-- pivot, which the stream still carries. Chased, it pulled the anchor two studs a tick back toward the hub
+-- after a portal -- out of the Battleground's bounds at 0.4 s of round trip -- and a Caret's landing ten studs
+-- behind the first swing. It is held instead, whole: no advance, no allowance or tolerance spent, not even
+-- the height, and an action is resolved from the destination without counting a violation. Its clock restarts,
+-- or the budget grown through the wait would accept a short teleport's stale sample late (a Caret's after
+-- 0.45 s).
+--
 -- Only HORIZONTAL travel is measured. Vertical speed is gravity-driven and unbounded, so a fall would
 -- fail every check, while the exploit being bounded is repositioning onto a target. The anchor's height
--- always follows the observation, so a clamped origin still sits at the player's real altitude.
+-- follows every observation it judges, so a clamped origin still sits at the player's real altitude; a held
+-- one is the height the body had before the pivot, and is left out.
 --
 -- A position that is not a number, or is beyond MovementGuardConfig.MaxCoordinateStuds, is never stored:
 -- the action is resolved from the anchor, and a later honest sample is still judged against it.
@@ -513,10 +534,14 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 	local travelled = flatDelta.Magnitude
 	local verdict, allowanceLeft, advance, toleranceSpent =
 		OriginGuard.follow(travelled, elapsed, allowance, strikeOnFailure, state.ToleranceSpent, GUARD)
+	if verdict ~= "Still" and verdict ~= "Accepted" and settling(state, now) then
+		state.TrustedAt = now
+		return CFrame.new(trusted) * (observed - position)
+	end
 	state.TravelAllowanceStuds = allowanceLeft
 	state.ToleranceSpent = toleranceSpent
 	if verdict == "Accepted" then
-		state.Converging = false
+		state.ConvergingUntil = -math.huge
 		state.TrustedPosition = position
 		state.TrustedAt = now
 		return observed
@@ -528,7 +553,15 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 		return observed
 	end
 	if elapsed >= MovementGuardConfig.StallSeconds then
-		state.Converging = true
+		-- Converging for as long as the chase could need to close what is left on a body that keeps walking away
+		-- at the pace the audit forgives a stall at, and no longer.
+		state.ConvergingUntil = now
+			+ OriginGuard.convergeSeconds(
+				travelled - advance,
+				MovementGuardConfig.StallSpeedStudsPerSecond,
+				MovementGuardConfig.StallCapSeconds,
+				GUARD
+			)
 	end
 	-- Chase: `advance` never reaches the observation here (it would have been Accepted), so the flat delta
 	-- is long enough to have a direction.
@@ -539,7 +572,7 @@ local function trustedCFrame(state: State, root: BasePart, now: number, strikeOn
 	if verdict == "Tolerated" then
 		return observed
 	end
-	if verdict == "Refused" and strikeOnFailure and not state.Converging then
+	if verdict == "Refused" and strikeOnFailure and now >= state.ConvergingUntil then
 		countViolation(state, now, travelled, OriginGuard.budget(elapsed, allowance, GUARD))
 	end
 	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected. The local
@@ -567,15 +600,16 @@ local function spawnPoint(): Vector3?
 end
 
 -- Puts OriginGuard's anchor on `position` with a clean slate: no allowance, the tolerance whole, nothing
--- converging, and the origin violations cleared if `clearViolations`. nil leaves no anchor, and the next sample
--- is taken as it comes.
+-- converging, no pivot settling, and the origin violations cleared if `clearViolations`. nil leaves no anchor,
+-- and the next sample is taken as it comes. A server pivot starts its settle after this.
 local function anchorOn(state: State, position: Vector3?, now: number, clearViolations: boolean)
 	state.TrustedPosition = position
 	state.TrustedAt = now
 	state.TravelAllowanceStuds = 0
 	state.TravelAllowanceUntil = 0
 	state.ToleranceSpent = false
-	state.Converging = false
+	state.ConvergingUntil = -math.huge
+	state.TeleportAt = -math.huge
 	if clearViolations then
 		table.clear(state.OriginViolations)
 	end
@@ -589,9 +623,9 @@ end
 -- A teleport MUST pass `position`. Re-reading the character would anchor trust on whatever the client
 -- last replicated, which is the one value this path exists not to believe: a glyph that moves the caster
 -- relative to a spoofed root would otherwise have the server bless the spoof. With a position both guards
--- move there: OriginGuard's anchor, and MovementAudit, which then waits for the body to arrive. Called with
--- nil (no caller does today), only OriginGuard re-arms on the current root: the audit never adopts a
--- position the client chose.
+-- move there: OriginGuard's anchor, held there while the pivot settles, and MovementAudit, which then waits
+-- for the body to arrive. Called with nil (no caller does today), only OriginGuard re-arms on the current
+-- root: the audit never adopts a position the client chose.
 function CombatService.resyncPosition(player: Player, position: Vector3?)
 	local state = states[player]
 	if state == nil then
@@ -604,16 +638,19 @@ function CombatService.resyncPosition(player: Player, position: Vector3?)
 		return
 	end
 	anchorOn(state, position, now, true)
+	state.TeleportAt = now
 	state.TeleportCharacter = player.Character
 	MovementAudit.teleported(player, position)
 end
 
--- The movement audit pulled `player`'s body back to `position`: OriginGuard starts there too. The origin
--- violations stay: a correction absolves nothing.
+-- The movement audit pulled `player`'s body back to `position`: OriginGuard starts there too, and holds there
+-- while the pivot settles. The origin violations stay: a correction absolves nothing.
 local function reanchor(player: Player, position: Vector3)
 	local state = states[player]
 	if state ~= nil then
-		anchorOn(state, position, os.clock(), false)
+		local now = os.clock()
+		anchorOn(state, position, now, false)
+		state.TeleportAt = now
 	end
 end
 
@@ -927,8 +964,9 @@ local function onPlayerAdded(player: Player)
 		TravelAllowanceStuds = 0,
 		TravelAllowanceUntil = 0,
 		ToleranceSpent = false,
-		Converging = false,
+		ConvergingUntil = -math.huge,
 		TeleportCharacter = nil,
+		TeleportAt = -math.huge,
 	}
 	resetState(state, os.clock())
 	states[player] = state

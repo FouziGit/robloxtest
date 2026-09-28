@@ -534,7 +534,7 @@ end
 
 -- Puts the body on a server teleport's destination again: the judge still waits for it to arrive there, and the
 -- teleport already anchored both guards on it; they are set back on it, since OriginGuard chased the stale
--- samples meanwhile.
+-- samples once the pivot's settle was over, and held there while this one settles.
 local function repivot(body: Body, verdict: MovementGuard.Verdict, now: number)
 	local record = body.Record
 	local root = body.Root

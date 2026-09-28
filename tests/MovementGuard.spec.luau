@@ -98,6 +98,15 @@ describe("MovementGuard: shipped numbers", function()
 		expect(MovementGuard.grace(0 / 0, CONFIG)).toBeCloseTo(1.5, 6)
 	end)
 
+	it("waits a round trip and an overhead, clamped, for a pivot to settle", function()
+		-- clamp(round trip + 0.1, 0.2, 1.0): how long the stream may still carry a body where it stood before a
+		-- pivot. The judge ignores those samples, and CombatService holds OriginGuard's anchor through them.
+		expect(MovementGuard.settle(0.5, CONFIG)).toBeCloseTo(0.6, 6)
+		expect(MovementGuard.settle(0, CONFIG)).toBeCloseTo(0.2, 6)
+		expect(MovementGuard.settle(1.4, CONFIG)).toBeCloseTo(1.0, 6)
+		expect(MovementGuard.settle(0 / 0, CONFIG)).toBeCloseTo(1.0, 6)
+	end)
+
 	it("pays the client mover's overshoot on every grant", function()
 		-- The lift overshoot is the peak of the impulse curve, (1 + e)(1 - a)^e at a = 0: an upper bound at
 		-- any frame rate. The horizontal one covers the x1.39 a mover overshoots by at 15 fps.

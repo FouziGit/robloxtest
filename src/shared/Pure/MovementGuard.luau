@@ -454,6 +454,17 @@ function MovementGuard.grace(rtt: number, config: Config): number
 	)
 end
 
+-- How long after a server pivot the stream may still carry the body where it stood before the pivot reached the
+-- client: the round trip and an overhead, clamped. The judge waits this out before it looks for the body at the
+-- destination, and CombatService holds OriginGuard's anchor through the same window.
+function MovementGuard.settle(rtt: number, config: Config): number
+	return math.clamp(
+		clampRtt(rtt, config) + config.SettleOverheadSeconds,
+		config.SettleMinSeconds,
+		config.SettleMaxSeconds
+	)
+end
+
 -- How long a touch keeps exempting: its effect reaches the server a round trip later.
 local function contactLatch(rtt: number, config: Config): number
 	return math.max(config.ContactLatchSeconds, rtt + config.ContactRttMarginSeconds)
@@ -909,11 +920,7 @@ end
 local function pending(track: Track, s: Sample, config: Config): Verdict?
 	local now = s.At
 	local age = now - track.PendingSince
-	local settle = math.clamp(
-		clampRtt(s.Rtt, config) + config.SettleOverheadSeconds,
-		config.SettleMinSeconds,
-		config.SettleMaxSeconds
-	)
+	local settle = MovementGuard.settle(s.Rtt, config)
 	if age < settle then
 		return none()
 	end

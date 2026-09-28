@@ -143,6 +143,17 @@ describe("the toast queue", function()
 		expect(drain(queue)).toEqual({ "level", "folios", "quest" })
 	end)
 
+	it("presents nothing while paused, and everything that waited, in order, once resumed", function()
+		local queue = ToastQueue.new(3, 8)
+		ToastQueue.pause(queue, true)
+		ToastQueue.push(queue, entry("Info", "first"))
+		ToastQueue.push(queue, entry("Error", "second"))
+		expect(ToastQueue.take(queue)).toBeNil()
+		expect(#queue.Pending).toBe(2)
+		ToastQueue.pause(queue, false)
+		expect(drain(queue)).toEqual({ "first", "second" })
+	end)
+
 	it("keeps what it holds apart from the table it was given", function()
 		local queue = ToastQueue.new(3, 8)
 		local kinds = { Reward = true }

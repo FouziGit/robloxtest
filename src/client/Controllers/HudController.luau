@@ -378,6 +378,20 @@ function HudController.topStack(band: ("Boss" | "Place" | "Portal")?): (Frame?, 
 	return topStack, BAND_ORDERS[band or "Boss"]
 end
 
+-- The HUD's own safe-area frame, for a controller that places something of its own over the fight: the boss's
+-- warning (BossController). Nil when the HUD never built.
+function HudController.overlay(): Frame?
+	return if root ~= nil then root.Content else nil
+end
+
+-- A boss attack is telegraphed (BossController), or has landed: while its warning is up, the toasts hold their
+-- turn, so nothing new crosses the eye's way to it.
+function HudController.setWarning(active: boolean)
+	if toast ~= nil then
+		toast:Pause(active)
+	end
+end
+
 -- Shows `pigments` as ghost chips, or clears them with nil (OnboardingController).
 function HudController.showGhostSequence(pigments: { string }?)
 	comboRow:ShowGhosts(pigments)

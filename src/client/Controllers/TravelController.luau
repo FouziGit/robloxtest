@@ -10,8 +10,8 @@
 --     inside keeps it up: the camp takes the next body back, and the server says nothing until it lets go;
 --   * Travelled, fired once a portal has moved the player: MenuController closes whatever screen was open, so
 --     nobody arrives somewhere new with their input suspended.
--- Both bands are children of the HUD's top-centre column (HudController.topStack) and grow into place like the
--- match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop.
+-- Both bands are ink plates in the HUD's top-centre column (HudController.topStack, D-147) and grow into place like
+-- the match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local HudPlate = require(UI.components.HudPlate)
 local Log = require(Shared.Util.Log)
 local Motion = require(UI.Motion)
 local PortalConfig = require(Shared.Config.PortalConfig)
@@ -36,10 +37,13 @@ type Deps = { RemoteClient: any, Localize: any, HudController: HudApi?, SoundCon
 local BAND_WIDTH = 360
 -- A band that is shown grows into place: rule 3 of docs/ART_BIBLE.md, nothing appears.
 local BAND_ENTER_SCALE = 0.9
-local TITLE_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
-local LINE_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
--- The dwell bar: a line of ink filling a strip of shaded paper, thin enough to sit under a title.
-local FILL_HEIGHT = 2 * Theme.Sizes.PaddingSmall
+local PORTAL_TEXT = 18
+local PLACE_TEXT = 20
+local STATUS_TEXT = 18
+local TITLE_HEIGHT = PLACE_TEXT + Theme.Sizes.PaddingSmall
+local LINE_HEIGHT = STATUS_TEXT + Theme.Sizes.PaddingSmall
+-- The dwell bar: the vivid Indigo filling an inkwell ringed with the sheet, under the title.
+local FILL_HEIGHT = 18
 -- Eased at both ends (rule 4: nothing moves linearly) and symmetric, so the bar is still half full at half the
 -- dwell: it is a clock the player reads, and a clock that ran fast then slow would lie about what is left.
 local FILL_STYLE = Enum.EasingStyle.Sine
@@ -67,6 +71,9 @@ local placeBand: Frame
 local placeScale: UIScale
 local placeTitle: TextLabel
 local placeLine: TextLabel
+local placeLineScale: UIScale
+-- The Forgers this member had defeated at the last packet: the count punches when it moves.
+local lastDefeated: number? = nil
 local member = false
 local malformedWarned: { [string]: boolean } = {}
 
@@ -82,25 +89,17 @@ local function finite(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
-local function makeBand(name: string, order: number, stack: Frame): (Frame, UIScale)
-	local band = Instance.new("Frame")
-	band.Name = name
-	band.BackgroundTransparency = 1
-	band.LayoutOrder = order
-	band.Size = UDim2.fromOffset(BAND_WIDTH, 0)
-	band.AutomaticSize = Enum.AutomaticSize.Y
-	band.Visible = false -- shown while the server says there is something to show
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
-	layout.Parent = band
-	local scale = Instance.new("UIScale")
-	scale.Name = "Entrance"
-	scale.Parent = band
-	band.Parent = stack
-	return band, scale
+-- An ink plate in the column, hidden until the server says there is something to show; its content stacks
+-- down the middle.
+local function makeBand(name: string, order: number, stack: Frame): (Frame, UIScale, Frame)
+	local plate = HudPlate.new({
+		Name = name,
+		Width = BAND_WIDTH,
+		Gap = Theme.Sizes.PaddingSmall,
+		LayoutOrder = order,
+		Parent = stack,
+	})
+	return plate.Instance, plate.Scale, plate.Content
 end
 
 local function makeLabel(
@@ -119,8 +118,6 @@ local function makeLabel(
 	label.FontFace = Theme.Fonts.Bold
 	label.TextSize = size
 	label.TextColor3 = color
-	label.TextStrokeColor3 = Theme.Colors.TextInverse
-	label.TextStrokeTransparency = 0.6
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.Text = ""
@@ -128,28 +125,24 @@ local function makeLabel(
 	return label
 end
 
--- The dwell bar: an inked edge round a strip of shaded paper, and the fill inside it, empty.
+-- The dwell bar: an inkwell ringed with the sheet (a well is 1.23 against the ink plate: the ring shapes it),
+-- and the vivid Indigo inside it, empty.
 local function makeFill(parent: Instance): Frame
 	local track = Instance.new("Frame")
 	track.Name = "Dwell"
-	track.BackgroundColor3 = Theme.Colors.PanelRaised
+	track.BackgroundColor3 = Theme.Colors.Well
 	track.BorderSizePixel = 0
 	track.ClipsDescendants = true
 	track.Size = UDim2.new(1, 0, 0, FILL_HEIGHT)
 	track.LayoutOrder = 2
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-	corner.Parent = track
-	local edge = Instance.new("UIStroke")
-	edge.Color = Theme.Colors.Outline
-	edge.Thickness = 1
-	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	edge.Parent = track
+	Theme.corner(track, Theme.Pill)
+	Theme.stroke(track, "PanelRaised", Theme.Sizes.StrokeThin)
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
-	fill.BackgroundColor3 = Theme.Colors.Ink
+	fill.BackgroundColor3 = Theme.Colors.InfoFill
 	fill.BorderSizePixel = 0
 	fill.Size = UDim2.fromScale(0, 1)
+	Theme.corner(fill, Theme.Pill)
 	fill.Parent = track
 	track.Parent = parent
 	return fill
@@ -169,12 +162,17 @@ local function build(): boolean
 		log.warn("the HUD has no top stack: the portal and Battleground bands cannot be shown")
 		return false
 	end
-	portalBand, portalScale = makeBand("Portal", portalOrder, stack)
-	portalTitle = makeLabel("Title", TITLE_HEIGHT, Theme.Sizes.TextLarge, Theme.Colors.Text, 1, portalBand)
-	portalFill = makeFill(portalBand)
-	placeBand, placeScale = makeBand("Place", placeOrder, stack)
-	placeTitle = makeLabel("Title", TITLE_HEIGHT, Theme.Sizes.TextLarge, Theme.Colors.Accent, 1, placeBand)
-	placeLine = makeLabel("Status", LINE_HEIGHT, Theme.Sizes.TextSmall, Theme.Colors.Text, 2, placeBand)
+	local portalContent, placeContent
+	portalBand, portalScale, portalContent = makeBand("Portal", portalOrder, stack)
+	portalTitle = makeLabel("Title", TITLE_HEIGHT, PORTAL_TEXT, Theme.Colors.TextInverse, 1, portalContent)
+	portalFill = makeFill(portalContent)
+	placeBand, placeScale, placeContent = makeBand("Place", placeOrder, stack)
+	placeTitle = makeLabel("Title", TITLE_HEIGHT, PLACE_TEXT, Theme.Colors.TextInverse, 1, placeContent)
+	placeTitle.FontFace = Theme.Fonts.Title
+	placeLine = makeLabel("Status", LINE_HEIGHT, STATUS_TEXT, Theme.Colors.TextInverse, 2, placeContent)
+	placeLine.FontFace = Theme.Fonts.Numeric
+	placeLineScale = Instance.new("UIScale")
+	placeLineScale.Parent = placeLine
 	return true
 end
 
@@ -250,6 +248,15 @@ local function onBattlegroundChanged(payload: any)
 		standing = math.max(0, math.floor(snapshot.Standing)),
 		defeated = math.max(0, math.floor(snapshot.Defeated)),
 	})
+	-- A Forger this member helped take down: the count punches. Not on the band's first packet.
+	local defeated = math.max(0, math.floor(snapshot.Defeated))
+	if not placeBand.Visible then
+		lastDefeated = nil
+	end
+	if lastDefeated ~= nil and defeated ~= lastDefeated then
+		Motion.punch(placeLineScale)
+	end
+	lastDefeated = defeated
 	grow(placeBand, placeScale)
 	if not member then
 		member = true

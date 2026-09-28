@@ -44,12 +44,13 @@ local STROKED_COMPONENTS = {
 	"ScoreBand",
 	"MetaCluster",
 	"Hotbar",
+	"HudPlate",
 }
 local BODY_CONTRAST = 4.5
 
 -- Fight surfaces: what is on screen during a round. Each one is added here in the commit that makes it
--- comply. HudController joined when the roster that named Success left it for ScoreBand, which joins when
--- that roster turns cyan (spec slice C). MetaCluster is the one HUD piece that may show value colours: it
+-- comply. HudController joined when the roster that named Success left it for ScoreBand, which joined when
+-- that roster turned cyan (spec slice C). MetaCluster is the one HUD piece that may show value colours: it
 -- is hub-only, and HudController hides it in a fight (below).
 local FIGHT_FILES = {
 	"src/client/Controllers/BossController.luau",
@@ -63,6 +64,9 @@ local FIGHT_FILES = {
 	"src/ui/components/CombatDock.luau",
 	"src/ui/components/ComboRow.luau",
 	"src/ui/components/Hotbar.luau",
+	"src/ui/components/ScoreBand.luau",
+	"src/ui/components/HudPlate.luau",
+	"src/client/Controllers/TravelController.luau",
 }
 -- Rule 11: the value colours never enter a fight, by role, by helper, or through a chapter, a rarity or
 -- a rank.

@@ -579,7 +579,6 @@ Strings.Table = {
 	["boss.attack.sweep"] = { en = "Sweep", fr = "Balayage" },
 	["boss.attack.eruption"] = { en = "Eruption", fr = "Éruption" },
 	["boss.attack.fury"] = { en = "Fury", fr = "Furie" },
-	["boss.incoming"] = { en = "{attack} incoming!", fr = "{attack} en approche !" },
 	-- Practice against the Erasure and joining a fight through the hub's gate (D-132).
 	["boss.practice.title"] = { en = "The Erasure · practice", fr = "L'Effacement · entraînement" },
 	["boss.portal.announced"] = {

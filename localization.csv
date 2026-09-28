@@ -37,7 +37,6 @@ boss.attack.sweep,Sweep,Vellum,,Sweep,Balayage
 boss.defeated,The Erasure is undone. The page keeps.,Vellum,,The Erasure is undone. The page keeps.,L'Effacement est défait. La page reste.
 boss.expired,The Erasure has left the page…,Vellum,,The Erasure has left the page…,L'Effacement a quitté la page…
 boss.health,{health} / {max},Vellum,,{health} / {max},{health} / {max}
-boss.incoming,{attack} incoming!,Vellum,,{attack} incoming!,{attack} en approche !
 boss.killBonus,Top damage bonus!,Vellum,,Top damage bonus!,Bonus de meilleur dégât !
 boss.name,The Erasure,Vellum,,The Erasure,L'Effacement
 boss.phase,Phase {phase},Vellum,,Phase {phase},Phase {phase}

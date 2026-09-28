@@ -46,6 +46,8 @@ export type Toast = {
 	-- The kinds set in `kinds` wait in the queue from now on; Hold({}) lets them all through, in order.
 	Hold: (self: Toast, kinds: { [string]: boolean }) -> (),
 	SetMaxVisible: (self: Toast, count: number) -> (),
+	-- Nothing new shows while paused (a boss's warning is up); what waits shows in order afterwards.
+	Pause: (self: Toast, paused: boolean) -> (),
 	-- Touch lane: how far below the top of its safe area the first message hangs, in design units.
 	SetTop: (self: Toast, top: number) -> (),
 	Destroy: (self: Toast) -> (),
@@ -375,6 +377,11 @@ function Toast.new(props: Props): Toast
 		pump()
 	end
 
+	local function pause(_self: Toast, paused: boolean)
+		ToastQueue.pause(queue, paused)
+		pump()
+	end
+
 	local function setTop(_self: Toast, top: number)
 		if touch then
 			container.Position = UDim2.new(1, -EDGE, 0, top)
@@ -391,6 +398,7 @@ function Toast.new(props: Props): Toast
 		Show = show,
 		Hold = hold,
 		SetMaxVisible = setMaxVisible,
+		Pause = pause,
 		SetTop = setTop,
 		Destroy = destroy,
 	}

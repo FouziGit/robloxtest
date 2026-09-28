@@ -9,6 +9,7 @@ local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -19,6 +20,10 @@ local HOTBAR = "src/ui/components/Hotbar.luau"
 local COMBO_ROW = "src/ui/components/ComboRow.luau"
 local COMBO_CONTROLLER = "src/client/Controllers/ComboController.luau"
 local GLYPH_SERVICE = "src/server/Services/GlyphService.luau"
+local SCORE_BAND = "src/ui/components/ScoreBand.luau"
+local BOSS = "src/client/Controllers/BossController.luau"
+local TRAVEL = "src/client/Controllers/TravelController.luau"
+local TOAST = "src/ui/components/Toast.luau"
 local HUD = ThemeConfig.Hud
 local COLORS = ThemeConfig.Colors
 local GRAPHIC_CONTRAST = 3
@@ -395,5 +400,121 @@ describe("the combo row", function()
 		expect(has(chip, 'Kind = "Card",')).toBe(true)
 		expect(has(row, "local RINGED: { [string]: boolean } = { Indigo = true, Umber = true }")).toBe(true)
 		expect(has(chip, "Theme.inkOn(color)")).toBe(true)
+	end)
+end)
+
+describe("the top bands", function()
+	it("score the match cyan for us and ink for them, never red", function()
+		local band = code(SCORE_BAND)
+		expect(has(band, "Fill = Theme.Colors.Ally,")).toBe(true)
+		expect(
+			has(
+				band,
+				'local oursScore = textLabel("Value", Theme.Fonts.Numeric, Theme.Sizes.NumLarge, Theme.Colors.Text)'
+			)
+		).toBe(true)
+		expect(has(band, "theirs.BackgroundColor3 = Theme.Colors.Plate")).toBe(true)
+		expect(has(band, 'Theme.stroke(theirsRing, "PanelRaised", Theme.Sizes.StrokeThin)')).toBe(true)
+		expect(
+			has(
+				band,
+				'local theirsScore = textLabel("Value", Theme.Fonts.Numeric, Theme.Sizes.NumLarge, Theme.Colors.TextInverse)'
+			)
+		).toBe(true)
+		-- Red is what is about to hit you, and the other team is not that (D-89).
+		expect(string.find(band, "Danger")).toBeNil()
+		expect(ThemeConfig.contrast(COLORS.Text, COLORS.Ally)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		expect(ThemeConfig.contrast(COLORS.TextInverse, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+	end)
+
+	it("ring each fighter with their health, ours cyan, and rewrite a ring only when it moved", function()
+		local band = code(SCORE_BAND)
+		local disc = body(band, "member")
+		expect(has(disc, 'Theme.stroke( disc, if ally then "Ally" else "PanelRaised", if ally then ALLY_RING else')).toBe(
+			true
+		)
+		expect(number(band, "ALLY_RING")).toBe(3)
+		expect(has(disc, 'local arc = Theme.gradient("ResultRing") arc.Parent = edge')).toBe(true)
+		expect(ThemeConfig.Gradients.ResultRing.Kind).toBe("Conical")
+		local refresh = body(band, "refreshMember")
+		local moved = string.find(refresh, "if fraction ~= entry.Fraction then", 1, true)
+		local written = string.find(refresh, "entry.Arc.Transparency = Theme.ringTransparency(fraction)", 1, true)
+		assert(moved ~= nil and written ~= nil, "the rings are no longer drawn from the health")
+		expect(moved :: number).toBeLessThan(written :: number)
+		-- A fallen fighter: chalk under a cross, faded.
+		expect(has(refresh, "if fighter.Alive then Theme.Colors.Plate else Theme.Colors.Chalk")).toBe(true)
+		expect(has(refresh, "if fighter.Alive then initialOf(fighter.Name) else Theme.Glyphs.Close")).toBe(true)
+		expect(number(band, "FALLEN")).toBe(0.6)
+	end)
+
+	it("tick the last ten seconds of a round without turning the clock red, and pip the series", function()
+		local band = code(SCORE_BAND)
+		expect(number(band, "LAST_SECONDS")).toBe(10)
+		expect(number(band, "LAST_PUNCH")).toBe(1.08)
+		expect(has(band, 'local TICK_SOUND = "Countdown"')).toBe(true)
+		expect(SoundConfig.Sfx.Countdown ~= nil).toBe(true)
+		local set = body(band, "set")
+		expect(
+			has(
+				set,
+				"if snapshot.Phase == PLAYING_PHASE and seconds <= LAST_SECONDS and seconds > 0 and seconds ~= lastSecond then"
+			)
+		).toBe(true)
+		expect(has(set, "Motion.punch(timerScale, LAST_PUNCH) UiSound.play(TICK_SOUND)")).toBe(true)
+		-- The clock keeps the one colour it was built with.
+		expect(has(set, "TextColor3")).toBe(false)
+		local pips = body(band, "refreshPips")
+		expect(has(pips, "if index <= won then Theme.Colors.PanelRaised else Theme.Colors.Chalk")).toBe(true)
+		expect(has(pips, "frame.BackgroundTransparency = if played then 0 else 1")).toBe(true)
+	end)
+
+	it("draw the boss as the danger, our hits in cyan behind it, and a mark at each phase", function()
+		local boss = code(BOSS)
+		expect(has(boss, "Color = Theme.Colors.DangerFill,")).toBe(true)
+		expect(has(boss, "Ghost = Theme.Colors.Ally,")).toBe(true)
+		expect(has(boss, "Ticks = phases,")).toBe(true)
+		expect(has(boss, "for index = 2, #WorldBossConfig.Phases do")).toBe(true)
+		expect(#WorldBossConfig.Phases).toBeGreaterThanOrEqual(2)
+		expect(has(boss, 'makeLabel("Share", INFO_HEIGHT, SHARE_TEXT, Theme.Colors.Ally')).toBe(true)
+		expect(has(boss, 'makeLabel("Phase", INFO_HEIGHT, INFO_TEXT, Theme.Colors.Chalk')).toBe(true)
+		expect(ThemeConfig.contrast(COLORS.Ally, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		expect(ThemeConfig.contrast(COLORS.DangerFill, COLORS.Well)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
+	end)
+
+	it("raise the boss's warning at two thirds of the screen, turned once toward it, and hold the toasts", function()
+		local boss = code(BOSS)
+		expect(number(boss, "WARNING_HEIGHT_SHARE")).toBe(0.65)
+		expect(has(boss, "medallion.BackgroundColor3 = Theme.Colors.DangerFill")).toBe(true)
+		local warning = body(boss, "showWarning")
+		expect(has(warning, "hud.setWarning(up)")).toBe(true)
+		expect(select(2, string.gsub(boss, "chevronRotation%(%)", ""))).toBe(2) -- declared, and read in one place
+		expect(has(warning, "if up then local rotation = chevronRotation()")).toBe(true)
+		expect(has(body(boss, "refresh"), "chevronRotation")).toBe(false)
+		expect(has(body(boss, "chevronRotation"), "CollectionService:GetTagged(WorldBossConfig.Boss.Tag)")).toBe(true)
+		-- The HUD holds its messages while the warning is up.
+		local hud = code(HUD_CONTROLLER)
+		expect(
+			string.find(
+				hud,
+				"function HudController%.setWarning%(active: boolean%)%s+if toast ~= nil then%s+toast:Pause%(active%)"
+			)
+		).never.toBeNil()
+		expect(has(code(TOAST), "ToastQueue.pause(queue, paused)")).toBe(true)
+	end)
+
+	it("fill the portal's dwell in Indigo in a ringed well, and punch the place's count as it moves", function()
+		local travel = code(TRAVEL)
+		local fill = body(travel, "makeFill")
+		expect(has(fill, "track.BackgroundColor3 = Theme.Colors.Well")).toBe(true)
+		expect(has(fill, 'Theme.stroke(track, "PanelRaised", Theme.Sizes.StrokeThin)')).toBe(true)
+		expect(has(fill, "fill.BackgroundColor3 = Theme.Colors.InfoFill")).toBe(true)
+		expect(number(travel, "FILL_HEIGHT")).toBe(18)
+		expect(ThemeConfig.contrast(COLORS.InfoFill, COLORS.Well)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
+		local changed = body(travel, "onBattlegroundChanged")
+		expect(has(changed, "if not placeBand.Visible then lastDefeated = nil end")).toBe(true)
+		expect(
+			has(changed, "if lastDefeated ~= nil and defeated ~= lastDefeated then Motion.punch(placeLineScale) end")
+		).toBe(true)
+		expect(has(travel, "HudPlate.new(")).toBe(true)
 	end)
 end)

@@ -6,11 +6,13 @@
 --   push      queues a message. A full queue drops its oldest Info first: a fight can post a line a second,
 --             and a refused purchase or a claimed quest must not be what falls off the end behind them. An
 --             Info arriving into a queue of nothing but the other kinds is refused.
---   take      the next message to present now, or nil: never more than MaxVisible on screen at once, and
---             never a kind that is held.
+--   take      the next message to present now, or nil: never more than MaxVisible on screen at once, never
+--             a kind that is held, and nothing at all while paused.
 --   finish    a message that was presented has left, and its place is free.
 --   hold      kinds that wait in the queue without presenting: the value colours while the player fights
 --             (docs/ART_BIBLE.md rule 11). They present, in the order they came, once no longer held.
+--   pause     nothing new presents: a boss's warning is up, and the eye belongs to it. The queue keeps
+--             filling, and presents in order once resumed.
 --   duration  how long a message stays: long enough to read it, never so long it outstays the next one.
 
 export type Entry = { Text: string, Kind: string, Amount: number? }
@@ -31,6 +33,7 @@ export type Queue = {
 	-- Presented and not finished yet.
 	Visible: number,
 	Held: { [string]: boolean },
+	Paused: boolean,
 }
 
 local ToastQueue = {}
@@ -39,7 +42,7 @@ local INFO = "Info"
 local CELEBRATE = "Celebrate"
 
 function ToastQueue.new(maxVisible: number, maxPending: number): Queue
-	return { MaxVisible = maxVisible, MaxPending = maxPending, Pending = {}, Visible = 0, Held = {} }
+	return { MaxVisible = maxVisible, MaxPending = maxPending, Pending = {}, Visible = 0, Held = {}, Paused = false }
 end
 
 -- Makes room for one message of `incoming` in a full queue: the oldest Info goes, or, when there is none, the
@@ -70,7 +73,7 @@ end
 -- The next message to present, taken out of the queue and counted as visible; nil when the lane is full or
 -- every message waiting is of a held kind.
 function ToastQueue.take(queue: Queue): Entry?
-	if queue.Visible >= queue.MaxVisible then
+	if queue.Paused or queue.Visible >= queue.MaxVisible then
 		return nil
 	end
 	for index, entry in ipairs(queue.Pending) do
@@ -91,6 +94,11 @@ end
 -- Holds the kinds set in `kinds` from now on, and only those: hold({}) releases everything held.
 function ToastQueue.hold(queue: Queue, kinds: { [string]: boolean })
 	queue.Held = table.clone(kinds)
+end
+
+-- Holds every new message back while `paused`, and lets them through again, in order, once not.
+function ToastQueue.pause(queue: Queue, paused: boolean)
+	queue.Paused = paused
 end
 
 -- How many messages the lane shows at once: fewer during a fight, where the eye has somewhere else to be.

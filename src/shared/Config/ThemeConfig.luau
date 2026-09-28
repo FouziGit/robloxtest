@@ -310,8 +310,10 @@ ThemeConfig.Hud = {
 	HotbarKeyStrip = 18,
 	HotbarGap = 8,
 	HotbarPipsHeight = 26,
-	-- Between the combo row and what is under it.
+	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it.
+	ChipSize = 44,
 	ChipRowGap = 8,
+	PreviewHeight = 32,
 	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
 	LowHealthFraction = 0.3,
 }

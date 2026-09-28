@@ -250,7 +250,7 @@ describe("the HUD's toasts", function()
 		expect(
 			string.find(
 				body(hud, "function HudController.showLocalToast("),
-				'show(key, params, kind or "Info")',
+				'show(key, params, kind or "Info", params)',
 				1,
 				true
 			)

@@ -1,27 +1,42 @@
 --!strict
--- ComboRow: the sequence the player is pressing, as chips in the pigments they pressed (D-147). HudController
--- places it and feeds it the sequence, the casts the server accepted and the sequences that broke.
+-- ComboRow: the sequence the player is pressing, and everything the HUD says about it (D-147). HudController
+-- places it over the hotbar and the dock and feeds it what ComboController and the server say.
 --
--- Chips grow into the row and collapse out of it (docs/ART_BIBLE.md rule 3: nothing appears): a fourth press
--- adds one chip, and a cast folds the row shut. Beside them, the chain counter -- glyphs the SERVER accepted
--- in a row inside its chain window, shown from the second one -- and, for a new player, ghost chips: the
--- recipe to press, drawn after the live chips, faint, never counted as a sequence (OnboardingController).
+--   chips          one sticker per press, in the exact pigment pressed, growing in with a pop and folding out
+--                  (docs/ART_BIBLE.md rule 3: nothing appears); a cast folds the row shut
+--   next pigments  after the first press or two, faint chips of the pigments that go on toward a recipe: one
+--                  step ahead, never the whole tree
+--   preview        while the sequence already is a glyph and the controller waits to see whether it grows,
+--                  "→ Brand" in the glyph's own colour over a line that drains for the time left, so the
+--                  short wait reads as a choice and not as input lag
+--   chain          glyphs the SERVER accepted in a row, from the second: it grows with the chain, lands on a
+--                  splat of the last pigment from four, and sends a ring out on every cast from six
+--   refusal        a cast refused (a cooldown, the ink, a sequence that matches nothing) is said under the
+--                  chips, which shake: never a toast at the top of the screen in the middle of a fight
+--   ghosts         for a new player, the recipe to press, drawn after everything, faint (OnboardingController)
+--
+-- A fight surface: the pigments are the schools' own and nothing wears a value colour (rule 11).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
 
-local GameConfig = require(Shared:WaitForChild("Config"):WaitForChild("GameConfig"))
+local GameConfig = require(Config:WaitForChild("GameConfig"))
+local GlyphConfig = require(Config:WaitForChild("GlyphConfig"))
 local Motion = require(script.Parent.Parent.Motion)
-local PigmentConfig = require(Shared:WaitForChild("Config"):WaitForChild("PigmentConfig"))
+local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
+local Splat = require(script.Parent.Splat)
+local Sticker = require(script.Parent.Sticker)
 local Theme = require(script.Parent.Parent.Theme)
+local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
 local Trove = require(Packages.Trove)
 
 export type Localizer = { t: (key: string, params: { [string]: any }?) -> string }
 
 export type Props = {
-	-- The HUD's bottom stack, which places the row above the dock.
+	-- The HUD's bottom stack, which places the row over the hotbar and the dock.
 	Parent: Instance,
 	Localize: Localizer,
 	LayoutOrder: number?,
@@ -30,52 +45,168 @@ export type Props = {
 export type ComboRow = {
 	Instance: Frame,
 	SetSequence: (self: ComboRow, sequence: { string }) -> (),
+	-- The pigments that go on from the sequence, drawn after it; an empty list clears them.
+	SetContinuations: (self: ComboRow, pigments: { string }) -> (),
+	-- The glyph the sequence already is and the seconds the controller waits for more, or nil.
+	SetPreview: (self: ComboRow, glyphId: string?, windowSeconds: number?) -> (),
 	-- `pigments` as ghost chips, or none with nil.
 	ShowGhosts: (self: ComboRow, pigments: { string }?) -> (),
-	-- One accepted cast, with the chain length the server counted for it.
-	Cast: (self: ComboRow, chain: number) -> (),
+	-- One accepted cast, with the chain length the server counted for it and the glyph's pigment.
+	Cast: (self: ComboRow, chain: number, pigment: string?) -> (),
 	-- The chain is over: the counter fades, and the next cast starts again at one.
 	FadeStreak: (self: ComboRow) -> (),
+	-- A cast refused, in words, under the chips.
+	Refuse: (self: ComboRow, text: string) -> (),
 	Destroy: (self: ComboRow) -> (),
 }
 
 local ComboRow = {}
 
-local CHIP_SIZE = 36
+local HUD = ThemeConfig.Hud
+local CHIP_SIZE = HUD.ChipSize
 local CHIP_COLLAPSED = UDim2.fromOffset(0, CHIP_SIZE)
 local CHIP_OPEN = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
+local CHIP_ELEVATION = 3
+local SIGIL_SCALE = 0.6
+local RING_INSET = 3
+-- Pigments too dark for the ink outline alone: the sheet's ring shapes them.
+local RINGED: { [string]: boolean } = { Indigo = true, Umber = true }
 -- Two slots per press: the live chip and, just to its right, the chip that is folding away because the
 -- sequence changed under it. Sharing one LayoutOrder left the two in an order Roblox does not define, so
 -- a replacement could render to the LEFT of what it replaced.
 local CHIP_ORDER_STRIDE = 2
-local STREAK_ORDER = 100
-local STREAK_MIN_SHOWN = 2
-local STREAK_POP_SCALE = 1.4
+local NEXT_ORDER = 100
+local PREVIEW_ORDER = 150
+local STREAK_ORDER = 160
 local GHOST_ORDER = 200
 local GHOST_TRANSPARENCY = 0.6
+-- The preview pill.
+local PREVIEW_PADDING = 10
+local PREVIEW_TEXT = 20
+local PREVIEW_LINE = 3
+local PREVIEW_ENTER = 0.6
+local UMBER_STROKE = 3
+-- The chain counter: shown from the second cast, growing by this much per cast past it up to a ceiling,
+-- on a splat from STREAK_SPLAT casts, sending a ring from STREAK_RING.
+local STREAK_MIN_SHOWN = 2
+local STREAK_TEXT = 34
+local STREAK_STROKE = 4
+local STREAK_GROWTH = 0.08
+local STREAK_MAX_SCALE = 1.4
+local STREAK_POP_SCALE = 1.4
+local STREAK_SPLAT = 4
+local STREAK_RING = 6
+local STREAK_SPLAT_SIZE = CHIP_SIZE * 1.6
+local STREAK_SPLAT_TRANSPARENCY = 0.2
+local RING_FROM = 0.6
+local RING_TO = 1.6
+local RING_TRANSPARENCY = 0.2
+-- The refusal pill, under the chips.
+local REFUSAL_HEIGHT = 30
+local REFUSAL_TEXT = 16
+local REFUSAL_GAP = 4
+local REFUSAL_SECONDS = 1.4
+local REFUSAL_ENTER = 0.8
+local SHAKE = 8
 
-local function makeChip(index: number, pigment: string): Frame
+type TroveObject = typeof(Trove.new())
+
+local function label(name: string, font: Font, size: number, color: Color3): TextLabel
+	local text = Instance.new("TextLabel")
+	text.Name = name
+	text.BackgroundTransparency = 1
+	text.FontFace = font
+	text.TextSize = size
+	text.TextColor3 = color
+	return text
+end
+
+-- An ink pill: the preview and the refusal.
+local function pill(name: string, height: number, order: number, trove: TroveObject): (Frame, TextLabel, UIScale)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.BackgroundTransparency = 1
+	frame.LayoutOrder = order
+	frame.Size = UDim2.fromOffset(0, height)
+	frame.AutomaticSize = Enum.AutomaticSize.X
+	frame.Visible = false
+	local plate = Sticker.new({
+		Kind = "Plate",
+		Fill = Theme.Colors.Plate,
+		Corner = Theme.Pill,
+		Size = UDim2.fromScale(1, 1),
+		Parent = frame,
+		Name = "Plate",
+	})
+	trove:Add(function()
+		plate:Destroy()
+	end)
+	local text = label("Text", Theme.Fonts.Bold, REFUSAL_TEXT, Theme.Colors.TextInverse)
+	text.AutomaticSize = Enum.AutomaticSize.X
+	text.Size = UDim2.fromScale(0, 1)
+	text.ZIndex = 3
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, PREVIEW_PADDING)
+	padding.PaddingRight = UDim.new(0, PREVIEW_PADDING)
+	padding.Parent = text
+	text.Parent = frame
+	local scale = Instance.new("UIScale")
+	scale.Parent = frame
+	trove:Add(function()
+		Motion.cancel(scale)
+	end)
+	return frame, text, scale
+end
+
+-- A chip: a sticker in the exact pigment, its sigil in the ink that reads on it.
+local function makeChip(name: string, order: number, pigment: string, trove: TroveObject): Frame
 	local chip = Instance.new("Frame")
-	chip.Name = "Chip" .. index
-	chip.LayoutOrder = index * CHIP_ORDER_STRIDE
+	chip.Name = name
+	chip.BackgroundTransparency = 1
+	chip.LayoutOrder = order
 	chip.Size = CHIP_COLLAPSED
 	chip.ClipsDescendants = true
-	chip.BackgroundColor3 = Theme.pigmentColor(pigment)
-	chip.BorderSizePixel = 0
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-	corner.Parent = chip
-	local glyph = Instance.new("TextLabel")
-	glyph.Name = "Glyph"
-	glyph.BackgroundTransparency = 1
-	glyph.Size = UDim2.fromScale(1, 1)
-	glyph.FontFace = Theme.Fonts.Bold
-	glyph.TextSize = Theme.Sizes.TextLarge
-	-- Charcoal on Orpiment, vellum on Indigo: the ink that reads on this pigment.
-	glyph.TextColor3 = Theme.inkOn(chip.BackgroundColor3)
-	glyph.Text = PigmentConfig.Sigils[pigment :: any] or ""
-	glyph.Parent = chip
+	local color = Theme.pigmentColor(pigment)
+	local sticker = Sticker.new({
+		Kind = "Card",
+		Fill = color,
+		Corner = UDim.new(0, Theme.Sizes.CornerChip),
+		Elevation = CHIP_ELEVATION,
+		Size = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE),
+		Parent = chip,
+		Name = "Sticker",
+	})
+	trove:Add(function()
+		sticker:Destroy()
+	end)
+	if RINGED[pigment] then
+		local ring = Instance.new("Frame")
+		ring.Name = "Ring"
+		ring.BackgroundTransparency = 1
+		ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
+		ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
+		Theme.corner(ring, Theme.Sizes.CornerChip - RING_INSET)
+		Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
+		ring.Parent = sticker.Face
+	end
+	local sigil = label("Glyph", Theme.Fonts.Bold, math.floor(CHIP_SIZE * SIGIL_SCALE), Theme.inkOn(color))
+	sigil.Size = UDim2.fromScale(1, 1)
+	sigil.Text = PigmentConfig.Sigils[pigment :: any] or ""
+	sigil.Parent = sticker.Face
 	return chip
+end
+
+-- A hint rather than a press: everything the chip draws, faint.
+local function veil(chip: Frame)
+	for _, descendant in ipairs(chip:GetDescendants()) do
+		if descendant:IsA("TextLabel") then
+			descendant.TextTransparency = GHOST_TRANSPARENCY
+		elseif descendant:IsA("UIStroke") then
+			descendant.Transparency = GHOST_TRANSPARENCY
+		elseif descendant:IsA("Frame") and descendant.BackgroundTransparency < 1 then
+			descendant.BackgroundTransparency = GHOST_TRANSPARENCY
+		end
+	end
 end
 
 function ComboRow.new(props: Props): ComboRow
@@ -83,10 +214,12 @@ function ComboRow.new(props: Props): ComboRow
 	local localize = props.Localize
 	local chips: { Frame } = {}
 	local chipPigments: { string } = {}
+	local nexts: { Frame } = {}
 	local ghosts: { Frame } = {}
 	local streak = 0
 	-- Bumped by every change, so the timer that ends a chain cannot end the one that replaced it.
 	local streakGeneration = 0
+	local refusalGeneration = 0
 
 	local row = Instance.new("Frame")
 	row.Name = "Combo"
@@ -95,36 +228,97 @@ function ComboRow.new(props: Props): ComboRow
 	row.Size = UDim2.fromOffset(0, CHIP_SIZE)
 	row.AutomaticSize = Enum.AutomaticSize.X
 	trove:Add(row)
+
+	-- The chips and what reads beside them; the row shakes this when a cast is refused.
+	local line = Instance.new("Frame")
+	line.Name = "Chips"
+	line.BackgroundTransparency = 1
+	line.Size = UDim2.fromOffset(0, CHIP_SIZE)
+	line.AutomaticSize = Enum.AutomaticSize.X
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
-	layout.Parent = row
+	layout.Parent = line
+	line.Parent = row
+	trove:Add(function()
+		Motion.cancel(line)
+	end)
 
-	local streakLabel = Instance.new("TextLabel")
-	streakLabel.Name = "Streak"
-	streakLabel.BackgroundTransparency = 1
-	streakLabel.LayoutOrder = STREAK_ORDER
-	streakLabel.Size = UDim2.fromOffset(0, CHIP_SIZE)
+	-- The preview: "→ name" on an ink pill, over a line that drains for the time the controller waits.
+	local preview, previewText, previewScale = pill("Preview", HUD.PreviewHeight, PREVIEW_ORDER, trove)
+	previewText.FontFace = Theme.Fonts.Title
+	previewText.TextSize = PREVIEW_TEXT
+	-- Umber has no colour that reads on ink: its name is the sheet, in an Umber stroke.
+	local previewStroke = Theme.stroke(previewText, "Bronze", UMBER_STROKE, "Contextual")
+	local previewLine = Instance.new("Frame")
+	previewLine.Name = "Window"
+	previewLine.BorderSizePixel = 0
+	previewLine.BackgroundColor3 = Theme.Colors.PanelRaised
+	previewLine.AnchorPoint = Vector2.new(0.5, 1)
+	previewLine.Position = UDim2.new(0.5, 0, 1, -PREVIEW_LINE)
+	previewLine.ZIndex = 3
+	Theme.corner(previewLine, Theme.Pill)
+	previewLine.Parent = preview
+	trove:Add(function()
+		Motion.cancel(previewLine)
+	end)
+	preview.Parent = line
+
+	-- The chain counter, on its splat and its ring, which the counter's scale carries with it.
+	local streakHolder = Instance.new("Frame")
+	streakHolder.Name = "Streak"
+	streakHolder.BackgroundTransparency = 1
+	streakHolder.LayoutOrder = STREAK_ORDER
+	streakHolder.Size = UDim2.fromOffset(0, CHIP_SIZE)
+	streakHolder.AutomaticSize = Enum.AutomaticSize.X
+	streakHolder.Visible = false
+	local streakLabel = label("Count", Theme.Fonts.Title, STREAK_TEXT, Theme.Colors.PanelRaised)
 	streakLabel.AutomaticSize = Enum.AutomaticSize.X
-	streakLabel.FontFace = Theme.Fonts.Numeric
-	streakLabel.TextSize = Theme.Sizes.TextHero
-	streakLabel.TextColor3 = Theme.Colors.Text
-	streakLabel.TextStrokeColor3 = Theme.Colors.TextInverse
-	streakLabel.TextStrokeTransparency = 0.4
+	streakLabel.Size = UDim2.fromScale(0, 1)
+	streakLabel.ZIndex = 3
 	streakLabel.Text = ""
-	streakLabel.Visible = false
+	streakLabel.Parent = streakHolder
+	local streakStroke = Theme.stroke(streakLabel, "Outline", STREAK_STROKE, "Contextual")
 	local streakScale = Instance.new("UIScale")
 	streakScale.Name = "Scale"
-	streakScale.Parent = streakLabel
-	streakLabel.Parent = row
+	streakScale.Parent = streakHolder
+	local streakSplat: GuiObject? = nil
+	local streakRing: ImageLabel? = nil
+	local streakRingScale: UIScale? = nil
+	streakHolder.Parent = line
 	trove:Add(function()
 		Motion.cancel(streakScale)
 	end)
 
+	-- The refusal hangs under the row from a point, so it never takes room from the stack under it.
+	local refusalAnchor = Instance.new("Frame")
+	refusalAnchor.Name = "Refusal"
+	refusalAnchor.BackgroundTransparency = 1
+	refusalAnchor.Position = UDim2.fromScale(0.5, 1)
+	refusalAnchor.Size = UDim2.new()
+	refusalAnchor.ZIndex = 10
+	local refusal, refusalText, refusalScale = pill("Pill", REFUSAL_HEIGHT, 0, trove)
+	refusal.AnchorPoint = Vector2.new(0.5, 0)
+	refusal.Position = UDim2.fromOffset(0, REFUSAL_GAP)
+	refusal.Parent = refusalAnchor
+	refusalAnchor.Parent = row
+
 	row.Parent = props.Parent
+
+	-- Folds a chip out of the row and destroys it once it is gone.
+	local function fold(chip: Frame)
+		Motion.to(chip, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
+			chip:Destroy()
+		end)
+	end
+
+	local function grow(chip: Frame)
+		chip.Parent = line
+		Motion.to(chip, { Size = CHIP_OPEN }, "UiPop")
+	end
 
 	-- The chips that still match the new sequence stay; the rest collapse out of the row and the new ones
 	-- grow into it.
@@ -139,49 +333,69 @@ function ComboRow.new(props: Props): ComboRow
 			chipPigments[index] = nil
 			chip.Name = chip.Name .. "Out"
 			chip.LayoutOrder += 1
-			Motion.to(chip, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
-				chip:Destroy()
-			end)
+			fold(chip)
 		end
 		for index = keep + 1, #sequence do
-			local chip = makeChip(index, sequence[index])
-			chip.Parent = row
+			local chip = makeChip("Chip" .. index, index * CHIP_ORDER_STRIDE, sequence[index], trove)
+			grow(chip)
 			chips[index] = chip
 			chipPigments[index] = sequence[index]
-			Motion.to(chip, { Size = CHIP_OPEN }, "UiSnappy")
 		end
 	end
 
-	-- The ghosts grow in and fold out like the live chips, so the hint obeys the same rule as everything
-	-- else: nothing appears.
-	local function showGhosts(_self: ComboRow, pigments: { string }?)
-		for _, ghost in ipairs(ghosts) do
-			Motion.to(ghost, { Size = CHIP_COLLAPSED }, "UiSnappy", function()
-				ghost:Destroy()
-			end)
+	-- Faint chips (the next pigments, the ghosts): the old ones fold out and the new ones grow in.
+	local function replaceFaint(list: { Frame }, prefix: string, order: number, pigments: { string }?)
+		for _, chip in ipairs(list) do
+			fold(chip)
 		end
-		table.clear(ghosts)
+		table.clear(list)
 		if pigments == nil then
 			return
 		end
 		for index, pigment in ipairs(pigments) do
-			local chip = makeChip(index, pigment)
-			chip.Name = "Ghost" .. index
-			chip.LayoutOrder = GHOST_ORDER + index
-			chip.BackgroundTransparency = GHOST_TRANSPARENCY
-			local glyph = chip:FindFirstChild("Glyph")
-			if glyph ~= nil and glyph:IsA("TextLabel") then
-				glyph.TextTransparency = GHOST_TRANSPARENCY
+			local chip = makeChip(prefix .. index, order + index, pigment, trove)
+			veil(chip)
+			grow(chip)
+			table.insert(list, chip)
+		end
+	end
+
+	local function setContinuations(_self: ComboRow, pigments: { string })
+		replaceFaint(nexts, "Next", NEXT_ORDER, pigments)
+	end
+
+	local function showGhosts(_self: ComboRow, pigments: { string }?)
+		replaceFaint(ghosts, "Ghost", GHOST_ORDER, pigments)
+	end
+
+	local function setPreview(_self: ComboRow, glyphId: string?, windowSeconds: number?)
+		local def = if glyphId ~= nil then GlyphConfig.byId(glyphId) else nil
+		if def == nil then
+			if preview.Visible then
+				Motion.to(previewScale, { Scale = 0 }, "UiExit", function()
+					preview.Visible = false
+				end)
 			end
-			chip.Parent = row
-			table.insert(ghosts, chip)
-			Motion.to(chip, { Size = CHIP_OPEN }, "UiSnappy")
+			return
+		end
+		-- The glyph's own colour over ink (rule 2).
+		local fill = Theme.pigmentOnInk(def.Pigment)
+		previewText.TextColor3 = fill
+		previewStroke.Enabled = def.Pigment == "Umber"
+		previewText.Text = Theme.Glyphs.Arrow .. " " .. localize.t(def.NameKey)
+		preview.Visible = true
+		Motion.set(previewScale, { Scale = PREVIEW_ENTER })
+		Motion.to(previewScale, { Scale = 1 }, "UiPop")
+		-- The window, draining: the time left to grow the sequence into a longer glyph.
+		Motion.set(previewLine, { Size = UDim2.new(1, -PREVIEW_PADDING * 2, 0, PREVIEW_LINE) })
+		if windowSeconds ~= nil and windowSeconds > 0 then
+			Motion.to(previewLine, { Size = UDim2.fromOffset(0, PREVIEW_LINE) }, "Ui")
 		end
 	end
 
 	local function refreshStreak()
 		streakLabel.Text = localize.t("hud.sequence.streak", { count = streak })
-		streakLabel.Visible = streak >= STREAK_MIN_SHOWN
+		streakHolder.Visible = streak >= STREAK_MIN_SHOWN
 	end
 
 	-- The chain is over: it fades rather than vanishing, and the next cast starts again at one.
@@ -191,7 +405,7 @@ function ComboRow.new(props: Props): ComboRow
 		end
 		streak = 0
 		streakGeneration += 1
-		if not streakLabel.Visible then
+		if not streakHolder.Visible then
 			return
 		end
 		-- What is lost fades out. Not Cinnabar: nothing is about to hit the player (rule 7).
@@ -202,22 +416,115 @@ function ComboRow.new(props: Props): ComboRow
 		end)
 	end
 
+	-- A chain of four and more lands on a splat of its last pigment.
+	local function streakBacking(color: Color3)
+		local splat = streakSplat
+		if streak < STREAK_SPLAT then
+			if splat ~= nil then
+				splat.Visible = false
+			end
+			return
+		end
+		if splat == nil then
+			splat = Splat.new({
+				Size = UDim2.fromOffset(STREAK_SPLAT_SIZE, STREAK_SPLAT_SIZE),
+				Tint = color,
+				Rotation = Splat.rotation(STREAK_SPLAT),
+				Transparency = STREAK_SPLAT_TRANSPARENCY,
+				ZIndex = 1,
+				Name = "Splat",
+				Parent = streakHolder,
+			})
+			streakSplat = splat
+		end
+		if splat ~= nil then
+			splat.Visible = true
+			Splat.tint(splat, color)
+		end
+	end
+
+	-- From six, every cast sends a ring out of the counter.
+	local function streakPulse(color: Color3)
+		if streak < STREAK_RING then
+			return
+		end
+		local ring, ringScale = streakRing, streakRingScale
+		if ring == nil or ringScale == nil then
+			local id = Theme.texture("ShockwaveRing")
+			if id == "" then
+				return
+			end
+			local image = Instance.new("ImageLabel")
+			image.Name = "Ring"
+			image.BackgroundTransparency = 1
+			image.Image = id
+			image.AnchorPoint = Vector2.new(0.5, 0.5)
+			image.Position = UDim2.fromScale(0.5, 0.5)
+			image.Size = UDim2.fromOffset(CHIP_SIZE, CHIP_SIZE)
+			image.ZIndex = 2
+			local imageScale = Instance.new("UIScale")
+			imageScale.Parent = image
+			image.Parent = streakHolder
+			trove:Add(function()
+				Motion.cancel(image)
+				Motion.cancel(imageScale)
+			end)
+			ring, ringScale = image, imageScale
+			streakRing, streakRingScale = image, imageScale
+		end
+		local image, imageScale = ring :: ImageLabel, ringScale :: UIScale
+		image.ImageColor3 = color
+		Motion.set(image, { ImageTransparency = RING_TRANSPARENCY })
+		Motion.set(imageScale, { Scale = RING_FROM })
+		Motion.to(image, { ImageTransparency = 1 }, "Ui")
+		Motion.to(imageScale, { Scale = RING_TO }, "Ui")
+	end
+
 	-- The counter lands on every cast of a chain and ends itself when the window passes without another one.
-	local function cast(_self: ComboRow, chain: number)
+	local function cast(_self: ComboRow, chain: number, pigment: string?)
 		streak = math.max(1, chain)
 		streakGeneration += 1
 		local generation = streakGeneration
 		refreshStreak()
-		if streakLabel.Visible then
-			-- The count lands: it drops onto the row from larger than itself and the spring settles it.
-			streakLabel.TextColor3 = Theme.Colors.Text
-			Motion.set(streakScale, { Scale = STREAK_POP_SCALE })
-			Motion.to(streakScale, { Scale = 1 }, "UiSnappy")
+		if streakHolder.Visible then
+			local color, edge = Theme.Colors.PanelRaised, Theme.Colors.Outline
+			if pigment ~= nil then
+				color, edge = Theme.pigmentOnInk(pigment)
+			end
+			streakLabel.TextColor3 = color
+			streakStroke.Color = edge
+			streakBacking(color)
+			streakPulse(color)
+			-- The count lands: it drops onto the row from larger than itself, and the spring settles it at a
+			-- size that grows with the chain.
+			local rest = math.min(STREAK_MAX_SCALE, 1 + STREAK_GROWTH * (streak - STREAK_MIN_SHOWN))
+			Motion.set(streakScale, { Scale = math.max(STREAK_POP_SCALE, rest) })
+			Motion.to(streakScale, { Scale = rest }, "UiPop")
 		end
 		task.delay(GameConfig.Combo.ChainWindowSeconds, function()
 			if streakGeneration == generation then
 				fadeStreak(nil)
 			end
+		end)
+	end
+
+	local function refuse(_self: ComboRow, text: string)
+		refusalGeneration += 1
+		local generation = refusalGeneration
+		refusalText.Text = text
+		refusal.Visible = true
+		Motion.set(refusalScale, { Scale = REFUSAL_ENTER })
+		Motion.to(refusalScale, { Scale = 1 }, "UiPop")
+		Motion.shake(line, SHAKE)
+		task.delay(REFUSAL_SECONDS, function()
+			if refusalGeneration ~= generation then
+				return
+			end
+			Motion.to(refusalScale, { Scale = 0 }, "UiExit", function()
+				if refusalGeneration == generation then
+					refusal.Visible = false
+				end
+			end)
 		end)
 	end
 
@@ -228,9 +535,12 @@ function ComboRow.new(props: Props): ComboRow
 	local object: ComboRow = {
 		Instance = row,
 		SetSequence = setSequence,
+		SetContinuations = setContinuations,
+		SetPreview = setPreview,
 		ShowGhosts = showGhosts,
 		Cast = cast,
 		FadeStreak = fadeStreak,
+		Refuse = refuse,
 		Destroy = destroy,
 	}
 	return object

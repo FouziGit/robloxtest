@@ -22,6 +22,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local Button = require(UI.components.Button)
 local CombatDock = require(UI.components.CombatDock)
 local ComboRow = require(UI.components.ComboRow)
+local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Hotbar = require(UI.components.Hotbar)
 local InputConfig = require(Shared.Config.InputConfig)
 local Log = require(Shared.Util.Log)
@@ -85,6 +86,23 @@ local REWARD_KEYS: { [string]: boolean } = {
 	["battlepass.reward.folio"] = true,
 	["season.rewardGranted"] = true,
 }
+-- A refused cast is said under the chips, where the player's eyes already are, never as a toast (D-147). A
+-- cooldown also flashes the glyph's slot on the hotbar.
+local INLINE_KEYS: { [string]: boolean } = {
+	["hud.cast.cooldown"] = true,
+	["hud.cast.notEnoughInk"] = true,
+	["hud.cast.locked"] = true,
+	["hud.cast.notEquipped"] = true,
+	["hud.cast.failed"] = true,
+	["hud.combo.noMatch"] = true,
+	["hud.combo.dissipated"] = true,
+}
+local COOLDOWN_KEY = "hud.cast.cooldown"
+-- A chain's refund is ink: the ink bar says it, and the counter over the chips says the chain.
+local CHAIN_KEY = "hud.cast.chain"
+-- The next pigments are hinted after one press or two: one step ahead, never the whole tree.
+local HINT_MIN_PRESSES = 1
+local HINT_MAX_PRESSES = 2
 -- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
@@ -366,8 +384,24 @@ function HudController.showGhostSequence(pigments: { string }?)
 end
 
 -- One accepted cast, with the chain length the server counted for it.
-local function onLocalCast(_glyphId: string, chain: number)
-	comboRow:Cast(chain)
+local function onLocalCast(glyphId: string, chain: number)
+	local def = GlyphConfig.byId(glyphId)
+	comboRow:Cast(chain, if def ~= nil then def.Pigment else nil)
+end
+
+-- The sequence as it grows: its chips, and the pigments that go on from it after a press or two.
+local function onSequence(sequence: { string })
+	comboRow:SetSequence(sequence)
+	local hinted = #sequence >= HINT_MIN_PRESSES and #sequence <= HINT_MAX_PRESSES
+	comboRow:SetContinuations(if hinted then comboController.continuations(sequence) else {})
+end
+
+-- The glyph the sequence already is, while the controller waits for more: named over the chips, and its cost
+-- marked on the ink bar.
+local function onPreview(glyphId: string?, windowSeconds: number?)
+	comboRow:SetPreview(glyphId, windowSeconds)
+	local def = if glyphId ~= nil then GlyphConfig.byId(glyphId) else nil
+	combatDock:SetCost(if def ~= nil then def.Cost else nil)
 end
 
 -- Touch players read the on-screen Menu button, so the hint only targets keyboard and gamepad.
@@ -473,10 +507,23 @@ local function amountOf(params: { [string]: any }?): number?
 	return if type(amount) == "number" and amount > 0 then amount else nil
 end
 
--- Every message goes out through here: a celebration or a reward by its key, anything else as its kind.
-local function show(key: string, params: { [string]: any }?, kind: ToastKind)
+-- Every message goes out through here: a refused cast under the chips, a chain's refund on the ink bar, a
+-- celebration or a reward by its key, anything else as its kind. `raw` is the payload's own params, before
+-- their keys became words: the cooldown's glyph is found by its name key.
+local function show(key: string, params: { [string]: any }?, kind: ToastKind, raw: { [string]: any }?)
 	local text = localize.t(key, params)
-	if CELEBRATE_KEYS[key] then
+	local name = if raw ~= nil then raw.name else nil
+	local ink = if raw ~= nil then raw.ink else nil
+	if INLINE_KEYS[key] then
+		comboRow:Refuse(text)
+		if key == COOLDOWN_KEY and type(name) == "string" then
+			hotbar:Refuse(name)
+		end
+	elseif key == CHAIN_KEY then
+		if type(ink) == "number" then
+			combatDock:GainInk(ink)
+		end
+	elseif CELEBRATE_KEYS[key] then
 		toast:Show(text, "Celebrate")
 	elseif REWARD_KEYS[key] then
 		toast:Show(text, "Reward", amountOf(params))
@@ -501,7 +548,7 @@ local function onNotify(payload: any)
 		-- an error on the remote handler.
 		return
 	end
-	show(payload.Key, localize.resolveParams(params), kind)
+	show(payload.Key, localize.resolveParams(params), kind, params)
 	if type(payload.Sfx) == "string" then
 		soundController.play(payload.Sfx)
 	end
@@ -516,7 +563,7 @@ function HudController.showLocalToast(key: string, params: { [string]: any }?, k
 	if toast == nil then
 		return
 	end
-	show(key, params, kind or "Info")
+	show(key, params, kind or "Info", params)
 end
 
 -- Where a portal just took the player (TravelController, once it has fired Travelled): the Battleground and
@@ -555,9 +602,8 @@ function HudController.Start()
 			refreshProfile("Settings")
 		end
 	end)
-	comboController.SequenceChanged:Connect(function(sequence: { string })
-		comboRow:SetSequence(sequence)
-	end)
+	comboController.SequenceChanged:Connect(onSequence)
+	comboController.PreviewChanged:Connect(onPreview)
 	comboController.SequenceBroken:Connect(function()
 		comboRow:FadeStreak()
 	end)

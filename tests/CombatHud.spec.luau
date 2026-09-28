@@ -3,6 +3,7 @@
 -- code Lune cannot run, so what can regress silently is held by reading them -- a low health that stops
 -- burning, a dock that grows over the discs, a colour that loses its meaning -- and the numbers they are
 -- built from are checked here.
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
@@ -15,6 +16,9 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local HUD_CONTROLLER = "src/client/Controllers/HudController.luau"
 local DOCK = "src/ui/components/CombatDock.luau"
 local HOTBAR = "src/ui/components/Hotbar.luau"
+local COMBO_ROW = "src/ui/components/ComboRow.luau"
+local COMBO_CONTROLLER = "src/client/Controllers/ComboController.luau"
+local GLYPH_SERVICE = "src/server/Services/GlyphService.luau"
 local HUD = ThemeConfig.Hud
 local COLORS = ThemeConfig.Colors
 local GRAPHIC_CONTRAST = 3
@@ -223,5 +227,173 @@ describe("the hotbar", function()
 		expect(has(dock, "local height = HUD.DockHeight + (if props.Pips then HUD.HotbarPipsHeight + GAP else 0)")).toBe(
 			true
 		)
+	end)
+end)
+
+-- The keys of the table literal `name` in `source`.
+local function keysOf(source: string, name: string): { [string]: boolean }
+	local block = string.match(source, "local " .. name .. ": { %[string%]: boolean } = (%b{})")
+	assert(block ~= nil, ("no table %s: this gate would check nothing"):format(name))
+	local keys: { [string]: boolean } = {}
+	for key in string.gmatch(block :: string, '%["([%w%.]+)"%] = true') do
+		keys[key] = true
+	end
+	return keys
+end
+
+describe("the combo row", function()
+	it("says a refused cast under the chips, which shake, and never as a toast", function()
+		local hud = code(HUD_CONTROLLER)
+		local inline = keysOf(hud, "INLINE_KEYS")
+		local expected = {
+			"hud.cast.cooldown",
+			"hud.cast.notEnoughInk",
+			"hud.cast.locked",
+			"hud.cast.notEquipped",
+			"hud.cast.failed",
+			"hud.combo.noMatch",
+			"hud.combo.dissipated",
+		}
+		local count = 0
+		for _ in pairs(inline) do
+			count += 1
+		end
+		expect(count).toBe(#expected)
+		-- Every one of them is really said, by the server or by the combo controller.
+		local sayers = code(GLYPH_SERVICE) .. code(COMBO_CONTROLLER)
+		for _, key in ipairs(expected) do
+			expect(inline[key]).toBe(true)
+			if not has(sayers, '"' .. key .. '"') then
+				error(key .. " is routed under the chips, and nothing says it")
+			end
+		end
+		local show = body(hud, "show")
+		local refused = string.find(show, "if INLINE_KEYS[key] then comboRow:Refuse(text)", 1, true)
+		local toasted = string.find(show, "toast:Show(", 1, true)
+		assert(refused ~= nil and toasted ~= nil, "show no longer routes a refusal under the chips")
+		expect(refused :: number).toBeLessThan(toasted :: number)
+		-- A cooldown flashes the glyph's slot, found by the name key the server sends with it.
+		expect(has(hud, 'local COOLDOWN_KEY = "hud.cast.cooldown"\n')).toBe(true)
+		expect(has(show, 'if key == COOLDOWN_KEY and type(name) == "string" then hotbar:Refuse(name) end')).toBe(true)
+		expect(has(code(GLYPH_SERVICE), '"hud.cast.cooldown", { name = def.NameKey, seconds = seconds }')).toBe(true)
+		expect(has(body(code(HOTBAR), "refuse"), "def.NameKey == nameKey")).toBe(true)
+		-- The words, on an ink pill, for a moment; the chips shake.
+		local row = code(COMBO_ROW)
+		local refuse = body(row, "refuse")
+		expect(has(refuse, "refusalText.Text = text")).toBe(true)
+		expect(has(refuse, "Motion.shake(line, SHAKE)")).toBe(true)
+		expect(number(row, "REFUSAL_SECONDS")).toBe(1.4)
+		expect(number(row, "SHAKE")).toBe(8)
+		expect(has(row, 'local text = label("Text", Theme.Fonts.Bold, REFUSAL_TEXT, Theme.Colors.TextInverse)')).toBe(
+			true
+		)
+	end)
+
+	it("turns a chain's refund into ink on the ink bar, and leaves the chain to the counter", function()
+		local hud = code(HUD_CONTROLLER)
+		expect(has(hud, 'local CHAIN_KEY = "hud.cast.chain"\n')).toBe(true)
+		expect(
+			has(
+				body(hud, "show"),
+				'elseif key == CHAIN_KEY then if type(ink) == "number" then combatDock:GainInk(ink) end'
+			)
+		).toBe(true)
+		expect(has(code(GLYPH_SERVICE), "ink = GameConfig.Combo.ChainInkRefund")).toBe(true)
+		expect(has(body(code(DOCK), "gainInk"), "inkBar:Gain(amount, Theme.Glyphs.Plus .. tostring(amount))")).toBe(
+			true
+		)
+		expect(GameConfig.Combo.ChainInkRefund).toBeGreaterThan(0)
+	end)
+
+	it("names the glyph the sequence already is while the controller waits, and drains the wait", function()
+		local combo = code(COMBO_CONTROLLER)
+		expect(has(combo, "setPreview(ComboResolver.resolve(resolver, next), GameConfig.Combo.ExtendWindowSeconds)")).toBe(
+			true
+		)
+		-- Cleared on every other outcome: a cast, a reset, the wait running out, a menu.
+		expect(select(2, string.gsub(combo, "setPreview%(nil%)", ""))).toBeGreaterThanOrEqual(5)
+		local row = code(COMBO_ROW)
+		local preview = body(row, "setPreview")
+		expect(has(preview, "local fill = Theme.pigmentOnInk(def.Pigment)")).toBe(true)
+		expect(has(preview, 'previewStroke.Enabled = def.Pigment == "Umber"')).toBe(true)
+		expect(has(preview, 'previewText.Text = Theme.Glyphs.Arrow .. " " .. localize.t(def.NameKey)')).toBe(true)
+		expect(has(preview, 'Motion.to(previewLine, { Size = UDim2.fromOffset(0, PREVIEW_LINE) }, "Ui")')).toBe(true)
+		expect(GameConfig.Combo.ExtendWindowSeconds).toBeGreaterThan(0)
+		-- Every pigment's name reads on the ink pill: the four with a colour, and Umber as the sheet.
+		for _, pigment in ipairs(PigmentConfig.Order) do
+			local onInk = ThemeConfig.PigmentOnInk[pigment] or COLORS.PanelRaised
+			expect(ThemeConfig.contrast(onInk, COLORS.Plate)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
+		end
+	end)
+
+	it("marks the pending glyph's cost on the ink bar, and warns before the last press", function()
+		expect(has(body(code(HUD_CONTROLLER), "onPreview"), "combatDock:SetCost(if def ~= nil then def.Cost else nil)")).toBe(
+			true
+		)
+		local cost = body(code(DOCK), "setCost")
+		expect(has(cost, "costTick.Position = UDim2.fromScale(math.clamp(cost / maxInk, 0, 1), 0.5)")).toBe(true)
+		expect(has(cost, "if ink < cost then flashRing() end")).toBe(true)
+		local flash = body(code(DOCK), "flashRing")
+		expect(select(2, string.gsub(flash, "Theme%.Colors%.Chalk", ""))).toBe(2)
+		-- Neutral: neither red nor a value colour, since it is a warning, not a danger.
+		expect(has(flash, "Danger")).toBe(false)
+	end)
+
+	it("hints the next pigments after one press or two: one step ahead, never the whole tree", function()
+		local hud = code(HUD_CONTROLLER)
+		expect(number(hud, "HINT_MIN_PRESSES")).toBe(1)
+		expect(number(hud, "HINT_MAX_PRESSES")).toBe(2)
+		local sequence = body(hud, "onSequence")
+		expect(has(sequence, "local hinted = #sequence >= HINT_MIN_PRESSES and #sequence <= HINT_MAX_PRESSES")).toBe(
+			true
+		)
+		expect(
+			has(sequence, "comboRow:SetContinuations(if hinted then comboController.continuations(sequence) else {})")
+		).toBe(true)
+		expect(has(code(COMBO_CONTROLLER), "return ComboResolver.continuations(resolver, pending)")).toBe(true)
+		expect(has(code(COMBO_ROW), 'replaceFaint(nexts, "Next", NEXT_ORDER, pigments)')).toBe(true)
+	end)
+
+	it("keeps its order: the chips, the next pigments, the preview, the chain, the ghosts", function()
+		local row = code(COMBO_ROW)
+		local stride = number(row, "CHIP_ORDER_STRIDE")
+		local lastChip = GameConfig.Combo.MaxLength * stride + 1
+		local nextOrder = number(row, "NEXT_ORDER")
+		expect(lastChip).toBeLessThan(nextOrder)
+		expect(nextOrder + 5).toBeLessThan(number(row, "PREVIEW_ORDER"))
+		expect(number(row, "PREVIEW_ORDER")).toBeLessThan(number(row, "STREAK_ORDER"))
+		expect(number(row, "STREAK_ORDER")).toBeLessThan(number(row, "GHOST_ORDER"))
+		expect(number(row, "STREAK_ORDER")).toBe(160)
+		expect(number(row, "PREVIEW_ORDER")).toBe(150)
+	end)
+
+	it("grows the chain counter with the chain, on a splat from four and a ring from six", function()
+		local row = code(COMBO_ROW)
+		local cast = body(row, "cast")
+		expect(has(cast, "local rest = math.min(STREAK_MAX_SCALE, 1 + STREAK_GROWTH * (streak - STREAK_MIN_SHOWN))")).toBe(
+			true
+		)
+		expect(has(cast, 'Motion.to(streakScale, { Scale = rest }, "UiPop")')).toBe(true)
+		expect(has(cast, "color, edge = Theme.pigmentOnInk(pigment)")).toBe(true)
+		expect(number(row, "STREAK_GROWTH")).toBe(0.08)
+		expect(number(row, "STREAK_MAX_SCALE")).toBe(1.4)
+		expect(number(row, "STREAK_SPLAT")).toBe(4)
+		expect(number(row, "STREAK_RING")).toBe(6)
+		expect(has(body(row, "streakBacking"), "if streak < STREAK_SPLAT then")).toBe(true)
+		expect(has(body(row, "streakPulse"), "if streak < STREAK_RING then")).toBe(true)
+		expect(has(code(HUD_CONTROLLER), "comboRow:Cast(chain, if def ~= nil then def.Pigment else nil)")).toBe(true)
+	end)
+
+	it("draws each press as a sticker of its pigment, popping in, dark pigments ringed", function()
+		local row = code(COMBO_ROW)
+		expect(HUD.ChipSize).toBe(44)
+		expect(has(row, "local CHIP_SIZE = HUD.ChipSize\n")).toBe(true)
+		expect(has(body(row, "grow"), 'Motion.to(chip, { Size = CHIP_OPEN }, "UiPop")')).toBe(true)
+		expect(has(body(row, "fold"), '"UiSnappy"')).toBe(true)
+		local chip = body(row, "makeChip")
+		expect(has(chip, "local color = Theme.pigmentColor(pigment)")).toBe(true)
+		expect(has(chip, 'Kind = "Card",')).toBe(true)
+		expect(has(row, "local RINGED: { [string]: boolean } = { Indigo = true, Umber = true }")).toBe(true)
+		expect(has(chip, "Theme.inkOn(color)")).toBe(true)
 	end)
 end)

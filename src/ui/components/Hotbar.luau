@@ -50,6 +50,8 @@ export type Hotbar = {
 	-- The device the keys are drawn for, and the key bound to each pigment.
 	SetKeys: (self: Hotbar, device: Keycap.Device, keys: { [string]: string }) -> (),
 	SetState: (self: Hotbar, state: State) -> (),
+	-- A cast of the glyph named `nameKey` refused for its cooldown: its slot flashes chalk twice.
+	Refuse: (self: Hotbar, nameKey: string) -> (),
 	Destroy: (self: Hotbar) -> (),
 }
 
@@ -455,6 +457,20 @@ function Hotbar.new(props: Props): Hotbar
 		end
 	end
 
+	local function refuse(_self: Hotbar, nameKey: string)
+		for _, slot in ipairs(slots) do
+			local def = if slot.GlyphId ~= nil then GlyphConfig.byId(slot.GlyphId) else nil
+			if def ~= nil and def.NameKey == nameKey and slot.Root.Visible then
+				local color = if slot.Unaffordable then Theme.Colors.Chalk else Theme.pigmentColor(def.Pigment)
+				Motion.set(slot.Chip, { BackgroundColor3 = Theme.Colors.Chalk })
+				Motion.to(slot.Chip, { BackgroundColor3 = color }, "UiPop", function()
+					Motion.set(slot.Chip, { BackgroundColor3 = Theme.Colors.Chalk })
+					Motion.to(slot.Chip, { BackgroundColor3 = color }, "UiPop")
+				end)
+			end
+		end
+	end
+
 	local function destroy(_self: Hotbar)
 		trove:Destroy()
 	end
@@ -464,6 +480,7 @@ function Hotbar.new(props: Props): Hotbar
 		SetLoadout = setLoadout,
 		SetKeys = setKeys,
 		SetState = setState,
+		Refuse = refuse,
 		Destroy = destroy,
 	}
 	return object

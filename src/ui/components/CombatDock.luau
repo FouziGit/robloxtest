@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Breath = require(script.Parent.Parent.Breath)
 local Icon = require(script.Parent.Icon)
+local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
 local Sticker = require(script.Parent.Sticker)
 local Theme = require(script.Parent.Parent.Theme)
@@ -55,6 +56,11 @@ export type CombatDock = {
 	SetState: (self: CombatDock, state: State) -> (),
 	-- On touch the dock is never wider than the gap between the thumbs.
 	SetWidth: (self: CombatDock, width: number) -> (),
+	-- The ink the pending glyph costs, marked on the ink bar, or nil: a player who cannot pay sees the bar's
+	-- ring flash before they finish the sequence.
+	SetCost: (self: CombatDock, cost: number?) -> (),
+	-- Ink handed back (a chain's refund): the bar flashes and "+N" rises off it.
+	GainInk: (self: CombatDock, amount: number) -> (),
 	Destroy: (self: CombatDock) -> (),
 }
 
@@ -73,6 +79,9 @@ local NUMBER_WIDTH = 48
 local NUMBER_GAP = 8
 local HEALTH_TEXT = 20
 local INK_TEXT = 16
+-- The pending glyph's cost on the ink bar: a sheet tick in an ink outline, standing past the bar.
+local COST_TICK = 3
+local COST_TICK_OVERHANG = 4
 local GUARD_SIZE = 16
 local GUARD_IDLE = 0.6
 local COMBAT_DOT = 8
@@ -285,6 +294,25 @@ function CombatDock.new(props: Props): CombatDock
 		Parent = inkRow,
 	})
 	fill(inkBar.Instance)
+	-- Over the bar's own ring of the sheet: the ring that flashes when the ink cannot pay.
+	local costRing = Instance.new("Frame")
+	costRing.Name = "CostRing"
+	costRing.BackgroundTransparency = 1
+	costRing.Size = UDim2.fromScale(1, 1)
+	costRing.ZIndex = 6
+	Theme.corner(costRing, Theme.Pill)
+	local costEdge = Theme.stroke(costRing, "PanelRaised", Theme.Sizes.StrokeThin)
+	costRing.Parent = inkBar.Instance
+	local costTick = Instance.new("Frame")
+	costTick.Name = "Cost"
+	costTick.BorderSizePixel = 0
+	costTick.BackgroundColor3 = Theme.Colors.PanelRaised
+	costTick.AnchorPoint = Vector2.new(0.5, 0.5)
+	costTick.Size = UDim2.new(0, COST_TICK, 1, COST_TICK_OVERHANG)
+	costTick.ZIndex = 7
+	costTick.Visible = false
+	Theme.stroke(costTick, "Accent", 1)
+	costTick.Parent = inkBar.Instance
 	local inkSlot = slot("Number", NUMBER_WIDTH, 3, inkRow)
 	local inkLayout = Instance.new("UIListLayout")
 	inkLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -307,9 +335,11 @@ function CombatDock.new(props: Props): CombatDock
 	combatDot.Parent = inkSlot
 
 	trove:Add(function()
+		Motion.cancel(costEdge)
 		healthBar:Destroy()
 		inkBar:Destroy()
 	end)
+	local ink, maxInk = 0, 0
 
 	local vignette, strips = buildVignette(props.Screen, trove)
 
@@ -373,6 +403,7 @@ function CombatDock.new(props: Props): CombatDock
 	local function setState(_self: CombatDock, state: State)
 		healthBar:SetProgress(if state.MaxHealth > 0 then state.Health / state.MaxHealth else 0)
 		inkBar:SetProgress(if state.MaxInk > 0 then state.Ink / state.MaxInk else 0)
+		ink, maxInk = state.Ink, state.MaxInk
 		healthNumber.Text = tostring(math.floor(state.Health + 0.5))
 		inkNumber.Text = tostring(math.floor(state.Ink + 0.5))
 		setLow(state.MaxHealth > 0 and state.Health <= state.MaxHealth * HUD.LowHealthFraction)
@@ -390,6 +421,31 @@ function CombatDock.new(props: Props): CombatDock
 		dock.Size = UDim2.fromOffset(width, height)
 	end
 
+	-- Chalk, back to the sheet, twice: the warning comes before the last press, not after it.
+	local function flashRing()
+		Motion.set(costEdge, { Color = Theme.Colors.Chalk })
+		Motion.to(costEdge, { Color = Theme.Colors.PanelRaised }, "UiPop", function()
+			Motion.set(costEdge, { Color = Theme.Colors.Chalk })
+			Motion.to(costEdge, { Color = Theme.Colors.PanelRaised }, "UiPop")
+		end)
+	end
+
+	local function setCost(_self: CombatDock, cost: number?)
+		if cost == nil or maxInk <= 0 then
+			costTick.Visible = false
+			return
+		end
+		costTick.Position = UDim2.fromScale(math.clamp(cost / maxInk, 0, 1), 0.5)
+		costTick.Visible = true
+		if ink < cost then
+			flashRing()
+		end
+	end
+
+	local function gainInk(_self: CombatDock, amount: number)
+		inkBar:Gain(amount, Theme.Glyphs.Plus .. tostring(amount))
+	end
+
 	local function destroy(_self: CombatDock)
 		trove:Destroy()
 	end
@@ -399,6 +455,8 @@ function CombatDock.new(props: Props): CombatDock
 		PipRow = pipRow,
 		SetState = setState,
 		SetWidth = setWidth,
+		SetCost = setCost,
+		GainInk = gainInk,
 		Destroy = destroy,
 	}
 	return object

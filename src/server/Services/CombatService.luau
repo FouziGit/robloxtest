@@ -19,6 +19,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local OriginGuard = require(Shared.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
@@ -142,6 +143,13 @@ type State = {
 	-- a multiple of itself.
 	TravelAllowanceStuds: number,
 	TravelAllowanceUntil: number,
+	-- The round-trip tolerance has been used by an action since the anchor last caught up (OriginGuard
+	-- .follow). Only an action sets it; an Accepted sample clears it.
+	ToleranceSpent: boolean,
+	-- The anchor fell behind across a stall (a non-Accepted verdict after MovementGuardConfig.StallSeconds
+	-- of silence) and is still chasing. A refused action counts no violation meanwhile: the gap is the
+	-- connection's, and the action is already resolved from the anchor. Cleared by an Accepted sample.
+	Converging: boolean,
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
@@ -380,8 +388,9 @@ local GUARD: OriginGuard.Config = {
 -- would punish a bad connection: the action still happens, anchored at the last position the server did
 -- believe, so a teleported attacker swings at empty air. Only a sustained stream of them strikes.
 --
--- The envelope widens with the time since the last accepted sample, so a stale sample always catches up
--- and nobody can be stuck. Server-authored teleports go through resyncPosition instead.
+-- An implausible sample does not freeze the anchor: it chases the observation at the speed ceiling, so a
+-- body that fell behind catches up and nobody stays stuck. Server-authored teleports go through
+-- resyncPosition instead.
 -- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
 -- Called by every server-authored displacement the client applies (dash, knockback, a glyph dash): the
 -- character is simulated by the owning client, so the move arrives as one jump in the replicated
@@ -427,59 +436,88 @@ local function upright(frame: CFrame): CFrame
 	return CFrame.lookAlong(frame.Position, Vector3.new(x, 0, z))
 end
 
+-- Every coordinate a number and within MovementGuardConfig.MaxCoordinateStuds: NaN fails every comparison,
+-- so it is caught by the same test as a coordinate flung out of the world.
+local function isSanePosition(position: Vector3): boolean
+	local limit = MovementGuardConfig.MaxCoordinateStuds
+	return math.abs(position.X) <= limit and math.abs(position.Y) <= limit and math.abs(position.Z) <= limit
+end
+
 -- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
--- passes false: it only ever moves the anchor, and must neither strike nor absolve.
+-- passes false: it moves the anchor, and must neither strike, nor absolve, nor spend the tolerance.
 --
--- Three outcomes, and the middle one is what keeps the tolerance from being farmed:
+-- The verdicts (OriginGuard.follow):
 --  * within the speed ceiling plus any unspent server-granted allowance -> honest movement: the anchor
 --    follows, and the allowance is reduced by the part of the travel that needed it;
---  * beyond that but within OriginToleranceStuds -> the action is resolved where the client says it is,
---    to absorb the round trip, but the anchor does NOT move. So the tolerance is worth one action, never
---    a fresh helping every 50 ms, and the displacement keeps accumulating against a stationary anchor
---    until it is refused;
---  * beyond that -> the action is resolved from the anchor instead, and it counts as a violation.
+--  * beyond that but within OriginToleranceStuds, on the first action since the anchor last caught up ->
+--    the action is resolved where the client says it is, to absorb the round trip, once;
+--  * beyond that -> the action is resolved from the anchor, and only a Refused one (past the tolerance)
+--    counts as a violation, unless the anchor is converging after a stall.
+-- In every case but the first, the anchor advances toward the observation by what the ceiling allows, so a
+-- body that fell behind is caught up with rather than refused forever, and a held spoof is believed only
+-- after it has cost the time it would have taken to walk there.
 --
 -- Only HORIZONTAL travel is measured. Vertical speed is gravity-driven and unbounded, so a fall would
 -- fail every check, while the exploit being bounded is repositioning onto a target. The anchor's height
 -- always follows the observation, so a clamped origin still sits at the player's real altitude.
 --
+-- A position that is not a number, or is beyond MovementGuardConfig.MaxCoordinateStuds, is never stored:
+-- the action is resolved from the anchor, and a later honest sample is still judged against it.
+--
 -- Upright, always: every swing and every glyph is aimed with this frame, and a root tilted by a fall
 -- aimed them into the ground or the sky (D-113).
 local function trustedCFrame(state: State, root: BasePart, now: number, strikeOnFailure: boolean): CFrame
 	local observed = upright(root.CFrame)
+	local position = observed.Position
 	local trusted = state.TrustedPosition
+	if not isSanePosition(position) then
+		return if trusted ~= nil then CFrame.new(trusted) else observed
+	end
 	if trusted == nil then
-		state.TrustedPosition = observed.Position
+		state.TrustedPosition = position
 		state.TrustedAt = now
 		return observed
 	end
 	local elapsed = now - state.TrustedAt
 	local allowance = liveAllowance(state, now)
-	local delta = observed.Position - trusted
-	local travelled = Vector3.new(delta.X, 0, delta.Z).Magnitude
-	local verdict, allowanceLeft = OriginGuard.judge(travelled, elapsed, allowance, GUARD)
+	local delta = position - trusted
+	local flatDelta = Vector3.new(delta.X, 0, delta.Z)
+	local travelled = flatDelta.Magnitude
+	local verdict, allowanceLeft, advance, toleranceSpent =
+		OriginGuard.follow(travelled, elapsed, allowance, strikeOnFailure, state.ToleranceSpent, GUARD)
 	state.TravelAllowanceStuds = allowanceLeft
-
+	state.ToleranceSpent = toleranceSpent
 	if verdict == "Accepted" then
-		state.TrustedPosition = observed.Position
+		state.Converging = false
+		state.TrustedPosition = position
 		state.TrustedAt = now
 		return observed
 	end
-	-- Every other verdict leaves the horizontal anchor and its clock alone. The altitude still follows, so
-	-- a falling player is not measured against where they jumped from and a clamped origin is never
-	-- underground.
-	local anchor = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
-	state.TrustedPosition = anchor
-	if verdict ~= "Refused" then
+	if verdict == "Still" then
+		-- Nothing moved: the clock is left alone so the budget keeps growing through a stall. The altitude
+		-- still follows, so a falling player is not measured against where they jumped from.
+		state.TrustedPosition = Vector3.new(trusted.X, position.Y, trusted.Z)
 		return observed
 	end
-	if strikeOnFailure then
+	if elapsed >= MovementGuardConfig.StallSeconds then
+		state.Converging = true
+	end
+	-- Chase: `advance` never reaches the observation here (it would have been Accepted), so the flat delta
+	-- is long enough to have a direction.
+	local chased = trusted + flatDelta.Unit * advance
+	local anchor = Vector3.new(chased.X, position.Y, chased.Z)
+	state.TrustedPosition = anchor
+	state.TrustedAt = now
+	if verdict == "Tolerated" then
+		return observed
+	end
+	if verdict == "Refused" and strikeOnFailure and not state.Converging then
 		countViolation(state, now, travelled, OriginGuard.budget(elapsed, allowance, GUARD))
 	end
 	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected. The local
 	-- anchor is used rather than state.TrustedPosition, which the field's own type says may be nil: it is
-	-- not, one line above, but relying on that is how a later edit turns a type error into a crash.
-	return CFrame.new(anchor) * (observed - observed.Position)
+	-- not, a few lines above, but relying on that is how a later edit turns a type error into a crash.
+	return CFrame.new(anchor) * (observed - position)
 end
 
 -- The live root of `player`, resolved through Players rather than the state's cached Character: with
@@ -513,6 +551,8 @@ function CombatService.resyncPosition(player: Player, position: Vector3?)
 	state.TrustedAt = os.clock()
 	state.TravelAllowanceStuds = 0
 	state.TravelAllowanceUntil = 0
+	state.ToleranceSpent = false
+	state.Converging = false
 	table.clear(state.OriginViolations)
 end
 
@@ -687,6 +727,8 @@ local function resetState(state: State, now: number)
 	state.OriginViolations = {}
 	state.TravelAllowanceStuds = 0
 	state.TravelAllowanceUntil = 0
+	state.ToleranceSpent = false
+	state.Converging = false
 end
 
 -- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
@@ -809,6 +851,8 @@ local function onPlayerAdded(player: Player)
 		OriginViolations = {},
 		TravelAllowanceStuds = 0,
 		TravelAllowanceUntil = 0,
+		ToleranceSpent = false,
+		Converging = false,
 	}
 	resetState(state, os.clock())
 	states[player] = state

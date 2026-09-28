@@ -5,8 +5,9 @@
 -- Roblox simulates a player's character on the owning client, so the replicated position is whatever that
 -- client last sent. The server keeps the last position it was willing to believe, its timestamp, and any
 -- travel a server-authored burst (a dash, a knockback) still entitles the character to; this module turns
--- the horizontal distance from that anchor into one of four verdicts. CombatService does the Roblox parts:
--- reading the root, measuring the distance, and acting on the verdict.
+-- the horizontal distance from that anchor into a verdict, and says how far the anchor may chase the
+-- observation. CombatService does the Roblox parts: reading the root, measuring the distance, moving the
+-- anchor and acting on the verdict.
 --
 -- Only horizontal distance is judged. Vertical speed is gravity-driven and unbounded, while the exploit
 -- being bounded is repositioning onto a target.
@@ -28,14 +29,18 @@ export type Config = {
 -- "Still"      nothing moved: no anchor to update, and the clock must NOT be refreshed, or a stall would
 --              hold the budget at one sample and then refuse the burst that catches up.
 -- "Accepted"   plausible: the anchor follows, and the allowance is reduced by the part that needed it.
--- "Tolerated"  beyond plausible but inside the round-trip tolerance: the action is resolved where the
---              client says it is, and the anchor does NOT move, so the tolerance is worth one action
---              rather than a fresh helping every sample.
--- "Refused"    beyond that: resolve the action from the anchor instead, and count a violation.
-export type Verdict = "Still" | "Accepted" | "Tolerated" | "Refused"
+-- "Tolerated"  beyond plausible but inside the round-trip tolerance, on an action that has not used the
+--              tolerance since the anchor last caught up: the action is resolved where the client says it
+--              is, once. The tolerance is worth one action per catch-up, never a fresh helping every sample.
+-- "Chasing"    inside the tolerance, but the tolerance is spent or this is not an action: the anchor
+--              advances at the ceiling and the action, if any, is resolved from it. No violation.
+-- "Refused"    beyond the tolerance: the anchor advances at the ceiling, the action is resolved from it,
+--              and it counts as a violation unless the anchor is still converging after a stall.
+export type Verdict = "Still" | "Accepted" | "Tolerated" | "Chasing" | "Refused"
 
--- Returns the verdict and the allowance left afterwards. `travelled` is the horizontal distance from the
--- anchor, `elapsed` the seconds since the anchor was set, `allowance` the unspent server-granted studs.
+-- Returns the verdict and the allowance left afterwards, never "Chasing": that needs to know who asks
+-- (`follow`). `travelled` is the horizontal distance from the anchor, `elapsed` the seconds since the anchor
+-- was set, `allowance` the unspent server-granted studs.
 function OriginGuard.judge(travelled: number, elapsed: number, allowance: number, config: Config): (Verdict, number)
 	local unspent = math.max(0, allowance)
 	if travelled ~= travelled or travelled <= config.StillEpsilonStuds then
@@ -60,6 +65,39 @@ end
 function OriginGuard.budget(elapsed: number, allowance: number, config: Config): number
 	local window = math.clamp(elapsed, 0, config.MaxBudgetSeconds)
 	return config.MaxSpeedStudsPerSecond * window + math.max(0, allowance)
+end
+
+-- The anchor chases the observation instead of freezing where it last believed it. Frozen, an honest body
+-- that fell behind by one uplink stall never caught up again: the gap grew with every step, every action
+-- was refused, and an M1 player collected strikes until kicked. Chasing at the ceiling, the gap closes as
+-- fast as the rules allow and a held spoof is still only believed after it has cost real time.
+--
+-- Returns the verdict, the allowance left, how far the anchor advances toward the observation, and whether
+-- the round-trip tolerance has been used since the anchor last caught up. Only an ACTION may spend it: the
+-- per-tick sampling would otherwise use it up before any action could.
+function OriginGuard.follow(
+	travelled: number,
+	elapsed: number,
+	allowance: number,
+	action: boolean,
+	toleranceSpent: boolean,
+	config: Config
+): (Verdict, number, number, boolean)
+	local verdict, left = OriginGuard.judge(travelled, elapsed, allowance, config)
+	if verdict == "Still" then
+		return "Still", left, 0, toleranceSpent
+	end
+	if verdict == "Accepted" then
+		return "Accepted", left, travelled, false
+	end
+	local advance = OriginGuard.budget(elapsed, allowance, config)
+	if verdict == "Tolerated" then
+		if action and not toleranceSpent then
+			return "Tolerated", 0, advance, true
+		end
+		return "Chasing", 0, advance, toleranceSpent
+	end
+	return "Refused", 0, advance, toleranceSpent
 end
 
 -- Below this much horizontal length, a look vector says nothing about which way a body faces.

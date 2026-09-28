@@ -1,6 +1,8 @@
 --!strict
+local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 local OriginGuard = require("../src/shared/Pure/OriginGuard")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -13,7 +15,8 @@ local CONFIG: OriginGuard.Config = {
 	MaxBudgetSeconds = GameConfig.Latency.MaxBudgetSeconds,
 	StillEpsilonStuds = 0.05,
 }
-local TICK = 1 / GameConfig.Server.TickRate
+local RATE = GameConfig.Server.TickRate
+local TICK = 1 / RATE
 local WALK = GameConfig.Movement.WalkSpeed
 local DASH_STUDS = 22
 
@@ -30,8 +33,7 @@ describe("OriginGuard shipped numbers", function()
 	end)
 
 	it("keeps the tolerance under the melee reach", function()
-		local melee = require("../src/shared/Config/CombatConfig").Melee.Range
-		expect(CONFIG.OriginToleranceStuds < melee).toBe(true)
+		expect(CONFIG.OriginToleranceStuds < CombatConfig.Melee.Range).toBe(true)
 	end)
 end)
 
@@ -92,18 +94,236 @@ describe("OriginGuard on a spoofed position", function()
 		expect(verdict(capped + CONFIG.OriginToleranceStuds + 0.1, 10, 0)).toBe("Refused")
 	end)
 
-	it("makes a held spoof cost real time before it is believed", function()
-		-- The point of the ceiling: a 90-stud offset has to be held, with every action refused meanwhile.
-		local offset = 90
-		expect(verdict(offset, TICK, 0)).toBe("Refused")
-		local seconds = offset / CONFIG.MaxSpeedStudsPerSecond
-		expect(seconds > 2).toBe(true)
-		-- And even then only because the window is capped, so it takes several refused samples in a row.
-		expect(verdict(offset, CONFIG.MaxBudgetSeconds, 0)).toBe("Refused")
-	end)
-
 	it("treats a NaN sample as still rather than plausible", function()
 		expect(verdict(0 / 0, TICK, 0)).toBe("Still")
+	end)
+end)
+
+describe("OriginGuard.follow", function()
+	local bySpeed = CONFIG.MaxSpeedStudsPerSecond * TICK
+
+	it("leaves a still body's anchor, clock, allowance and tolerance alone", function()
+		for _, spent in ipairs({ false, true }) do
+			local result, left, advance, stillSpent = OriginGuard.follow(0, TICK, DASH_STUDS, true, spent, CONFIG)
+			expect(result).toBe("Still")
+			expect(left).toBe(DASH_STUDS)
+			expect(advance).toBe(0)
+			expect(stillSpent).toBe(spent)
+		end
+	end)
+
+	it("follows an accepted body all the way and gives the tolerance back", function()
+		local result, left, advance, spent = OriginGuard.follow(WALK * TICK, TICK, 0, false, true, CONFIG)
+		expect(result).toBe("Accepted")
+		expect(left).toBe(0)
+		expect(advance).toBe(WALK * TICK)
+		expect(spent).toBe(false)
+	end)
+
+	it("resolves one action inside the tolerance where the client says, then chases", function()
+		local inside = bySpeed + CONFIG.OriginToleranceStuds
+		local result, left, advance, spent = OriginGuard.follow(inside, TICK, 0, true, false, CONFIG)
+		expect(result).toBe("Tolerated")
+		expect(left).toBe(0)
+		expect(advance).toBe(bySpeed)
+		expect(spent).toBe(true)
+		-- The next action inside it, before the anchor has caught up, is resolved from the anchor instead.
+		result, _, advance, spent = OriginGuard.follow(inside, TICK, 0, true, true, CONFIG)
+		expect(result).toBe("Chasing")
+		expect(advance).toBe(bySpeed)
+		expect(spent).toBe(true)
+	end)
+
+	it("lets only an action spend the tolerance", function()
+		-- The per-tick sampling runs twenty times a second: had it been allowed to spend the tolerance, no
+		-- action would ever find it unspent.
+		local inside = bySpeed + CONFIG.OriginToleranceStuds
+		local result, _, advance, spent = OriginGuard.follow(inside, TICK, 0, false, false, CONFIG)
+		expect(result).toBe("Chasing")
+		expect(advance).toBe(bySpeed)
+		expect(spent).toBe(false)
+		result = OriginGuard.follow(inside, TICK, 0, true, spent, CONFIG)
+		expect(result).toBe("Tolerated")
+	end)
+
+	it("chases past the tolerance by the whole budget, allowance included, and refuses", function()
+		for _, action in ipairs({ false, true }) do
+			local result, left, advance, spent = OriginGuard.follow(80, TICK, 5, action, false, CONFIG)
+			expect(result).toBe("Refused")
+			expect(left).toBe(0)
+			expect(advance).toBe(bySpeed + 5)
+			expect(spent).toBe(false)
+		end
+	end)
+end)
+
+-- CombatService.trustedCFrame on one horizontal axis: the anchor, its clock, the tolerance, the converging
+-- flag and the violations, driven through OriginGuard.follow the way the service drives it. The service
+-- itself needs an engine; tests/MovementGates.spec.luau holds its source to this shape.
+type Anchor = {
+	X: number,
+	At: number,
+	Spent: boolean,
+	Converging: boolean,
+	Violations: { number },
+	Refusals: number,
+	Strikes: number,
+}
+
+local function newAnchor(): Anchor
+	return { X = 0, At = 0, Spent = false, Converging = false, Violations = {}, Refusals = 0, Strikes = 0 }
+end
+
+-- Judges the observation `seen` at `now`; returns the verdict and where the action, if any, is resolved.
+local function judgeAt(anchor: Anchor, seen: number, now: number, action: boolean): (OriginGuard.Verdict, number)
+	local elapsed = now - anchor.At
+	local result, _, advance, spent =
+		OriginGuard.follow(math.abs(seen - anchor.X), elapsed, 0, action, anchor.Spent, CONFIG)
+	anchor.Spent = spent
+	if result == "Accepted" then
+		anchor.Converging = false
+		anchor.X, anchor.At = seen, now
+		return result, seen
+	end
+	if result == "Still" then
+		return result, seen
+	end
+	if elapsed >= MovementGuardConfig.StallSeconds then
+		anchor.Converging = true
+	end
+	anchor.X += math.sign(seen - anchor.X) * advance
+	anchor.At = now
+	if result == "Tolerated" then
+		return result, seen
+	end
+	if result == "Refused" and action and not anchor.Converging then
+		anchor.Refusals += 1
+		local cutoff = now - GameConfig.Latency.ViolationWindowSeconds
+		while #anchor.Violations > 0 and anchor.Violations[1] < cutoff do
+			table.remove(anchor.Violations, 1)
+		end
+		table.insert(anchor.Violations, now)
+		if #anchor.Violations >= GameConfig.Latency.ViolationsBeforeStrike then
+			table.clear(anchor.Violations)
+			anchor.Strikes += 1
+		end
+	end
+	return result, anchor.X
+end
+
+describe("the trusted anchor, chasing", function()
+	it("makes a held spoof cost real time before it is believed", function()
+		-- The point of the ceiling: a 90-stud offset has to be held, with every action but one clamped
+		-- meanwhile. No single sample believes it, whatever time has passed, because the window is capped.
+		local offset = 90
+		expect(verdict(offset, TICK, 0)).toBe("Refused")
+		expect(verdict(offset, CONFIG.MaxBudgetSeconds, 0)).toBe("Refused")
+		-- The anchor chases at the ceiling, so the offset is believed on the 45th tick, 2.25 s after it
+		-- appeared (GameConfig.Latency), and not one tick sooner.
+		local anchor = newAnchor()
+		local believedOn: number?, honoured = nil, 0
+		for tick = 1, 100 do
+			local now = tick * TICK
+			local _, at = judgeAt(anchor, offset, now - TICK / 2, true)
+			if at == offset then
+				honoured += 1
+			end
+			if judgeAt(anchor, offset, now, false) == "Accepted" then
+				believedOn = tick
+				break
+			end
+		end
+		expect(believedOn).toBe(45)
+		expect(honoured).toBeLessThanOrEqual(1)
+	end)
+
+	-- A walker at WalkSpeed, sampled every tick, whose uplink delivers nothing from 1 s to 1 + `stall` s.
+	-- Returns the samples refused once it catches up, how long after the last of them came, and the gap left
+	-- 10 s later. `frozen` keeps the anchor and its clock where they last believed the body, as they did
+	-- before the chase.
+	local function converge(stall: number, frozen: boolean): (number, number, number)
+		local anchor = newAnchor()
+		local seen, refused, lastRefused = 0, 0, 0
+		for tick = 1, math.round((1 + stall + 10) * RATE) do
+			local now = tick * TICK
+			if tick < RATE or tick > RATE * (1 + stall) then
+				seen = WALK * now
+			end
+			local x, at = anchor.X, anchor.At
+			local result = judgeAt(anchor, seen, now, false)
+			if frozen and result ~= "Accepted" then
+				anchor.X, anchor.At = x, at
+			end
+			if now > 1 + stall and result == "Refused" then
+				refused += 1
+				lastRefused = now - (1 + stall)
+			end
+		end
+		return refused, lastRefused, math.abs(seen - anchor.X)
+	end
+
+	it("catches up with an honest walker after an uplink stall", function()
+		-- Stall -> refused samples after it, and when the last came. Frozen, the anchor never caught up from
+		-- 1.2 s on: every sample for the next ten seconds was refused and the gap only grew.
+		local expected = {
+			{ 1.2, 0, 0 },
+			{ 2, 7, 0.35 },
+			{ 3, 20, 1.0 },
+			{ 5, 47, 2.35 },
+			{ 8, 87, 4.35 },
+		}
+		for _, row in ipairs(expected) do
+			local refused, last, gap = converge(row[1], false)
+			expect(refused).toBe(row[2])
+			expect(last).toBeCloseTo(row[3], 6)
+			expect(gap).toBe(0)
+		end
+		local refused, _, gap = converge(1.2, true)
+		expect(refused).toBe(193)
+		expect(gap).toBeGreaterThan(170)
+	end)
+
+	it("never strikes an M1 player who comes back from a stall", function()
+		-- A walker swinging at the combo's full cadence for a minute after an uplink stall, sampled 20 times
+		-- a second with 50 ms of one-way latency, simulated at 240 Hz. Before the chase this was 112 to 126
+		-- violations and 37 to 42 strikes: the kick is at 25. Now a few swings are clamped while the anchor
+		-- converges, and none of them counts.
+		local melee = CombatConfig.Melee
+		local swing = (3 * melee.HitIntervalSeconds + melee.FinisherCooldownSeconds) / #melee.Damage
+		local STEPS = 240
+		local LATENCY = 0.05
+		local STALL_AT = 5
+		local expected = { { 1.2, 0 }, { 2, 1 }, { 3, 3 }, { 5, 5 }, { 8, 10 } }
+		for _, row in ipairs(expected) do
+			local stall = row[1]
+			local anchor = newAnchor()
+			local seen, clamped, nextSwing = 0, 0, 0.2
+			local packets: { { number } } = {}
+			for step = 1, (STALL_AT + 60) * STEPS do
+				local now = step / STEPS
+				local tick = step // (STEPS / RATE)
+				local onTick = step % (STEPS / RATE) == 0
+				if onTick and (tick < STALL_AT * RATE or tick > RATE * (STALL_AT + stall)) then
+					table.insert(packets, { now + LATENCY, WALK * now })
+				end
+				while #packets > 0 and packets[1][1] <= now + 1e-9 do
+					seen = table.remove(packets, 1)[2]
+				end
+				if onTick then
+					judgeAt(anchor, seen, now, false)
+				end
+				if now >= nextSwing then
+					nextSwing += swing
+					local _, at = judgeAt(anchor, seen, now, true)
+					if math.abs(at - seen) > 1 then
+						clamped += 1
+					end
+				end
+			end
+			expect(anchor.Refusals).toBe(0)
+			expect(anchor.Strikes).toBe(0)
+			expect(clamped).toBeLessThanOrEqual(row[2])
+		end
 	end)
 end)
 

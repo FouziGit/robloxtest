@@ -52,9 +52,9 @@ GameConfig.Vfx = {
 
 GameConfig.Latency = {
 	-- Extra studs an ACTION may be resolved from beyond what the speed ceiling allows, to absorb the
-	-- client round trip. It is never banked: an origin that needs it is honoured once and does not move
-	-- the trusted anchor, so a client cannot collect it sample after sample. Kept just under
-	-- CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
+	-- client round trip. It is never banked: an origin that needs it is honoured once until the trusted
+	-- anchor catches up again (OriginGuard.follow), so a client cannot collect it sample after sample.
+	-- Kept just under CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
 	OriginToleranceStuds = 6,
 	-- Anti-teleport ceiling, applied to HORIZONTAL travel only: vertical speed is gravity-driven and
 	-- unbounded (a fall from an arena at altitude 900 reaches several hundred studs per second), while the
@@ -66,9 +66,9 @@ GameConfig.Latency = {
 	-- its own is Movement.WalkSpeed (16), which a jump and a fall preserve rather than exceed, plus at most
 	-- the boss's own MoveSpeed (18) if it shoves someone. 40 leaves room for that and for jitter.
 	--
-	-- The value matters more than it looks: the budget grows with the time since the last accepted sample,
-	-- so a client that holds a spoofed position long enough eventually has it accepted. At 40 a 90-stud
-	-- offset takes 2.3 seconds of clamped, whiffing attacks before it is believed, which is no longer a
+	-- The value matters more than it looks: the trusted anchor chases the observation at this speed, so a
+	-- client that holds a spoofed position long enough eventually has it accepted. At 40 a 90-stud offset
+	-- is believed on the 45th tick, after 2.25 seconds of clamped, whiffing attacks, which is no longer a
 	-- teleport; at 120 it took 0.75 s.
 	MaxSpeedStudsPerSecond = 40,
 	-- How much elapsed time the travel budget may accumulate. It must accumulate at all, because an uplink

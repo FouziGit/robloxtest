@@ -39,6 +39,9 @@ local function setup(): Fixture
 		t = function(key: string): string
 			return key
 		end,
+		resolveParams = function(params: any): any
+			return params
+		end,
 	}
 	local sound = { play = function() end, wantMusic = function() end }
 	local matchChanged = signal()
@@ -182,6 +185,57 @@ describe("where the HUD thinks the player is, run", function()
 		expect(inHub(fixture)).toBe(false)
 		fixture.match(nil)
 		expect(inHub(fixture)).toBe(true)
+	end)
+end)
+
+-- The medallion of the toast `kind` showing now, as the toast lane draws it.
+local function medallionOf(fixture: Fixture, kind: string): any
+	local toasts = fixture.world.playerGui:FindFirstChild("Toasts")
+	assert(toasts ~= nil, "the HUD has no toast lane")
+	for _, slot in ipairs(toasts:GetDescendants()) do
+		if slot.Name == kind and slot:FindFirstChild("Disc", true) ~= nil then
+			return slot:FindFirstChild("Disc", true)
+		end
+	end
+	error("no " .. kind .. " toast is showing")
+end
+
+describe("a success in a fight, run", function()
+	-- The value colours no fight shows (docs/ART_BIBLE.md rule 11).
+	local function valueColours(fixture: Fixture): { any }
+		local Theme = fixture.world.require("src/ui/Theme")
+		local colours = Theme.Colors
+		return { colours.Primary, colours.Epic, colours.Premium, colours.SuccessFill, colours.Success }
+	end
+
+	it("draws a takedown's tick in ink, not the green, in an arena", function()
+		local fixture = setup()
+		fixture.remote("Travelled", "Battleground")
+		fixture.remote("Notify", { Key = "hud.playerKill", Kind = "Success", Params = { name = "Ada" } })
+		fixture.world:advance(0.5)
+		local fill = medallionOf(fixture, "Success").BackgroundColor3
+		for _, colour in ipairs(valueColours(fixture)) do
+			expect(fill == colour).toBe(false)
+		end
+	end)
+
+	it("and in a match", function()
+		local fixture = setup()
+		fixture.match(SNAPSHOT)
+		fixture.remote("Notify", { Key = "hud.playerKill", Kind = "Success", Params = { name = "Ada" } })
+		fixture.world:advance(0.5)
+		local fill = medallionOf(fixture, "Success").BackgroundColor3
+		for _, colour in ipairs(valueColours(fixture)) do
+			expect(fill == colour).toBe(false)
+		end
+	end)
+
+	it("keeps the green for a success in the hub", function()
+		local fixture = setup()
+		fixture.remote("Notify", { Key = "cosmetics.equipped", Kind = "Success", Params = { name = "x" } })
+		fixture.world:advance(0.5)
+		local Theme = fixture.world.require("src/ui/Theme")
+		expect(medallionOf(fixture, "Success").BackgroundColor3).toBe(Theme.Colors.SuccessFill)
 	end)
 end)
 

@@ -512,6 +512,7 @@ local function refreshFight()
 	local fighting = inMatch or inArena
 	toast:SetMaxVisible(if fighting then Theme.Timing.Toast.MaxVisibleMatch else Theme.Timing.Toast.MaxVisibleHub)
 	toast:Hold(if fighting then FIGHT_HELD else {})
+	toast:SetFight(fighting)
 	metaCluster:SetVisible(not (inMatch or inArena))
 	refreshHub()
 end

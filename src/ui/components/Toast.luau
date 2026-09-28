@@ -50,6 +50,8 @@ export type Toast = {
 	Pause: (self: Toast, paused: boolean) -> (),
 	-- Touch lane: how far below the top of its safe area the first message hangs, in design units.
 	SetTop: (self: Toast, top: number) -> (),
+	-- In a fight (a match or an arena), a message that shows from now on wears no value colour (rule 11).
+	SetFight: (self: Toast, fighting: boolean) -> (),
 	Destroy: (self: Toast) -> (),
 }
 
@@ -94,6 +96,12 @@ local SIGNS: { [string]: string } = {
 	Error = "!",
 	Celebrate = Theme.Glyphs.Check,
 }
+-- In a fight a success is a tick of ink on the sheet: the green is a value colour, which no fight shows
+-- (docs/ART_BIBLE.md rule 11), and next to the cyan of a takedown pop it read as a second "us". The spec's
+-- toast section asks for the green everywhere; its colour rules win (D-161).
+local FIGHT_FILLS: { [string]: Color3 } = {
+	Success = Theme.Colors.PanelRaised,
+}
 
 local function textLabel(name: string, font: Font, size: number, color: Color3): TextLabel
 	local label = Instance.new("TextLabel")
@@ -105,7 +113,7 @@ local function textLabel(name: string, font: Font, size: number, color: Color3):
 	return label
 end
 
-local function medallion(kind: string): Frame
+local function medallion(kind: string, fighting: boolean): Frame
 	local holder = Instance.new("Frame")
 	holder.Name = "Medallion"
 	holder.BackgroundTransparency = 1
@@ -115,7 +123,7 @@ local function medallion(kind: string): Frame
 		Icon.new("Coin", MEDALLION).Parent = holder
 		return holder
 	end
-	local fill = FILLS[kind] or FILLS.Info
+	local fill = (if fighting then FIGHT_FILLS[kind] else nil) or FILLS[kind] or FILLS.Info
 	local disc = Instance.new("Frame")
 	disc.Name = "Disc"
 	disc.BorderSizePixel = 0
@@ -188,7 +196,13 @@ end
 
 -- The card of one message, and the group it fades in: the slot takes its place in the lane at `order`, the
 -- group slides inside it. Built in the lane, so a celebration's splat counts against the lane's own budget.
-local function buildItem(entry: ToastQueue.Entry, order: number, lane: Frame, trove: TroveObject): CanvasGroup
+local function buildItem(
+	entry: ToastQueue.Entry,
+	order: number,
+	lane: Frame,
+	trove: TroveObject,
+	fighting: boolean
+): CanvasGroup
 	local kind = entry.Kind
 	local celebrate = kind == "Celebrate"
 
@@ -238,7 +252,7 @@ local function buildItem(entry: ToastQueue.Entry, order: number, lane: Frame, tr
 	layout.Padding = UDim.new(0, PADDING_Y)
 	layout.Parent = body
 
-	local icon = medallion(kind)
+	local icon = medallion(kind, fighting)
 	icon.Parent = body
 
 	local reserved = MEDALLION + PADDING_Y
@@ -291,6 +305,7 @@ function Toast.new(props: Props): Toast
 	local queue = ToastQueue.new(Theme.Timing.Toast.MaxVisibleHub, MAX_PENDING)
 	local sequence = 0
 	local destroyed = false
+	local fighting = false
 	local touch = props.Lane == "Touch"
 
 	local container = Instance.new("Frame")
@@ -322,7 +337,7 @@ function Toast.new(props: Props): Toast
 	local function present(entry: ToastQueue.Entry)
 		sequence += 1
 		local itemTrove = trove:Extend()
-		local group = buildItem(entry, sequence, container, itemTrove)
+		local group = buildItem(entry, sequence, container, itemTrove, fighting)
 
 		local function release()
 			if destroyed then
@@ -388,6 +403,10 @@ function Toast.new(props: Props): Toast
 		end
 	end
 
+	local function setFight(_self: Toast, next: boolean)
+		fighting = next
+	end
+
 	local function destroy(_self: Toast)
 		destroyed = true
 		trove:Destroy()
@@ -400,6 +419,7 @@ function Toast.new(props: Props): Toast
 		SetMaxVisible = setMaxVisible,
 		Pause = pause,
 		SetTop = setTop,
+		SetFight = setFight,
 		Destroy = destroy,
 	}
 	return object

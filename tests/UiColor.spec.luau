@@ -369,6 +369,21 @@ describe("no value colour in a fight", function()
 		end
 	end)
 
+	it("reaches the toasts too: what a toast draws in a fight is no value colour", function()
+		-- Toast.luau draws the hub's toasts as well, so it cannot join FIGHT_FILES: its fight branch is scanned.
+		local toast = stripComments(fs.readFile("src/ui/components/Toast.luau"))
+		local branch = string.match(toast, "local FIGHT_FILLS: { %[string%]: Color3 } = (%b{})")
+		assert(branch ~= nil, "Toast.luau no longer has a fight branch: this gate would check nothing")
+		for _, pattern in ipairs(VALUE_PATTERNS) do
+			if string.find(branch :: string, pattern) ~= nil then
+				error("a toast in a fight shows a value colour: " .. pattern)
+			end
+		end
+		expect(string.find(branch :: string, "Success = ", 1, true)).never.toBeNil()
+		local hud = stripComments(fs.readFile("src/client/Controllers/HudController.luau"))
+		expect(string.find(hud, "toast:SetFight(fighting)", 1, true)).never.toBeNil()
+	end)
+
 	it("is kept out of it: the hub's meta cluster hides in a match and in an arena", function()
 		local hud = stripComments(fs.readFile("src/client/Controllers/HudController.luau"))
 		expect(string.find(hud, "metaCluster:SetVisible(not (inMatch or inArena))", 1, true)).never.toBeNil()

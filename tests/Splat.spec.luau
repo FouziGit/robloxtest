@@ -12,14 +12,7 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local function setup()
 	local world = Engine.world({
-		Stubs = {
-			["src/ui/UiPrefs"] = {
-				reducedMotion = function(): boolean
-					return false
-				end,
-			},
-			["src/ui/UiSound"] = { play = function(_id: string) end },
-		},
+		Stubs = Engine.interfaceStubs(),
 	})
 	local Splat = world.require("src/ui/components/Splat")
 	local Burst = world.require("src/ui/components/Burst")

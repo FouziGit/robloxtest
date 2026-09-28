@@ -12,17 +12,7 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local function setup()
 	local world = Engine.world({
-		Stubs = {
-			["src/ui/UiPrefs"] = {
-				reducedMotion = function(): boolean
-					return false
-				end,
-				lowQuality = function(): boolean
-					return false
-				end,
-			},
-			["src/ui/UiSound"] = { play = function(_id: string) end },
-		},
+		Stubs = Engine.interfaceStubs(),
 	})
 	local RarityRibbon = world.require("src/ui/components/RarityRibbon")
 	local screen = Engine.instance("ScreenGui", world.game)

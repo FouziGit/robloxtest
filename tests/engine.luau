@@ -308,9 +308,11 @@ function Methods.FindFirstChildWhichIsA(self: any, className: string): any
 	return nil
 end
 
-function Methods.WaitForChild(self: any, name: string): any
+-- A spec cannot yield: a child that is not there yet is nil at once when the caller gave a timeout (the
+-- engine's answer once it runs out), and an error when it did not (the engine would wait forever).
+function Methods.WaitForChild(self: any, name: string, timeout: number?): any
 	local child = Methods.FindFirstChild(self, name)
-	if child == nil then
+	if child == nil and timeout == nil then
 		error(("%s has no child %s, and nothing in a spec will ever add it"):format(dataOf[self].Name, name), 2)
 	end
 	return child
@@ -379,13 +381,24 @@ local SIGNALS = {
 	Destroying = true,
 	AncestryChanged = true,
 	ChildAdded = true,
+	ChildRemoved = true,
+	DescendantAdded = true,
 	Changed = true,
 	Activated = true,
 	MouseButton1Click = true,
 	MouseEnter = true,
 	MouseLeave = true,
+	InputBegan = true,
+	InputEnded = true,
+	InputChanged = true,
 	SelectionGained = true,
 	SelectionLost = true,
+	PromptShown = true,
+	PromptHidden = true,
+	Triggered = true,
+	CharacterAdded = true,
+	CharacterRemoving = true,
+	Died = true,
 }
 
 InstanceMeta.__index = function(self: any, key: string): any
@@ -523,6 +536,38 @@ end
 ----------------------------------------------------------------
 -- The world: one engine, its clock, and the modules loaded in it
 ----------------------------------------------------------------
+
+-- The player's accessibility answers (src/ui/UiPrefs) at Roblox's defaults, and a silent UiSound: what every
+-- interface module reads. A spec passes its own fields to change one.
+function Engine.interfaceStubs(prefs: { [string]: any }?): { [string]: any }
+	local values: { [string]: any } = {
+		reducedMotion = false,
+		lowQuality = false,
+		shakes = true,
+		transparency = 1,
+		textScale = 1,
+		textSize = "Medium",
+	}
+	for key, value in pairs(prefs or {}) do
+		values[key] = value
+	end
+	local uiPrefs: { [string]: any } = { Changed = Engine.signal() }
+	for key in pairs(values) do
+		uiPrefs[key] = function(): any
+			return values[key]
+		end
+	end
+	uiPrefs.setLowQuality = function(low: boolean)
+		values.lowQuality = low
+	end
+	uiPrefs.setShakes = function(on: boolean)
+		values.shakes = on
+	end
+	return {
+		["src/ui/UiPrefs"] = uiPrefs,
+		["src/ui/UiSound"] = { play = function(_id: string) end },
+	}
+end
 
 export type Options = {
 	-- Modules replaced by a table, by their path without extension ("src/ui/UiPrefs").

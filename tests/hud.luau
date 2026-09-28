@@ -11,6 +11,9 @@ export type Options = {
 	Profile: any?,
 	-- A landscape phone, `{ width, height }` points, rather than a desktop.
 	Phone: { number }?,
+	-- Seconds before the client hears the servers' clock: until then GetServerTimeNow() is 0, as the engine
+	-- answers a client that has just started.
+	ClockHeardAfter: number?,
 }
 
 export type Fixture = {
@@ -63,6 +66,13 @@ function Hud.build(options: Options?): Fixture
 		-- (BossController): no circle is stood in and no boss is looked for here.
 		Services = { TweenService = {}, CollectionService = {} },
 	})
+	local heardAfter = if options ~= nil then options.ClockHeardAfter else nil
+	if heardAfter ~= nil then
+		local heard = world.workspace.GetServerTimeNow
+		world.workspace.GetServerTimeNow = function(): number
+			return if world.now < heardAfter then 0 else heard()
+		end
+	end
 	local phone = if options ~= nil then options.Phone else nil
 	if phone ~= nil then
 		Engine.phone(world, phone[1], phone[2])

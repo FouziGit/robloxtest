@@ -462,7 +462,7 @@ describe("the hub's shortcuts", function()
 		local pending = string.find(claims, "if dayTurnPending then return end dayTurnPending = true", 1, true)
 		local waits = string.find(
 			claims,
-			"task.delay(Claims.secondsToNextDay(now), function() dayTurnPending = false refreshClaims() end)",
+			"task.delay(Claims.nextCountIn(now), function() dayTurnPending = false refreshClaims() end)",
 			1,
 			true
 		)

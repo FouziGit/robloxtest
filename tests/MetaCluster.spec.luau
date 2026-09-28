@@ -5,6 +5,8 @@
 -- with the colours it draws checked against each other.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Hud = require("./hud")
+local InputConfig = require("../src/shared/Config/InputConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
@@ -345,6 +347,41 @@ describe("the hub's meta cluster at a phone's touch floor, run", function()
 			centred(button:FindFirstChild("Face"), circle)
 		end
 	end)
+end)
+
+describe("the hub's claims, run", function()
+	it(
+		"seals the day's reward once the client hears the servers' clock, which it has not as the profile lands",
+		function()
+			local today = math.floor(os.time() / 86400)
+			local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+			-- Claimed yesterday: today's reward waits.
+			local fixture = Hud.build({
+				ClockHeardAfter = 0.3,
+				Profile = {
+					Settings = {
+						Keyboard = table.clone(InputConfig.DefaultKeyboard),
+						Gamepad = table.clone(InputConfig.DefaultGamepad),
+						CameraShake = true,
+					},
+					Loadout = { Slots = { "Brand" }, SlotLimit = 6 },
+					Progression = { Level = 5, XP = 10 },
+					Currency = { Folios = 100 },
+					Stats = { GlyphsCast = 3, MatchesPlayed = 2 },
+					Daily = { LastClaimDay = today - 1, Streak = 1 },
+					Quests = { Daily = quests, Weekly = table.clone(quests) },
+					Battlepass = {},
+				},
+			})
+			local seal = fixture.screen:FindFirstChild("Claims", true):FindFirstChild("Daily")
+			assert(seal ~= nil, "the cluster has no daily seal: this gate would check nothing")
+			-- Counted on day 0, before the clock was heard: nothing to claim yet.
+			expect(seal.Visible).toBe(false)
+			-- Not a whole day later: as soon as the clock is heard.
+			fixture.world:advance(1)
+			expect(seal.Visible).toBe(true)
+		end
+	)
 end)
 
 return nil

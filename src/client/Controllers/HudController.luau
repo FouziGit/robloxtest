@@ -476,8 +476,9 @@ end
 
 -- What waits to be claimed (Claims), as a badge on the Menu button: none in a fight, where the badge's yellow
 -- would be a value colour (rule 11). A new day brings a new daily reward and new quests with no change to the
--- profile, so the count is made again when the day turns. The claims are counted on every queue snapshot, so
--- only one wait for that turn is ever pending.
+-- profile, so the count is made again when the day turns -- and as soon as the client has heard the servers'
+-- clock, which it has not yet when the profile first arrives (Claims.nextCountIn). The claims are counted on
+-- every queue snapshot, so only one wait for that turn is ever pending.
 local function refreshClaims()
 	local now = Workspace:GetServerTimeNow()
 	local counts = Claims.count(clientData.get(), now)
@@ -487,7 +488,7 @@ local function refreshClaims()
 		return
 	end
 	dayTurnPending = true
-	task.delay(Claims.secondsToNextDay(now), function()
+	task.delay(Claims.nextCountIn(now), function()
 		dayTurnPending = false
 		refreshClaims()
 	end)

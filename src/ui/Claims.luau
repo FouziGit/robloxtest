@@ -24,6 +24,8 @@ local Claims = {}
 local SECONDS_PER_DAY = 86400
 -- Past the turn of the day by this much, so a count made on the stroke of midnight sees the new day.
 local TURN_MARGIN_SECONDS = 1
+-- The client hears the servers' clock a moment after it starts; until then GetServerTimeNow() is 0.
+local CLOCK_RETRY_SECONDS = 0.5
 
 -- A quest period as it runs at `unixTime`, drawing its quests as the Quests screen and the server do.
 local function period(name: QuestLogic.Period, unixTime: number): Claimables.Period
@@ -52,9 +54,14 @@ function Claims.count(profile: any, unixTime: number): Claimables.Counts
 	return Claimables.count(profile, Claims.context(unixTime))
 end
 
--- Seconds until the next day starts, as the servers count days (UTC): a daily reward, and the quests of a new
--- period, become claimable then with no change to the profile. A week starts on a day's turn too.
-function Claims.secondsToNextDay(unixTime: number): number
+-- Seconds until what waits can change with no change to the profile: the next day's turn, as the servers count
+-- days (UTC) -- a daily reward, and the quests of a new period, become claimable then; a week starts on a day's
+-- turn too. Before the client has heard the servers' clock (`unixTime` 0), a moment: counted on day 0 there is
+-- no daily reward, and the HUD, which counts as the profile arrives, showed none all session (seen in Studio).
+function Claims.nextCountIn(unixTime: number): number
+	if unixTime <= 0 then
+		return CLOCK_RETRY_SECONDS
+	end
 	return SECONDS_PER_DAY - unixTime % SECONDS_PER_DAY + TURN_MARGIN_SECONDS
 end
 

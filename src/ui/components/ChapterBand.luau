@@ -1,9 +1,9 @@
 --!strict
 -- ChapterBand: the band across the top of a screen's card (D-147), in the colour of the screen's chapter.
--- A sticker on the page, inset from the card's edge and outlined in ink (docs/ART_BIBLE.md rule 11), that
--- holds, left to right: the way back to the screen this one was opened from, the illuminated drop cap and
--- the rest of the title, a slot for the screen (a Folios pill, a tier seal) and the cross. An ink band
--- carries the five-pigment stripe along its foot, and three drips of its colour hang under it.
+-- Flat and flush, from one side of the card's ink to the other (D-178: the card's outline is its outline),
+-- it holds, left to right: the way back to the screen this one was opened from, the illuminated drop cap and
+-- the rest of the title, a slot for the screen (a Folios pill, a tier seal) and the cross. An ink band has the
+-- five-pigment stripe right under it, edge to edge.
 --
 -- The drop cap and the rest of its word share a row of their own, the cap flush with the word as an
 -- illuminated initial sits in a manuscript: at the band's gap between its parts, "Menu" read "M enu". They
@@ -20,8 +20,6 @@ local Button = require(script.Parent.Button)
 local DropCap = require(script.Parent.DropCap)
 local Motion = require(script.Parent.Parent.Motion)
 local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
-local Splat = require(script.Parent.Splat)
-local Sticker = require(script.Parent.Sticker)
 local Theme = require(script.Parent.Parent.Theme)
 local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
 local Trove = require(Packages.Trove)
@@ -43,10 +41,13 @@ export type Props = {
 }
 
 export type ChapterBand = {
-	-- What drops in: the band and the drips behind it. The card sizes it.
+	-- What drops in: the band and the stripe under it. The card sizes it, the band ChapterBand.height() tall
+	-- and the stripe StripeHeight() under it.
 	Instance: Frame,
 	Right: Frame,
 	CloseButton: TextButton?,
+	-- How tall the stripe under the band is: 0 on a band that carries none.
+	StripeHeight: (self: ChapterBand) -> number,
 	SetTitle: (self: ChapterBand, title: string) -> (),
 	SetChapter: (self: ChapterBand, chapter: string) -> (),
 	-- The band's part of an entrance; the way back shows only when `showBack`.
@@ -74,29 +75,25 @@ local ROMAN_DESCENT = 0.273
 local POSTER_DESCENT = 0.236
 local HEADING_HEIGHT = math.ceil(DropCap.Size * ROMAN_LINE)
 local CAP_DROP = math.round(DropCap.Size * ROMAN_DESCENT - Theme.Sizes.TextTitle * POSTER_DESCENT)
+-- Its top corners follow the card's own, inside its ink.
+local CORNER = Theme.Sizes.CornerPanel - Theme.Sizes.Stroke
+-- The cross: a flat disc of the sheet (the board's `.m-close`), a shade darker when it is hovered or selected
+-- and another when it is pressed.
 local CLOSE_SIZE = 44
-local CLOSE_ELEVATION = 4
 local CLOSE_HOVER_SHADE = -0.06
+local CLOSE_PRESSED_SHADE = -0.12
 local CROSS_LENGTH = 20
 local CROSS_WIDTH = 3
--- The five pigments in a row along the foot of an ink band: the brand's palette motif.
-local STRIPE_HEIGHT = 6
--- Three drips of the band's colour: where along it, and how wide.
-local DRIPS: { { X: number, Size: number } } = {
-	{ X = 0.18, Size = 26 },
-	{ X = 0.52, Size = 40 },
-	{ X = 0.81, Size = 30 },
-}
--- A drip is centred this far under the band's edge, so its ink hangs 10 to 18 below it.
-local DRIP_DROP = 4
+-- The five pigments in a row under an ink band: the brand's palette motif (the board's `.m-stripe`).
+local STRIPE_HEIGHT = 8
 
 -- The band's height, in design units, for the current scale.
 function ChapterBand.height(): number
 	return math.max(HEIGHT, Theme.touchTargetHeight(Theme.Sizes.RowHeight) + TOUCH_MARGIN)
 end
 
--- The cross: a sheet disc on its lip, two ink bars. Hovered or selected it darkens a shade -- never red:
--- closing a screen is not a danger.
+-- The cross: a flat sheet disc in its ink, two ink bars. Hovered or selected it darkens a shade, pressed two --
+-- never red: closing a screen is not a danger.
 local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?): TextButton
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
@@ -111,18 +108,14 @@ local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?)
 	-- On touch this cross is the only way out of an open screen, so it never renders below the minimum.
 	Theme.minPixelSize(close, Theme.MinTouchTarget)
 
-	local sticker = Sticker.new({
-		Kind = "Pressable",
-		Fill = Theme.Colors.PanelRaised,
-		Lip = Theme.lip("Secondary"),
-		Corner = Theme.Pill,
-		Elevation = CLOSE_ELEVATION,
-		Name = "Sticker",
-		Parent = close,
-	})
-	trove:Add(function()
-		sticker:Destroy()
-	end)
+	local disc = Instance.new("Frame")
+	disc.Name = "Disc"
+	disc.BorderSizePixel = 0
+	disc.BackgroundColor3 = Theme.Colors.PanelRaised
+	disc.Size = UDim2.fromScale(1, 1)
+	Theme.corner(disc, Theme.Pill)
+	Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
+	disc.Parent = close
 	for _, rotation in ipairs({ 45, -45 }) do
 		local bar = Instance.new("Frame")
 		bar.Name = "Bar"
@@ -133,21 +126,13 @@ local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?)
 		bar.Size = UDim2.fromOffset(CROSS_WIDTH, CROSS_LENGTH)
 		bar.Rotation = rotation
 		Theme.corner(bar, Theme.Pill)
-		bar.Parent = sticker.Face
+		bar.Parent = disc
 	end
 
 	local hovered, selected, pressed = false, false, false
-	local fill = Theme.Colors.PanelRaised
 	local function render()
-		-- A new fill is written at once and would cut the face's spring short: only when it changes.
-		local next = if hovered or selected
-			then Theme.shade(Theme.Colors.PanelRaised, CLOSE_HOVER_SHADE)
-			else Theme.Colors.PanelRaised
-		if next ~= fill then
-			fill = next
-			sticker:SetFill(next)
-		end
-		sticker:SetState(if pressed then "Pressed" else "Idle")
+		local shade = if pressed then CLOSE_PRESSED_SHADE elseif hovered or selected then CLOSE_HOVER_SHADE else 0
+		disc.BackgroundColor3 = Theme.shade(Theme.Colors.PanelRaised, shade)
 	end
 
 	trove:Connect(close.MouseEnter, function()
@@ -183,15 +168,15 @@ local function makeCloseButton(trove: typeof(Trove.new()), onClose: (() -> ())?)
 	return close
 end
 
--- The five-pigment stripe along the foot of an ink band, inside its rounded corners and its outline.
+-- The five-pigment stripe right under an ink band, from one side of the card's ink to the other.
 local function makeStripe(parent: Instance): Frame
 	local stripe = Instance.new("Frame")
 	stripe.Name = "Stripe"
 	stripe.BackgroundTransparency = 1
 	stripe.BorderSizePixel = 0
-	stripe.AnchorPoint = Vector2.new(0.5, 1)
-	stripe.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.Stroke)
-	stripe.Size = UDim2.new(1, -Theme.Sizes.CornerCard * 2, 0, STRIPE_HEIGHT)
+	stripe.AnchorPoint = Vector2.new(0, 1)
+	stripe.Position = UDim2.fromScale(0, 1)
+	stripe.Size = UDim2.new(1, 0, 0, STRIPE_HEIGHT)
 	stripe.ZIndex = 2
 	local count = #PigmentConfig.Order
 	for index, pigment in ipairs(PigmentConfig.Order) do
@@ -201,6 +186,7 @@ local function makeStripe(parent: Instance): Frame
 		segment.BackgroundColor3 = Theme.pigmentColor(pigment)
 		segment.Position = UDim2.fromScale((index - 1) / count, 0)
 		segment.Size = UDim2.fromScale(1 / count, 1)
+		segment.ZIndex = 2
 		segment.Parent = stripe
 	end
 	stripe.Parent = parent
@@ -230,7 +216,7 @@ function ChapterBand.new(props: Props): ChapterBand
 	local look = Theme.chapter(chapter)
 	local rest = props.Position
 
-	-- The band, and the drips that hang behind it: they drop in together.
+	-- The band, and the stripe under it: they drop in together.
 	local top = Instance.new("Frame")
 	top.Name = "Top"
 	top.BackgroundTransparency = 1
@@ -241,15 +227,22 @@ function ChapterBand.new(props: Props): ChapterBand
 		Motion.cancel(top)
 	end)
 
+	-- Flat, its top corners the card's inner ones; a frame clips to its rectangle and not to its corner, so a
+	-- square of its colour over its lower half keeps its foot straight along the card's content.
 	local band = Instance.new("Frame")
 	band.Name = "Band"
 	band.BorderSizePixel = 0
 	band.Size = UDim2.fromScale(1, 1)
 	band.ZIndex = 2
-	Theme.corner(band, Theme.Sizes.CornerCard)
-	Theme.stroke(band, "Accent", Theme.Sizes.Stroke)
+	Theme.corner(band, CORNER)
 	band.Parent = top
-	local light: UIGradient? = nil
+	local square = Instance.new("Frame")
+	square.Name = "Square"
+	square.BorderSizePixel = 0
+	square.Position = UDim2.fromScale(0, 0.5)
+	square.Size = UDim2.fromScale(1, 0.5)
+	square.ZIndex = 2
+	square.Parent = band
 
 	local row = Instance.new("Frame")
 	row.Name = "Row"
@@ -330,7 +323,6 @@ function ChapterBand.new(props: Props): ChapterBand
 	local titleText = props.Title
 	local cap: DropCap.DropCap? = nil
 	local stripe: Frame? = nil
-	local drips: { GuiObject } = {}
 
 	-- The drop cap takes the title's first letter (ThemeConfig.dropCap); a title that opens on anything
 	-- else stays whole.
@@ -357,53 +349,27 @@ function ChapterBand.new(props: Props): ChapterBand
 		end
 	end)
 
+	local function stripeHeight(): number
+		return if look.Stripe then STRIPE_HEIGHT else 0
+	end
+
 	local function paint()
 		band.BackgroundColor3 = look.Band
-		local old = light
-		if old ~= nil then
-			old:Destroy()
-		end
-		local gradient = Theme.gradient("BandLight", look.Band)
-		gradient.Parent = band
-		light = gradient
+		square.BackgroundColor3 = look.Band
 		title.TextColor3 = look.Title
 		local current = stripe
 		if look.Stripe then
 			if current == nil then
-				stripe = makeStripe(band)
+				stripe = makeStripe(top)
 			end
 		elseif current ~= nil then
 			stripe = nil
 			current:Destroy()
 		end
-		for _, drip in ipairs(drips) do
-			Splat.tint(drip, look.Band)
-		end
+		band.Size = UDim2.new(1, 0, 1, -stripeHeight())
 		drawTitle()
 	end
 	paint()
-
-	-- Made at the first entrance, when the band is in its screen: a splat counts against that screen's
-	-- budget, and one made anywhere else would be counted against nothing.
-	local function hangDrips()
-		if #drips > 0 or not top:IsDescendantOf(game) then
-			return
-		end
-		for index, drip in ipairs(DRIPS) do
-			local splat = Splat.new({
-				Size = UDim2.fromOffset(drip.Size, drip.Size),
-				Tint = look.Band,
-				Rotation = Splat.rotation(index),
-				Position = UDim2.new(drip.X, 0, 1, DRIP_DROP),
-				ZIndex = 1,
-				Name = "Drip",
-				Parent = top,
-			})
-			if splat ~= nil then
-				table.insert(drips, splat)
-			end
-		end
-	end
 
 	local alive = true
 	-- Bumped by every entrance, so a delayed drop never lands on a band that has entered again since.
@@ -426,7 +392,6 @@ function ChapterBand.new(props: Props): ChapterBand
 	end
 
 	local function playEnter(_self: ChapterBand, showBack: boolean)
-		hangDrips()
 		local back = backButton
 		if back ~= nil then
 			back.Instance.Visible = showBack
@@ -445,6 +410,10 @@ function ChapterBand.new(props: Props): ChapterBand
 		end
 	end
 
+	local function getStripeHeight(_self: ChapterBand): number
+		return stripeHeight()
+	end
+
 	local function destroy(_self: ChapterBand)
 		trove:Destroy()
 	end
@@ -453,6 +422,7 @@ function ChapterBand.new(props: Props): ChapterBand
 		Instance = top,
 		Right = right,
 		CloseButton = closeButton,
+		StripeHeight = getStripeHeight,
 		SetTitle = setTitle,
 		SetChapter = setChapter,
 		PlayEnter = playEnter,

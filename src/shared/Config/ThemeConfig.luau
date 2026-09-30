@@ -221,11 +221,6 @@ ThemeConfig.Gradients = {
 		Transparency = { { 0, 0.5 }, { 1, 1 } },
 		Rotation = 90,
 	},
-	-- A header band, a shade lighter at its top.
-	BandLight = {
-		Color = { { Time = 0, Role = "Base", Shade = 0.06 }, { Time = 1, Role = "Base" } },
-		Rotation = 90,
-	},
 	-- The fade at the bottom of a list that says there is more below.
 	MoreBelow = {
 		Color = { { Time = 0, Role = "Base" }, { Time = 1, Role = "Base" } },

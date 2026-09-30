@@ -161,10 +161,12 @@ describe("the backdrop", function()
 
 	it("leaves the screen at least half of its splats", function()
 		local blots = count(string.match(code(ROOT), "local CORNERS[^=]*= (%b{})") or "", "Position =")
-		local drips = count(string.match(code(BAND), "local DRIPS[^=]*= (%b{})") or "", "X =")
 		expect(blots).toBe(3)
-		expect(drips).toBe(3)
-		expect(blots + drips).toBeLessThanOrEqual(ThemeConfig.Budget.MaxSplats / 2)
+		-- The band is flat (D-178): it hangs no drips and spends no splat of its screen's.
+		local band = code(BAND)
+		expect(string.find(band, "Splat", 1, true)).toBeNil()
+		expect(string.find(band, "DRIPS", 1, true)).toBeNil()
+		expect(blots).toBeLessThanOrEqual(ThemeConfig.Budget.MaxSplats / 2)
 	end)
 end)
 
@@ -223,10 +225,107 @@ describe("a screen that leaves", function()
 end)
 
 describe("the card", function()
-	it("is a vellum sticker, its band outlined in ink (rule 11)", function()
+	it("is a vellum sticker, its band flat and flush inside its ink (rule 11)", function()
 		local panel = code(PANEL)
 		expect(string.find(panel, 'Kind = "Card",\n\t\tFill = Theme.Colors.Panel,', 1, true)).never.toBeNil()
-		expect(string.find(code(BAND), 'Theme.stroke(band, "Accent", Theme.Sizes.Stroke)', 1, true)).never.toBeNil()
+		-- Run: the card's ink outline is the band's, and the band runs from one side of it to the other.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Panel = world.require("src/ui/components/Panel")
+		local ChapterBand = world.require("src/ui/components/ChapterBand")
+		local Theme = world.require("src/ui/Theme")
+		local stroke = Theme.Sizes.Stroke
+		for _, case in ipairs({ { Chapter = "Menu", Stripe = 8 }, { Chapter = "Quests", Stripe = 0 } }) do
+			local card =
+				Panel.new({ Title = "Quêtes", Chapter = case.Chapter, Closable = true, Parent = world.playerGui })
+			local face = card.Instance:FindFirstChild("Face")
+			local outline = face:FindFirstChildOfClass("UIStroke")
+			expect(outline.Color).toBe(Theme.Colors.Accent)
+			expect(outline.Thickness).toBe(stroke)
+			local top = face:FindFirstChild("Top")
+			local band = top:FindFirstChild("Band")
+			assert(band ~= nil, "the card has no band: this gate would check nothing")
+			local height = ChapterBand.height()
+			expect(top.Position).toBe(roblox.UDim2.fromOffset(stroke, stroke))
+			expect(top.Size).toBe(roblox.UDim2.new(1, -2 * stroke, 0, height + case.Stripe))
+			-- Flat: no outline, no light across it; its top corners the card's inner ones, its foot square.
+			expect(band:FindFirstChildOfClass("UIStroke")).toBeNil()
+			expect(band:FindFirstChildOfClass("UIGradient")).toBeNil()
+			expect(band:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerPanel - stroke)
+			expect(band.Size).toBe(roblox.UDim2.new(1, 0, 1, -case.Stripe))
+			local square = band:FindFirstChild("Square")
+			expect(square.BackgroundColor3).toBe(band.BackgroundColor3)
+			expect(square.Position).toBe(roblox.UDim2.fromScale(0, 0.5))
+			expect(square.Size).toBe(roblox.UDim2.fromScale(1, 0.5))
+			expect(square:FindFirstChildOfClass("UICorner")).toBeNil()
+			expect(band.BackgroundColor3).toBe(Theme.chapter(case.Chapter).Band)
+			-- An ink band's stripe right under it, edge to edge, 8 tall, the pigments in their order.
+			local stripe = top:FindFirstChild("Stripe")
+			if case.Stripe > 0 then
+				assert(stripe ~= nil, "the Menu's band has no stripe")
+				expect(stripe.Parent).toBe(top)
+				expect(stripe.AnchorPoint).toBe(roblox.Vector2.new(0, 1))
+				expect(stripe.Position).toBe(roblox.UDim2.fromScale(0, 1))
+				expect(stripe.Size).toBe(roblox.UDim2.new(1, 0, 0, 8))
+			else
+				expect(stripe).toBeNil()
+			end
+			-- The content never starts lower than it did under a band inset 8 from the card's edge.
+			local header = face:FindFirstChild("Header")
+			local before = Theme.Sizes.PaddingSmall + height + Theme.Sizes.PaddingSmall
+			expect(header.Position.Y.Offset).toBe(
+				math.min(stroke + height + case.Stripe + Theme.Sizes.PaddingSmall, before)
+			)
+			expect(header.Position.Y.Offset).toBeLessThanOrEqual(before)
+			expect(#top:GetChildren()).toBe(if case.Stripe > 0 then 2 else 1)
+		end
+		-- A chapter that gains or loses the stripe moves the content's top with it.
+		local card = Panel.new({ Title = "Menu", Chapter = "Quests", Parent = world.playerGui })
+		local header = card.Instance:FindFirstChild("Face"):FindFirstChild("Header")
+		local plain = header.Position.Y.Offset
+		card:SetChapter("Menu")
+		expect(header.Position.Y.Offset).toBeGreaterThan(plain)
+	end)
+
+	it("closes on a flat disc of the sheet that darkens as it is reached and pressed", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ChapterBand = world.require("src/ui/components/ChapterBand")
+		local Theme = world.require("src/ui/Theme")
+		local closed = 0
+		local band = ChapterBand.new({
+			Title = "Menu",
+			Chapter = "Menu",
+			Position = roblox.UDim2.new(),
+			Closable = true,
+			OnClose = function()
+				closed += 1
+			end,
+			Parent = world.playerGui,
+		})
+		local close = band.CloseButton
+		local disc = close:FindFirstChild("Disc")
+		assert(disc ~= nil, "the cross has no disc: this gate would check nothing")
+		-- The board's `.m-close`: no lip, no shadow, the sheet in its ink.
+		expect(close:FindFirstChild("Base", true)).toBeNil()
+		expect(disc.Size).toBe(roblox.UDim2.fromScale(1, 1))
+		expect(disc:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.Accent)
+		expect(disc:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+		local sheet = Theme.Colors.PanelRaised
+		expect(disc.BackgroundColor3).toBe(sheet)
+		close.MouseEnter:Fire()
+		local hovered = disc.BackgroundColor3
+		expect(hovered).toBe(Theme.shade(sheet, -0.06))
+		close.MouseButton1Down:Fire()
+		expect(disc.BackgroundColor3).toBe(Theme.shade(sheet, -0.12))
+		close.MouseButton1Up:Fire()
+		expect(disc.BackgroundColor3).toBe(hovered)
+		close.MouseLeave:Fire()
+		expect(disc.BackgroundColor3).toBe(sheet)
+		close.SelectionGained:Fire()
+		expect(disc.BackgroundColor3).toBe(hovered)
+		close.SelectionLost:Fire()
+		expect(disc.BackgroundColor3).toBe(sheet)
+		close.Activated:Fire()
+		expect(closed).toBe(1)
 	end)
 
 	it("closes without red: leaving a screen is no danger", function()

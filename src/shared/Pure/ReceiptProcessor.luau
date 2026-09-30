@@ -33,6 +33,12 @@ function ReceiptProcessor.process(receipt: Receipt, deps: Deps): (Decision, stri
 	end
 
 	if deps.isRecorded(data, receipt.PurchaseId) then
+		-- Recorded in the live profile is not persisted: the save after the grant may have failed, which is
+		-- why Roblox is asking again. Only a confirmed save settles the receipt, on this path too.
+		if not deps.save(receipt.PlayerId) then
+			deps.log("save failed for the already granted " .. receipt.PurchaseId .. ", will retry")
+			return "NotProcessedYet", "save failed"
+		end
 		return "PurchaseGranted", "already granted"
 	end
 

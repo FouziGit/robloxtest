@@ -28,11 +28,14 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("PortalService")
+-- Each player's watch is a step of its own: one that throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 type PortalId = PortalConfig.PortalId
 type NotifyKind = "Info" | "Success" | "Error"
@@ -276,7 +279,7 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for player, watch in pairs(watches) do
 		if travelling[player] == nil then
-			step(player, watch, now)
+			faults.try(player, "watch of", step, player, watch, now)
 		end
 	end
 end
@@ -289,6 +292,7 @@ local function forget(player: Player)
 	watches[player] = nil
 	travelling[player] = nil
 	cooldownUntil[player] = nil
+	faults.forget(player)
 end
 
 ----------------------------------------------------------------

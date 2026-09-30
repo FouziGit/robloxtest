@@ -217,7 +217,12 @@ describe("the circles", function()
 
 	it("leave a traveller alone until the trip is over, whatever happens in it", function()
 		local heartbeat = body(PORTALS, "local function onHeartbeat(")
-		expect(has(heartbeat, "if travelling[player] == nil then step(player, watch, now) end")).toBe(true)
+		expect(
+			has(
+				heartbeat,
+				'if travelling[player] == nil then faults.try(player, "watch of", step, player, watch, now) end'
+			)
+		).toBe(true)
 		local travel = body(PORTALS, "local function travel(")
 		expect(ordered(travel, "log.try(", "travelling[player] = nil")).toBe(true)
 		expect(has(travel, ", journey, player, id)")).toBe(true)
@@ -226,6 +231,7 @@ describe("the circles", function()
 			"watches[player] = nil",
 			"travelling[player] = nil",
 			"cooldownUntil[player] = nil",
+			"faults.forget(player)",
 		}, "forget")
 		expect(has(code(PORTALS), "Players.PlayerRemoving:Connect(forget)")).toBe(true)
 	end)

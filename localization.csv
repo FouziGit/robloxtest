@@ -281,6 +281,7 @@ loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
 match.again,Play again,Vellum,,Play again,Rejouer
 match.band,Round {round} · {mode},Vellum,,Round {round} · {mode},Manche {round} · {mode}
 match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
+match.cancelled,"Match cancelled after a server error: nothing won, nothing lost.",Vellum,,"Match cancelled after a server error: nothing won, nothing lost.","Match annulé après une erreur du serveur : rien de gagné, rien de perdu."
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité

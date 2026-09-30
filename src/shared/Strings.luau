@@ -483,6 +483,11 @@ Strings.Table = {
 	["match.bestChain"] = { en = "Best chain: ×{count}", fr = "Meilleure chaîne : ×{count}" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
 	["match.returning"] = { en = "Returning to the hub…", fr = "Retour au hub…" },
+	-- A match whose tick kept failing (MatchService.cancel): no result, nothing won or lost.
+	["match.cancelled"] = {
+		en = "Match cancelled after a server error: nothing won, nothing lost.",
+		fr = "Match annulé après une erreur du serveur : rien de gagné, rien de perdu.",
+	},
 	["leaderboard.title"] = { en = "Leaderboard", fr = "Classement" },
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },

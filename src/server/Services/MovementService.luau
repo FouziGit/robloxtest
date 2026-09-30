@@ -16,6 +16,8 @@ local Log = require(Shared.Util.Log)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MovementService")
+-- Each player's timers are a step of their own: one whose state throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 -- Payload of the MovementCommand remote (see Shared/Remotes).
 export type Command =
@@ -297,8 +299,43 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	faults.forget(player)
 	releaseCharacter(state)
 	state.Trove:Destroy()
+end
+
+-- Expires one character's slows, stuns and fall.
+local function tickState(player: Player, state: State, now: number)
+	local humanoid = state.Humanoid
+	if humanoid == nil then
+		return
+	end
+	local changed = false
+	if state.SlowUntil > 0 then
+		local previousFactor = state.SlowFactor
+		local previousUntil = state.SlowUntil
+		recomputeSlow(state, now)
+		if state.SlowFactor ~= previousFactor or state.SlowUntil ~= previousUntil then
+			if state.SlowUntil > 0 then
+				humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
+			else
+				humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
+			end
+			changed = true
+		end
+	end
+	if state.StunUntil > 0 and state.StunUntil <= now then
+		state.StunUntil = 0
+		humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
+		changed = true
+	end
+	if changed then
+		applyStats(state, now)
+	end
+	local fall = state.Fall
+	if fall ~= nil then
+		stepFall(player, state, fall, now)
+	end
 end
 
 -- Expires slows, stuns and falls for every tracked character, `GameConfig.Server.TickRate` times per
@@ -311,36 +348,7 @@ local function onHeartbeat(deltaTime: number)
 	accumulator = math.min(accumulator - TICK_SECONDS, TICK_SECONDS)
 	local now = os.clock()
 	for player, state in pairs(states) do
-		local humanoid = state.Humanoid
-		if humanoid == nil then
-			continue
-		end
-		local changed = false
-		if state.SlowUntil > 0 then
-			local previousFactor = state.SlowFactor
-			local previousUntil = state.SlowUntil
-			recomputeSlow(state, now)
-			if state.SlowFactor ~= previousFactor or state.SlowUntil ~= previousUntil then
-				if state.SlowUntil > 0 then
-					humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
-				else
-					humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
-				end
-				changed = true
-			end
-		end
-		if state.StunUntil > 0 and state.StunUntil <= now then
-			state.StunUntil = 0
-			humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
-			changed = true
-		end
-		if changed then
-			applyStats(state, now)
-		end
-		local fall = state.Fall
-		if fall ~= nil then
-			stepFall(player, state, fall, now)
-		end
+		faults.try(player, "tick of", tickState, player, state, now)
 	end
 end
 

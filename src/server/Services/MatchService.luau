@@ -32,6 +32,10 @@ local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
 local log = Log.new("MatchService")
+-- Each match's tick is a step of its own: one whose mode throws never stops the others, and is cancelled once it
+-- has thrown MATCH_FAULT_TICKS ticks in a row (E9-S2): its failure is the one warning it writes, and its end line
+-- says it was cancelled.
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 -- Built by ArenaService: one free instance of a MatchConfig.Arenas entry, with its team spawn pads.
 -- Mirrors ArenaService.Arena exactly (acquire validates the pads and the kill zone before handing it
@@ -129,6 +133,7 @@ type Active = {
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
+local MATCH_FAULT_TICKS = GameConfig.Server.MatchFaultTicks
 -- MatchChanged pushes per second; the client tweens between snapshots (see notes: a MatchConfig entry
 -- would be the proper home for this rate).
 local SNAPSHOT_HZ = MatchConfig.SnapshotHz
@@ -360,8 +365,9 @@ end
 ----------------------------------------------------------------
 
 -- Last step of every path out of a match: clear the participants, send them home, drop the Trove
--- (which releases the arena and disconnects the kill zone) and forget the match.
-local function finish(active: Active)
+-- (which releases the arena and disconnects the kill zone) and forget the match. `cancelled` when its tick kept
+-- failing (cancel): the players are told so, and the match's last line says it.
+local function finish(active: Active, cancelled: boolean?)
 	if active.Finished then
 		return
 	end
@@ -377,7 +383,11 @@ local function finish(active: Active)
 		end
 		if isLive(participant) and not participant.Released then
 			registry.fire("MatchChanged", participant.Player, nil)
-			notify.send(participant.Player, "match.returning", nil, "Info")
+			if cancelled then
+				notify.send(participant.Player, "match.cancelled", nil, "Error")
+			else
+				notify.send(participant.Player, "match.returning", nil, "Info")
+			end
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
 		end
 	end
@@ -386,7 +396,34 @@ local function finish(active: Active)
 	if index ~= nil then
 		table.remove(actives, index)
 	end
-	log.info("match %s ended (arena %s slot %d)", active.Match.Id, active.Arena.Id, active.Arena.SlotIndex)
+	faults.forget(active.Match.Id)
+	log.info(
+		"match %s %s (arena %s slot %d)",
+		active.Match.Id,
+		if cancelled then "cancelled: its tick kept failing" else "ended",
+		active.Arena.Id,
+		active.Arena.SlotIndex
+	)
+end
+
+-- A match whose tick keeps throwing is over, with no result: nothing is paid and no rating moves, because the
+-- server cannot stand behind a verdict its own tick could not reach. Its players are told and sent home, and its
+-- arena goes back to the pool, so a broken match never holds either. Whatever finish got through before it threw,
+-- if it did, nothing of the match outlives this: every step below is harmless when finish already took it.
+local function cancel(active: Active)
+	log.try("finish " .. active.Match.Id, finish, active, true)
+	active.Finished = true
+	for _, participant in ipairs(active.Match.Participants) do
+		if activeByUserId[participant.UserId] == active then
+			activeByUserId[participant.UserId] = nil
+		end
+	end
+	log.try("release of " .. active.Match.Id, active.Trove.Destroy, active.Trove)
+	local index = table.find(actives, active)
+	if index ~= nil then
+		table.remove(actives, index)
+	end
+	faults.forget(active.Match.Id)
 end
 
 local function enterResult(active: Active, now: number)
@@ -507,11 +544,11 @@ end
 local function advance(active: Active, now: number)
 	local match = active.Match
 	if match.Phase ~= "Result" then
-		local ok, verdict = pcall(active.Mode.RoundVerdict, match, now)
-		if not ok then
-			log.warn("mode %s RoundVerdict failed for match %s: %s", active.Def.Id, match.Id, tostring(verdict))
-		elseif verdict ~= nil then
-			applyVerdict(active, (verdict :: any) :: GameModes.Verdict, now)
+		-- Unguarded: a mode that cannot give its verdict throws into the match's own step, which counts it and
+		-- cancels the match if it keeps failing. Caught here, it left the round without an end, forever.
+		local verdict = active.Mode.RoundVerdict(match, now)
+		if verdict ~= nil then
+			applyVerdict(active, verdict, now)
 			return
 		end
 	end
@@ -588,6 +625,29 @@ local function judgeFalls(active: Active, now: number)
 	end
 end
 
+-- One match's tick.
+local function tickMatch(active: Active, now: number)
+	-- Only a finish that threw halfway leaves a finished match in the list: failing here hands it to cancel.
+	assert(not active.Finished, "a finished match is still ticking")
+	if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
+		-- A setup thread that never came back must not strand the match (and its arena) forever.
+		log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
+		active.Preparing = false
+	end
+	if not active.Finished and not active.Preparing then
+		-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
+		judgeFalls(active, now)
+		refresh(active)
+		advance(active, now)
+	end
+	if not active.Finished then
+		active.Ticks += 1
+		if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
+			pushSnapshots(active, now)
+		end
+	end
+end
+
 local function onHeartbeat(deltaTime: number)
 	accumulator += deltaTime
 	if accumulator < TICK_SECONDS then
@@ -597,22 +657,8 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for index = #actives, 1, -1 do
 		local active = actives[index]
-		if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
-			-- A setup thread that never came back must not strand the match (and its arena) forever.
-			log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
-			active.Preparing = false
-		end
-		if not active.Finished and not active.Preparing then
-			-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
-			judgeFalls(active, now)
-			refresh(active)
-			advance(active, now)
-		end
-		if not active.Finished then
-			active.Ticks += 1
-			if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
-				pushSnapshots(active, now)
-			end
+		if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then
+			cancel(active)
 		end
 	end
 end

@@ -196,7 +196,7 @@ describe("the movement audit's wiring", function()
 	it("is stepped once per tick, after every player, with the server's own hitch, under its own label", function()
 		local beat = functionIn(COMBAT, "local function onHeartbeat(")
 		expect(beat).toContain(
-			'for player, state in pairs(states) do tickPlayer(player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
+			'for player, state in pairs(states) do faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
 		)
 		expect(count(strip(fs.readFile(COMBAT)), "MovementAudit.step,")).toBe(1)
 		expect(strip(fs.readFile(COMBAT))).toContain('local AUDIT_PROFILE_LABEL = "MovementAudit"')
@@ -762,8 +762,11 @@ describe("the kill zone, judged by the server", function()
 	)
 
 	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
-		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
 			"if not active.Finished and not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+		)
+		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
+			'if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then cancel(active) end'
 		)
 		local touched = functionIn(MATCH, "local function onKillZoneTouched(")
 		expect(touched).toContain(

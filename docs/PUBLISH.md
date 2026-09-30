@@ -16,7 +16,7 @@ Un renvoi au code donne le fichier et le nom de la fonction ou de la constante, 
 
 ## 2. Version et journal
 
-1. **Numéro de version.** Monter `GameConfig.Version` (`GameConfig.luau`). Il apparaît dans `[Bootstrap] Vellum v<version> ready: 31 services started` et permet de savoir quelle version tourne sur un serveur en ligne.
+1. **Numéro de version.** Monter `GameConfig.Version` (`GameConfig.luau`). Il apparaît dans `[Bootstrap] Vellum v<version> ready: 33 services started` et permet de savoir quelle version tourne sur un serveur en ligne.
 2. **Journal interne.** Ajouter une entrée dans `docs/PROGRESS.md` (fait / en cours / reste), et les nouvelles décisions dans `docs/DECISIONS.md`.
 3. **Notes pour les joueurs.** Écrire quelques lignes en anglais et en français sur ce qui change, pour la description ou l'annonce de mise à jour. Ne rien promettre que le code ne livre pas (§3.4).
 4. **Étiquette.** `git tag v<version> <hash>` puis `git push origin v<version>`. Le dépôt n'a encore aucune étiquette ; c'est pourtant elle qui rend le retour arrière immédiat (§9).
@@ -100,7 +100,7 @@ Une partie a déjà été faite une fois (`docs/STUDIO_SETUP.md` §2) : accès A
 ## 8. Mise en ligne
 
 1. **Un brouillon d'abord.** Avec `publish.yml` (secrets : `docs/STUDIO_SETUP.md` §6), cliquer **Run workflow** sur l'étiquette avec `Saved`. À la main : ouvrir le `build/Vellum.rbxl` construit depuis le commit étiqueté, puis **File → Publish to Roblox**.
-2. **Vérifier le brouillon.** Ouvrir la place depuis Studio. Attendu : `[Bootstrap] Vellum v<nouvelle version> ready: 31 services started` et `0 missing ids`.
+2. **Vérifier le brouillon.** Ouvrir la place depuis Studio. Attendu : `[Bootstrap] Vellum v<nouvelle version> ready: 33 services started` et `0 missing ids`.
 3. **Publier.** Relancer `publish.yml` sur le même commit, cette fois avec `Published`.
 4. **Les serveurs déjà ouverts.** Ils gardent l'ancienne version. Les faire passer à la nouvelle depuis le menu de la place (*Restart servers for updates*). Une migration arrête les anciens serveurs, avec le code qu'ils ont : tant que l'un d'eux tourne une version d'avant D-206 (R3 et R15 corrigés), la faire aux heures creuses.
 5. **La version des portails : migrer tous les serveurs tout de suite.** Juste après le §8.3, lancer *Restart servers for updates* (anciennement *Migrate To Latest Update*) ou, à défaut, *Shut down all servers*. Aucun serveur de l'ancienne version ne doit rester ouvert, même une heure. La raison : cette version garde dans le profil les plafonds du jour, c'est-à-dire les 150 Folios des Faussaires et les 3 entraînements payés contre l'Effacement (`Daily.ForgerDay`, `ForgerFolios`, `PracticeDay`, `PracticePaid`), pour qu'un changement de serveur ne les remette pas à zéro. Mais l'ancienne version ne connaît pas ces quatre champs : quand elle charge un profil, elle les efface, puis enregistre le profil sans eux (`overlay`, `DataMigration.luau`). Un joueur qui a atteint son plafond sur un nouveau serveur, puis qui rejoint un ami sur un ancien serveur, revient donc avec des compteurs à zéro : 150 Folios et 3 entraînements payés de plus, et ainsi de suite tant qu'il reste un ancien serveur. De même pour les quêtes : un nouveau serveur range les quêtes qu'il ouvre pour un joueur sous la clé `D<jour>@2` (ou `W<semaine>@2`), dès le jour de la mise en ligne pour qui n'avait pas encore joué ce jour-là. Un ancien serveur prendrait ces quêtes pour celles d'un autre jour : il les remettrait à zéro, et les rendrait réclamables une seconde fois. L'ancienne version ne peut plus être corrigée : seule la fermeture de ses serveurs arrête le problème. Publier donc aux heures creuses, à cause de R3 et R15 (§8.4), puis migrer aussitôt.
@@ -141,5 +141,5 @@ Un joueur ou un développeur lit ces documents comme des promesses : les corrige
 | `docs/PROGRESS.md:35` | système de spectateur à faire | `SpectateController.luau` existe |
 | `docs/GAME_DESIGN.md:33` | pas de PvP dans la zone sûre du hub (donc PvP ailleurs au hub) | aucun PvP nulle part au hub (`allowDamage`, `MatchService.luau`) |
 | `docs/GAME_DESIGN.md:164` | 1v1 : « 3 min, best-of-3 optionnel » | toujours en deux manches gagnantes sur trois, 60 s par manche |
-| `docs/STUDIO_SETUP.md:80` | `[Bootstrap] Vellum v2.0.0 ready` | `… ready: 31 services started` |
+| `docs/STUDIO_SETUP.md:80` | `[Bootstrap] Vellum v2.0.0 ready` | `… ready: 33 services started` |
 | `docs/STUDIO_SETUP.md:86` | quatre boutons Melee / Dash / Block / Menu | cinq, avec `Cible` / `Lock` (`InputConfig.ActionShortKeys`) |

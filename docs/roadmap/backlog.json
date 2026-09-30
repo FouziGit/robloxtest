@@ -190,6 +190,7 @@
         {
           "id": "E2-S4",
           "title": "Épingler les définitions de types Roblox à la version de luau-lsp",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -204,6 +205,7 @@
         {
           "id": "E2-S5",
           "title": "PUBLISH.md et QA.md citent des noms de fonction, plus des numéros de ligne périmés",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -394,6 +396,7 @@
         {
           "id": "E3-S6",
           "title": "Une panne de DataStore devient visible et suspend les achats Robux",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -495,6 +498,7 @@
         {
           "id": "E4-S3",
           "title": "Fin du farm à deux comptes, sans punir les revanches honnêtes",
+          "status": "done",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -798,6 +802,7 @@
         {
           "id": "E6-S4",
           "title": "Registre de ce que Lune ne peut pas voir, en tête de QA.md",
+          "status": "partial",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -982,6 +987,7 @@
         {
           "id": "E8-S1",
           "title": "Chaque Folio gagné ou dépensé est journalisé à la source",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -998,6 +1004,7 @@
         {
           "id": "E8-S2",
           "title": "Des champs personnalisés que Roblox lit vraiment",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1031,6 +1038,7 @@
         {
           "id": "E8-S4",
           "title": "Événements de match, de file et de boss",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1087,6 +1095,7 @@
         {
           "id": "E8-S7",
           "title": "Télémétrie d'équilibrage des 28 glyphes",
+          "status": "partial",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1438,6 +1447,7 @@
         {
           "id": "E10-S6",
           "title": "Duel d'épreuve contre un Faussaire pendant la file",
+          "status": "partial",
           "owner": "claude",
           "effort": "L",
           "acceptance": [
@@ -1454,6 +1464,7 @@
         {
           "id": "E10-S7",
           "title": "Duel rapide pour les nouveaux, classé au niveau 10",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1543,6 +1554,7 @@
         {
           "id": "E16-S1",
           "title": "Des règles de dégâts par zone, et plus de pause du classé pendant l'Effacement",
+          "status": "partial",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1558,6 +1570,7 @@
         {
           "id": "E16-S2",
           "title": "La Page de garde : mêlée libre derrière un troisième portail",
+          "status": "partial",
           "owner": "claude",
           "effort": "L",
           "acceptance": [
@@ -1882,6 +1895,7 @@
         {
           "id": "E19-S4",
           "title": "Cartouche : la recharge accélérée promise (D-140)",
+          "status": "partial",
           "owner": "both",
           "effort": "S",
           "acceptance": [
@@ -1980,6 +1994,7 @@
         {
           "id": "E15-S1",
           "title": "Calendrier de 28 jours et Signet",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [

@@ -453,8 +453,10 @@ function ComboRow.new(props: Props): ComboRow
 				Pigment = pigment,
 				Parent = slot,
 			})
+			-- A cap's lip is rimmed in ink from outside it (Sticker), and the slot clips as it opens: the cap stands
+			-- its outline's reach above the slot's foot, in whole units, so the rim is drawn whole.
 			cap.Instance.AnchorPoint = Vector2.new(0.5, 1)
-			cap.Instance.Position = UDim2.fromScale(0.5, 1)
+			cap.Instance.Position = UDim2.new(0.5, 0, 1, -math.ceil(Theme.strokeThickness(Theme.Sizes.StrokeThin)))
 			slot.Parent = keyStrip
 			Motion.to(slot, { Size = CHIP_OPEN }, "UiPop")
 			table.insert(ghostKeys, slot)

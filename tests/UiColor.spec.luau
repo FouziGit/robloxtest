@@ -505,13 +505,11 @@ describe("the sticker", function()
 		local body = string.match(theme, "function Theme%.stroke%((.-)\nend\n")
 		assert(body ~= nil, "Theme.stroke is gone: this gate would check nothing")
 		expect(string.find(body :: string, "stroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize", 1, true)).never.toBeNil()
+		expect(string.find(body :: string, "stroke.Thickness = Theme.strokeThickness(thickness)", 1, true)).never.toBeNil()
+		local floor = string.match(theme, "function Theme%.strokeThickness%((.-)\nend\n")
+		assert(floor ~= nil, "Theme.strokeThickness is gone: this gate would check nothing")
 		expect(
-			string.find(
-				body :: string,
-				"stroke.Thickness = math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())",
-				1,
-				true
-			)
+			string.find(floor :: string, "return math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())", 1, true)
 		).never.toBeNil()
 		expect(string.find(theme, "local MIN_STROKE_PIXELS = 2\n", 1, true)).never.toBeNil()
 		local found: { string } = {}
@@ -586,6 +584,42 @@ describe("the sticker", function()
 		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.Colors.Chalk)
 		button:SetDisabled(false)
 		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.lip("Secondary"))
+	end)
+
+	it("keeps a pressable's outer rim whole in a frame that clips it: the ghosts' keys", function()
+		-- A ghost's key opens in a slot that clips; the cap's lip is rimmed from outside, so the cap stands that
+		-- rim above the slot's foot -- the rim as drawn, floored at two pixels on a small screen.
+		for _, phone in ipairs({ false, true }) do
+			local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+			if phone then
+				Engine.phone(world, 667, 375)
+			end
+			local ComboRow = world.require("src/ui/components/ComboRow")
+			local gui = Engine.instance("ScreenGui", world.playerGui)
+			local row = ComboRow.new({
+				Parent = gui,
+				Localize = {
+					t = function(key: string): string
+						return key
+					end,
+				},
+			})
+			row:ShowGhosts({ "Cinnabar" }, { Device = "Keyboard", Keys = { Cinnabar = "J" } })
+			local slot = row.Instance:FindFirstChild("Key1", true)
+			assert(slot ~= nil, "no ghost key was drawn: this gate would check nothing")
+			expect(slot.ClipsDescendants).toBe(true)
+			local cap = slot:GetChildren()[1]
+			local base = cap:FindFirstChild("Base")
+			assert(base ~= nil, "the ghost key has no lip: this gate would check nothing")
+			local rim = base:FindFirstChildOfClass("UIStroke")
+			expect(rim.BorderStrokePosition.Name).toBe("Outer")
+			expect(cap.AnchorPoint.Y).toBe(1)
+			expect(cap.Position.Y.Scale).toBe(1)
+			expect(cap.Position.Y.Offset + rim.Thickness).toBeLessThanOrEqual(0)
+			if phone then
+				expect(rim.Thickness).toBeGreaterThan(2)
+			end
+		end
 	end)
 
 	it("catches its gloss inside the ink, and carries it where the face goes", function()

@@ -311,12 +311,18 @@ function Theme.corner(parent: Instance, radius: number | UDim): UICorner
 	return corner
 end
 
+-- How thick a stroke of `thickness` design units is drawn at the current scale: never under MIN_STROKE_PIXELS
+-- real pixels, whether or not the engine applies the UIScale to it. It is also how far an outline drawn outside
+-- a shape reaches past it (a pressable's lip, Sticker).
+function Theme.strokeThickness(thickness: number): number
+	return math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())
+end
+
 -- Every stroke of the interface (docs/ART_BIBLE.md rule 11: the outline is what detaches a vivid shape
 -- from the page). Fixed-size and round-jointed; a Border stroke sits Inner unless told otherwise, so an
--- outline never grows a shape past its layout. The thickness is floored at MIN_STROKE_PIXELS real pixels
--- whether or not the engine applies the UIScale to it, and is read once, when the stroke is made: a scale
--- only changes with the viewport, and a screen is rebuilt long before that matters. Never tween the
--- Thickness of a stroke on text: animate its Transparency.
+-- outline never grows a shape past its layout. The thickness is floored (Theme.strokeThickness), and is read
+-- once, when the stroke is made: a scale only changes with the viewport, and a screen is rebuilt long before
+-- that matters. Never tween the Thickness of a stroke on text: animate its Transparency.
 function Theme.stroke(
 	parent: Instance,
 	color: string | Color3,
@@ -326,7 +332,7 @@ function Theme.stroke(
 ): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = if typeof(color) == "Color3" then color else Theme.color(color :: string)
-	stroke.Thickness = math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())
+	stroke.Thickness = Theme.strokeThickness(thickness)
 	stroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	if mode == "Contextual" then

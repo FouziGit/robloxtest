@@ -421,7 +421,7 @@ describe("the interface, held to the engine's layouts", function()
 				local bend = ribbon:FindFirstChildOfClass("UICorner").CornerRadius.Offset
 				local halfWide, halfTall = 12, ribbon.Size.Y.Offset / 2
 				local reach = (halfWide - bend) * math.cos(tilt) + (halfTall - bend) * math.sin(tilt) + bend - halfWide
-				expect(ribbon.Position.X.Offset + reach).toBeLessThan(gap - stroke)
+				expect(ribbon.Position.X.Offset + reach).toBeLessThan(gap - Theme.strokeThickness(stroke))
 			end
 		)
 

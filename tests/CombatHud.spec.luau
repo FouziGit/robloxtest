@@ -6,6 +6,7 @@
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local MatchConfig = require("../src/shared/Config/MatchConfig")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
@@ -498,9 +499,15 @@ describe("the top bands", function()
 		expect(has(set, "roundLabel.Visible")).toBe(false)
 		expect(Strings.Table["match.band"].en).toBe("Round {round} · {mode}")
 		expect(Strings.Table["match.band"].fr).toBe("Manche {round} · {mode}")
-		for _, mode in ipairs({ "Duel1v1", "Team3v3" }) do
-			expect(Strings.has("leaderboard.board." .. mode)).toBe(true)
+		-- Every mode a match can be played in has its word, in both languages: a mode added without one would
+		-- print its key in the band.
+		local modes = 0
+		for id in pairs(MatchConfig.Modes) do
+			modes += 1
+			expect(Strings.has("leaderboard.board." .. id)).toBe(true)
+			expect(Strings.Table["leaderboard.board." .. id].fr).never.toBeNil()
 		end
+		expect(modes).toBeGreaterThanOrEqual(2)
 		-- The series' pips are gone with the round's total.
 		expect(Strings.has("match.round")).toBe(false)
 		expect(has(band, "Pip")).toBe(false)

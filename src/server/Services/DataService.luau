@@ -56,16 +56,31 @@ local DataService = {}
 
 DataService.ProfileLoaded = Signal.new() -- (player: Player, data: ProfileData)
 DataService.ProfileReleased = Signal.new() -- (player: Player)
--- Fired while a leaving player's profile is STILL loaded, immediately before it is released. The last
--- moment anything can be persisted for them: once the session ends, DataService.get returns nil and
--- nothing can be written for that player on this server again. MatchService debits the forfeit of an
--- abandoned ranked match here, which is what used to make quitting free.
+-- Fired at the final write of a session, while the profile is STILL loaded: whatever a listener writes
+-- into `data` goes out with that write, and it is the last thing that can ever be persisted for the player
+-- on this server. It comes whatever ended the session -- the player leaving, or another server taking the
+-- profile before this one saw them go (docs/QA.md R4) -- and never when the server is closing: a shutdown
+-- is nobody walking out (R3). MatchService debits the forfeit of an abandoned ranked match here, which is
+-- what used to make quitting free.
 DataService.BeforeRelease = Signal.new() -- (player: Player, data: ProfileData)
+
+-- ProfileStore's reasons for a session's final write (Profile.OnLastSave).
+local ENDED_HERE = "Manual" -- this server ended it: the player left
+local ENDED_BY_SHUTDOWN = "Shutdown"
+-- How long a departure waits before its session ends (see onPlayerRemoving).
+local LEAVE_GRACE_SECONDS = GameConfig.Server.LeaveGraceSeconds
 
 local registry -- RemoteRegistry
 local store
 local profiles: { [Player]: any } = {} -- ProfileStore Profile objects
 local loadedSignals: { [Player]: { any } } = {}
+-- Set by game:BindToClose: from then on no session end is a player leaving (DataService.isClosing).
+local closing = false
+-- The reason ProfileStore gave for the final write of each session, read when the session ends.
+local lastSaveReasons: { [Player]: string } = {}
+-- Sessions of players who left, still loaded until the grace runs out: user id -> the session.
+type Hold = { Profile: any, Timer: thread }
+local held: { [number]: Hold } = {}
 
 ----------------------------------------------------------------
 -- Template
@@ -211,14 +226,65 @@ local function ensureSeason(data: { [string]: any })
 	end
 end
 
-local function onSessionEnd(player: Player)
-	profiles[player] = nil
+-- The final write of a session is about to go out: ProfileStore fires this before its last save, for every
+-- way a session can end but a stolen one, and the data it then writes is whatever the listeners left.
+local function onLastSave(player: Player, profile: any, reason: string)
+	lastSaveReasons[player] = reason
+	if reason == ENDED_BY_SHUTDOWN or DataService.isClosing() then
+		log.info("%s's session ends with the server: nothing is settled as a departure", player.Name)
+		return
+	end
+	-- Inside log.try: a listener that throws must never cost the session its release, which would leave the
+	-- key locked until ProfileStore times out.
+	log.try("BeforeRelease " .. player.Name, function()
+		DataService.BeforeRelease:Fire(player, profile.Data)
+	end)
+end
+
+local function onSessionEnd(player: Player, profile: any)
+	if profiles[player] == profile then
+		profiles[player] = nil
+	end
+	local hold = held[player.UserId]
+	if hold ~= nil and hold.Profile == profile then
+		-- Ended before the grace ran out: a shutdown, or another server that took the profile.
+		held[player.UserId] = nil
+		task.cancel(hold.Timer)
+	end
 	loadedSignals[player] = nil
+	local reason = lastSaveReasons[player]
+	lastSaveReasons[player] = nil
 	DataService.ProfileReleased:Fire(player)
-	kick(player, "kick.sessionElsewhere")
+	-- Only a session another server took is news to the player (reason "External", or none at all when the
+	-- other server stole it without a last save). A session this server ended belongs to a player who has
+	-- already gone, and a shutdown's own message is Roblox's to show: telling them their session was opened
+	-- elsewhere would be false (docs/QA.md R15).
+	if reason ~= ENDED_HERE and reason ~= ENDED_BY_SHUTDOWN and not DataService.isClosing() then
+		kick(player, "kick.sessionElsewhere")
+	end
+end
+
+-- Ends a departed player's session once the grace ran out. Nothing to do when a shutdown or another server
+-- ended it first: EndSession is a no-op on a session that is no longer active.
+local function release(userId: number, profile: any)
+	local hold = held[userId]
+	if hold == nil or hold.Profile ~= profile then
+		return
+	end
+	-- Cleared before EndSession: ending the session reaches onSessionEnd from inside this very thread.
+	held[userId] = nil
+	profile:EndSession()
 end
 
 local function loadProfile(player: Player)
+	local hold = held[player.UserId]
+	if hold ~= nil then
+		-- Back on this server before the grace of the last visit ran out. That session ends now, exactly as it
+		-- would have: ProfileStore refuses to open a key that is still loaded here.
+		held[player.UserId] = nil
+		task.cancel(hold.Timer)
+		hold.Profile:EndSession()
+	end
 	local key = KEY_PREFIX .. tostring(player.UserId)
 	local profile = store:StartSessionAsync(key, {
 		Cancel = function()
@@ -283,8 +349,11 @@ local function loadProfile(player: Player)
 	end
 
 	profiles[player] = profile
+	profile.OnLastSave:Connect(function(reason: string)
+		onLastSave(player, profile, reason)
+	end)
 	profile.OnSessionEnd:Connect(function()
-		onSessionEnd(player)
+		onSessionEnd(player, profile)
 	end)
 
 	log.info(
@@ -314,16 +383,12 @@ local function onPlayerAdded(player: Player)
 	end)
 end
 
+-- A departure keeps its session loaded for LEAVE_GRACE_SECONDS before ending it. A shutdown removes the
+-- players a moment before game:BindToClose says the server is closing -- in Studio always, on a live server
+-- when the race goes that way -- and a session ended on the spot would settle that departure as a player
+-- walking out (docs/QA.md R3). Held, it is ended by the shutdown itself if one follows, and otherwise by the
+-- grace; either way its final write carries what BeforeRelease settled.
 local function onPlayerRemoving(player: Player)
-	local profile = profiles[player]
-	if profile ~= nil then
-		-- Before the profile leaves the table, and inside log.try: a listener that throws must never
-		-- cost the session its release, which would leave the key locked until ProfileStore times out.
-		log.try("BeforeRelease " .. player.Name, function()
-			DataService.BeforeRelease:Fire(player, profile.Data)
-		end)
-	end
-	profiles[player] = nil
 	local waiters = loadedSignals[player]
 	loadedSignals[player] = nil
 	if waiters ~= nil then
@@ -331,10 +396,18 @@ local function onPlayerRemoving(player: Player)
 			task.spawn(thread, nil)
 		end
 	end
-	if profile ~= nil then
-		profile:EndSession()
-		DataService.ProfileReleased:Fire(player)
+	local profile = profiles[player]
+	if profile == nil then
+		return
 	end
+	if DataService.isClosing() then
+		profile:EndSession()
+		return
+	end
+	held[player.UserId] = {
+		Profile = profile,
+		Timer = task.delay(LEAVE_GRACE_SECONDS, release, player.UserId, profile),
+	}
 end
 
 ----------------------------------------------------------------
@@ -350,6 +423,11 @@ function DataService.Init(deps: { Registry: any })
 end
 
 function DataService.Start()
+	-- Bound here, at Start, rather than read from ProfileStore alone: ProfileStore binds its own close only
+	-- once its DataStore check has answered, which is a web call after the server started.
+	game:BindToClose(function()
+		closing = true
+	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -358,7 +436,14 @@ function DataService.Start()
 	log.info("started")
 end
 
--- Live profile data (mutate in place, then push the changed section).
+-- True once the server has started shutting down (game:BindToClose). Nothing that happens from then on is
+-- a player's choice: MatchService neither debits nor awards a forfeit.
+function DataService.isClosing(): boolean
+	return closing or ProfileStore.IsClosing
+end
+
+-- Live profile data (mutate in place, then push the changed section). Still answers for a player who left,
+-- until the grace of onPlayerRemoving ends their session.
 function DataService.get(player: Player): ProfileData?
 	local profile = profiles[player]
 	if profile == nil then

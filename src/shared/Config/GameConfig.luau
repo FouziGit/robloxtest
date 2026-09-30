@@ -39,6 +39,12 @@ GameConfig.Server = {
 	-- failure. A purchase is only acknowledged to Roblox once the write is confirmed.
 	SaveConfirmTimeoutSeconds = 10,
 	SaveConfirmPollSeconds = 0.1,
+	-- How long a departure waits before it counts as a player leaving: the leaver's session stays loaded,
+	-- and a forfeit it causes is not declared, until then. A shutdown or a server migration removes the
+	-- players a moment before game:BindToClose says so, and a whole match walking out inside this window is
+	-- the server's doing, never an abandon (docs/QA.md R3). Also what a player who rejoins another server
+	-- at once may wait on top of ProfileStore's own session hand-over.
+	LeaveGraceSeconds = 2,
 }
 
 GameConfig.Vfx = {

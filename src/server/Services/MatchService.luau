@@ -399,6 +399,8 @@ local function finish(active: Active, cancelled: boolean?)
 				notify.send(participant.Player, "match.returning", nil, "Info")
 			end
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
+			-- Let go, as releaseFromResult lets go: a finish that throws before this line leaves them to cancel.
+			participant.Released = true
 		end
 	end
 	active.Trove:Destroy()
@@ -419,13 +421,26 @@ end
 -- A match whose tick keeps throwing is over, with no result: nothing is paid and no rating moves, because the
 -- server cannot stand behind a verdict its own tick could not reach. Its players are told and sent home, and its
 -- arena goes back to the pool, so a broken match never holds either. Whatever finish got through before it threw,
--- if it did, nothing of the match outlives this: every step below is harmless when finish already took it.
+-- if it did, nothing of the match outlives this: every step below is harmless when finish already took it. Whoever
+-- that finish did not reach is sent home here, each step on its own so the one that broke finish cannot stop the
+-- next, and before the arena under them is released (ArenaService destroys it). A match that was already finished
+-- had its end, and its result stands: they are told it is over, not that it was cancelled.
 local function cancel(active: Active)
+	local ended = active.Finished
+	local key = if ended then "match.returning" else "match.cancelled"
+	local kind: NotifyKind = if ended then "Info" else "Error"
 	log.try("finish " .. active.Match.Id, finish, active, true)
 	active.Finished = true
 	for _, participant in ipairs(active.Match.Participants) do
 		if activeByUserId[participant.UserId] == active then
 			activeByUserId[participant.UserId] = nil
+		end
+		if isLive(participant) and not participant.Released then
+			participant.Released = true
+			local player = participant.Player
+			log.try("MatchChanged for " .. player.Name, registry.fire, "MatchChanged", player, nil)
+			log.try("notify " .. player.Name, notify.send, player, key, nil, kind)
+			log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
 		end
 	end
 	log.try("release of " .. active.Match.Id, active.Trove.Destroy, active.Trove)

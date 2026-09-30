@@ -319,6 +319,8 @@ type MatchWorld = {
 	released: { Arena },
 	releasedAt: { number },
 	sentHome: { any },
+	-- "home" for each trip home, "release" for each arena released, in the order they happened.
+	steps: { string },
 	told: { [any]: string },
 	results: { number },
 	-- Set by a spec: what Registry.fire does besides nothing.
@@ -367,6 +369,7 @@ local function matchWorld(): MatchWorld
 		Hub = {
 			teleportToHub = function(player: any)
 				table.insert(context.sentHome, player)
+				table.insert(context.steps, "home")
 			end,
 		},
 		Arena = {
@@ -377,6 +380,7 @@ local function matchWorld(): MatchWorld
 			release = function(arena: Arena)
 				table.insert(context.released, arena)
 				table.insert(context.releasedAt, world.now)
+				table.insert(context.steps, "release")
 			end,
 		},
 		Ranking = {
@@ -413,6 +417,7 @@ local function matchWorld(): MatchWorld
 		released = {},
 		releasedAt = {},
 		sentHome = {},
+		steps = {},
 		told = {},
 		results = {},
 		fire = function() end,
@@ -456,8 +461,16 @@ describe("a match whose mode throws", function()
 	end)
 
 	it("sends its players home, told why, with nothing applied", function()
-		expect(table.find(m.sentHome, b1)).never.toBeNil()
-		expect(table.find(m.sentHome, b2)).never.toBeNil()
+		-- Once each: whoever finish let go is not sent a second time by what cancel does after it.
+		for _, player in ipairs({ b1, b2 }) do
+			local trips = 0
+			for _, sent in ipairs(m.sentHome) do
+				if sent == player then
+					trips += 1
+				end
+			end
+			expect(trips).toBe(1)
+		end
 		expect(m.told[b1]).toBe("match.cancelled")
 		expect(m.told[b2]).toBe("match.cancelled")
 		expect(#m.results).toBe(0)
@@ -479,7 +492,7 @@ describe("a match whose mode throws", function()
 end)
 
 describe("a match whose end throws halfway", function()
-	it("is still released within a second, instead of ticking finished forever", function()
+	it("is still released within a second, its player sent home first, instead of ticking finished forever", function()
 		local m = matchWorld()
 		local stays, leaves = duelist(m.players, "Stays", 31), duelist(m.players, "Leaves", 32)
 		local id = m.MatchService.start("Duel1v1", { { 31 }, { 32 } })
@@ -502,6 +515,12 @@ describe("a match whose end throws halfway", function()
 		expect(#m.released).toBe(1)
 		expect(m.releasedAt[1] - endedAt).toBeLessThanOrEqual(1)
 		expect(m.MatchService.isInMatch(stays)).toBe(false)
+		-- The player that finish never reached is still sent home before the arena under them goes, and told the
+		-- match is over: it was, with its result paid, so it is not called cancelled.
+		expect(table.find(m.sentHome, stays)).never.toBeNil()
+		expect(m.steps).toEqual({ "home", "release" })
+		expect(m.told[stays]).toBe("match.returning")
+		expect(table.find(m.sentHome, leaves)).toBeNil()
 	end)
 end)
 

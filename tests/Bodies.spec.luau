@@ -154,6 +154,25 @@ describe("a body whose Humanoid was taken away", function()
 		expect(humanoid.WalkSpeed).toBe(0)
 	end)
 
+	it("is replaced once its time away adds up, however often its Humanoid comes back", function()
+		-- A client that takes it out and puts it back a little before the half second, again and again, spends
+		-- most of its time where nothing can hurt it.
+		local s = ServerWorld.start()
+		local humanoid = s.humanoid
+		local away = RETURN * 0.6
+		humanoid.Parent = nil
+		s.world:advance(away)
+		humanoid.Parent = s.character
+		s.world:advance(1)
+		expect(#s.loads).toBe(0)
+		humanoid.Parent = nil
+		s.world:advance(RETURN - away - 2 * TICK)
+		expect(#s.loads).toBe(0)
+		s.world:advance(3 * TICK)
+		expect(#s.loads).toBe(1)
+		expect(#s.strikes).toBe(1)
+	end)
+
 	it("leaves a normal death, and a body the server replaces, to the engine", function()
 		local s = ServerWorld.start()
 		s.humanoid.Health = 0

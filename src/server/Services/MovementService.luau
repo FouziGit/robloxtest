@@ -50,8 +50,9 @@ type Joint = { Joint: AnimationConstraint, Kinematic: boolean, MaxTorque: number
 -- A body that is down (MovementService.ragdoll): Until ends the limp phase, then the rise. RiseFrom is
 -- when the rise began, for the joints' strength coming back over it.
 type Fall = { Character: Model, Joints: { Joint }, Rising: boolean, Until: number, RiseFrom: number }
--- A body whose live Humanoid its client took out of it, and when.
-type Lost = { Character: Model, At: number }
+-- A body whose live Humanoid its client took out of it: the seconds it has been away, summed over every time it
+-- left and came back, and since when it is away now (nil while it is back).
+type Lost = { Character: Model, Away: number, Since: number? }
 
 type State = {
 	Trove: TroveType, -- player lifetime
@@ -62,7 +63,7 @@ type State = {
 	SlowUntil: number, -- latest os.clock expiry over the live entries, 0 when none
 	Stun: StunClock.Clock, -- the stun, dated on os.clock: when it began, when it ends, when the last one ended
 	Fall: Fall?, -- nil unless the body is down
-	Lost: Lost?, -- nil unless the live Humanoid left the body and has not come back
+	Lost: Lost?, -- nil unless the live Humanoid has left the body, since it became the player's
 }
 
 local SLOW_ATTRIBUTE = CombatConfig.Status.SlowAttribute
@@ -293,25 +294,33 @@ local function onCharacterAdded(player: Player, character: Model)
 	end)
 	-- Same guard as CombatService: a Humanoid the owning client detached from its character must not
 	-- keep receiving WalkSpeed / JumpPower and status writes through the cached reference. A live one that
-	-- leaves is watched for its return (respawnLost); given back, the body is held as before.
+	-- leaves is timed away (respawnLost); given back, the body is held as before, and its time away is kept:
+	-- a client that took it out and put it back over and over would otherwise never be replaced.
 	local function onHumanoidDetached()
 		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
 			return
 		end
+		local now = os.clock()
+		local lost = state.Lost
 		if humanoid.Parent == character then
-			local lost = state.Lost
-			if lost ~= nil and lost.Character == character then
-				state.Lost = nil
+			if lost ~= nil and lost.Character == character and lost.Since ~= nil then
+				lost.Away += now - lost.Since
+				lost.Since = nil
 				state.Humanoid = humanoid
-				applyStats(state, os.clock())
+				applyStats(state, now)
 			end
 			return
 		end
 		local alive = state.Humanoid == humanoid
 		clearStatuses(state)
 		state.Humanoid = nil
-		if alive and state.Lost == nil then
-			state.Lost = { Character = character, At = os.clock() }
+		if not alive then
+			return
+		end
+		if lost ~= nil and lost.Character == character then
+			lost.Since = now
+		else
+			state.Lost = { Character = character, Away = 0, Since = now }
 		end
 	end
 	characterTrove:Connect(humanoid.AncestryChanged, onHumanoidDetached)
@@ -357,8 +366,8 @@ local function onPlayerRemoving(player: Player)
 	state.Trove:Destroy()
 end
 
--- A body whose Humanoid its client took away and did not give back within GameConfig.Spawn.HumanoidReturnSeconds
--- (D-XXXe): with no Humanoid nothing can hurt it, and it stood invulnerable in the hub or the Erasure's arena. One
+-- A body whose Humanoid its client took away for GameConfig.Spawn.HumanoidReturnSeconds, at once or a little at a
+-- time (D-XXXe): with no Humanoid nothing can hurt it, and it stood invulnerable in the hub or the Erasure's arena. One
 -- Schema strike, the places that keep a player told (BodyLost), and a new body from the engine: at the hub, which is
 -- where a participant of the Erasure's fight goes back to, or in the Battleground's camp, which takes a member's new
 -- body back as it does after a death there. A body already replaced, or a player gone, is left alone.
@@ -389,7 +398,8 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for player, state in pairs(states) do
 		local lost = state.Lost
-		if lost ~= nil and now - lost.At >= GameConfig.Spawn.HumanoidReturnSeconds then
+		local since = if lost ~= nil then lost.Since else nil
+		if lost ~= nil and since ~= nil and lost.Away + now - since >= GameConfig.Spawn.HumanoidReturnSeconds then
 			state.Lost = nil
 			respawnLost(player, lost.Character)
 		end

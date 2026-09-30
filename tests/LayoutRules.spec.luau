@@ -17,6 +17,8 @@ local Harness = require("./harness")
 local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Layout = require("./layout")
+local Measure = require("./measure")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
@@ -220,6 +222,9 @@ describe("the interface, held to the engine's layouts", function()
 			for _, tile in ipairs(tiles) do
 				local content = tile:FindFirstChild("Content", true)
 				local layout = content:FindFirstChildOfClass("UIListLayout")
+				-- The board's `padding: 1.2cqw` inside the tile's ink.
+				expect(content.Position).toBe(roblox.UDim2.fromOffset(15, 15))
+				expect(content.Size).toBe(roblox.UDim2.new(1, -30, 1, -30))
 				-- The board's `align-content: space-between`: the icon up top, the word down at the foot.
 				expect(layout.VerticalFlex.Name).toBe("SpaceBetween")
 				local word = content:FindFirstChild("Label", true)
@@ -237,6 +242,99 @@ describe("the interface, held to the engine's layouts", function()
 			local playLayout = playTile:FindFirstChild("Content", true):FindFirstChildOfClass("UIListLayout")
 			expect(playLayout.VerticalFlex.Name).toBe("None")
 			expect(playLayout.VerticalAlignment.Name).toBe("Bottom")
+		end)
+
+		it("lays the menu's tiles out in the board's proportions " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local screenWidth = world.workspace.CurrentCamera.ViewportSize.X / Theme.activeScale()
+			local deck = built.Instance:FindFirstChild("Deck", true)
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			local playTile = built.Instance:FindFirstChild("PlayTile", true)
+			assert(
+				deck ~= nil and grid ~= nil and playTile ~= nil,
+				"the menu has no deck: this gate would check nothing"
+			)
+			-- The board's 1.5cqw between any two tiles, across and down.
+			expect(deck:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(16)
+			local cells = grid:FindFirstChildOfClass("UIGridLayout")
+			expect(cells.CellPadding.X.Offset).toBe(16)
+			expect(cells.CellPadding.Y.Offset).toBe(16)
+			-- Its `1.35fr 1fr 1fr 1fr`: Play is 1.35 tiles wide, whatever the width the deck is given.
+			local tiles: { any } = {}
+			local daily: any = nil
+			for _, child in ipairs(grid:GetChildren()) do
+				if child:IsA("TextButton") then
+					table.insert(tiles, child)
+					if child:FindFirstChild("Label", true).Text == "daily.title" then
+						daily = child
+					end
+				end
+			end
+			local tileWidth = Measure.widthOf(tiles[1], screenWidth)
+			expect(Measure.widthOf(playTile, screenWidth) / tileWidth).toBeCloseTo(1.35, 2)
+			-- Three tiles and their gaps fit their row, the third never wrapping under the others.
+			expect(3 * tileWidth + 2 * cells.CellPadding.X.Offset).toBeLessThanOrEqual(
+				Measure.widthOf(grid, screenWidth)
+			)
+			-- And the longest word of the menu, "Récompense du jour", wraps onto two lines at full size, every word
+			-- whole (measured the conservative way).
+			assert(daily ~= nil, "the menu has no daily tile: this gate would check nothing")
+			local word = daily:FindFirstChild("Label", true)
+			local size = word:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize
+			local width = Measure.widthOf(word, screenWidth)
+			local french = Strings.t("daily.title", nil, "fr")
+			expect(french).toBe("Récompense du jour")
+			for _, title in ipairs({ french, Strings.t("daily.title", nil, "en") }) do
+				for part in string.gmatch(title, "%S+") do
+					expect(Measure.textWidth(part, size)).toBeLessThanOrEqual(width)
+				end
+				expect(Measure.lines(title, size, width)).toBeLessThanOrEqual(2)
+			end
+			expect(Measure.lines(french, size, width)).toBe(2)
+		end)
+
+		it("runs the Loadout tile's pigments edge to edge along its foot, its ends in its corner, " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local PigmentConfig = world.require("src/shared/Config/PigmentConfig")
+			local loadout: any = nil
+			for _, tile in ipairs(built.Instance:FindFirstChild("Grid", true):GetChildren()) do
+				if tile:IsA("TextButton") and tile:FindFirstChild("Label", true).Text == "menu.loadout" then
+					loadout = tile
+				end
+			end
+			local stripe = if loadout ~= nil then loadout:FindFirstChild("Stripe", true) else nil
+			assert(stripe ~= nil, "the Loadout tile has no stripe: this gate would check nothing")
+			local stroke = Theme.Sizes.Stroke
+			-- Right inside the ink, edge to edge, 8 tall.
+			expect(stripe.AnchorPoint).toBe(roblox.Vector2.new(0.5, 1))
+			expect(stripe.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -stroke))
+			expect(stripe.Size).toBe(roblox.UDim2.new(1, -2 * stroke, 0, 8))
+			local corner = Theme.Sizes.CornerTile - stroke
+			local count = #PigmentConfig.Order
+			for index, pigment in ipairs(PigmentConfig.Order) do
+				local segment = stripe:FindFirstChild(pigment)
+				assert(segment ~= nil, pigment .. " has no segment")
+				expect(segment.LayoutOrder).toBe(index)
+				expect(segment.Size).toBe(roblox.UDim2.fromScale(1 / count, 1))
+				local color = Theme.pigmentColor(pigment)
+				if index == 1 or index == count then
+					-- A frame rounded like the tile's inner corner, clipped to the segment: only its outer foot shows.
+					expect(segment.ClipsDescendants).toBe(true)
+					expect(segment.BackgroundTransparency).toBe(1)
+					local rounded = segment:FindFirstChild("Corner")
+					expect(rounded.BackgroundColor3).toBe(color)
+					expect(rounded:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(corner)
+					local side = if index == 1 then 0 else 1
+					expect(rounded.AnchorPoint).toBe(roblox.Vector2.new(side, 1))
+					expect(rounded.Position).toBe(roblox.UDim2.fromScale(side, 1))
+					expect(rounded.Size).toBe(roblox.UDim2.new(1, corner, 0, 2 * corner))
+				else
+					expect(segment.BackgroundColor3).toBe(color)
+					expect(#segment:GetChildren()).toBe(0)
+				end
+			end
 		end)
 
 		it("wears the board's chip on every menu tile, in the tile's own ink, " .. where, function()

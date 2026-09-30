@@ -67,20 +67,27 @@ local XP_BAR_HEIGHT = 12
 local XP_TEXT_SIZE = 16
 local PILL_HEIGHT = 44
 -- The Play tile: its share of the deck's width, its word, its line, and the ► on a blot of the sheet.
-local PLAY_SHARE = 0.4
+local PLAY_SHARE = 1.35 / 4.35
 local PLAY_TEXT_SIZE = 40
 local PLAY_LINE_SIZE = 18
 local PLAY_GLYPH_SIZE = 64
 local PLAY_SPLAT_TRANSPARENCY = 0.2
--- The grid's three columns by two rows, and how tall two rows stand with a pointer: on a phone the tiles
--- share whatever the card has, so the whole menu stays above its fold.
+-- The grid's three columns by two rows, the gap between any two tiles (the board's 1.5cqw), and how tall two
+-- rows stand with a pointer: on a phone the tiles share whatever the card has, so the whole menu stays above
+-- its fold.
 local GRID_COLUMNS = 3
-local POINTER_DECK_HEIGHT = Theme.Sizes.TileHeight * 2 + Theme.Sizes.Gap
+local DECK_GAP = Theme.Sizes.Padding
+local POINTER_DECK_HEIGHT = Theme.Sizes.TileHeight * 2 + DECK_GAP
+-- The board's `1.35fr 1fr 1fr 1fr`: each column's share is of what the three gaps leave, so Play is 1.35 tiles
+-- wide. Play's part of those gaps, in whole units, is taken from its share and given back to the grid's.
+local PLAY_GAPS = math.round(PLAY_SHARE * GRID_COLUMNS * DECK_GAP)
 -- Each tile's chip holds a glyph (the board's): the coin's dot, the podium's peak, the pass's pip, the quest's
 -- tick, the week's seventh day, the loadout's card.
 local DAILY_GLYPH = "7"
--- The five-pigment stripe along the foot of an ink tile that holds the pigments (the Loadout).
-local STRIPE_HEIGHT = 6
+-- The five-pigment stripe along the foot of an ink tile that holds the pigments (the Loadout): edge to edge
+-- inside its ink, its end segments rounded like the tile's inner corner.
+local STRIPE_HEIGHT = 8
+local STRIPE_CORNER = Theme.Sizes.CornerTile - Theme.Sizes.Stroke
 -- The Play tile's line counts the wait once a second while the screen is up.
 local TICK_SECONDS = 1
 
@@ -270,7 +277,7 @@ function MenuScreen.new(deps: Deps): Screen
 	panel:SetContentMode("Fill")
 	local content = panel.Content
 
-	local deck = row("Deck", content, Theme.Sizes.Gap)
+	local deck = row("Deck", content, DECK_GAP)
 	deck.Size = UDim2.fromScale(1, 1)
 	if not Theme.touchOnly() then
 		local cap = Instance.new("UISizeConstraint")
@@ -281,27 +288,27 @@ function MenuScreen.new(deps: Deps): Screen
 	local playFrame = Instance.new("Frame")
 	playFrame.Name = "PlayTile"
 	playFrame.BackgroundTransparency = 1
-	playFrame.Size = UDim2.new(PLAY_SHARE, -Theme.Sizes.Gap / 2, 1, 0)
+	playFrame.Size = UDim2.new(PLAY_SHARE, -PLAY_GAPS, 1, 0)
 	playFrame.LayoutOrder = 1
 	playFrame.Parent = deck
 
 	local grid = Instance.new("Frame")
 	grid.Name = "Grid"
 	grid.BackgroundTransparency = 1
-	grid.Size = UDim2.new(1 - PLAY_SHARE, -Theme.Sizes.Gap / 2, 1, 0)
+	grid.Size = UDim2.new(1 - PLAY_SHARE, PLAY_GAPS - DECK_GAP, 1, 0)
 	grid.LayoutOrder = 2
 	grid.Parent = deck
 	local gridLayout = Instance.new("UIGridLayout")
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	gridLayout.FillDirectionMaxCells = GRID_COLUMNS
-	gridLayout.CellPadding = UDim2.fromOffset(Theme.Sizes.Gap, Theme.Sizes.Gap)
+	gridLayout.CellPadding = UDim2.fromOffset(DECK_GAP, DECK_GAP)
 	-- An offset is a whole number of pixels: the gaps' share of each cell is rounded up, or the third cell of a
 	-- row ran two pixels past the grid and wrapped under the other two.
 	gridLayout.CellSize = UDim2.new(
 		1 / GRID_COLUMNS,
-		-math.ceil(Theme.Sizes.Gap * (GRID_COLUMNS - 1) / GRID_COLUMNS),
+		-math.ceil(DECK_GAP * (GRID_COLUMNS - 1) / GRID_COLUMNS),
 		0.5,
-		-math.ceil(Theme.Sizes.Gap / 2)
+		-math.ceil(DECK_GAP / 2)
 	)
 	gridLayout.Parent = grid
 
@@ -458,22 +465,42 @@ function MenuScreen.new(deps: Deps): Screen
 		end
 	end
 
-	-- The Loadout tile holds the five pigments: their stripe along its foot, as on its chapter's band.
+	-- The Loadout tile holds the five pigments: their stripe along its foot, edge to edge inside its ink, as on
+	-- its chapter's band. A frame clips to its rectangle and not to its corner, so each end segment is a frame
+	-- rounded like the tile's inner corner, clipped to the segment's rectangle: only its outer bottom corner
+	-- shows.
 	local loadoutFace = loadoutButton:Face()
 	if loadoutFace ~= nil then
 		local stripe = row("Stripe", loadoutFace, 0)
 		stripe.AnchorPoint = Vector2.new(0.5, 1)
-		stripe.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.Stroke - Theme.Sizes.PaddingSmall)
-		stripe.Size = UDim2.new(1, -Theme.Sizes.CornerTile * 2, 0, STRIPE_HEIGHT)
+		stripe.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.Stroke)
+		stripe.Size = UDim2.new(1, -Theme.Sizes.Stroke * 2, 0, STRIPE_HEIGHT)
 		stripe.ZIndex = 3
+		local count = #PigmentConfig.Order
 		for index, pigment in ipairs(PigmentConfig.Order) do
+			local color = Theme.pigmentColor(pigment)
 			local segment = Instance.new("Frame")
 			segment.Name = pigment
 			segment.BorderSizePixel = 0
-			segment.BackgroundColor3 = Theme.pigmentColor(pigment)
-			segment.Size = UDim2.fromScale(1 / #PigmentConfig.Order, 1)
+			segment.Size = UDim2.fromScale(1 / count, 1)
 			segment.LayoutOrder = index
 			segment.ZIndex = 3
+			if index == 1 or index == count then
+				segment.BackgroundTransparency = 1
+				segment.ClipsDescendants = true
+				local rounded = Instance.new("Frame")
+				rounded.Name = "Corner"
+				rounded.BorderSizePixel = 0
+				rounded.BackgroundColor3 = color
+				rounded.AnchorPoint = Vector2.new(if index == 1 then 0 else 1, 1)
+				rounded.Position = UDim2.fromScale(if index == 1 then 0 else 1, 1)
+				rounded.Size = UDim2.new(1, STRIPE_CORNER, 0, STRIPE_CORNER * 2)
+				rounded.ZIndex = 3
+				Theme.corner(rounded, STRIPE_CORNER)
+				rounded.Parent = segment
+			else
+				segment.BackgroundColor3 = color
+			end
 			segment.Parent = stripe
 		end
 	end

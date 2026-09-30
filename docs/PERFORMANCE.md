@@ -169,7 +169,8 @@ demande avant d'émettre (`VfxParticles`, sur `Pure/ParticleBudget`) :
 - un **émetteur que le moteur fait tourner** (`Rate`) est ralenti à ce qui tient, réservé pour toute sa vie ;
 - ce que **portent les corps** (auras, traînées, `CosmeticController`) reçoit ce qui tient dans sa part,
   **la moitié du budget** au plus (`QualityConfig.ParticleLedger.WornShare`) : l'autre moitié est aux sorts,
-  qu'une foule du hub ne prive jamais ;
+  qu'une foule du hub ne prive jamais ; le look du **joueur local**, compté dans cette part, ne demande que ce
+  qui reste du budget entier : une foule s'éclaircit, jamais ce qu'il porte sur son propre écran ;
 - l'éclat d'une garde brisée (`VfxLibrary`) demande comme une rafale.
 
 Chaque lot est compté jusqu'au haut de sa durée de vie, arrondi au vingtième de seconde supérieur, sur

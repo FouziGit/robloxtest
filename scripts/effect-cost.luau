@@ -202,6 +202,9 @@ export type SceneResult = {
 	-- Everything the scene asked for over its life, and what it drew.
 	Asked: number,
 	Drawn: number,
+	-- What the local player's own look asked for and drew: the look he put on, on his own screen.
+	LocalAsked: number,
+	LocalDrawn: number,
 }
 
 local FRAME = 1 / 60
@@ -272,10 +275,15 @@ local function emitterStarts(plays: { string }): ({ Start }, number)
 end
 
 -- The worn flows of `bodies` bodies, each with the heaviest aura and trail, at the density this screen draws them
--- at (the first body is the local player's), and the longest life of each flow's particles.
-local function wornFlows(bodies: number, tierName: string, fighting: boolean): ({ AuraMath.Flow }, { number })
+-- at, the longest life of each flow's particles, and whether each is the local player's own (the first body's).
+local function wornFlows(
+	bodies: number,
+	tierName: string,
+	fighting: boolean
+): ({ AuraMath.Flow }, { number }, { boolean })
 	local flows: { AuraMath.Flow } = {}
 	local lives: { number } = {}
+	local own: { boolean } = {}
 	local looks = { heaviestLook("Aura", CosmeticConfig.AuraStyles), heaviestLook("Trail", CosmeticConfig.TrailStyles) }
 	local floorTier = tierName == QualityConfig.Order[#QualityConfig.Order]
 	local scale = QualityConfig.Tiers[tierName].ParticleScale
@@ -286,11 +294,12 @@ local function wornFlows(bodies: number, tierName: string, fighting: boolean): (
 				for _, emission in ipairs(look) do
 					table.insert(flows, { Rate = emission.Rate * share, Carry = 0 })
 					table.insert(lives, emission.Lifetime[2])
+					table.insert(own, body == 1)
 				end
 			end
 		end
 	end
-	return flows, lives
+	return flows, lives, own
 end
 
 function CostReport.scene(options: SceneOptions): SceneResult
@@ -317,24 +326,33 @@ function CostReport.scene(options: SceneOptions): SceneResult
 		return effects.Live + worn.Live
 	end
 	-- Draws what the budget grants of `wanted` particles living `life`, counted in `ledger`; all of them, counted
-	-- nowhere, for the kind that skips the brake.
-	local function emit(now: number, wanted: number, life: number, ledger: ParticleBudget.Ledger, kind: string)
+	-- nowhere, for the kind that skips the brake. What a body wears asks within its share, the local player's own
+	-- look (`own`) only what is left of the whole (VfxParticles.grantWorn). Returns how many it drew.
+	local function emit(
+		now: number,
+		wanted: number,
+		life: number,
+		ledger: ParticleBudget.Ledger,
+		kind: string,
+		own: boolean?
+	): number
 		local granted = if unbraked == kind
 			then math.floor(wanted)
-			elseif kind == "Worn" then ParticleBudget.grant(
+			elseif kind == "Worn" and own ~= true then ParticleBudget.grant(
 				wanted,
 				ParticleBudget.wornRoom(budget, settings.WornShare, live(), worn.Live)
 			)
 			else ParticleBudget.grant(wanted, ParticleBudget.room(budget, live()))
 		asked += wanted
 		if granted <= 0 then
-			return
+			return 0
 		end
 		drawn += granted
 		if unbraked ~= kind then
 			ParticleBudget.count(ledger, now, granted, life)
 		end
 		born(now, granted, life)
+		return granted
 	end
 
 	local flows: { Flow } = {}
@@ -400,7 +418,8 @@ function CostReport.scene(options: SceneOptions): SceneResult
 	end
 
 	local starts, ends = emitterStarts(options.Plays)
-	local wearing, lives = wornFlows(options.Bodies, options.Tier, options.Fighting)
+	local wearing, lives, own = wornFlows(options.Bodies, options.Tier, options.Fighting)
+	local localAsked, localDrawn = 0, 0
 	local nextStart = 1
 	local peak = 0
 	for frame = 0, math.ceil((ends + 1) / FRAME) do
@@ -420,12 +439,23 @@ function CostReport.scene(options: SceneOptions): SceneResult
 		for index, flow in ipairs(wearing) do
 			local count = AuraMath.owed(flow, FRAME, CosmeticConfig.Flow.MaxStepSeconds)
 			if count > 0 then
-				emit(now, count, lives[index], worn, "Worn")
+				local granted = emit(now, count, lives[index], worn, "Worn", own[index])
+				if own[index] then
+					localAsked += count
+					localDrawn += granted
+				end
 			end
 		end
 		peak = math.max(peak, alive)
 	end
-	return { Peak = peak, Budget = budget, Asked = asked, Drawn = drawn }
+	return {
+		Peak = peak,
+		Budget = budget,
+		Asked = asked,
+		Drawn = drawn,
+		LocalAsked = localAsked,
+		LocalDrawn = localDrawn,
+	}
 end
 
 -- Exposed so tests/EffectCost.spec.luau can hold this set against the renderer's own early returns: a kind

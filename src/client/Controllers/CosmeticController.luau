@@ -449,16 +449,16 @@ local function wipeRibbons(entry: Tracked)
 end
 
 -- What a flow owes since the last frame, as much of it as the screen's particle budget grants what bodies wear
--- (VfxParticles: their share, and what the effects leave), each particle born where its place says: the
--- attachment is moved there, turned toward or away from the body's axis for In and Out, and the emitter asked for
--- one. What is not granted is skipped, never owed again.
+-- (VfxParticles: their share, and what the effects leave; the local player's own look, what is left, whatever the
+-- crowd wears), each particle born where its place says: the attachment is moved there, turned toward or away from
+-- the body's axis for In and Out, and the emitter asked for one. What is not granted is skipped, never owed again.
 local function emitFlow(entry: Tracked, flow: Flow, dt: number, now: number)
 	local count = AuraMath.owed(flow.Owed, dt, FLOW.MaxStepSeconds)
 	if count <= 0 then
 		return
 	end
 	local tier: QualityConfig.TierDef = quality.def()
-	for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles) do
+	for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles, entry.IsLocal) do
 		flow.Side = -flow.Side
 		local x, y, z = AuraMath.point(flow.Place, entry.Fit, now, random:NextNumber(), random:NextNumber(), flow.Side)
 		local at = Vector3.new(x, y, z)

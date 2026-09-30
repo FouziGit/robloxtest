@@ -85,9 +85,15 @@ function VfxParticles.reserve(clock: Clock, rate: number, lifetime: number, seco
 	return allowed
 end
 
--- The same as grant, for what a body wears: within the worn share of `budget` as well as what is left of it.
-function VfxParticles.grantWorn(wanted: number, lifetime: number, budget: number): number
-	local room = ParticleBudget.wornRoom(budget, SETTINGS.WornShare, alive(), worn.Live)
+-- The same as grant, for what a body wears: within the worn share of `budget` as well as what is left of it. The
+-- local player's own look (`own`) asks only what is left: counted in the share, it leaves the crowd less of it, but
+-- a crowd never thins the look a player put on, on his own screen. Held to the share like the crowd's, it was
+-- drawn at about half of itself in a hub of twenty-four bodies at High, Medium and Low (found by review).
+function VfxParticles.grantWorn(wanted: number, lifetime: number, budget: number, own: boolean): number
+	local live = alive()
+	local room = if own
+		then ParticleBudget.room(budget, live)
+		else ParticleBudget.wornRoom(budget, SETTINGS.WornShare, live, worn.Live)
 	local granted = ParticleBudget.grant(wanted, room)
 	ParticleBudget.count(worn, os.clock(), granted, lifetime)
 	return granted

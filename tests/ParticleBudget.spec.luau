@@ -248,6 +248,35 @@ describe("the screen's particle budget", function()
 		end
 	end)
 
+	it("draws the local player's own look whole in a crowd, and thins the others", function()
+		-- The local player's own look asks only what is left of the budget, never the crowd's share
+		-- (VfxParticles.grantWorn): a crowd of the heaviest looks thins everybody else's, never the one he put on, on
+		-- his own screen. Held to the share like the crowd's, it was drawn at about half of itself among twenty-four.
+		local thinned = 0
+		for _, name in ipairs(QualityConfig.Order) do
+			for _, fighting in ipairs({ true, false }) do
+				local crowd = EffectCost.scene({ Plays = {}, Bodies = 24, Tier = name, Fighting = fighting })
+				expect(crowd.Peak).toBeLessThanOrEqual(crowd.Budget)
+				expect(crowd.LocalAsked).toBeGreaterThan(0)
+				if crowd.LocalDrawn ~= crowd.LocalAsked then
+					error(
+						("%s%s: the local player's own look drew %d of %d particles in a crowd"):format(
+							name,
+							if fighting then " in a fight" else "",
+							crowd.LocalDrawn,
+							crowd.LocalAsked
+						)
+					)
+				end
+				if crowd.Drawn < crowd.Asked then
+					thinned += 1
+				end
+			end
+		end
+		-- A crowd the worn share cannot hold whole: over one that fits, the local look is whole however it asks.
+		expect(thinned).toBeGreaterThanOrEqual(2)
+	end)
+
 	it("fails when a single kind of emitter skips its brake", function()
 		-- A burst, a driven flow and a worn look that emit without asking each push the scene past a budget. The
 		-- scene's engine-run emitter (the Scorch's smoke) starts once its fire is out, so the engine's own brake is
@@ -346,7 +375,7 @@ describe("every emitter on the screen", function()
 		has(step, 'local clock: VfxParticles.Clock = if entry.Steady then "Steady" else "Held"', "stepEmitter")
 		local worn = functionIn(COSMETIC, "local function emitFlow(")
 		has(worn, "local tier: QualityConfig.TierDef = quality.def()", "emitFlow")
-		has(worn, "for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles) do", "emitFlow")
+		has(worn, "for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles, entry.IsLocal) do", "emitFlow")
 		has(functionIn(COSMETIC, "local function buildEmission("), "Life = spec.Lifetime[2],", "buildEmission")
 		has(
 			functionIn(LIBRARY, "local function burst("),
@@ -369,9 +398,11 @@ describe("every emitter on the screen", function()
 			"local allowed = ParticleBudget.rate(rate, lifetime, ParticleBudget.room(budget, alive())) local ledger, now = ledgerOf(clock) ParticleBudget.count(ledger, now, ParticleBudget.held(allowed, lifetime), seconds + lifetime) return allowed",
 			"VfxParticles.reserve"
 		)
+		-- The crowd's looks within their share; the local player's own within what is left, counted in that share
+		-- (the scene asks the same way, and its crowd test holds what that is for).
 		has(
 			functionIn(PARTICLES, "function VfxParticles.grantWorn("),
-			"local room = ParticleBudget.wornRoom(budget, SETTINGS.WornShare, alive(), worn.Live) local granted = ParticleBudget.grant(wanted, room) ParticleBudget.count(worn, os.clock(), granted, lifetime) return granted",
+			"function VfxParticles.grantWorn(wanted: number, lifetime: number, budget: number, own: boolean): number local live = alive() local room = if own then ParticleBudget.room(budget, live) else ParticleBudget.wornRoom(budget, SETTINGS.WornShare, live, worn.Live) local granted = ParticleBudget.grant(wanted, room) ParticleBudget.count(worn, os.clock(), granted, lifetime) return granted",
 			"VfxParticles.grantWorn"
 		)
 		local clockOf = functionIn(PARTICLES, "local function ledgerOf(")

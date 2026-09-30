@@ -2,6 +2,7 @@
 -- The Cartouche keeps its promise (E19-S4, D-140, D-XXXframe): while its caster stands inside their own frame, their
 -- other glyphs recharge Hasten times as fast, for as long as its ticks last and no longer. The real GlyphService runs
 -- in a pretend server (tests/server.luau): what is read is the cooldown it reports, the one the HUD draws.
+local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local Server = require("./server")
@@ -124,6 +125,18 @@ describe("the Cartouche's frame (D-140)", function()
 		humanoid.Health = 100
 		state.setup.world:advance(1.5)
 		near(left(state, SLOW.Id), SLOW.Cooldown - 3 - (PARAMS.Hasten - 1))
+	end)
+
+	it("is never laid under a developer's free casting, whose cooldowns are already the floor", function()
+		-- DeveloperConfig.MinRecastSeconds keeps a glyph from overlapping itself; a frame would halve it.
+		local setup = Server.services()
+		local dev = setup.world:join(DeveloperConfig.UserIds[1], "Developer")
+		dev:LoadCharacterAsync()
+		expect(setup.loadout.setLoadout(dev, { "Brand", "Cartouche" })).toBe(true)
+		expect(setup.cast(dev, "Brand")).toBe(true)
+		expect(setup.cast(dev, "Cartouche")).toBe(true)
+		setup.world:advance(0.2)
+		near(setup.glyph.getCooldowns(dev).Brand or 0, DeveloperConfig.MinRecastSeconds - 0.2)
 	end)
 
 	it("is forgotten with the cooldowns when a round starts over (D-207)", function()

@@ -446,7 +446,10 @@ local function onCastGlyph(player: Player, sequence: { string })
 	-- its successor starts.
 	local cooldown = if freeCasting(player) then DeveloperConfig.MinRecastSeconds else def.Cooldown
 	cooldownsOf(player)[def.Id] = now + cooldown
-	openFrame(player, def, origin.Position, now)
+	-- Never under free casting: its cooldowns are already that floor, and a frame would halve it.
+	if not freeCasting(player) then
+		openFrame(player, def, origin.Position, now)
+	end
 	local previous = lastCastAt[player]
 	local chain = 1
 	if previous ~= nil and now - previous <= GameConfig.Combo.ChainWindowSeconds then

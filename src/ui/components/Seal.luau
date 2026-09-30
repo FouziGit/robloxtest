@@ -97,9 +97,12 @@ function Seal.new(props: Props): Seal
 	disc.AnchorPoint = props.AnchorPoint or Vector2.zero
 	disc.LayoutOrder = props.LayoutOrder or 0
 	Theme.corner(disc, Theme.Pill)
-	local outline =
-		Theme.stroke(disc, "Accent", if props.Size < THIN_BELOW then Theme.Sizes.StrokeThin else Theme.Sizes.Stroke)
-	outline.Name = "Outline"
+	-- As drawn: Theme.stroke floors a thin line on a phone.
+	local thickness = Theme.stroke(
+		disc,
+		"Accent",
+		if props.Size < THIN_BELOW then Theme.Sizes.StrokeThin else Theme.Sizes.Stroke
+	).Thickness
 	trove:Add(disc)
 	local scale = Instance.new("UIScale")
 	scale.Parent = disc
@@ -150,7 +153,7 @@ function Seal.new(props: Props): Seal
 			current:Destroy()
 			return
 		end
-		shimmer = Shimmer.new(disc, Theme.Pill, SHINE_Z)
+		shimmer = Shimmer.new(disc, Theme.Pill, SHINE_Z, thickness)
 	end
 	trove:Add(function()
 		setShimmer(nil, false)

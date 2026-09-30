@@ -13,6 +13,7 @@ local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -398,10 +399,12 @@ describe("a Legendary card, run", function()
 		local shine = faces[LEGENDARY]:FindFirstChild("Shine")
 		assert(shine ~= nil, "the Legendary card does not shimmer")
 		expect(faces[ITEM]:FindFirstChild("Shine", true)).toBeNil()
-		-- The face's own size and corner, above everything else on it.
-		expect(shine.Size.X.Scale).toBe(1)
-		expect(shine.Size.Y.Scale).toBe(1)
-		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerCard)
+		-- Over the whole face, above everything else on it.
+		-- Inside its ink outline, which the sweep leaves crisp, on the outline's inner curve.
+		local stroke = Theme.Sizes.Stroke
+		expect(shine.Position).toBe(roblox.UDim2.fromOffset(stroke, stroke))
+		expect(shine.Size).toBe(roblox.UDim2.new(1, -stroke * 2, 1, -stroke * 2))
+		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerCard - stroke)
 		for _, sibling in ipairs(faces[LEGENDARY]:GetChildren()) do
 			if sibling ~= shine and sibling:IsA("GuiObject") then
 				expect(shine.ZIndex).toBeGreaterThan(sibling.ZIndex)

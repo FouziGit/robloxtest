@@ -532,7 +532,8 @@ function ShopScreen.new(deps: Deps): Screen
 
 		-- Full gold leaf: the sweep of light across the whole card, whose prices still take the clicks under it.
 		if Theme.rarity(entry.Rarity).Shimmer then
-			own(pageTrove, Shimmer.new(face, UDim.new(0, Theme.Sizes.CornerCard), SHINE_Z))
+			local outline = Theme.Sizes.Stroke
+			own(pageTrove, Shimmer.new(face, UDim.new(0, Theme.Sizes.CornerCard - outline), SHINE_Z, outline))
 		end
 
 		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }

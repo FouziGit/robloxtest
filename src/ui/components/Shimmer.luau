@@ -32,8 +32,10 @@ local log = Log.new("Shimmer")
 local sweepingOn: { [Instance]: { [Instance]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
 local overBudget: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
--- A shine over the whole of `host`, rounded by `corner`, drawn at `zIndex`.
-function Shimmer.new(host: GuiObject, corner: UDim, zIndex: number): Shimmer
+-- A shine over the whole of `host`, rounded by `corner`, drawn at `zIndex` -- inside the host's ink outline
+-- when it is given its thickness, `inset`, as the board sweeps gold leaf and leaves its ink crisp (`corner`
+-- is then the outline's inner curve).
+function Shimmer.new(host: GuiObject, corner: UDim, zIndex: number, inset: number?): Shimmer
 	local trove = Trove.new()
 
 	local function destroy(_self: Shimmer)
@@ -48,7 +50,9 @@ function Shimmer.new(host: GuiObject, corner: UDim, zIndex: number): Shimmer
 	shine.Name = "Shine"
 	shine.BorderSizePixel = 0
 	shine.BackgroundColor3 = Theme.Colors.PanelRaised
-	shine.Size = UDim2.fromScale(1, 1)
+	local edge = inset or 0
+	shine.Position = UDim2.fromOffset(edge, edge)
+	shine.Size = UDim2.new(1, -edge * 2, 1, -edge * 2)
 	shine.ZIndex = zIndex
 	shine.Active = false
 	shine.Interactable = false

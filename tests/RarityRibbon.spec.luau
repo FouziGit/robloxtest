@@ -21,9 +21,12 @@ describe("a rarity ribbon, run", function()
 			if def.Shimmer == true then
 				shimmering += 1
 				assert(shine ~= nil, rarity .. " shimmers and its ribbon has no shine")
-				-- Over the whole pill and its words, rounded as the pill is.
+				-- Over the whole pill and its words, inside its ink outline, rounded as the pill is.
+				local outline = ribbon.Instance:FindFirstChildOfClass("UIStroke").Thickness
 				expect(shine.Size.X.Scale).toBe(1)
 				expect(shine.Size.Y.Scale).toBe(1)
+				expect(shine.Size.Y.Offset).toBe(-outline * 2)
+				expect(shine.Position.Y.Offset).toBe(outline)
 				expect(shine.ZIndex).toBeGreaterThan(ribbon.Instance:FindFirstChild("Content").ZIndex)
 				expect(shine:FindFirstChildOfClass("UICorner").CornerRadius.Scale).toBe(0.5)
 				local gradient = shine:FindFirstChildOfClass("UIGradient")

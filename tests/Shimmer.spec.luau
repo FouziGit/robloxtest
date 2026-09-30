@@ -131,6 +131,21 @@ describe("the shine, run", function()
 		expect(gradient.Rotation).toBe(ThemeConfig.Gradients.Shimmer.Rotation)
 	end)
 
+	it("lies inside an ink outline it is told the thickness of", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Shimmer = world.require("src/ui/components/Shimmer")
+		local host = Engine.instance("Frame", Engine.instance("ScreenGui", world.game))
+		local inner = roblox.UDim.new(0, 11)
+		local shine = Shimmer.new(host, inner, ZINDEX, 3).Instance
+		expect(shine.Position).toBe(roblox.UDim2.fromOffset(3, 3))
+		expect(shine.Size).toBe(roblox.UDim2.new(1, -6, 1, -6))
+		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius).toBe(inner)
+		-- Told none, it covers the whole host.
+		local whole = Shimmer.new(host, CORNER, ZINDEX).Instance
+		expect(whole.Position).toBe(roblox.UDim2.new())
+		expect(whole.Size).toBe(roblox.UDim2.fromScale(1, 1))
+	end)
+
 	for _, pref in ipairs({ "reducedMotion", "lowQuality" }) do
 		it(("is not laid at all for a player who asked for %s"):format(pref), function()
 			local _world, _screen, shimmer, _gradient, host = setup({ [pref] = true })

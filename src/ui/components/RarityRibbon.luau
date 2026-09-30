@@ -39,7 +39,7 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 	pill.Position = UDim2.fromOffset(INSET, INSET)
 	pill.ZIndex = 5
 	Theme.corner(pill, Theme.Pill)
-	Theme.stroke(pill, "Accent", Theme.Sizes.StrokeThin)
+	local outline = Theme.stroke(pill, "Accent", Theme.Sizes.StrokeThin)
 	trove:Add(pill)
 
 	-- The word and its pips, in a row that sizes the pill; the shine lies over the whole pill, outside it.
@@ -101,7 +101,7 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 	end)
 
 	if look.Shimmer then
-		local shimmer = Shimmer.new(pill, Theme.Pill, 7)
+		local shimmer = Shimmer.new(pill, Theme.Pill, 7, outline.Thickness)
 		trove:Add(function()
 			shimmer:Destroy()
 		end)

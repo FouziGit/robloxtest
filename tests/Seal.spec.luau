@@ -149,6 +149,10 @@ describe("a seal, run", function()
 		-- Over the disc and its letter.
 		expect(shine.ZIndex).toBeGreaterThan(gold.Instance:FindFirstChild("Text").ZIndex)
 		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+		-- Inside the ink outline, which the gold leaf leaves crisp.
+		local outline = gold.Instance:FindFirstChildOfClass("UIStroke").Thickness
+		expect(shine.Position).toBe(roblox.UDim2.fromOffset(outline, outline))
+		expect(shine.Size).toBe(roblox.UDim2.new(1, -outline * 2, 1, -outline * 2))
 		gold:SetShimmer(false)
 		expect(gold.Instance:FindFirstChild("Shine")).toBeNil()
 		plain:SetShimmer(true)

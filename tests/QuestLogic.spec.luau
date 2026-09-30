@@ -622,6 +622,16 @@ describe("QuestLogic Solo quests and the free reroll", function()
 		end
 	end)
 
+	-- A swap is kept in the profile, and the pool it names may not be the one a server runs (a build rolled back
+	-- mid-day): the quest drawn stays in its slot rather than leaving a hole in the list.
+	it("plays the quest drawn in the place of a swap to a quest the pool does not have", function()
+		local key = QuestLogic.setKey("D20100", 3)
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+		local live = QuestLogic.swapped(QuestConfig.Pool, drawn, { [drawn[2].Id] = "NoSuchQuest" })
+		expect(#live).toBe(#drawn)
+		expect(ids(live)).toEqual(ids(drawn))
+	end)
+
 	it("clears the swaps with the rest of the set when the period turns", function()
 		local set = freshSet("D20100@3")
 		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey, FLOOR)

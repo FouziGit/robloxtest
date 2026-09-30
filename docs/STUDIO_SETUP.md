@@ -162,7 +162,13 @@ python3 scripts/upload_assets.py upload
 python3 scripts/upload_assets.py upload --reupload
 ```
 
-**La modération.** Chaque envoi passe une modération Roblox, de quelques minutes à quelques heures ; tant qu'il est en revue, il reste invisible ou muet en jeu. Le fichier de verrou note l'état au moment de l'envoi.
+**La modération.** Chaque envoi passe une modération Roblox, de quelques minutes à quelques heures ; tant qu'il est en revue, il reste invisible ou muet en jeu. Le fichier de verrou note l'état au moment de l'envoi ; pour le relire :
+
+```bash
+python3 scripts/upload_assets.py status
+```
+
+La commande n'affiche que les assets qui ne sont pas `Approved`, termine par un décompte et réécrit l'état dans le fichier de verrou, à commiter. Que faire d'un `Reviewing` ou d'un `Rejected`, et des assets d'un compte personnel quand l'expérience passe à un groupe : `docs/PUBLISH.md` §5.
 
 **Sans le script** (dernier recours) : Creator Dashboard → *Creations* → *Development Items* → *Images* ou *Audio* → upload, puis ajouter à la main dans le bloc `-- BEGIN UPLOADED` du module concerné une ligne `["<chemin du fichier>"] = "rbxassetid://<id>",` — et la même entrée dans le fichier de verrou, faute de quoi la porte refuse le bloc.
 

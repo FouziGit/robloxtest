@@ -40,6 +40,23 @@ describe("a rarity ribbon, run", function()
 		end
 		expect(shimmering).toBeGreaterThan(0)
 	end)
+
+	it("wears no ring beside its word, even Legendary", function()
+		-- Seen in Studio: the Legendary's seal ring, the blurred ring the spells draw, read as a Folio coin beside
+		-- the item's name on the purchase sheet and the week's seventh day.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local RarityRibbon = world.require("src/ui/components/RarityRibbon")
+		local screen = Engine.instance("ScreenGui", world.game)
+		for rarity in pairs(ThemeConfig.Rarity) do
+			local ribbon = RarityRibbon.new(rarity, rarity, Engine.instance("Frame", screen))
+			for _, part in ipairs(ribbon.Instance:GetDescendants()) do
+				if part:IsA("ImageLabel") then
+					error(("the %s ribbon draws an image, %s"):format(rarity, part.Name))
+				end
+			end
+			ribbon:Destroy()
+		end
+	end)
 end)
 
 return nil

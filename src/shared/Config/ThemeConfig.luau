@@ -29,7 +29,7 @@ export type GradientDef = {
 	-- A GradientType name; Linear when absent.
 	Kind: string?,
 }
-export type RarityDef = { Fill: string, Pips: number, Seal: boolean?, Shimmer: boolean? }
+export type RarityDef = { Fill: string, Pips: number, Shimmer: boolean? }
 export type RankDef = { Fill: string, Rim: string?, Shimmer: boolean? }
 
 -- docs/ART_BIBLE.md: Vélin #E8E0CE, Charbon #17150F. Every hex of the interface is written ONCE, here,
@@ -182,7 +182,7 @@ ThemeConfig.Rarity = {
 	Common = { Fill = "Chalk", Pips = 1 },
 	Rare = { Fill = "InfoFill", Pips = 2 },
 	Epic = { Fill = "Epic", Pips = 3 },
-	Legendary = { Fill = "Primary", Pips = 4, Seal = true, Shimmer = true },
+	Legendary = { Fill = "Primary", Pips = 4, Shimmer = true },
 } :: { [string]: RarityDef }
 
 -- The rank ladder, illuminated as it climbs: blank, then earth, then ink, then purple with a gold rim,

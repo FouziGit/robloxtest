@@ -1,8 +1,8 @@
 --!strict
 -- Cell: one reward of the battle pass on its track (D-147) -- a free one above the line, a premium one below,
--- which wears the primary yellow inside its ink and a seal ring in its corner. It shows its reward (the coin
--- and the amount, the clock and the minutes, or the item's swatch under the colour and the pips of its
--- rarity, the band without its word) and what can be done with it now:
+-- outlined in the primary yellow. It shows its reward (the coin and the amount, the clock and the minutes, or
+-- the item's swatch under the colour and the pips of its rarity, the band without its word) and what can be
+-- done with it now:
 --
 --   Claimable  a Claim button, which the track wiggles on the pass's one shared breath
 --   Claimed    a check seal
@@ -50,7 +50,6 @@ local AMOUNT_SIZE = 18
 local TITLE_MIN_TEXT = 11
 local CLAIM_HEIGHT = 40
 local PREMIUM_RIM = 3
-local CORNER_RING = 24
 local VEIL_TRANSPARENCY = 0.4
 
 -- The height a cell needs: its reward row and its Claim button, which carries the touch minimum on a phone,
@@ -199,20 +198,9 @@ function Cell.new(
 	-- The outline as it is drawn, which a phone floors (Theme.stroke): an item's band sits inside it.
 	local outline: number
 	if track == "Premium" then
+		-- No seal ring astride its corner: the blurred ring the spells draw read there as a smudge half off the
+		-- cell (seen in Studio), and the seals themselves are flat since D-195.
 		outline = Theme.stroke(frame, "Primary", PREMIUM_RIM).Thickness
-		local ringId = Theme.texture("SealRing")
-		if ringId ~= "" then
-			local ring = Instance.new("ImageLabel")
-			ring.Name = "Ring"
-			ring.BackgroundTransparency = 1
-			ring.Image = ringId
-			ring.ImageColor3 = Theme.Colors.Primary
-			ring.AnchorPoint = Vector2.new(0.5, 0.5)
-			ring.Position = UDim2.fromScale(1, 0)
-			ring.Size = UDim2.fromOffset(CORNER_RING, CORNER_RING)
-			ring.ZIndex = 5
-			ring.Parent = frame
-		end
 	else
 		outline = Theme.stroke(frame, "Accent", Theme.Sizes.StrokeThin).Thickness
 	end
@@ -285,10 +273,13 @@ function Cell.new(
 			object.Claim = nil
 			button:Destroy()
 		elseif state == "Claimable" and button == nil then
+			-- Its lip's ink rim is drawn outside it: inset by that rim, it stands clear of the cell's outline, where
+			-- as wide as the cell's padding left it the rim ran over the outline (seen in Studio).
+			local rim = Theme.strokeThickness(Theme.Sizes.Stroke)
 			local created = Button.new({
 				Text = t("battlepass.claim"),
 				Variant = "Primary",
-				Size = UDim2.new(1, 0, 0, CLAIM_HEIGHT),
+				Size = UDim2.new(1, -math.ceil(rim) * 2, 0, CLAIM_HEIGHT),
 				LayoutOrder = 3,
 				Parent = body,
 				OnClick = onClaim,

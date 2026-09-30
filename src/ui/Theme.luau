@@ -23,7 +23,7 @@ export type StrokePosition = "Inner" | "Outer" | "Center"
 -- A menu's focus ring shows the primary yellow; a fight's may not (rule 11), so its ring is the sheet.
 export type FocusKind = "Menu" | "Fight"
 export type Chapter = { Band: Color3, Title: Color3, Lip: Color3, Stripe: boolean }
-export type Rarity = { Fill: Color3, Ink: Color3, Pips: number, WordKey: string, Seal: boolean, Shimmer: boolean }
+export type Rarity = { Fill: Color3, Ink: Color3, Pips: number, WordKey: string, Shimmer: boolean }
 export type Rank = { Fill: Color3, Ink: Color3, Rim: Color3?, Shimmer: boolean, NameKey: string }
 
 -- Each unknown name is reported once, with what asked for it: a typo in a caller is a bug to find, and a
@@ -482,7 +482,6 @@ function Theme.rarity(rarity: string): Rarity
 		Ink = Theme.color(ThemeConfig.labelRole(def.Fill)),
 		Pips = def.Pips,
 		WordKey = "shop.rarity." .. rarity,
-		Seal = def.Seal == true,
 		Shimmer = def.Shimmer == true,
 	}
 end

@@ -1,8 +1,8 @@
 --!strict
 -- RarityRibbon: the pill in the top-left corner of an item card that says how rare it is (D-147) -- in its
 -- colour, in its word and in its pips, because colour is never the only cue (Rare and Epic are only 113
--- apart for a deuteranope). A Legendary's ribbon also wears a seal ring and a sweep of light across it
--- (Shimmer).
+-- apart for a deuteranope). A Legendary's ribbon also wears a sweep of light across it (Shimmer), and no
+-- seal ring: the blurred ring the spells draw read as a Folio coin beside the item's name (seen in Studio).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -62,21 +62,6 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall / 2)
 	layout.Parent = content
-
-	if look.Seal then
-		local id = Theme.texture("SealRing")
-		if id ~= "" then
-			local ring = Instance.new("ImageLabel")
-			ring.Name = "Seal"
-			ring.BackgroundTransparency = 1
-			ring.Image = id
-			ring.ImageColor3 = look.Ink
-			ring.Size = UDim2.fromOffset(HEIGHT - 6, HEIGHT - 6)
-			ring.LayoutOrder = 0
-			ring.ZIndex = 6
-			ring.Parent = content
-		end
-	end
 
 	local label = Instance.new("TextLabel")
 	label.Name = "Word"

@@ -285,6 +285,45 @@ describe("the battle pass's items, run", function()
 		end
 	end)
 
+	it("stands its Claim clear of the cell's outline, and rings no corner", function()
+		for _, phone in ipairs({ false, true }) do
+			local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+			if phone then
+				Engine.phone(world, 667, 375)
+			end
+			local Cell = world.require("src/ui/screens/pass/Cell")
+			local Theme = world.require("src/ui/Theme")
+			local parent = Engine.instance("Frame", Engine.instance("ScreenGui", world.game))
+			local localize = {
+				t = function(key: string): string
+					return key
+				end,
+			}
+			for _, track in ipairs({ "Free", "Premium" }) do
+				local reward = BattlepassConfig.Seasons[SEASON].Tiers[1][track]
+				local cell = Cell.new(1, track, reward, localize, parent, function() end)
+				cell:Paint("Claimable")
+				local claim = cell.Claim
+				assert(claim ~= nil, track .. ": a claimable cell has no Claim")
+				-- Seen in Studio: as wide as the cell's padding left it, the lip's ink rim, drawn outside the
+				-- button, ran over the cell's outline.
+				local outline = cell.Frame:FindFirstChildOfClass("UIStroke").Thickness
+				local rim = Theme.strokeThickness(Theme.Sizes.Stroke)
+				local padding = cell.Frame:FindFirstChild("Body"):FindFirstChildOfClass("UIPadding").PaddingLeft.Offset
+				local inset = -claim.Instance.Size.X.Offset / 2
+				expect(claim.Instance.Size.X.Scale).toBe(1)
+				expect(padding + inset - rim).toBeGreaterThanOrEqual(outline)
+				-- No seal ring astride a corner: the blurred ring read as a smudge half off the cell.
+				for _, part in ipairs(cell.Frame:GetDescendants()) do
+					if part:IsA("ImageLabel") and part.Parent == cell.Frame then
+						error(("%s: the cell wears an image, %s"):format(track, part.Name))
+					end
+				end
+				cell:Destroy()
+			end
+		end
+	end)
+
 	it("shows the next reward's rarity under its name when it is an item, and only then", function()
 		local Theme = Engine.world({ Stubs = Engine.interfaceStubs() }).require("src/ui/Theme")
 		-- Tier 4 reached: the next reward is tier 5's item.

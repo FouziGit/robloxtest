@@ -110,7 +110,8 @@ local function lookFor(variant: Variant, chapter: string?): Look
 	elseif variant == "Owner" or variant == "Tile" then
 		local owner = Theme.chapter(chapter or "Menu")
 		look.Face = owner.Band
-		look.Ink = Theme.inkOn(owner.Band)
+		-- The ink where it reads; on the Tyrian purple and on ink, the sheet (the board's `color: sheet`).
+		look.Ink = if Theme.inkOn(owner.Band) == Theme.Colors.Text then Theme.Colors.Text else Theme.Colors.PanelRaised
 		look.Lip = owner.Lip
 		look.Gloss = owner.Band ~= Theme.Colors.Plate
 		if variant == "Tile" then

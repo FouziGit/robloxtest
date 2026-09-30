@@ -814,6 +814,38 @@ describe("the restyled controls", function()
 		end
 	end)
 
+	it("write a chapter's button in the ink where it reads, and in the sheet on purple and on ink", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local checked = 0
+		for screen, role in pairs(ThemeConfig.Chapters) do
+			for _, variant in ipairs({ "Tile", "Owner" }) do
+				local button = Button.new({
+					Text = "Go",
+					Variant = variant :: any,
+					Chapter = screen,
+					Icon = "Coin",
+					Parent = world.playerGui,
+				})
+				local label = button.Instance:FindFirstChild("Label", true)
+				local fill = ThemeConfig.Colors[role]
+				local dark = ThemeConfig.inkOn(fill) ~= ThemeConfig.Colors.Text
+				local expected = if dark then Theme.Colors.PanelRaised else Theme.Colors.Text
+				if label.TextColor3 ~= expected then
+					error(("a %s on %s's %s writes in the wrong ink"):format(variant, screen, role))
+				end
+				local ratio = Theme.contrast(label.TextColor3, Theme.color(role))
+				if ratio < BODY_CONTRAST then
+					error(("a %s on %s's %s reads at %.2f"):format(variant, screen, role, ratio))
+				end
+				checked += if dark then 1 else 0
+			end
+		end
+		-- The pass's purple and the ink of the Menu, the Loadout, the Leaderboard and the Settings, at least.
+		expect(checked).toBeGreaterThanOrEqual(10)
+	end)
+
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()
 		local tabs = source("Tabs")
 		expect(string.find(tabs, "return if band == Theme.Colors.Plate then Theme.Colors.Primary else band", 1, true)).never.toBeNil()

@@ -27,7 +27,7 @@ local Context = require(script.Parent.Context)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
-local PassCache = require(Shared.Pure.PassCache)
+local PassCache = require(script.Parent.Parent.Parent.Pure.PassCache)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Sandbox = require(script.Parent.Sandbox)
 

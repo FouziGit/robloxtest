@@ -62,6 +62,37 @@ function ServerWorld.recordingLog(lines: { string }): any
 					end
 					return ok and result ~= nil and result ~= false
 				end,
+				-- Each element's step isolated as the real one isolates it, returning its failures in a row; every
+				-- failure is kept, where the real one writes at most one line per element per `everySeconds`.
+				faults = function(_everySeconds: number): any
+					local counts: { [any]: number } = {}
+					return {
+						try = function(key: any, context: string, fn: (...any) -> ...any, ...: any): number
+							local ok, err = pcall(fn, ...)
+							if ok then
+								counts[key] = nil
+								return 0
+							end
+							local count = (counts[key] or 0) + 1
+							counts[key] = count
+							table.insert(
+								lines,
+								line(
+									prefix,
+									"%s %s failed (%d in a row): %s",
+									context,
+									tostring(key),
+									count,
+									tostring(err)
+								)
+							)
+							return count
+						end,
+						forget = function(key: any)
+							counts[key] = nil
+						end,
+					}
+				end,
 			}
 		end,
 	}

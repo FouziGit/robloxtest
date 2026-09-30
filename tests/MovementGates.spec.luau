@@ -930,7 +930,9 @@ describe("a fall from the Erasure's arena", function()
 		)
 		expect(functionIn(INIT, "local function reset(")).toContain("slot.Placed = {}")
 		local placeOne = functionIn(BOSS_DIR .. "Encounter.luau", "function Encounter.placeOne(")
-		expect(placeOne).toContain("deps.Combat.resyncPosition(player, position) return character end")
+		expect(placeOne).toContain(
+			"Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z))) return character end"
+		)
 		expect(functionIn(BOSS_DIR .. "Encounter.luau", "local function floorOf(")).toContain(
 			"return floor.Position.Y + floor.Size.Y / 2, floor.Position.Y - floor.Size.Y / 2 end return fallback, fallback end"
 		)

@@ -28,7 +28,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local GameConfig = require(Shared.Config.GameConfig)
-local LadderGate = require(Shared.Pure.LadderGate)
+local LadderGate = require(script.Parent.Parent.Pure.LadderGate)
 local Log = require(Shared.Util.Log)
 local Lru = require(script.Parent.Parent.Pure.Lru)
 local RankingConfig = require(Shared.Config.RankingConfig)

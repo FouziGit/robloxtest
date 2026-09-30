@@ -12,7 +12,7 @@ Référence des modules et de leurs interfaces. Toute implémentation (humaine o
 | `src/server` | `ServerScriptService` (dont `src/server/Pure` → `ServerScriptService.Pure`) |
 | `src/client` | `StarterPlayer.StarterPlayerScripts` |
 
-Requires : `local Shared = ReplicatedStorage:WaitForChild("Shared")` puis `require(Shared.Config.X)`, `require(Shared.Util.X)`, `require(Shared.Pure.X)`. Côté serveur, modules frères via `require(script.Parent.X)`, et les modules purs que seul le serveur requiert via `require(script.Parent.Parent.Pure.X)` (`src/server/Pure`, jamais répliqué : `MovementGuard`, `OriginGuard`, `BotBrain`, `BattlegroundLayout`, `BossPractice`, `ChannelHold`, `DailyCap`, `DataMigration`, `Elo`, `LegacyNames`, `MatchmakingCore`, `ReceiptItem`, `ReceiptProcessor`, `SeriesOutcome` ; D-217). Un module de `src/shared/Pure` que ni le client ni l'interface ne requiert est refusé (`tests/ServerPure.spec.luau`).
+Requires : `local Shared = ReplicatedStorage:WaitForChild("Shared")` puis `require(Shared.Config.X)`, `require(Shared.Util.X)`, `require(Shared.Pure.X)`. Côté serveur, modules frères via `require(script.Parent.X)`, et les modules purs que seul le serveur requiert via `require(script.Parent.Parent.Pure.X)` (`src/server/Pure`, jamais répliqué : `MovementGuard`, `OriginGuard`, `BotBrain`, `BattlegroundLayout`, `BossPractice`, `ChannelHold`, `DailyCap`, `DataMigration`, `Elo`, `LegacyNames`, `MatchmakingCore`, `ReceiptItem`, `ReceiptProcessor`, `SeriesOutcome`, et depuis la fusion de la vague 1 `LadderGate`, `PassCache`, `StunClock`, `StunWatch` ; D-217). Un module de `src/shared/Pure` que ni le client ni l'interface ne requiert est refusé (`tests/ServerPure.spec.luau`).
 
 ## Modules partagés (`src/shared`)
 

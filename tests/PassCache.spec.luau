@@ -8,7 +8,7 @@ local ChatConfig = require("../src/shared/Config/ChatConfig")
 local Engine = require("./engine")
 local Harness = require("./harness")
 local LogStub = require("./logstub")
-local PassCache = require("../src/shared/Pure/PassCache")
+local PassCache = require("../src/server/Pure/PassCache")
 local StudioConfig = require("../src/server/Config/StudioConfig")
 local roblox = require("@lune/roblox") :: any
 

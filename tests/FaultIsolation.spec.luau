@@ -322,6 +322,8 @@ type MatchWorld = {
 	-- "home" for each trip home, "release" for each arena released, in the order they happened.
 	steps: { string },
 	told: { [any]: string },
+	-- How many times each player's glyph cooldowns were reset.
+	resets: { [any]: number },
 	results: { number },
 	-- Set by a spec: what Registry.fire does besides nothing.
 	fire: (name: string, player: any, payload: any) -> (),
@@ -344,7 +346,11 @@ local function matchWorld(): MatchWorld
 				return nil
 			end,
 			push = function() end,
+			isClosing = function()
+				return false
+			end,
 			BeforeRelease = Engine.signal(),
+			ProfileReleased = Engine.signal(),
 		},
 		Notify = {
 			send = function(player: any, key: string)
@@ -406,7 +412,13 @@ local function matchWorld(): MatchWorld
 				return false
 			end,
 		},
-		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal() },
+		Glyph = {
+			Cast = Engine.signal(),
+			CastLanded = Engine.signal(),
+			resetCooldowns = function(player: any)
+				context.resets[player] = (context.resets[player] or 0) + 1
+			end,
+		},
 	}
 	local MatchService = world.require("src/server/Services/MatchService")
 	context = {
@@ -419,6 +431,7 @@ local function matchWorld(): MatchWorld
 		sentHome = {},
 		steps = {},
 		told = {},
+		resets = {},
 		results = {},
 		fire = function() end,
 	}
@@ -509,7 +522,7 @@ describe("a match whose end throws halfway", function()
 		m.world:advance(1)
 		leaves.Parent = nil
 		m.players.PlayerRemoving:Fire(leaves)
-		m.world:advance(1 + MatchConfig.Modes.Duel1v1.ResultSeconds + 1)
+		m.world:advance(GameConfig.Server.LeaveGraceSeconds + 1 + MatchConfig.Modes.Duel1v1.ResultSeconds + 1)
 		assert(endedAt ~= nil, "the match never reached its end")
 		expect(#m.results).toBe(1)
 		expect(#m.released).toBe(1)

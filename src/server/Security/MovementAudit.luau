@@ -27,7 +27,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
-local StunWatch = require(Shared.Pure.StunWatch)
+local StunWatch = require(script.Parent.Parent.Pure.StunWatch)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 

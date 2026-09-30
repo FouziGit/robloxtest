@@ -17,7 +17,7 @@ local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Signal = require(Packages.Signal)
-local StunClock = require(Shared.Pure.StunClock)
+local StunClock = require(script.Parent.Parent.Pure.StunClock)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MovementService")

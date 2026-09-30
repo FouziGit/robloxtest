@@ -223,6 +223,21 @@ describe("the hotbar's keys, run", function()
 				expect(strip:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
 					roblox.UDim.new(0, Theme.Sizes.CornerKeycap - Theme.Sizes.StrokeThin)
 				)
+				-- No lip at all: nothing under the face in the lip's chalk, whatever is under it lies exactly under
+				-- it, and no outline of the cap is drawn outside it.
+				local face = cap:FindFirstChild("Face")
+				for _, part in ipairs(cap:GetChildren()) do
+					if part.Name == "Base" then
+						expect(part.BackgroundColor3 == Theme.lip("Secondary")).toBe(false)
+						expect(part.Position).toBe(face.Position)
+						expect(part.Size).toBe(face.Size)
+					end
+				end
+				for _, line in ipairs(cap:GetDescendants()) do
+					if line.ClassName == "UIStroke" and line.ApplyStrokeMode == roblox.Enum.ApplyStrokeMode.Border then
+						expect(line.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+					end
+				end
 			end
 		end
 		expect(caps).toBeGreaterThanOrEqual(6)
@@ -239,6 +254,10 @@ describe("the hotbar's keys, run", function()
 		}
 		local cap = Keycap.new({ Key = "J", Device = "Keyboard", Localize = localize, Size = 19, Pigment = "Cinnabar" })
 		expect(cap.Instance.Size.Y.Offset).toBe(22)
+		-- On its chalk lip, three units under the face.
+		local base = cap.Instance:FindFirstChild("Base")
+		expect(base.BackgroundColor3).toBe(Theme.lip("Secondary"))
+		expect(base.Position).toBe(roblox.UDim2.fromOffset(0, 3))
 		local strip = cap.Instance:FindFirstChild("Pigment")
 		expect(strip.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - 3))
 		expect(strip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.StrokeThin * 2, 0, 4))

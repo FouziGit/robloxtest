@@ -108,10 +108,13 @@ function Keycap.new(props: Props): Keycap
 	local height = props.Size or Theme.Sizes.Keycap
 	local round = props.Device == "Gamepad"
 	local corner = if round then Theme.Pill else UDim.new(0, Theme.Sizes.CornerKeycap)
-	local elevation = if props.Lip == false then 0 else ELEVATION
+	local lip = props.Lip ~= false
+	local elevation = if lip then ELEVATION else 0
 
+	-- A cap on its lip is a pressable. One on none is a card on no shadow: nothing is under it to press, and
+	-- nothing of it, the lip's outline included, reaches past its face.
 	local sticker = Sticker.new({
-		Kind = "Pressable",
+		Kind = if lip then "Pressable" else "Card",
 		Fill = Theme.Colors.PanelRaised,
 		Lip = Theme.lip("Secondary"),
 		Corner = corner,

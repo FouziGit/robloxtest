@@ -193,9 +193,12 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 | Champ de bataille (D-131) | tous (12 max) | libre | — | XP/Folios par Faussaire vaincu (Folios plafonnés à 150/jour), quête `BotKill` |
+| Duel d'épreuve (E10-S6) | 1 contre un Faussaire Duelliste, pendant la file 1v1 | premier à 2 manches, 1 min par manche | KO du Faussaire, ou la plus grande part de vie au chrono | ×0,5 d'un duel classé, 3 fois/jour ; ni Elo, ni rang, ni quête, ni première victoire, ni `MatchesPlayed` |
 | Entraînement contre l'Effacement (D-132) | 1+ (rejoindre en cours ; le boss grandit au premier coup du nouveau venu) | 4 min | boss vaincu | ×0,25 d'une participation, 3 fois/jour, 1 fois/20 min (une paie sous 1 Folio ne décompte rien), ni quête ni `BossKills` |
 
 Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D-130) : on se tient dans le cercle de craie sous le portique (1,5 s ; 2 s pour revenir), sans touche ni remote, et le serveur déplace. Au champ de bataille, PvE seulement : les Faussaires (Barbouilleur au corps à corps, Plume à distance, Surchargeur lourd — le joueur ne lit que « Faussaires ») annoncent chaque coup à l'encre au sol pendant toute sa préparation (D-133) ; trois pour un joueur, un de plus par joueur actif, dix au plus ; un camp à l'ouest où ils n'entrent pas, où l'on régénère et où l'on réapparaît, et d'où un coup ne compte pour rien (D-134). L'événement de l'Effacement y appelle les joueurs comme ailleurs.
+
+Le **duel d'épreuve** s'offre sur la carte 1v1 de l'écran Jouer après 20 s seul dans la file 1v1 : le joueur garde sa place, affronte dans une fosse un Faussaire Duelliste (deux barres verticales sur la poitrine, une chaîne de trois coups qui fait tomber et un trait pour qui ne fait que courir), sur le HUD et la carte de résultat d'un match non classé. Un humain qui arrive dans la file prend la main à la prochaine pause de manche : pendant une manche, le matchmaking ne le prend pas ; à la pause, le duel s'arrête avant que le match commence, sans rien payer. « Quitter l'épreuve » en sort à tout moment, sans rien payer, et la file continue ; tant qu'il se bat, sa place dans la file n'expire pas.
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 
@@ -207,6 +210,7 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 - **Arène 3v3** : 120×120, trois spawns par équipe espacés de 8 studs, deux murs bas centraux pour casser les lignes.
 - **Arène Boss** : 160×160, spawns joueurs sur le périmètre, `BossSpawn` au centre. L'Effacement y est une figure blanche à bande d'encre dont la hauteur dit la phase (D-87). Un portail de retour `ReturnPortal` dans un coin, à 12 studs des deux murs, face au centre (dans le gabarit, donc dans chaque copie).
 - **Champ de bataille** (`workspace.Battleground`, D-131) : une page de 170×170 à X = 1500, murs os à filet d'encre, huit piliers et une stèle au centre, six couverts de 14 studs (plus haut que le double saut), réglure à l'encre ; le camp à l'ouest (lavis, ligne d'encre à x = −59) avec `Arrival_1..6` et le portail `ReturnPortal` face à l'est ; `BotSpawn_1..8` loin des arrivées ; `KillZone` 40 studs sous le sol ; les Faussaires dans `workspace.Forgers`, étiquetés `Forger`.
+- **Fosses du duel d'épreuve** (`workspace.SparPits`, E10-S6) : quatre sols de 60×60 dans le repère de la page, à sa hauteur, en ligne à l'est (x local 420, 750, 1080, 1410), chacun à plus de 250 studs (la portée des paquets) de la page et du suivant ; murs os à filet d'encre de 20 studs, au-dessus du double saut ; le joueur posé à l'est, face au Faussaire à l'ouest, sur l'axe de la page ; une chute de 40 studs sous le sol est une mort.
 
 ## 9. Rétention
 

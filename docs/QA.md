@@ -41,7 +41,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. Si un numéro ne tombe plus
 
 À faire sur la copie de test, ou dans Studio avec l'accès API. Sans accès API, rien n'est enregistré et le serveur l'annonce : `[DataService] DataStore state: NoAccess (Studio without API access saves nothing)` (`DataService.luau:338-340`). Le jeu reste jouable, mais cette section ne prouve alors rien.
 
-1. **Premier profil.** Faire rejoindre un compte qui n'a jamais joué. Attendu : niveau 1, 0 Folios, 8 glyphes de base, 6 emplacements. Côté serveur : `[DataService] profile ready for <nom> (v6, session #1)` (`DataService.luau:281-286` ; `DataMigration.CurrentVersion = 6` depuis le calendrier de connexion, E15-S1 ; `ProgressionConfig.luau:83`).
+1. **Premier profil.** Faire rejoindre un compte qui n'a jamais joué. Attendu : niveau 1, 0 Folios, 8 glyphes de base, 6 emplacements. Côté serveur : `[DataService] profile ready for <nom> (v7, session #1)` (`DataService.luau:281-286` ; `DataMigration.CurrentVersion = 7` depuis le duel d'épreuve, E10-S6 ; `ProgressionConfig.luau:83`).
 2. **Un réglage conservé.** `M` → Options, réassigner une touche, arrêter, relancer. Attendu : la touche est conservée (`docs/STUDIO_SETUP.md` §5.3).
 3. **Revenir vite.** En ligne : gagner des Folios, quitter, rejoindre dans les 5 s. Attendu : le profil se charge, parfois avec quelques secondes de retard, le temps que l'ancien serveur relâche la session : il la garde `GameConfig.Server.LeaveGraceSeconds` (2 s) après le départ, puis la ferme (`onPlayerRemoving` → `release` → `profile:EndSession()`, D-206). Les Folios et l'XP de la session précédente sont là, **comptés une seule fois**.
 4. **Un compte sur deux serveurs.** Le même compte rejoint un second serveur alors qu'il est encore sur le premier. Attendu : le premier serveur l'expulse avec le message traduit `kick.sessionElsewhere` (`Strings.luau:556-559`, `onSessionEnd`). Si cela arrive pendant un duel classé, attendu en plus : le premier serveur écrit `[RankingService] <nom> abandoned Duel1v1: …` **avant** l'expulsion, le profil rechargé sur le second serveur porte cette défaite, et l'adversaire gagne par forfait deux secondes après (R4, corrigé).
@@ -164,6 +164,23 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 **Le streaming**
 
 26. **Le champ de bataille chargé à l'arrivée.** Si `Workspace.StreamingEnabled` est actif dans la place (`docs/PUBLISH.md` §6.8), entrer au champ de bataille. Attendu : le sol, le camp et le portail de retour sont là dès l'arrivée, et le joueur ne tombe pas. La page est à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut. L'entrée attend au plus 2 s que le client charge les alentours du point d'arrivée (`RequestStreamAroundAsync` dans `BattlegroundService.enter` ; `PortalConfig.StreamTimeoutSeconds = 2`). Revenir ensuite au hub : ce retour n'attend aucun chargement (`HubService.teleportToHub`). Noter si le hub apparaît en retard ou si le joueur tombe. Si `StreamingEnabled` est inactif, noter « sans objet ».
+
+## 6 ter. Duel d'épreuve et calendrier de connexion
+
+**Le duel d'épreuve** (E10-S6, `SparService`). Dans Studio, **Test → Clients and Servers**, 1 joueur puis 2.
+
+1. **L'offre.** Seul : **Jouer** → rejoindre le 1v1 classé. Attendu : au bout de 20 s, la carte 1v1 dit « Affronte un Faussaire Duelliste en attendant : premier à 2, non classé », la ligne sous le chrono donne les récompenses qui restent aujourd'hui, et un bouton **S'entraîner** passe devant « Quitter la file » (dessous sur téléphone). Noter le temps entre **Jouer** et le premier coup porté : **30 s au plus** (la story E10-S6 le demande).
+2. **Le combat.** Attendu : le joueur est posé dans une fosse à l'est du champ de bataille, face au Faussaire Duelliste (deux barres verticales sur la poitrine) ; compte de 3 s, bandeau « Manche 1 · Épreuve », verrouillage de cible sur le Faussaire ; ses coups sont annoncés à l'encre au sol, sa chaîne fait tomber, il lance un trait sur qui s'éloigne. Premier à 2 manches ; carte de résultat sans ligne de rang ; 175 XP et 30 Folios pour une victoire (sans VIP ni boost), puis retour au hub, toujours en file.
+3. **Le plafond.** Enchaîner quatre duels. Attendu : le 4ᵉ se joue et paie 0, avec le toast `spar.unpaid` ; la ligne de la carte dit « Plus de récompenses aujourd'hui ».
+4. **La prise de main.** Un joueur en duel d'épreuve, un second rejoint le 1v1 en pleine manche. Attendu : aucun appariement pendant la manche ; à la pause, le duel s'arrête (toast `spar.handover`) et le vrai duel classé commence pour les deux.
+5. **Quitter l'épreuve.** En pleine manche : **Menu** → **Jouer** → **Quitter l'épreuve**. Attendu : retour au hub, rien de payé, toujours en file.
+6. **Le classement.** Après un duel d'épreuve, le rang et la cote 1v1 du joueur sont inchangés (l'Output serveur n'a aucune ligne de `RankingService`).
+
+**Le calendrier de connexion** (E15-S1). La réclamation se fait une fois par jour UTC : pour voir un autre jour, modifier `Daily` dans le profil de test (`LastClaimDay`, `CalendarDay`, `Signets`).
+
+7. **L'écran.** Attendu : la semaine du jour (sept cartes, la 7ᵉ deux fois plus large, habillée de la rareté de son cosmétique), « Jour N sur 28 · Série N » en tête et un marque-page par Signet tenu ; un marque-page dans le coin de la carte du 3ᵉ jour de chaque semaine ; sur téléphone 667 × 375 et 844 × 390, la ligne « Demain » et la ligne sous elle restent dans la fenêtre.
+8. **Le Signet.** Avec `Signets = 1` et `LastClaimDay` il y a deux jours : toast `daily.signetSaves` à l'arrivée ; la réclamation continue la série (toast `daily.signetUsed`). Sans Signet : `daily.broken`, et le calendrier repart au jour 1.
+9. **Le HUD.** Au hub, « Série N » au bout de la bande d'XP, absent à 0.
 
 ## 7. États qui ne doivent pas déborder d'un match à l'autre
 

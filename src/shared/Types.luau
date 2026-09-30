@@ -112,6 +112,9 @@ export type DailyData = {
 	ForgerFolios: number,
 	PracticeDay: number,
 	PracticePaid: number,
+	-- The practice duels against a Forger that paid out today (MatchConfig.Spar.PaidPerDay, SparService).
+	SparDay: number,
+	SparPaid: number,
 }
 
 export type PurchasesData = {
@@ -192,7 +195,7 @@ export type HitEvent = {
 	Killed: boolean,
 }
 
-export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss"
+export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss" | "Spar1v1"
 
 export type MatchResult = {
 	-- Identifies which match this result belongs to, so a rating move already written for a player who
@@ -259,6 +262,15 @@ export type QueueSnapshot = {
 	WaitedSeconds: number,
 	QueuedCount: number, -- players waiting in that mode on this server
 	NeededCount: number, -- players required to start
+}
+
+-- The practice duel against a Forger, as the queue's card shows it (SparChanged): whether it is offered now,
+-- whether the player is fighting one, and how many of today's paid spars are left (MatchConfig.Spar).
+export type SparSnapshot = {
+	Offered: boolean,
+	Sparring: boolean,
+	PaidLeft: number,
+	PaidPerDay: number,
 }
 
 export type LeaderboardEntry = {

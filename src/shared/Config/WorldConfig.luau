@@ -219,6 +219,11 @@ WorldConfig.Forgers = {
 			{ Size = { 1.3, 0.16, 0.12 }, Offset = { 0, 0.45, -0.55 } },
 			{ Size = { 1.3, 0.16, 0.12 }, Offset = { 0, -0.05, -0.55 } },
 		},
+		-- Two uprights side by side: one against one.
+		Duelist = {
+			{ Size = { 0.16, 1.1, 0.12 }, Offset = { -0.3, 0.2, -0.55 } },
+			{ Size = { 0.16, 1.1, 0.12 }, Offset = { 0.3, 0.2, -0.55 } },
+		},
 	} :: { [string]: { { Size: Triple, Offset: Triple } } },
 }
 

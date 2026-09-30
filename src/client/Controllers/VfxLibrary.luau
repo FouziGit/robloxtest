@@ -1311,7 +1311,8 @@ local function measureParam(packet: Packet, key: string): number?
 end
 
 -- The play of the tell each Forger shows, by its slot (Params.Forger): what a retraction takes back. A slot
--- holds one Forger and a Forger shows one tell at a time, so this never holds more than BotConfig.MaxBots.
+-- holds one Forger and a Forger shows one tell at a time, so this never holds more than BotConfig.MaxBots, and
+-- one per pit of the practice duel (BattlegroundConfig.Pits.Count), whose slots come after the page's.
 local forgerTells: { [number]: number } = {}
 
 -- A Forger winding up a blow (D-131): the floor it will cover, for exactly the window the server waits

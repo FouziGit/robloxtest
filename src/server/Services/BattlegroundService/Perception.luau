@@ -41,22 +41,31 @@ local function flatDistance(ax: number, az: number, bx: number, bz: number): num
 	return math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
 end
 
+-- Where a Forger sees `member`, or nil while they have no live body.
+function Perception.see(member: Member): Seen?
+	local point = Context.targetPoint(deps.Combat, member.Player)
+	if point == nil then
+		return nil
+	end
+	local x, y, z = Context.toLocal(point)
+	return {
+		Member = member,
+		Point = point,
+		X = x,
+		Y = y,
+		Z = z,
+		InCamp = BattlegroundLayout.inRect(handle.Layout.Camp, x, z),
+		Down = deps.Movement.isDown(member.Player),
+	}
+end
+
 -- Every member with a live body, where a Forger sees them.
 function Perception.survey(): { Seen }
 	local seen: { Seen } = {}
 	for _, member in ipairs(Roster.list()) do
-		local point = Context.targetPoint(deps.Combat, member.Player)
-		if point ~= nil then
-			local x, y, z = Context.toLocal(point)
-			table.insert(seen, {
-				Member = member,
-				Point = point,
-				X = x,
-				Y = y,
-				Z = z,
-				InCamp = BattlegroundLayout.inRect(handle.Layout.Camp, x, z),
-				Down = deps.Movement.isDown(member.Player),
-			})
+		local entry = Perception.see(member)
+		if entry ~= nil then
+			table.insert(seen, entry)
 		end
 	end
 	return seen

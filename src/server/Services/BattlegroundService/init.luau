@@ -15,6 +15,9 @@
 --
 -- Entry is `enter`, which a portal calls: it refuses with a Strings key the caller shows, or places the player
 -- in the camp, where a player who dies here also comes back (BattlegroundConfig.RespawnInside).
+--
+-- It also lends the pits of the practice duel (Pits, E10-S6): SparService runs the duel's rounds, and every pit's
+-- Forger is stepped from the same tick as the page's.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +38,7 @@ local Log = require(Shared.Util.Log)
 local Map = require(script.Map)
 local Motion = require(script.Motion)
 local Perception = require(script.Perception)
+local Pits = require(script.Pits)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local Rewards = require(script.Rewards)
 local Roster = require(script.Roster)
@@ -49,6 +53,7 @@ local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 -- Every Forger thinks once per this many ticks, on the tick its slot falls on, so the thinks spread out.
 local TICKS_PER_THINK = math.max(1, math.floor(GameConfig.Server.TickRate / BotConfig.ThinkHz))
 local RULES = Context.Rules
+local PITS = BattlegroundConfig.Pits
 local RESPAWN = BotConfig.Respawn
 local CAMP = BotConfig.Camp
 
@@ -76,12 +81,12 @@ local function rest(userId: number, untilTime: number)
 	restUntil[userId] = math.max(restUntil[userId] or 0, untilTime)
 end
 
--- Applies one think's orders: the blow that came due, the rests it earns, the next wind-up, the heal at home,
--- then the walk or the stop and the facing.
-local function apply(bot: Bot, decision: BotBrain.Decision, now: number)
+-- Applies one think's orders: the blow that came due against `members` (the page's roster, or a pit's duellist),
+-- the rests it earns, the next wind-up, the heal at home, then the walk or the stop and the facing.
+local function apply(bot: Bot, decision: BotBrain.Decision, now: number, members: { Roster.Member })
 	local resolve = decision.Resolve
 	if resolve ~= nil then
-		local outcome = Attacks.resolve(bot, resolve, Roster.list(), now)
+		local outcome = Attacks.resolve(bot, resolve, members, now)
 		if resolve.Final then
 			for userId, untilTime in pairs(BotBrain.finisherRests(RULES, now, resolve.TargetUserId, outcome.Held)) do
 				rest(userId, untilTime)
@@ -220,7 +225,7 @@ local function think(now: number)
 		local due = attack ~= nil and now >= attack.ResolveAt
 		if not bot.Dead and (due or (bot.Slot + tickCount) % TICKS_PER_THINK == 0) then
 			local perception = Perception.perceive(bot, now, seen, engaged, bots, restUntil)
-			apply(bot, BotBrain.decide(bot.Def, RULES, bot.Memory, perception), now)
+			apply(bot, BotBrain.decide(bot.Def, RULES, bot.Memory, perception), now, Roster.list())
 		end
 	end
 end
@@ -252,6 +257,46 @@ local function judgeFalls(map: Map.Handle)
 	end
 end
 
+-- The pits' Forgers (Pits): each kept like the page's between thinks, and thought for on its slot's tick -- or when
+-- its wind-up comes due -- while its round is on, with its one duellist for all it sees. A duellist whose root
+-- falls FallDepthStuds under the floor has fallen out of the pit.
+local function stepPits(map: Map.Handle, now: number)
+	for _, pit in ipairs(Pits.occupied()) do
+		local bot = pit.Bot
+		if bot ~= nil and Bots.byModel(bot.Model) == bot then
+			maintain(map, bot, now)
+		end
+		local member = pit.Member
+		local attack = if bot ~= nil then bot.Memory.Attack else nil
+		local due = attack ~= nil and now >= attack.ResolveAt
+		if
+			bot ~= nil
+			and member ~= nil
+			and pit.Ground.Live
+			and not bot.Dead
+			and (due or (bot.Slot + tickCount) % TICKS_PER_THINK == 0)
+		then
+			local seen = Perception.see(member)
+			local perception = Perception.perceive(
+				bot,
+				now,
+				if seen ~= nil then { seen } else {},
+				{},
+				{ bot },
+				restUntil
+			)
+			perception.CenterX, perception.CenterZ = pit.FaceX, pit.FaceZ
+			apply(bot, BotBrain.decide(bot.Def, RULES, bot.Memory, perception), now, { member })
+		end
+		local owner = pit.Owner
+		local root = if owner ~= nil then Context.liveRoot(owner) else nil
+		local character = if owner ~= nil then owner.Character else nil
+		if root ~= nil and character ~= nil and root.Position.Y < map.FloorY - PITS.FallDepthStuds then
+			fell(character)
+		end
+	end
+end
+
 local function tick(map: Map.Handle, now: number, dt: number)
 	-- A rest that is over is forgotten, whoever it was for: one written for a player who left mid-chain too.
 	for userId, untilTime in pairs(restUntil) do
@@ -278,6 +323,7 @@ local function tick(map: Map.Handle, now: number, dt: number)
 		populate(map, now, active)
 	end
 	think(now)
+	stepPits(map, now)
 	local standing = Bots.standing()
 	if standing ~= lastStanding then
 		lastStanding = standing
@@ -423,6 +469,10 @@ local function onKillZoneTouched(part: BasePart)
 end
 
 local function onPlayerRemoving(player: Player)
+	local pit = Pits.of(player)
+	if pit ~= nil then
+		Pits.release(pit)
+	end
 	Roster.forget(player)
 	Rewards.forget(player)
 	restUntil[player.UserId] = nil
@@ -491,15 +541,66 @@ function BattlegroundService.leave(player: Player)
 	Roster.drop(player)
 end
 
--- A member standing on the page by the position the server trusts. GlyphService refuses free casting here:
--- the Forgers pay out.
+-- A member standing on the page by the position the server trusts, or a duellist on their pit's floor.
+-- GlyphService refuses free casting here: the Forgers and the spars pay out.
 function BattlegroundService.isInside(player: Player): boolean
 	local map = handle
-	if map == nil or Roster.get(player) == nil then
+	if map == nil then
+		return false
+	end
+	if Pits.holds(player) then
+		return true
+	end
+	if Roster.get(player) == nil then
 		return false
 	end
 	local trusted = deps.Combat.trustedPosition(player)
 	return trusted ~= nil and Context.insideBounds(map.Layout, trusted)
+end
+
+----------------------------------------------------------------
+-- The practice duel's pits (SparService)
+----------------------------------------------------------------
+
+-- Lends `player` a pit for a practice duel. False when the Forgers are not built yet or every pit is taken.
+function BattlegroundService.openPit(player: Player): boolean
+	if handle == nil or not Bots.ready() then
+		return false
+	end
+	return Pits.acquire(player) ~= nil
+end
+
+-- Sets up a round in `player`'s pit: a fresh Forger, and their `character` on their pad (Pits.seat). False with no
+-- pit, or when the Forger could not be put down.
+function BattlegroundService.seatPit(player: Player, character: Model): boolean
+	local pit = Pits.of(player)
+	return pit ~= nil and Pits.seat(pit, player, character, os.clock())
+end
+
+-- Starts or stops the round in `player`'s pit.
+function BattlegroundService.setPitLive(player: Player, live: boolean)
+	local pit = Pits.of(player)
+	if pit ~= nil then
+		Pits.setLive(pit, live)
+	end
+end
+
+-- The Forger of `player`'s pit: standing or not, its health and its most, and its body (nil once gone).
+function BattlegroundService.pitForger(player: Player): (boolean, number, number, Model?)
+	local pit = Pits.of(player)
+	if pit == nil then
+		return false, 0, 0, nil
+	end
+	local alive, health, maxHealth = Pits.forger(pit)
+	return alive, health, maxHealth, if pit.Bot ~= nil then pit.Bot.Model else nil
+end
+
+-- Gives `player`'s pit back. Nothing for a player who holds none.
+function BattlegroundService.closePit(player: Player)
+	local pit = Pits.of(player)
+	if pit ~= nil then
+		Pits.release(pit)
+	end
 end
 
 ----------------------------------------------------------------
@@ -520,6 +621,8 @@ function BattlegroundService.Start()
 	Attacks.Init(deps, map)
 	Perception.Init(deps, map)
 	Rewards.Init(deps, map)
+	Pits.Init(deps)
+	Pits.build()
 	handle = map
 
 	trove:Connect(map.KillZone.Touched, onKillZoneTouched)

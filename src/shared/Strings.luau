@@ -295,6 +295,7 @@ Strings.Table = {
 	["rank.codex"] = { en = "Codex", fr = "Codex" },
 	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
+	["mode.spar1v1"] = { en = "Practice duel", fr = "Duel d'épreuve" },
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
 	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
@@ -495,6 +496,7 @@ Strings.Table = {
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },
 	["leaderboard.board.Team3v3"] = { en = "3v3", fr = "3v3" },
+	["leaderboard.board.Spar1v1"] = { en = "Practice", fr = "Épreuve" },
 	["leaderboard.empty"] = { en = "No ranked player yet.", fr = "Aucun joueur classé pour l'instant." },
 	-- The hub, worded by each client (HubSignsController, D-128).
 	["hub.board.title"] = { en = "Leaderboard · {board}", fr = "Classement · {board}" },
@@ -702,6 +704,40 @@ Strings.Table = {
 		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
 		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
 	},
+	-- The practice duel against a Forger while waiting in the 1v1 queue (E10-S6, SparService): the offer on the
+	-- queue's card, the duel going on, and what the server says about it.
+	["spar.pitch"] = {
+		en = "Spar a Duelist Forger while you wait: first to 2, unranked",
+		fr = "Affronte un Faussaire Duelliste en attendant : premier à 2, non classé",
+	},
+	["spar.start"] = { en = "Spar", fr = "S'entraîner" },
+	["spar.paidLeft"] = {
+		en = "Rewards: {left} of {total} left today",
+		fr = "Récompenses : encore {left} sur {total} aujourd'hui",
+	},
+	["spar.noneLeft"] = {
+		en = "No rewards left today: the practice is still yours",
+		fr = "Plus de récompenses aujourd'hui : l'entraînement reste à toi",
+	},
+	["spar.sparring"] = {
+		en = "Practice duel under way. A real opponent takes over at the next round break.",
+		fr = "Duel d'épreuve en cours. Un vrai adversaire prend la main à la prochaine pause de manche.",
+	},
+	["spar.leave"] = { en = "Leave practice", fr = "Quitter l'épreuve" },
+	["spar.started"] = {
+		en = "A Duelist Forger answers. First to 2 rounds!",
+		fr = "Un Faussaire Duelliste répond. Premier à 2 manches !",
+	},
+	["spar.handover"] = {
+		en = "An opponent is here: to the ranked duel!",
+		fr = "Un adversaire est là : au duel classé !",
+	},
+	["spar.unavailable"] = { en = "No practice duel right now.", fr = "Pas de duel d'épreuve pour l'instant." },
+	["spar.unpaid"] = {
+		en = "Practice duels pay again tomorrow.",
+		fr = "Les duels d'épreuve paient de nouveau demain.",
+	},
+	["spar.left"] = { en = "You left the practice duel.", fr = "Tu as quitté le duel d'épreuve." },
 	-- Slice F's shared words, entered with their first reader (D-150).
 	["common.retry"] = { en = "Retry", fr = "Réessayer" },
 	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },

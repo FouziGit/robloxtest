@@ -39,6 +39,7 @@ local RankingService = require(Services.RankingService)
 local RemoteRegistry = require(script.Parent.RemoteRegistry)
 local SettingsService = require(Services.SettingsService)
 local ShopService = require(Services.ShopService)
+local SparService = require(Services.SparService)
 local Types = require(Shared.Types)
 local VfxBroadcaster = require(Services.VfxBroadcaster)
 local WorldBossService = require(Services.WorldBossService)
@@ -88,6 +89,7 @@ local deps = {
 	Monetization = MonetizationService,
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
+	Spar = SparService,
 	Portal = PortalService,
 }
 
@@ -122,6 +124,9 @@ local ordered: { Entry } = {
 	{ Name = "WorldBossService", Service = WorldBossService },
 	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
 	{ Name = "BattlegroundService", Service = BattlegroundService },
+	-- After the queue, the matches, the Erasure and the Battleground: its duel is fought in the Battleground's pits,
+	-- while its player waits in the queue.
+	{ Name = "SparService", Service = SparService },
 	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },

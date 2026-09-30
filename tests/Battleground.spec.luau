@@ -10,7 +10,7 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local DIR = "src/server/Services/BattlegroundService/"
-local MODULES = { "init", "Context", "Map", "Bots", "Motion", "Roster", "Perception", "Attacks", "Rewards" }
+local MODULES = { "init", "Context", "Map", "Bots", "Motion", "Roster", "Perception", "Attacks", "Rewards", "Pits" }
 local COMBAT = "src/server/Services/CombatService.luau"
 local EFFECTS = "src/server/Effects/GlyphEffects.luau"
 local GLYPHS = "src/server/Services/GlyphService.luau"

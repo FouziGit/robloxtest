@@ -9,17 +9,24 @@
 --
 -- The client only ever asks to join or leave: ratings come from RankingService and the roster is
 -- decided here, never sent up.
+--
+-- A player may fight a practice duel while they wait (SparService, E10-S6). They keep their place: their entry
+-- never expires while they spar, and no pairing takes them while a round of it is played (setSparring). At a
+-- break of the spar they are paired like anybody else, and Handover tells SparService so before the match
+-- starts, so the spar ends the moment a match is found.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local MatchmakingCore = require(Shared.Pure.MatchmakingCore)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 
 local log = Log.new("MatchmakingService")
@@ -54,6 +61,9 @@ local TICK_SECONDS = MatchConfig.Matchmaking.TickSeconds
 
 local MatchmakingService = {}
 
+-- (player: Player): a sparring player a formed match takes, fired before the match starts.
+MatchmakingService.Handover = Signal.new()
+
 local registry: Registry
 local notify: NotifyApi
 local ranking: RankingApi
@@ -64,6 +74,8 @@ local queues: { [string]: MatchmakingCore.Queue } = {}
 -- userId -> mode asked for from the result screen, honoured by the first scan after the match lets the
 -- player go: the one-click loop (docs/JUICE_PLAN.md phase 8, item 2). Shown to the client as queued.
 local pending: { [number]: string } = {}
+-- userId -> the spar they fight (setSparring): true while one of its rounds is played, false at its breaks.
+local sparring: { [number]: boolean? } = {}
 local accumulator = 0
 -- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
 -- stood still and can hand that time back to everybody waiting.
@@ -223,6 +235,30 @@ local function requeue(modeId: string, teams: { { number } }, joinedAt: { [numbe
 	log.warn("match %s was refused: %d player(s) requeued", modeId, restored)
 end
 
+-- Runs `fn` over `queue` with the entries `aside` names taken out of it, then puts them back with the wait they
+-- had: whatever `fn` asks MatchmakingCore about the queue, it never sees them.
+local function without(queue: MatchmakingCore.Queue, aside: (userId: number) -> boolean, fn: () -> ())
+	local kept: { MatchmakingCore.Entry } = {}
+	for _, entry in ipairs(table.clone(queue.Entries)) do
+		if aside(entry.UserId) then
+			MatchmakingCore.dequeue(queue, entry.UserId)
+			table.insert(kept, entry)
+		end
+	end
+	fn()
+	for _, entry in ipairs(kept) do
+		MatchmakingCore.enqueue(queue, entry)
+	end
+end
+
+local function isSparring(userId: number): boolean
+	return sparring[userId] ~= nil
+end
+
+local function inSparRound(userId: number): boolean
+	return sparring[userId] == true
+end
+
 -- Pairs whatever the queue holds now and hands each formed match to MatchService.
 local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: MatchmakingCore.Queue, now: number)
 	-- Captured before findMatches removes the entries, for the requeue of a refused match.
@@ -231,10 +267,15 @@ local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: Matc
 		joinedAt[entry.UserId] = entry.JoinedAt
 	end
 	for _, formed in ipairs(MatchmakingCore.findMatches(queue, def.TeamSize, def.Teams, now, WINDOW)) do
-		-- They are out of the queue now: their client leaves the searching state either way.
+		-- They are out of the queue now: their client leaves the searching state either way. A spar at its break
+		-- ends before the match starts.
 		for _, members in ipairs(formed.Teams) do
 			for _, userId in ipairs(members) do
 				pushUserId(userId, now)
+				local player = Players:GetPlayerByUserId(userId)
+				if player ~= nil and isSparring(userId) then
+					MatchmakingService.Handover:Fire(player)
+				end
 			end
 		end
 		if match.start(modeId, formed.Teams) == nil then
@@ -281,18 +322,25 @@ local function tick(now: number)
 				entry.JoinedAt = math.min(now, entry.JoinedAt + pausedSeconds)
 			end
 		end
-		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
-		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
-			local player = Players:GetPlayerByUserId(userId)
-			if player ~= nil then
-				-- News, not a failure: nobody else was queuing. The toast says it in the neutral medallion (the red
-				-- "!" is for a refused purchase or claim, D-147), and the Play screen turns the card into a state.
-				notify.send(player, "queue.timedOut", nil, "Info")
-				push(player, now)
+		-- A wait already too long before the event still ends here: the pause excuses only its own seconds. A
+		-- sparring player's does not: the spar is what they wait with.
+		without(queue, isSparring, function()
+			for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
+				local player = Players:GetPlayerByUserId(userId)
+				if player ~= nil then
+					-- News, not a failure: nobody else was queuing. The toast says it in the neutral medallion (the
+					-- red "!" is for a refused purchase or claim, D-147), and the Play screen turns the card into a
+					-- state.
+					notify.send(player, "queue.timedOut", nil, "Info")
+					push(player, now)
+				end
 			end
-		end
+		end)
 		if not paused then
-			formMatches(modeId, def, queue, now)
+			-- A round of a spar is never interrupted: its player is paired at its next break.
+			without(queue, inSparRound, function()
+				formMatches(modeId, def, queue, now)
+			end)
 		end
 		-- Everybody still waiting sees their timer: advancing normally, standing still while paused.
 		for _, entry in ipairs(queue.Entries) do
@@ -312,12 +360,29 @@ end
 
 local function onPlayerRemoving(player: Player)
 	pending[player.UserId] = nil
+	sparring[player.UserId] = nil
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		local queue = queues[modeId]
 		if queue ~= nil then
 			MatchmakingCore.dequeue(queue, player.UserId)
 		end
 	end
+end
+
+-- The queue `player` waits in, how long they have waited and how many wait in it with them; nil, 0 and 0 when
+-- they wait in none.
+function MatchmakingService.waiting(player: Player): (string?, number, number)
+	local modeId, queue, entry = queueOf(player.UserId)
+	if modeId == nil or queue == nil or entry == nil then
+		return nil, 0, 0
+	end
+	return modeId, math.max(0, os.clock() - entry.JoinedAt), MatchmakingCore.size(queue)
+end
+
+-- SparService: `player` fights a spar -- `inRound` while one of its rounds is played, which no pairing may
+-- interrupt -- or, with nil, no longer does.
+function MatchmakingService.setSparring(player: Player, inRound: boolean?)
+	sparring[player.UserId] = inRound
 end
 
 function MatchmakingService.Init(deps: Deps)

@@ -12,6 +12,10 @@
 
 local DataMigration = {}
 
+-- 7: the practice duel against a Forger (E10-S6): `Daily.SparDay` and `Daily.SparPaid`, the spars paid today. New
+-- keys with the template's zero and no upgrade step: the version moves so a server still on 6 keeps the count a
+-- newer build wrote, rather than dropping it and paying the day's spars again.
+--
 -- 6: the login calendar (E15-S1). `Daily.CalendarDay`, the last of the calendar's 28 days claimed, and
 -- `Daily.Signets`, the Signets held. The seven-day streak before it paid the day of its week the streak fell on,
 -- so upgradeToV6 puts a profile on the calendar at that same day of its first week: nobody jumps past the week's
@@ -31,7 +35,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 6
+DataMigration.CurrentVersion = 7
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

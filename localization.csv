@@ -267,6 +267,7 @@ kick.loadFailed,Could not load your data. Please try again in a minute.,Vellum,,
 kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,Vellum,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
 leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
 leaderboard.board.Global,Global,Vellum,,Global,Global
+leaderboard.board.Spar1v1,Practice,Vellum,,Practice,Épreuve
 leaderboard.board.Team3v3,3v3,Vellum,,3v3,3v3
 leaderboard.empty,No ranked player yet.,Vellum,,No ranked player yet.,Aucun joueur classé pour l'instant.
 leaderboard.findMe,My place,Vellum,,My place,Ma place
@@ -321,6 +322,7 @@ menu.quests,Quests,Vellum,,Quests,Quêtes
 menu.shop,Shop,Vellum,,Shop,Boutique
 menu.title,Menu,Vellum,,Menu,Menu
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
+mode.spar1v1,Practice duel,Vellum,,Practice duel,Duel d'épreuve
 mode.team3v3,Team 3v3,Vellum,,Team 3v3,3v3 en équipe
 nav.back,Back,Vellum,,Back,Retour
 pass.loadoutSlots,Loadout Slots,Vellum,,Loadout Slots,Slots d'équipement
@@ -474,6 +476,17 @@ shop.tab.passes,Passes & packs,Vellum,,Passes & packs,Pass et packs
 shop.tab.today,Today,Vellum,,Today,Du jour
 shop.title,Shop,Vellum,,Shop,Boutique
 shop.unequip,Unequip,Vellum,,Unequip,Retirer
+spar.handover,An opponent is here: to the ranked duel!,Vellum,,An opponent is here: to the ranked duel!,Un adversaire est là : au duel classé !
+spar.leave,Leave practice,Vellum,,Leave practice,Quitter l'épreuve
+spar.left,You left the practice duel.,Vellum,,You left the practice duel.,Tu as quitté le duel d'épreuve.
+spar.noneLeft,No rewards left today: the practice is still yours,Vellum,,No rewards left today: the practice is still yours,Plus de récompenses aujourd'hui : l'entraînement reste à toi
+spar.paidLeft,Rewards: {left} of {total} left today,Vellum,,Rewards: {left} of {total} left today,Récompenses : encore {left} sur {total} aujourd'hui
+spar.pitch,"Spar a Duelist Forger while you wait: first to 2, unranked",Vellum,,"Spar a Duelist Forger while you wait: first to 2, unranked","Affronte un Faussaire Duelliste en attendant : premier à 2, non classé"
+spar.sparring,Practice duel under way. A real opponent takes over at the next round break.,Vellum,,Practice duel under way. A real opponent takes over at the next round break.,Duel d'épreuve en cours. Un vrai adversaire prend la main à la prochaine pause de manche.
+spar.start,Spar,Vellum,,Spar,S'entraîner
+spar.started,A Duelist Forger answers. First to 2 rounds!,Vellum,,A Duelist Forger answers. First to 2 rounds!,Un Faussaire Duelliste répond. Premier à 2 manches !
+spar.unavailable,No practice duel right now.,Vellum,,No practice duel right now.,Pas de duel d'épreuve pour l'instant.
+spar.unpaid,Practice duels pay again tomorrow.,Vellum,,Practice duels pay again tomorrow.,Les duels d'épreuve paient de nouveau demain.
 status.conductive,Conductive,Vellum,,Conductive,Conducteur
 status.fanned,Fanned,Vellum,,Fanned,Éventé
 status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre

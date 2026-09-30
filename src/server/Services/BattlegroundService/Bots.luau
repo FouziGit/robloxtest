@@ -44,6 +44,8 @@ export type Bot = {
 	Root: BasePart,
 	-- Its spawn point, in the page's frame: where it walks back to and heals with nobody to chase.
 	Home: BotBrain.Point,
+	-- The pit a spar's Forger fights in, nil for one of the page's (Pits): whom its blows may reach, and when.
+	Pit: Context.PitGround?,
 	Memory: BotBrain.Memory,
 	Tracks: { [string]: AnimationTrack },
 	-- The attack or flinch clip playing now, stopped when a stagger cuts it.
@@ -268,14 +270,17 @@ local function buildMover(root: BasePart): LinearVelocity
 	return mover
 end
 
--- Puts a Forger of `tierId` in `slot`, standing on spawn marker `spawnIndex`. nil (logged) when the template is
--- missing or its clone has no humanoid body.
-function Bots.spawn(slot: number, tierId: string, spawnIndex: number): Bot?
+-- Where a new Forger stands: the frame it is put down at, its spawn point in the page's frame, and the pit it
+-- fights in (nil on the page).
+export type Placement = { Frame: CFrame, Home: BotBrain.Point, Pit: Context.PitGround? }
+
+-- A Forger of `tierId` put down as `placement` says, registered by its model: CombatService's signals find it, the
+-- page's slots do not. nil (logged) when the template is missing or its clone has no humanoid body.
+local function build(slot: number, tierId: string, placement: Placement): Bot?
 	local template: Model? = templates[tierId]
 	local def: BotConfig.TierDef? = BotConfig.Tiers[tierId]
-	local marker: BasePart? = handle.BotSpawns[spawnIndex]
-	if template == nil or def == nil or marker == nil then
-		log.warn("slot %d: no template for %s or no spawn %d", slot, tostring(tierId), spawnIndex)
+	if template == nil or def == nil then
+		log.warn("slot %d: no template for %s", slot, tostring(tierId))
 		return nil
 	end
 	local model = template:Clone()
@@ -300,7 +305,7 @@ function Bots.spawn(slot: number, tierId: string, spawnIndex: number): Bot?
 	model.Parent = folder
 	-- A scaled body stands taller: its root sits Scale times as high as a standing one's.
 	local lift = BattlegroundConfig.StandingRootStuds * (def.Scale - 1)
-	model:PivotTo(marker.CFrame + Vector3.yAxis * lift)
+	model:PivotTo(placement.Frame + Vector3.yAxis * lift)
 	log.try("SetNetworkOwner " .. tierId, function()
 		root:SetNetworkOwner(nil)
 	end)
@@ -314,7 +319,8 @@ function Bots.spawn(slot: number, tierId: string, spawnIndex: number): Bot?
 		Model = model,
 		Humanoid = humanoid,
 		Root = root,
-		Home = handle.Layout.BotSpawns[spawnIndex],
+		Home = placement.Home,
+		Pit = placement.Pit,
 		Memory = BotBrain.newMemory(),
 		Tracks = loadTracks(humanoid),
 		Action = nil,
@@ -342,10 +348,30 @@ function Bots.spawn(slot: number, tierId: string, spawnIndex: number): Bot?
 	if idle ~= nil then
 		idle:Play(FADE_SECONDS)
 	end
-	bySlot[slot] = bot
 	byModel[model] = bot
-	vacant[slot] = nil
 	return bot
+end
+
+-- Puts a Forger of `tierId` in `slot`, standing on spawn marker `spawnIndex`. nil (logged) when the template is
+-- missing, the marker is, or its clone has no humanoid body.
+function Bots.spawn(slot: number, tierId: string, spawnIndex: number): Bot?
+	local marker: BasePart? = handle.BotSpawns[spawnIndex]
+	if marker == nil then
+		log.warn("slot %d: no spawn %d", slot, spawnIndex)
+		return nil
+	end
+	local bot = build(slot, tierId, { Frame = marker.CFrame, Home = handle.Layout.BotSpawns[spawnIndex], Pit = nil })
+	if bot ~= nil then
+		bySlot[slot] = bot
+		vacant[slot] = nil
+	end
+	return bot
+end
+
+-- Puts the Forger of a pit (Pits) down: in no slot of the page's, so the page's tick, its population and its count
+-- never see it. `slot` is the pit's own tell id, past every slot of the page's.
+function Bots.spawnInPit(slot: number, tierId: string, placement: Placement): Bot?
+	return build(slot, tierId, placement)
 end
 
 -- Marks a Forger dead: from its Died event, a fall, or the kill plane (none of them credited here -- a kill is

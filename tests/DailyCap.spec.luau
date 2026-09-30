@@ -57,7 +57,11 @@ describe("DailyCap.take", function()
 		local cap = BotConfig.Credit.DailyFolioCap
 		local richest = 0
 		for _, tier in pairs(BotConfig.Tiers) do
-			richest = math.max(richest, ProgressionConfig.Folios[tier.RewardKey])
+			-- A tier with no RewardKey (the spar's Duelist) pays nothing by its kill.
+			local key = tier.RewardKey
+			if key ~= nil then
+				richest = math.max(richest, ProgressionConfig.Folios[key])
+			end
 		end
 		local used, paid = 0, 0
 		for _ = 1, 500 do

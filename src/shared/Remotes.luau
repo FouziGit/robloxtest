@@ -140,6 +140,20 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf({ "Melee", "Dash", "BlockStart", "BlockEnd" }) },
 		Rate = { Capacity = 12, Refill = 6 },
 	},
+	-- The practice duel against a Forger while waiting in the 1v1 queue (SparService): take the one offered, or walk
+	-- out of the one being fought. No argument: the server decides whether it is offered and where it is fought.
+	StartSpar = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
+	LeaveSpar = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
 
 	-- Server → Client
 	ProfileChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" }, -- (section: string | "*", value)
@@ -157,6 +171,8 @@ Remotes.Definitions = {
 	MovementCommand = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Queue state of the receiving player (Types.QueueSnapshot), pushed on every change.
 	QueueChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The practice duel as the queue's card shows it (Types.SparSnapshot), pushed on every change.
+	SparChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Match snapshot for a participant (Types.MatchSnapshot), or nil when the match is over.
 	MatchChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- End-of-match summary (Types.MatchOutcome), sent once before the return to the hub.

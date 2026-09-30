@@ -35,6 +35,7 @@ local LockMarker = require(UI.components.LockMarker)
 local LockOnConfig = require(Shared.Config.LockOnConfig)
 local LockOnMath = require(Shared.Pure.LockOnMath)
 local Log = require(Shared.Util.Log)
+local MatchConfig = require(Shared.Config.MatchConfig)
 local ThemeConfig = require(Shared.Config.ThemeConfig)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 
@@ -55,6 +56,8 @@ local KIND_NAMES: { [Kind]: string } =
 -- A press that locks nothing clicks, lower than a key does.
 local MISS_SOUND = "UiClick"
 local MISS_PITCH = 0.8
+-- Who stands for a Forger on the other side of a match snapshot: a practice duel's opponent.
+local FORGER_USER_ID = MatchConfig.Spar.ForgerUserId
 
 local LockOnController = {}
 
@@ -103,10 +106,21 @@ local function lockOf(model: Instance?, kind: Kind): Lock?
 	return { Model = model, Humanoid = humanoid, Root = root, Kind = kind }
 end
 
+-- The Forgers standing, into `out`. A Forger keeps its tag until its body is gone, so a corpse is refused by its
+-- health, like any other.
+local function addForgers(out: { Lock })
+	for _, model in ipairs(CollectionService:GetTagged(BotConfig.Tag)) do
+		local lock = lockOf(model, "Bot")
+		if lock ~= nil then
+			table.insert(out, lock)
+		end
+	end
+end
+
 -- Every opponent this client may lock right now. In a match, the other teams' living players -- and
 -- nothing at all for a local player who is out and watching a teammate, or before the snapshot has
--- said which team is theirs. Outside one, the proofs, the boss and the Forgers: the hub and the
--- Battleground have no fight between players.
+-- said which team is theirs; in a practice duel, whose opponent is a Forger (MatchConfig.Spar), the Forgers.
+-- Outside one, the proofs, the boss and the Forgers: the hub and the Battleground have no fight between players.
 local function opponents(): { Lock }
 	local out: { Lock } = {}
 	local match = matchController.getMatch()
@@ -123,6 +137,10 @@ local function opponents(): { Lock }
 		for team, members in pairs(match.Teams) do
 			if team ~= match.LocalTeam then
 				for _, member in ipairs(members) do
+					if member.UserId == FORGER_USER_ID then
+						addForgers(out)
+						continue
+					end
 					local other = if member.Alive then Players:GetPlayerByUserId(member.UserId) else nil
 					local lock = lockOf(if other ~= nil then other.Character else nil, "Player")
 					if lock ~= nil then
@@ -145,13 +163,7 @@ local function opponents(): { Lock }
 			table.insert(out, lock)
 		end
 	end
-	-- A Forger keeps its tag until its body is gone, so a corpse is refused by its health, like any other.
-	for _, model in ipairs(CollectionService:GetTagged(BotConfig.Tag)) do
-		local lock = lockOf(model, "Bot")
-		if lock ~= nil then
-			table.insert(out, lock)
-		end
-	end
+	addForgers(out)
 	return out
 end
 

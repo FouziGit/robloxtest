@@ -9,6 +9,12 @@
 -- The screen never touches the queue remotes itself: MatchController owns them, so a single JoinQueue /
 -- LeaveQueue is sent per press and every number shown here is server-authored. The waited seconds are
 -- advanced locally once a second from the last server value, on task.delay, only while the screen is up.
+--
+-- The 1v1 card also carries the practice duel against a Forger (E10-S6, MatchConfig.Spar): once the server
+-- offers it -- after a wait alone in the queue -- the card's rule becomes its pitch, the players line the paid
+-- spars left today, and a Spar button stands before the way out of the queue; while one is fought, the rule says
+-- a real opponent takes over at the next break, and Leave practice walks out of it. The screen only shows what
+-- SparChanged says and asks MatchController; the server decides.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -38,6 +44,10 @@ export type Deps = {
 		joinQueue: (modeId: string) -> (),
 		leaveQueue: () -> (),
 		QueueChanged: any,
+		getSpar: () -> Types.SparSnapshot,
+		startSpar: () -> (),
+		leaveSpar: () -> (),
+		SparChanged: any,
 	},
 	-- Every server message, as it arrives: the one this screen waits for is the queue giving up.
 	HudController: { Notified: any },
@@ -70,6 +80,11 @@ type Card = {
 	Veil: Frame,
 	Ring: UIStroke,
 	StopBreath: (() -> ())?,
+	Rule: TextLabel,
+	RuleText: string,
+	-- The practice duel's two buttons, on the card of the queue it is offered in.
+	Spar: Button.Button?,
+	LeaveSpar: Button.Button?,
 }
 type Destroyable = { Destroy: (self: any) -> () }
 
@@ -99,6 +114,7 @@ local RING_BREATH = 0.5
 local RING_HOLD = 0.2
 local VEIL_TRANSPARENCY = 0.5
 local TICK_SECONDS = 1
+local SPAR = MatchConfig.Spar
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
@@ -361,13 +377,51 @@ function PlayScreen.new(deps: Deps): Screen
 
 		local rule = label("Rule", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 3, normal)
 		-- One round decides, or the first to so many wins: never "first to 1 rounds".
-		rule.Text = if def.RoundsToWin > 1 then t("queue.rule", { rounds = def.RoundsToWin }) else t("queue.rule.one")
+		local ruleText = if def.RoundsToWin > 1
+			then t("queue.rule", { rounds = def.RoundsToWin })
+			else t("queue.rule.one")
+		rule.Text = ruleText
 
 		local actions = blank("Actions", normal)
 		actions.AutomaticSize = Enum.AutomaticSize.Y
 		actions.Size = UDim2.fromScale(1, 0)
 		actions.LayoutOrder = 4
-		list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
+		-- Two buttons side by side do not fit a phone's card: the second goes under the first.
+		list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.Gap).Wraps = true
+
+		-- The practice duel, first in the row on the card of the queue it is offered in.
+		local sparButton: Button.Button? = nil
+		local leaveSparButton: Button.Button? = nil
+		if modeId == SPAR.QueueModeId then
+			local offer = Button.new({
+				Text = t("spar.start"),
+				Variant = "Primary",
+				Icon = "Play",
+				Wide = true,
+				LayoutOrder = 0,
+				Parent = actions,
+				Name = "Spar",
+				OnClick = function()
+					deps.MatchController.startSpar()
+				end,
+			})
+			own(trove, offer)
+			offer.Instance.Visible = false
+			local out = Button.new({
+				Text = t("spar.leave"),
+				Variant = "Secondary",
+				Icon = "Cross",
+				LayoutOrder = 0,
+				Parent = actions,
+				Name = "LeaveSpar",
+				OnClick = function()
+					deps.MatchController.leaveSpar()
+				end,
+			})
+			own(trove, out)
+			out.Instance.Visible = false
+			sparButton, leaveSparButton = offer, out
+		end
 
 		local joinButton = Button.new({
 			Text = t("queue.join"),
@@ -460,6 +514,10 @@ function PlayScreen.new(deps: Deps): Screen
 			Veil = veil,
 			Ring = ring,
 			StopBreath = nil,
+			Rule = rule,
+			RuleText = ruleText,
+			Spar = sparButton,
+			LeaveSpar = leaveSparButton,
 		}
 	end
 
@@ -501,12 +559,31 @@ function PlayScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- Whether `card` shows the practice duel's offer: its queue waited in, and the server offering it.
+	local function offering(card: Card, queue: Types.QueueSnapshot): boolean
+		return card.Spar ~= nil
+			and queue.Queued
+			and queue.ModeId == card.ModeId
+			and deps.MatchController.getSpar().Offered
+	end
+
+	-- What the paid spars left today come to, under the offer.
+	local function paidText(): string
+		local spar = deps.MatchController.getSpar()
+		if spar.PaidLeft > 0 then
+			return t("spar.paidLeft", { left = spar.PaidLeft, total = spar.PaidPerDay })
+		end
+		return t("spar.noneLeft")
+	end
+
 	local function refreshClock()
 		local queue = deps.MatchController.getQueue()
 		for _, card in ipairs(cards) do
 			if queue.Queued and queue.ModeId == card.ModeId then
 				card.Timer.Text = clockText(waitedSeconds())
-				card.Waiting.Text = t("queue.waiting", { queued = queue.QueuedCount, needed = queue.NeededCount })
+				card.Waiting.Text = if offering(card, queue)
+					then paidText()
+					else t("queue.waiting", { queued = queue.QueuedCount, needed = queue.NeededCount })
 			end
 		end
 	end
@@ -524,17 +601,31 @@ function PlayScreen.new(deps: Deps): Screen
 			card.Leave.Instance.Visible = state == "Queued"
 			card.Join:SetDisabled(state == "Veiled", "Full")
 			setBreathing(card, state == "Queued")
+			local offer = offering(card, queue)
+			local sparring = card.LeaveSpar ~= nil and deps.MatchController.getSpar().Sparring
+			local sparButton, leaveSparButton = card.Spar, card.LeaveSpar
+			if sparButton ~= nil and leaveSparButton ~= nil then
+				sparButton.Instance.Visible = offer
+				leaveSparButton.Instance.Visible = sparring
+			end
+			card.Rule.Text = if sparring then t("spar.sparring") elseif offer then t("spar.pitch") else card.RuleText
 		end
 		refreshClock()
 	end
 
-	-- The first thing a gamepad can press: the retry, the way out of the queue, or the first join.
+	-- The first thing a gamepad can press: the retry, the practice duel offered or fought, the way out of the
+	-- queue, or the first join.
 	local function focusTarget(): GuiObject?
 		local queue = deps.MatchController.getQueue()
 		for _, card in ipairs(cards) do
 			local state = stateOf(card, queue)
+			local sparButton, leaveSparButton = card.Spar, card.LeaveSpar
 			if state == "TimedOut" then
 				return card.Retry.Instance
+			elseif leaveSparButton ~= nil and deps.MatchController.getSpar().Sparring then
+				return leaveSparButton.Instance
+			elseif sparButton ~= nil and offering(card, queue) then
+				return sparButton.Instance
 			elseif state == "Queued" then
 				return card.Leave.Instance
 			end
@@ -573,6 +664,9 @@ function PlayScreen.new(deps: Deps): Screen
 	end
 
 	trove:Connect(deps.MatchController.QueueChanged, adopt)
+	trove:Connect(deps.MatchController.SparChanged, function()
+		render()
+	end)
 	trove:Connect(deps.HudController.Notified, function(key: string)
 		if key == TIMED_OUT_KEY and lastMode ~= nil then
 			timedOut = lastMode

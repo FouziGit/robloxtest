@@ -55,7 +55,7 @@ export type TierDef = {
 	StaggerImmune: boolean,
 	Melee: MeleeDef,
 	Bolt: BoltDef?,
-	RewardKey: string,
+	RewardKey: string?,
 }
 
 export type Targeting = {

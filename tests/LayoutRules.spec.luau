@@ -158,6 +158,12 @@ local function screen(name: string, phone: { number }?, args: any?): (any, numbe
 			end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
+			SparChanged = signal(),
+			getSpar = function(): any
+				return { Offered = false, Sparring = false, PaidLeft = 3, PaidPerDay = 3 }
+			end,
+			startSpar = function() end,
+			leaveSpar = function() end,
 		},
 		OnClose = function() end,
 		OnNavigate = function() end,

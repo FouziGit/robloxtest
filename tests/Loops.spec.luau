@@ -44,7 +44,11 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/server/Services/ShopService.luau"] = { Count = 1, Why = "the daily rotation" },
 	["src/server/Services/LeaderboardService.luau"] = { Count = 1, Why = "the board refresh" },
 	["src/server/Services/WorldBossService/init.luau"] = { Count = 1, Why = "the event schedule and the fight" },
-	["src/server/Services/BattlegroundService/init.luau"] = { Count = 1, Why = "the Forgers and the roster" },
+	["src/server/Services/BattlegroundService/init.luau"] = {
+		Count = 1,
+		Why = "the Forgers, the roster and the pits of the practice duel",
+	},
+	["src/server/Services/SparService.luau"] = { Count = 1, Why = "the practice duels' rounds and their offers" },
 	["src/server/Services/PortalService.luau"] = { Count = 1, Why = "portal zones" },
 	["src/server/Services/VfxBroadcaster.luau"] = {
 		Count = 1,

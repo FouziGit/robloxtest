@@ -32,9 +32,26 @@ VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Fol
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
-Les Épreuves du hub le sont aussi depuis E10-S3 (`TrialPay`, compteurs `Daily.TrialDay` / `TrialKills` / `TrialFolios`) : 40 Folios par jour au plus, l'XP entière (40) pour les 25 premiers kills du jour puis 25 % (10 XP), rien sans glyphe lancé ni ruée dans la minute, et jamais d'XP de pass ; un glyphe qui touche une Épreuve ne paie pas d'XP (D-XXX). Un toast le dit une fois par jour, au kill qui épuise les Folios.
+Les Épreuves du hub le sont aussi depuis E10-S3 (`TrialPay`, compteurs `Daily.TrialDay` / `TrialKills` / `TrialFolios`) : 40 Folios par jour au plus, l'XP entière (40) pour les 25 premiers kills du jour puis 5 % (2 XP), rien sans glyphe lancé ni ruée dans la minute, et jamais d'XP de pass ; un glyphe qui touche une Épreuve ne paie pas d'XP (D-XXX). Un toast le dit une fois par jour, au kill qui épuise les Folios.
 
-**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub, qui en donnaient environ 19 000, sont plafonnés depuis E10-S3 (ci-dessus). À mesurer en jeu avant d'ajuster.
+**XP à l'heure : voir §2 bis**, mesurée par le simulateur sur les vraies configs et non plus estimée à la main. L'XP des Faussaires reste sans plafond : 9 716 XP/h pour un joueur seul, au-dessus d'une heure de duels (8 237). Ce n'est pas l'objet de E10-S3, mais c'est désormais l'activité sûre la mieux payée ; à revoir avec le développeur.
+
+## 2 bis. Le rythme, mesuré par le simulateur
+
+`lune run scripts/pacing -- --table` joue quatre profils pendant 60 jours avec les vraies configs et les règles que le serveur exécute (`TrialPay`, `DailyCap`, `QuestLogic` avec plancher Solo et relance gratuite, rotation réelle de la boutique) ; `tests/Pacing.spec.luau` le lance à chaque porte de qualité. L'export jour par jour est `docs/economy/pacing.csv`, repris en formules dans `docs/economy/Vellum-economie.xlsx` (`python3 tools/economy/workbook.py`). Sortie du 30/09/2026 :
+
+| Profil | Niv. 5 | Niv. 10 | Niv. 20 | Niv. 40 | Pass fini | Folios gagnés J7 | Folios gagnés J30 | Catalogue complet |
+|---|---|---|---|---|---|---|---|---|
+| 20 min/j seul (5 min d'Épreuves, 15 min de Faussaires) | 1 min | 9 min | 43 min | 253 min | J8 | 16 380 | 27 875 | après J60 |
+| 20 min/j en PvP (duels) | 3 min | 11 min | 52 min | 277 min | J7 | 19 970 | 37 975 | J40 |
+| 60 min/j en PvP (duels) | 3 min | 11 min | 65 min | 364 min | J3 | 25 105 | 60 375 | J22 |
+| Fermier d'Épreuves (60 min/j) | 1 min | 19 min | 237 min | 1 144 min | J24 | 5 480 | 25 475 | après J60 |
+
+XP par heure de chaque activité seule (sans quêtes, série ni première victoire) : duels 8 237, Faussaires 9 716, Épreuves du fermier 1 858 (22,6 % des duels ; le gate exige moins de 30 %). Le pass coûte 28 420 XP : une semaine suffit à le finir (à régler, E10-S5) ; 24 objets s'obtiennent sans Robux (les 14 de la boutique et les 10 de la piste gratuite). « Catalogue complet » : le jour où le profil possède ces 24 objets en achetant, chaque jour, le moins cher de la rotation qu'il peut payer.
+
+Ce que les configs ne disent pas est dans `Pacing.Assumptions`, une fois chacun, à remplacer par des mesures (E8) : file de 45 s et 10 s de portail par duel, manche de 50 s, matchs par quatre (deux gagnés, deux perdus, un net et un serré de chaque), un glyphe sur deux qui touche en duel (7 sur 10 sur un Faussaire, tous sur une Épreuve), un tiers du combat au corps à corps en duel, 6 ruées et 1 annulation par minute, un glyphe sur cinq enchaîné, un Faussaire qui encaisse 60 % des dégâts et demande 3 s d'approche. Les lancers de glyphes suivent l'encre en combat (`CombatConfig.Ink.RegenInCombat` sur le coût moyen de l'équipement de départ), les coups de poing la cadence du combo (`CombatConfig.Melee`).
+
+Deux constats pour le développeur, hors de ces stories : le niveau 40 (Orpiment) arrive en 4 à 6 h de jeu et non en 15-20 h, et une heure de Faussaires paie plus d'XP qu'une heure de duels.
 
 ## 3. Puits de Folios (boutique cosmétique)
 

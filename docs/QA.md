@@ -163,13 +163,13 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 
 ## 6 ter. Épreuves plafonnées, quêtes Solo et relance
 
-Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S10). Les règles sont tenues sous Lune (`tests/TrialPay.spec.luau`, `tests/QuestLogic.spec.luau`, `tests/QuestReroll.spec.luau`) ; ce qui suit est ce que Lune ne peut pas voir.
+Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S10). Les règles sont tenues sous Lune (`tests/TrialPay.spec.luau`, `tests/QuestLogic.spec.luau`, `tests/QuestReroll.spec.luau`, `tests/Pacing.spec.luau`) ; ce qui suit est ce que Lune ne peut pas voir.
 
 **Les Épreuves du hub**
 
 1. **Rien sans glyphe ni ruée.** Arriver au hub et abattre une Épreuve au seul corps à corps, sans lancer de glyphe ni ruer. Attendu : aucun toast `hud.killReward`, une seule fois dans la session le toast `trials.idle` (« Trace un glyphe ou fais une ruée pour gagner avec les mannequins. »), et `Stats.Kills` monte quand même (`creditKiller`, `EnemyService.luau`).
 2. **Payé après un glyphe.** Lancer un glyphe, puis abattre une Épreuve dans la minute. Attendu : `hud.killReward` avec +40 XP (avant VIP et boost) et +2 Folios ; la barre du pass ne bouge pas (`ProgressionConfig.PassExcluded`).
-3. **Le toast du plafond, une fois par jour.** Continuer : au 20ᵉ kill payé du jour, le toast `trials.capped` (« Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus ! »), et plus aucun Folio ensuite ; à partir du 26ᵉ, +10 XP par kill. Arrêter puis relancer **Play** avec l'accès API : pas de nouveau toast, les compteurs sont dans le profil (`Daily.TrialDay`, `TrialKills`, `TrialFolios`).
+3. **Le toast du plafond, une fois par jour.** Continuer : au 20ᵉ kill payé du jour, le toast `trials.capped` (« Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus ! »), et plus aucun Folio ensuite ; à partir du 26ᵉ, +2 XP par kill. Arrêter puis relancer **Play** avec l'accès API : pas de nouveau toast, les compteurs sont dans le profil (`Daily.TrialDay`, `TrialKills`, `TrialFolios`).
 4. **Un glyphe sur une Épreuve.** Toucher une Épreuve d'un glyphe. Attendu : pas d'XP `GlyphHit` (aucune montée de la barre d'XP au coup), mais la quête « Touche des ennemis avec N glyphes » avance.
 
 **Les quêtes**

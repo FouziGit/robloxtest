@@ -94,7 +94,7 @@ Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 
 
 - Par défaut : les 8 glyphes V1.
 - Niveau 5 : Délié, Pointillé · niveau 8 : Volute · niveau 10 : Ligature, Reliure · niveau 12 : Paraphe · niveau 15 : Dorure, Poncif · niveau 18 : Hachures · niveau 20 : Spiral · niveau 22 : Chaînette · niveau 25 : Pâté · niveau 28 : Obèle · niveau 30 : Gaufrage · niveau 33 : Rubrique · niveau 36 : Cartouche.
-- **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Orpiment. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
+- **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** **ou** via le game pass Orpiment. Le niveau 40 vient après 4 h 37 de jeu à 20 min/jour de duels (J14), 6 h 04 à une heure par jour (J6), 4 h 13 à 20 min/jour seul (J13) et 19 h pour un fermier d'Épreuves (J20), selon `scripts/pacing.luau` sur les vraies configs (docs/ECONOMY.md §2 bis) : bien moins que les 15-20 h que ce paragraphe estimait à la main. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
 - **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les glyphes non équipés ne peuvent pas être lancés.
 
 ## 5 bis. Plafond de compétence : annulation, enchaînement, matrice des réponses
@@ -188,7 +188,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 
 | Mode | Joueurs | Durée | Victoire | Récompenses |
 |---|---|---|---|---|
-| Hub | tous | libre | — | Épreuves (mannequins) : 40 Folios/jour au plus, XP entière pour 25 kills puis 25 %, rien sans glyphe ni ruée dans la minute, jamais d'XP de pass (D-XXX) ; quêtes |
+| Hub | tous | libre | — | Épreuves (mannequins) : 40 Folios/jour au plus, XP entière pour 25 kills puis 5 %, rien sans glyphe ni ruée dans la minute, jamais d'XP de pass (D-XXX) ; quêtes |
 | 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass |
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |

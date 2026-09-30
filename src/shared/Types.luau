@@ -126,7 +126,6 @@ export type MetaData = {
 	LastJoin: number,
 	SessionCount: number,
 	LegacyImported: boolean,
-	FirstSessionPromptGate: boolean, -- true once the first-session no-prompt window has elapsed
 	-- Bumped by DataService.saveNow before each forced save, and matched against the value ProfileStore
 	-- reports as written. It is the only way to tell a save that CONTAINS the caller's mutation from one
 	-- that was already in flight when the mutation happened, which matters because a purchase is only

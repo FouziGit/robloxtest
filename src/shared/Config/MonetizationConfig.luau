@@ -127,16 +127,6 @@ MonetizationConfig.Products = {
 	},
 } :: { [string]: ProductDef }
 
--- Contextual prompt rules (see docs/ECONOMY.md §5).
-MonetizationConfig.Prompts = {
-	FirstSessionGraceSeconds = 180, -- never prompt during the first 3 minutes of the first session
-	MinIntervalSeconds = 300, -- at most one prompt every 5 minutes
-	CloseLossHealthFraction = 0.15, -- "close loss" threshold for the XP boost prompt
-	CloseLossCooldownSeconds = 1800,
-	OrpimentDeathMinLevel = 10,
-	OrpimentDeathPerSession = 1,
-}
-
 -- Keys whose Id is still 0.
 function MonetizationConfig.missingIds(): { string }
 	local missing = {}

@@ -73,7 +73,6 @@ local function template(): { [string]: any }
 			LastJoin = 0,
 			SessionCount = 0,
 			LegacyImported = false,
-			FirstSessionPromptGate = false,
 			SaveToken = 0,
 			DevGranted = false,
 		},

@@ -12,7 +12,6 @@ local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
-local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -558,7 +557,7 @@ describe("the Shop's words and pushes, run", function()
 		expect(screen.Instance:FindFirstChild(ITEM, true)).never.toBeNil()
 	end)
 
-	it("names the level Orpiment is free at, in the shop and in the offer the server makes", function()
+	it("names the level Orpiment is free at, in the shop", function()
 		local screen, given = builtWith(function(_name: string, handler: (...any) -> ()): any
 			return Engine.signal():Connect(handler)
 		end)
@@ -577,10 +576,6 @@ describe("the Shop's words and pushes, run", function()
 				end
 			end
 		end
-		-- The server's offer toast gives the same words the same level.
-		local prompts = fs.readFile("src/server/Services/MonetizationService/Prompts.luau")
-		expect(string.find(prompts, "local DESC_PARAMS = { level = ProgressionConfig.OrpimentUnlockLevel }", 1, true)).never.toBeNil()
-		expect(string.find(prompts, 'deps.Notify.send(player, descKey, DESC_PARAMS, "Info")', 1, true)).never.toBeNil()
 	end)
 end)
 

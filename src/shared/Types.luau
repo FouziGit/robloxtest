@@ -115,6 +115,10 @@ export type MilestonesData = { [string]: boolean }
 -- Copy, 3 Calligraphy. DrillService is its one writer, and every grade at or under it has been paid.
 export type DrillsData = { [string]: number }
 
+-- The plates of the Ex-libris earned (ExLibrisConfig, Pure/ExLibris): plate id -> the os.time() it was granted.
+-- HonoursService is its one writer, and a plate in it is never granted again.
+export type ExLibrisData = { [string]: number }
+
 export type PurchasesData = {
 	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
 	ProductCounts: { [string]: number }, -- productKey -> times purchased
@@ -160,6 +164,7 @@ export type ProfileData = {
 	Daily: DailyData,
 	Milestones: MilestonesData,
 	Drills: DrillsData,
+	ExLibris: ExLibrisData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
 	Boosts: BoostsData,

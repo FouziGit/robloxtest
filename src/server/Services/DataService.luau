@@ -131,6 +131,7 @@ function DataService.template(): { [string]: any }
 		},
 		Milestones = {},
 		Drills = {},
+		ExLibris = {},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },

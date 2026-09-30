@@ -222,7 +222,14 @@ local function honours(level: number, milestones: { [string]: boolean }?): Harne
 	local world = Engine.world()
 	local loaded, levelUp = Engine.signal(), Engine.signal()
 	local player = { Name = "Scribe", UserId = 7 }
-	local data = { Progression = { Level = level, XP = 0, TotalXP = 0 }, Milestones = milestones or {} }
+	local data = {
+		Progression = { Level = level, XP = 0, TotalXP = 0 },
+		Milestones = milestones or {},
+		-- A profile that has earned no plate of the Ex-libris, and meets none.
+		Stats = { Kills = 0, MatchesPlayed = 0, GlyphsCast = 0, BestChain = 0, BossKills = 0 },
+		Drills = {},
+		ExLibris = {},
+	}
 	local fixture: Harnessed = {
 		service = nil,
 		player = player,

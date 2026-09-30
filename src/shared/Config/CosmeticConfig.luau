@@ -272,6 +272,39 @@ CosmeticConfig.Items = {
 		Sellable = false,
 		Look = { TextKey = "cosmetic.title.TitleHundredLeaves" },
 	},
+	-- The Ex-libris (ExLibrisConfig): four of its plates
+	{
+		Id = "TitleThousandErasures",
+		Slot = "Title",
+		Rarity = "Epic",
+		NameKey = "cosmetic.TitleThousandErasures",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleThousandErasures" },
+	},
+	{
+		Id = "TitleDogEared",
+		Slot = "Title",
+		Rarity = "Epic",
+		NameKey = "cosmetic.TitleDogEared",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleDogEared" },
+	},
+	{
+		Id = "TitleOneBreath",
+		Slot = "Title",
+		Rarity = "Epic",
+		NameKey = "cosmetic.TitleOneBreath",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleOneBreath" },
+	},
+	{
+		Id = "TitleCalligrapher",
+		Slot = "Title",
+		Rarity = "Legendary",
+		NameKey = "cosmetic.TitleCalligrapher",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleCalligrapher" },
+	},
 	-- Skin pack (game pass)
 	{
 		Id = "SkinWashJade",

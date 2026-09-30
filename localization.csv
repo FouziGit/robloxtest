@@ -94,15 +94,19 @@ cosmetic.SkinSerifObsidian,Obsidian Serif Skin,Vellum,,Obsidian Serif Skin,Skin 
 cosmetic.SkinSweepSilver,Faded Sweep Skin,Vellum,,Faded Sweep Skin,Skin Balayage Passé
 cosmetic.SkinWashJade,Deep Wash Skin,Vellum,,Deep Wash Skin,Skin Lavis Profond
 cosmetic.SteelStylus,Stylus Trail,Vellum,,Stylus Trail,Traînée de Stylet
+cosmetic.TitleCalligrapher,Title: Calligrapher,Vellum,,Title: Calligrapher,Titre : Calligraphe
 cosmetic.TitleCodex,Title: Bound in Vellum,Vellum,,Title: Bound in Vellum,Titre : Relié de Vélin
 cosmetic.TitleCodexSeason,Title: Codex of the Volume,Vellum,,Title: Codex of the Volume,Titre : Codex du volume
+cosmetic.TitleDogEared,Title: Dog-Eared,Vellum,,Title: Dog-Eared,Titre : Écorné
 cosmetic.TitleHundredLeaves,Title: A Hundred Leaves,Vellum,,Title: A Hundred Leaves,Titre : Cent feuillets
 cosmetic.TitleIllumination,Title: Illumination,Vellum,,Title: Illumination,Titre : Enluminure
 cosmetic.TitleMasterCopyist,Title: Master Copyist,Vellum,,Title: Master Copyist,Titre : Maître copiste
+cosmetic.TitleOneBreath,Title: In One Breath,Vellum,,Title: In One Breath,Titre : D'un seul souffle
 cosmetic.TitleRookie,Title: Rookie,Vellum,,Title: Rookie,Titre : Recrue
 cosmetic.TitleRubricator,Title: Rubricator,Vellum,,Title: Rubricator,Titre : Rubricateur
 cosmetic.TitleScript,Title: Script,Vellum,,Title: Script,Titre : Écriture
 cosmetic.TitleShadow,Title: Silent Hand,Vellum,,Title: Silent Hand,Titre : Main Silencieuse
+cosmetic.TitleThousandErasures,Title: A Thousand Erasures,Vellum,,Title: A Thousand Erasures,Titre : Mille ratures
 cosmetic.TitleWanderer,Title: Wanderer,Vellum,,Title: Wanderer,Titre : Vagabond
 cosmetic.TrailEmber,Soot Trail,Vellum,,Soot Trail,Traînée de Suie
 cosmetic.TrailFolio,Folio Trail,Vellum,,Folio Trail,Traînée de Folios
@@ -115,15 +119,19 @@ cosmetic.title.BlankHeadband,Apprentice,Vellum,,Apprentice,Apprenti
 cosmetic.title.CodexCloak,Keeper of the Codex,Vellum,,Keeper of the Codex,Gardien du Codex
 cosmetic.title.FrisketMask,Frisket,Vellum,,Frisket,Frisquette
 cosmetic.title.ScriptoriumRobe,Scriptorium Hand,Vellum,,Scriptorium Hand,Main du Scriptorium
+cosmetic.title.TitleCalligrapher,Calligrapher,Vellum,,Calligrapher,Calligraphe
 cosmetic.title.TitleCodex,Bound in Vellum,Vellum,,Bound in Vellum,Relié de Vélin
 cosmetic.title.TitleCodexSeason,Codex of the Volume,Vellum,,Codex of the Volume,Codex du volume
+cosmetic.title.TitleDogEared,Dog-Eared,Vellum,,Dog-Eared,Écorné
 cosmetic.title.TitleHundredLeaves,A Hundred Leaves,Vellum,,A Hundred Leaves,Cent feuillets
 cosmetic.title.TitleIllumination,Illumination,Vellum,,Illumination,Enluminure
 cosmetic.title.TitleMasterCopyist,Master Copyist,Vellum,,Master Copyist,Maître copiste
+cosmetic.title.TitleOneBreath,In One Breath,Vellum,,In One Breath,D'un seul souffle
 cosmetic.title.TitleRookie,Rookie,Vellum,,Rookie,Recrue
 cosmetic.title.TitleRubricator,Rubricator,Vellum,,Rubricator,Rubricateur
 cosmetic.title.TitleScript,Script,Vellum,,Script,Écriture
 cosmetic.title.TitleShadow,Silent Hand,Vellum,,Silent Hand,Main Silencieuse
+cosmetic.title.TitleThousandErasures,A Thousand Erasures,Vellum,,A Thousand Erasures,Mille ratures
 cosmetic.title.TitleWanderer,Wanderer,Vellum,,Wanderer,Vagabond
 cosmetics.equipped,Equipped: {name},Vellum,,Equipped: {name},Équipé : {name}
 cosmetics.none,None,Vellum,,None,Aucun
@@ -164,6 +172,30 @@ drills.recipe.hintUtility,"Draw it, {reps} times",Vellum,,"Draw it, {reps} times
 drills.rep,{name} · {count} / {reps},Vellum,,{name} · {count} / {reps},{name} · {count} / {reps}
 drills.started,Drill: {name}. {hint},Vellum,,Drill: {name}. {hint},Exercice : {name}. {hint}
 drills.stopped,Drill put down,Vellum,,Drill put down,Exercice posé
+exlibris.Breath4,Four in a Breath,Vellum,,Four in a Breath,Quatre d'un souffle
+exlibris.Breath6,In One Breath,Vellum,,In One Breath,D'un seul souffle
+exlibris.Calligrapher,The Calligrapher,Vellum,,The Calligrapher,Le Calligraphe
+exlibris.Copyist,The Copyist,Vellum,,The Copyist,Le Copiste
+exlibris.Erasure1,The Erasure Erased,Vellum,,The Erasure Erased,L'Effacement effacé
+exlibris.Erasure10,Ten Times Erased,Vellum,,Ten Times Erased,Dix fois effacé
+exlibris.Erasures100,A Hundred Erasures,Vellum,,A Hundred Erasures,Cent ratures
+exlibris.Erasures1000,A Thousand Erasures,Vellum,,A Thousand Erasures,Mille ratures
+exlibris.Pages25,Twenty-Five Pages,Vellum,,Twenty-Five Pages,Vingt-cinq pages
+exlibris.Pages250,Dog-Eared,Vellum,,Dog-Eared,Écorné
+exlibris.SteadyKit,A Steady Kit,Vellum,,A Steady Kit,Un kit sûr
+exlibris.Strokes1000,A Thousand Strokes,Vellum,,A Thousand Strokes,Mille traits
+exlibris.Strokes10000,Ten Thousand Strokes,Vellum,,Ten Thousand Strokes,Dix mille traits
+exlibris.caughtUp,{count} plates of your Ex-libris: +{amount} Folios,Vellum,,{count} plates of your Ex-libris: +{amount} Folios,{count} plaques de ton Ex-libris : +{amount} Folios
+exlibris.desc.BestChain,Chain {amount} glyphs,Vellum,,Chain {amount} glyphs,Enchaîne {amount} glyphes
+exlibris.desc.BossKills,"Defeat the Erasure in its event, {amount} times",Vellum,,"Defeat the Erasure in its event, {amount} times","Vaincs l'Effacement lors de son événement, {amount} fois"
+exlibris.desc.DrillsCalligraphy,Reach Calligraphy on {amount} drills,Vellum,,Reach Calligraphy on {amount} drills,Atteins la Calligraphie sur {amount} exercices
+exlibris.desc.DrillsFairCopy,Reach Fair copy on {amount} drills,Vellum,,Reach Fair copy on {amount} drills,Atteins la Mise au net sur {amount} exercices
+exlibris.desc.GlyphsCast,Draw {amount} glyphs,Vellum,,Draw {amount} glyphs,Trace {amount} glyphes
+exlibris.desc.Kills,"Defeat {amount} foes, dummies and Forgers included",Vellum,,"Defeat {amount} foes, dummies and Forgers included","Vaincs {amount} adversaires, mannequins et Faussaires compris"
+exlibris.desc.KitCalligraphy,Reach Calligraphy on the kit's {amount} drills,Vellum,,Reach Calligraphy on the kit's {amount} drills,Atteins la Calligraphie aux {amount} exercices du kit
+exlibris.desc.MatchesPlayed,Play {amount} matches,Vellum,,Play {amount} matches,Joue {amount} matchs
+exlibris.granted,Ex-libris: {name}! +{amount} Folios,Vellum,,Ex-libris: {name}! +{amount} Folios,Ex-libris : {name} ! +{amount} Folios
+exlibris.grantedTitle,Ex-libris: {name}! +{amount} Folios and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folios and the title {title},Ex-libris : {name} ! +{amount} Folios et le titre {title}
 folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
@@ -290,6 +322,10 @@ leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the to
 lectern.again,Again,Vellum,,Again,Refaire
 lectern.blank,not drawn yet,Vellum,,not drawn yet,pas encore tracé
 lectern.drillLine,{hint} · {grade},Vellum,,{hint} · {grade},{hint} · {grade}
+lectern.exlibris.count,{count} of {total} plates,Vellum,,{count} of {total} plates,{count} plaques sur {total}
+lectern.exlibris.earned,{desc} · earned,Vellum,,{desc} · earned,{desc} · obtenue
+lectern.exlibris.progress,{desc} · {count} / {target},Vellum,,{desc} · {count} / {target},{desc} · {count} / {target}
+lectern.exlibris.rewardTitled,+{amount} · a title,Vellum,,+{amount} · a title,+{amount} · un titre
 lectern.kit,The kit,Vellum,,The kit,Le kit
 lectern.prompt,Practise,Vellum,,Practise,S'exercer
 lectern.recipes,The recipes,Vellum,,The recipes,Les recettes
@@ -304,6 +340,7 @@ lectern.running,Now: {name} · {count} / {reps} · missed {misses},Vellum,,Now: 
 lectern.start,Start,Vellum,,Start,Commencer
 lectern.stop,Put down,Vellum,,Put down,Poser
 lectern.tab.drills,Drills,Vellum,,Drills,Exercices
+lectern.tab.exlibris,Ex-libris,Vellum,,Ex-libris,Ex-libris
 lectern.tab.road,Level road,Vellum,,Level road,Jalons
 lectern.title,The Lectern,Vellum,,The Lectern,Le Pupitre
 level.max,Max level,Vellum,,Max level,Niveau max

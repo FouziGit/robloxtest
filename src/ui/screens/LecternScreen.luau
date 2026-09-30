@@ -7,11 +7,13 @@
 --           glyph that is not in the loadout (it opens the Loadout over this screen), and a locked glyph's level.
 --           The set the player is doing heads the list, with the way to put it down. Starting a drill closes the
 --           screen: the drill is done on the training dummies, and the server counts it and says every step.
---   Road    the level road (LevelRoadWords): every glyph, the pigment and every milestone to the last level, the
---           next one ringed, what the profile already holds marked as its own.
+--   Road      the level road (LevelRoadWords): every glyph, the pigment and every milestone to the last level,
+--             the next one ringed, what the profile already holds marked as its own.
+--   ExLibris  the plates of the Ex-libris (ExLibrisConfig): the ones earned sealed, the others with how far the
+--             profile's lifetime measures are, and what each pays.
 --
--- Nothing here decides anything: the grades, the milestones and the running set are the server's (the profile's
--- Drills, Milestones and Unlocks, and DrillChanged). A tab is built when it is shown, and built again when what it
+-- Nothing here decides anything: the grades, the milestones, the plates and the running set are the server's (the
+-- profile's Drills, Milestones, ExLibris, Stats and Unlocks, and DrillChanged). A tab is built when it is shown, and built again when what it
 -- shows moves while the screen is up; a change while the screen is away only marks it for the next opening.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +25,8 @@ local Button = require(script.Parent.Parent.components.Button)
 local DrillCatalog = require(Shared.DrillCatalog)
 local DrillConfig = require(Shared.Config.DrillConfig)
 local DrillLogic = require(Shared.Pure.DrillLogic)
+local ExLibris = require(Shared.Pure.ExLibris)
+local ExLibrisConfig = require(Shared.Config.ExLibrisConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local LevelRoadWords = require(script.Parent.Parent.LevelRoadWords)
 local ListRow = require(script.Parent.Parent.components.ListRow)
@@ -65,13 +69,18 @@ type Destroyable = { Destroy: (self: any) -> () }
 local LecternScreen = {}
 
 local CHAPTER = "Lectern"
-local TAB_ORDER: { string } = { "Drills", "Road" }
-local TAB_KEYS: { [string]: string } = { Drills = "lectern.tab.drills", Road = "lectern.tab.road" }
+local TAB_ORDER: { string } = { "Drills", "Road", "ExLibris" }
+local TAB_KEYS: { [string]: string } =
+	{ Drills = "lectern.tab.drills", Road = "lectern.tab.road", ExLibris = "lectern.tab.exlibris" }
 local TABS_HEIGHT = 48
 local PIP_SIZE = 14
 local STEP_SEAL = 40
 local GRADES = DrillConfig.Grades
 local PIGMENT_NAME_KEYS = (PigmentConfig.NameKeys :: any) :: { [string]: string? }
+local KIT_IDS: { string } = {}
+for _, kit in ipairs(DrillConfig.Kit) do
+	table.insert(KIT_IDS, kit.Id)
+end
 -- The profile's sections a tab reads: a push of any of them rebuilds the tab shown.
 local WATCHED: { [string]: boolean } = {
 	["*"] = true,
@@ -80,6 +89,8 @@ local WATCHED: { [string]: boolean } = {
 	Unlocks = true,
 	Loadout = true,
 	Progression = true,
+	ExLibris = true,
+	Stats = true,
 }
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
@@ -148,7 +159,7 @@ function LecternScreen.new(deps: Deps): Screen
 				Chapter = CHAPTER,
 				Left = t(key),
 				LayoutOrder = nextOrder(),
-				Name = "Header",
+				Name = "Section",
 				Parent = panel.Content,
 			})
 		)
@@ -279,7 +290,7 @@ function LecternScreen.new(deps: Deps): Screen
 				Chapter = CHAPTER,
 				Left = t("lectern.road.level", { level = level }),
 				LayoutOrder = nextOrder(),
-				Name = "Header",
+				Name = "Level",
 				Parent = panel.Content,
 			})
 		)
@@ -316,6 +327,58 @@ function LecternScreen.new(deps: Deps): Screen
 		end
 	end
 
+	local function renderExLibris(data: Types.ProfileData)
+		local facts = ExLibris.facts(data.Stats, data.Drills, KIT_IDS)
+		local earned = 0
+		for _, plate in ipairs(ExLibrisConfig.Plates) do
+			if data.ExLibris[plate.Id] ~= nil then
+				earned += 1
+			end
+		end
+		own(
+			pageTrove,
+			ListRow.new({
+				Variant = "Header",
+				Chapter = CHAPTER,
+				Left = t("lectern.exlibris.count", { count = earned, total = #ExLibrisConfig.Plates }),
+				LayoutOrder = nextOrder(),
+				Name = "Count",
+				Parent = panel.Content,
+			})
+		)
+		for _, plate in ipairs(ExLibrisConfig.Plates) do
+			local held = data.ExLibris[plate.Id] ~= nil
+			local seal = Seal.new({
+				Text = if held then Theme.Glyphs.Check else "",
+				Fill = if held then Theme.Colors.Primary else Theme.Colors.Chalk,
+				Size = STEP_SEAL,
+			})
+			own(pageTrove, seal)
+			local desc = t(plate.DescKey, { amount = plate.Target })
+			own(
+				pageTrove,
+				ListRow.new({
+					Left = t(plate.NameKey),
+					Subtitle = if held
+						then t("lectern.exlibris.earned", { desc = desc })
+						else t("lectern.exlibris.progress", {
+							desc = desc,
+							count = ExLibris.progress(plate, facts),
+							target = plate.Target,
+						}),
+					Leading = seal.Instance,
+					Right = t(
+						if plate.Title ~= nil then "lectern.exlibris.rewardTitled" else "reward.folios",
+						{ amount = plate.Folios }
+					),
+					LayoutOrder = nextOrder(),
+					Name = plate.Id,
+					Parent = panel.Content,
+				})
+			)
+		end
+	end
+
 	local function render()
 		pageTrove:Clean()
 		order = 0
@@ -329,6 +392,8 @@ function LecternScreen.new(deps: Deps): Screen
 		end
 		if current == "Road" then
 			renderRoad(data)
+		elseif current == "ExLibris" then
+			renderExLibris(data)
 		else
 			renderDrills(data)
 		end

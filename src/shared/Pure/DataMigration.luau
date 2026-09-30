@@ -12,10 +12,10 @@
 
 local DataMigration = {}
 
--- 5: the level road's milestones (`Milestones`, the levels already paid) and the Lectern's drills (`Drills`, the
--- best grade of each). New keys with the template's empty defaults and no upgrade step: the version moves so a
--- server still on 4 keeps what a newer build wrote (see `newer` in migrate), rather than dropping the records and
--- paying every milestone and every grade a second time.
+-- 5: the level road's milestones (`Milestones`, the levels already paid), the Lectern's drills (`Drills`, the
+-- best grade of each) and the Ex-libris (`ExLibris`, the plates earned). New keys with the template's empty
+-- defaults and no upgrade step: the version moves so a server still on 4 keeps what a newer build wrote (see
+-- `newer` in migrate), rather than dropping the records and paying every milestone, grade and plate a second time.
 --
 -- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
 -- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the

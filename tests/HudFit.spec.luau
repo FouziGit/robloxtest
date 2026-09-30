@@ -8,6 +8,7 @@
 -- phones themselves.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Measure = require("./measure")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
@@ -71,7 +72,8 @@ local function touchBottom(): number
 		+ HUD.PreviewHeight
 end
 
--- With a pointer: the dock, the hotbar's slots over their keys, the combo row, the preview.
+-- With a pointer: the dock, the hotbar's slots over their keys, the air the combo row stands off them, the combo
+-- row, the preview.
 local function pointerBottom(): number
 	return HUD.DockBottomPad
 		+ HUD.DockHeight
@@ -79,6 +81,7 @@ local function pointerBottom(): number
 		+ HUD.HotbarSlot
 		+ HUD.HotbarKeyStrip
 		+ HUD.ChipRowGap
+		+ HUD.ComboLift
 		+ HUD.ChipSize
 		+ HUD.ChipRowGap
 		+ HUD.PreviewHeight
@@ -144,6 +147,43 @@ describe("the HUD's fit", function()
 		if stackRight + Theme.Sizes.Gap > barLeft then
 			error(("the quick bar starts at %.1f, the bottom stack ends at %.1f"):format(barLeft, stackRight))
 		end
+	end)
+
+	it("lifts the combo row off the hotbar with a pointer only, by ComboLift in all", function()
+		-- The board's combo row stands clear of the hotbar's keys; on touch the dock's pips are there instead.
+		expect(HUD.ComboLift).toBeGreaterThan(HUD.ChipRowGap)
+		for _, phone in ipairs({ false, true }) do
+			local fixture = Hud.build({ Phone = if phone then { 844, 390 } else nil })
+			local stack = fixture.screen:FindFirstChild("BottomStack", true)
+			assert(stack ~= nil, "the HUD has no bottom stack: this gate would check nothing")
+			local layout = stack:FindFirstChildOfClass("UIListLayout")
+			expect(layout.Padding.Offset).toBe(HUD.ChipRowGap)
+			local lift = stack:FindFirstChild("ComboLift")
+			if phone then
+				expect(lift).toBeNil()
+			else
+				assert(lift ~= nil, "the pointer's stack has no lift")
+				-- A gap, the lift, a gap: ComboLift between the row and the hotbar, where the one gap stood.
+				expect(layout.Padding.Offset * 2 + lift.Size.Y.Offset).toBe(HUD.ChipRowGap + HUD.ComboLift)
+				expect(lift.Size.Y.Scale).toBe(0)
+				expect(lift.BackgroundTransparency).toBe(1)
+				local combo = stack:FindFirstChild("Combo")
+				local hotbar: any = nil
+				for _, child in ipairs(stack:GetChildren()) do
+					if child:IsA("GuiObject") and child.LayoutOrder > lift.LayoutOrder and child ~= combo then
+						if hotbar == nil or child.LayoutOrder < hotbar.LayoutOrder then
+							hotbar = child
+						end
+					end
+				end
+				expect(combo.LayoutOrder).toBeLessThan(lift.LayoutOrder)
+				assert(hotbar ~= nil, "nothing stands under the lift")
+				expect(hotbar.Name).toBe("Hotbar")
+			end
+		end
+		-- And the preview pill is the board's, about 41 tall, inside its row.
+		expect(HUD.PreviewHeight).toBe(40)
+		expect(HUD.PreviewHeight).toBeLessThanOrEqual(HUD.ChipSize)
 	end)
 
 	it("keeps the dock's widest inside the gap a phone's thumbs leave", function()

@@ -317,10 +317,13 @@ ThemeConfig.Hud = {
 	HotbarKeyStrip = 22,
 	HotbarGap = 8,
 	HotbarPipsHeight = 26,
-	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it.
+	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it (the board's
+	-- pill, about 41 against its chips' 44). With a pointer the row stands this much further off the hotbar, whose
+	-- keys it would otherwise crowd.
 	ChipSize = 44,
 	ChipRowGap = 8,
-	PreviewHeight = 32,
+	PreviewHeight = 40,
+	ComboLift = 20,
 	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
 	LowHealthFraction = 0.3,
 	-- The lock's mark warns this many studs before the distance a lock breaks at (LockOnConfig.BreakStuds).

@@ -73,10 +73,12 @@ type Deps = {
 
 local DISPLAY_ORDER = Theme.Layers.Hud
 local HUD = ThemeConfig.Hud
--- The bottom stack, from the top: the combo row, the hotbar (with a pointer), then the dock.
+-- The bottom stack, from the top: the combo row, with a pointer the air over the hotbar and the hotbar, then the
+-- dock.
 local COMBO_ORDER = 1
-local HOTBAR_ORDER = 2
-local DOCK_ORDER = 3
+local LIFT_ORDER = 2
+local HOTBAR_ORDER = 3
+local DOCK_ORDER = 4
 -- On touch the dock keeps this far off the nearest disc, in real pixels, and stays between these widths.
 local DOCK_DISC_CLEARANCE = 12
 local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }
@@ -372,6 +374,16 @@ local function buildBottomStack(parent: Instance, touch: boolean)
 	bottomStack.Parent = parent
 
 	comboRow = ComboRow.new({ Parent = bottomStack, Localize = localize, LayoutOrder = COMBO_ORDER })
+	if not touch then
+		-- With a pointer the combo row stands clear of the hotbar's keys (the board's): the list's gap on each
+		-- side of this makes HUD.ComboLift more than the one gap it had. On touch the dock's own pips are there.
+		local lift = Instance.new("Frame")
+		lift.Name = "ComboLift"
+		lift.BackgroundTransparency = 1
+		lift.Size = UDim2.fromOffset(0, HUD.ComboLift - HUD.ChipRowGap)
+		lift.LayoutOrder = LIFT_ORDER
+		lift.Parent = bottomStack
+	end
 	combatDock = CombatDock.new({
 		Parent = bottomStack,
 		Screen = root.Instance,

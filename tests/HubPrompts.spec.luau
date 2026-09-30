@@ -199,6 +199,8 @@ describe("the hub's words, when the language changes", function()
 		assert(again ~= nil, "the kiosk lost its prompt")
 		expect(again.ActionText).toBe(Strings.t("hub.prompt.open", nil, "fr"))
 		expect(again.ObjectText).toBe(Strings.t("shop.title", nil, "fr"))
+		-- Written in the player's language by the game, so never by Roblox's automatic translation.
+		expect(again.AutoLocalize).toBe(false)
 		local drawn = drawnOn(playerGui, sign)
 		expect(#drawn).toBe(1)
 		expect(drawn[1]:FindFirstChild("Name", true).Text).toBe(Strings.t(zone.NameKey, nil, "fr"))

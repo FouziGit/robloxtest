@@ -307,6 +307,8 @@ local function wordPedestal(
 	namePlate(panel, name, PLATE_STUDS_ABOVE, trove)
 
 	local prompt = Instance.new("ProximityPrompt")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	prompt.AutoLocalize = false
 	prompt.Name = "Open_" .. screen
 	prompt.ActionText = localize.t(actionKey)
 	prompt.ObjectText = name

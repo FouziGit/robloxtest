@@ -633,22 +633,45 @@ describe("the languages the game speaks", function()
 	end)
 
 	it("keeps Roblox's automatic translation off every surface the code draws words on", function()
+		-- What the engine's automatic translation reads words from: the three surfaces, and a prompt.
+		local function translatable(className: string): boolean
+			return string.match(className, "Gui$") ~= nil or className == "ProximityPrompt"
+		end
 		local all: { string } = {}
 		files("src", all)
 		local roots = 0
 		for _, path in ipairs(all) do
 			local code = source(path)
 			local named = 0
-			for name in string.gmatch(code, 'local (%w+) = Instance%.new%("%w+Gui"%)') do
-				named += 1
-				if string.find(code, name .. ".AutoLocalize = false", 1, true) == nil then
-					error(("%s draws on a %s that Roblox's automatic translation may rewrite"):format(path, name))
+			local from = 1
+			while true do
+				local first, last, name, className = string.find(code, 'local (%w+) = Instance%.new%("(%w+)"%)', from)
+				if first == nil then
+					break
+				end
+				from = (last :: number) + 1
+				if translatable(className :: string) then
+					named += 1
+					-- Switched off before the next thing is made: two surfaces of one file may share a name.
+					local nextMade = string.find(code, "Instance%.new%(", from) or #code + 1
+					local between = string.sub(code, from, nextMade - 1)
+					if string.find(between, "%f[%w_]" .. (name :: string) .. "%.AutoLocalize = false") == nil then
+						error(
+							("%s makes a %s (%s) that Roblox's automatic translation may rewrite"):format(
+								path,
+								className :: string,
+								name :: string
+							)
+						)
+					end
 				end
 			end
 			-- A surface made any other way would go unread: each one has its own name to be switched off by.
 			local made = 0
-			for _ in string.gmatch(code, 'Instance%.new%("%w+Gui"%)') do
-				made += 1
+			for className in string.gmatch(code, 'Instance%.new%("(%w+)"%)') do
+				if translatable(className) then
+					made += 1
+				end
 			end
 			if made ~= named then
 				error(
@@ -659,7 +682,7 @@ describe("the languages the game speaks", function()
 			end
 			roots += named
 		end
-		expect(roots).toBeGreaterThanOrEqual(11)
+		expect(roots).toBeGreaterThanOrEqual(12)
 		-- Run: a screen's root, and so everything under it, is not auto-localised.
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 		local root = world.require("src/ui/components/ScreenRoot").new({ Name = "Probe", DisplayOrder = 1 })

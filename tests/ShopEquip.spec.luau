@@ -196,6 +196,8 @@ describe("today's cards on a phone, run", function()
 						- padding.PaddingLeft.Offset
 						- padding.PaddingRight.Offset
 					local row = actions:FindFirstChildOfClass("UIListLayout").Padding.Offset
+					-- One row on a phone, held by Layout.rowWords in LayoutRules: a row that wraps is not measured.
+					expect(actions:FindFirstChildOfClass("UIListLayout").Wraps).toBe(false)
 					for _, locale in ipairs(Strings.Locales) do
 						local folios, robux = longestPrices(locale)
 						local need = Measure.buttonWidth(folios, Theme.Sizes.TextButton, true)

@@ -75,8 +75,9 @@ local function expectClean(root: any, screenHeight: number)
 	end
 end
 
--- `name` (a file of src/ui/screens), opened with `args` in a world on `phone` or a desktop.
-local function screen(name: string, phone: { number }?, args: any?): (any, number, any)
+-- `name` (a file of src/ui/screens), opened with `args` in a world on `phone` or a desktop, its words the keys
+-- themselves, or the player's own words in `locale`.
+local function screen(name: string, phone: { number }?, args: any?, locale: string?): (any, number, any)
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 		-- The menu's Invite asks whether an invite can be sent: it cannot, here.
@@ -110,11 +111,20 @@ local function screen(name: string, phone: { number }?, args: any?): (any, numbe
 	local Screen = world.require("src/ui/screens/" .. name)
 	local built = Screen.new({
 		Localize = {
-			t = function(key: string): string
-				return key
+			t = function(key: string, params: any?): string
+				return if locale ~= nil then Strings.t(key, params, locale) else key
 			end,
 			resolveParams = function(params: any): any
-				return params
+				if locale == nil or params == nil then
+					return params
+				end
+				local resolved = {}
+				for field, value in pairs(params) do
+					resolved[field] = if type(value) == "string" and Strings.has(value)
+						then Strings.t(value, params, locale)
+						else value
+				end
+				return resolved
 			end,
 		},
 		ClientData = {
@@ -210,6 +220,21 @@ describe("the interface, held to the engine's layouts", function()
 				it("keeps " .. label .. "'s own sizes " .. where, function()
 					local built, height = screen(entry.Name, phone, if tab ~= "" then { Tab = tab } else nil)
 					expectClean(built.Instance, height)
+				end)
+				-- In the player's own words, in both languages: a row of buttons laid across runs out of its frame
+				-- only with words, never with keys (Layout.rowWords, D-XXX).
+				it("holds " .. label .. "'s rows of buttons in their frames, in every language, " .. where, function()
+					for _, locale in ipairs(Strings.Locales) do
+						local built, height, world =
+							screen(entry.Name, phone, if tab ~= "" then { Tab = tab } else nil, locale)
+						local Theme = world.require("src/ui/Theme")
+						local width = world.workspace.CurrentCamera.ViewportSize.X / Theme.activeScale()
+						expect(height).toBeGreaterThan(0)
+						local found = Layout.rowWords(built.Instance, width)
+						if #found > 0 then
+							error(locale .. ": " .. table.concat(found, "\n"))
+						end
+					end
 				end)
 			end
 		end

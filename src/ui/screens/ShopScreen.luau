@@ -87,7 +87,7 @@ local CHAPTER = "Shop"
 -- PREVIEW_MIN. There its band is the compact one and its body is packed tighter, which on a 667 x 375 phone
 -- leaves the preview its floor.
 local CARD_WIDTH = 260
-local CARD_WIDTH_TOUCH = 404
+local CARD_WIDTH_TOUCH = 420
 local CARD_HEIGHT = 330
 local PREVIEW_MIN = 32
 local CARD_ELEVATION = 5
@@ -487,13 +487,14 @@ function ShopScreen.new(deps: Deps): Screen
 		cap.Parent = name
 		name.Parent = body
 
-		-- The two prices side by side where they fit, one over the other where they do not.
+		-- The two prices side by side where they fit, one over the other where they do not; on a phone always side
+		-- by side, the card being as wide as they need and no taller than one row of them (Layout.rowWords).
 		local actions = blank("Actions", body)
 		actions.AutomaticSize = Enum.AutomaticSize.Y
 		actions.Size = UDim2.fromScale(1, 0)
 		actions.LayoutOrder = 3
 		local actionsLayout = list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.PaddingSmall)
-		actionsLayout.Wraps = true
+		actionsLayout.Wraps = not touch
 		actionsLayout.HorizontalFlex = Enum.UIFlexAlignment.Fill
 
 		local card: Card

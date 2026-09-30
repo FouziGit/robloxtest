@@ -807,11 +807,11 @@ Strings.Table = {
 	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Réclame ta récompense du jour" },
 } :: { [string]: Entry }
 
--- The placeholders that carry an amount of Folios or XP: an integer given to one of them is grouped by thousands
--- in the player's language (Strings.number). Ratings, ranks, levels, counts, seconds and health are not amounts
--- and are never grouped. {needed} is also queue.waiting's count of players, which never reaches a thousand. A
--- price ({price}) is not grouped yet: a Today card's row holds its two prices with no room for the separator
--- (tests/ShopEquip.spec.luau measures it).
+-- The placeholders that carry an amount of Folios, XP or Robux: an integer given to one of them is grouped by
+-- thousands in the player's language (Strings.number). Ratings, ranks, levels, counts, seconds and health are not
+-- amounts and are never grouped. {needed} is also queue.waiting's count of players, which never reaches a
+-- thousand. A price ({price}) is grouped too: a Today card is as wide as its two grouped prices need on a phone
+-- (tests/LayoutRules.spec.luau, Layout.rowWords).
 Strings.Quantities = {
 	xp = true,
 	needed = true,
@@ -819,6 +819,7 @@ Strings.Quantities = {
 	amount = true,
 	before = true,
 	after = true,
+	price = true,
 } :: { [string]: boolean }
 
 -- The mark between two groups of three digits: a narrow no-break space in French, a comma in English.

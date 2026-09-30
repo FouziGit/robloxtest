@@ -84,14 +84,16 @@ describe("Strings", function()
 		expect(Strings.t("leaderboard.rating", { rating = 1500 }, "en")).toBe("1500")
 		expect(Strings.t("hud.levelUp", { level = 1200 }, "fr")).toBe("Niveau 1200 atteint !")
 		expect(Strings.t("boss.health", { health = 12000, max = 50000 }, "en")).toBe("12000 / 50000")
-		-- Nor, yet, is a price: the Today card has no room for its separator (tests/ShopEquip.spec.luau).
-		expect(Strings.t("shop.buyFolios", { price = 1800 }, "en")).toBe("1800 Folios")
+		-- A price is an amount: the Today card on a phone is as wide as its two grouped prices (Layout.rowWords).
+		expect(Strings.t("shop.buyFolios", { price = 1800 }, "en")).toBe("1,800 Folios")
+		expect(Strings.t("shop.buyFolios", { price = 8000 }, "fr")).toBe("8\u{202F}000 Folios")
+		expect(Strings.t("shop.robuxPrice", { price = 599 }, "en")).toBe("R$ 599")
 		-- An amount the caller already wrote, and the bare substitution, are left alone.
 		expect(Strings.t("reward.xp", { xp = "3120" }, "en")).toBe("+3120 XP")
 		expect(Strings.format("{xp} XP", { xp = 3120 })).toBe("3120 XP")
 	end)
 
-	it("reads every amount placeholder as Folios or XP, in every sentence that names one", function()
+	it("reads every amount placeholder as Folios, XP or Robux, in every sentence that names one", function()
 		expect(Strings.Quantities).toEqual({
 			xp = true,
 			needed = true,
@@ -99,6 +101,7 @@ describe("Strings", function()
 			amount = true,
 			before = true,
 			after = true,
+			price = true,
 		})
 		-- Every sentence that names one, read: a new one joins this list once its placeholder is read as an amount
 		-- too. The one exception, queue.waiting's {needed}, counts the players a queue waits for, never a thousand.
@@ -121,6 +124,8 @@ describe("Strings", function()
 			["reward.folios"] = true,
 			["reward.xp"] = true,
 			["folios.balance"] = true,
+			["shop.buyFolios"] = true,
+			["shop.robuxPrice"] = true,
 		}
 		local named: { [string]: boolean } = {}
 		for key, entry in pairs(Strings.Table) do

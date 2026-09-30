@@ -32,6 +32,11 @@
 --   Rows' pressables A row drawn with its own outline (ListRow's Edge) holds a pressable, centred in it, with the
 --                    lip's ink rim, drawn outside the pressable's box: a key button of 52 in a row of 56 crossed the
 --                    row's foot with its rim (seen in Studio, the Settings' keys).
+--   Rows of words    A list laid across that does not wrap draws its buttons at their words' width however little
+--                    room its frame has, and the last ones run out of it: a Today card's two prices on a phone
+--                    needed 388 and had 374 once "8,000 Folios" was grouped (D-XXX). Each button is measured by
+--                    its own hidden Measure label -- its words, its padding, its least width -- at Measure's upper
+--                    bound; a row whose frame sizes itself across is left alone, it has no room to run out of.
 local Measure = require("./measure")
 
 local Layout = {}
@@ -328,6 +333,81 @@ function Layout.rowPressables(root: any): { string }
 							)
 						end
 					end
+				end
+			end
+		end
+	end
+	return found
+end
+
+-- The widest a Button is drawn: its hidden Measure label's words and padding, and never under its least width.
+local function buttonWidth(button: any): number?
+	local measure = button:FindFirstChild("Measure")
+	if measure == nil or not measure:IsA("TextLabel") then
+		return nil
+	end
+	local padding = measure:FindFirstChildOfClass("UIPadding")
+	local pads = if padding ~= nil then padding.PaddingLeft.Offset + padding.PaddingRight.Offset else 0
+	return math.max(measure.Size.X.Offset, pads + Measure.textWidth(measure.Text, measure.TextSize))
+end
+
+-- Whether `frame` or a frame it takes its width from sizes itself across.
+local function sizedByContent(frame: any): boolean
+	local current = frame
+	while current ~= nil and current:IsA("GuiObject") do
+		if autoOn(current, "X") then
+			return true
+		end
+		if current.Size.X.Scale == 0 then
+			return false
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+function Layout.rowWords(root: any, screenWidth: number): { string }
+	local found: { string } = {}
+	for _, layout in ipairs(root:GetDescendants()) do
+		local row = layout.Parent
+		if
+			layout.ClassName == "UIListLayout"
+			and layout.FillDirection ~= nil
+			and layout.FillDirection.Name == "Horizontal"
+			and layout.Wraps ~= true
+			and row ~= nil
+			and row:IsA("GuiObject")
+			and row.Visible ~= false
+			and not sizedByContent(row)
+		then
+			local need, buttons = 0, 0
+			local objects = placed(row)
+			for _, object in ipairs(objects) do
+				local width = if object:IsA("TextButton") then buttonWidth(object) else nil
+				if width ~= nil then
+					buttons += 1
+					need += width
+				else
+					need += object.Size.X.Offset
+				end
+			end
+			need += math.max(0, #objects - 1) * layout.Padding.Offset
+			if buttons >= 2 then
+				local padding = row:FindFirstChildOfClass("UIPadding")
+				local room = Measure.widthOf(row, screenWidth)
+				if padding ~= nil then
+					room -= padding.PaddingLeft.Offset + padding.PaddingRight.Offset
+				end
+				if need > room + 0.5 then
+					table.insert(
+						found,
+						("%s lays %d buttons across in %.1f that need %.1f"):format(
+							row:GetFullName(),
+							buttons,
+							room,
+							need
+						)
+					)
 				end
 			end
 		end

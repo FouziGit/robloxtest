@@ -139,7 +139,7 @@ describe("a play the server will not finish", function()
 		local take = functionIn(EFFECTS, "local function retract(")
 		expect(
 			take:find(
-				"ctx.Vfx.emit({ Id = vfxId, Origin = ctx.Origin.Position, Caster = ctx.Caster.UserId, Params = { Cancel = true }, }, true)",
+				"ctx.Vfx.emit({ Id = vfxId, Origin = ctx.Origin.Position, Caster = ctx.Caster.UserId, Params = { Cancel = true }, }, true, alsoNear)",
 				1,
 				true
 			)
@@ -155,13 +155,20 @@ describe("a play the server will not finish", function()
 		expect(
 			cartouche:find("if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) return seal.Count end", 1, true)
 		).never.toBe(nil)
-		expect(before(cartouche, "end, held)", "if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) end")).toBe(
-			true
+		-- Its ticks run through the zone, which takes the frame back itself on the frame it stops: once, so the
+		-- Cartouche asks nothing after it.
+		expect(cartouche:find("tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval,", 1, true)).never.toBe(
+			nil
 		)
-		-- The zone the Cartouche ticks through stops on that one question: read after it, it says whether it did.
+		expect(before(cartouche, "end, held)", "local struck = seal.Count")).toBe(true)
+		expect(count(cartouche, "retract(")).toBe(1)
+		-- The zone stops on that one question, and a stopped zone is taken back where it was drawn, before it stops.
 		local zone = functionIn(EFFECTS, "local function tickZone(")
-		expect(zone:find("if not casterAlive(ctx) then break end", 1, true)).never.toBe(nil)
+		expect(zone:find("if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId, center) break end", 1, true)).never.toBe(
+			nil
+		)
 		expect(count(zone, "break")).toBe(1)
+		expect(count(zone, "retract(")).toBe(1)
 	end)
 end)
 
@@ -221,6 +228,37 @@ describe("the Hatching", function()
 		expect(GlyphConfig.ById.Hatching.Params.TickInterval).toBeGreaterThan(CombatConfig.Hit.IFrameSeconds + 1 / 30)
 		expect(hatching:find("local frame = ctx.Combat.currentOrigin(ctx.Caster)", 1, true)).never.toBe(nil)
 	end)
+
+	it(
+		"names its last stroke a finisher in its hit, for the impact frame five damage would not earn (E19-S3)",
+		function()
+			-- The client prints both bodies in ink on a heavy hit or on a finisher the server names (D-112): the last
+			-- stroke is five damage, far under a heavy hit, and launched its body with no frame at all.
+			local tag = CombatConfig.Hit.GlyphFinisherTag
+			expect(type(tag)).toBe("string")
+			expect(#tag).toBeGreaterThan(0)
+			expect(tag).never.toBe("MeleeFinisher")
+			expect(GlyphConfig.ById[tag]).toBeNil()
+			expect((CombatConfig.Block.BrokenBy :: any)[tag]).toBeNil()
+			expect(GlyphConfig.ById.Hatching.Damage).toBeLessThan(25)
+			local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
+			local named =
+				"local finisher = stroke == params.Ticks if finisher then table.insert(tracker.Tags, CombatConfig.Hit.GlyphFinisherTag) end"
+			expect(hatching:find(named, 1, true)).never.toBe(nil)
+			-- Before the stroke's hits, which carry it; after the glyph's own tags, so the hit memory keys on the glyph.
+			expect(before(hatching, named, "for _, model in ipairs(damageBox(ctx, tracker,")).toBe(true)
+			expect(count(hatching, "GlyphFinisherTag")).toBe(1)
+			expect(functionIn(EFFECTS, "local function newTracker("):find("Tags = { def.Id, def.Archetype }", 1, true)).never.toBe(
+				nil
+			)
+			-- And the hit it is dealt in says so.
+			local apply = functionIn("src/server/Services/CombatService.luau", "function CombatService.ApplyDamage(")
+			local says =
+				'if kind == "Glyph" and table.find(tags, CombatConfig.Hit.GlyphFinisherTag) ~= nil then hitParams.Finisher = true end'
+			expect(apply:find(says, 1, true)).never.toBe(nil)
+			expect(before(apply, says, 'vfx.emit({ Id = "Hit",')).toBe(true)
+		end
+	)
 end)
 
 describe("the Cartouche", function()

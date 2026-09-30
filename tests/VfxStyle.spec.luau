@@ -283,10 +283,18 @@ describe("a play taken back", function()
 			expect(played:find("local _, playId = api.Timeline.play(", 1, true)).never.toBe(nil)
 			expect(played:find("return playId", 1, true)).never.toBe(nil)
 		end
-		-- Forgotten with the player, so the table never outgrows the server.
+		-- Forgotten with the player, so the table never outgrows the server, and cut with him: the server stops
+		-- whatever a caster who left had running, and its retraction would name somebody this screen forgot.
 		expect(
 			read(LIBRARY):find(
-				"Players.PlayerRemoving:Connect(function(player: Player) retractable[player.UserId] = nil end)",
+				"Players.PlayerRemoving:Connect(function(player: Player) local plays = retractable[player.UserId] retractable[player.UserId] = nil if plays ~= nil and retractRuntime ~= nil then for _, playId in pairs(plays) do retractRuntime.cancel(playId) end end end)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			cut:find(
+				"local function retracted(id: string, packet: Packet, api: Api): boolean retractRuntime = api.Timeline",
 				1,
 				true
 			)
@@ -568,17 +576,24 @@ describe("a fire", function()
 		).never.toBe(nil)
 		expect(emitter:find("emitter.Rotation = NumberRange.new(-sway, sway)", 1, true)).never.toBe(nil)
 		-- A driven flow never hands its rate to the engine, which would thin it; it owes its tier's share of it,
-		-- never more than twice what the engine would draw (tests/QualityStart.spec.luau).
+		-- never more than twice what the engine would draw (tests/QualityStart.spec.luau). The others are given
+		-- what the screen's particle budget holds (VfxParticles).
 		expect(
 			emitter:find(
-				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt } else emitter.Rate = layer.Rate * density",
+				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt, Life = life, } else local rate = VfxParticles.reserve(clock, layer.Rate * density, life, entry.Seconds, tier.Particles) emitter.Rate = rate emitter.Enabled = rate > 0",
 				1,
 				true
 			)
 		).never.toBe(nil)
 		local step = body(TIMELINE, "local function stepEmitter(")
 		expect(step:find("local upTo = math.min(now, entry.StartedAt + entry.Seconds)", 1, true)).never.toBe(nil)
-		expect(step:find("emitter:Emit(count)", 1, true)).never.toBe(nil)
+		expect(
+			step:find(
+				"local granted = VfxParticles.grant(clock, count, owed.Life, quality.def().Particles) if granted > 0 then emitter:Emit(granted) end",
+				1,
+				true
+			)
+		).never.toBe(nil)
 	end)
 end)
 

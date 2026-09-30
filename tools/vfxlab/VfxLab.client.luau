@@ -43,12 +43,12 @@ local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 
 local scripts = script.Parent
 local controllers = scripts:WaitForChild("Controllers")
+local QualityController = require(controllers:WaitForChild("QualityController"))
 local RemoteClient = require(scripts:WaitForChild("RemoteClient"))
 local VfxClock = require(controllers:WaitForChild("VfxClock"))
 local VfxController = require(controllers:WaitForChild("VfxController"))
 local VfxPool = require(controllers:WaitForChild("VfxPool"))
 local VfxTimeline = require(controllers:WaitForChild("VfxTimeline"))
-local QualityController = require(controllers:WaitForChild("QualityController"))
 
 local player = Players.LocalPlayer
 
@@ -365,10 +365,13 @@ local function stress(args: { [string]: any }): { [string]: any }
 	end
 	local frames: { number } = {}
 	local peak = 0
+	local peakParticles = 0
 	local started = os.clock()
 	while os.clock() - started < 2 do
 		table.insert(frames, RunService.Heartbeat:Wait())
-		peak = math.max(peak, VfxTimeline.stats().Live)
+		local stats = VfxTimeline.stats()
+		peak = math.max(peak, stats.Live)
+		peakParticles = math.max(peakParticles, stats.Particles)
 	end
 	table.sort(frames)
 	local total = 0
@@ -386,6 +389,8 @@ local function stress(args: { [string]: any }): { [string]: any }
 		p95Ms = frames[math.ceil(#frames * 0.95)] * 1000,
 		worstMs = frames[#frames] * 1000,
 		peakLayers = peak,
+		-- The particles counted alive at once, against the tier's budget (QualityConfig Particles).
+		peakParticles = peakParticles,
 		tier = QualityController.get(),
 		poolPeaks = live,
 	}

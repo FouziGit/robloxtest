@@ -37,6 +37,8 @@ local WorldConfig = require(Shared.Config.WorldConfig)
 -- Siblings, not controllers: the volumes are drawn with this runtime's own helpers (VfxVolumes.bind), and
 -- every layer runs on the effect clock (VfxClock, D-118), which an impact holds and the Studio lab scales.
 local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
+-- And every particle is asked of the tier's budget first (VfxParticles, QualityConfig Particles).
+local VfxParticles = require(script.Parent:WaitForChild("VfxParticles"))
 local VfxVolumes = require(script.Parent:WaitForChild("VfxVolumes"))
 
 local log = Log.new("VfxTimeline")
@@ -136,8 +138,8 @@ type Live = {
 	-- Its place in its timeline, which seeds anything that must be the same on every client.
 	LayerIndex: number,
 	-- A Driven emitter's flow (Layer.Driven): particles a second, the share of one owed and not yet
-	-- emitted, and the time on the entry's clock they were counted up to.
-	Owed: { Rate: number, Carry: number, At: number }?,
+	-- emitted, the time on the entry's clock they were counted up to, and the longest life of one.
+	Owed: { Rate: number, Carry: number, At: number, Life: number }?,
 }
 
 type Pending = {
@@ -794,21 +796,35 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	-- burst floors at one. A RATE has no such floor, and a thin rate scaled to a fifth emitted nothing at
 	-- all while still costing a part, an emitter and a layer of the budget: those layers are skipped
 	-- outright now (see expectedParticles), which is what a graphics tier is supposed to do.
+	--
+	-- And the screen as a whole is capped: every particle is asked of the tier's budget (VfxParticles), on the
+	-- clock it ages on, so six fires and six auras thin out rather than pile up. A burst gets what fits, a
+	-- flow the engine runs is slowed to what fits and holds that for its life.
 	local tier: QualityConfig.TierDef = quality.def()
 	local density = tier.ParticleScale
+	local clock: VfxParticles.Clock = if entry.Steady then "Steady" else "Held"
+	local life = lifetime[2]
 	if layer.Burst ~= nil then
-		emitter:Emit(math.max(1, math.floor(layer.Burst * density)))
+		local granted = VfxParticles.grant(clock, math.max(1, math.floor(layer.Burst * density)), life, tier.Particles)
+		if granted > 0 then
+			emitter:Emit(granted)
+		end
 	end
 	if layer.Rate ~= nil then
 		if layer.Driven == true then
 			-- Emitted by stepEmitter on the entry's own clock: the engine thins a Rate by its automatic
 			-- graphics quality, never a call to Emit (D-124). Never more than twice what the engine would have
 			-- drawn on a device held at this tier (D-229).
-			entry.Owed =
-				{ Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt }
+			entry.Owed = {
+				Rate = layer.Rate * density * QualityConfig.drivenShare(tier),
+				Carry = 0,
+				At = entry.StartedAt,
+				Life = life,
+			}
 		else
-			emitter.Rate = layer.Rate * density
-			emitter.Enabled = true
+			local rate = VfxParticles.reserve(clock, layer.Rate * density, life, entry.Seconds, tier.Particles)
+			emitter.Rate = rate
+			emitter.Enabled = rate > 0
 		end
 	end
 	entry.Primary = emitter
@@ -1208,7 +1224,9 @@ local function stepEmitter(entry: Live, now: number)
 		emitter.Enabled = false
 	end
 	-- A Driven flow: what its rate owes since the last frame, up to the end of its life. A held clock owes
-	-- nothing, and a slowed one owes less, exactly as the engine's own rate would under its TimeScale.
+	-- nothing, and a slowed one owes less, exactly as the engine's own rate would under its TimeScale. What the
+	-- tier's budget cannot hold this frame is skipped, never owed again: a full screen thins the flow, and a
+	-- freed one does not answer with a burst.
 	local owed = entry.Owed
 	if owed ~= nil then
 		local upTo = math.min(now, entry.StartedAt + entry.Seconds)
@@ -1218,7 +1236,11 @@ local function stepEmitter(entry: Live, now: number)
 			local count = math.floor(owed.Carry)
 			if count > 0 then
 				owed.Carry -= count
-				emitter:Emit(count)
+				local clock: VfxParticles.Clock = if entry.Steady then "Steady" else "Held"
+				local granted = VfxParticles.grant(clock, count, owed.Life, quality.def().Particles)
+				if granted > 0 then
+					emitter:Emit(granted)
+				end
 			end
 		end
 	end
@@ -1959,6 +1981,12 @@ function VfxTimeline.stamp(id: string, layer: Layer, context: Context): boolean
 	return true
 end
 
+-- A burst drawn outside any timeline (VfxLibrary's guard break), asked of the same budget as every layer: how
+-- many of `wanted` particles living up to `lifetime` seconds it may emit. It emits exactly that many.
+function VfxTimeline.grant(wanted: number, lifetime: number): number
+	return VfxParticles.grant("Steady", wanted, lifetime, quality.def().Particles)
+end
+
 -- Everything on screen, released. Called when the local character goes away: a layer adorned to a part of
 -- the previous life would otherwise follow the player into the next one.
 function VfxTimeline.clear()
@@ -1971,10 +1999,11 @@ function VfxTimeline.clear()
 	table.clear(shots)
 end
 
--- What the runtime is carrying right now. docs/PERFORMANCE.md reads it, and so does anyone wondering
+-- What the runtime is carrying right now, and the particles alive on this screen against their budget
+-- (VfxParticles). docs/PERFORMANCE.md reads it, the Studio lab's stress run too, and so does anyone wondering
 -- whether an effect leaked.
-function VfxTimeline.stats(): { Pending: number, Live: number }
-	return { Pending = #pending, Live = #live }
+function VfxTimeline.stats(): { Pending: number, Live: number, Particles: number }
+	return { Pending = #pending, Live = #live, Particles = VfxParticles.live() }
 end
 
 function VfxTimeline.Init(deps: Deps)

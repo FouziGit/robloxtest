@@ -106,8 +106,9 @@ export type Effect = (ctx: Context) -> number
 -- Tracks the models damaged across the steps of one cast. `MaxHits` = how often one model may be
 -- damaged by this cast: 1 for a wave or a spike line, `math.huge` for a zone that ticks every
 -- interval, a small cap for the Ligature trail. `Tags` is built once: tags[1] is the i-frame key
--- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate. `Amount`
--- is what each of its hits deals, so one cast can strike with two weights under two trackers.
+-- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate; a rush adds
+-- CombatConfig.Hit.GlyphFinisherTag after them for its last stroke. `Amount` is what each of its hits deals, so
+-- one cast can strike with two weights under two trackers.
 type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags: { string }, Amount: number }
 -- One candidate of a distance ranking (hitscan beam, chain arc, projectile proximity scan).
 type Ranked = { Model: Model, Distance: number }
@@ -523,8 +524,24 @@ local function hitscan(
 	return nearestModels(models, start, #models), stop
 end
 
+-- Takes back, on every client, a play this cast began and will not finish (D-141): a charge broken before its
+-- release, a rush a dash ended, a zone whose caster stopped it. Left to play out, it draws a lane, strokes or a
+-- burning floor the server will never strike. Reliable, as the play is, so it never arrives first; from the
+-- cast's origin, and also near `alsoNear` when the play was drawn away from the caster (a zone laid ahead of
+-- him), so it reaches whoever the play reached.
+local function retract(ctx: Context, vfxId: string, alsoNear: Vector3?)
+	ctx.Vfx.emit({
+		Id = vfxId,
+		Origin = ctx.Origin.Position,
+		Caster = ctx.Caster.UserId,
+		Params = { Cancel = true },
+	}, true, alsoNear)
+end
+
 -- Ticks a zone `ticks` times every `interval` seconds: each tick damages every live model within
--- `radius` of the fixed `center` and hands the models it damaged to `onHit` (slow, stun, pull).
+-- `radius` of the fixed `center` and hands the models it damaged to `onHit` (slow, stun, pull). A zone its
+-- caster stops before its last tick (dead, gone, guarding, stunned) is taken back on every screen, on that
+-- frame: drawn on to its end, it burned a floor that no longer hurts (D-141).
 local function tickZone(
 	ctx: Context,
 	center: Vector3,
@@ -540,6 +557,7 @@ local function tickZone(
 		if tick > 1 then
 			task.wait(interval)
 			if not casterAlive(ctx) then
+				retract(ctx, ctx.Def.VfxId, center)
 				break
 			end
 		end
@@ -579,19 +597,6 @@ local function explode(ctx: Context, point: Vector3, radius: number, push: numbe
 	local tracker = newTracker(ctx.Def, 1)
 	blast(ctx, tracker, point, radius, push, lift)
 	return tracker.Count
-end
-
--- Takes back, on every client, a play this cast began and will not finish (D-141): a charge broken before its
--- release, a rush a dash ended, a frame whose caster stopped it. Left to play out, it draws a lane, strokes or a
--- closing frame the server will never strike. Reliable, as the play is, so it never arrives first; from the
--- cast's origin, as the play is, so it reaches whoever the play reached.
-local function retract(ctx: Context, vfxId: string)
-	ctx.Vfx.emit({
-		Id = vfxId,
-		Origin = ctx.Origin.Position,
-		Caster = ctx.Caster.UserId,
-		Params = { Cancel = true },
-	}, true)
 end
 
 -- A charged glyph's telegraph (D-141): one reliable `vfxId` packet, whose timeline's Anticipation lasts exactly
@@ -924,6 +929,7 @@ function GlyphEffects.Scorch(ctx: Context): number
 	}, true)
 
 	local tracker = newTracker(ctx.Def, math.huge)
+	local burned = 0
 	for tick = 1, params.Ticks do
 		if tick > 1 then
 			task.wait(params.TickInterval)
@@ -939,6 +945,12 @@ function GlyphEffects.Scorch(ctx: Context): number
 			break
 		end
 		damageArea(ctx, tracker, centre.Position, params.Radius)
+		burned += 1
+	end
+	-- Stopped before its last tick, the ring it draws round its caster is taken back on every screen, as the
+	-- zones laid ahead are (tickZone): it no longer burns.
+	if burned < params.Ticks then
+		retract(ctx, ctx.Def.VfxId)
 	end
 	return tracker.Count
 end
@@ -1735,14 +1747,11 @@ function GlyphEffects.Cartouche(ctx: Context): number
 		return seal.Count
 	end
 	local held = tickTracker(ctx.Def, params.TickDamage)
+	-- A frame its caster stops before its last tick is taken back by the zone itself, on the frame it stopped,
+	-- with the presses it would still have drawn over players it no longer hurts.
 	tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval, function(model: Model)
 		slowModel(ctx, model, params.SlowFactor, params.SlowDuration)
 	end, held)
-	-- The zone stops ticking on this alone, read on the frame it stopped: a frame stopped early is taken back,
-	-- with the presses it would still have drawn over players it no longer hurts.
-	if not casterAlive(ctx) then
-		retract(ctx, ctx.Def.VfxId)
-	end
 	local struck = seal.Count
 	for model in pairs(held.Hits) do
 		if seal.Hits[model] == nil then
@@ -1879,6 +1888,11 @@ function GlyphEffects.Hatching(ctx: Context): number
 			break
 		end
 		local finisher = stroke == params.Ticks
+		if finisher then
+			-- Named in its hit after the glyph's own tags, so it earns a finisher's impact frame at five damage
+			-- (D-112); the hit memory still keys on the glyph id.
+			table.insert(tracker.Tags, CombatConfig.Hit.GlyphFinisherTag)
+		end
 		for _, model in ipairs(damageBox(ctx, tracker, frame * CFrame.new(0, 0, -ctx.Def.Range / 2), size)) do
 			if finisher then
 				ctx.Combat.knockback(

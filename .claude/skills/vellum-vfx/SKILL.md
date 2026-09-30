@@ -16,9 +16,11 @@ from three cameras. This is the method that took the Brand from 1/1/2/2/1/4 to 4
    a target is a separate decision, proposed in `docs/DECISIONS.md`, never slipped into a visual.
 2. **Draw the truth.** A flight rides one Carrier at the server's speed (`tests/Flight.spec.luau`); a
    warning fills the server's window; a burst is the radius the server used. Such plays are **steady**
-   (`VfxTimelineConfig.steady`): the impact freeze never holds them.
+   (`VfxTimelineConfig.steady`): the impact freeze never holds them. So is a glyph that strikes on the
+   server's ticks (a zone, a rush, a frame: `Timeline.Steady`), and one its caster stops is taken back.
 3. **One system.** Timelines are data (`src/shared/Config/VfxTimelineConfig.luau`), drawn by
-   `VfxTimeline` on its one Heartbeat, pooled (`VfxPool`), budgeted (`QualityConfig`). Improve that; never
+   `VfxTimeline` on its one Heartbeat, pooled (`VfxPool`), budgeted (`QualityConfig`: layers, and every
+   particle asked of the screen's budget through `VfxParticles`). Improve that; never
    build a second renderer, never hard-code a colour or a `LightEmission`.
 
 ## The recipe

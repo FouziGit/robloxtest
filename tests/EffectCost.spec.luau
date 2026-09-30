@@ -12,9 +12,9 @@
 --   * CONCURRENT_EFFECTS of any single effect must fit inside every pool ceiling of PoolPolicy, so the
 --     heaviest effect in the game cannot exhaust a class on its own.
 -- The third -- the particle ceiling -- is CHOSEN, and nothing in this repository has measured it. No device
--- has run this game. It is set at roughly twice the heaviest effect the data asks for, which is a
--- ratchet against drift and not a statement about any phone: it is the first number to replace with a
--- measurement (docs/PERFORMANCE.md says the same).
+-- has run this game. It is a ratchet against drift and not a statement about any phone, kept in the script
+-- (EffectCost.ParticleCeiling) so docs/PERFORMANCE.md prints it beside the worst effect: it is the first number
+-- to replace with a measurement (docs/PERFORMANCE.md says the same).
 local EffectCost = require("../scripts/effect-cost")
 local Harness = require("./harness")
 local PoolPolicy = require("../src/shared/Pure/PoolPolicy")
@@ -39,7 +39,7 @@ end
 -- survive without refusing a borrow.
 local CONCURRENT_EFFECTS = 4
 -- Chosen, not measured. See the header.
-local PARTICLE_CEILING = 400
+local PARTICLE_CEILING = EffectCost.ParticleCeiling
 -- Every class the renderer borrows, so the cost model cannot silently miss one.
 local BORROWED_CLASSES = {
 	"Part",
@@ -74,6 +74,7 @@ local READERS: { { Field: string, Path: string } } = {
 	-- Read by the config's own drivenShare, which the renderer asks for each Driven flow (QualityStart.spec).
 	{ Field = "EngineShare", Path = "src/shared/Config/QualityConfig.luau" },
 	{ Field = "NameKey", Path = "src/ui/screens/SettingsScreen.luau" },
+	{ Field = "Particles", Path = "src/client/Controllers/VfxTimeline.luau" },
 }
 
 describe("the cost of an effect", function()
@@ -127,9 +128,33 @@ describe("the cost of an effect", function()
 	end)
 
 	it("asks for no more particles than the ceiling this repository chose", function()
+		expect(PARTICLE_CEILING).toBe(400)
 		for _, cost in ipairs(costs) do
 			if cost.Particles > PARTICLE_CEILING then
 				error(("%s asks for %d particles; the ceiling is %d"):format(cost.Id, cost.Particles, PARTICLE_CEILING))
+			end
+		end
+	end)
+
+	it("is quoted by docs/PERFORMANCE.md as the script prints it", function()
+		-- The ceilings row of the particles said "worst 201, the Pounce" while the Scorch asked for 358: a line
+		-- written by hand is a line nobody reruns. The script writes it, and the document must carry it verbatim.
+		local doc = fs.readFile("docs/PERFORMANCE.md")
+		local line = EffectCost.ceilingLine(costs)
+		expect(line:find("`Scorch`", 1, true)).never.toBe(nil)
+		if doc:find(line, 1, true) == nil then
+			error(
+				"docs/PERFORMANCE.md no longer quotes the particle ceiling as scripts/effect-cost prints it:\n" .. line
+			)
+		end
+		local _, rows = doc:gsub("\n| particules d'un effet |", "")
+		expect(rows).toBe(1)
+		for _, budget in ipairs(EffectCost.budgetLines()) do
+			if doc:find(budget, 1, true) == nil then
+				error(
+					"docs/PERFORMANCE.md no longer quotes the particle budgets as scripts/effect-cost prints them:\n"
+						.. budget
+				)
 			end
 		end
 	end)
@@ -266,11 +291,13 @@ describe("the graphics tiers", function()
 			assert(tier ~= nil, "no tier named " .. name)
 			expect(tier.Layers).toBeGreaterThan(0)
 			expect(tier.ParticleScale).toBeGreaterThan(0)
+			expect(tier.Particles).toBeGreaterThan(0)
 			expect(tier.Footprints).toBeGreaterThanOrEqual(0)
 			if previous ~= nil then
 				local before = previous :: QualityConfig.TierDef
 				expect(tier.Layers).toBeLessThan(before.Layers)
 				expect(tier.ParticleScale).toBeLessThan(before.ParticleScale)
+				expect(tier.Particles).toBeLessThan(before.Particles)
 				expect(tier.Footprints).toBeLessThanOrEqual(before.Footprints)
 				-- A feature only ever turns off on the way down, never back on.
 				if tier.Lights and not before.Lights then

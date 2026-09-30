@@ -629,6 +629,59 @@ describe("the sticker", function()
 		expect(ThemeConfig.Gradients.Gloss.Transparency).toEqual({ { 0, 0.5 }, { 1, 1 } })
 	end)
 
+	it("keeps red in a menu for what is refused or lost, and a badge in the gold, the sheet on a gold face", function()
+		-- The palette's "Danger ... rien d'autre" speaks of the fight (D-180): out of it, red says a refusal, a
+		-- destructive confirm, a rating that fell or a balance that falls short, and no screen says anything
+		-- else in it.
+		local screens: { string } = {}
+		collect("src/ui/screens", screens)
+		local red: { string } = {}
+		for _, path in ipairs(screens) do
+			local code = stripComments(fs.readFile(path))
+			if
+				string.find(code, "Colors.Danger", 1, true) ~= nil
+				or string.find(code, '"Danger"', 1, true) ~= nil
+				or string.find(code, 'lip("Danger")', 1, true) ~= nil
+			then
+				table.insert(red, path)
+			end
+		end
+		table.sort(red)
+		expect(red).toEqual({ "src/ui/screens/SettingsBindings.luau", "src/ui/screens/shop/Purchase.luau" })
+		local function has(path: string, plain: string): boolean
+			return string.find(stripComments(fs.readFile(path)), plain, 1, true) ~= nil
+		end
+		expect(
+			has("src/ui/screens/SettingsBindings.luau", 'Confirm = { Text = t("common.reset"), Variant = "Danger" },')
+		).toBe(true)
+		expect(
+			has(
+				"src/ui/screens/shop/Purchase.luau",
+				"line.TextColor3 = if short then Theme.Colors.Danger else Theme.Colors.Text"
+			)
+		).toBe(true)
+		expect(has("src/ui/components/Toast.luau", "Error = Theme.Colors.DangerFill,")).toBe(true)
+		expect(
+			has(
+				"src/ui/components/ResultCard.luau",
+				"ratingLine.TextColor3 = if delta >= 0 then Theme.Colors.Success else Theme.Colors.Danger"
+			)
+		).toBe(true)
+		-- The board paints its tile badges red, against its own palette: a badge keeps the gold, and on a gold
+		-- face the sheet, whatever shape it takes.
+		local button = stripComments(fs.readFile("src/ui/components/Button.luau"))
+		expect(
+			select(
+				2,
+				string.gsub(
+					button,
+					"if look%.Face == Theme%.Colors%.Primary then Theme%.Colors%.PanelRaised else nil",
+					""
+				)
+			)
+		).toBe(2)
+	end)
+
 	it("keeps a badge out of red: nothing is wrong, something is owed", function()
 		local badge = stripComments(fs.readFile("src/ui/components/Badge.luau"))
 		expect(string.find(badge, "Danger")).toBeNil()

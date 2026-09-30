@@ -23,6 +23,7 @@ type Fixture = {
 	card: any,
 	bought: { string },
 	toasts: { string },
+	given: { [string]: any },
 }
 
 local function setup(folios: number, rarity: string?): Fixture
@@ -35,10 +36,12 @@ local function setup(folios: number, rarity: string?): Fixture
 	local bought: { string } = {}
 	local toasts: { string } = {}
 	local notified = Engine.signal()
+	local given: { [string]: any } = {}
 	local data = { Currency = { Folios = folios }, Cosmetics = { Owned = {} } }
 	local purchases = Purchase.new({
 		Localize = {
-			t = function(key: string): string
+			t = function(key: string, params: any?): string
+				given[key] = params
 				return key
 			end,
 		},
@@ -81,6 +84,7 @@ local function setup(folios: number, rarity: string?): Fixture
 		card = card,
 		bought = bought,
 		toasts = toasts,
+		given = given,
 	}
 end
 
@@ -222,10 +226,37 @@ describe("a purchase sheet, run", function()
 	end)
 end)
 
+describe("a purchase sheet's price, run", function()
+	it("is asked for on the yellow, marked with its dot, as on the card that asked", function()
+		-- The board's after: "● 450 Folios" where the sheet said "Buy".
+		local fixture = setup(500)
+		local Theme = fixture.world.require("src/ui/Theme")
+		local buy = answer(fixture, "shop.buyFolios")
+		assert(buy ~= nil, "the sheet does not ask for the price")
+		expect(fixture.given["shop.buyFolios"].price).toBe(100)
+		expect(answer(fixture, "shop.buy")).toBeNil()
+		expect(buy:FindFirstChild("Face", true).BackgroundColor3).toBe(Theme.Colors.Primary)
+		local slot = buy:FindFirstChild("Icon", true)
+		expect(slot.Visible).toBe(true)
+		expect(slot:FindFirstChild("Dot")).never.toBeNil()
+		expect(slot:FindFirstChild("Coin")).toBeNil()
+		-- Cancel is the sheet's plain answer.
+		local cancel = answer(fixture, "common.cancel")
+		expect(cancel:FindFirstChild("Icon", true).Visible).toBe(false)
+		-- Short of Folios, it says why it waits, with its lock in the dot's place.
+		local short = setup(10)
+		local waiting = answer(short, "shop.notEnoughFolios")
+		assert(waiting ~= nil, "a sheet short of Folios does not say so")
+		local lock = waiting:FindFirstChild("Icon", true)
+		expect(lock:FindFirstChild("Lock")).never.toBeNil()
+		expect(lock:FindFirstChild("Dot")).toBeNil()
+	end)
+end)
+
 describe("a Folios purchase, run", function()
 	it("sends BuyCosmetic once, whatever is tapped after the item arrives", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		expect(buy).never.toBeNil()
 		buy.Activated:Fire()
 		expect(#fixture.bought).toBe(1)
@@ -247,7 +278,7 @@ describe("a Folios purchase, run", function()
 
 	it("says Owned on the button once the item has come", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		buy.Activated:Fire()
 		table.insert(fixture.data.Cosmetics.Owned, ITEM)
 		fixture.purchases:Refresh()
@@ -257,7 +288,7 @@ describe("a Folios purchase, run", function()
 
 	it("buys nothing from a sheet sliding away after Cancel", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		answer(fixture, "common.cancel").Activated:Fire()
 		fixture.world:advance(0.1)
 		expect(sheetOpen(fixture)).toBe(true)
@@ -270,7 +301,7 @@ describe("a Folios purchase, run", function()
 
 	it("buys nothing from a sheet the Shop took away", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		fixture.purchases:Close()
 		fixture.world:advance(0.1)
 		buy.Activated:Fire()

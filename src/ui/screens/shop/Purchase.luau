@@ -233,7 +233,9 @@ function Purchase.new(context: Context): Purchases
 			Title = t("shop.confirm.title", { name = t(entry.NameKey) }),
 			Body = t(Theme.rarity(entry.Rarity).WordKey),
 			Preview = body,
-			Confirm = { Text = t("shop.buy") },
+			-- The price on the yellow, marked with its dot as on the card that asked: the board's "● 450 Folios"
+			-- where the sheet said "Buy".
+			Confirm = { Text = t("shop.buyFolios", { price = entry.PriceFolios }), Icon = "Dot" },
 			Cancel = { Text = t("common.cancel") },
 			OnConfirm = function()
 				buy(pending)

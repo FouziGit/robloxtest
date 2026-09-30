@@ -24,7 +24,7 @@ export type StrokePosition = "Inner" | "Outer" | "Center"
 export type FocusKind = "Menu" | "Fight"
 export type Chapter = { Band: Color3, Title: Color3, Lip: Color3, Stripe: boolean }
 export type Rarity = { Fill: Color3, Ink: Color3, Pips: number, WordKey: string, Seal: boolean, Shimmer: boolean }
-export type Rank = { Fill: Color3, Ink: Color3, Rim: Color3?, Seal: boolean, Shimmer: boolean, NameKey: string }
+export type Rank = { Fill: Color3, Ink: Color3, Rim: Color3?, Shimmer: boolean, NameKey: string }
 
 -- Each unknown name is reported once, with what asked for it: a typo in a caller is a bug to find, and a
 -- warning repeated every frame hides every other line of the output.
@@ -500,7 +500,6 @@ function Theme.rank(tierId: string): Rank
 		Fill = Theme.color(def.Fill),
 		Ink = Theme.color(ThemeConfig.labelRole(def.Fill)),
 		Rim = if rim ~= nil then Theme.color(rim) else nil,
-		Seal = def.Seal == true,
 		Shimmer = def.Shimmer == true,
 		NameKey = nameKey,
 	}

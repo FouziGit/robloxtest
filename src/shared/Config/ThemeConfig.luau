@@ -30,7 +30,7 @@ export type GradientDef = {
 	Kind: string?,
 }
 export type RarityDef = { Fill: string, Pips: number, Seal: boolean?, Shimmer: boolean? }
-export type RankDef = { Fill: string, Rim: string?, Seal: boolean?, Shimmer: boolean? }
+export type RankDef = { Fill: string, Rim: string?, Shimmer: boolean? }
 
 -- docs/ART_BIBLE.md: Vélin #E8E0CE, Charbon #17150F. Every hex of the interface is written ONCE, here,
 -- and the roles below point at these locals: a role that repeated a literal could drift from the bible
@@ -186,13 +186,13 @@ ThemeConfig.Rarity = {
 } :: { [string]: RarityDef }
 
 -- The rank ladder, illuminated as it climbs: blank, then earth, then ink, then purple with a gold rim,
--- then full gold leaf. One entry per RankingConfig.Tiers id.
+-- then full gold leaf, rimmed in gold and shimmering. One entry per RankingConfig.Tiers id.
 ThemeConfig.Ranks = {
 	Blank = { Fill = "Chalk" },
 	Sketch = { Fill = "Bronze" },
 	Script = { Fill = "InfoFill" },
 	Illumination = { Fill = "Epic", Rim = "Primary" },
-	Codex = { Fill = "Primary", Seal = true, Shimmer = true },
+	Codex = { Fill = "Primary", Rim = "Primary", Shimmer = true },
 } :: { [string]: RankDef }
 
 -- The transparency of the part of the Result's auto-close ring already spent.

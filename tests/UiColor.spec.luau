@@ -309,6 +309,23 @@ describe("the rarities and the ranks", function()
 				error(("a seal is drawn for %s, which is no rank"):format(id))
 			end
 		end
+		-- The top of the ladder is full gold leaf: rimmed in gold and shimmering, as the board's Codex seal.
+		local top = ThemeConfig.Ranks[RankingConfig.Tiers[#RankingConfig.Tiers].Id]
+		expect(top.Fill).toBe("Primary")
+		expect(top.Rim).toBe("Primary")
+		expect(top.Shimmer).toBe(true)
+		-- And a seal is a seal: no rank carries a flag nothing reads.
+		for id, def in pairs(ThemeConfig.Ranks) do
+			if (def :: any).Seal ~= nil then
+				error(id .. " still says Seal, which no seal reads")
+			end
+		end
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		local codex = Theme.rank(RankingConfig.Tiers[#RankingConfig.Tiers].Id)
+		expect(codex.Rim).toBe(Theme.Colors.Primary)
+		expect(codex.Shimmer).toBe(true)
+		expect(codex.Seal).toBeNil()
 	end)
 end)
 

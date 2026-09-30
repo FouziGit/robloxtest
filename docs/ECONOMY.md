@@ -63,7 +63,7 @@ Rotation quotidienne : 6 articles (2 communs, 2 rares, 1 épique, 1 légendaire)
 | Folios ×1 000 | 99 | 1 000 Folios | `FolioSmall` |
 | Folios ×3 500 | 299 | 3 500 Folios (+17 %) | `FolioMedium` |
 | Folios ×8 000 | 599 | 8 000 Folios (+33 %) | `FolioLarge` |
-| Pass premium (saison) | 349 | piste premium de la saison courante | `PremiumPass` |
+| Pass premium (saison) | 349 | piste premium de la saison courante ; déjà possédée à l'arrivée du reçu, 3 530 Folios (D-202) | `PremiumPass` |
 | +5 paliers de pass | 149 | avance de 5 paliers ; chaque palier au-delà du dernier est payé 310 Folios (D-202) | `TierSkip5` |
 | Boost d'XP 1 h | 79 | XP ×2 pendant 60 min | `XpBoost1h` |
 
@@ -104,7 +104,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 ## 7. Idempotence et sécurité des achats
 
 - `ProcessReceipt` : lit le profil (`DataService.waitFor`), vérifie `Purchases.Receipts` (anneau de 100 ids), applique le produit, enregistre `PurchaseId`, force une sauvegarde (`saveNow`) puis renvoie `PurchaseGranted`. Toute erreur ou profil absent → `NotProcessedYet` (Roblox réessaiera). Jamais de yield non protégé.
-- Un reçu ne se refuse jamais pour de bon : les Robux sont déjà pris, et `NotProcessedYet` ferait relivrer le reçu sans fin. Ce qu'il ne peut plus livrer se paie en Folios (D-202) : un cosmétique d'une rareté entièrement possédée à son prix en Folios, un palier au-delà du dernier à `CompensationFolios`.
+- Un reçu ne se refuse jamais pour de bon : les Robux sont déjà pris, et `NotProcessedYet` ferait relivrer le reçu sans fin. Ce qu'il ne peut plus livrer se paie en Folios (D-202) : un cosmétique d'une rareté entièrement possédée à son prix en Folios, un palier au-delà du dernier et un Pass Premium déjà possédé à leur `CompensationFolios`.
 - Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries), cache dans `Passes`, mise à jour sur `PromptGamePassPurchaseFinished`. Achats hors connexion couverts par la vérification à la connexion.
 - Aucune valeur de prix n'est lue depuis le client ; les IDs vivent uniquement dans `MonetizationConfig`, validés au démarrage (`warn` explicite par ID manquant).
 

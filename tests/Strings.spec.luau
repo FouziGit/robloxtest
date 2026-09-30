@@ -118,6 +118,7 @@ describe("Strings", function()
 			["boss.reward"] = true,
 			["purchase.grantedFoliosInstead"] = true,
 			["purchase.tiersPastLast"] = true,
+			["purchase.premiumOwnedFolios"] = true,
 			["shop.confirm.balance"] = true,
 			["reward.folios"] = true,
 			["reward.xp"] = true,

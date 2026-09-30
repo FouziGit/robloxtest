@@ -347,6 +347,7 @@ purchase.failed,The purchase could not be completed.,Vellum,,The purchase could 
 purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Achat terminé : {name}
 purchase.grantedFoliosInstead,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
+purchase.premiumOwnedFolios,You already have the Premium Battle Pass: +{amount} Folios instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folios instead,Tu as déjà le Battle Pass Premium : +{amount} Folios à la place
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.tiersPastLast,Past the last tier: +{amount} Folios instead,Vellum,,Past the last tier: +{amount} Folios instead,Au-delà du dernier palier : +{amount} Folios à la place

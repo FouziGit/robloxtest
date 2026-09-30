@@ -10,7 +10,8 @@
 -- refusal here must be a transient failure and never a permanent one. Three consequences enforced below:
 -- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Folios
 -- compensation); a tier skip pays every tier past the last one in Folios (CompensationFolios, D-202), so
--- a pass that reached the last tier while the dialog was open still settles its receipt; and
+-- a pass that reached the last tier while the dialog was open still settles its receipt, and a Premium
+-- Pass that lands on a player who already has the track is paid the same way; and
 -- PurchaseGranted is only returned once DataService.saveNow confirms the write.
 
 local Players = game:GetService("Players")
@@ -159,7 +160,20 @@ local function grantProduct(
 		granted = grantFolios(player, productKey, amount, def.NameKey)
 	elseif product.Kind == "PremiumPass" then
 		if deps.Battlepass.isPremium(player) then
-			deps.Notify.send(player, "purchase.alreadyOwned", nil, "Info")
+			-- Purchases refuses the dialog to a Premium player, but a receipt can still land on one: a second
+			-- dialog confirmed before the first receipt arrived, or a receipt delivered late. The track cannot
+			-- be given twice, so the pass is paid in Folios (D-202).
+			local credited = compensate(player, productKey, 1)
+			if credited <= 0 then
+				return false
+			end
+			deps.Notify.send(
+				player,
+				"purchase.premiumOwnedFolios",
+				{ amount = credited },
+				"Success",
+				Context.SfxSuccess
+			)
 		else
 			deps.Battlepass.setPremium(player, true)
 			deps.Notify.send(player, "purchase.passGranted", { name = def.NameKey }, "Success", Context.SfxSuccess)

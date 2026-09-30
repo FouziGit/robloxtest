@@ -629,6 +629,10 @@ Strings.Table = {
 		fr = "Boost d'XP actif pendant {minutes} min",
 	},
 	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	["purchase.premiumOwnedFolios"] = {
+		en = "You already have the Premium Battle Pass: +{amount} Folios instead",
+		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folios à la place",
+	},
 	["purchase.tiersPastLast"] = {
 		en = "Past the last tier: +{amount} Folios instead",
 		fr = "Au-delà du dernier palier : +{amount} Folios à la place",

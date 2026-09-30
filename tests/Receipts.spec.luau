@@ -252,39 +252,82 @@ describe("a tier skip receipt", function()
 	end)
 end)
 
+describe("a Premium Pass receipt", function()
+	it("opens the premium track", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("PremiumPass", "first")).toBe(GRANTED)
+		expect(fixture.data.Battlepass[SEASON].Premium).toBe(true)
+		expect(fixture.data.Currency.Folios).toBe(0)
+	end)
+
+	it("pays the pass in Folios when it lands on a player who already has the track, and settles once (R11)", function()
+		-- The dialog is refused to a Premium player; a second dialog confirmed before the first receipt
+		-- arrived is how a receipt still lands on one.
+		local fixture = setup(3, 0)
+		fixture.ask("PremiumPass")
+		fixture.ask("PremiumPass")
+		expect(#fixture.opened).toBe(2)
+		expect(fixture.deliver("PremiumPass", "first")).toBe(GRANTED)
+		expect(fixture.deliver("PremiumPass", "second")).toBe(GRANTED)
+		local worth = MonetizationConfig.Products.PremiumPass.CompensationFolios :: number
+		expect(fixture.data.Currency.Folios).toBe(worth)
+		local paid = toastOf(fixture.toasts, "purchase.premiumOwnedFolios")
+		assert(paid ~= nil, "the second pass is paid without a word")
+		expect((paid.Params :: any).amount).toBe(worth)
+
+		expect(fixture.deliver("PremiumPass", "second")).toBe(GRANTED)
+		expect(fixture.data.Currency.Folios).toBe(worth)
+		expect(fixture.data.Purchases.Receipts).toEqual({ "first", "second" })
+
+		-- Once Premium, the dialog does not open again.
+		fixture.ask("PremiumPass")
+		expect(#fixture.opened).toBe(2)
+	end)
+end)
+
 describe("what a receipt pays instead of what it can no longer deliver (D-202)", function()
-	-- What one Robux buys in each Folios pack: FolioSmall's is the dearest, FolioLarge's the cheapest.
-	local cheapest, dearest = math.huge, 0
+	-- Folios one Robux buys in each pack: FolioSmall gives the fewest, FolioLarge the most.
+	local fewest, most = math.huge, 0
 	for _, product in pairs(MonetizationConfig.Products) do
 		if product.Kind == "Folios" then
 			local rate = (product.Amount :: number) / product.PriceRobux
-			cheapest = math.min(cheapest, rate)
-			dearest = math.max(dearest, rate)
+			fewest = math.min(fewest, rate)
+			most = math.max(most, rate)
 		end
 	end
+	-- What one undeliverable unit of each kind cost: a tier of a skip, or the whole pass.
+	local UNIT: { [string]: (product: MonetizationConfig.ProductDef) -> number } = {
+		TierSkip = function(product: MonetizationConfig.ProductDef): number
+			return product.PriceRobux / (product.Amount :: number)
+		end,
+		PremiumPass = function(product: MonetizationConfig.ProductDef): number
+			return product.PriceRobux
+		end,
+	}
 
 	it("is worth at least what the same Robux buy in Folios, and no more than the biggest pack gives", function()
-		local checked = 0
+		local checked: { [string]: boolean } = {}
 		for key, product in pairs(MonetizationConfig.Products) do
-			if product.Kind == "TierSkip" then
-				checked += 1
+			local unit = UNIT[product.Kind]
+			if unit ~= nil then
+				checked[product.Kind] = true
 				local each = product.CompensationFolios
-				assert(each ~= nil, key .. " has nothing to pay the tiers past the last one with")
+				assert(each ~= nil, key .. " has nothing to pay what it cannot deliver with")
 				expect(each % 10).toBe(0)
-				local robuxPerTier = product.PriceRobux / (product.Amount :: number)
-				if each < robuxPerTier * cheapest or each > robuxPerTier * dearest then
+				local robux = unit(product)
+				if each < robux * fewest or each > robux * most then
 					error(
-						("%s pays %d Folios a tier, outside %.0f to %.0f"):format(
+						("%s pays %d Folios a unit, outside %.0f to %.0f"):format(
 							key,
 							each,
-							robuxPerTier * cheapest,
-							robuxPerTier * dearest
+							robux * fewest,
+							robux * most
 						)
 					)
 				end
 			end
 		end
-		expect(checked).toBeGreaterThan(0)
+		expect(checked).toEqual({ TierSkip = true, PremiumPass = true })
 	end)
 end)
 

@@ -645,6 +645,11 @@ Strings.Table = {
 		en = "Disconnected: too many invalid requests.",
 		fr = "Déconnecté : trop de requêtes invalides.",
 	},
+	-- A critical service failed to start (Boot.close): the server sends everyone away.
+	["kick.serverError"] = {
+		en = "Server error: this server could not start. Please rejoin.",
+		fr = "Erreur serveur : ce serveur n'a pas pu démarrer. Rejoins à nouveau.",
+	},
 
 	-- D-147 · slice F (components and shared)
 	-- The words on a keycap (Keycap.label): every rebindable key longer than a letter, in the player's language.

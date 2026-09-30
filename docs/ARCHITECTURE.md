@@ -73,7 +73,7 @@ Serveur → client :
 
 ## Serveur (`src/server`)
 
-`Bootstrap.server.luau` : crée le `RemoteRegistry` (reporter = `AntiCheatService.strike`), `Init(deps)` de chaque service dans l'ordre des dépendances, puis `Start()` de chacun. `deps` est une table nommée : `{Registry, DataService, Notify, AntiCheat, Progression, Currency, Battlepass, Settings, Combat, Glyph, Effects, Vfx, Movement, Enemy, Hub, WorldBoss, Battleground, Portal, …}` (chaque service ne lit que ce qu'il déclare).
+`Bootstrap.server.luau` : crée le `RemoteRegistry` (reporter = `AntiCheatService.strike`), `Init(deps)` de chaque service dans l'ordre des dépendances, puis `Start()` de chacun, par `Boot.run(ordered, deps) -> {string}` (chaque pas sous `log.try`). `DataService`, `AntiCheatService`, `CombatService`, `MatchService` et `MonetizationService` sont marqués `Critical` : si l'un d'eux lève, `Boot.close(failed)` expulse chaque joueur présent et chaque arrivant avec `kick.serverError` dans sa langue ; un échec non critique garde le serveur ouvert (D-XXX). `deps` est une table nommée : `{Registry, DataService, Notify, AntiCheat, Progression, Currency, Battlepass, Settings, Combat, Glyph, Effects, Vfx, Movement, Enemy, Hub, WorldBoss, Battleground, Portal, …}` (chaque service ne lit que ce qu'il déclare).
 
 | Service | API publique |
 |---|---|

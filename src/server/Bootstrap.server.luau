@@ -1,6 +1,7 @@
 --!strict
 -- Server entry point (the only server Script). Creates the remote registry, wires every service
--- with its dependencies, then runs Init and Start in dependency order.
+-- with its dependencies, then runs Init and Start in dependency order (Boot). A service marked Critical that
+-- fails to start closes the server: its players are sent away to rejoin elsewhere (D-XXX).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +15,7 @@ local AntiCheatService = require(Services.AntiCheatService)
 local ArenaService = require(Services.ArenaService)
 local BattlegroundService = require(Services.BattlegroundService)
 local BattlepassService = require(Services.BattlepassService)
+local Boot = require(script.Parent.Boot)
 local CombatService = require(Services.CombatService)
 local CosmeticService = require(Services.CosmeticService)
 local CurrencyService = require(Services.CurrencyService)
@@ -44,9 +46,6 @@ local VfxBroadcaster = require(Services.VfxBroadcaster)
 local WorldBossService = require(Services.WorldBossService)
 
 local log = Log.new("Bootstrap")
-
-type Service = { Init: (deps: any) -> (), Start: () -> () }
-type Entry = { Name: string, Service: Service }
 
 -- Bound so an abandoned RequestProfile never pins a server thread for long; ClientData retries on
 -- its own timeout and gets the snapshot immediately once the profile is loaded.
@@ -91,14 +90,15 @@ local deps = {
 	Portal = PortalService,
 }
 
--- Dependency order: each service only reads services listed before it.
-local ordered: { Entry } = {
+-- Dependency order: each service only reads services listed before it. Critical: the game cannot run without it
+-- (profiles, damage, matches, purchases, the referee), so a failure to start it closes the server.
+local ordered: { Boot.Entry } = {
 	-- HubService builds HubSpawn first: CombatService resolves its safe zone and EnemyService its
 	-- dummy ring from the first SpawnLocation in the Workspace.
 	{ Name = "HubService", Service = HubService },
 	{ Name = "ArenaService", Service = ArenaService },
-	{ Name = "DataService", Service = DataService },
-	{ Name = "AntiCheatService", Service = AntiCheatService },
+	{ Name = "DataService", Service = DataService, Critical = true },
+	{ Name = "AntiCheatService", Service = AntiCheatService, Critical = true },
 	{ Name = "NotifyService", Service = NotifyService },
 	{ Name = "AnalyticsService", Service = AnalyticsService },
 	{ Name = "CurrencyService", Service = CurrencyService },
@@ -112,12 +112,12 @@ local ordered: { Entry } = {
 	{ Name = "SettingsService", Service = SettingsService },
 	{ Name = "MovementService", Service = MovementService },
 	{ Name = "VfxBroadcaster", Service = VfxBroadcaster },
-	{ Name = "CombatService", Service = CombatService },
+	{ Name = "CombatService", Service = CombatService, Critical = true },
 	{ Name = "GlyphService", Service = GlyphService },
 	{ Name = "EnemyService", Service = EnemyService },
 	{ Name = "RankingService", Service = RankingService },
 	{ Name = "LeaderboardService", Service = LeaderboardService },
-	{ Name = "MatchService", Service = MatchService },
+	{ Name = "MatchService", Service = MatchService, Critical = true },
 	{ Name = "MatchmakingService", Service = MatchmakingService },
 	{ Name = "WorldBossService", Service = WorldBossService },
 	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
@@ -126,14 +126,12 @@ local ordered: { Entry } = {
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },
 	-- Last: it applies pass ownership through Loadout / Cosmetic / Battlepass, which must all be up.
-	{ Name = "MonetizationService", Service = MonetizationService },
+	{ Name = "MonetizationService", Service = MonetizationService, Critical = true },
 }
 
-for _, entry in ipairs(ordered) do
-	log.try(entry.Name .. ".Init", entry.Service.Init, deps)
-end
-for _, entry in ipairs(ordered) do
-	log.try(entry.Name .. ".Start", entry.Service.Start)
+local failed = Boot.run(ordered, deps)
+if #failed > 0 then
+	Boot.close(failed)
 end
 
 registry.setCallback("RequestProfile", function(player: Player): Types.ProfileData?
@@ -151,4 +149,6 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	registry.removePlayer(player)
 end)
 
-log.info("Vellum v%s ready: %d services started", GameConfig.Version, #ordered)
+if #failed == 0 then
+	log.info("Vellum v%s ready: %d services started", GameConfig.Version, #ordered)
+end

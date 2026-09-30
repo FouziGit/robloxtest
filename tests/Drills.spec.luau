@@ -273,7 +273,12 @@ type Fixture = {
 	paid: { number },
 	xp: { number },
 	changed: { any },
+	-- The profile's sections replicated, in order, and what each payment found written and replicated before it.
+	pushed: { string },
+	seen: { { Drills: { [string]: number }, Pushed: number } },
 	inMatch: boolean,
+	engaged: boolean,
+	inside: boolean,
 	handlers: { [string]: (...any) -> () },
 	glyphCast: Engine.Signal,
 	castLanded: Engine.Signal,
@@ -304,7 +309,11 @@ local function server(): Fixture
 		paid = {},
 		xp = {},
 		changed = {},
+		pushed = {},
+		seen = {},
 		inMatch = false,
+		engaged = false,
+		inside = false,
 		handlers = {},
 		glyphCast = Engine.signal(),
 		castLanded = Engine.signal(),
@@ -328,7 +337,9 @@ local function server(): Fixture
 			get = function(): any
 				return fixture.data
 			end,
-			push = function() end,
+			push = function(_player: any, section: string)
+				table.insert(fixture.pushed, section)
+			end,
 		},
 		Notify = {
 			send = function(_player: any, key: string)
@@ -338,6 +349,7 @@ local function server(): Fixture
 		Currency = {
 			add = function(_player: any, amount: number): number
 				table.insert(fixture.paid, amount)
+				table.insert(fixture.seen, { Drills = table.clone(fixture.data.Drills), Pushed = #fixture.pushed })
 				return amount
 			end,
 		},
@@ -356,12 +368,12 @@ local function server(): Fixture
 		},
 		WorldBoss = {
 			isEngaged = function(): boolean
-				return false
+				return fixture.engaged
 			end,
 		},
 		Battleground = {
 			isInside = function(): boolean
-				return false
+				return fixture.inside
 			end,
 		},
 	})
@@ -422,6 +434,22 @@ describe("DrillService", function()
 		end
 		expect(#fixture.paid).toBe(3)
 		expect(fixture.told[#fixture.told]).toBe("drills.gradedAgain")
+	end)
+
+	-- The best grade is the record that stops a second payment: it is written, and told to the Lectern, before any
+	-- Folio of it is paid.
+	it("writes a grade and replicates it before it pays it", function()
+		local fixture = server()
+		fixture.handlers.StartDrill(fixture.player, "Brand")
+		for _ = 1, 3 do
+			land(fixture, "Brand", 1)
+		end
+		expect(#fixture.seen).toBe(3)
+		for _, seen in ipairs(fixture.seen) do
+			expect(seen.Drills.Brand).toBe(fixture.data.Drills.Brand)
+			expect(seen.Pushed).toBeGreaterThan(0)
+		end
+		expect(fixture.pushed).toEqual({ "Drills" })
 	end)
 
 	it("pays a better grade only what it adds", function()
@@ -501,6 +529,28 @@ describe("DrillService", function()
 		expect(fixture.data.Drills.Brand).toBeNil()
 	end)
 
+	-- Put down within a check of the player being taken, not at their first stroke in the fight: that stroke would
+	-- have toasted "drills are done in the hub" in the middle of a duel.
+	it("puts a set down within a check of a match, the Battleground or the Erasure taking its player", function()
+		for _, place in ipairs({ "inMatch", "inside", "engaged" }) do
+			local fixture = server()
+			fixture.handlers.StartDrill(fixture.player, "Brand")
+			land(fixture, "Brand", 1)
+			local fields = fixture :: any
+			fields[place] = true
+			fixture.world:advance(2 * DrillConfig.CheckSeconds, 0.25)
+			if fixture.service.getRun(fixture.player) ~= nil then
+				error(("a set is still running with its player %s"):format(place))
+			end
+			expect(fixture.told[#fixture.told]).toBe("drills.left")
+			expect(fixture.changed[#fixture.changed]).toBe(false)
+			-- And none begins there.
+			fixture.handlers.StartDrill(fixture.player, "Brand")
+			expect(fixture.told[#fixture.told]).toBe("drills.notInHub")
+			expect(fixture.service.getRun(fixture.player)).toBeNil()
+		end
+	end)
+
 	it("never counts a set it did not begin", function()
 		local fixture = server()
 		for _ = 1, 3 do
@@ -508,6 +558,148 @@ describe("DrillService", function()
 		end
 		expect(fixture.data.Drills.Brand).toBeNil()
 		expect(#fixture.told).toBe(0)
+	end)
+end)
+
+----------------------------------------------------------------
+-- What the server fires: the events a drill reads, where they are fired
+----------------------------------------------------------------
+
+-- One top-level function of a file, comments out, or an error: a gate that found nothing would pass.
+local function functionIn(path: string, header: string): string
+	local source = code(path)
+	local start = source:find(header, 1, true)
+	if start == nil then
+		error(header .. " is not in " .. path .. ": this gate would check nothing")
+	end
+	local finish = source:find("\nend\n", start, true)
+	if finish == nil then
+		error(header .. " has no end in " .. path)
+	end
+	return source:sub(start, finish + 4)
+end
+
+-- Where the block opened by the `do` of the loop at `from` closes in `source`: every `do`, `if`, `function` and
+-- `repeat` opens one, every `end` and `until` closes one (an `if` expression, which has no `end`, would throw the
+-- count off: the melee loop holds none).
+local function loopEnd(source: string, from: number): number
+	local depth = 0
+	for at, word in source:gmatch("()%f[%w_]([%a_][%w_]*)") do
+		if at >= from then
+			if word == "do" or word == "if" or word == "function" or word == "repeat" then
+				depth += 1
+			elseif word == "end" or word == "until" then
+				depth -= 1
+				if depth == 0 then
+					return at
+				end
+			end
+		end
+	end
+	error("the loop at " .. from .. " never closes: this gate would check nothing")
+end
+
+describe("the events a drill reads", function()
+	local COMBAT = "src/server/Services/CombatService.luau"
+	local GLYPH = "src/server/Services/GlyphService.luau"
+
+	-- The four strokes and the cancel are read from Swung: without it, or with it fired once per body struck, the
+	-- kit's melee drills never count, and every stand-in above still passes.
+	it("Swung is fired once per swing the server accepted, after every body it struck", function()
+		local fire = "CombatService.Swung:Fire(player, index)"
+		local _, count = code(COMBAT):gsub("CombatService%.Swung:Fire%(", "")
+		expect(count).toBe(1)
+		local melee = functionIn(COMBAT, "local function onMelee(")
+		local loop = melee:find("for _, model in ipairs(meleeTargets(", 1, true)
+		local strike = melee:find("CombatService.ApplyDamage(player, model,", 1, true)
+		local swung = melee:find(fire, 1, true)
+		assert(loop ~= nil and strike ~= nil, "onMelee strikes no body: this gate would check nothing")
+		if swung == nil then
+			error("onMelee never fires " .. fire)
+		end
+		expect(strike).toBeGreaterThan(loop)
+		-- After the loop has closed: once per swing, and each body's Damaged before it.
+		expect(swung).toBeGreaterThan(loopEnd(melee, loop))
+	end)
+
+	-- Everything above stands the service in for itself: left out of the server's list, nothing on a real server
+	-- would count a drill, and every spec here would still pass.
+	it("DrillService is started by the server, after every service whose events it reads", function()
+		local bootstrap = code("src/server/Bootstrap.server.luau")
+		expect(bootstrap:find("Drill = DrillService,", 1, true)).never.toBeNil()
+		local entry = '{ Name = "DrillService", Service = DrillService }'
+		local at = bootstrap:find(entry, 1, true)
+		if at == nil then
+			error("the server never starts DrillService")
+		end
+		for _, before in ipairs({
+			"DataService",
+			"NotifyService",
+			"CurrencyService",
+			"ProgressionService",
+			"CombatService",
+			"GlyphService",
+			"MatchService",
+			"WorldBossService",
+			"BattlegroundService",
+		}) do
+			local earlier = bootstrap:find(('{ Name = "%s", Service = %s }'):format(before, before), 1, true)
+			if earlier == nil or earlier > at then
+				error(("DrillService starts before %s"):format(before))
+			end
+		end
+	end)
+
+	-- The server listens on both at Start: a name the registry does not declare stops DrillService's Start there, and
+	-- the set would never be put down, idle or out of the hub.
+	it("StartDrill and StopDrill are declared from the client, each with its guard and its rate", function()
+		local world = Engine.world()
+		local Remotes = world.require("src/shared/Remotes")
+		local Guard = world.require("src/shared/Util/Guard")
+		for _, name in ipairs({ "StartDrill", "StopDrill" }) do
+			local definition = Remotes.Definitions[name]
+			if definition == nil then
+				error(name .. " is not declared")
+			end
+			expect(definition.Kind).toBe("RemoteEvent")
+			expect(definition.Direction).toBe("ClientToServer")
+			expect(definition.Rate).never.toBeNil()
+		end
+		expect(#Remotes.Definitions.StopDrill.Args).toBe(0)
+		local drillId = Remotes.Definitions.StartDrill.Args[1]
+		for _, id in ipairs({ "KitString", "KitCancel", "KitChain", "Brand", "Hatching" }) do
+			expect((Guard.check(drillId, id))).toBe(true)
+		end
+		for _, wrong in ipairs({ "Nope", 5, "" }) do
+			expect((Guard.check(drillId, wrong :: any))).toBe(false)
+		end
+	end)
+
+	it("Damaged, Dashed, Cast and CastLanded carry what the drills count", function()
+		expect(
+			functionIn(COMBAT, "function CombatService.ApplyDamage("):find(
+				"CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)",
+				1,
+				true
+			)
+		).never.toBeNil()
+		local dash = functionIn(COMBAT, "local function onDash(")
+		expect(dash:find("local cancelling = now < state.MeleeCooldownUntil", 1, true)).never.toBeNil()
+		expect(dash:find("CombatService.Dashed:Fire(player, cancelling)", 1, true)).never.toBeNil()
+		expect(
+			functionIn(GLYPH, "local function onCastGlyph("):find(
+				"GlyphService.Cast:Fire(player, def.Id, chain)",
+				1,
+				true
+			)
+		).never.toBeNil()
+		expect(
+			functionIn(GLYPH, "local function recordCast("):find(
+				"GlyphService.CastLanded:Fire(player, glyphId, hits)",
+				1,
+				true
+			)
+		).never.toBeNil()
 	end)
 end)
 

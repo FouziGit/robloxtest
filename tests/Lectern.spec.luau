@@ -51,6 +51,8 @@ local function setup(tab: string?): Fixture
 			Loadout = { Slots = { "Brand", "Wash", "Serif", "Stipple" } },
 			Drills = { KitString = 2, Brand = 3 },
 			Milestones = {},
+			Stats = { Kills = 0, MatchesPlayed = 0, GlyphsCast = 0, BestChain = 0, BossKills = 0 },
+			ExLibris = {},
 		},
 		changed = Engine.signal(),
 		fired = {},
@@ -188,6 +190,92 @@ describe("the Lectern, run", function()
 		fixture.data.Drills.Wash = 1
 		fixture.changed:Fire("Drills")
 		expect(pips(fixture, "Wash")).toBe(1)
+	end)
+
+	-- Equip sends the player to the Loadout, which closes this screen: whatever moved while it was away (the glyph
+	-- equipped, a level, a milestone, a plate) is shown when Back brings it again, one section of the profile each.
+	it("comes back showing what the profile gained while it was away", function()
+		-- The words in a slot of a row, or none when the slot is empty.
+		local function label(fixture: Fixture, name: string, part: string): string
+			local slot = row(fixture, name):FindFirstChild(part, true)
+			local words = if slot ~= nil then slot:FindFirstChild("Label", true) else nil
+			return if words ~= nil then words.Text else ""
+		end
+		for _, case in ipairs({
+			{
+				Tab = nil,
+				Section = "Loadout",
+				Change = function(data: any)
+					table.insert(data.Loadout.Slots, "Hairline")
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return (action(fixture, "Hairline")) == "Start"
+				end,
+			},
+			{
+				Tab = nil,
+				Section = "Unlocks",
+				Change = function(data: any)
+					table.insert(data.Unlocks.Glyphs, "Blot")
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return (action(fixture, "Blot")) == "Equip"
+				end,
+			},
+			{
+				Tab = "Road",
+				Section = "Progression",
+				Change = function(data: any)
+					data.Progression.Level = 16
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return label(fixture, "Level", "Left") == "Level 16"
+				end,
+			},
+			{
+				Tab = "Road",
+				Section = "Milestones",
+				Change = function(data: any)
+					data.Milestones["50"] = true
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return label(fixture, "Step5050", "Right") == "Yours"
+				end,
+			},
+			{
+				Tab = "ExLibris",
+				Section = "ExLibris",
+				Change = function(data: any)
+					data.ExLibris.Breath4 = 1
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return label(fixture, "Count", "Left"):sub(1, 5) == "1 of "
+				end,
+			},
+			{
+				Tab = "ExLibris",
+				Section = "Stats",
+				Change = function(data: any)
+					data.Stats.BestChain = 3
+				end,
+				Shown = function(fixture: Fixture): boolean
+					return row(fixture, "Breath4"):FindFirstChild("Subtitle", true).Text == "Chain 4 glyphs · 3 / 4"
+				end,
+			},
+		}) do
+			local fixture = setup(case.Tab)
+			if case.Shown(fixture) then
+				error(case.Section .. " already shows its change: this gate would check nothing")
+			end
+			fixture.screen:Close()
+			case.Change(fixture.data)
+			fixture.changed:Fire(case.Section)
+			fixture.screen:Open(if case.Tab ~= nil then { Tab = case.Tab } else nil)
+			fixture.world:advance(0.5)
+			if not case.Shown(fixture) then
+				error(("the Lectern came back without the %s it gained"):format(case.Section))
+			end
+		end
 	end)
 
 	it("lays the level road out, what the player holds as theirs and the next reward ringed", function()

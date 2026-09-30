@@ -1,20 +1,17 @@
 --!strict
 -- RarityRibbon: the pill in the top-left corner of an item card that says how rare it is (D-147) -- in its
 -- colour, in its word and in its pips, because colour is never the only cue (Rare and Epic are only 113
--- apart for a deuteranope). A Legendary's ribbon also wears a seal ring and a sweep of light across it,
--- the shimmer: one of the few animated gradients a screen may have, still under reduced motion and on the
--- lowest graphics tier.
+-- apart for a deuteranope). A Legendary's ribbon also wears a seal ring and a sweep of light across it
+-- (Shimmer).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Log = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Util"):WaitForChild("Log"))
-local Motion = require(script.Parent.Parent.Motion)
 local Pips = require(script.Parent.Pips)
+local Shimmer = require(script.Parent.Shimmer)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
-local UiPrefs = require(script.Parent.Parent.UiPrefs)
 
 export type RarityRibbon = {
 	Instance: Frame,
@@ -26,14 +23,6 @@ local RarityRibbon = {}
 local HEIGHT = 24
 local WORD_SIZE = 14
 local INSET = 8
-
-local log = Log.new("RarityRibbon")
-
--- The shimmers sweeping on each screen (its LayerCollector), by gradient: a screen sweeps
--- Theme.Budget.MaxAnimatedGradients of them at most, and one asked for past that stays still (named once in
--- the log), like a splat past its budget.
-local sweepingOn: { [Instance]: { [Instance]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
-local overBudget: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
 -- The ribbon of `rarity` (a ThemeConfig.Rarity key), reading `word` -- the player's word for it
 -- (`Theme.rarity(rarity).WordKey`, translated by the caller).
@@ -111,115 +100,10 @@ function RarityRibbon.new(rarity: string, word: string, parent: Instance?): Rari
 		pips:Destroy()
 	end)
 
-	if look.Shimmer and not UiPrefs.reducedMotion() and not UiPrefs.lowQuality() then
-		local shine = Instance.new("Frame")
-		shine.Name = "Shine"
-		shine.BorderSizePixel = 0
-		shine.BackgroundColor3 = Theme.Colors.PanelRaised
-		shine.Size = UDim2.fromScale(1, 1)
-		shine.ZIndex = 7
-		Theme.corner(shine, Theme.Pill)
-		local gradient = Theme.gradient("Shimmer")
-		gradient.Offset = Vector2.new(-1, 0)
-		gradient.Parent = shine
-		shine.Parent = pill
-
-		-- One sweep, a pause, the next; only while the ribbon is on a screen the player has open, and again
-		-- when it comes back. A closed screen is disabled, not destroyed (ScreenRoot): the ribbon is still in
-		-- the DataModel, and without the Enabled test it swept for the rest of the session.
-		local running = true
-		local sweeping = false
-		local watched: LayerCollector? = nil
-		local watching: RBXScriptConnection? = nil
-		local claimed: Instance? = nil
-		local function unwatch()
-			local connection = watching
-			if connection ~= nil then
-				connection:Disconnect()
-				watching = nil
-			end
-		end
-		-- Gives back this shimmer's place on its screen's budget.
-		local function unclaim()
-			local layer = claimed
-			claimed = nil
-			local onLayer = if layer ~= nil then sweepingOn[layer] else nil
-			if onLayer ~= nil then
-				onLayer[gradient] = nil
-			end
-		end
-		-- Takes a place on the budget of `layer`, unless its shimmers have them all.
-		local function claim(layer: Instance): boolean
-			if claimed == layer then
-				return true
-			end
-			unclaim()
-			local onLayer = sweepingOn[layer] or {}
-			sweepingOn[layer] = onLayer
-			local count = 0
-			for other in pairs(onLayer) do
-				if other:IsDescendantOf(layer) then
-					count += 1
-				else
-					onLayer[other] = nil
-				end
-			end
-			if count >= Theme.Budget.MaxAnimatedGradients then
-				if not overBudget[layer] then
-					overBudget[layer] = true
-					log.warn(
-						"%s asked for more than %d shimmers: the extra ones stay still",
-						layer:GetFullName(),
-						Theme.Budget.MaxAnimatedGradients
-					)
-				end
-				return false
-			end
-			onLayer[gradient] = true
-			claimed = layer
-			return true
-		end
+	if look.Shimmer then
+		local shimmer = Shimmer.new(pill, Theme.Pill, 7)
 		trove:Add(function()
-			running = false
-			unwatch()
-			unclaim()
-			Motion.cancel(gradient)
-		end)
-		local function shown(): boolean
-			if not gradient:IsDescendantOf(game) then
-				return false
-			end
-			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
-			return layer ~= nil and layer.Enabled
-		end
-		local function sweep()
-			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector")
-			if not running or not shown() or layer == nil or not claim(layer) then
-				sweeping = false
-				unclaim()
-				return
-			end
-			sweeping = true
-			Motion.set(gradient, { Offset = Vector2.new(-1, 0) })
-			Motion.to(gradient, { Offset = Vector2.new(1, 0) }, "Ui", function()
-				task.delay(Theme.Timing.ShimmerPauseSeconds, sweep)
-			end)
-		end
-		local function resume()
-			if running and not sweeping and shown() then
-				sweep()
-			end
-		end
-		trove:Connect(pill.AncestryChanged, function()
-			local layer = pill:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
-			if layer ~= watched then
-				watched = layer
-				unwatch()
-				if layer ~= nil then
-					watching = layer:GetPropertyChangedSignal("Enabled"):Connect(resume)
-				end
-			end
-			resume()
+			shimmer:Destroy()
 		end)
 	end
 

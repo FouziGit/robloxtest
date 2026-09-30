@@ -4,9 +4,9 @@ local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
-local MovementGuard = require("../src/shared/Pure/MovementGuard")
+local MovementGuard = require("../src/server/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
-local OriginGuard = require("../src/shared/Pure/OriginGuard")
+local OriginGuard = require("../src/server/Pure/OriginGuard")
 local Sim = require("./movementsim")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect

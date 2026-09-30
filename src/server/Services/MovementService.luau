@@ -21,6 +21,8 @@ local StunClock = require(Shared.Pure.StunClock)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MovementService")
+-- Each player's timers are a step of their own: one whose state throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 -- Payload of the MovementCommand remote (see Shared/Remotes). A stun is told twice: when it begins or grows (the
 -- seconds left) and, when the server lets go of it before its time, when it ends.
@@ -367,6 +369,7 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	faults.forget(player)
 	releaseCharacter(state)
 	state.Trove:Destroy()
 end
@@ -392,6 +395,45 @@ local function respawnLost(player: Player, character: Model)
 	end)
 end
 
+-- Replaces a body whose Humanoid did not come back, and expires one character's slows, stuns and fall.
+local function tickState(player: Player, state: State, now: number)
+	local lost = state.Lost
+	local since = if lost ~= nil then lost.Since else nil
+	if lost ~= nil and since ~= nil and lost.Away + now - since >= GameConfig.Spawn.HumanoidReturnSeconds then
+		state.Lost = nil
+		respawnLost(player, lost.Character)
+	end
+	local humanoid = state.Humanoid
+	if humanoid == nil then
+		return
+	end
+	local changed = false
+	if state.SlowUntil > 0 then
+		local previousFactor = state.SlowFactor
+		local previousUntil = state.SlowUntil
+		recomputeSlow(state, now)
+		if state.SlowFactor ~= previousFactor or state.SlowUntil ~= previousUntil then
+			if state.SlowUntil > 0 then
+				humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
+			else
+				humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
+			end
+			changed = true
+		end
+	end
+	if StunClock.expire(state.Stun, now) then
+		humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
+		changed = true
+	end
+	if changed then
+		applyStats(state, now)
+	end
+	local fall = state.Fall
+	if fall ~= nil then
+		stepFall(player, state, fall, now)
+	end
+end
+
 -- Expires slows, stuns and falls for every tracked character, `GameConfig.Server.TickRate` times per
 -- second, and replaces a body whose Humanoid did not come back.
 local function onHeartbeat(deltaTime: number)
@@ -402,41 +444,7 @@ local function onHeartbeat(deltaTime: number)
 	accumulator = math.min(accumulator - TICK_SECONDS, TICK_SECONDS)
 	local now = os.clock()
 	for player, state in pairs(states) do
-		local lost = state.Lost
-		local since = if lost ~= nil then lost.Since else nil
-		if lost ~= nil and since ~= nil and lost.Away + now - since >= GameConfig.Spawn.HumanoidReturnSeconds then
-			state.Lost = nil
-			respawnLost(player, lost.Character)
-		end
-		local humanoid = state.Humanoid
-		if humanoid == nil then
-			continue
-		end
-		local changed = false
-		if state.SlowUntil > 0 then
-			local previousFactor = state.SlowFactor
-			local previousUntil = state.SlowUntil
-			recomputeSlow(state, now)
-			if state.SlowFactor ~= previousFactor or state.SlowUntil ~= previousUntil then
-				if state.SlowUntil > 0 then
-					humanoid:SetAttribute(SLOW_ATTRIBUTE, state.SlowUntil)
-				else
-					humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
-				end
-				changed = true
-			end
-		end
-		if StunClock.expire(state.Stun, now) then
-			humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
-			changed = true
-		end
-		if changed then
-			applyStats(state, now)
-		end
-		local fall = state.Fall
-		if fall ~= nil then
-			stepFall(player, state, fall, now)
-		end
+		faults.try(player, "tick of", tickState, player, state, now)
 	end
 end
 

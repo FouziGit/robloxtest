@@ -1,13 +1,13 @@
 --!strict
--- Every module under src/shared/Config and src/shared/Pure must stay pure: no Roblox global, so it
--- loads under Lune and can be unit-tested. This test fails the moment one of them reaches for the
+-- Every module under src/shared/Config, src/shared/Pure and src/server/Pure must stay pure: no Roblox global,
+-- so it loads under Lune and can be unit-tested. This test fails the moment one of them reaches for the
 -- engine (Vector3, Color3, Instance, Enum, game, workspace, task…).
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
-local ROOTS = { "src/shared/Config", "src/shared/Pure" }
+local ROOTS = { "src/shared/Config", "src/shared/Pure", "src/server/Pure" }
 local FORBIDDEN = {
 	"Vector3",
 	"CFrame",

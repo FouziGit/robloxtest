@@ -5,10 +5,10 @@
 -- (VIP and boost multipliers), so the toast never promises more than what was granted.
 --
 -- The scheduled event pays in full, counts a boss kill and advances the "BossKill" quest. A practice (D-132)
--- pays WorldBossConfig.Practice.RewardFactor of that and nothing else, and only under two caps: RewardsPerDay,
--- counted in the PROFILE (Daily.PracticeDay and PracticePaid, DailyCap.take) because a count kept in a
--- server's memory is escaped by joining another server; and one paid practice per RewardGapSeconds on this
--- server, kept in memory by the service (LastPaidAt), so a practice cannot be farmed back to back either. A
+-- pays WorldBossConfig.Practice.RewardFactor of that and nothing else, and only under two caps, both kept in the
+-- PROFILE because anything kept in a server's memory is escaped by joining another server: RewardsPerDay
+-- (Daily.PracticeDay and PracticePaid, DailyCap.take), and one paid practice per RewardGapSeconds
+-- (Daily.PracticeLastPaidAt, an os.time stamp), so a practice cannot be farmed back to back either (D-222). A
 -- player refused by either is told why. Only a pay worth Practice.MinPaidFolios is charged to them: a share the
 -- factor rounds to no Folio is paid its XP alone, free of both caps (BossPractice.charged).
 
@@ -16,9 +16,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Parent.Context)
-local DailyCap = require(Shared.Pure.DailyCap)
+local DailyCap = require(script.Parent.Parent.Parent.Pure.DailyCap)
 local DailyStreak = require(Shared.Pure.DailyStreak)
 local Log = require(Shared.Util.Log)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
@@ -28,15 +28,13 @@ local log = Log.new("WorldBoss.Rewards")
 
 type Deps = Context.Deps
 
--- One fight's pay: who took part (user ids, in ring order), what they did (the rules state), which kind of
--- fight it was, and the service's in-memory record of when each user was last paid for a practice.
+-- One fight's pay: who took part (user ids, in ring order), what they did (the rules state) and which kind of
+-- fight it was.
 export type PayContext = {
 	Deps: Deps,
 	State: WorldBossMode.State,
 	Participants: { number },
 	Kind: Context.Kind,
-	Now: number,
-	LastPaidAt: { [number]: number },
 }
 
 local PRACTICE = WorldBossConfig.Practice
@@ -101,26 +99,33 @@ local function payEvent(ctx: PayContext): number
 	return paid
 end
 
--- Whether a practice may pay `player` today, taking one from the profile's allowance when it may. The server's
--- gap is asked first, so a practice it refuses never spends one of the day's paid practices.
+-- Whether a practice may pay `player` today, charging both caps in the profile when it may: one of the day's
+-- paid practices, and the gap, which starts now. The gap is asked first, so a practice it refuses never spends
+-- one of the day's paid practices.
 local function practiceAllowed(ctx: PayContext, player: Player, today: number): boolean
 	local deps = ctx.Deps
-	local last = ctx.LastPaidAt[player.UserId]
-	if last ~= nil and ctx.Now - last < PRACTICE.RewardGapSeconds then
-		local minutes = math.ceil((last + PRACTICE.RewardGapSeconds - ctx.Now) / SECONDS_PER_MINUTE)
-		deps.Notify.send(player, "boss.practice.noReward", { minutes = minutes }, "Info")
-		return false
-	end
 	local data = deps.DataService.get(player)
 	if data == nil then
 		log.warn("practice reward skipped for %s: profile not loaded", player.Name)
 		return false
 	end
 	local daily = data.Daily
+	local now = os.time()
+	local last = daily.PracticeLastPaidAt
+	if now - last < PRACTICE.RewardGapSeconds then
+		local minutes = math.ceil((last + PRACTICE.RewardGapSeconds - now) / SECONDS_PER_MINUTE)
+		deps.Notify.send(player, "boss.practice.noReward", { minutes = minutes }, "Info")
+		return false
+	end
 	local granted, used = DailyCap.take(daily.PracticeDay, daily.PracticePaid, today, PRACTICE.RewardsPerDay, 1)
-	if daily.PracticeDay ~= today or daily.PracticePaid ~= used then
-		daily.PracticeDay = today
-		daily.PracticePaid = used
+	local changed = daily.PracticeDay ~= today or daily.PracticePaid ~= used
+	daily.PracticeDay = today
+	daily.PracticePaid = used
+	if granted >= 1 then
+		daily.PracticeLastPaidAt = now
+		changed = true
+	end
+	if changed then
 		deps.DataService.push(player, "Daily")
 	end
 	if granted < 1 then
@@ -131,7 +136,7 @@ local function practiceAllowed(ctx: PayContext, player: Player, today: number): 
 end
 
 -- What a practice pays `player`, or nil for nothing. The reward is worked out first: only one worth
--- Practice.MinPaidFolios is a paid practice, which takes one of the day's allowance and starts the server's gap
+-- Practice.MinPaidFolios is a paid practice, which takes one of the day's allowance and starts the gap
 -- (practiceAllowed) or is refused. Anything less -- a late joiner's sliver of a share -- is paid its XP alone
 -- and charged nothing, so tagging along never spends the paid practices meant for a fight of their own.
 local function practicePay(ctx: PayContext, player: Player, today: number): WorldBossMode.Reward?
@@ -146,7 +151,6 @@ local function practicePay(ctx: PayContext, player: Player, today: number): Worl
 	if not practiceAllowed(ctx, player, today) then
 		return nil
 	end
-	ctx.LastPaidAt[player.UserId] = ctx.Now
 	return reward
 end
 
@@ -154,13 +158,6 @@ end
 -- "BossKill" quest advances: both are the event's, and a practice opened at will must not farm them.
 local function payPractice(ctx: PayContext): number
 	local deps = ctx.Deps
-	-- Entries past the gap no longer refuse anybody: dropped here, so the record stays as small as the
-	-- practices of the last RewardGapSeconds.
-	for userId, at in pairs(ctx.LastPaidAt) do
-		if ctx.Now - at >= PRACTICE.RewardGapSeconds then
-			ctx.LastPaidAt[userId] = nil
-		end
-	end
 	local today = DailyStreak.dayIndex(os.time())
 	local paid = 0
 	for _, player in ipairs(Context.livePlayers(ctx.Participants)) do

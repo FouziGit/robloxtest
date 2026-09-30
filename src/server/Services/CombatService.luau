@@ -17,20 +17,22 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local ChannelHold = require(Shared.Pure.ChannelHold)
+local ChannelHold = require(script.Parent.Parent.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MovementAudit = require(script.Parent.Parent.Security.MovementAudit)
-local MovementGuard = require(Shared.Pure.MovementGuard)
+local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
-local OriginGuard = require(Shared.Pure.OriginGuard)
+local OriginGuard = require(script.Parent.Parent.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
 local log = Log.new("CombatService")
+-- Each player's tick is a step of its own: one whose state throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 export type DamageKind = Types.DamageKind
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
@@ -1016,6 +1018,7 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	faults.forget(player)
 	MovementAudit.remove(player)
 	releaseCharacter(state, os.clock())
 	state.Trove:Destroy()
@@ -1663,7 +1666,7 @@ local function onHeartbeat(deltaTime: number)
 	local elapsed = if lastTickAt > 0 then now - lastTickAt else 0
 	lastTickAt = now
 	for player, state in pairs(states) do
-		tickPlayer(player, state, now, elapsed, replicate)
+		faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate)
 	end
 	-- Once per tick, after every player's own: a tick that came late is a server hitch, which excuses what it
 	-- makes a body look like. Under its own MicroProfiler label, so its cost can be read apart.

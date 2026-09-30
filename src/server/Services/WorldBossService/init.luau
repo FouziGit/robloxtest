@@ -41,7 +41,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Admission = require(script.Admission)
 local Audience = require(script.Audience)
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Context)
 local Encounter = require(script.Encounter)
 local GameConfig = require(Shared.Config.GameConfig)
@@ -50,6 +50,7 @@ local MatchConfig = require(Shared.Config.MatchConfig)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local Policy = require(script.Policy)
 local Rewards = require(script.Rewards)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.GameModes.WorldBossMode)
@@ -74,8 +75,6 @@ local deps: Deps
 local slot: Context.Slot = Context.newSlot()
 local accumulator = 0
 local ticks = 0
--- User id -> when a practice last paid them: the server's RewardGapSeconds guard (Rewards), across fights.
-local lastPaidAt: { [number]: number } = {}
 
 ----------------------------------------------------------------
 -- End of the fight
@@ -155,8 +154,6 @@ local function defeat(live: Boss, current: State, now: number)
 		State = current,
 		Participants = slot.Participants,
 		Kind = slot.Kind,
-		Now = now,
-		LastPaidAt = lastPaidAt,
 	}
 	log.try("Rewards.pay", Rewards.pay, pay)
 	Audience.push(now)
@@ -440,6 +437,12 @@ end
 -- open a practice. Returns whether they were taken in, and otherwise the Strings key of the reason and its
 -- params; no key when there is nothing to say (no live character).
 function WorldBossService.enterFromPortal(player: Player): (boolean, string?, { [string]: any }?)
+	-- A fight under way: its arena streams in around the ring before the gate lets anybody in (Teleport), and
+	-- everything below is asked after that wait, which may have changed any of it.
+	local live = slot.Boss
+	if live ~= nil then
+		Teleport.streamAround(player, live.Center)
+	end
 	if deps.Match.isInMatch(player) then
 		return false, "queue.inMatch"
 	end

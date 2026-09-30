@@ -28,11 +28,14 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("PortalService")
+-- Each player's watch is a step of its own: one that throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 type PortalId = PortalConfig.PortalId
 type NotifyKind = "Info" | "Success" | "Error"
@@ -48,7 +51,7 @@ type Deps = {
 	},
 	Movement: { isDown: (player: Player) -> boolean },
 	Match: { isInMatch: (player: Player) -> boolean },
-	Hub: { teleportToHub: (player: Player) -> () },
+	Hub: { travelToHub: (player: Player) -> boolean },
 	-- Each refuses with the Strings key the player is shown, or with none when there is nothing to say. `admits`
 	-- asks without moving anyone.
 	Battleground: {
@@ -152,11 +155,11 @@ local function dispatch(player: Player, id: PortalId): (boolean, string?, { [str
 	elseif id == "WorldBoss" then
 		return deps.WorldBoss.enterFromPortal(player)
 	end
-	-- Back to the hub: out of wherever the gate stood first, so neither place still counts them as its own.
+	-- Back to the hub: out of wherever the gate stood first, so neither place still counts them as its own. The hub
+	-- streams in around the landing before the body is moved (HubService.travelToHub).
 	deps.Battleground.leave(player)
 	deps.WorldBoss.leave(player)
-	deps.Hub.teleportToHub(player)
-	return true, nil, nil
+	return deps.Hub.travelToHub(player), nil, nil
 end
 
 -- A trip, and what follows it: the refusal said, or the arrival's cooldown, protection and news.
@@ -276,7 +279,7 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for player, watch in pairs(watches) do
 		if travelling[player] == nil then
-			step(player, watch, now)
+			faults.try(player, "watch of", step, player, watch, now)
 		end
 	end
 end
@@ -289,6 +292,7 @@ local function forget(player: Player)
 	watches[player] = nil
 	travelling[player] = nil
 	cooldownUntil[player] = nil
+	faults.forget(player)
 end
 
 ----------------------------------------------------------------

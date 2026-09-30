@@ -21,7 +21,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
-local BattlegroundLayout = require(Shared.Pure.BattlegroundLayout)
+local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.BattlegroundLayout)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
 local MovementGuardConfig = require(script.Parent.Parent.Parent.Config.MovementGuardConfig)

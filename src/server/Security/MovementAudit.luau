@@ -25,13 +25,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BotConfig = require(Shared.Config.BotConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
-local MovementGuard = require(Shared.Pure.MovementGuard)
+local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local StunWatch = require(Shared.Pure.StunWatch)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("Combat.MovementAudit")
+-- One body's audit is a step of its own, logged at most once per body per GameConfig.Server.FaultLogSeconds.
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 export type Deps = {
 	AntiCheat: {
@@ -794,7 +796,7 @@ function MovementAudit.step(now: number, hitch: boolean)
 	markSupport(bodies)
 	for _, body in ipairs(bodies) do
 		-- One body's failure must not blind the audit to the others.
-		log.try("audit of " .. body.Record.Player.Name, audit, body, now, hitch)
+		faults.try(body.Record.Player, "audit of", audit, body, now, hitch)
 	end
 end
 
@@ -853,6 +855,7 @@ end
 
 function MovementAudit.remove(player: Player)
 	records[player] = nil
+	faults.forget(player)
 end
 
 -- A new body, where the engine spawned it.

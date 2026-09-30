@@ -30,6 +30,7 @@ local UI = ReplicatedStorage:WaitForChild("UI")
 local GameConfig = require(Shared.Config.GameConfig)
 local LadderGate = require(Shared.Pure.LadderGate)
 local Log = require(Shared.Util.Log)
+local Lru = require(script.Parent.Parent.Pure.Lru)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Strings = require(Shared.Strings)
 local StudioConfig = require(script.Parent.Parent.Config.StudioConfig)
@@ -92,7 +93,7 @@ local pending: { [string]: { [number]: number } } = {}
 -- boardId -> userId -> os.clock() of the last write that landed. A failed write leaves no stamp: it earned
 -- no OrderedDataStore cooldown, and stamping it would make the retry wait one out for nothing.
 local lastWrite: { [string]: { [number]: number } } = {}
-local names: { [number]: string } = {}
+local names: Lru.Cache<number, string> = Lru.new(RankingConfig.Leaderboard.NameCacheSize)
 local rowTroves: { [string]: typeof(Trove.new()) } = {}
 
 local writeAccumulator = 0
@@ -209,7 +210,7 @@ local function onRatingChanged(player: Player, modeId: string, _before: number, 
 		logRefusal(refusal, player)
 		return
 	end
-	names[player.UserId] = player.Name
+	Lru.set(names, player.UserId, player.Name)
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		if boardId == modeId then
 			enqueue(boardId, player.UserId, after)
@@ -331,20 +332,20 @@ end
 -- Username for a leaderboard row. Online players and already resolved ids cost nothing; a failed
 -- lookup falls back to the raw id and is not cached, so the next refresh retries it. Yields.
 local function nameFor(userId: number): string
-	local cached = names[userId]
+	local cached = Lru.get(names, userId)
 	if cached ~= nil then
 		return cached
 	end
 	local player = Players:GetPlayerByUserId(userId)
 	if player ~= nil then
-		names[userId] = player.Name
+		Lru.set(names, userId, player.Name)
 		return player.Name
 	end
 	local ok, resolved = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
 	end)
 	if ok and type(resolved) == "string" then
-		names[userId] = resolved
+		Lru.set(names, userId, resolved)
 		return resolved
 	end
 	return tostring(userId)
@@ -550,10 +551,10 @@ function LeaderboardService.Start()
 	ranking.RatingChanged:Connect(onRatingChanged)
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		names[player.UserId] = player.Name
+		Lru.set(names, player.UserId, player.Name)
 	end
 	trove:Add(Players.PlayerAdded:Connect(function(player: Player)
-		names[player.UserId] = player.Name
+		Lru.set(names, player.UserId, player.Name)
 	end))
 	trove:Add(Players.PlayerRemoving:Connect(onPlayerRemoving))
 

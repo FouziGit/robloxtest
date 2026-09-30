@@ -1,6 +1,6 @@
 --!strict
 local Harness = require("./harness")
-local MatchmakingCore = require("../src/shared/Pure/MatchmakingCore")
+local MatchmakingCore = require("../src/server/Pure/MatchmakingCore")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 

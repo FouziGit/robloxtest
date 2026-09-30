@@ -45,6 +45,11 @@ GameConfig.Server = {
 	-- the server's doing, never an abandon (docs/QA.md R3). Also what a player who rejoins another server
 	-- at once may wait on top of ProfileStore's own session hand-over.
 	LeaveGraceSeconds = 2,
+	-- A per-player or per-match step of a tick that throws is written to the log at most once per element this
+	-- often (Log.faults), and a match whose tick throws this many ticks in a row is cancelled, its arena released
+	-- (MatchService): at TickRate, well within a second of its first failure.
+	FaultLogSeconds = 10,
+	MatchFaultTicks = 5,
 }
 
 GameConfig.Vfx = {

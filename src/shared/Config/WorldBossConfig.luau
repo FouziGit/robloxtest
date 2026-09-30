@@ -54,7 +54,8 @@ WorldBossConfig.Practice = {
 	-- A practice pays this share of the event's rewards: a solo top share earns 100 + 150 XP and 20 + 38 Folios.
 	RewardFactor = 0.25,
 	-- Paid practices a day, counted in the profile (Daily.PracticeDay / PracticePaid) so switching servers does
-	-- not reset it: at most 174 Folios a day. And, per server, at most one paid practice per RewardGapSeconds.
+	-- not reset it: at most 174 Folios a day. And at most one paid practice per RewardGapSeconds, from the
+	-- profile too (Daily.PracticeLastPaidAt), whichever server it is fought on.
 	RewardsPerDay = 3,
 	RewardGapSeconds = 1200,
 	-- Only a pay of at least this many Folios (before multipliers) counts against either cap. A share the

@@ -17,7 +17,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Elo = require(Shared.Pure.Elo)
+local Elo = require(script.Parent.Parent.Pure.Elo)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
@@ -28,10 +28,15 @@ local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardCon
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
 local log = Log.new("MatchService")
+-- Each match's tick is a step of its own: one whose mode throws never stops the others, and is cancelled once it
+-- has thrown MATCH_FAULT_TICKS ticks in a row (E9-S2): its failure is the one warning it writes, and its end line
+-- says it was cancelled.
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 -- Built by ArenaService: one free instance of a MatchConfig.Arenas entry, with its team spawn pads.
 -- Mirrors ArenaService.Arena exactly (acquire validates the pads and the kill zone before handing it
@@ -82,6 +87,8 @@ type RankingApi = {
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
+	hold: (matchId: string, modeId: string, players: { Player }) -> (),
+	release: (matchId: string) -> (),
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, count: number) -> ()) -> any }
@@ -138,6 +145,7 @@ type Active = {
 type Forfeit = { Active: Active, OpponentRating: number }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
+local MATCH_FAULT_TICKS = GameConfig.Server.MatchFaultTicks
 -- MatchChanged pushes per second; the client tweens between snapshots (see notes: a MatchConfig entry
 -- would be the proper home for this rate).
 local SNAPSHOT_HZ = MatchConfig.SnapshotHz
@@ -207,19 +215,26 @@ local function spawnFor(arena: Arena, team: number, slot: number): BasePart?
 	return teamSpawns[((slot - 1) % #teamSpawns) + 1]
 end
 
--- Drops the character on its pad, facing the middle of the arena. `player` is the owner, so the position
--- the server trusts follows the teleport: without it the player's next hitbox would be built at the hub
--- and hit nothing (CombatService.trustedCFrame).
-local function placeCharacter(player: Player, character: Model, spawn: BasePart, center: Vector3)
+-- Where a body stands on `spawn`, facing the middle of the arena.
+local function padFrame(spawn: BasePart, center: Vector3): CFrame
 	local position = spawn.Position + Vector3.new(0, SPAWN_CLEARANCE_STUDS, 0)
 	if position.X == center.X and position.Z == center.Z then
-		character:PivotTo(CFrame.new(position))
-	else
-		character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+		return CFrame.new(position)
 	end
-	-- The destination, passed explicitly: re-reading the character would anchor trust on whatever the
-	-- client replicates next rather than on the pad the server just put them on.
-	combat.resyncPosition(player, position)
+	return CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z))
+end
+
+-- Drops the character on its pad once the arena has streamed in around it (Teleport.travel), if `current` still
+-- says the round wants them there. Trust follows the teleport, anchored on the pad itself: without it the
+-- player's next hitbox would be built at the hub and hit nothing (CombatService.trustedCFrame).
+local function placeCharacter(
+	player: Player,
+	character: Model,
+	spawn: BasePart,
+	center: Vector3,
+	current: () -> boolean
+): boolean
+	return Teleport.travel(combat, player, character, padFrame(spawn, center), current)
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns
@@ -373,8 +388,9 @@ end
 ----------------------------------------------------------------
 
 -- Last step of every path out of a match: clear the participants, send them home, drop the Trove
--- (which releases the arena and disconnects the kill zone) and forget the match.
-local function finish(active: Active)
+-- (which releases the arena and disconnects the kill zone) and forget the match. `cancelled` when its tick kept
+-- failing (cancel): the players are told so, and the match's last line says it.
+local function finish(active: Active, cancelled: boolean?)
 	if active.Finished then
 		return
 	end
@@ -391,8 +407,14 @@ local function finish(active: Active)
 		if isLive(participant) and not participant.Released then
 			glyph.resetCooldowns(participant.Player)
 			registry.fire("MatchChanged", participant.Player, nil)
-			notify.send(participant.Player, "match.returning", nil, "Info")
+			if cancelled then
+				notify.send(participant.Player, "match.cancelled", nil, "Error")
+			else
+				notify.send(participant.Player, "match.returning", nil, "Info")
+			end
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
+			-- Let go, as releaseFromResult lets go: a finish that throws before this line leaves them to cancel.
+			participant.Released = true
 		end
 	end
 	active.Trove:Destroy()
@@ -400,7 +422,47 @@ local function finish(active: Active)
 	if index ~= nil then
 		table.remove(actives, index)
 	end
-	log.info("match %s ended (arena %s slot %d)", active.Match.Id, active.Arena.Id, active.Arena.SlotIndex)
+	faults.forget(active.Match.Id)
+	log.info(
+		"match %s %s (arena %s slot %d)",
+		active.Match.Id,
+		if cancelled then "cancelled: its tick kept failing" else "ended",
+		active.Arena.Id,
+		active.Arena.SlotIndex
+	)
+end
+
+-- A match whose tick keeps throwing is over, with no result: nothing is paid and no rating moves, because the
+-- server cannot stand behind a verdict its own tick could not reach. Its players are told and sent home, and its
+-- arena goes back to the pool, so a broken match never holds either. Whatever finish got through before it threw,
+-- if it did, nothing of the match outlives this: every step below is harmless when finish already took it. Whoever
+-- that finish did not reach is sent home here, each step on its own so the one that broke finish cannot stop the
+-- next, and before the arena under them is released (ArenaService destroys it). A match that was already finished
+-- had its end, and its result stands: they are told it is over, not that it was cancelled.
+local function cancel(active: Active)
+	local ended = active.Finished
+	local key = if ended then "match.returning" else "match.cancelled"
+	local kind: NotifyKind = if ended then "Info" else "Error"
+	log.try("finish " .. active.Match.Id, finish, active, true)
+	active.Finished = true
+	for _, participant in ipairs(active.Match.Participants) do
+		if activeByUserId[participant.UserId] == active then
+			activeByUserId[participant.UserId] = nil
+		end
+		if isLive(participant) and not participant.Released then
+			participant.Released = true
+			local player = participant.Player
+			log.try("MatchChanged for " .. player.Name, registry.fire, "MatchChanged", player, nil)
+			log.try("notify " .. player.Name, notify.send, player, key, nil, kind)
+			log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
+		end
+	end
+	log.try("release of " .. active.Match.Id, active.Trove.Destroy, active.Trove)
+	local index = table.find(actives, active)
+	if index ~= nil then
+		table.remove(actives, index)
+	end
+	faults.forget(active.Match.Id)
 end
 
 local function enterResult(active: Active, now: number)
@@ -432,6 +494,16 @@ end
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)
+	local function current(): boolean
+		return not active.Finished and active.Generation == generation
+	end
+	-- Every pad asked of its player's client at once, so the streams run while the bodies load one by one.
+	for _, participant in ipairs(active.Match.Participants) do
+		local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
+		if pad ~= nil and isLive(participant) then
+			Teleport.prestream(participant.Player, padFrame(pad, center).Position)
+		end
+	end
 	for _, participant in ipairs(active.Match.Participants) do
 		if active.Finished or active.Generation ~= generation then
 			return
@@ -444,11 +516,13 @@ local function prepareRound(active: Active)
 			local character = player.Character
 			if loaded and character ~= nil and not active.Finished and active.Generation == generation then
 				local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
-				if pad ~= nil then
-					placeCharacter(player, character, pad, center)
-					active.Placed[player] = { Character = character, At = os.clock() }
-				else
+				if pad == nil then
 					log.warn("arena %s has no spawn for team %d", active.Arena.Id, participant.Team)
+				elseif placeCharacter(player, character, pad, center, current) then
+					active.Placed[player] = { Character = character, At = os.clock() }
+				end
+				if not current() then
+					return
 				end
 				participant.Alive = true
 				movement.applyFreeze(player, active.Def.CountdownSeconds)
@@ -538,11 +612,11 @@ end
 local function advance(active: Active, now: number)
 	local match = active.Match
 	if match.Phase ~= "Result" then
-		local ok, verdict = pcall(active.Mode.RoundVerdict, match, now)
-		if not ok then
-			log.warn("mode %s RoundVerdict failed for match %s: %s", active.Def.Id, match.Id, tostring(verdict))
-		elseif verdict ~= nil then
-			applyVerdict(active, (verdict :: any) :: GameModes.Verdict, now)
+		-- Unguarded: a mode that cannot give its verdict throws into the match's own step, which counts it and
+		-- cancels the match if it keeps failing. Caught here, it left the round without an end, forever.
+		local verdict = active.Mode.RoundVerdict(match, now)
+		if verdict ~= nil then
+			applyVerdict(active, verdict, now)
 			return
 		end
 	end
@@ -619,6 +693,29 @@ local function judgeFalls(active: Active, now: number)
 	end
 end
 
+-- One match's tick.
+local function tickMatch(active: Active, now: number)
+	-- Only a finish that threw halfway leaves a finished match in the list: failing here hands it to cancel.
+	assert(not active.Finished, "a finished match is still ticking")
+	if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
+		-- A setup thread that never came back must not strand the match (and its arena) forever.
+		log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
+		active.Preparing = false
+	end
+	if not active.Preparing then
+		-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
+		judgeFalls(active, now)
+		refresh(active)
+		advance(active, now)
+	end
+	if not active.Finished then
+		active.Ticks += 1
+		if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
+			pushSnapshots(active, now)
+		end
+	end
+end
+
 local function onHeartbeat(deltaTime: number)
 	accumulator += deltaTime
 	if accumulator < TICK_SECONDS then
@@ -628,22 +725,8 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for index = #actives, 1, -1 do
 		local active = actives[index]
-		if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
-			-- A setup thread that never came back must not strand the match (and its arena) forever.
-			log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
-			active.Preparing = false
-		end
-		if not active.Finished and not active.Preparing then
-			-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
-			judgeFalls(active, now)
-			refresh(active)
-			advance(active, now)
-		end
-		if not active.Finished then
-			active.Ticks += 1
-			if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
-				pushSnapshots(active, now)
-			end
+		if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then
+			cancel(active)
 		end
 	end
 end
@@ -904,6 +987,15 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
+	end)
+	-- RankingService remembers the roster's ratings for as long as the match can be scored, and not a tick longer.
+	local roster: { Player } = {}
+	for _, participant in ipairs(participants) do
+		table.insert(roster, participant.Player)
+	end
+	log.try("Ranking.hold " .. match.Id, ranking.hold, match.Id, def.Id, roster)
+	trove:Add(function()
+		log.try("Ranking.release " .. match.Id, ranking.release, match.Id)
 	end)
 	trove:Connect(arena.KillZone.Touched, function(part: BasePart)
 		onKillZoneTouched(active, part)

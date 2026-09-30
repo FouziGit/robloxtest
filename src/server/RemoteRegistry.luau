@@ -12,6 +12,11 @@
 -- It also remembers when each player's last VALID call arrived (`lastInbound`): proof the client is still
 -- sending, which the movement guard needs before it may call a body that stopped moving a cheat rather
 -- than a connection that stopped.
+--
+-- A server→client event is still an event a client can FireServer on. Nothing listened to those, so the
+-- engine queued what a tampered client sent them and dropped it unseen: no strike, however much of it came.
+-- Each one gets a sink at creation, its only listener (`on` refuses them), which reports the call as a wrong
+-- direction, like any other call a well-formed client can never make.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -55,6 +60,11 @@ function RemoteRegistry.create(reportAbuse: AbuseReporter): Registry
 		instance.Name = name
 		instance.Parent = folder
 		instances[name] = instance
+		if definition.Direction == "ServerToClient" and definition.Kind ~= "RemoteFunction" then
+			(instance :: RemoteEvent).OnServerEvent:Connect(function(player: Player)
+				reportAbuse(player, name, "wrong direction", "Schema")
+			end)
+		end
 	end
 	folder.Parent = ReplicatedStorage
 
@@ -117,6 +127,9 @@ function RemoteRegistry.create(reportAbuse: AbuseReporter): Registry
 		local instance = registry.get(name)
 		if not (instance:IsA("RemoteEvent") or instance:IsA("UnreliableRemoteEvent")) then
 			error("[RemoteRegistry] " .. name .. " is not an event")
+		end
+		if Remotes.Definitions[name].Direction ~= "ClientToServer" then
+			error("[RemoteRegistry] " .. name .. " is server-to-client: its only listener is the sink")
 		end
 		(instance :: RemoteEvent).OnServerEvent:Connect(function(player: Player, ...: any)
 			local args = table.pack(...)

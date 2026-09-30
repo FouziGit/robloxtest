@@ -108,6 +108,9 @@ export type DailyData = {
 	ForgerFolios: number,
 	PracticeDay: number,
 	PracticePaid: number,
+	-- When a practice last paid out (os.time, 0 for never): WorldBossConfig.Practice.RewardGapSeconds runs from
+	-- it, whichever server the next practice is fought on.
+	PracticeLastPaidAt: number,
 }
 
 export type PurchasesData = {

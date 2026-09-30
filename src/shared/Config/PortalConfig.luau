@@ -53,7 +53,8 @@ PortalConfig.CheckHz = 10
 PortalConfig.CooldownSeconds = 3
 PortalConfig.EntryIFrameSeconds = 1.5
 -- The longest a trip waits for the world around its landing to stream in, when the place streams at all
--- (Workspace.StreamingEnabled): the Battleground lies past the default streaming radius.
+-- (Workspace.StreamingEnabled, pinned in default.project.json): every server teleport that can wait goes through
+-- World/Teleport with it -- the Battleground lies past the streaming radius, the arenas 900 studs up.
 PortalConfig.StreamTimeoutSeconds = 2
 
 -- The two hub gates: on a ring around the spawn, either side of the platform's empty north (-pi/2), facing

@@ -4,7 +4,7 @@
 -- (tests/MovementScenarios.spec.luau); these gates are about what the services around it must keep doing
 -- for its verdicts to mean anything.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
+local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -23,7 +23,7 @@ local BATTLEGROUND_MAP = "src/server/Services/BattlegroundService/Map.luau"
 local TAG_BARRIER = "CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)"
 local REGISTRY = "src/server/RemoteRegistry.luau"
 local AUDIT_MODULE = "src/server/Security/MovementAudit.luau"
-local GUARD = "src/shared/Pure/MovementGuard.luau"
+local GUARD = "src/server/Pure/MovementGuard.luau"
 
 local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))
@@ -238,7 +238,7 @@ describe("the movement audit's wiring", function()
 	it("is stepped once per tick, after every player, with the server's own hitch, under its own label", function()
 		local beat = functionIn(COMBAT, "local function onHeartbeat(")
 		expect(beat).toContain(
-			'for player, state in pairs(states) do tickPlayer(player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
+			'for player, state in pairs(states) do faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
 		)
 		expect(count(strip(fs.readFile(COMBAT)), "MovementAudit.step,")).toBe(1)
 		expect(strip(fs.readFile(COMBAT))).toContain('local AUDIT_PROFILE_LABEL = "MovementAudit"')
@@ -391,18 +391,16 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
-		expect(players).toBe(7)
+		-- Caret, the Dagger, and Teleport.place, through which a match pad, the hub, the Erasure's pads and the
+		-- Battleground's camp all put a body down (D-221).
+		expect(players).toBe(3)
 		expect(others).toBe(3)
 	end)
 
 	it("sends the destination itself, never a position read back from the body", function()
 		for path, call in pairs({
 			["src/server/Effects/GlyphEffects.luau"] = "ctx.Combat.resyncPosition(ctx.Caster, landing)",
-			["src/server/Services/MatchService.luau"] = "combat.resyncPosition(player, position)",
-			["src/server/Services/HubService.luau"] = "combat.resyncPosition(player, landing)",
-			["src/server/Services/WorldBossService/Encounter.luau"] = "deps.Combat.resyncPosition(player, position)",
-			["src/server/Services/BattlegroundService/Roster.luau"] = "deps.Combat.resyncPosition(player, landing)",
+			["src/server/World/Teleport.luau"] = "combat.resyncPosition(player, target.Position)",
 		}) do
 			expect(strip(fs.readFile(path))).toContain(call)
 		end
@@ -804,8 +802,14 @@ describe("the kill zone, judged by the server", function()
 	)
 
 	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
+			'assert(not active.Finished, "a finished match is still ticking")'
+		)
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
+			"if not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+		)
 		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
-			"if not active.Finished and not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+			'if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then cancel(active) end'
 		)
 		local touched = functionIn(MATCH, "local function onKillZoneTouched(")
 		expect(touched).toContain(
@@ -822,7 +826,7 @@ describe("the kill zone, judged by the server", function()
 		-- new body stands on the hub, far under the arena, and the client replicates the hub for a round trip after
 		-- its pad. Judged on those, an honest player was killed at the start of the round.
 		expect(functionIn(MATCH, "local function prepareRound(")).toContain(
-			"placeCharacter(player, character, pad, center) active.Placed[player] = { Character = character, At = os.clock() }"
+			"elseif placeCharacter(player, character, pad, center, current) then active.Placed[player] = { Character = character, At = os.clock() } end"
 		)
 		local source = strip(fs.readFile(MATCH))
 		expect(count(source, "active.Placed[")).toBe(2)

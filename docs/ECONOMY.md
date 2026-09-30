@@ -23,7 +23,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
 | Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
-| Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour (profil), 1 / 20 min ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
+| Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour, 1 / 20 min (les deux dans le profil, D-222) ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |

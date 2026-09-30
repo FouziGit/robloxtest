@@ -193,7 +193,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 | Champ de bataille (D-131) | tous (12 max) | libre | — | XP/Folios par Faussaire vaincu (Folios plafonnés à 150/jour), quête `BotKill` |
-| Entraînement contre l'Effacement (D-132) | 1+ (rejoindre en cours ; le boss grandit au premier coup du nouveau venu) | 4 min | boss vaincu | ×0,25 d'une participation, 3 fois/jour, 1 fois/20 min (une paie sous 1 Folio ne décompte rien), ni quête ni `BossKills` |
+| Entraînement contre l'Effacement (D-132) | 1+ (rejoindre en cours ; le boss grandit au premier coup du nouveau venu) | 4 min | boss vaincu | ×0,25 d'une participation, 3 fois/jour, 1 fois/20 min, les deux tenus par le profil (une paie sous 1 Folio ne décompte rien), ni quête ni `BossKills` |
 
 Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D-130) : on se tient dans le cercle de craie sous le portique (1,5 s ; 2 s pour revenir), sans touche ni remote, et le serveur déplace. Au champ de bataille, PvE seulement : les Faussaires (Barbouilleur au corps à corps, Plume à distance, Surchargeur lourd — le joueur ne lit que « Faussaires ») annoncent chaque coup à l'encre au sol pendant toute sa préparation (D-133) ; trois pour un joueur, un de plus par joueur actif, dix au plus ; un camp à l'ouest où ils n'entrent pas, où l'on régénère et où l'on réapparaît, et d'où un coup ne compte pour rien (D-134). L'événement de l'Effacement y appelle les joueurs comme ailleurs.
 

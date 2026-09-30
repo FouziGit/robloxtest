@@ -10,11 +10,11 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local DataMigration = require(Shared.Pure.DataMigration)
+local DataMigration = require(script.Parent.Parent.Pure.DataMigration)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local InputConfig = require(Shared.Config.InputConfig)
-local LegacyNames = require(Shared.Pure.LegacyNames)
+local LegacyNames = require(script.Parent.Parent.Pure.LegacyNames)
 local Log = require(Shared.Util.Log)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProfileStore = require(script.Parent.Parent.Vendor.ProfileStore)
@@ -143,6 +143,7 @@ function DataService.template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			PracticeLastPaidAt = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},

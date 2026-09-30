@@ -203,7 +203,13 @@ end)
 describe("a member", function()
 	it("is placed with trust re-anchored on the landing the server chose", function()
 		local place = body(module("Roster"), "function Roster.place(", "Roster")
-		expect(ordered(place, "character:PivotTo(", "deps.Combat.resyncPosition(player, landing)")).toBe(true)
+		expect(
+			place:find(
+				"Teleport.place(deps.Combat, player, character, CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		local enter = body(module("init"), "function BattlegroundService.enter(", "init")
 		expect(ordered(enter, "Roster.place(player, character, landing)", "Roster.admit(")).toBe(true)
 		local redirect = body(module("Roster"), "local function redirect(", "Roster")
@@ -231,7 +237,7 @@ describe("a member", function()
 		local steps = {
 			"local admitted, refusal = BattlegroundService.admits(player)",
 			"if not admitted then return false, refusal end",
-			"RequestStreamAroundAsync",
+			"Teleport.streamAround(player, landing)",
 			"deps.Match.isInMatch(player)",
 			"Roster.hasRoom(player)",
 			"deps.WorldBoss.isEngaged(player)",

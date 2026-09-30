@@ -18,6 +18,7 @@ local CombatConfig = require(Shared.Config.CombatConfig)
 local Context = require(script.Parent.Context)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
+local Teleport = require(script.Parent.Parent.Parent.World.Teleport)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.Parent.GameModes.WorldBossMode)
@@ -184,9 +185,10 @@ function Encounter.build(arena: Arena, health: number): Boss
 	}
 end
 
--- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss, and returns
--- the body it placed (nil when it placed none): the one its fall rule judges. The opening of a fight places
--- everybody through here, and so does the hub's gate for whoever joins it later.
+-- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss, now
+-- (Teleport.place), and returns the body it placed (nil when it placed none): the one its fall rule judges. The
+-- opening of a fight places everybody through here, and so does the hub's gate for whoever joins it later -- once
+-- the gate has had the arena streamed in around the ring (WorldBossService.enterFromPortal).
 function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: Vector3): Model?
 	local pads = arena.Spawns[1]
 	if pads == nil or #pads == 0 then
@@ -199,15 +201,9 @@ function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: 
 	end
 	local pad = pads[((slot - 1) % #pads) + 1]
 	local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
-	character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
-	local root = character.PrimaryPart
-	if root ~= nil then
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-	end
-	-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on the pad
-	-- the server chose, or the first hit this player lands on the boss is built back where they stood.
-	deps.Combat.resyncPosition(player, position)
+	-- Trust follows the teleport, anchored on the pad itself, or the first hit this player lands on the boss is
+	-- built back where they stood.
+	Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
 	return character
 end
 

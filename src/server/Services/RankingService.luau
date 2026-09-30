@@ -15,12 +15,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Elo = require(Shared.Pure.Elo)
+local Elo = require(script.Parent.Parent.Pure.Elo)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local RatingMemory = require(script.Parent.Parent.Pure.RatingMemory)
 local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 
@@ -95,37 +96,24 @@ local function isRankedMode(modeId: string): boolean
 	return mode ~= nil and mode.Ranked
 end
 
--- The player's entry for `modeId`, created at RankingConfig.InitialRating the first time it is needed.
--- Last rating this server saw for a user id, per mode. A player who left mid-match is gone from
--- Players and their profile is released, so applyResult can no longer read their rating: without this
--- the opposing team was averaged against RankingConfig.InitialRating and the remaining player gained
--- almost nothing for beating a high-rated opponent who quit.
-local lastRating: { [string]: { [number]: number } } = {}
-
--- Match id whose penalty applyAbandon already wrote for a user id. Keyed by match, not by a bare
--- boolean, for two reasons:
---  * applyAbandon consults it, so the same match can never be debited twice for one player, whoever
---    calls it again;
---  * an entry orphaned by a match that ended without a result is inert, because it can only ever match
---    the id that wrote it. A match can end that way: MatchService finishes outright when nobody is left,
---    with no result to apply.
-local settled: { [number]: string } = {}
+-- Of the players of the live ranked matches (MatchService holds them from start to end), the last rating this
+-- server saw per mode, and the match whose forfeit is already debited (RatingMemory). A player who left mid-match is
+-- gone from Players and their profile is released, so applyResult can no longer read their rating: without the
+-- first, the opposing team was averaged against RankingConfig.InitialRating and the remaining player gained almost
+-- nothing for beating a high-rated opponent who quit. The second is keyed by match, so applyAbandon can never debit
+-- the same match twice for one player, whoever calls it again. Neither outlives the match: a long-lived server keeps
+-- the rosters in play, not every ranked player it ever saw.
+local memory = RatingMemory.new()
 
 local function remember(modeId: string, userId: number, rating: number)
-	local byUser = lastRating[modeId]
-	if byUser == nil then
-		byUser = {}
-		lastRating[modeId] = byUser
-	end
-	byUser[userId] = rating
+	RatingMemory.remember(memory, modeId, userId, rating)
 end
 
 local function knownRating(modeId: string, userId: number): number
-	local byUser = lastRating[modeId]
-	local remembered = if byUser ~= nil then byUser[userId] else nil
-	return remembered or RankingConfig.InitialRating
+	return RatingMemory.known(memory, modeId, userId) or RankingConfig.InitialRating
 end
 
+-- The player's entry for `modeId`, created at RankingConfig.InitialRating the first time it is needed.
 local function modeEntry(data: ProfileData, modeId: string): RankModeData
 	local existing = data.Rank.Modes[modeId]
 	if existing ~= nil then
@@ -142,9 +130,23 @@ local function modeEntry(data: ProfileData, modeId: string): RankModeData
 	return created
 end
 
--- The rating this server last saw for `userId` in `modeId`, RankingConfig.InitialRating when it never
--- saw one. Unlike getRating this needs no live Player, so a roster average stays right after somebody
--- disconnects.
+-- A match starts: its participants are held until it is released, each remembered at the rating their profile
+-- holds now, so a roster average is still right once one of them has disconnected.
+function RankingService.hold(matchId: string, modeId: string, players: { Player })
+	for _, player in ipairs(players) do
+		RatingMemory.hold(memory, matchId, player.UserId)
+		RankingService.getRating(player, modeId)
+	end
+end
+
+-- A match is over, however it ended: whoever it held and no other live match holds is forgotten.
+function RankingService.release(matchId: string)
+	RatingMemory.release(memory, matchId)
+end
+
+-- The rating this server last saw for `userId` in `modeId` while a live match held them,
+-- RankingConfig.InitialRating otherwise. Unlike getRating this needs no live Player, so a roster average
+-- stays right after somebody disconnects.
 function RankingService.lastKnownRating(modeId: string, userId: number): number
 	return knownRating(modeId, userId)
 end
@@ -216,9 +218,8 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		for _, participant in ipairs(participants) do
 			local entry = participant.Entry
 			local player = participant.Player
-			if settled[participant.UserId] == result.MatchId then
+			if RatingMemory.consume(memory, participant.UserId, result.MatchId) then
 				-- applyAbandon already debited THIS match for them when they left.
-				settled[participant.UserId] = nil
 				continue
 			end
 			if entry == nil or player == nil then
@@ -279,7 +280,7 @@ function RankingService.applyAbandon(
 	if not isRankedMode(modeId) then
 		return nil
 	end
-	if settled[player.UserId] == matchId then
+	if RatingMemory.isSettled(memory, player.UserId, matchId) then
 		-- Already debited for this match.
 		return nil
 	end
@@ -298,7 +299,7 @@ function RankingService.applyAbandon(
 	entry.PeakRating = math.max(entry.PeakRating, after)
 	dataService.push(player, RANK_SECTION)
 	remember(modeId, player.UserId, after)
-	settled[player.UserId] = matchId
+	RatingMemory.settle(memory, player.UserId, matchId)
 	RankingService.RatingChanged:Fire(player, modeId, before, after)
 	log.info(
 		"%s abandoned %s: %d -> %d (k %d, opponent %.0f)",

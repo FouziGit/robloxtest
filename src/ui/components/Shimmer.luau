@@ -144,6 +144,8 @@ function Shimmer.new(host: GuiObject, corner: UDim, zIndex: number): Shimmer
 			sweep()
 		end
 	end
+	-- Moved to another screen, it listens to that one; taken off every screen -- destroyed with what it is laid
+	-- on, without its Destroy (a sheet that goes with its item's ribbon) -- it lets go of the last.
 	trove:Connect(host.AncestryChanged, function()
 		local layer = host:FindFirstAncestorWhichIsA("LayerCollector") :: LayerCollector?
 		if layer ~= watched then

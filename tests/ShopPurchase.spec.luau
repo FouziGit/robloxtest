@@ -7,6 +7,7 @@
 -- on screen to say so.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -24,7 +25,7 @@ type Fixture = {
 	toasts: { string },
 }
 
-local function setup(folios: number): Fixture
+local function setup(folios: number, rarity: string?): Fixture
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 	})
@@ -66,7 +67,7 @@ local function setup(folios: number): Fixture
 		CosmeticId = ITEM,
 		NameKey = "cosmetic." .. ITEM,
 		Slot = "Title",
-		Rarity = "Common",
+		Rarity = rarity or "Common",
 		PriceFolios = 100,
 		ProductKey = "",
 		Owned = false,
@@ -176,6 +177,48 @@ describe("a confirm sheet closing, run", function()
 		sheet.CancelButton.Instance.Activated:Fire()
 		expect(#answers).toBe(0)
 		expect(sheet.ConfirmButton.Instance.Selectable).toBe(false)
+	end)
+end)
+
+describe("a purchase sheet, run", function()
+	it("shows the item's rarity in its colour and its pips beside its name, as well as in words", function()
+		for rarity, def in pairs(ThemeConfig.Rarity) do
+			local fixture = setup(500, rarity)
+			local Theme = fixture.world.require("src/ui/Theme")
+			local row = fixture.card:FindFirstChild("Item", true)
+			assert(row ~= nil, "the sheet has no item row: this gate would check nothing")
+			local name = row:FindFirstChild("Name")
+			local pill = row:FindFirstChild("Rarity")
+			assert(pill ~= nil, rarity .. ": the sheet does not show the item's rarity")
+			expect(pill.LayoutOrder).toBeGreaterThan(name.LayoutOrder)
+			expect(pill.BackgroundColor3).toBe(Theme.rarity(rarity).Fill)
+			expect(pill:FindFirstChild("Word", true).Text).toBe("shop.rarity." .. rarity)
+			local pips = 0
+			for _, pip in ipairs(pill:FindFirstChild("Pips", true):GetChildren()) do
+				if pip:IsA("TextLabel") then
+					pips += 1
+				end
+			end
+			expect(pips).toBe(def.Pips)
+			-- A Legendary's shimmers, as its card does.
+			expect(pill:FindFirstChild("Shine") ~= nil).toBe(def.Shimmer == true)
+			-- The sheet still says it in words.
+			local said = false
+			for _, label in ipairs(fixture.card:GetDescendants()) do
+				if
+					label:IsA("TextLabel")
+					and label.Text == "shop.rarity." .. rarity
+					and not label:IsDescendantOf(pill)
+				then
+					said = true
+				end
+			end
+			expect(said).toBe(true)
+			-- Gone with the sheet.
+			fixture.purchases:Close()
+			fixture.world:advance(1)
+			expect(fixture.card:FindFirstChild("Rarity", true)).toBeNil()
+		end
 	end)
 end)
 

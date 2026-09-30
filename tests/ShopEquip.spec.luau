@@ -428,16 +428,35 @@ describe("a Legendary card, run", function()
 		expect(screen.Instance:FindFirstChild("ConfirmSheet", true)).never.toBeNil()
 	end)
 
-	it("keeps the Shop within the animated gradients a screen may sweep", function()
-		expect(ShopConfig.Rotation.Legendary).toBeLessThanOrEqual(ThemeConfig.Budget.MaxAnimatedGradients)
-		local screen = todayCards()
-		local shines = 0
+	it("keeps the Shop within the animated gradients a screen may sweep, its sheet open", function()
+		-- The rotation's Legendary cards, and the ribbon of the one the sheet asks about.
+		expect(ShopConfig.Rotation.Legendary + 1).toBeLessThanOrEqual(ThemeConfig.Budget.MaxAnimatedGradients)
+		local screen, faces, world = todayCards()
+		buttonUnder(faces[LEGENDARY], "shop.buyFolios").Activated:Fire()
+		world:advance(0.5)
+		local gradients = {}
 		for _, part in ipairs(screen.Instance:GetDescendants()) do
 			if part.Name == "Shine" then
-				shines += 1
+				table.insert(gradients, part:FindFirstChildOfClass("UIGradient"))
 			end
 		end
-		expect(shines).toBe(1)
+		expect(#gradients).toBe(2)
+		-- Both sweep: neither is the one past the budget held still.
+		local moved: { [number]: boolean } = {}
+		local last = {}
+		for index, gradient in ipairs(gradients) do
+			last[index] = gradient.Offset
+		end
+		for _ = 1, 5 * 60 do
+			world:frames(1)
+			for index, gradient in ipairs(gradients) do
+				if gradient.Offset ~= last[index] then
+					moved[index] = true
+				end
+				last[index] = gradient.Offset
+			end
+		end
+		expect(moved[1] == true and moved[2] == true).toBe(true)
 	end)
 end)
 

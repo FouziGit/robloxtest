@@ -96,13 +96,14 @@ local VIGNETTE_STILL = 0.7
 local VIGNETTE_HOLD = 0.25
 local LOW_SOUND = "Error"
 
+-- A number on the plate, in the sheet: the board's ink plates write their numbers in it.
 local function numberLabel(name: string, size: number, order: number): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.FontFace = Theme.Fonts.Numeric
 	label.TextSize = size
-	label.TextColor3 = Theme.Colors.TextInverse
+	label.TextColor3 = Theme.Colors.PanelRaised
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Size = UDim2.fromScale(1, 1)
 	label.LayoutOrder = order

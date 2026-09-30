@@ -124,9 +124,10 @@ describe("the combat dock", function()
 			expect(ThemeConfig.contrast(fill, COLORS.Well)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
 		end
 		expect(ThemeConfig.contrast(COLORS.Danger, COLORS.Health)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
-		-- The numbers are vellum on the ink plate.
-		expect(has(dock, "label.TextColor3 = Theme.Colors.TextInverse")).toBe(true)
-		expect(ThemeConfig.contrast(COLORS.TextInverse, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		-- The numbers are the sheet on the ink plate, as the board writes them.
+		expect(has(dock, "label.TextColor3 = Theme.Colors.PanelRaised")).toBe(true)
+		expect(has(dock, "TextInverse")).toBe(false)
+		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
 		expect(has(dock, 'Kind = "Plate",')).toBe(true)
 		expect(has(dock, 'Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)')).toBe(true)
 	end)

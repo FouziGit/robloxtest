@@ -32,8 +32,9 @@ local function period(name: QuestLogic.Period, unixTime: number): Claimables.Per
 	local count = QuestConfig.Periods[name].Count
 	return {
 		Live = QuestLogic.periodKey(name, unixTime),
-		Select = function(setKey: string): { any }
-			return QuestLogic.select(QuestConfig.Pool, name, count, setKey)
+		Select = function(setKey: string, swaps: { [string]: string }?): { any }
+			local drawn = QuestLogic.select(QuestConfig.Pool, name, count, setKey, QuestConfig.SoloFloor)
+			return QuestLogic.swapped(QuestConfig.Pool, drawn, swaps)
 		end,
 	}
 end

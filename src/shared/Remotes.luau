@@ -98,6 +98,13 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf({ "Daily", "Weekly" }), Guard.string({ min = 1, max = 64 }) },
 		Rate = { Capacity = 6, Refill = 1 },
 	},
+	-- One free reroll a day (QuestConfig.Rerolls): a player needs one press, so the bucket holds two.
+	RerollQuest = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf({ "Daily", "Weekly" }), Guard.string({ min = 1, max = 64 }) },
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
 	ClaimDaily = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",

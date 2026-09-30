@@ -334,6 +334,17 @@ Strings.Table = {
 	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
 	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
+	["quest.reroll"] = { en = "Swap", fr = "Changer" },
+	["quest.rerolled"] = { en = "New quest: {name}", fr = "Nouvelle quête : {name}" },
+	["quest.rerollRefused"] = { en = "This quest can't be swapped.", fr = "Cette quête ne peut pas être changée." },
+	["trials.capped"] = {
+		en = "The training dummies pay less until tomorrow. The portals pay more!",
+		fr = "Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus !",
+	},
+	["trials.idle"] = {
+		en = "Cast a glyph or dash to earn from the training dummies.",
+		fr = "Trace un glyphe ou fais une ruée pour gagner avec les mannequins.",
+	},
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
 	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
 	["daily.claimed"] = {

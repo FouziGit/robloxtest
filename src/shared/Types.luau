@@ -90,6 +90,8 @@ export type QuestSetData = {
 	PeriodKey: string, -- day or week key the set belongs to, with the pool revision it was drawn at (QuestLogic.setKey)
 	Progress: QuestProgress,
 	Claimed: { [string]: boolean },
+	-- The quests of the draw a free reroll replaced, each by the quest that took its place (QuestLogic.reroll).
+	Swaps: { [string]: string },
 }
 export type QuestsData = {
 	Daily: QuestSetData,
@@ -111,6 +113,11 @@ export type DailyData = {
 	-- When a practice last paid out (os.time, 0 for never): WorldBossConfig.Practice.RewardGapSeconds runs from
 	-- it, whichever server the next practice is fought on.
 	PracticeLastPaidAt: number,
+	-- The hub's Trials (TrialPay): the day both counts belong to, the kills paid their whole XP, and the Folios
+	-- paid (GameConfig.Enemy.Pay).
+	TrialDay: number,
+	TrialKills: number,
+	TrialFolios: number,
 }
 
 -- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level

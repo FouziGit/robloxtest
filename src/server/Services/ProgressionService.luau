@@ -1,6 +1,7 @@
 --!strict
 -- ProgressionService: player XP and levels. Cascades level-ups, mirrors Level / Folios into leaderstats
--- and forwards battle pass XP. The single writer of Progression.
+-- and forwards battle pass XP, except from the sources ProgressionConfig.PassExcluded names. The single
+-- writer of Progression.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +36,8 @@ local LEADERSTAT_LEVEL = "Level"
 local LEADERSTAT_FOLIOS = "Folios"
 -- Pass key in ProfileData.Passes granting the XP multiplier (see MonetizationConfig.Passes).
 local VIP_PASS_KEY = "Vip"
+-- XP sources that level the player but never reach the pass (the Trials of the hub, E10-S3).
+local PASS_EXCLUDED = ProgressionConfig.PassExcluded
 
 local ProgressionService = {}
 
@@ -157,7 +160,7 @@ function ProgressionService.addXp(player: Player, amount: number, reason: string
 	end
 
 	local passXp = math.floor(amount * ProgressionConfig.BattlepassXpMultiplier)
-	if passXp > 0 then
+	if passXp > 0 and not PASS_EXCLUDED[reason] then
 		battlepass.addXp(player, passXp)
 	end
 	return granted

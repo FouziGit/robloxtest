@@ -42,7 +42,7 @@ Screens.LIST = {
 
 -- A player part-way into everything: a daily reward to claim, a pass tier to claim, three glyphs equipped.
 function Screens.profile(today: number): any
-	local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+	local quests = { PeriodKey = "", Claimed = {}, Progress = {}, Swaps = {} }
 	return {
 		Settings = {
 			Keyboard = table.clone(InputConfig.DefaultKeyboard),

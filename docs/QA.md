@@ -166,6 +166,27 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 
 26. **Le champ de bataille chargé à l'arrivée.** Si `Workspace.StreamingEnabled` est actif dans la place (`docs/PUBLISH.md` §6.8), entrer au champ de bataille. Attendu : le sol, le camp et le portail de retour sont là dès l'arrivée, et le joueur ne tombe pas. La page est à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut. L'entrée attend au plus 2 s que le client charge les alentours du point d'arrivée (`World/Teleport.streamAround`, seul appel à `RequestStreamAroundAsync` ; `PortalConfig.StreamTimeoutSeconds = 2`), comme chaque voyage qui peut attendre : pads d'un match, porte de l'Effacement, retour au hub par un portail (`HubService.travelToHub`). Revenir ensuite au hub par le portail du camp, puis finir un duel : ce retour-là n'attend aucun chargement (`HubService.teleportToHub`, l'arène est rendue aussitôt). Noter si le hub apparaît en retard ou si le joueur tombe. Si `StreamingEnabled` est inactif, noter « sans objet ».
 
+## 6 ter. Épreuves plafonnées, quêtes Solo, relance et pass d'un Volume
+
+Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S5, E10-S10). Les règles sont tenues sous Lune (`tests/TrialPay.spec.luau`, `tests/QuestLogic.spec.luau`, `tests/QuestReroll.spec.luau`, `tests/Pacing.spec.luau`) ; ce qui suit est ce que Lune ne peut pas voir.
+
+**Les Épreuves du hub**
+
+1. **Rien sans glyphe ni ruée.** Arriver au hub et abattre une Épreuve au seul corps à corps, sans lancer de glyphe ni ruer. Attendu : aucun toast `hud.killReward`, une seule fois dans la session le toast `trials.idle` (« Trace un glyphe ou fais une ruée pour gagner avec les mannequins. »), et `Stats.Kills` monte quand même (`creditKiller`, `EnemyService.luau`).
+2. **Payé après un glyphe.** Lancer un glyphe, puis abattre une Épreuve dans la minute. Attendu : `hud.killReward` avec +40 XP (avant VIP et boost) et +2 Folios ; la barre du pass ne bouge pas (`ProgressionConfig.PassExcluded`).
+3. **Le toast du plafond, une fois par jour.** Continuer : au 20ᵉ kill payé du jour, le toast `trials.capped` (« Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus ! »), et plus aucun Folio ensuite ; à partir du 26ᵉ, +2 XP par kill. Arrêter puis relancer **Play** avec l'accès API : pas de nouveau toast, les compteurs sont dans le profil (`Daily.TrialDay`, `TrialKills`, `TrialFolios`).
+4. **Un glyphe sur une Épreuve.** Toucher une Épreuve d'un glyphe. Attendu : pas d'XP `GlyphHit` (aucune montée de la barre d'XP au coup), mais la quête « Touche des ennemis avec N glyphes » avance. Abattre ensuite une Épreuve avec la Bavure (une zone de départ, qui frappe encore après la mort de l'Épreuve) : seule la paie du kill arrive, ni XP `GlyphHit` ni XP de pass pour ce lancer (`GlyphEffects.damageModel` lit le tag avant le coup).
+
+**Les quêtes**
+
+5. **Le bouton Changer.** Ouvrir les Quêtes. Attendu : chaque quête du jour en cours porte une pastille « Changer » à droite de ce qu'elle rapporte ; aucune sur une quête hebdomadaire, terminée ou réclamée. Vérifier sur 844 × 390 et 667 × 375 que le nom et la barre de la quête ne sont pas écrasés.
+6. **Changer une quête.** Presser « Changer » sur une quête que l'on ne peut pas finir seul (« Gagne un match »). Attendu : le bouton attend (trois points), puis la carte est remplacée par une quête Solo du jour, le toast `quest.rerolled` la nomme, et plus aucune carte ne propose « Changer » avant le lendemain (`QuestService.reroll`).
+7. **Le badge suit.** Terminer la quête reçue. Attendu : le sceau des quêtes de l'amas méta et la tuile du Menu comptent la quête reçue, pas celle renvoyée (`Claims.luau`).
+
+**Le pass**
+
+8. **Des paliers plus longs.** Ouvrir le Battle Pass. Attendu : le premier palier demande 1 200 XP et le 49ᵉ 5 040 ; la barre et son compte (« 350 / 1 200 ») tiennent dans la case, au pointeur et sur téléphone (`BattlepassConfig.xpForTier`).
+
 ## 7. États qui ne doivent pas déborder d'un match à l'autre
 
 Ce qu'un match laisse derrière lui se voit surtout au match suivant. Enchaîner ces étapes sans relancer Play.

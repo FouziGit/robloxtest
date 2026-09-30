@@ -2,6 +2,10 @@
 -- EnemyService: training dummies in a ring around the spawn. Builds anchored Humanoid models tagged
 -- GameConfig.Enemy.Tag, credits the killer that CombatService recorded in the model attribute
 -- LastAttackerUserId, and rebuilds each dummy in its slot after the respawn delay.
+--
+-- A kill pays what TrialPay decides (E10-S3): a day's Folios and full XP, counted in the profile, a share of
+-- the XP after that (GameConfig.Enemy.Pay), none of it into the pass, and nothing without a glyph or a dash in
+-- the last minute. The last glyph or dash of each player is the only thing kept in memory, for this rule alone.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,10 +15,13 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local DailyCap = require(Shared.Pure.DailyCap)
+local DailyStreak = require(Shared.Pure.DailyStreak)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local TrialPay = require(script.Parent.Parent.Pure.TrialPay)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 local WorldConfig = require(Shared.Config.WorldConfig)
@@ -30,9 +37,18 @@ type NotifyKind = "Info" | "Success" | "Error"
 type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
-type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
+type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> number }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
-type Deps = { DataService: DataApi, Notify: NotifyApi, Progression: ProgressionApi, Currency: CurrencyApi }
+type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, chain: number) -> ()) -> any }
+type DashedSignal = { Connect: (self: DashedSignal, fn: (player: Player, cancelled: boolean) -> ()) -> any }
+type Deps = {
+	DataService: DataApi,
+	Notify: NotifyApi,
+	Progression: ProgressionApi,
+	Currency: CurrencyApi,
+	Glyph: { Cast: CastSignal },
+	Combat: { Dashed: DashedSignal },
+}
 type TroveType = typeof(Trove.new())
 type Dummy = { Model: Model, Trove: TroveType, Slot: number }
 
@@ -46,6 +62,7 @@ local HEAD_OFFSET = Vector3.new(0, 2.2, 0)
 -- A proof (docs/ART_BIBLE.md: Épreuve): a blank figure wearing a registration cross, roles of
 -- WorldConfig.Proof (D-86).
 local PROOF = WorldConfig.Proof
+local PAY = GameConfig.Enemy.Pay
 
 local EnemyService = {}
 
@@ -54,8 +71,15 @@ local notify: NotifyApi
 local progression: ProgressionApi
 local currency: CurrencyApi
 
+local glyph: { Cast: CastSignal }
+local combat: { Dashed: DashedSignal }
+
 local folder: Folder
 local slots: { CFrame } = {}
+-- Player -> os.clock() of their last accepted glyph or dash: a kill only pays inside PAY.ActiveWindowSeconds.
+local lastActiveAt: { [Player]: number } = {}
+-- Players already told, this session, that a kill paid nothing for want of a glyph or a dash.
+local toldIdle: { [Player]: true } = {}
 -- Live dummies keyed by model: the hook registry (a model in here has its Died handler bound).
 local hooked: { [Model]: Dummy } = {}
 
@@ -172,12 +196,44 @@ local function creditKiller(model: Model)
 	if data == nil then
 		return
 	end
-	local xp = ProgressionConfig.XP.DummyKill
-	progression.addXp(killer, xp, "DummyKill")
-	currency.add(killer, ProgressionConfig.Folios.DummyKill, "DummyKill")
 	data.Stats.Kills += 1
 	dataService.push(killer, "Stats")
-	notify.send(killer, "hud.killReward", { xp = xp }, "Success", "Kill")
+	if not TrialPay.active(lastActiveAt[killer], os.clock(), PAY) then
+		if not toldIdle[killer] then
+			toldIdle[killer] = true
+			notify.send(killer, "trials.idle", nil, "Info")
+		end
+		return
+	end
+	local daily = data.Daily
+	local today = DailyStreak.dayIndex(os.time())
+	local ledger = { Day = daily.TrialDay, Kills = daily.TrialKills, Folios = daily.TrialFolios }
+	local pay = TrialPay.kill(
+		ledger,
+		today,
+		PAY,
+		ProgressionConfig.XP.DummyKill,
+		ProgressionConfig.Folios.DummyKill,
+		DailyCap.take
+	)
+	daily.TrialDay = pay.Ledger.Day
+	daily.TrialKills = pay.Ledger.Kills
+	daily.TrialFolios = pay.Ledger.Folios
+	dataService.push(killer, "Daily")
+	local xp = if pay.Xp >= 1 then progression.addXp(killer, pay.Xp, "DummyKill") else 0
+	if pay.Folios >= 1 then
+		currency.add(killer, pay.Folios, "DummyKill")
+	end
+	if xp >= 1 then
+		notify.send(killer, "hud.killReward", { xp = xp }, "Success", "Kill")
+	end
+	if pay.Capped then
+		notify.send(killer, "trials.capped", nil, "Info")
+	end
+end
+
+local function markActive(player: Player)
+	lastActiveAt[player] = os.clock()
 end
 
 -- Unhooks the dummy and rebuilds it in its slot after the respawn delay.
@@ -230,9 +286,21 @@ function EnemyService.Init(deps: Deps)
 	notify = deps.Notify
 	progression = deps.Progression
 	currency = deps.Currency
+	glyph = deps.Glyph
+	combat = deps.Combat
 end
 
 function EnemyService.Start()
+	glyph.Cast:Connect(function(player: Player)
+		markActive(player)
+	end)
+	combat.Dashed:Connect(function(player: Player)
+		markActive(player)
+	end)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		lastActiveAt[player] = nil
+		toldIdle[player] = nil
+	end)
 	folder = ensureFolder()
 	slots = computeSlots()
 	for slot = 1, #slots do

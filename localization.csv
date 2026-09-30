@@ -465,6 +465,9 @@ quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target}
 quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
 quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
+quest.reroll,Swap,Vellum,,Swap,Changer
+quest.rerollRefused,This quest can't be swapped.,Vellum,,This quest can't be swapped.,Cette quête ne peut pas être changée.
+quest.rerolled,New quest: {name},Vellum,,New quest: {name},Nouvelle quête : {name}
 quest.resetsIn,Resets in {time},Vellum,,Resets in {time},Réinitialisation dans {time}
 quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
@@ -557,3 +560,5 @@ status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
 time.daysHours,{days}d {hours}h,Vellum,,{days}d {hours}h,{days} j {hours} h
 time.hoursMinutes,{hours}h {minutes}m,Vellum,,{hours}h {minutes}m,{hours} h {minutes}
 time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}
+trials.capped,The training dummies pay less until tomorrow. The portals pay more!,Vellum,,The training dummies pay less until tomorrow. The portals pay more!,Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus !
+trials.idle,Cast a glyph or dash to earn from the training dummies.,Vellum,,Cast a glyph or dash to earn from the training dummies.,Trace un glyphe ou fais une ruée pour gagner avec les mannequins.

@@ -12,6 +12,11 @@
 
 local DataMigration = {}
 
+-- 7: the day's Trials counts (`Daily.TrialDay`, `TrialKills`, `TrialFolios`, E10-S3) and each quest set's
+-- `Swaps` (E10-S10). No upgrade step: every profile before it paid no Trials under a cap and rerolled nothing,
+-- which is the template's zeros and empty maps. The version moves so a build that has never heard of them
+-- keeps them rather than dropping them (see `newer` in migrate).
+--
 -- 6: the level road's milestones (`Milestones`, the levels already paid), the Lectern's drills (`Drills`, the
 -- best grade of each) and the Ex-libris (`ExLibris`, the plates earned). New keys with the template's empty
 -- defaults and no upgrade step: the version moves so a server still on 5 keeps what a newer build wrote (see
@@ -33,7 +38,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 6
+DataMigration.CurrentVersion = 7
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

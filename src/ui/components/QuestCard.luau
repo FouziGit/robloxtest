@@ -8,6 +8,10 @@
 -- seal is stamped and a burst of ink goes off behind it (Burst, as every claim and purchase bursts). The server
 -- decides; the card only shows what it decided. Its Claim button sways with every other on the board (Sway,
 -- which the board runs).
+--
+-- A card given OnSwap also carries a Swap button, the sheet's small pill, shown only while the quest is being
+-- played and the board says a free reroll is left (SetSwappable). A swap that lands replaces the card; the
+-- server decides that too (QuestLogic.reroll).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -34,6 +38,9 @@ export type Props = {
 	OnClaim: () -> (),
 	-- The claim was never answered in time (Button's OnTimeout): the caller says so, as every claim does.
 	OnTimeout: () -> (),
+	-- The word of the Swap button and what it does; a card without OnSwap has no Swap button.
+	SwapText: string?,
+	OnSwap: (() -> ())?,
 	Name: string?,
 	Parent: Instance?,
 }
@@ -46,6 +53,11 @@ export type QuestCard = {
 	Set: (self: QuestCard, state: QuestBoard.State, fraction: number, count: string, animate: boolean) -> (),
 	GetState: (self: QuestCard) -> QuestBoard.State?,
 	IsPending: (self: QuestCard) -> boolean,
+	-- Whether a free reroll is left for this quest's set: the Swap button shows while it is and the quest is
+	-- being played.
+	SetSwappable: (self: QuestCard, swappable: boolean) -> (),
+	-- The Swap button, nil on a card given no OnSwap.
+	SwapButton: Button.Button?,
 	Destroy: (self: QuestCard) -> (),
 }
 
@@ -178,6 +190,33 @@ function QuestCard.new(props: Props): QuestCard
 	end)
 	button.Instance.Visible = false
 
+	-- The swap: the sheet's small pill after what the quest pays, pending until the push that replaces the card.
+	local swapButton: Button.Button? = nil
+	local swappable = false
+	local onSwap = props.OnSwap
+	if onSwap ~= nil then
+		local swap: Button.Button
+		swap = Button.new({
+			Name = "Swap",
+			Text = props.SwapText or "",
+			Variant = "Secondary",
+			Compact = true,
+			LayoutOrder = 4,
+			Parent = actions,
+			OnClick = function()
+				swap:SetPending(true)
+				onSwap()
+			end,
+			-- Unanswered, it is said as an unanswered claim is.
+			OnTimeout = props.OnTimeout,
+		})
+		swap.Instance.Visible = false
+		trove:Add(function()
+			swap:Destroy()
+		end)
+		swapButton = swap
+	end
+
 	local claimed = strip("Claimed", 3, Theme.Sizes.PaddingSmall)
 	claimed.Visible = false
 	-- The seal sits over a holder of its own, outside the row's layout, where the burst can spread behind it.
@@ -215,6 +254,19 @@ function QuestCard.new(props: Props): QuestCard
 		card:Destroy()
 	end)
 
+	-- The Swap button shows only on a quest being played, and only while a reroll is left.
+	local function showSwap()
+		local swap = swapButton
+		if swap == nil then
+			return
+		end
+		local shown = swappable and state == "InProgress"
+		swap.Instance.Visible = shown
+		if not shown then
+			swap:SetPending(false)
+		end
+	end
+
 	local function set(_self: QuestCard, next: QuestBoard.State, fraction: number, count: string, animate: boolean)
 		local previous = state
 		state = next
@@ -232,6 +284,12 @@ function QuestCard.new(props: Props): QuestCard
 			seal:Stamp()
 			Burst.play(holder, BURST_TINTS)
 		end
+		showSwap()
+	end
+
+	local function setSwappable(_self: QuestCard, value: boolean)
+		swappable = value
+		showSwap()
 	end
 
 	local function getState(_self: QuestCard): QuestBoard.State?
@@ -252,6 +310,8 @@ function QuestCard.new(props: Props): QuestCard
 		Set = set,
 		GetState = getState,
 		IsPending = isPending,
+		SetSwappable = setSwappable,
+		SwapButton = swapButton,
 		Destroy = destroy,
 	}
 	return object

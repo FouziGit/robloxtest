@@ -72,6 +72,36 @@ describe("quest events", function()
 		expect(count).toBeGreaterThan(5)
 	end)
 
+	-- D-28, held for the quests revision 3 added (E10-S10): each one's event is reported in exactly one place,
+	-- so it neither sits at zero nor counts twice.
+	it("has exactly one producer for the event of each quest revision 3 added", function()
+		local files: { string } = {}
+		collect(SERVER_ROOT, files)
+		local sources = {}
+		for _, path in ipairs(files) do
+			table.insert(sources, stripComments(fs.readFile(path)))
+		end
+		local code = table.concat(sources, "\n")
+		local added = 0
+		for _, quest in ipairs(QuestConfig.Pool) do
+			if quest.Since == 3 then
+				added += 1
+				local _, producers = string.gsub(code, 'report%w*%s*%([^%)]*"' .. quest.Event .. '"', "")
+				if producers ~= 1 then
+					error(
+						("%s's event %q has %d producers in %s, not one"):format(
+							quest.Id,
+							quest.Event,
+							producers,
+							SERVER_ROOT
+						)
+					)
+				end
+			end
+		end
+		expect(added).toBe(3)
+	end)
+
 	it("has a quest for every declared target and a sane pool", function()
 		for _, quest in ipairs(QuestConfig.Pool) do
 			expect(type(quest.Id)).toBe("string")

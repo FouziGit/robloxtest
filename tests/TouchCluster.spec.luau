@@ -576,7 +576,14 @@ describe("the hub's shortcuts", function()
 		local builder = code(CLAIMS)
 		expect(has(builder, "Today = DailyStreak.dayIndex(unixTime),")).toBe(true)
 		expect(has(builder, "Live = QuestLogic.periodKey(name, unixTime),")).toBe(true)
-		expect(has(builder, "return QuestLogic.select(QuestConfig.Pool, name, count, setKey)")).toBe(true)
+		-- Drawn as the server draws, floor and swaps included, so a badge counts what the board shows.
+		expect(
+			has(
+				builder,
+				"local drawn = QuestLogic.select(QuestConfig.Pool, name, count, setKey, QuestConfig.SoloFloor)"
+			)
+		).toBe(true)
+		expect(has(builder, "return QuestLogic.swapped(QuestConfig.Pool, drawn, swaps)")).toBe(true)
 		expect(has(builder, "local season = BattlepassConfig.Seasons[GameConfig.SeasonId]")).toBe(true)
 		expect(has(builder, "return SECONDS_PER_DAY - unixTime % SECONDS_PER_DAY + TURN_MARGIN_SECONDS")).toBe(true)
 		expect(number(builder, "SECONDS_PER_DAY")).toBe(86400)

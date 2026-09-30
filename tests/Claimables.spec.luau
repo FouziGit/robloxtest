@@ -20,8 +20,10 @@ local TIERS = BattlepassConfig.Seasons[SEASON].Tiers
 local function period(name: QuestLogic.Period): Claimables.Period
 	return {
 		Live = QuestLogic.periodKey(name, NOW),
-		Select = function(setKey: string): { any }
-			return QuestLogic.select(QuestConfig.Pool, name, QuestConfig.Periods[name].Count, setKey)
+		Select = function(setKey: string, swaps: { [string]: string }?): { any }
+			local count = QuestConfig.Periods[name].Count
+			local drawn = QuestLogic.select(QuestConfig.Pool, name, count, setKey, QuestConfig.SoloFloor)
+			return QuestLogic.swapped(QuestConfig.Pool, drawn, swaps)
 		end,
 	}
 end
@@ -53,10 +55,13 @@ local function profile(): any
 	}
 end
 
--- What the server would let this set's owner claim right now: QuestService.claim's own test.
+-- What the server would let this set's owner claim right now: QuestService.claim's own test, on the quests
+-- QuestService.ensureSet plays.
 local function serverQuests(set: Claimables.QuestSet, name: QuestLogic.Period): number
 	local count = 0
-	for _, def in ipairs(QuestLogic.select(QuestConfig.Pool, name, QuestConfig.Periods[name].Count, set.PeriodKey)) do
+	local drawn =
+		QuestLogic.select(QuestConfig.Pool, name, QuestConfig.Periods[name].Count, set.PeriodKey, QuestConfig.SoloFloor)
+	for _, def in ipairs(QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)) do
 		if QuestLogic.canClaim(set :: any, def) then
 			count += 1
 		end
@@ -109,6 +114,29 @@ describe("the quests", function()
 		end
 		expect(Claimables.quests(set, CONTEXT.Periods.Daily)).toBe(0)
 		expect(Claimables.quests(emptySet(""), CONTEXT.Periods.Daily)).toBe(0)
+	end)
+
+	-- A rerolled quest is played in its replacement's place (QuestLogic.reroll): its replacement, completed,
+	-- waits to be claimed, and the quest sent away counts nothing, whatever progress it had.
+	it("count a rerolled quest in its replacement's place", function()
+		local set = emptySet(liveKey("Daily"))
+		set.Swaps = {}
+		local rules = {
+			Pool = QuestConfig.Pool,
+			Count = QuestConfig.Periods.Daily.Count,
+			Floor = QuestConfig.SoloFloor,
+			Allowance = QuestConfig.Rerolls.Daily,
+		}
+		local before = CONTEXT.Periods.Daily.Select(set.PeriodKey, set.Swaps)
+		local sent = before[1]
+		local verdict, drawn = QuestLogic.reroll(rules, "Daily", set :: any, sent.Id)
+		expect(verdict).toBe("Rerolled")
+		assert(drawn ~= nil, "the reroll drew nothing")
+		set.Progress[sent.Id] = sent.Target
+		expect(Claimables.quests(set, CONTEXT.Periods.Daily)).toBe(0)
+		set.Progress[drawn.Id] = drawn.Target
+		expect(Claimables.quests(set, CONTEXT.Periods.Daily)).toBe(1)
+		expect(Claimables.quests(set, CONTEXT.Periods.Daily)).toBe(serverQuests(set, "Daily"))
 	end)
 
 	it("read a set drawn at any pool revision as its period's", function()

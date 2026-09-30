@@ -52,8 +52,8 @@ local function template(): { [string]: any }
 			PlayTimeSeconds = 0,
 		},
 		Quests = {
-			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
-			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
 		},
 		Daily = {
 			LastClaimDay = 0,
@@ -65,6 +65,9 @@ local function template(): { [string]: any }
 			PracticeDay = 0,
 			PracticePaid = 0,
 			PracticeLastPaidAt = 0,
+			TrialDay = 0,
+			TrialKills = 0,
+			TrialFolios = 0,
 		},
 		Milestones = {},
 		Drills = {},
@@ -264,9 +267,65 @@ describe("DataMigration daily caps", function()
 		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
 		expect(data.Daily.Streak).toBe(6)
 		expect(data.Daily.PremiumBonusDay).toBe(20099)
-		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
+		for _, key in ipairs({
+			"ForgerDay",
+			"ForgerFolios",
+			"PracticeDay",
+			"PracticePaid",
+			"TrialDay",
+			"TrialKills",
+			"TrialFolios",
+		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
+	end)
+
+	-- Version 7 (E10-S3, E10-S10, D-243; 5 and 6 were taken by the QA pass and wave 1): the Trials' counts and each
+	-- quest set's swaps, with no upgrade step. A version 4 profile comes out with them at zero and empty, its quests
+	-- and its caps as they were, and is stamped current, so a build that has never heard of them keeps them instead
+	-- of dropping them.
+	it("brings a version 4 profile to version 7 with no Trials paid and no swap spent", function()
+		local raw = {
+			DataVersion = 4,
+			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
+			Quests = {
+				Daily = { PeriodKey = "D20400@2", Progress = { DailyDash = 7 }, Claimed = { DailyWin = true } },
+				Weekly = { PeriodKey = "W2914@2", Progress = { WeeklyCasts = 120 }, Claimed = {} },
+			},
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(DataMigration.CurrentVersion).toBe(7)
+		expect(info).toEqual({ From = 4, Migrated = true })
+		expect(data.DataVersion).toBe(7)
+		expect(data.Daily.ForgerFolios).toBe(90)
+		expect(data.Daily.TrialDay).toBe(0)
+		expect(data.Daily.TrialKills).toBe(0)
+		expect(data.Daily.TrialFolios).toBe(0)
+		expect(data.Quests.Daily).toEqual({
+			PeriodKey = "D20400@2",
+			Progress = { DailyDash = 7 },
+			Claimed = { DailyWin = true },
+			Swaps = {},
+		})
+		expect(data.Quests.Weekly.Swaps).toEqual({})
+		expect(data.Quests.Weekly.Progress).toEqual({ WeeklyCasts = 120 })
+	end)
+
+	it("gives each quest set of the service's template the fields of the profile's type", function()
+		local service = fs.readFile("src/server/Services/DataService.luau")
+		for _, period in ipairs({ "Daily", "Weekly" }) do
+			expect(service:find(period .. ' = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },', 1, true)).never.toBeNil()
+		end
+		-- The type's own fields, one per line up to its closing brace (a field's map type has braces of its own).
+		local types = (fs.readFile("src/shared/Types.luau"):gsub("%-%-[^\n]*", ""))
+		local start = types:find("export type QuestSetData = {", 1, true) :: number
+		local block = types:sub(start, types:find("\n}", start, true) :: number)
+		local fields: { string } = {}
+		for field in block:gmatch("\n\t([%w_]+):") do
+			table.insert(fields, field)
+		end
+		table.sort(fields)
+		expect(fields).toEqual({ "Claimed", "PeriodKey", "Progress", "Swaps" })
 	end)
 
 	it("loads over the service's own template, whose Daily section is the profile's type", function()
@@ -277,7 +336,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(9)
+		expect(#service).toBe(12)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)
@@ -287,12 +346,13 @@ end)
 -- holds the developer's waived cosmetics and the practice gap). A record of what was paid once, so losing it would
 -- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
 describe("DataMigration to version 6", function()
-	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 6", function()
+	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243).
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 7", function()
 		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(6)
+		expect(DataMigration.CurrentVersion).toBe(7)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(6)
+		expect(data.DataVersion).toBe(7)
 		expect(data.Milestones).toEqual({})
 		expect(data.Drills).toEqual({})
 		expect(data.ExLibris).toEqual({})

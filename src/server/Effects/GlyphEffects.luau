@@ -25,6 +25,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatConfig = require(Shared.Config.CombatConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Palette = require(Shared.Util.Palette)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
@@ -100,6 +101,11 @@ export type Context = {
 	Combat: CombatApi,
 	Vfx: VfxApi,
 	Movement: MovementApi,
+	-- Every model the cast landed damage on, filled by damageModel for GlyphService to pay its hits by what
+	-- they struck (a Trial proof pays by the kill, never by the hit): true for a model that was a Trial proof
+	-- when the cast first struck it. Read then, not when the cast ends: the hit that fells a proof also takes
+	-- its tag (EnemyService), and a zone that ticks on would pay for the proof it had just felled.
+	Landed: { [Model]: boolean }?,
 }
 export type Effect = (ctx: Context) -> number
 
@@ -126,6 +132,8 @@ end
 
 -- Server collision geometry (walls) carries this tag so spatial queries skip it.
 local COLLISION_TAG = WorldConfig.Glyphs.CollisionTag
+-- The hub's Trial proofs (EnemyService) wear this tag while they stand: Context.Landed marks the ones struck.
+local PROOF_TAG = GameConfig.Enemy.Tag
 local ROOT_PART_NAME = "HumanoidRootPart"
 local WALL_NAME = WorldConfig.Glyphs.WallName
 -- A projectile fuse is clamped so a synchronous effect never pins the remote handler for long.
@@ -304,6 +312,9 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	if hits ~= nil and hits >= tracker.MaxHits then
 		return false
 	end
+	-- Before the hit: the one that fells a proof takes its tag with it.
+	local landed = ctx.Landed
+	local proof = landed ~= nil and CollectionService:HasTag(model, PROOF_TAG)
 	local result = ctx.Combat.ApplyDamage(ctx.Caster, model, tracker.Amount, "Glyph", tracker.Tags, ctx.Def.Pigment)
 	if result.Applied <= 0 then
 		return false
@@ -312,6 +323,9 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 		tracker.Count += 1
 	end
 	tracker.Hits[model] = (hits or 0) + 1
+	if landed ~= nil and landed[model] == nil then
+		landed[model] = proof
+	end
 	return true
 end
 

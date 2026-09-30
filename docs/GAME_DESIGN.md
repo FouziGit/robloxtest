@@ -94,7 +94,7 @@ Cibles d'équilibrage : temps pour tuer un adversaire qui esquive mal ≈ 12-15 
 
 - Par défaut : les 8 glyphes V1.
 - Niveau 5 : Délié, Pointillé · niveau 8 : Volute · niveau 10 : Ligature, Reliure · niveau 12 : Paraphe · niveau 15 : Dorure, Poncif · niveau 18 : Hachures · niveau 20 : Spiral · niveau 22 : Chaînette · niveau 25 : Pâté · niveau 28 : Obèle · niveau 30 : Gaufrage · niveau 33 : Rubrique · niveau 36 : Cartouche.
-- **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** (grind ≈ 15-20 h) **ou** via le game pass Orpiment. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
+- **Orpiment** : pigment *sidegrade* — même budget de dégâts que les autres, mais hitscan / mobilité / contrôle au lieu de zones. Débloquée au **niveau 40** **ou** via le game pass Orpiment. Le niveau 40 vient après 4 h 37 de jeu à 20 min/jour de duels (J14), 6 h 04 à une heure par jour (J6), 4 h 13 à 20 min/jour seul (J13) et 19 h pour un fermier d'Épreuves (J20), selon `scripts/pacing.luau` sur les vraies configs (docs/ECONOMY.md §2 bis) : bien moins que les 15-20 h que ce paragraphe estimait à la main. Un joueur sans Orpiment n'est jamais désavantagé statistiquement : Orpiment échange la puissance de zone contre la précision.
 - **Loadout** : 6 slots de base (max 10 avec le pass *Slots*). Équiper = choisir sa main ; les glyphes non équipés ne peuvent pas être lancés.
 
 ## 5 bis. Plafond de compétence : annulation, enchaînement, matrice des réponses
@@ -188,7 +188,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 
 | Mode | Joueurs | Durée | Victoire | Récompenses |
 |---|---|---|---|---|
-| Hub | tous | libre | — | XP des mannequins, quêtes |
+| Hub | tous | libre | — | Épreuves (mannequins) : 40 Folios/jour au plus, XP entière pour 25 kills puis 5 %, rien sans glyphe ni ruée dans la minute, jamais d'XP de pass (D-245 à D-247) ; quêtes |
 | 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass |
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
@@ -210,7 +210,7 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 ## 9. Rétention
 
-Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
+Quêtes journalières (3) et hebdomadaires (3) data-driven, dont au moins deux qu'un joueur seul peut finir dans chaque tirage, et une relance gratuite par jour d'une quête du jour vers une quête Solo (D-241, D-242), streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium) qui dure un Volume : 152 880 XP, fini à J34 à 20 min/jour de duels, J41 à 20 min/jour seul, J15 à une heure par jour (`scripts/pacing.luau`, D-249), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
 
 **Objectifs longs (E17-S2, D-224, D-225).**
 - **Les jalons de 45 à 100.** Passé le dernier glyphe (36) et l'Orpiment (40), un jalon tous les cinq niveaux jusqu'à 100 paie une fois dix Folios par niveau du jalon, et un titre réservé à 50 (Rubricateur), 75 (Maître copiste) et 100 (Cent feuillets). Glyphes, pigment et jalons sont une seule **route des niveaux** (`Pure/LevelRoad`) : la carte Résultat nomme toujours sa prochaine étape (« Prochain : 450 Folios au niveau 45 »), sans promettre ce que le joueur tient déjà, et dit au niveau 100 que la route est parcourue. Un profil qui charge avec des jalons dépassés et jamais payés les reçoit en une ligne.

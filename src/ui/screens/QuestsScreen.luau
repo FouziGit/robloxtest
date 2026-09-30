@@ -8,9 +8,13 @@
 --
 -- Claims go through the ClaimQuest remote and wait for the profile push that marks them claimed: then the
 -- card stamps its seal and the Folios in the band count up. The server decides whether a reward is
--- granted; nothing here does. Rows are rebuilt only when the selected quests change (period rollover); a
--- progress push just refreshes them. Until the profile has arrived each section holds skeleton rows,
--- never an empty card.
+-- granted; nothing here does. Rows are rebuilt only when the selected quests change (period rollover, or a
+-- reroll); a progress push just refreshes them. Until the profile has arrived each section holds skeleton
+-- rows, never an empty card.
+--
+-- While a set has a free reroll left (QuestConfig.Rerolls: one a day, on a daily quest), each of its quests
+-- being played shows a Swap button, which sends the RerollQuest remote. The server picks the quest that
+-- takes its place and writes the swap into the set; the push that carries it rebuilds the section.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -53,6 +57,8 @@ export type Screen = {
 type Period = QuestLogic.Period
 type QuestDef = QuestConfig.QuestDef
 type PeriodDef = { Count: number, RewardXp: number, RewardFolios: number }
+-- Free rerolls a set may spend in its period, keyed by period id.
+local REROLLS = (QuestConfig.Rerolls :: any) :: { [string]: number }
 type Destroyable = { Destroy: (self: any) -> () }
 type Section = {
 	Signature: string,
@@ -162,7 +168,8 @@ function QuestsScreen.new(deps: Deps): Screen
 		local key = if set.PeriodKey ~= ""
 			then set.PeriodKey
 			else QuestLogic.setKey(QuestLogic.periodKey(typed, os.time()), QuestConfig.PoolRevision)
-		return QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key)
+		local drawn = QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key, QuestConfig.SoloFloor)
+		return QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)
 	end
 
 	local function signatureOf(set: Types.QuestSetData, quests: { QuestDef }): string
@@ -239,6 +246,12 @@ function QuestsScreen.new(deps: Deps): Screen
 				OnTimeout = function()
 					deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
 				end,
+				SwapText = t("quest.reroll"),
+				OnSwap = if REROLLS[period] > 0
+					then function()
+						deps.RemoteClient.fire("RerollQuest", period, quest.Id)
+					end
+					else nil,
 				Name = quest.Id,
 				Parent = panel.Content,
 			})
@@ -294,6 +307,7 @@ function QuestsScreen.new(deps: Deps): Screen
 				buildCards(period, quests)
 			end
 			local statuses = QuestLogic.status(set, quests)
+			local swappable = QuestLogic.rerollsLeft(set, REROLLS[period]) > 0
 			local states: { QuestBoard.State } = {}
 			for _, status in ipairs(statuses) do
 				table.insert(states, QuestBoard.state(status))
@@ -310,6 +324,7 @@ function QuestsScreen.new(deps: Deps): Screen
 						t("quest.progress", { progress = status.Progress, target = status.Target }),
 						visible
 					)
+					card:SetSwappable(swappable)
 					-- Gamepad focus goes to the first quest the player can claim.
 					if firstButton == nil and state == "Claimable" then
 						firstButton = card.Button.Instance

@@ -2,14 +2,13 @@
 -- Icon: the interface's small pictures, built from Frames and the symbol blocks the engine's fallback is
 -- proven to render, so none of them is an image to upload (D-147). Each is drawn in a square of `size`
 -- design units, in fractions of that square, so one drawing serves every size. `color` is the ink of the
--- drawing where it has one; the coin, the deck, the invite and the shield carry their own colours.
+-- drawing where it has one; the coin and the shield carry their own colours.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared:WaitForChild("Util"):WaitForChild("Log"))
-local PigmentConfig = require(Shared:WaitForChild("Config"):WaitForChild("PigmentConfig"))
 local Theme = require(script.Parent.Parent.Theme)
 
 local log = Log.new("Icon")
@@ -23,21 +22,16 @@ export type Name =
 	| "Cross"
 	| "Play"
 	| "Back"
-	| "Sliders"
 	| "Podium"
-	| "Deck"
 	| "Pass"
 	| "Calendar"
 	| "Scroll"
-	| "Invite"
 	| "Burger"
 	| "Shield"
 	| "Dot"
 
 local Icon = {}
 
--- The five pigments of the deck, in their order, fanned from -12 to +12 degrees.
-local DECK_FAN = { -12, -6, 0, 6, 12 }
 -- The dot's share of its square: the size of the board's "●" set beside a price.
 local DOT_SCALE = 0.5
 
@@ -146,34 +140,10 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 	Back = function(square, color)
 		glyph(square, Theme.Glyphs.Back, Theme.Fonts.Bold, color, 1)
 	end,
-	-- Settings: three rails, each with its knob somewhere else.
-	Sliders = function(square, color)
-		for index, knob in ipairs({ 0.3, 0.7, 0.45 }) do
-			local y = 0.2 + (index - 1) * 0.3
-			bar(square, 0.9, 0.1, 0.5, y, color)
-			disc(square, 0.26, knob, y, color)
-		end
-	end,
 	-- The leaderboard: second, first, third.
 	Podium = function(square, color)
 		for index, height in ipairs({ 0.6, 0.9, 0.4 }) do
 			bar(square, 0.28, height, 0.18 + (index - 1) * 0.32, 1 - height / 2, color, 0, UDim.new(0.15, 0))
-		end
-	end,
-	-- The loadout: five pigment cards fanned from one hand.
-	Deck = function(square)
-		for index, rotation in ipairs(DECK_FAN) do
-			local card = Instance.new("Frame")
-			card.Name = "Card"
-			card.BorderSizePixel = 0
-			card.BackgroundColor3 = Theme.pigmentColor(PigmentConfig.Order[index])
-			card.AnchorPoint = Vector2.new(0.5, 1)
-			card.Position = UDim2.fromScale(0.5 + (index - 3) * 0.1, 0.95)
-			card.Size = UDim2.fromScale(0.4, 0.56)
-			card.Rotation = rotation
-			Theme.corner(card, UDim.new(0.15, 0))
-			Theme.stroke(card, "Accent", Theme.Sizes.StrokeThin)
-			card.Parent = square
 		end
 	end,
 	-- The battle pass: a seal ring around the first volume.
@@ -204,13 +174,6 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 			local y = 0.2 + (index - 1) * 0.3
 			box(square, 0.22, 0.22, 0.14, y, color)
 			bar(square, 0.6, 0.1, 0.65, y, color)
-		end
-	end,
-	-- Invite: two of us.
-	Invite = function(square)
-		for _, x in ipairs({ 0.36, 0.64 }) do
-			local head = disc(square, 0.56, x, 0.5, Theme.Colors.Ally)
-			Theme.stroke(head, "Accent", Theme.Sizes.StrokeThin)
 		end
 	end,
 	Burger = function(square, color)

@@ -116,7 +116,7 @@ Theme.Fonts = {
 	Numeric = font(ThemeConfig.Fonts.Numeric),
 	-- Glyph flavour lines, empty states, the pass subtitle: the page keeps its voice.
 	Lore = font(ThemeConfig.Fonts.Lore),
-	-- DropCap only: one illuminated character, never a word.
+	-- One illuminated character, never a word: a title's drop cap, a rank seal's initial, the F of a Folio.
 	Initial = font(ThemeConfig.Fonts.Initial),
 	-- The D-pad arrows, which only the roman has.
 	Symbol = font(ThemeConfig.Fonts.Symbol),

@@ -6,6 +6,7 @@
 -- The rule is pure (LadderGate); the real LeaderboardService is then run over a pretend DataStoreService, so
 -- what is checked is what reaches SetAsync and what the boards show.
 local Engine = require("./engine")
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local LadderGate = require("../src/shared/Pure/LadderGate")
 local LogStub = require("./logstub")
@@ -205,7 +206,8 @@ describe("the season ladders, run", function()
 	end)
 
 	it("never show a row a test player left in a ladder, and close the ranks over it", function()
-		local store = "S1_Duel1v1"
+		-- The ladder of the season in play, whichever it is: S1_Duel1v1 today.
+		local store = GameConfig.SeasonId .. "_Duel1v1"
 		local session = ladder(false, false, {
 			[store] = {
 				{ key = "-1", value = 1400 },

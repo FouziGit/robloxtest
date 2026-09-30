@@ -86,15 +86,26 @@ end
 -- The server: the real Passes module, marking the Player
 ----------------------------------------------------------------
 
-local function passes(data: any): (any, any)
+-- With `pasted`, every pass carries an asset id, as it will once the owner pastes them from the Creator
+-- Dashboard, and the sync asks Roblox about each; the catalog ships them at 0, where it asks nothing. Roblox
+-- answers what the cache holds, so the mark is checked on its own either way.
+local function passes(data: any, pasted: boolean): (any, any)
 	local Log = LogStub.new()
+	local catalog: any
 	local market = {
-		UserOwnsGamePassAsync = function(_self: any, _userId: number, _passId: number): boolean
-			return false
+		UserOwnsGamePassAsync = function(_self: any, _userId: number, passId: number): boolean
+			local passKey = catalog.passByAssetId(passId)
+			return passKey ~= nil and data.Passes[passKey] == true
 		end,
 	}
 	local world =
 		Engine.world({ Services = { MarketplaceService = market }, Stubs = { ["src/shared/Util/Log"] = Log } })
+	catalog = world.require("src/shared/Config/MonetizationConfig")
+	local nextId = 1000
+	for _, pass in pairs(catalog.Passes) do
+		nextId += 1
+		pass.Id = if pasted then nextId else 0
+	end
 	local Passes = world.require("src/server/Services/MonetizationService/Passes")
 	Passes.Init({
 		DataService = {
@@ -206,26 +217,32 @@ end)
 
 describe("the server's VIP mark", function()
 	it("is set on a player whose cache holds Vip as soon as the passes sync", function()
-		local data = { Passes = { Vip = true } }
-		local Passes, player = passes(data)
-		Passes.sync(player)
-		expect(player:GetAttribute(ChatConfig.VipAttribute)).toBe(true)
+		for _, pasted in ipairs({ false, true }) do
+			local data = { Passes = { Vip = true } }
+			local Passes, player = passes(data, pasted)
+			Passes.sync(player)
+			expect(player:GetAttribute(ChatConfig.VipAttribute)).toBe(true)
+		end
 	end)
 
 	it("is absent from a player without Vip, whatever else they own", function()
-		local data = { Passes = { LoadoutSlots = true, SkinPack = true } }
-		local Passes, player = passes(data)
-		player:SetAttribute(ChatConfig.VipAttribute, true)
-		Passes.sync(player)
-		expect(player:GetAttribute(ChatConfig.VipAttribute)).toBeNil()
+		for _, pasted in ipairs({ false, true }) do
+			local data = { Passes = { LoadoutSlots = true, SkinPack = true } }
+			local Passes, player = passes(data, pasted)
+			player:SetAttribute(ChatConfig.VipAttribute, true)
+			Passes.sync(player)
+			expect(player:GetAttribute(ChatConfig.VipAttribute)).toBeNil()
+		end
 	end)
 
 	it("is set the moment Vip enters the cache", function()
-		local data = { Passes = {} }
-		local Passes, player = passes(data)
-		Passes.cache(player, "SkinPack")
-		expect(player:GetAttribute(ChatConfig.VipAttribute)).toBeNil()
-		Passes.cache(player, "Vip")
-		expect(player:GetAttribute(ChatConfig.VipAttribute)).toBe(true)
+		for _, pasted in ipairs({ false, true }) do
+			local data = { Passes = {} }
+			local Passes, player = passes(data, pasted)
+			Passes.cache(player, "SkinPack")
+			expect(player:GetAttribute(ChatConfig.VipAttribute)).toBeNil()
+			Passes.cache(player, "Vip")
+			expect(player:GetAttribute(ChatConfig.VipAttribute)).toBe(true)
+		end
 	end)
 end)

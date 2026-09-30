@@ -41,7 +41,7 @@ export type Props = {
 	AspectRatio: number?, -- optional UIAspectRatioConstraint
 	Parent: Instance?,
 	Name: string?,
-	-- A ThemeConfig.Chapters key: the band's colour, the drop cap's ring, the drips. The Menu's without one.
+	-- A ThemeConfig.Chapters key: the band's colour and its title's ink. The Menu's without one.
 	Chapter: string?,
 	ContentMode: ContentMode?,
 	-- The size of a cell in Grid mode (three to a row, TileHeight tall, by default).
@@ -93,8 +93,11 @@ local ENTER_SCALE = 0.88
 local ENTER_TILT = -3
 local EXIT_SCALE = 0.92
 local EXIT_TILT = 2
--- The band is a sticker on the page, inset from the card's edge.
-local BAND_INSET = Theme.Sizes.PaddingSmall
+-- The band runs flush inside the card's ink (D-178), and with the stripe under it it never takes more of the
+-- card's top than it did inset from the card's edge (8 above it, 8 under it): no content a screen measured
+-- loses a unit to it.
+local BAND_EDGE = Theme.Sizes.Stroke
+local TOP_ALLOWANCE = Theme.Sizes.PaddingSmall * 2
 local GRAIN_TILE = 256
 local GRAIN_TRANSPARENCY = 0.9
 local DPAD_SCROLL_ROWS = 1 -- canvas step per D-pad press, in list rows
@@ -184,7 +187,7 @@ function Panel.new(props: Props): Panel
 	local band = ChapterBand.new({
 		Title = props.Title,
 		Chapter = props.Chapter or DEFAULT_CHAPTER,
-		Position = UDim2.fromOffset(BAND_INSET, BAND_INSET),
+		Position = UDim2.fromOffset(BAND_EDGE, BAND_EDGE),
 		Closable = props.Closable,
 		OnClose = props.OnClose,
 		OnBack = props.OnBack,
@@ -193,7 +196,7 @@ function Panel.new(props: Props): Panel
 	trove:Add(function()
 		band:Destroy()
 	end)
-	-- Over the grain, under the slots: its drips hang behind whatever the header holds.
+	-- Over the grain, under the slots.
 	band.Instance.ZIndex = 2
 	band.Instance.Parent = face
 
@@ -238,10 +241,12 @@ function Panel.new(props: Props): Panel
 			then UNCAPPED
 			else props.Size or Vector2.new(Theme.Sizes.PanelWidth, Theme.Sizes.PanelHeight)
 		local chapterHeight = ChapterBand.height()
-		local topHeight = BAND_INSET + chapterHeight + Theme.Sizes.PaddingSmall
+		local stripe = band:StripeHeight()
+		local topHeight =
+			math.min(BAND_EDGE + chapterHeight + stripe + Theme.Sizes.PaddingSmall, chapterHeight + TOP_ALLOWANCE)
 		local headerSize = bandHeight(headerHeight)
 		local footerSize = bandHeight(footerHeight)
-		band.Instance.Size = UDim2.new(1, -BAND_INSET * 2, 0, chapterHeight)
+		band.Instance.Size = UDim2.new(1, -BAND_EDGE * 2, 0, chapterHeight + stripe)
 		header.Position = UDim2.fromOffset(0, topHeight)
 		header.Size = UDim2.new(1, 0, 0, headerSize)
 		footer.Size = UDim2.new(1, 0, 0, footerSize)
@@ -406,6 +411,8 @@ function Panel.new(props: Props): Panel
 
 	local function setChapter(_self: Panel, chapter: string)
 		band:SetChapter(chapter)
+		-- A chapter with a stripe or without one moves the content's top.
+		relayout()
 	end
 
 	local function setContentMode(_self: Panel, mode: ContentMode)

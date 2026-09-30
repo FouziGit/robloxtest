@@ -82,6 +82,8 @@ local CARD_PADDING = 16
 local NAME_SIZE = 30
 local TAG_SIZE = 14
 local TAG_HEIGHT = 24
+-- The "Ranked" tag is the Menu's ribbon lying flat: ink, the sheet's word, corners of 8.
+local TAG_CORNER = 8
 local RULE_SIZE = 16
 local STATE_TITLE_SIZE = 26
 local CROSS_SIZE = 40
@@ -347,9 +349,9 @@ function PlayScreen.new(deps: Deps): Screen
 			tag.LayoutOrder = 2
 			tag.FontFace = Theme.Fonts.Label
 			tag.TextSize = TAG_SIZE
-			tag.TextColor3 = Theme.Colors.TextInverse
+			tag.TextColor3 = Theme.Colors.PanelRaised
 			tag.Text = t("queue.ranked")
-			Theme.corner(tag, Theme.Pill)
+			Theme.corner(tag, TAG_CORNER)
 			local tagPadding = Instance.new("UIPadding")
 			tagPadding.PaddingLeft = UDim.new(0, Theme.Sizes.PaddingSmall)
 			tagPadding.PaddingRight = UDim.new(0, Theme.Sizes.PaddingSmall)

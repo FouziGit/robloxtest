@@ -8,6 +8,7 @@
 -- phones themselves.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Measure = require("./measure")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
@@ -21,6 +22,7 @@ local HUD = ThemeConfig.Hud
 local HUD_CONTROLLER = "src/client/Controllers/HudController.luau"
 local DOCK = "src/ui/components/CombatDock.luau"
 local KEYCAP = "src/ui/components/Keycap.luau"
+local BUTTON = "src/ui/components/Button.luau"
 -- The safe area's own insets, top and bottom together, at most.
 local SAFE_SLACK = 2 * 16
 -- Landscape phones by their height in points: the small one, the 12-to-14 one, the Plus-sized one.
@@ -71,7 +73,8 @@ local function touchBottom(): number
 		+ HUD.PreviewHeight
 end
 
--- With a pointer: the dock, the hotbar's slots over their keys, the combo row, the preview.
+-- With a pointer: the dock, the hotbar's slots over their keys, the air the combo row stands off them, the combo
+-- row, the preview.
 local function pointerBottom(): number
 	return HUD.DockBottomPad
 		+ HUD.DockHeight
@@ -79,6 +82,7 @@ local function pointerBottom(): number
 		+ HUD.HotbarSlot
 		+ HUD.HotbarKeyStrip
 		+ HUD.ChipRowGap
+		+ HUD.ComboLift
 		+ HUD.ChipSize
 		+ HUD.ChipRowGap
 		+ HUD.PreviewHeight
@@ -123,6 +127,13 @@ describe("the HUD's fit", function()
 		local function capWidth(text: string): number
 			return number(keycap, "PADDING") * 2 + Measure.textWidth(text, number(keycap, "TEXT_SIZE"))
 		end
+		-- The fight's Menu pill: its word alone, in the label face, snug, never narrower than a thumb.
+		local button = code(BUTTON)
+		local function pillWidth(text: string): number
+			local drawn = number(button, "COMPACT_PADDING") * 2
+				+ Measure.textWidth(text, number(button, "COMPACT_TEXT_SIZE"))
+			return math.max(Theme.MinTouchTarget, drawn)
+		end
 		local widest = 0
 		for _, locale in ipairs(Strings.Locales) do
 			for _, key in ipairs({ "queue.title", "menu.shop", "leaderboard.title" }) do
@@ -130,10 +141,12 @@ describe("the HUD's fit", function()
 			end
 			-- The Menu's row: its key cap, on the default key of either device, and the button.
 			for _, cap in ipairs({ InputConfig.DefaultKeyboard.Menu, Strings.t("key.ButtonSelect", nil, locale) }) do
-				widest = math.max(
-					widest,
-					capWidth(cap) + Theme.Sizes.Gap + buttonWidth(Strings.t("action.menu", nil, locale))
-				)
+				local word = Strings.t("action.menu", nil, locale)
+				widest = math.max(widest, capWidth(cap) + Theme.Sizes.Gap + buttonWidth(word))
+				-- In a fight the same row holds the pill, which is narrower than the hub's button.
+				local fighting = capWidth(cap) + Theme.Sizes.Gap + pillWidth(word)
+				expect(fighting).toBeLessThan(capWidth(cap) + Theme.Sizes.Gap + buttonWidth(word))
+				widest = math.max(widest, fighting)
 			end
 		end
 		-- The bottom stack at its widest with a pointer: the dock, or a hotbar of every slot a pass opens.
@@ -145,6 +158,114 @@ describe("the HUD's fit", function()
 			error(("the quick bar starts at %.1f, the bottom stack ends at %.1f"):format(barLeft, stackRight))
 		end
 	end)
+
+	it("lifts the combo row off the hotbar with a pointer only, by ComboLift in all", function()
+		-- The board's combo row stands clear of the hotbar's keys; on touch the dock's pips are there instead.
+		expect(HUD.ComboLift).toBeGreaterThan(HUD.ChipRowGap)
+		for _, phone in ipairs({ false, true }) do
+			local fixture = Hud.build({ Phone = if phone then { 844, 390 } else nil })
+			local stack = fixture.screen:FindFirstChild("BottomStack", true)
+			assert(stack ~= nil, "the HUD has no bottom stack: this gate would check nothing")
+			local layout = stack:FindFirstChildOfClass("UIListLayout")
+			expect(layout.Padding.Offset).toBe(HUD.ChipRowGap)
+			local lift = stack:FindFirstChild("ComboLift")
+			if phone then
+				expect(lift).toBeNil()
+			else
+				assert(lift ~= nil, "the pointer's stack has no lift")
+				-- A gap, the lift, a gap: ComboLift between the row and the hotbar, where the one gap stood.
+				expect(layout.Padding.Offset * 2 + lift.Size.Y.Offset).toBe(HUD.ChipRowGap + HUD.ComboLift)
+				expect(lift.Size.Y.Scale).toBe(0)
+				expect(lift.BackgroundTransparency).toBe(1)
+				local combo = stack:FindFirstChild("Combo")
+				local hotbar: any = nil
+				for _, child in ipairs(stack:GetChildren()) do
+					if child:IsA("GuiObject") and child.LayoutOrder > lift.LayoutOrder and child ~= combo then
+						if hotbar == nil or child.LayoutOrder < hotbar.LayoutOrder then
+							hotbar = child
+						end
+					end
+				end
+				expect(combo.LayoutOrder).toBeLessThan(lift.LayoutOrder)
+				assert(hotbar ~= nil, "nothing stands under the lift")
+				expect(hotbar.Name).toBe("Hotbar")
+			end
+		end
+		-- And the preview pill is the board's, about 41 tall, inside its row.
+		expect(HUD.PreviewHeight).toBe(40)
+		expect(HUD.PreviewHeight).toBeLessThanOrEqual(HUD.ChipSize)
+	end)
+
+	it(
+		"shows the Menu as the board's small pill in a fight, beside its key, and the hub's button in the hub",
+		function()
+			-- A player whose settings name the Menu's key, which the cap draws.
+			local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+			local fixture = Hud.build({
+				Profile = {
+					Settings = {
+						Keyboard = table.clone(InputConfig.DefaultKeyboard),
+						Gamepad = table.clone(InputConfig.DefaultGamepad),
+						CameraShake = true,
+					},
+					Loadout = { Slots = { "Brand" }, SlotLimit = 6 },
+					Progression = { Level = 5, XP = 10 },
+					Currency = { Folios = 100 },
+					Stats = { GlyphsCast = 3, MatchesPlayed = 2 },
+					Daily = { LastClaimDay = 0, Streak = 0 },
+					Quests = { Daily = quests, Weekly = table.clone(quests) },
+					Battlepass = {},
+				},
+			})
+			fixture.world:advance(1)
+			local row = fixture.screen:FindFirstChild("MenuRow", true)
+			assert(row ~= nil, "the quick bar has no Menu row: this gate would check nothing")
+			local cap = row:FindFirstChild("MenuKey")
+			local hubButton: any, pill: any = nil, nil
+			for _, child in ipairs(row:GetChildren()) do
+				if child:IsA("TextButton") and child.Name == "action.menu" then
+					if child:FindFirstChild("Icon", true):FindFirstChildWhichIsA("GuiObject") ~= nil then
+						hubButton = child
+					else
+						pill = child
+					end
+				end
+			end
+			assert(
+				cap ~= nil and hubButton ~= nil and pill ~= nil,
+				"the Menu row lacks its cap, its button or its pill"
+			)
+			expect(cap.LayoutOrder).toBeLessThan(hubButton.LayoutOrder)
+			expect(cap.LayoutOrder).toBeLessThan(pill.LayoutOrder)
+			local function shown(): (boolean, boolean)
+				return hubButton.Visible, pill.Visible
+			end
+			-- In the hub: the button with its icon.
+			local button, small = shown()
+			expect(button).toBe(true)
+			expect(small).toBe(false)
+			-- In a fight: the pill, its word alone in the label face, as short as a touch target, no badge.
+			fixture.match(Hud.match("Duel1v1", 1))
+			fixture.world:advance(1)
+			button, small = shown()
+			expect(button).toBe(false)
+			expect(small).toBe(true)
+			local world = fixture.world
+			local Theme = world.require("src/ui/Theme")
+			local word = pill:FindFirstChild("Label", true)
+			expect(word.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+			expect(word.TextSize).toBe(14)
+			expect(pill.Size.Y.Offset).toBe(Theme.MinTouchTarget)
+			expect(pill.Selectable).toBe(false)
+			expect(pill:FindFirstChild("Badge", true)).toBeNil()
+			-- Back in the hub, the button returns.
+			fixture.match(nil)
+			fixture.world:advance(1)
+			button, small = shown()
+			expect(button).toBe(true)
+			expect(small).toBe(false)
+		end
+	)
 
 	it("keeps the dock's widest inside the gap a phone's thumbs leave", function()
 		expect(HUD.DockWidthTouchMax * ThemeConfig.Scale.TouchFloor).toBeLessThanOrEqual(264)

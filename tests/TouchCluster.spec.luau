@@ -425,11 +425,25 @@ describe("the hub's shortcuts", function()
 			true
 		)
 		expect(has(key, "local key = saved[MENU_ACTION] or defaults[MENU_ACTION]")).toBe(true)
-		-- In the Menu's own row, before the button.
+		-- In the Menu's own row, before the button: the hub's, and in a fight the board's word-only pill after it
+		-- (D-179), the cap before whichever shows.
 		expect(has(key, "LayoutOrder = 1, Parent = menuRow,")).toBe(true)
 		expect(has(hud, 'quickButton(MENU_NAME_KEY, "Secondary", 2, "Burger", menuRow, function()')).toBe(true)
+		expect(has(hud, 'quickButton(MENU_NAME_KEY, "Secondary", 3, nil, menuRow, function()')).toBe(true)
+		local quick = body(hud, "quickButton")
+		expect(has(quick, "local compact = icon == nil")).toBe(true)
+		expect(has(quick, "Compact = compact,")).toBe(true)
+		expect(
+			has(
+				quick,
+				"Size = UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight),"
+			)
+		).toBe(true)
+		local hub = body(hud, "refreshHub")
+		expect(has(hub, "menuButton.Instance.Visible = hub menuPill.Instance.Visible = not hub")).toBe(true)
+		expect(has(body(hud, "refreshQuickBar"), "menuPill:SetText(localize.t(MENU_NAME_KEY))")).toBe(true)
 		-- The button plays its own click now: the bar no longer doubles it.
-		expect(has(body(hud, "quickButton"), "soundController.play")).toBe(false)
+		expect(has(quick, "soundController.play")).toBe(false)
 	end)
 
 	it("show the value yellow in the hub only: shortcuts, Play sticker and claims badge (rule 11)", function()

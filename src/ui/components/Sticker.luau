@@ -11,6 +11,10 @@
 --
 -- Callers parent their content to `Face`, so it rides the face when it moves.
 --
+-- A pressable's whole elevation shows its lip, and the ink rims it from outside (the board's `0 5px 0 0 lip,
+-- 0 5px 0 3px ink`): an inner outline ate three of a button's five units of lip. A disabled one sinks onto a
+-- chalk lip -- there is nothing under it to press -- and gets its colour back when it wakes.
+--
 -- A frame that sizes itself to its content (AutomaticSize) hosts its sticker (`Host`, D-170): the base, the
 -- face and the gloss are then its own children, each sized by scale to it. The engine resolves a scale-sized
 -- child of an automatically sized frame against the size its content gives it, but a scale-sized grandchild
@@ -75,8 +79,17 @@ local HOVER_SHADE = 0.06
 local PRESSED_SHADE = -0.06
 -- How far a hovered face rises off its lip.
 local HOVER_LIFT = 2
--- The face of the gloss covers this much of the face, from its top.
-local GLOSS_HEIGHT = 0.45
+-- The gloss is light caught inside the ink, never over it. The board sets it inside the outline (`inset: 3px
+-- 10px auto; height: 38%` on a pill, `.4cqw .8cqw` and 36% on a tile, each measured from inside the border):
+-- this far under the outline and this far in from its ends, over this share of what the outline encloses; a
+-- tile's under a corner this much tighter than its own.
+local GLOSS_PILL_TOP = 3
+local GLOSS_PILL_SIDE = 10
+local GLOSS_PILL_HEIGHT = 0.38
+local GLOSS_TILE_TOP = 4
+local GLOSS_TILE_SIDE = 8
+local GLOSS_TILE_HEIGHT = 0.36
+local GLOSS_TILE_TIGHTEN = 4
 
 local function defaultElevation(kind: Kind): number
 	if kind == "Plate" then
@@ -120,6 +133,7 @@ function Sticker.new(props: Props): Sticker
 		root = frame
 	end
 
+	local lip = props.Lip or Theme.lip("Secondary")
 	local base: Frame? = nil
 	if kind ~= "Plate" then
 		local frame = Instance.new("Frame")
@@ -128,9 +142,13 @@ function Sticker.new(props: Props): Sticker
 		frame.ZIndex = 1
 		frame.Position = UDim2.fromOffset(0, elevation)
 		frame.Size = UDim2.new(1, 0, 1, -elevation)
-		frame.BackgroundColor3 = if kind == "Pressable" then props.Lip or Theme.lip("Secondary") else Theme.Colors.Plate
+		frame.BackgroundColor3 = if kind == "Pressable" then lip else Theme.Colors.Plate
 		Theme.corner(frame, corner)
-		Theme.stroke(frame, "Accent", strokeThickness)
+		if kind == "Pressable" then
+			Theme.stroke(frame, "Accent", strokeThickness, "Border", "Outer")
+		else
+			Theme.stroke(frame, "Accent", strokeThickness)
+		end
 		frame.Parent = root
 		trove:Add(frame)
 		base = frame
@@ -153,17 +171,24 @@ function Sticker.new(props: Props): Sticker
 		Motion.cancel(face)
 	end)
 
-	-- What rides with the face: the face, and with a gloss the gloss and the clear layer over it.
+	-- What rides with the face: the face, and with a gloss the gloss and the clear layer over it, each from
+	-- where it rests on an idle face.
 	local riders: { Frame } = { face }
+	local rests: { [Frame]: UDim2 } = { [face] = UDim2.new() }
 	local surface = face
 	if props.Gloss == true then
+		local pill = corner == Theme.Pill
+		local side = strokeThickness + (if pill then GLOSS_PILL_SIDE else GLOSS_TILE_SIDE)
+		local drop = strokeThickness + (if pill then GLOSS_PILL_TOP else GLOSS_TILE_TOP)
+		local share = if pill then GLOSS_PILL_HEIGHT else GLOSS_TILE_HEIGHT
 		local gloss = Instance.new("Frame")
 		gloss.Name = "Gloss"
 		gloss.BorderSizePixel = 0
 		gloss.BackgroundColor3 = Theme.Colors.PanelRaised
 		gloss.ZIndex = 3
-		gloss.Size = UDim2.new(1, 0, GLOSS_HEIGHT, -GLOSS_HEIGHT * elevation)
-		Theme.corner(gloss, corner)
+		-- An offset is a whole number of units.
+		gloss.Size = UDim2.new(1, -side * 2, share, -math.round(share * (elevation + strokeThickness * 2)))
+		Theme.corner(gloss, if pill then corner else UDim.new(corner.Scale, corner.Offset - GLOSS_TILE_TIGHTEN))
 		Theme.gradient("Gloss").Parent = gloss
 		gloss.Parent = root
 		trove:Add(gloss)
@@ -176,6 +201,8 @@ function Sticker.new(props: Props): Sticker
 		top.Parent = root
 		trove:Add(top)
 		riders = { face, gloss, top }
+		rests[gloss] = UDim2.fromOffset(side, drop)
+		rests[top] = UDim2.new()
 		surface = top
 		trove:Add(function()
 			Motion.cancel(gloss)
@@ -201,6 +228,7 @@ function Sticker.new(props: Props): Sticker
 		end
 		local y = 0
 		local color = fill
+		local under = lip
 		local preset: Motion.Preset = "UiSnappy"
 		if state == "Hover" then
 			y = -HOVER_LIFT
@@ -212,13 +240,18 @@ function Sticker.new(props: Props): Sticker
 			-- It sits on its lip: no depth left to press.
 			y = elevation - 1
 			color = Theme.Colors.Chalk
+			under = Theme.Colors.Chalk
 		else
 			-- Back from anywhere with the overshoot: a released button springs up, and that is the click.
 			preset = "UiPop"
 		end
+		local currentBase = base
+		if currentBase ~= nil then
+			currentBase.BackgroundColor3 = under
+		end
 		local position = UDim2.fromOffset(0, y)
 		for _, rider in ipairs(riders) do
-			local goals: { [string]: any } = { Position = position }
+			local goals: { [string]: any } = { Position = rests[rider] + position }
 			if rider == face then
 				goals.BackgroundColor3 = color
 			end

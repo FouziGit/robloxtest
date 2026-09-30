@@ -30,7 +30,7 @@ export type GradientDef = {
 	Kind: string?,
 }
 export type RarityDef = { Fill: string, Pips: number, Seal: boolean?, Shimmer: boolean? }
-export type RankDef = { Fill: string, Rim: string?, Seal: boolean?, Shimmer: boolean? }
+export type RankDef = { Fill: string, Rim: string?, Shimmer: boolean? }
 
 -- docs/ART_BIBLE.md: Vélin #E8E0CE, Charbon #17150F. Every hex of the interface is written ONCE, here,
 -- and the roles below point at these locals: a role that repeated a literal could drift from the bible
@@ -186,13 +186,13 @@ ThemeConfig.Rarity = {
 } :: { [string]: RarityDef }
 
 -- The rank ladder, illuminated as it climbs: blank, then earth, then ink, then purple with a gold rim,
--- then full gold leaf. One entry per RankingConfig.Tiers id.
+-- then full gold leaf, rimmed in gold and shimmering. One entry per RankingConfig.Tiers id.
 ThemeConfig.Ranks = {
 	Blank = { Fill = "Chalk" },
 	Sketch = { Fill = "Bronze" },
 	Script = { Fill = "InfoFill" },
 	Illumination = { Fill = "Epic", Rim = "Primary" },
-	Codex = { Fill = "Primary", Seal = true, Shimmer = true },
+	Codex = { Fill = "Primary", Rim = "Primary", Shimmer = true },
 } :: { [string]: RankDef }
 
 -- The transparency of the part of the Result's auto-close ring already spent.
@@ -214,15 +214,11 @@ end
 
 -- Every gradient of the interface (Theme.gradient). Rotation 90 puts keypoint 0 at the top.
 ThemeConfig.Gradients = {
-	-- The light caught by the top of a vivid face.
+	-- The light caught by the top of a vivid face: the sheet at half strength, fading out (the board's
+	-- `linear-gradient(sheet, transparent)` at an opacity of .5).
 	Gloss = {
 		Color = { { Time = 0, Role = "PanelRaised" }, { Time = 1, Role = "PanelRaised" } },
-		Transparency = { { 0, 0.55 }, { 1, 1 } },
-		Rotation = 90,
-	},
-	-- A header band, a shade lighter at its top.
-	BandLight = {
-		Color = { { Time = 0, Role = "Base", Shade = 0.06 }, { Time = 1, Role = "Base" } },
+		Transparency = { { 0, 0.5 }, { 1, 1 } },
 		Rotation = 90,
 	},
 	-- The fade at the bottom of a list that says there is more below.
@@ -321,10 +317,13 @@ ThemeConfig.Hud = {
 	HotbarKeyStrip = 22,
 	HotbarGap = 8,
 	HotbarPipsHeight = 26,
-	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it.
+	-- The combo row: its chips, the gap between it and what is under it, and the preview pill in it (the board's
+	-- pill, about 41 against its chips' 44). With a pointer the row stands this much further off the hotbar, whose
+	-- keys it would otherwise crowd.
 	ChipSize = 44,
 	ChipRowGap = 8,
-	PreviewHeight = 32,
+	PreviewHeight = 40,
+	ComboLift = 20,
 	-- Health at or under this share of the maximum is danger: red, hatched, pulsing, and the edges burn.
 	LowHealthFraction = 0.3,
 	-- The lock's mark warns this many studs before the distance a lock breaks at (LockOnConfig.BreakStuds).
@@ -343,6 +342,8 @@ ThemeConfig.Fonts = {
 	Bold = { Font = "Nunito", Weight = "ExtraBold" },
 	Label = { Font = "Nunito", Weight = "Heavy" },
 	Numeric = { Font = "Oswald", Weight = "Bold" },
+	-- A count read at rest beside its bar, lighter than a number that flies past: the Menu's XP.
+	NumericMedium = { Font = "Oswald", Weight = "Medium" },
 	Lore = { Font = "Merriweather", Weight = "Regular", Style = "Italic" },
 	Initial = { Font = "Merriweather", Weight = "Heavy" },
 	Symbol = { Font = "Merriweather", Weight = "Bold" },

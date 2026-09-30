@@ -11,6 +11,7 @@ local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -308,6 +309,23 @@ describe("the rarities and the ranks", function()
 				error(("a seal is drawn for %s, which is no rank"):format(id))
 			end
 		end
+		-- The top of the ladder is full gold leaf: rimmed in gold and shimmering, as the board's Codex seal.
+		local top = ThemeConfig.Ranks[RankingConfig.Tiers[#RankingConfig.Tiers].Id]
+		expect(top.Fill).toBe("Primary")
+		expect(top.Rim).toBe("Primary")
+		expect(top.Shimmer).toBe(true)
+		-- And a seal is a seal: no rank carries a flag nothing reads.
+		for id, def in pairs(ThemeConfig.Ranks) do
+			if (def :: any).Seal ~= nil then
+				error(id .. " still says Seal, which no seal reads")
+			end
+		end
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		local codex = Theme.rank(RankingConfig.Tiers[#RankingConfig.Tiers].Id)
+		expect(codex.Rim).toBe(Theme.Colors.Primary)
+		expect(codex.Shimmer).toBe(true)
+		expect(codex.Seal).toBeNil()
 	end)
 end)
 
@@ -487,13 +505,11 @@ describe("the sticker", function()
 		local body = string.match(theme, "function Theme%.stroke%((.-)\nend\n")
 		assert(body ~= nil, "Theme.stroke is gone: this gate would check nothing")
 		expect(string.find(body :: string, "stroke.StrokeSizingMode = Enum.StrokeSizingMode.FixedSize", 1, true)).never.toBeNil()
+		expect(string.find(body :: string, "stroke.Thickness = Theme.strokeThickness(thickness)", 1, true)).never.toBeNil()
+		local floor = string.match(theme, "function Theme%.strokeThickness%((.-)\nend\n")
+		assert(floor ~= nil, "Theme.strokeThickness is gone: this gate would check nothing")
 		expect(
-			string.find(
-				body :: string,
-				"stroke.Thickness = math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())",
-				1,
-				true
-			)
+			string.find(floor :: string, "return math.max(thickness, MIN_STROKE_PIXELS / Theme.activeScale())", 1, true)
 		).never.toBeNil()
 		expect(string.find(theme, "local MIN_STROKE_PIXELS = 2\n", 1, true)).never.toBeNil()
 		local found: { string } = {}
@@ -525,6 +541,187 @@ describe("the sticker", function()
 			)
 		).never.toBeNil()
 		expect(string.find(sticker, 'if outline then\n%s+Theme%.stroke%(face, "Accent"')).never.toBeNil()
+	end)
+
+	it("shows a pressable's whole lip, rimmed in ink from outside, and chalk under a disabled one", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Sticker = world.require("src/ui/components/Sticker")
+		local Theme = world.require("src/ui/Theme")
+		local Button = world.require("src/ui/components/Button")
+		local function base(object: any): (any, any)
+			local frame = object:FindFirstChild("Base")
+			assert(frame ~= nil, "the sticker has no base: this gate would check nothing")
+			return frame, frame:FindFirstChildOfClass("UIStroke")
+		end
+		-- The board's `0 5px 0 0 lip, 0 5px 0 3px ink`: the ink lies outside the lip, not over it.
+		local lip = Theme.lip("Primary")
+		local pressable =
+			Sticker.new({ Kind = "Pressable", Fill = Theme.Colors.Primary, Lip = lip, Parent = world.playerGui })
+		local frame, stroke = base(pressable.Instance)
+		expect(stroke.BorderStrokePosition.Name).toBe("Outer")
+		expect(stroke.Color).toBe(Theme.Colors.Accent)
+		expect(frame.BackgroundColor3).toBe(lip)
+		-- A card's shadow is a plain ink one, and keeps its outline inside it.
+		local card = Sticker.new({ Kind = "Card", Fill = Theme.Colors.PanelRaised, Parent = world.playerGui })
+		local cardBase, cardStroke = base(card.Instance)
+		expect(cardStroke.BorderStrokePosition.Name).toBe("Inner")
+		expect(cardBase.BackgroundColor3).toBe(Theme.Colors.Plate)
+		-- Disabled, it sits on chalk; awake, on its own lip again.
+		pressable:SetState("Disabled")
+		expect(frame.BackgroundColor3).toBe(Theme.Colors.Chalk)
+		pressable:SetState("Hover")
+		expect(frame.BackgroundColor3).toBe(lip)
+		pressable:SetState("Disabled")
+		pressable:SetState("Idle")
+		expect(frame.BackgroundColor3).toBe(lip)
+		-- Through a button: disabled, woken, then given another face.
+		local button = Button.new({ Text = "Go", Variant = "Primary", Disabled = true, Parent = world.playerGui })
+		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.Colors.Chalk)
+		button:SetDisabled(false)
+		expect((base(button.Instance)).BackgroundColor3).toBe(lip)
+		button:SetDisabled(true)
+		button:SetVariant("Secondary")
+		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.Colors.Chalk)
+		button:SetDisabled(false)
+		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.lip("Secondary"))
+	end)
+
+	it("keeps a pressable's outer rim whole in a frame that clips it: the ghosts' keys", function()
+		-- A ghost's key opens in a slot that clips; the cap's lip is rimmed from outside, so the cap stands that
+		-- rim above the slot's foot -- the rim as drawn, floored at two pixels on a small screen.
+		for _, phone in ipairs({ false, true }) do
+			local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+			if phone then
+				Engine.phone(world, 667, 375)
+			end
+			local ComboRow = world.require("src/ui/components/ComboRow")
+			local gui = Engine.instance("ScreenGui", world.playerGui)
+			local row = ComboRow.new({
+				Parent = gui,
+				Localize = {
+					t = function(key: string): string
+						return key
+					end,
+				},
+			})
+			row:ShowGhosts({ "Cinnabar" }, { Device = "Keyboard", Keys = { Cinnabar = "J" } })
+			local slot = row.Instance:FindFirstChild("Key1", true)
+			assert(slot ~= nil, "no ghost key was drawn: this gate would check nothing")
+			expect(slot.ClipsDescendants).toBe(true)
+			local cap = slot:GetChildren()[1]
+			local base = cap:FindFirstChild("Base")
+			assert(base ~= nil, "the ghost key has no lip: this gate would check nothing")
+			local rim = base:FindFirstChildOfClass("UIStroke")
+			expect(rim.BorderStrokePosition.Name).toBe("Outer")
+			expect(cap.AnchorPoint.Y).toBe(1)
+			expect(cap.Position.Y.Scale).toBe(1)
+			expect(cap.Position.Y.Offset + rim.Thickness).toBeLessThanOrEqual(0)
+			if phone then
+				expect(rim.Thickness).toBeGreaterThan(2)
+			end
+		end
+	end)
+
+	it("catches its gloss inside the ink, and carries it where the face goes", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local stroke = Theme.Sizes.Stroke
+		local function gloss(button: any): any
+			local found = button.Instance:FindFirstChild("Gloss")
+			assert(found ~= nil, "the button has no gloss: this gate would check nothing")
+			return found
+		end
+		-- The board measures its insets from inside the border, and its height as a share of what the border
+		-- encloses: the face, less the lip under it and the outline above and below.
+		local function enclosed(share: number, elevation: number): number
+			return -math.round(share * (elevation + stroke * 2))
+		end
+		-- A pill's: 10 in from its ends and 3 under its outline, both inside the ink, over 38 %, a pill itself.
+		local primary = Button.new({ Text = "Go", Variant = "Primary", Parent = world.playerGui })
+		local light = gloss(primary)
+		expect(light.Position.X.Offset).toBe(stroke + 10)
+		expect(light.Position.Y.Offset).toBe(stroke + 3)
+		expect(light.Size.X.Scale).toBe(1)
+		expect(light.Size.X.Offset).toBe(-(stroke + 10) * 2)
+		expect(light.Size.Y.Scale).toBeCloseTo(0.38, 5)
+		expect(light.Size.Y.Offset).toBe(enclosed(0.38, 5))
+		expect(light:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+		-- A tile's (the board's `.4cqw .8cqw`, at the tile's 10 units a cqw): 8 in from its sides and 4 under its
+		-- outline, inside the ink, over 36 %, under a corner 4 tighter than the tile's.
+		local tile = Button.new({ Text = "Shop", Variant = "Tile", Chapter = "Shop", Parent = world.playerGui })
+		local tileLight = gloss(tile)
+		expect(tileLight.Position.X.Offset).toBe(stroke + 8)
+		expect(tileLight.Position.Y.Offset).toBe(stroke + 4)
+		expect(tileLight.Size.X.Offset).toBe(-(stroke + 8) * 2)
+		expect(tileLight.Size.Y.Scale).toBeCloseTo(0.36, 5)
+		expect(tileLight.Size.Y.Offset).toBe(enclosed(0.36, 6))
+		expect(tileLight:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerTile - 4)
+		-- It rides a press and comes back to rest inside the ink.
+		local face = primary.Instance:FindFirstChild("Face")
+		primary.Instance.MouseButton1Down:Fire()
+		world:advance(1)
+		expect(light.Position.Y.Offset - face.Position.Y.Offset).toBe(stroke + 3)
+		expect(face.Position.Y.Offset).toBeGreaterThan(0)
+		primary.Instance.MouseButton1Up:Fire()
+		world:advance(2)
+		expect(light.Position.X.Offset).toBeCloseTo(stroke + 10, 3)
+		expect(light.Position.Y.Offset).toBeCloseTo(stroke + 3, 3)
+		-- Half the sheet at its top, fading out, as the board's `opacity: .5`.
+		expect(ThemeConfig.Gradients.Gloss.Transparency).toEqual({ { 0, 0.5 }, { 1, 1 } })
+	end)
+
+	it("keeps red in a menu for what is refused or lost, and a badge in the gold, the sheet on a gold face", function()
+		-- The palette's "Danger ... rien d'autre" speaks of the fight (D-180): out of it, red says a refusal, a
+		-- destructive confirm, a rating that fell or a balance that falls short, and no screen says anything
+		-- else in it.
+		local screens: { string } = {}
+		collect("src/ui/screens", screens)
+		local red: { string } = {}
+		for _, path in ipairs(screens) do
+			local code = stripComments(fs.readFile(path))
+			if
+				string.find(code, "Colors.Danger", 1, true) ~= nil
+				or string.find(code, '"Danger"', 1, true) ~= nil
+				or string.find(code, 'lip("Danger")', 1, true) ~= nil
+			then
+				table.insert(red, path)
+			end
+		end
+		table.sort(red)
+		expect(red).toEqual({ "src/ui/screens/SettingsBindings.luau", "src/ui/screens/shop/Purchase.luau" })
+		local function has(path: string, plain: string): boolean
+			return string.find(stripComments(fs.readFile(path)), plain, 1, true) ~= nil
+		end
+		expect(
+			has("src/ui/screens/SettingsBindings.luau", 'Confirm = { Text = t("common.reset"), Variant = "Danger" },')
+		).toBe(true)
+		expect(
+			has(
+				"src/ui/screens/shop/Purchase.luau",
+				"line.TextColor3 = if short then Theme.Colors.Danger else Theme.Colors.Text"
+			)
+		).toBe(true)
+		expect(has("src/ui/components/Toast.luau", "Error = Theme.Colors.DangerFill,")).toBe(true)
+		expect(
+			has(
+				"src/ui/components/ResultCard.luau",
+				"ratingLine.TextColor3 = if delta >= 0 then Theme.Colors.Success else Theme.Colors.Danger"
+			)
+		).toBe(true)
+		-- The board paints its tile badges red, against its own palette: a badge keeps the gold, and on a gold
+		-- face the sheet, whatever shape it takes.
+		local button = stripComments(fs.readFile("src/ui/components/Button.luau"))
+		expect(
+			select(
+				2,
+				string.gsub(
+					button,
+					"if look%.Face == Theme%.Colors%.Primary then Theme%.Colors%.PanelRaised else nil",
+					""
+				)
+			)
+		).toBe(2)
 	end)
 
 	it("keeps a badge out of red: nothing is wrong, something is owed", function()
@@ -628,6 +825,71 @@ describe("the restyled controls", function()
 		expect(minimum :: number).toBeGreaterThanOrEqual(140)
 		expect(wide :: number).toBeGreaterThanOrEqual(220)
 		expect(string.find(button, "measure.Size = UDim2.new(0, minWidth, 1, 0)", 1, true)).never.toBeNil()
+		-- The fight's compact pill drops the 140 for its snug word, never below a thumb (D-179).
+		expect(
+			string.find(
+				button,
+				"local minWidth = if props.Wide then WIDE_WIDTH elseif compact then Theme.MinTouchTarget else MIN_WIDTH",
+				1,
+				true
+			)
+		).never.toBeNil()
+		expect(string.find(button, "Theme.minPixelSize(button, Theme.MinTouchTarget)", 1, true)).never.toBeNil()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local regular = Button.new({ Text = "Menu", Parent = world.playerGui })
+		local pill = Button.new({ Text = "Menu", Compact = true, Parent = world.playerGui })
+		expect(regular.Instance:FindFirstChild("Measure").Size.X.Offset).toBeGreaterThanOrEqual(140)
+		expect(pill.Instance:FindFirstChild("Measure").Size.X.Offset).toBe(Theme.MinTouchTarget)
+		expect(pill.Instance:FindFirstChildOfClass("UISizeConstraint").MinSize.X).toBeGreaterThanOrEqual(
+			Theme.MinTouchTarget
+		)
+		expect(pill.Instance.Size.Y.Offset).toBe(Theme.MinTouchTarget)
+		expect(regular.Instance.Size.Y.Offset).toBe(Theme.Sizes.ButtonHeight)
+		local measure = pill.Instance:FindFirstChild("Measure")
+		local padding = measure:FindFirstChildOfClass("UIPadding")
+		expect(padding.PaddingLeft.Offset).toBe(13)
+		expect(padding.PaddingRight.Offset).toBe(13)
+		expect(measure.TextSize).toBe(14)
+		expect(measure.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+		local word = pill.Instance:FindFirstChild("Label", true)
+		expect(word.TextSize).toBe(measure.TextSize)
+		expect(word.FontFace.Weight).toBe(measure.FontFace.Weight)
+	end)
+
+	it("lift a hovered button and sink a pressed one, and never grow or shrink one", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		for _, variant in ipairs({ "Primary", "Secondary", "Tile" }) do
+			local button =
+				Button.new({ Text = "Go", Variant = variant :: any, Chapter = "Shop", Parent = world.playerGui })
+			local instance = button.Instance
+			local face = instance:FindFirstChild("Face")
+			local scale = instance:FindFirstChildOfClass("UIScale")
+			local function scaled(): number
+				return if scale ~= nil then scale.Scale else 1
+			end
+			instance.MouseEnter:Fire()
+			world:advance(1)
+			expect(face.Position.Y.Offset).toBeLessThan(0)
+			expect(scaled()).toBe(1)
+			instance.MouseButton1Down:Fire()
+			world:advance(1)
+			expect(face.Position.Y.Offset).toBeGreaterThan(0)
+			expect(scaled()).toBe(1)
+			instance.MouseButton1Up:Fire()
+			instance.MouseLeave:Fire()
+			instance.SelectionGained:Fire()
+			world:advance(1)
+			-- A gamepad's focus is its ring, not a bigger button.
+			expect(scaled()).toBe(1)
+			expect(face.Position.Y.Offset).toBeCloseTo(0, 3)
+		end
+		local code = source("Button")
+		for _, name in ipairs({ "HOVER_SCALE", "PRESSED_SCALE", "FOCUS_SCALE" }) do
+			expect(string.find(code, name, 1, true)).toBeNil()
+		end
 	end)
 
 	it("click only when they act: a disabled or pending button is silent", function()
@@ -649,16 +911,188 @@ describe("the restyled controls", function()
 				error(name .. " draws its own focus instead of Theme.focusRing")
 			end
 		end
+		-- The board's focus: outward from the edge, ink to 5, the yellow from 5 to 8, ink again to 9.
 		local theme = stripComments(fs.readFile(THEME))
-		expect(string.find(theme, 'ring("Outer", 12, "Accent", "Outer")', 1, true)).never.toBeNil()
+		expect(string.find(theme, "local FOCUS_HALO = 9\n", 1, true)).never.toBeNil()
+		expect(string.find(theme, "local FOCUS_RING_OFFSET = 5\n", 1, true)).never.toBeNil()
+		expect(string.find(theme, 'ring("Halo", 0, "Accent", FOCUS_HALO, 1)', 1, true)).never.toBeNil()
 		expect(
 			string.find(
 				theme,
-				'ring("Inner", 4, if kind == "Fight" then "PanelRaised" else "Primary", "Center")',
+				'ring("Ring", FOCUS_RING_OFFSET * 2, if kind == "Fight" then "PanelRaised" else "Primary", Theme.Sizes.Stroke, 2)',
 				1,
 				true
 			)
 		).never.toBeNil()
+		-- Run: each ring's frame, its line, its colour for each kind, and its corner concentric with the target.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		for _, case in ipairs({
+			{ Kind = nil, Ring = Theme.Colors.Primary },
+			{ Kind = "Menu", Ring = Theme.Colors.Primary },
+			{ Kind = "Fight", Ring = Theme.Colors.PanelRaised },
+		}) do
+			for _, corner in ipairs({ Theme.Pill, roblox.UDim.new(0, Theme.Sizes.CornerTile) }) do
+				local focus = Theme.focusRing(case.Kind :: any, corner)
+				local halo, ring = focus:FindFirstChild("Halo"), focus:FindFirstChild("Ring")
+				assert(halo ~= nil and ring ~= nil, "the focus has no halo or no ring: this gate would check nothing")
+				expect(#focus:GetChildren()).toBe(2)
+				expect(focus.Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(halo.Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(ring.Size).toBe(roblox.UDim2.new(1, 10, 1, 10))
+				expect(ring.ZIndex).toBeGreaterThan(halo.ZIndex)
+				local haloLine = halo:FindFirstChildOfClass("UIStroke")
+				local ringLine = ring:FindFirstChildOfClass("UIStroke")
+				expect(haloLine.BorderStrokePosition.Name).toBe("Outer")
+				expect(ringLine.BorderStrokePosition.Name).toBe("Outer")
+				expect(haloLine.Thickness).toBe(9)
+				expect(ringLine.Thickness).toBe(Theme.Sizes.Stroke)
+				expect(haloLine.Color).toBe(Theme.Colors.Accent)
+				expect(ringLine.Color).toBe(case.Ring)
+				local haloCorner = halo:FindFirstChildOfClass("UICorner").CornerRadius
+				local ringCorner = ring:FindFirstChildOfClass("UICorner").CornerRadius
+				expect(haloCorner).toBe(corner)
+				expect(ringCorner).toBe(if corner.Scale > 0 then corner else roblox.UDim.new(0, corner.Offset + 5))
+			end
+		end
+	end)
+
+	it("write a chapter's button in the ink where it reads, and in the sheet on purple and on ink", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local checked = 0
+		for screen, role in pairs(ThemeConfig.Chapters) do
+			for _, variant in ipairs({ "Tile", "Owner" }) do
+				local button = Button.new({
+					Text = "Go",
+					Variant = variant :: any,
+					Chapter = screen,
+					Icon = "Coin",
+					Parent = world.playerGui,
+				})
+				local label = button.Instance:FindFirstChild("Label", true)
+				local fill = ThemeConfig.Colors[role]
+				local dark = ThemeConfig.inkOn(fill) ~= ThemeConfig.Colors.Text
+				local expected = if dark then Theme.Colors.PanelRaised else Theme.Colors.Text
+				if label.TextColor3 ~= expected then
+					error(("a %s on %s's %s writes in the wrong ink"):format(variant, screen, role))
+				end
+				local ratio = Theme.contrast(label.TextColor3, Theme.color(role))
+				if ratio < BODY_CONTRAST then
+					error(("a %s on %s's %s reads at %.2f"):format(variant, screen, role, ratio))
+				end
+				checked += if dark then 1 else 0
+			end
+		end
+		-- The pass's purple and the ink of the Menu, the Loadout, the Leaderboard and the Settings, at least.
+		expect(checked).toBeGreaterThanOrEqual(10)
+	end)
+
+	it("paint the invite, and only the invite, in the cyan of us, and mark the settings with three lines", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local button = Button.new({ Text = Theme.Glyphs.Plus, Variant = "Ally", Parent = world.playerGui })
+		local face = button.Instance:FindFirstChild("Face")
+		local base = button.Instance:FindFirstChild("Base")
+		expect(face.BackgroundColor3).toBe(Theme.Colors.Ally)
+		expect(base.BackgroundColor3).toBe(Theme.lip("Secondary"))
+		expect(button.Instance:FindFirstChild("Gloss")).toBeNil()
+		local word = button.Instance:FindFirstChild("Label", true)
+		expect(word.TextColor3).toBe(Theme.Colors.Text)
+		expect(Theme.contrast(word.TextColor3, Theme.Colors.Ally)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		-- The Menu's invite, a "+" on it: bring an ally (D-176).
+		local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+		expect(string.find(menu, 'iconButton("Invite", Theme.Glyphs.Plus, nil, "Ally", 7, function()', 1, true)).never.toBeNil()
+		-- And no other button: the cyan stays the fight's "us". No screen names it but the Menu's invite, and
+		-- nothing asks a Button for it by its Variant.
+		local files: { string } = {}
+		collect("src", files)
+		local users: { string } = {}
+		for _, path in ipairs(files) do
+			local code = stripComments(fs.readFile(path))
+			local screen = string.sub(path, 1, #"src/ui/screens/") == "src/ui/screens/"
+			if
+				string.find(code, 'Variant = "Ally"', 1, true) ~= nil
+				or (screen and string.find(code, '"Ally"', 1, true) ~= nil)
+			then
+				table.insert(users, path)
+			end
+		end
+		expect(users).toEqual({ "src/ui/screens/MenuScreen.luau" })
+		expect(select(2, string.gsub(menu, '"Ally"', ""))).toBe(1)
+		-- The board's settings are its ≡, the Burger, on the sheet beside it.
+		expect(string.find(menu, 'iconButton("Settings", "", "Burger", "Secondary", 6, function()', 1, true)).never.toBeNil()
+		for screen, role in pairs(ThemeConfig.Chapters) do
+			if role == "Ally" or role == "Health" then
+				error(screen .. "'s chapter is the cyan of us")
+			end
+		end
+	end)
+
+	it("put the Folios on an ink pill, its gold coin drawn in it, and the way to more at its end", function()
+		local clicks: { string } = {}
+		local stubs = Engine.interfaceStubs()
+		stubs["src/ui/UiSound"] = {
+			play = function(id: string)
+				table.insert(clicks, id)
+			end,
+		}
+		local world = Engine.world({ Stubs = stubs })
+		local FoliosPill = world.require("src/ui/components/FoliosPill")
+		local Theme = world.require("src/ui/Theme")
+		local asked = 0
+		local pill = FoliosPill.new({
+			Height = 44,
+			Parent = world.playerGui,
+			OnMore = function()
+				asked += 1
+			end,
+		})
+		pill:Set(2480, false)
+		local root = pill.Instance
+		-- The board's `.pill`: ink, its count the sheet in the number face.
+		expect(root.BackgroundColor3).toBe(Theme.Colors.Plate)
+		local count = root:FindFirstChild("Count")
+		expect(count.Text).toBe("2480")
+		expect(count.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(count.FontFace.Family).toBe(Theme.Fonts.Numeric.Family)
+		expect(Theme.contrast(count.TextColor3, root.BackgroundColor3)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		-- Its `.coin`: gold in a sheet rim, a ring of the gold's lip inside the rim, and no letter on it.
+		local coin = root:FindFirstChild("Coin")
+		expect(coin.BackgroundColor3).toBe(Theme.Colors.Primary)
+		expect(coin:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.PanelRaised)
+		local ring = coin:FindFirstChild("Ring")
+		expect(ring:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.lip("Primary"))
+		for _, part in ipairs(coin:GetDescendants()) do
+			if part:IsA("TextLabel") or part:IsA("ImageLabel") then
+				error("the coin carries " .. part.Name)
+			end
+		end
+		-- Its `.plus`: a disc of the sheet at the pill's end, a "+" of ink, and the whole pill a button taking it.
+		local more = root:FindFirstChild("More")
+		expect(more.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+		expect(more.Text).toBe(Theme.Glyphs.Plus)
+		expect(more.TextColor3).toBe(Theme.Colors.Text)
+		expect(more.LayoutOrder).toBeGreaterThan(count.LayoutOrder)
+		expect(root.ClassName).toBe("TextButton")
+		expect(root.Selectable).toBe(true)
+		expect(root.SelectionImageObject).never.toBeNil()
+		expect(root:FindFirstChildOfClass("UISizeConstraint").MinSize.Y).toBeGreaterThanOrEqual(Theme.MinTouchTarget)
+		root.Activated:Fire()
+		expect(asked).toBe(1)
+		expect(clicks).toEqual({ "UiClick" })
+		-- With nowhere to go, it is only read: a frame, no "+".
+		local plain = FoliosPill.new({ Parent = world.playerGui })
+		expect(plain.Instance.ClassName).toBe("Frame")
+		expect(plain.Instance:FindFirstChild("More")).toBeNil()
+		-- The Menu's pill takes the player to the Shop's Folios; no second "+" stands beside it.
+		local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+		local call = string.match(menu, "local pill = FoliosPill%.new(%b())")
+		assert(call ~= nil, "the Menu shows no Folios pill")
+		expect(string.find(call :: string, 'OnMore = function%(%)%s+navigate%("Shop", { Tab = "Folios" }%)%s+end')).never.toBeNil()
+		expect(select(2, string.gsub(menu, 'Tab = "Folios"', ""))).toBe(1)
 	end)
 
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()
@@ -690,6 +1124,36 @@ describe("the restyled controls", function()
 		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Outline)).toBeGreaterThanOrEqual(
 			4.5
 		)
+	end)
+
+	it("keep every bar flat, and ring the well of one on a plate in the sheet", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ProgressBar = world.require("src/ui/components/ProgressBar")
+		local Theme = world.require("src/ui/Theme")
+		local function ring(bar: any): any
+			local track = bar.Instance:FindFirstChild("Track")
+			assert(track ~= nil, "the bar has no track: this gate would check nothing")
+			return track:FindFirstChildOfClass("UIStroke")
+		end
+		-- The board's `.bar i` are flat everywhere: the Menu's XP, the pass, the quests, the dock, the boss.
+		for _, props in ipairs({
+			{ Color = Theme.Colors.Primary, Progress = 0.6 },
+			{ Color = Theme.Colors.Health, Ghost = Theme.Colors.Danger, OnPlate = true, Progress = 0.7 },
+			{ Color = Theme.Colors.Ink, OnPlate = true, Ticks = { 0.25 }, Progress = 0.4 },
+		}) do
+			local bar = ProgressBar.new(props :: any)
+			bar.Instance.Parent = world.playerGui
+			bar:SetLow(true)
+			bar:Gain(5)
+			for _, part in ipairs(bar.Instance:GetDescendants()) do
+				if part.Name == "Gloss" or part.ClassName == "UIGradient" then
+					error("a bar catches light: " .. part:GetFullName())
+				end
+			end
+			-- On a plate the ink border would vanish and the empty well read at 1.23: its ring is the sheet (D-150).
+			local edge = ring(bar)
+			expect(edge.Color).toBe(if props.OnPlate then Theme.Colors.PanelRaised else Theme.Colors.Accent)
+		end
 	end)
 
 	it("run every fill in a track it stands out from", function()

@@ -1,17 +1,19 @@
 --!strict
 -- Button: a sticker you press (D-147). A flat face on a coloured lip: hover lifts it, a press sinks it onto
--- the lip, and letting go springs it back with the overshoot of a real key -- the overshoot is the click.
+-- the lip, and letting go springs it back with the overshoot of a real key -- the overshoot is the click. It
+-- never grows or shrinks to say so (the board's buttons only move): the gamepad's focus is its ring.
 -- The face says what the button is before its word does:
 --
 --   Primary    the primary yellow: go, claim, buy          Secondary  the sheet: everything else
 --   Owner      the colour of the screen's chapter          Danger     red: only a destructive confirm
 --   Premium    the yellow, a second line for the price     Tile       a menu tile, sized by its grid
---   Ghost      no face: an underlined word
+--   Ghost      no face: an underlined word                 Ally       the cyan of us: bring a friend
 --
--- A button is as wide as its word, never less than a thumb's worth, and never truncates it. A disabled
--- button says why (a lock and a level, a claimed seal, "slots full"), a pending one bounces three dots
--- until the server answers or gives up, and the button plays its own click (UiSound). Theme.minPixelSize
--- keeps it at Theme.MinTouchTarget real pixels whatever the UIScale.
+-- A button is as wide as its word, never less than a thumb's worth, and never truncates it; a compact one is
+-- the board's small pill, its word in the label face, as snug and as short as a touch target allows. A
+-- disabled button says why (a lock and a level, a claimed seal, "slots full"), a pending one bounces three
+-- dots until the server answers or gives up, and the button plays its own click (UiSound).
+-- Theme.minPixelSize keeps it at Theme.MinTouchTarget real pixels whatever the UIScale.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -26,7 +28,7 @@ local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local UiSound = require(script.Parent.Parent.UiSound)
 
-export type Variant = "Primary" | "Secondary" | "Danger" | "Owner" | "Premium" | "Tile" | "Ghost"
+export type Variant = "Primary" | "Secondary" | "Danger" | "Owner" | "Premium" | "Tile" | "Ghost" | "Ally"
 export type DisabledReason = "Locked" | "Claimed" | "Owned" | "Premium" | "Full" | "Pending"
 export type FlashKind = "Success" | "Error"
 
@@ -41,12 +43,18 @@ export type Props = {
 	Name: string?,
 	-- An Icon name, drawn before the word.
 	Icon: Icon.Name?,
+	-- A character on a chip in its place (the board's tile icons): a Theme.Glyphs symbol, or a digit set in
+	-- GlyphFont (the roman that draws the symbols by default).
+	Glyph: string?,
+	GlyphFont: Font?,
 	Badge: Badge.Value?,
 	-- A second line: the price of a Premium button, the subtitle of a tile.
 	Sublabel: string?,
 	-- The screen whose chapter colours an Owner button or a tile (a ThemeConfig.Chapters key).
 	Chapter: string?,
 	Wide: boolean?,
+	-- The board's small pill: the word in the label face, snug, as tall as a touch target and no taller.
+	Compact: boolean?,
 	DisabledReason: DisabledReason?,
 	-- Called when a pending button gives up waiting (ThemeConfig.Timing.PendingTimeoutSeconds).
 	OnTimeout: (() -> ())?,
@@ -74,19 +82,30 @@ local Button = {}
 local MIN_WIDTH = 140
 local WIDE_WIDTH = 220
 local PADDING_X = 18
+-- The compact pill's word and its margins (the board's `.q`: 1.4cqw heavy, padded 1.3cqw).
+local COMPACT_TEXT_SIZE = 14
+local COMPACT_PADDING = 13
 local ICON_SIZE = 28
 local REASON_ICON_SIZE = 20
 local GAP = 8
 local ELEVATION = 5
 local TILE_ELEVATION = 6
-local TILE_ICON_SIZE = 48
+-- A tile's icon, or its chip (the board's 4.2cqw).
+local TILE_ICON_SIZE = 42
+-- A chip: a rounded square outlined in the button's ink, its glyph half as tall as it.
+local CHIP_CORNER = 10
+local CHIP_GLYPH_SHARE = 0.5
+-- A tile's content stands this far inside its ink (the board's `padding: 1.2cqw` inside its border).
+local TILE_PADDING = 12
+-- Its word, at this size, wraps onto as many as this many lines this far apart before it shrinks.
 local TILE_TEXT_SIZE = 24
+local TILE_LINES = 2
+local TILE_LINE_HEIGHT = 1.05
 local GHOST_TEXT_SIZE = 18
 local SUBLABEL_SIZE = 18
 local MIN_SCALED_TEXT = 14
-local HOVER_SCALE = 1.03
-local PRESSED_SCALE = 0.97
-local FOCUS_SCALE = 1.06
+-- A success is a beat of the whole button, once.
+local SUCCESS_PUNCH = 1.06
 local DOT_SIZE = 8
 local DOT_BOUNCE = 4
 local RIM_TRANSPARENCY = 0.2
@@ -107,10 +126,14 @@ local function lookFor(variant: Variant, chapter: string?): Look
 	elseif variant == "Danger" then
 		look.Face = Theme.Colors.DangerFill
 		look.Lip = Theme.lip("Danger")
+	elseif variant == "Ally" then
+		-- The only cyan a menu shows, on the paper edge of a Secondary: the invite (D-176).
+		look.Face = Theme.Colors.Ally
 	elseif variant == "Owner" or variant == "Tile" then
 		local owner = Theme.chapter(chapter or "Menu")
 		look.Face = owner.Band
-		look.Ink = Theme.inkOn(owner.Band)
+		-- The ink where it reads; on the Tyrian purple and on ink, the sheet (the board's `color: sheet`).
+		look.Ink = if Theme.inkOn(owner.Band) == Theme.Colors.Text then Theme.Colors.Text else Theme.Colors.PanelRaised
 		look.Lip = owner.Lip
 		look.Gloss = owner.Band ~= Theme.Colors.Plate
 		if variant == "Tile" then
@@ -146,8 +169,10 @@ function Button.new(props: Props): Button
 	local reasonText: string? = nil
 	local pending = false
 	local pendingToken = 0
-	local hovered, pressed, focused = false, false, false
+	local hovered, pressed = false, false
 	local isTile = variant == "Tile"
+	local compact = props.Compact == true
+	local paddingX = if compact then COMPACT_PADDING else PADDING_X
 
 	local button = Instance.new("TextButton")
 	button.Name = props.Name or "Button"
@@ -155,7 +180,7 @@ function Button.new(props: Props): Button
 	button.BackgroundTransparency = 1
 	button.BorderSizePixel = 0
 	button.Text = ""
-	button.Size = props.Size or UDim2.fromOffset(0, Theme.Sizes.ButtonHeight)
+	button.Size = props.Size or UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight)
 	button.LayoutOrder = props.LayoutOrder or 0
 	button.Selectable = not disabled
 	local stretched = props.Size ~= nil and props.Size.X.Scale ~= 0
@@ -168,6 +193,7 @@ function Button.new(props: Props): Button
 	button.SelectionImageObject = trove:Add(Theme.focusRing(nil, look.Corner))
 	trove:Add(button)
 
+	-- Only a success beats it (Flash).
 	local scale = Instance.new("UIScale")
 	scale.Name = "Scale"
 	scale.Parent = button
@@ -185,10 +211,10 @@ function Button.new(props: Props): Button
 	measure.BackgroundTransparency = 1
 	measure.TextTransparency = 1
 	measure.AutomaticSize = Enum.AutomaticSize.X
-	measure.FontFace = Theme.Fonts.Bold
-	measure.TextSize = Theme.Sizes.TextButton
+	measure.FontFace = if compact then Theme.Fonts.Label else Theme.Fonts.Bold
+	measure.TextSize = if compact then COMPACT_TEXT_SIZE else Theme.Sizes.TextButton
 	local measurePadding = Instance.new("UIPadding")
-	measurePadding.PaddingRight = UDim.new(0, PADDING_X)
+	measurePadding.PaddingRight = UDim.new(0, paddingX)
 	measurePadding.Parent = measure
 	measure.Visible = not isTile
 	measure.Parent = button
@@ -238,23 +264,30 @@ function Button.new(props: Props): Button
 	sublabel.Parent = words
 
 	if isTile then
-		-- A tile is sized by its grid: its icon sits top-left and its word fills the bottom, scaled.
+		-- A tile is sized by its grid: its icon at its top and its word at its foot (the board's `align-content:
+		-- space-between`), the word wrapped at full size onto two lines, and only shrunk, never below the floor,
+		-- where two lines are not enough (a small phone).
+		local inset = Theme.Sizes.Stroke + TILE_PADDING
 		content.AutomaticSize = Enum.AutomaticSize.None
 		content.AnchorPoint = Vector2.zero
-		content.Size = UDim2.new(1, -Theme.Sizes.Padding * 2, 1, -Theme.Sizes.Padding * 2)
-		content.Position = UDim2.fromOffset(Theme.Sizes.Padding, Theme.Sizes.Padding)
+		content.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
+		content.Position = UDim2.fromOffset(inset, inset)
 		contentLayout.FillDirection = Enum.FillDirection.Vertical
 		contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		contentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+		contentLayout.VerticalFlex = Enum.UIFlexAlignment.SpaceBetween
 		iconSlot.Size = UDim2.fromOffset(TILE_ICON_SIZE, TILE_ICON_SIZE)
 		words.AutomaticSize = Enum.AutomaticSize.Y
 		words.Size = UDim2.fromScale(1, 0)
 		wordsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		label.FontFace = Theme.Fonts.Title
 		label.AutomaticSize = Enum.AutomaticSize.None
-		label.Size = UDim2.new(1, 0, 0, TILE_TEXT_SIZE + 6)
+		label.Size = UDim2.new(1, 0, 0, math.ceil(TILE_LINES * TILE_TEXT_SIZE * TILE_LINE_HEIGHT))
+		label.LineHeight = TILE_LINE_HEIGHT
+		label.TextWrapped = true
 		label.TextScaled = true
 		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextYAlignment = Enum.TextYAlignment.Bottom
 		local cap = Instance.new("UITextSizeConstraint")
 		cap.MinTextSize = MIN_SCALED_TEXT
 		cap.MaxTextSize = TILE_TEXT_SIZE
@@ -263,6 +296,9 @@ function Button.new(props: Props): Button
 		sublabel.TextSize = Theme.Sizes.TextBody - 2
 	elseif variant == "Ghost" then
 		label.TextSize = GHOST_TEXT_SIZE
+	elseif compact then
+		label.FontFace = Theme.Fonts.Label
+		label.TextSize = COMPACT_TEXT_SIZE
 	end
 
 	-- Three dots that bounce while the server has not answered: a wave on ONE loop goes back and forth across
@@ -395,6 +431,23 @@ function Button.new(props: Props): Button
 			lock.AnchorPoint = Vector2.new(1, 1)
 			lock.Position = UDim2.fromScale(1, 1)
 			lock.Parent = iconSlot
+		elseif props.Glyph ~= nil then
+			local chip = Instance.new("Frame")
+			chip.Name = "Chip"
+			chip.BackgroundTransparency = 1
+			chip.Size = UDim2.fromScale(1, 1)
+			Theme.corner(chip, CHIP_CORNER)
+			Theme.stroke(chip, ink, Theme.Sizes.Stroke)
+			local glyph = Instance.new("TextLabel")
+			glyph.Name = "Glyph"
+			glyph.BackgroundTransparency = 1
+			glyph.Size = UDim2.fromScale(1, 1)
+			glyph.FontFace = props.GlyphFont or Theme.Fonts.Symbol
+			glyph.TextSize = math.round(size * CHIP_GLYPH_SHARE)
+			glyph.TextColor3 = ink
+			glyph.Text = props.Glyph
+			glyph.Parent = chip
+			chip.Parent = iconSlot
 		elseif props.Icon ~= nil then
 			Icon.new(props.Icon, size, ink).Parent = iconSlot
 		else
@@ -403,14 +456,14 @@ function Button.new(props: Props): Button
 		iconSlot.Visible = shown
 		iconSlot.Size = UDim2.fromOffset(size, size)
 		local lead = if shown and not isTile then size + GAP else 0
-		measurePadding.PaddingLeft = UDim.new(0, PADDING_X + lead)
+		measurePadding.PaddingLeft = UDim.new(0, paddingX + lead)
 	end
 
-	local function render(animate: boolean)
+	local function render()
 		local shown = if disabled and reasonText ~= nil then reasonText :: string else text
 		label.Text = shown
 		measure.Text = shown
-		local minWidth = if props.Wide then WIDE_WIDTH else MIN_WIDTH
+		local minWidth = if props.Wide then WIDE_WIDTH elseif compact then Theme.MinTouchTarget else MIN_WIDTH
 		measure.Size = UDim2.new(0, minWidth, 1, 0)
 		label.TextColor3 = if disabled then Theme.Colors.TextMuted else look.Ink
 		sublabel.TextColor3 = label.TextColor3
@@ -436,21 +489,6 @@ function Button.new(props: Props): Button
 				state = "Hover"
 			end
 			face:SetState(state)
-		end
-		local target = 1
-		if not disabled then
-			if pressed then
-				target = PRESSED_SCALE
-			elseif focused then
-				target = FOCUS_SCALE
-			elseif hovered then
-				target = HOVER_SCALE
-			end
-		end
-		if animate then
-			Motion.to(scale, { Scale = target }, if target == 1 then "UiPop" else "UiSnappy")
-		else
-			Motion.set(scale, { Scale = target })
 		end
 	end
 
@@ -480,7 +518,7 @@ function Button.new(props: Props): Button
 			end)
 		end
 		drawIcon()
-		render(true)
+		render()
 	end
 	trove:Add(function()
 		pending = false
@@ -494,29 +532,24 @@ function Button.new(props: Props): Button
 
 	trove:Connect(button.MouseEnter, function()
 		hovered = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseLeave, function()
 		hovered = false
 		pressed = false
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseButton1Down, function()
 		pressed = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseButton1Up, function()
 		pressed = false
-		render(true)
-	end)
-	trove:Connect(button.SelectionGained, function()
-		focused = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.SelectionLost, function()
-		focused = false
 		pressed = false
-		render(true)
+		render()
 	end)
 	trove:Connect(button.Activated, function()
 		if disabled or pending then
@@ -531,7 +564,7 @@ function Button.new(props: Props): Button
 
 	buildFace()
 	drawIcon()
-	render(false)
+	render()
 	if props.Badge ~= nil then
 		badge =
 			Badge.new(props.Badge, button, if look.Face == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)
@@ -540,7 +573,7 @@ function Button.new(props: Props): Button
 
 	local function setText(_self: Button, next: string)
 		text = next
-		render(false)
+		render()
 	end
 
 	local function setDisabled(_self: Button, value: boolean, why: DisabledReason?, whyText: string?)
@@ -549,7 +582,7 @@ function Button.new(props: Props): Button
 		reasonText = if value then whyText else nil
 		button.Selectable = not value
 		drawIcon()
-		render(true)
+		render()
 	end
 
 	local function setVariant(_self: Button, next: Variant)
@@ -560,7 +593,7 @@ function Button.new(props: Props): Button
 		look = lookFor(next, props.Chapter)
 		buildFace()
 		drawIcon()
-		render(false)
+		render()
 	end
 
 	local function isDisabled(_self: Button): boolean
@@ -577,7 +610,7 @@ function Button.new(props: Props): Button
 		label.Text = if success then Theme.Glyphs.Check else text
 		label.TextColor3 = Theme.Colors.Text
 		if success then
-			Motion.punch(scale, FOCUS_SCALE)
+			Motion.punch(scale, SUCCESS_PUNCH)
 		else
 			-- The word shakes on the face: the button itself is placed by its row's layout.
 			Motion.shake(content)
@@ -586,7 +619,7 @@ function Button.new(props: Props): Button
 		task.delay(Theme.Timing.SuccessFlashSeconds, function()
 			if sticker == shownFace and button:IsDescendantOf(game) then
 				shownFace:SetFill(look.Face)
-				render(true)
+				render()
 			end
 		end)
 	end

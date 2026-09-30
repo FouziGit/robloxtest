@@ -17,7 +17,10 @@ local Harness = require("./harness")
 local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local Layout = require("./layout")
+local Measure = require("./measure")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -54,6 +57,15 @@ local function profile(today: number): any
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
 	}
+end
+
+local function stripComments(source: string): string
+	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
+	local lines = {}
+	for line in string.gmatch(withoutBlocks .. "\n", "(.-)\n") do
+		table.insert(lines, (string.gsub(line, "%-%-.*$", "")))
+	end
+	return table.concat(lines, "\n")
 end
 
 local function expectClean(root: any, screenHeight: number)
@@ -201,6 +213,290 @@ describe("the interface, held to the engine's layouts", function()
 				end)
 			end
 		end
+
+		it("sets a menu tile's icon at its top and its word at its foot, wrapped, " .. where, function()
+			local built = screen("MenuScreen", phone)
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			local playTile = built.Instance:FindFirstChild("PlayTile", true)
+			assert(
+				grid ~= nil and playTile ~= nil,
+				"the menu has no grid or no Play tile: this gate would check nothing"
+			)
+			local tiles = {}
+			for _, child in ipairs(grid:GetChildren()) do
+				if child:IsA("TextButton") then
+					table.insert(tiles, child)
+				end
+			end
+			expect(#tiles).toBe(6)
+			for _, tile in ipairs(tiles) do
+				local content = tile:FindFirstChild("Content", true)
+				local layout = content:FindFirstChildOfClass("UIListLayout")
+				-- The board's `padding: 1.2cqw` inside the tile's ink.
+				expect(content.Position).toBe(roblox.UDim2.fromOffset(15, 15))
+				expect(content.Size).toBe(roblox.UDim2.new(1, -30, 1, -30))
+				-- The board's `align-content: space-between`: the icon up top, the word down at the foot.
+				expect(layout.VerticalFlex.Name).toBe("SpaceBetween")
+				local word = content:FindFirstChild("Label", true)
+				local cap = word:FindFirstChildOfClass("UITextSizeConstraint")
+				-- Wrapped at full size onto two lines 1.05 apart, shrunk only where two are not enough.
+				expect(word.TextWrapped).toBe(true)
+				expect(word.TextScaled).toBe(true)
+				expect(cap.MaxTextSize).toBe(24)
+				expect(cap.MinTextSize).toBeGreaterThanOrEqual(14)
+				expect(word.LineHeight).toBe(1.05)
+				expect(word.Size.Y.Offset).toBeGreaterThanOrEqual(2 * cap.MaxTextSize * word.LineHeight)
+				expect(word.TextYAlignment.Name).toBe("Bottom")
+			end
+			-- The Play tile keeps its words together at its foot, under its disc.
+			local playLayout = playTile:FindFirstChild("Content", true):FindFirstChildOfClass("UIListLayout")
+			expect(playLayout.VerticalFlex.Name).toBe("None")
+			expect(playLayout.VerticalAlignment.Name).toBe("Bottom")
+		end)
+
+		it("lays the menu's tiles out in the board's proportions " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local screenWidth = world.workspace.CurrentCamera.ViewportSize.X / Theme.activeScale()
+			local deck = built.Instance:FindFirstChild("Deck", true)
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			local playTile = built.Instance:FindFirstChild("PlayTile", true)
+			assert(
+				deck ~= nil and grid ~= nil and playTile ~= nil,
+				"the menu has no deck: this gate would check nothing"
+			)
+			-- The board's 1.5cqw between any two tiles, across and down.
+			expect(deck:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(16)
+			local cells = grid:FindFirstChildOfClass("UIGridLayout")
+			expect(cells.CellPadding.X.Offset).toBe(16)
+			expect(cells.CellPadding.Y.Offset).toBe(16)
+			-- Its `1.35fr 1fr 1fr 1fr`: Play is 1.35 tiles wide, whatever the width the deck is given.
+			local tiles: { any } = {}
+			local daily: any = nil
+			for _, child in ipairs(grid:GetChildren()) do
+				if child:IsA("TextButton") then
+					table.insert(tiles, child)
+					if child:FindFirstChild("Label", true).Text == "daily.title" then
+						daily = child
+					end
+				end
+			end
+			local tileWidth = Measure.widthOf(tiles[1], screenWidth)
+			expect(Measure.widthOf(playTile, screenWidth) / tileWidth).toBeCloseTo(1.35, 2)
+			-- Three tiles and their gaps fit their row, the third never wrapping under the others.
+			expect(3 * tileWidth + 2 * cells.CellPadding.X.Offset).toBeLessThanOrEqual(
+				Measure.widthOf(grid, screenWidth)
+			)
+			-- And the longest word of the menu, "Récompense du jour", wraps onto two lines at full size, every word
+			-- whole (measured the conservative way).
+			assert(daily ~= nil, "the menu has no daily tile: this gate would check nothing")
+			local word = daily:FindFirstChild("Label", true)
+			local size = word:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize
+			local width = Measure.widthOf(word, screenWidth)
+			local french = Strings.t("daily.title", nil, "fr")
+			expect(french).toBe("Récompense du jour")
+			for _, title in ipairs({ french, Strings.t("daily.title", nil, "en") }) do
+				for part in string.gmatch(title, "%S+") do
+					expect(Measure.textWidth(part, size)).toBeLessThanOrEqual(width)
+				end
+				expect(Measure.lines(title, size, width)).toBeLessThanOrEqual(2)
+			end
+			expect(Measure.lines(french, size, width)).toBe(2)
+		end)
+
+		it("runs the Loadout tile's pigments edge to edge along its foot, its ends in its corner, " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local PigmentConfig = world.require("src/shared/Config/PigmentConfig")
+			local loadout: any = nil
+			for _, tile in ipairs(built.Instance:FindFirstChild("Grid", true):GetChildren()) do
+				if tile:IsA("TextButton") and tile:FindFirstChild("Label", true).Text == "menu.loadout" then
+					loadout = tile
+				end
+			end
+			local stripe = if loadout ~= nil then loadout:FindFirstChild("Stripe", true) else nil
+			assert(stripe ~= nil, "the Loadout tile has no stripe: this gate would check nothing")
+			local stroke = Theme.Sizes.Stroke
+			-- Right inside the ink, edge to edge, 8 tall.
+			expect(stripe.AnchorPoint).toBe(roblox.Vector2.new(0.5, 1))
+			expect(stripe.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -stroke))
+			expect(stripe.Size).toBe(roblox.UDim2.new(1, -2 * stroke, 0, 8))
+			local corner = Theme.Sizes.CornerTile - stroke
+			local count = #PigmentConfig.Order
+			for index, pigment in ipairs(PigmentConfig.Order) do
+				local segment = stripe:FindFirstChild(pigment)
+				assert(segment ~= nil, pigment .. " has no segment")
+				expect(segment.LayoutOrder).toBe(index)
+				expect(segment.Size).toBe(roblox.UDim2.fromScale(1 / count, 1))
+				local color = Theme.pigmentColor(pigment)
+				if index == 1 or index == count then
+					-- A frame rounded like the tile's inner corner, clipped to the segment: only its outer foot shows.
+					expect(segment.ClipsDescendants).toBe(true)
+					expect(segment.BackgroundTransparency).toBe(1)
+					local rounded = segment:FindFirstChild("Corner")
+					expect(rounded.BackgroundColor3).toBe(color)
+					expect(rounded:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(corner)
+					local side = if index == 1 then 0 else 1
+					expect(rounded.AnchorPoint).toBe(roblox.Vector2.new(side, 1))
+					expect(rounded.Position).toBe(roblox.UDim2.fromScale(side, 1))
+					expect(rounded.Size).toBe(roblox.UDim2.new(1, corner, 0, 2 * corner))
+				else
+					expect(segment.BackgroundColor3).toBe(color)
+					expect(#segment:GetChildren()).toBe(0)
+				end
+			end
+		end)
+
+		it(
+			"sets Play's ► on a disc of the sheet and its ribbon over its corner, riding its face, " .. where,
+			function()
+				local built, _, world = screen("MenuScreen", phone)
+				local Theme = world.require("src/ui/Theme")
+				local screenWidth = world.workspace.CurrentCamera.ViewportSize.X / Theme.activeScale()
+				local playTile = built.Instance:FindFirstChild("PlayTile", true)
+				assert(playTile ~= nil, "the menu has no Play tile: this gate would check nothing")
+				local disc = playTile:FindFirstChild("Disc", true)
+				local ribbon = playTile:FindFirstChild("Ribbon", true)
+				assert(disc ~= nil and ribbon ~= nil, "the Play tile has no disc or no ribbon")
+				local content = playTile:FindFirstChild("Content", true)
+				-- On the tile's face, beside its words: they ride a press together.
+				expect(disc.Parent).toBe(content.Parent)
+				expect(ribbon.Parent).toBe(content.Parent)
+				expect(playTile:FindFirstChild("Splat", true)).toBeNil()
+				-- The disc: the sheet in its ink, round, a third of the tile across, in the tile's top-left padding.
+				expect(disc.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+				expect(disc:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+				local line = disc:FindFirstChildOfClass("UIStroke")
+				expect(line.Color).toBe(Theme.Colors.Accent)
+				expect(line.Thickness).toBe(Theme.Sizes.Stroke)
+				expect(disc.Position).toBe(content.Position)
+				expect(disc.Size).toBe(roblox.UDim2.fromScale(0.35, 0.35))
+				local round = disc:FindFirstChildOfClass("UIAspectRatioConstraint")
+				expect(round.AspectRatio).toBe(1)
+				expect(round.DominantAxis.Name).toBe("Width")
+				local across = Measure.widthOf(disc, screenWidth)
+				if phone == nil then
+					-- About 96 on the pointer card, as the board's 9cqw on a tile of 25.
+					expect(across).toBeGreaterThan(90)
+					expect(across).toBeLessThan(100)
+				end
+				local glyph = disc:FindFirstChild("Glyph")
+				expect(glyph.Text).toBe("►")
+				expect(glyph.TextColor3).toBe(Theme.Colors.Text)
+				expect(glyph.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+				expect(glyph.Position.X.Scale).toBeCloseTo(0.545, 4)
+				expect(glyph.Position.Y.Scale).toBe(0.5)
+				-- Its word at the board's 4.4cqw, its line in the bold.
+				local word = content:FindFirstChild("Label", true)
+				expect(word:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize).toBe(Theme.Sizes.TextHero)
+				local sub = content:FindFirstChild("Sublabel", true)
+				expect(sub.FontFace.Weight).toBe(Theme.Fonts.Bold.Weight)
+				expect(sub.FontFace.Family).toBe(Theme.Fonts.Bold.Family)
+				-- The ribbon: ink, the sheet's heavy word, corners of 8, padded 6 and 12, turned 8 degrees.
+				expect(ribbon.Text).toBe("queue.ranked")
+				expect(ribbon.BackgroundColor3).toBe(Theme.Colors.Plate)
+				expect(ribbon.TextColor3).toBe(Theme.Colors.PanelRaised)
+				expect(ribbon.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+				expect(ribbon.TextSize).toBe(Theme.Sizes.TextLabel)
+				expect(ribbon.Rotation).toBe(8)
+				expect(ribbon:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(8)
+				local padding = ribbon:FindFirstChildOfClass("UIPadding")
+				expect(padding.PaddingLeft.Offset).toBe(12)
+				expect(padding.PaddingRight.Offset).toBe(12)
+				expect(ribbon.Size.Y.Offset).toBe(Theme.Sizes.TextLabel + 2 * 6)
+				expect(ribbon.AutomaticSize.Name).toBe("X")
+				expect(ribbon.AnchorPoint).toBe(roblox.Vector2.new(1, 0))
+				expect(ribbon.Position.X.Scale).toBe(1)
+				-- The board's `top: 16px; right: -12px`, measured from inside the tile's border: 16 under the ink,
+				-- 12 past the ink's inner edge.
+				local stroke = Theme.Sizes.Stroke
+				expect(ribbon.Position.Y.Offset).toBe(stroke + 16)
+				expect(ribbon.Position.X.Offset).toBe(12 - stroke)
+				-- Past the tile's edge, turned, and still short of the Shop's ink, whose rim stands a stroke into the
+				-- gap: it never touches it. A turned rounded ribbon reaches furthest at its narrowest, its padding alone
+				-- whatever its word.
+				local gap =
+					built.Instance:FindFirstChild("Deck", true):FindFirstChildOfClass("UIListLayout").Padding.Offset
+				local tilt = math.rad(ribbon.Rotation)
+				local bend = ribbon:FindFirstChildOfClass("UICorner").CornerRadius.Offset
+				local halfWide, halfTall = 12, ribbon.Size.Y.Offset / 2
+				local reach = (halfWide - bend) * math.cos(tilt) + (halfTall - bend) * math.sin(tilt) + bend - halfWide
+				expect(ribbon.Position.X.Offset + reach).toBeLessThan(gap - Theme.strokeThickness(stroke))
+			end
+		)
+
+		it(
+			"rims the level seal in gold with room for its rings, and counts the XP in Oswald Medium, " .. where,
+			function()
+				local built, height, world = screen("MenuScreen", phone)
+				local Theme = world.require("src/ui/Theme")
+				local strip = built.Instance:FindFirstChild("Summary", true)
+				assert(strip ~= nil, "the menu has no summary strip: this gate would check nothing")
+				local seal = strip:FindFirstChild("Seal")
+				assert(seal ~= nil, "the summary has no level seal: this gate would check nothing")
+				-- The rings stand 6 outside the wax (lane 3's Seal): 6 clear on every side of it, the first in its strip.
+				local clear = 6
+				expect(seal.LayoutOrder).toBe(1)
+				expect((Measure.heightOf(strip, height) - seal.Size.Y.Offset) / 2).toBeGreaterThanOrEqual(clear)
+				expect(strip:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBeGreaterThanOrEqual(clear)
+				expect(strip.Parent:FindFirstChildOfClass("UIPadding").PaddingLeft.Offset).toBeGreaterThanOrEqual(clear)
+				local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+				local props = string.match(menu, "local levelSeal = Seal%.new(%b())")
+				assert(props ~= nil, "the menu builds no level seal")
+				expect(string.find(props :: string, "Fill = Theme.Colors.Primary,", 1, true)).never.toBeNil()
+				expect(string.find(props :: string, "Rim = Theme.Colors.Primary,", 1, true)).never.toBeNil()
+				-- The count beside its bar in the board's Oswald 500, lighter than a number that flies past.
+				local xp = strip:FindFirstChild("Xp", true)
+				expect(xp.FontFace.Family).toBe(Theme.Fonts.Numeric.Family)
+				expect(xp.FontFace.Weight.Name).toBe("Medium")
+				expect(ThemeConfig.Fonts.NumericMedium.Font).toBe("Oswald")
+				expect(ThemeConfig.Fonts.NumericMedium.Weight).toBe("Medium")
+			end
+		)
+
+		it("wears the board's chip on every menu tile, in the tile's own ink, " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			assert(grid ~= nil, "the menu has no grid: this gate would check nothing")
+			-- By the key each tile is titled with (this Localize answers keys): the board's glyphs, its ◆ and ✓
+			-- drawn as the ♦ and the √ the engine has (tests/Sigils.spec.luau).
+			local glyphs = {
+				["menu.shop"] = { "●", Theme.Fonts.Symbol },
+				["leaderboard.title"] = { "▲", Theme.Fonts.Symbol },
+				["menu.battlepass"] = { "♦", Theme.Fonts.Symbol },
+				["menu.quests"] = { "√", Theme.Fonts.Symbol },
+				["daily.title"] = { "7", Theme.Fonts.Numeric },
+				["menu.loadout"] = { "■", Theme.Fonts.Symbol },
+			}
+			local seen = 0
+			for _, tile in ipairs(grid:GetChildren()) do
+				if tile:IsA("TextButton") then
+					local word = tile:FindFirstChild("Label", true)
+					local expected = glyphs[word.Text]
+					assert(expected ~= nil, ("a tile titled %s has no chip to check"):format(word.Text))
+					seen += 1
+					local chip = tile:FindFirstChild("Chip", true)
+					assert(chip ~= nil, ("%s has no chip"):format(word.Text))
+					local glyph = chip:FindFirstChild("Glyph")
+					local line = chip:FindFirstChildOfClass("UIStroke")
+					-- A rounded square outlined 3 in the tile's ink, the glyph in that ink, half its height.
+					expect(chip.Parent.Size.X.Offset).toBe(42)
+					expect(chip:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(10)
+					expect(line.Thickness).toBe(Theme.Sizes.Stroke)
+					expect(line.Color).toBe(word.TextColor3)
+					expect(glyph.TextColor3).toBe(word.TextColor3)
+					expect(glyph.Text).toBe(expected[1])
+					expect(glyph.FontFace.Family).toBe(expected[2].Family)
+					expect(glyph.FontFace.Weight).toBe(expected[2].Weight)
+					expect(glyph.TextSize).toBe(21)
+					-- Alone in the icon's place: the pictogram it replaces is gone.
+					expect(chip.Parent.Name).toBe("Icon")
+					expect(#chip.Parent:GetChildren()).toBe(1)
+				end
+			end
+			expect(seen).toBe(6)
+		end)
 	end
 
 	it("keeps every kind of toast its own height", function()
@@ -315,7 +611,7 @@ describe("the parts, as Studio drew them", function()
 		expect(words:FindFirstChildOfClass("UITextSizeConstraint").MinTextSize).toBeGreaterThanOrEqual(11)
 	end)
 
-	it("sets a title's drop cap flush with the rest of its word, in a row of their own", function()
+	it("sets a title's drop cap flush with the rest of its word, on its line, in a row of their own", function()
 		local world, parent, localize = bench()
 		local Theme = world.require("src/ui/Theme")
 		local ChapterBand = world.require("src/ui/components/ChapterBand")
@@ -369,6 +665,22 @@ describe("the parts, as Studio drew them", function()
 		expect(title.TextTruncate.Name).toBe("AtEnd")
 		local automatic = title.AutomaticSize
 		expect(automatic == nil or automatic.Name == "None").toBe(true)
+		-- One line, as the board's `align-items: baseline`: both on the foot of the row, the row as tall as the
+		-- cap's line, the cap's box reaching lower by what the roman descends past the poster face (0.273 of 36
+		-- against 0.236 of 30: 3), and the row tilted as one, so the cap leans with its word.
+		expect(layout.VerticalAlignment.Name).toBe("Top")
+		expect(heading.Size.Y.Scale).toBe(0)
+		expect(heading.Size.Y.Offset).toBe(math.ceil(cap.TextSize * 1.257))
+		expect(title.Size.Y.Scale).toBe(1)
+		expect(title.Size.Y.Offset).toBe(0)
+		expect(cap.Size.Y.Scale).toBe(1)
+		expect(cap.Size.Y.Offset).toBe(math.round(cap.TextSize * 0.273 - title.TextSize * 0.236))
+		expect(cap.Size.Y.Offset).toBe(3)
+		expect(title.TextYAlignment.Name).toBe("Bottom")
+		expect(cap.TextYAlignment.Name).toBe("Bottom")
+		expect(heading.Rotation).toBe(-2)
+		expect(title.Rotation).toBe(0)
+		expect(cap.Rotation).toBe(0)
 		-- The band's other parts are where they were: back, the title, the screen's slot, the cross, at its gap.
 		local row = heading.Parent
 		local inRow = placed(row)
@@ -382,7 +694,7 @@ describe("the parts, as Studio drew them", function()
 		band:SetTitle("Équipement")
 		cap = heading:FindFirstChild("DropCap")
 		assert(cap ~= nil, "a new title lost its drop cap's row")
-		expect(cap:FindFirstChild("Letter", true).Text).toBe("É")
+		expect(cap.Text).toBe("É")
 		expect(title.Text).toBe("quipement")
 		band:SetTitle("3v3")
 		expect(band.Instance:FindFirstChild("DropCap", true)).toBeNil()

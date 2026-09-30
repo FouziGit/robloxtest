@@ -11,7 +11,8 @@
 --   Banner        the match's centre splashes (found, the count, the fight, a round) and the takedown pop
 --   SpectatePlate who an eliminated player watches, in the dock's place (SpectateController)
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
--- button beside the key that opens it, badged with what waits to be claimed), on touch the Play sticker left of
+-- button beside the key that opens it, badged with what waits to be claimed; in a fight only the Menu, a small
+-- word-only pill beside its key, D-179), on touch the Play sticker left of
 -- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
 -- visible text goes through Localize; server Notify payloads carry Strings keys, never text.
 
@@ -73,10 +74,12 @@ type Deps = {
 
 local DISPLAY_ORDER = Theme.Layers.Hud
 local HUD = ThemeConfig.Hud
--- The bottom stack, from the top: the combo row, the hotbar (with a pointer), then the dock.
+-- The bottom stack, from the top: the combo row, with a pointer the air over the hotbar and the hotbar, then the
+-- dock.
 local COMBO_ORDER = 1
-local HOTBAR_ORDER = 2
-local DOCK_ORDER = 3
+local LIFT_ORDER = 2
+local HOTBAR_ORDER = 3
+local DOCK_ORDER = 4
 -- On touch the dock keeps this far off the nearest disc, in real pixels, and stays between these widths.
 local DOCK_DISC_CLEARANCE = 12
 local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }
@@ -200,6 +203,8 @@ local quickBar: Frame
 local menuRow: Frame
 local quickButtons: { Button.Button } = {}
 local menuButton: Button.Button
+-- The Menu in a fight: the board's small pill, its word alone (the hub's button carries its icon and its badge).
+local menuPill: Button.Button
 -- The key that opens the menu, drawn beside the Menu button for the device in use.
 local menuKey: Keycap.Keycap? = nil
 local menuKeyDevice: Keycap.Device? = nil
@@ -263,20 +268,23 @@ local function buildTopStack(parent: Instance)
 end
 
 -- A button as wide as its label, hugging the right edge whatever the language. The button plays its own click.
+-- Given no icon it is the fight's compact pill: its word alone, as short as a touch target.
 local function quickButton(
 	nameKey: string,
 	variant: Button.Variant,
 	order: number,
-	icon: Icon.Name,
+	icon: Icon.Name?,
 	parent: Instance,
 	onClick: () -> ()
 ): Button.Button
+	local compact = icon == nil
 	local button = Button.new({
 		Name = nameKey,
 		Text = "",
 		Variant = variant,
 		Icon = icon,
-		Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
+		Compact = compact,
+		Size = UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight),
 		LayoutOrder = order,
 		Parent = parent,
 		OnClick = onClick,
@@ -327,10 +335,14 @@ local function buildQuickBar(parent: Instance)
 	rowLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	rowLayout.Parent = menuRow
 	menuRow.Parent = quickBar
-	-- The key cap stands before the Menu button (refreshMenuKey).
+	-- The key cap stands before the Menu button (refreshMenuKey): the hub's, or in a fight the pill (refreshHub).
 	menuButton = quickButton(MENU_NAME_KEY, "Secondary", 2, "Burger", menuRow, function()
 		menuController.toggle()
 	end)
+	menuPill = quickButton(MENU_NAME_KEY, "Secondary", 3, nil, menuRow, function()
+		menuController.toggle()
+	end)
+	menuPill.Instance.Visible = false
 end
 
 -- The touch Play sticker, placed once the discs are (placePlaySticker).
@@ -372,6 +384,16 @@ local function buildBottomStack(parent: Instance, touch: boolean)
 	bottomStack.Parent = parent
 
 	comboRow = ComboRow.new({ Parent = bottomStack, Localize = localize, LayoutOrder = COMBO_ORDER })
+	if not touch then
+		-- With a pointer the combo row stands clear of the hotbar's keys (the board's): the list's gap on each
+		-- side of this makes HUD.ComboLift more than the one gap it had. On touch the dock's own pips are there.
+		local lift = Instance.new("Frame")
+		lift.Name = "ComboLift"
+		lift.BackgroundTransparency = 1
+		lift.Size = UDim2.fromOffset(0, HUD.ComboLift - HUD.ChipRowGap)
+		lift.LayoutOrder = LIFT_ORDER
+		lift.Parent = bottomStack
+	end
 	combatDock = CombatDock.new({
 		Parent = bottomStack,
 		Screen = root.Instance,
@@ -501,6 +523,8 @@ local function refreshHub()
 	for _, button in ipairs(quickButtons) do
 		button.Instance.Visible = hub
 	end
+	menuButton.Instance.Visible = hub
+	menuPill.Instance.Visible = not hub
 	local sticker = playSticker
 	if sticker ~= nil then
 		sticker.Instance.Visible = hub and not queued and inputController.touchRects()[MENU_ACTION] ~= nil
@@ -662,6 +686,7 @@ local function refreshQuickBar(data: Types.ProfileData)
 		button.Instance.Visible = not (inMatch or inArena)
 	end
 	menuButton:SetText(localize.t(MENU_NAME_KEY))
+	menuPill:SetText(localize.t(MENU_NAME_KEY))
 	refreshMenuKey(source, data)
 	quickBar.Visible = true
 end

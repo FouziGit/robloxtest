@@ -24,7 +24,6 @@ local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Seal = require(script.Parent.Parent.components.Seal)
-local Splat = require(script.Parent.Parent.components.Splat)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -66,18 +65,40 @@ local XP_BAR_WIDTH = 200
 local XP_BAR_HEIGHT = 12
 local XP_TEXT_SIZE = 16
 local PILL_HEIGHT = 44
--- The Play tile: its share of the deck's width, its word, its line, and the ► on a blot of the sheet.
-local PLAY_SHARE = 0.4
-local PLAY_TEXT_SIZE = 40
+-- The Play tile: its share of the deck's width, its word and its line (the board's 4.4cqw and 1.6cqw).
+local PLAY_SHARE = 1.35 / 4.35
+local PLAY_TEXT_SIZE = Theme.Sizes.TextHero
 local PLAY_LINE_SIZE = 18
-local PLAY_GLYPH_SIZE = 64
-local PLAY_SPLAT_TRANSPARENCY = 0.2
--- The grid's three columns by two rows, and how tall two rows stand with a pointer: on a phone the tiles
--- share whatever the card has, so the whole menu stays above its fold.
+-- Its ► on a disc of the sheet in its top-left corner, as wide as this share of the tile (the board's 9cqw of
+-- 25), the ► this share of the disc and this far right of its centre (the board's `padding-left: .8cqw`).
+local PLAY_DISC_SHARE = 0.35
+local PLAY_GLYPH_SHARE = 0.47
+local PLAY_GLYPH_NUDGE = 0.045
+-- Its ribbon across the top-right corner (the board's hero tile, `top: 16px; right: -12px`, both measured from
+-- inside the tile's ink): this far down, this far past the ink's inner edge -- short of the Shop's own ink
+-- across the gap -- turned, rounded and padded as the board draws it.
+local RIBBON_DROP = 16
+local RIBBON_OVERHANG = 12
+local RIBBON_TILT = 8
+local RIBBON_CORNER = 8
+local RIBBON_PADDING_Y = 6
+local RIBBON_PADDING_X = 12
+-- The grid's three columns by two rows, the gap between any two tiles (the board's 1.5cqw), and how tall two
+-- rows stand with a pointer: on a phone the tiles share whatever the card has, so the whole menu stays above
+-- its fold.
 local GRID_COLUMNS = 3
-local POINTER_DECK_HEIGHT = Theme.Sizes.TileHeight * 2 + Theme.Sizes.Gap
--- The five-pigment stripe along the foot of an ink tile that holds the pigments (the Loadout).
-local STRIPE_HEIGHT = 6
+local DECK_GAP = Theme.Sizes.Padding
+local POINTER_DECK_HEIGHT = Theme.Sizes.TileHeight * 2 + DECK_GAP
+-- The board's `1.35fr 1fr 1fr 1fr`: each column's share is of what the three gaps leave, so Play is 1.35 tiles
+-- wide. Play's part of those gaps, in whole units, is taken from its share and given back to the grid's.
+local PLAY_GAPS = math.round(PLAY_SHARE * GRID_COLUMNS * DECK_GAP)
+-- Each tile's chip holds a glyph (the board's): the coin's dot, the podium's peak, the pass's pip, the quest's
+-- tick, the week's seventh day, the loadout's card.
+local DAILY_GLYPH = "7"
+-- The five-pigment stripe along the foot of an ink tile that holds the pigments (the Loadout): edge to edge
+-- inside its ink, its end segments rounded like the tile's inner corner.
+local STRIPE_HEIGHT = 8
+local STRIPE_CORNER = Theme.Sizes.CornerTile - Theme.Sizes.Stroke
 -- The Play tile's line counts the wait once a second while the screen is up.
 local TICK_SECONDS = 1
 
@@ -163,9 +184,12 @@ function MenuScreen.new(deps: Deps): Screen
 	local strip = row("Summary", panel.Header, Theme.Sizes.Gap)
 	strip.Size = UDim2.fromScale(1, 1)
 
+	-- The level in gold leaf, rimmed in gold then ink (the board's seal): its rings stand outside the wax, in
+	-- the room the strip leaves around it.
 	local levelSeal = Seal.new({
 		Text = "",
 		Fill = Theme.Colors.Primary,
+		Rim = Theme.Colors.Primary,
 		Size = SEAL_SIZE,
 		Face = "Numeric",
 		LayoutOrder = 1,
@@ -183,7 +207,7 @@ function MenuScreen.new(deps: Deps): Screen
 	xpLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	xpLayout.Padding = UDim.new(0, 4)
 	xpLayout.Parent = xpColumn
-	local xpText = textLabel("Xp", Theme.Fonts.Numeric, XP_TEXT_SIZE, 1, xpColumn)
+	local xpText = textLabel("Xp", Theme.Fonts.NumericMedium, XP_TEXT_SIZE, 1, xpColumn)
 	local xpBar = ProgressBar.new({
 		Color = Theme.Colors.Primary,
 		Size = UDim2.fromOffset(XP_BAR_WIDTH, XP_BAR_HEIGHT),
@@ -192,17 +216,31 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, xpBar)
 
-	-- The Folios, and the way to buy more beside them.
-	local pill = FoliosPill.new({ Height = PILL_HEIGHT, LayoutOrder = 3, Parent = strip })
+	-- The Folios, and the way to buy more at the pill's end: the whole pill takes it.
+	local pill = FoliosPill.new({
+		Height = PILL_HEIGHT,
+		LayoutOrder = 3,
+		Parent = strip,
+		OnMore = function()
+			navigate("Shop", { Tab = "Folios" })
+		end,
+	})
 	own(trove, pill)
 
 	-- An icon on its own: as wide as it is tall, never the width of a word.
-	local function iconButton(name: string, text: string, icon: Icon.Name?, order: number, onClick: () -> ())
+	local function iconButton(
+		name: string,
+		text: string,
+		icon: Icon.Name?,
+		variant: Button.Variant,
+		order: number,
+		onClick: () -> ()
+	)
 		local button = Button.new({
 			Name = name,
 			Text = text,
 			Icon = icon,
-			Variant = "Secondary",
+			Variant = variant,
 			Size = UDim2.fromOffset(ICON_BUTTON, ICON_BUTTON),
 			LayoutOrder = order,
 			Parent = strip,
@@ -212,10 +250,6 @@ function MenuScreen.new(deps: Deps): Screen
 		own(trove, button)
 		return button
 	end
-
-	iconButton("MoreFolios", Theme.Glyphs.Plus, nil, 4, function()
-		navigate("Shop", { Tab = "Folios" })
-	end)
 
 	local spacer = Instance.new("Frame")
 	spacer.Name = "Spacer"
@@ -227,15 +261,16 @@ function MenuScreen.new(deps: Deps): Screen
 	spacerFlex.FlexMode = Enum.UIFlexMode.Fill
 	spacerFlex.Parent = spacer
 
-	iconButton("Settings", "", "Sliders", 6, function()
+	iconButton("Settings", "", "Burger", "Secondary", 6, function()
 		navigate("Settings")
 	end)
 
 	-- Sharing, which on Roblox is the platform's own invite prompt: the player picks who from their own
-	-- friends list, inside the client's UI, and nothing about them ever reaches this game.
+	-- friends list, inside the client's UI, and nothing about them ever reaches this game. A "+" on the cyan
+	-- that means us: bring an ally (D-176).
 	-- CanSendGameInviteAsync yields and can throw (an unsupported device, a policy that forbids it), so it
 	-- runs in its own thread behind a pcall and says so rather than doing nothing.
-	iconButton("Invite", "", "Invite", 7, function()
+	iconButton("Invite", Theme.Glyphs.Plus, nil, "Ally", 7, function()
 		task.spawn(function()
 			local ok, allowed = pcall(function()
 				return SocialService:CanSendGameInviteAsync(Players.LocalPlayer)
@@ -259,7 +294,7 @@ function MenuScreen.new(deps: Deps): Screen
 	panel:SetContentMode("Fill")
 	local content = panel.Content
 
-	local deck = row("Deck", content, Theme.Sizes.Gap)
+	local deck = row("Deck", content, DECK_GAP)
 	deck.Size = UDim2.fromScale(1, 1)
 	if not Theme.touchOnly() then
 		local cap = Instance.new("UISizeConstraint")
@@ -270,27 +305,27 @@ function MenuScreen.new(deps: Deps): Screen
 	local playFrame = Instance.new("Frame")
 	playFrame.Name = "PlayTile"
 	playFrame.BackgroundTransparency = 1
-	playFrame.Size = UDim2.new(PLAY_SHARE, -Theme.Sizes.Gap / 2, 1, 0)
+	playFrame.Size = UDim2.new(PLAY_SHARE, -PLAY_GAPS, 1, 0)
 	playFrame.LayoutOrder = 1
 	playFrame.Parent = deck
 
 	local grid = Instance.new("Frame")
 	grid.Name = "Grid"
 	grid.BackgroundTransparency = 1
-	grid.Size = UDim2.new(1 - PLAY_SHARE, -Theme.Sizes.Gap / 2, 1, 0)
+	grid.Size = UDim2.new(1 - PLAY_SHARE, PLAY_GAPS - DECK_GAP, 1, 0)
 	grid.LayoutOrder = 2
 	grid.Parent = deck
 	local gridLayout = Instance.new("UIGridLayout")
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	gridLayout.FillDirectionMaxCells = GRID_COLUMNS
-	gridLayout.CellPadding = UDim2.fromOffset(Theme.Sizes.Gap, Theme.Sizes.Gap)
+	gridLayout.CellPadding = UDim2.fromOffset(DECK_GAP, DECK_GAP)
 	-- An offset is a whole number of pixels: the gaps' share of each cell is rounded up, or the third cell of a
 	-- row ran two pixels past the grid and wrapped under the other two.
 	gridLayout.CellSize = UDim2.new(
 		1 / GRID_COLUMNS,
-		-math.ceil(Theme.Sizes.Gap * (GRID_COLUMNS - 1) / GRID_COLUMNS),
+		-math.ceil(DECK_GAP * (GRID_COLUMNS - 1) / GRID_COLUMNS),
 		0.5,
-		-math.ceil(Theme.Sizes.Gap / 2)
+		-math.ceil(DECK_GAP / 2)
 	)
 	gridLayout.Parent = grid
 
@@ -316,7 +351,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Shop",
 		LayoutOrder = 4,
-		Icon = "Coin",
+		Glyph = Theme.Glyphs.Dot,
 		Parent = grid,
 		OnClick = function()
 			navigate("Shop")
@@ -329,7 +364,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Leaderboard",
 		LayoutOrder = 5,
-		Icon = "Podium",
+		Glyph = Theme.Glyphs.Triangle,
 		Parent = grid,
 		OnClick = function()
 			navigate("Leaderboard")
@@ -342,7 +377,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Battlepass",
 		LayoutOrder = 6,
-		Icon = "Pass",
+		Glyph = Theme.Glyphs.Pip,
 		Parent = grid,
 		OnClick = function()
 			navigate("Battlepass")
@@ -355,7 +390,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Quests",
 		LayoutOrder = 7,
-		Icon = "Scroll",
+		Glyph = Theme.Glyphs.Check,
 		Parent = grid,
 		OnClick = function()
 			navigate("Quests")
@@ -368,7 +403,8 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Daily",
 		LayoutOrder = 8,
-		Icon = "Calendar",
+		Glyph = DAILY_GLYPH,
+		GlyphFont = Theme.Fonts.Numeric,
 		Parent = grid,
 		OnClick = function()
 			navigate("Daily")
@@ -381,7 +417,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Loadout",
 		LayoutOrder = 9,
-		Icon = "Deck",
+		Glyph = Theme.Glyphs.Square,
 		Parent = grid,
 		OnClick = function()
 			navigate("Loadout")
@@ -389,46 +425,47 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, loadoutButton)
 
-	-- The Play tile: a ► on a blot of the sheet, its word at poster size, and its line under it.
-	-- What a tile adds (the Play art, the stripe) goes on its face, so it rides the face when it is pressed.
+	-- The Play tile: a ► on a disc of the sheet, its word at poster size and its line under it, and a "Ranked"
+	-- ribbon over its corner: every mode the queue offers is ranked (MatchConfig). What a tile adds (the disc,
+	-- the ribbon, the stripe) goes on its face, so it rides the face when it is pressed.
 	local playFace = playButton:Face()
 	local playLine: TextLabel? = nil
 	if playFace ~= nil then
-		local art = Instance.new("Frame")
-		art.Name = "Art"
-		art.BackgroundTransparency = 1
-		art.AnchorPoint = Vector2.new(0.5, 0.5)
-		art.Position = UDim2.fromScale(0.5, 0.42)
-		art.Size = UDim2.fromOffset(PLAY_GLYPH_SIZE * 1.6, PLAY_GLYPH_SIZE * 1.6)
-		art.ZIndex = 2
-		art.Parent = playFace
-		Splat.new({
-			Size = UDim2.fromScale(1, 1),
-			Tint = Theme.Colors.PanelRaised,
-			Rotation = Splat.rotation(1),
-			Transparency = PLAY_SPLAT_TRANSPARENCY,
-			ZIndex = 2,
-			Parent = art,
-		})
-		local glyph = Instance.new("TextLabel")
-		glyph.Name = "Glyph"
-		glyph.BackgroundTransparency = 1
-		glyph.AnchorPoint = Vector2.new(0.5, 0.5)
-		glyph.Position = UDim2.fromScale(0.5, 0.5)
-		glyph.Size = UDim2.fromOffset(PLAY_GLYPH_SIZE, PLAY_GLYPH_SIZE)
-		glyph.FontFace = Theme.Fonts.Bold
-		glyph.TextSize = PLAY_GLYPH_SIZE
-		glyph.TextColor3 = Theme.Colors.Text
-		glyph.Text = Theme.Glyphs.Play
-		glyph.ZIndex = 3
-		glyph.Parent = art
-
 		local words = playFace:FindFirstChild("Content")
 		if words ~= nil and words:IsA("Frame") then
+			local disc = Instance.new("Frame")
+			disc.Name = "Disc"
+			disc.BorderSizePixel = 0
+			disc.BackgroundColor3 = Theme.Colors.PanelRaised
+			-- In the tile's padding, where its content starts.
+			disc.Position = words.Position
+			disc.Size = UDim2.fromScale(PLAY_DISC_SHARE, PLAY_DISC_SHARE)
+			disc.ZIndex = 3
+			local round = Instance.new("UIAspectRatioConstraint")
+			round.AspectRatio = 1
+			round.DominantAxis = Enum.DominantAxis.Width
+			round.Parent = disc
+			Theme.corner(disc, Theme.Pill)
+			Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
+			disc.Parent = playFace
+			local glyph = Instance.new("TextLabel")
+			glyph.Name = "Glyph"
+			glyph.BackgroundTransparency = 1
+			glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+			glyph.Position = UDim2.fromScale(0.5 + PLAY_GLYPH_NUDGE, 0.5)
+			glyph.Size = UDim2.fromScale(PLAY_GLYPH_SHARE, PLAY_GLYPH_SHARE)
+			glyph.FontFace = Theme.Fonts.Bold
+			glyph.TextScaled = true
+			glyph.TextColor3 = Theme.Colors.Text
+			glyph.Text = Theme.Glyphs.Play
+			glyph.ZIndex = 3
+			glyph.Parent = disc
+
 			-- The word and its line at the foot of the tile, the word as large as the tile allows.
 			words.ZIndex = 4
 			local layout = words:FindFirstChildOfClass("UIListLayout")
 			if layout ~= nil then
+				layout.VerticalFlex = Enum.UIFlexAlignment.None
 				layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 			end
 			local label = words:FindFirstChild("Label", true)
@@ -439,28 +476,71 @@ function MenuScreen.new(deps: Deps): Screen
 			end
 			local line = words:FindFirstChild("Sublabel", true)
 			if line ~= nil and line:IsA("TextLabel") then
+				line.FontFace = Theme.Fonts.Bold
 				line.TextSize = PLAY_LINE_SIZE
 				playLine = line
 			end
 		end
+
+		local ribbon = Instance.new("TextLabel")
+		ribbon.Name = "Ribbon"
+		ribbon.BorderSizePixel = 0
+		ribbon.BackgroundColor3 = Theme.Colors.Plate
+		ribbon.AutomaticSize = Enum.AutomaticSize.X
+		ribbon.Size = UDim2.fromOffset(0, Theme.Sizes.TextLabel + RIBBON_PADDING_Y * 2)
+		ribbon.AnchorPoint = Vector2.new(1, 0)
+		ribbon.Position = UDim2.new(1, RIBBON_OVERHANG - Theme.Sizes.Stroke, 0, Theme.Sizes.Stroke + RIBBON_DROP)
+		ribbon.Rotation = RIBBON_TILT
+		ribbon.FontFace = Theme.Fonts.Label
+		ribbon.TextSize = Theme.Sizes.TextLabel
+		ribbon.TextColor3 = Theme.Colors.PanelRaised
+		ribbon.TextTruncate = Enum.TextTruncate.None
+		ribbon.Text = t("queue.ranked")
+		ribbon.ZIndex = 5
+		Theme.corner(ribbon, RIBBON_CORNER)
+		local ribbonPadding = Instance.new("UIPadding")
+		ribbonPadding.PaddingLeft = UDim.new(0, RIBBON_PADDING_X)
+		ribbonPadding.PaddingRight = UDim.new(0, RIBBON_PADDING_X)
+		ribbonPadding.Parent = ribbon
+		ribbon.Parent = playFace
 	end
 
-	-- The Loadout tile holds the five pigments: their stripe along its foot, as on its chapter's band.
+	-- The Loadout tile holds the five pigments: their stripe along its foot, edge to edge inside its ink, as on
+	-- its chapter's band. A frame clips to its rectangle and not to its corner, so each end segment is a frame
+	-- rounded like the tile's inner corner, clipped to the segment's rectangle: only its outer bottom corner
+	-- shows.
 	local loadoutFace = loadoutButton:Face()
 	if loadoutFace ~= nil then
 		local stripe = row("Stripe", loadoutFace, 0)
 		stripe.AnchorPoint = Vector2.new(0.5, 1)
-		stripe.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.Stroke - Theme.Sizes.PaddingSmall)
-		stripe.Size = UDim2.new(1, -Theme.Sizes.CornerTile * 2, 0, STRIPE_HEIGHT)
+		stripe.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.Stroke)
+		stripe.Size = UDim2.new(1, -Theme.Sizes.Stroke * 2, 0, STRIPE_HEIGHT)
 		stripe.ZIndex = 3
+		local count = #PigmentConfig.Order
 		for index, pigment in ipairs(PigmentConfig.Order) do
+			local color = Theme.pigmentColor(pigment)
 			local segment = Instance.new("Frame")
 			segment.Name = pigment
 			segment.BorderSizePixel = 0
-			segment.BackgroundColor3 = Theme.pigmentColor(pigment)
-			segment.Size = UDim2.fromScale(1 / #PigmentConfig.Order, 1)
+			segment.Size = UDim2.fromScale(1 / count, 1)
 			segment.LayoutOrder = index
 			segment.ZIndex = 3
+			if index == 1 or index == count then
+				segment.BackgroundTransparency = 1
+				segment.ClipsDescendants = true
+				local rounded = Instance.new("Frame")
+				rounded.Name = "Corner"
+				rounded.BorderSizePixel = 0
+				rounded.BackgroundColor3 = color
+				rounded.AnchorPoint = Vector2.new(if index == 1 then 0 else 1, 1)
+				rounded.Position = UDim2.fromScale(if index == 1 then 0 else 1, 1)
+				rounded.Size = UDim2.new(1, STRIPE_CORNER, 0, STRIPE_CORNER * 2)
+				rounded.ZIndex = 3
+				Theme.corner(rounded, STRIPE_CORNER)
+				rounded.Parent = segment
+			else
+				segment.BackgroundColor3 = color
+			end
 			segment.Parent = stripe
 		end
 	end

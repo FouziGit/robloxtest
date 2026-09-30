@@ -1,6 +1,6 @@
 --!strict
--- What Lune cannot lay out, measured the conservative way: how wide a Button's word makes it, and how tall a
--- frame built on tests/engine.luau is drawn on a given screen.
+-- What Lune cannot lay out, measured the conservative way: how wide a Button's word makes it, and how tall and
+-- how wide a frame built on tests/engine.luau is drawn on a given screen.
 --
 -- Widths: a word is drawn at most CHAR_SHARE of its text size a character in the interface's faces, so a
 -- width from here is an upper bound, never the engine's own figure. Heights: down the chain of parents, each
@@ -9,7 +9,8 @@
 -- never shorter than its window, and its scale is of the ScrollingFrame's own parent, as the engine resolves
 -- it (measured in Studio, D-171). List layouts and automatic sizes are not modelled: measure the frames they
 -- do not size. One exception, listHeight: the height a vertical list lays out, where every row it places has a
--- fixed height or is a list itself.
+-- fixed height or is a list itself. Widths the same way down the chain, less a vertical bar's inset, and a
+-- cell of a UIGridLayout takes the grid's CellSize, not its own.
 local fs = require("@lune/fs")
 
 local Measure = {}
@@ -76,6 +77,58 @@ function Measure.heightOf(object: any, screenHeight: number): number
 		height = math.clamp(height, constraint.MinSize.Y, math.max(constraint.MinSize.Y, constraint.MaxSize.Y))
 	end
 	return height
+end
+
+-- The width `frame` leaves its children, on a ScreenGui `screenWidth` design units wide.
+local function roomAcross(frame: any, screenWidth: number): number
+	if frame:IsA("LayerCollector") then
+		return screenWidth
+	end
+	local available = Measure.widthOf(frame, screenWidth)
+	if frame:IsA("ScrollingFrame") then
+		local inset = frame.VerticalScrollBarInset
+		if inset ~= nil and inset.Name == "ScrollBar" then
+			available -= frame.ScrollBarThickness or 0
+		end
+	end
+	local padding = frame:FindFirstChildOfClass("UIPadding")
+	if padding ~= nil then
+		local left, right = padding.PaddingLeft, padding.PaddingRight
+		available -= available * (left.Scale + right.Scale) + left.Offset + right.Offset
+	end
+	return available
+end
+
+-- The width `object` (an engine instance) is drawn at, on a ScreenGui `screenWidth` design units wide.
+function Measure.widthOf(object: any, screenWidth: number): number
+	if object:IsA("LayerCollector") then
+		return screenWidth
+	end
+	local parent = object.Parent
+	assert(parent ~= nil, object:GetFullName() .. " is not on a screen")
+	local grid = parent:FindFirstChildOfClass("UIGridLayout")
+	local size = if grid ~= nil then grid.CellSize.X else object.Size.X
+	local width = roomAcross(parent, screenWidth) * size.Scale + size.Offset
+	local constraint = object:FindFirstChildOfClass("UISizeConstraint")
+	if constraint ~= nil then
+		width = math.clamp(width, constraint.MinSize.X, math.max(constraint.MinSize.X, constraint.MaxSize.X))
+	end
+	return width
+end
+
+-- The lines `text` wraps onto in `width` at `textSize`, each word measured as textWidth does, a space between two.
+function Measure.lines(text: string, textSize: number, width: number): number
+	local lines, line = 0, ""
+	for word in string.gmatch(text, "%S+") do
+		local joined = if line == "" then word else line .. " " .. word
+		if line ~= "" and Measure.textWidth(joined, textSize) > width then
+			lines += 1
+			line = word
+		else
+			line = joined
+		end
+	end
+	return lines + (if line ~= "" then 1 else 0)
 end
 
 -- The height the vertical UIListLayout of `frame` lays its visible children out to, with the frame's own

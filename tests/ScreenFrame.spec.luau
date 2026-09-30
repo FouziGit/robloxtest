@@ -179,9 +179,12 @@ describe("the backdrop", function()
 			return if blot:IsA("ImageLabel") then blot.ImageTransparency else blot.BackgroundTransparency
 		end
 		-- The board's `.menu-bg`: the gold from the top-left (0x44 of 255) and through the wash, the purple from the
-		-- bottom-right (0x33), the ink dim kept.
+		-- bottom-right (0x33), the ink dim kept, and no blot of ink at the top-right: the board has none there.
 		local dim, wash, blots = backdrop("Menu")
-		assert(wash ~= nil and blots["0,0"] ~= nil and blots["1,1"] ~= nil, "the Menu has no wash or no blots")
+		assert(
+			wash ~= nil and blots["0,0"] ~= nil and blots["1,1"] ~= nil and blots["1,0"] ~= nil,
+			"the Menu has no wash or not its three blots"
+		)
 		expect(dim.BackgroundColor3).toBe(Theme.Colors.Overlay)
 		expect(dim.BackgroundTransparency).toBeCloseTo(0.35, 2)
 		expect(wash.ImageColor3).toBe(Theme.Colors.Primary)
@@ -190,8 +193,7 @@ describe("the backdrop", function()
 		expect(faded(blots["0,0"])).toBeCloseTo(0.73, 2)
 		expect(tint(blots["1,1"])).toBe(Theme.Colors.Epic)
 		expect(faded(blots["1,1"])).toBeCloseTo(0.8, 2)
-		expect(tint(blots["1,0"])).toBe(Theme.Colors.Plate)
-		expect(faded(blots["1,0"])).toBeCloseTo(0.85, 2)
+		expect(faded(blots["1,0"])).toBe(1)
 		-- Every other chapter as before: its own colour through the wash and in every blot.
 		for chapter in pairs(ThemeConfig.Chapters) do
 			if chapter ~= "Menu" then

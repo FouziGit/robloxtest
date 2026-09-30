@@ -75,9 +75,10 @@ local CORNERS: { { Position: UDim2, Size: number, Rotation: number } } = {
 }
 -- A colour role at a transparency, for a layer of the backdrop.
 type Tint = { Role: string, Transparency: number }
--- The chapters whose backdrop is not their own colour, by layer: the wash, and a blot by its place in CORNERS.
--- The Menu's (the board's `.menu-bg`): the gold from the top-left and through the wash, the Tyrian purple from
--- the bottom-right, each as strong as the board's (0x44 and 0x33 of 255).
+-- The chapters whose backdrop is not their own colour, by layer: the wash, and a blot by its place in CORNERS;
+-- a blot the chapter does not name is not shown. The Menu's (the board's `.menu-bg`): the gold from the
+-- top-left and through the wash, the Tyrian purple from the bottom-right, each as strong as the board's (0x44
+-- and 0x33 of 255), and nothing at the top-right, where its own ink would only darken the dim.
 local WARMTH: { [string]: { Wash: Tint, Corners: { [number]: Tint } } } = {
 	Menu = {
 		Wash = { Role = "Primary", Transparency = 0.73 },
@@ -178,7 +179,10 @@ function ScreenRoot.new(props: Props): ScreenRoot
 		for _, splat in ipairs(corners) do
 			local tint = if warmth ~= nil then warmth.Corners[cornerPlaces[splat]] else nil
 			Splat.tint(splat, if tint ~= nil then Theme.color(tint.Role) else color)
-			cornerTargets[splat] = if tint ~= nil then tint.Transparency else CORNER_TRANSPARENCY
+			cornerTargets[splat] = if tint ~= nil
+				then tint.Transparency
+				elseif warmth ~= nil then 1
+				else CORNER_TRANSPARENCY
 		end
 	end
 

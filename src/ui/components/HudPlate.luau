@@ -5,7 +5,9 @@
 -- the player's own background-transparency setting (Sticker's Plate kind).
 --
 -- Callers fill `Content`, which stacks its children down the middle; `Scale` is the plate's own, for the
--- entrance that grows it into place (docs/ART_BIBLE.md rule 3: nothing appears).
+-- entrance that grows it into place (docs/ART_BIBLE.md rule 3: nothing appears). A plate given no width is as
+-- wide as what it holds, like the board's score pill: then nothing in `Content` may take its width from the
+-- plate by scale (Sticker's Host, D-170).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -18,10 +20,13 @@ local Trove = require(Packages.Trove)
 
 export type Props = {
 	Name: string,
-	Width: number,
+	-- A fixed width; absent, the plate is as wide as its content.
+	Width: number?,
 	-- A fixed height; absent, the plate is as tall as its content.
 	Height: number?,
 	Padding: number?,
+	-- The inset at the plate's two ends, when it differs from the one over and under its content (Padding).
+	PaddingX: number?,
 	Gap: number?,
 	Corner: UDim?,
 	-- How the content stacks: down the middle (a band), or along a row (the boss's warning).
@@ -45,9 +50,23 @@ local HudPlate = {}
 
 local PADDING = 10
 
+-- How a frame sizes itself: along each axis it is given no size on.
+local function automatic(width: boolean, height: boolean): Enum.AutomaticSize
+	if width and height then
+		return Enum.AutomaticSize.XY
+	elseif width then
+		return Enum.AutomaticSize.X
+	elseif height then
+		return Enum.AutomaticSize.Y
+	end
+	return Enum.AutomaticSize.None
+end
+
 function HudPlate.new(props: Props): HudPlate
 	local trove = Trove.new()
 	local padding = props.Padding or PADDING
+	local paddingX = props.PaddingX or padding
+	local width = props.Width
 	local fixed = props.Height
 
 	local frame = Instance.new("Frame")
@@ -56,8 +75,8 @@ function HudPlate.new(props: Props): HudPlate
 	frame.LayoutOrder = props.LayoutOrder or 0
 	frame.Position = props.Position or UDim2.new()
 	frame.AnchorPoint = props.AnchorPoint or Vector2.zero
-	frame.Size = UDim2.fromOffset(props.Width, fixed or 0)
-	frame.AutomaticSize = if fixed ~= nil then Enum.AutomaticSize.None else Enum.AutomaticSize.Y
+	frame.Size = UDim2.fromOffset(width or 0, fixed or 0)
+	frame.AutomaticSize = automatic(width == nil, fixed == nil)
 	frame.Visible = false
 	trove:Add(frame)
 
@@ -77,17 +96,13 @@ function HudPlate.new(props: Props): HudPlate
 	content.Name = "Content"
 	content.BackgroundTransparency = 1
 	content.ZIndex = 3
-	if fixed ~= nil then
-		content.Size = UDim2.fromScale(1, 1)
-	else
-		content.Size = UDim2.fromScale(1, 0)
-		content.AutomaticSize = Enum.AutomaticSize.Y
-	end
+	content.Size = UDim2.fromScale(if width ~= nil then 1 else 0, if fixed ~= nil then 1 else 0)
+	content.AutomaticSize = automatic(width == nil, fixed == nil)
 	local inset = Instance.new("UIPadding")
 	inset.PaddingTop = UDim.new(0, padding)
 	inset.PaddingBottom = UDim.new(0, padding)
-	inset.PaddingLeft = UDim.new(0, padding)
-	inset.PaddingRight = UDim.new(0, padding)
+	inset.PaddingLeft = UDim.new(0, paddingX)
+	inset.PaddingRight = UDim.new(0, paddingX)
 	inset.Parent = content
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = if props.Direction == "Horizontal"

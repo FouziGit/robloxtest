@@ -104,6 +104,8 @@ local REWARD_KEYS: { [string]: boolean } = {
 	["battlepass.reward.folio"] = true,
 	["season.rewardGranted"] = true,
 }
+-- The words of the amount's chip: the sentence's own Folios, grouped the same way (Strings.Quantities).
+local REWARD_CHIP_KEY = "reward.folios"
 -- A refused cast is said under the chips, where the player's eyes already are, never as a toast (D-147). A
 -- cooldown also flashes the glyph's slot on the hotbar.
 local INLINE_KEYS: { [string]: boolean } = {
@@ -817,13 +819,17 @@ local function refreshProfile(section: string)
 	offerDaily()
 end
 
--- The Folios a reward names, for its chip: `folios` in most rewards, `amount` in the pass's and the season's.
-local function amountOf(params: { [string]: any }?): number?
+-- The Folios a reward names, for its chip: `folios` in most rewards, `amount` in the pass's and the season's,
+-- written as the message writes them ("+4 000" in French, "+4,000" in English), never "+4000" beside them.
+local function amountOf(params: { [string]: any }?): string?
 	if params == nil then
 		return nil
 	end
 	local amount = params.folios or params.amount
-	return if type(amount) == "number" and amount > 0 then amount else nil
+	if type(amount) ~= "number" or amount <= 0 then
+		return nil
+	end
+	return localize.t(REWARD_CHIP_KEY, { amount = math.floor(amount + 0.5) })
 end
 
 -- Every message goes out through here: a refused cast under the chips, a chain's refund on the ink bar, a

@@ -2,7 +2,7 @@
 -- QuestCard: one quest on the quests board (D-147). A card of the list (ListRow) with a tab down its edge in
 -- the colour of the quest's state -- the primary yellow while it waits to be claimed, chalk while it is
 -- played, green once claimed -- its name over a bar of its progress with the count beside it, what it pays,
--- and only when there is something to do, its Claim button.
+-- and only when there is something to do, its Claim button, in the Quests chapter's own blue.
 --
 -- A claim sent from the card waits, pending, for the profile push that marks the quest claimed; then the
 -- seal is stamped and a burst of ink goes off behind it. The server decides; the card only shows what it
@@ -187,11 +187,13 @@ function QuestCard.new(props: Props): QuestCard
 	reward.Parent = chip
 	chip.Parent = actions
 
+	-- The claim is the Quests chapter's own button, in its blue with its lip and gloss (the board's « Réclamer »).
 	local button: Button.Button
 	button = Button.new({
 		Name = "Claim",
 		Text = props.ClaimText,
-		Variant = "Primary",
+		Variant = "Owner",
+		Chapter = "Quests",
 		LayoutOrder = 2,
 		Parent = actions,
 		OnClick = function()

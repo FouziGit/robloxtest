@@ -9,6 +9,7 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
@@ -48,7 +49,7 @@ local function paintsOver(a: any, b: any): boolean
 end
 
 -- The HUD's root and its bottom stack, for a phone (`touch`) or a pointer, as HudController builds them.
-local function build(touch: boolean): (any, any, any, any)
+local function build(touch: boolean): (any, any, any, any, any)
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	local ScreenRoot = world.require("src/ui/components/ScreenRoot")
 	local ComboRow = world.require("src/ui/components/ComboRow")
@@ -72,7 +73,7 @@ local function build(touch: boolean): (any, any, any, any)
 		LayoutOrder = 3,
 	})
 	hotbar:SetLoadout({ "Brand", "Wash", "Serif" })
-	return root, combo, dock, hotbar
+	return root, combo, dock, hotbar, world.require("src/ui/Theme")
 end
 
 local function refusalPill(combo: any): any
@@ -114,6 +115,62 @@ describe("the HUD's bottom stack, run", function()
 	end)
 end)
 
+describe("the slots' and the dock's rings, run", function()
+	-- The sheet's line inside an edge, the board's inset ring: one stroke, drawn inward.
+	local function sheetLine(holder: any, Theme: any)
+		local strokes = 0
+		for _, part in ipairs(holder:GetChildren()) do
+			if part.ClassName == "UIStroke" then
+				strokes += 1
+				expect(part.Color).toBe(Theme.Colors.PanelRaised)
+				expect(part.Thickness).toBeGreaterThanOrEqual(Theme.Sizes.StrokeThin)
+				expect(part.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+			end
+		end
+		expect(strokes).toBe(1)
+	end
+
+	-- The sheet's ring on a plate: a frame the plate's own size and corner, its line inside the plate's edge.
+	local function flush(ring: any, plate: any, Theme: any)
+		assert(ring ~= nil and plate ~= nil, "no ring or no plate: this gate would check nothing")
+		expect(ring.Size).toBe(roblox.UDim2.fromScale(1, 1))
+		expect(ring.Position).toBe(roblox.UDim2.new())
+		expect(ring:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+			plate:FindFirstChildOfClass("UICorner").CornerRadius
+		)
+		sheetLine(ring, Theme)
+	end
+
+	it("sit on the plate's own edge, the board's inset line, with the plate's corner, round a heavy sigil", function()
+		local _root, _combo, dock, hotbar, Theme = build(false)
+		local slots = 0
+		for _, slot in ipairs(hotbar.Instance:GetChildren()) do
+			if string.sub(slot.Name, 1, 4) == "Slot" then
+				slots += 1
+				local face = slot:FindFirstChild("Plate", true):FindFirstChild("Face")
+				-- A slot's ring is its face's own line, with its corner: no frame drawn for it (the budget).
+				assert(face ~= nil, "a slot has no plate face: this gate would check nothing")
+				sheetLine(face, Theme)
+				for _, part in ipairs(face:GetChildren()) do
+					expect(part:IsA("GuiObject")).toBe(false)
+				end
+				expect(face:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+					roblox.UDim.new(0, Theme.Sizes.CornerChip)
+				)
+				-- The chip's sigil in the heavy face, the board's 21.
+				local sigil = slot:FindFirstChild("Sigil", true)
+				expect(sigil.FontFace.Family).toBe(Theme.Fonts.Label.Family)
+				expect(sigil.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+				expect(sigil.TextSize).toBe(21)
+			end
+		end
+		expect(slots).toBe(3)
+		local face = dock.Instance:FindFirstChild("Plate"):FindFirstChild("Face")
+		flush(face:FindFirstChild("Ring"), face, Theme)
+		expect(face:FindFirstChildOfClass("UICorner").CornerRadius).toBe(roblox.UDim.new(0, Theme.Sizes.CornerTile))
+	end)
+end)
+
 -- The touch dock with its pips, `glyphs` of them, at `width` (CombatDock.SetWidth, as HudController.fitDock
 -- sets it): how wide each pip is drawn, and the room the row has.
 local function pipsAt(width: number, glyphs: number): (number, number, number)
@@ -150,6 +207,187 @@ local function pipsAt(width: number, glyphs: number): (number, number, number)
 	local side = math.min(share, dock.PipRow.Size.Y.Offset)
 	return side, gap, inner
 end
+
+describe("the hotbar's keys, run", function()
+	it("run each key's pigment the width of its cap, on the foot of a cap with no lip", function()
+		local _root, _combo, _dock, hotbar, Theme = build(false)
+		local caps = 0
+		for _, strip in ipairs(hotbar.Instance:GetDescendants()) do
+			if strip.Name == "Pigment" then
+				caps += 1
+				local cap = strip.Parent
+				expect(cap.Size.Y.Offset).toBe(ThemeConfig.Hud.HotbarKeyStrip - 3)
+				expect(cap:FindFirstChild("Face").Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(strip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.StrokeThin * 2, 0, 4))
+				expect(strip.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin))
+				expect(strip:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+					roblox.UDim.new(0, Theme.Sizes.CornerKeycap - Theme.Sizes.StrokeThin)
+				)
+				-- No lip at all: nothing under the face in the lip's chalk, whatever is under it lies exactly under
+				-- it, and no outline of the cap is drawn outside it.
+				local face = cap:FindFirstChild("Face")
+				for _, part in ipairs(cap:GetChildren()) do
+					if part.Name == "Base" then
+						expect(part.BackgroundColor3 == Theme.lip("Secondary")).toBe(false)
+						expect(part.Position).toBe(face.Position)
+						expect(part.Size).toBe(face.Size)
+					end
+				end
+				for _, line in ipairs(cap:GetDescendants()) do
+					if line.ClassName == "UIStroke" and line.ApplyStrokeMode == roblox.Enum.ApplyStrokeMode.Border then
+						expect(line.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+					end
+				end
+			end
+		end
+		expect(caps).toBeGreaterThanOrEqual(6)
+	end)
+
+	it("keep the lip everywhere else, and a pad's round button keeps its strip off the curve", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Keycap = world.require("src/ui/components/Keycap")
+		local Theme = world.require("src/ui/Theme")
+		local localize = {
+			t = function(key: string): string
+				return key
+			end,
+		}
+		local cap = Keycap.new({ Key = "J", Device = "Keyboard", Localize = localize, Size = 19, Pigment = "Cinnabar" })
+		expect(cap.Instance.Size.Y.Offset).toBe(22)
+		-- On its chalk lip, three units under the face.
+		local base = cap.Instance:FindFirstChild("Base")
+		expect(base.BackgroundColor3).toBe(Theme.lip("Secondary"))
+		expect(base.Position).toBe(roblox.UDim2.fromOffset(0, 3))
+		local strip = cap.Instance:FindFirstChild("Pigment")
+		expect(strip.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - 3))
+		expect(strip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.StrokeThin * 2, 0, 4))
+		local pad =
+			Keycap.new({ Key = "ButtonX", Device = "Gamepad", Localize = localize, Size = 19, Pigment = "Indigo" })
+		local padStrip = pad.Instance:FindFirstChild("Pigment")
+		expect(padStrip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.CornerKeycap * 2, 0, 4))
+		expect(padStrip:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+	end)
+end)
+
+describe("a cooling slot, run", function()
+	it("veils the whole slot and counts down in tenths on the veil's edge, in the language's mark", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local hotbar = Hotbar.new({
+			Parent = gui,
+			Mode = "Slots",
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "fr")
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		hotbar:SetLoadout({ "Brand" })
+		local def = GlyphConfig.byId("Brand")
+		local square = hotbar.Instance:FindFirstChild("Slot1"):FindFirstChild("Square")
+		local chip = square:FindFirstChild("Chip")
+		-- The veil is the slot's, its full width, over the chip and the ring.
+		local veil = square:FindFirstChild("Drain")
+		assert(veil ~= nil, "the slot has no veil of its own: this gate would check nothing")
+		expect(chip:FindFirstChild("Drain")).toBeNil()
+		expect(veil.Size.X.Scale).toBe(1)
+		expect(veil.Size.X.Offset).toBe(0)
+		expect(veil.ZIndex).toBeGreaterThan(chip.ZIndex)
+		-- Cut straight where it ends, as the board's face cuts it: a clear window, no corner of its own, clipping
+		-- an ink the slot's full height with the slot's corner, so only its top corners are ever rounded.
+		expect(veil.BackgroundTransparency).toBe(1)
+		expect(veil.ClipsDescendants).toBe(true)
+		expect(veil:FindFirstChildOfClass("UICorner")).toBeNil()
+		local ink = veil:FindFirstChild("Ink")
+		assert(ink ~= nil, "the veil holds no ink: this gate would check nothing")
+		expect(#veil:GetChildren()).toBe(1)
+		expect(ink.Position).toBe(roblox.UDim2.new())
+		expect(ink.Size).toBe(roblox.UDim2.new(1, 0, 0, ThemeConfig.Hud.HotbarSlot))
+		expect(square.Size.Y.Offset).toBe(ThemeConfig.Hud.HotbarSlot)
+		expect(ink:FindFirstChildOfClass("UICorner").CornerRadius).toBe(roblox.UDim.new(0, Theme.Sizes.CornerChip))
+		expect(ink.BackgroundColor3).toBe(Theme.Colors.Plate)
+		expect(ink.BackgroundTransparency).toBe(0.31)
+		-- Half cooled: the seconds stand on the veil's edge, four over it.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = def.Cooldown / 2 } })
+		world:advance(1)
+		local seconds = square:FindFirstChild("Seconds")
+		expect(seconds.Visible).toBe(true)
+		expect(seconds.Text).toBe(Strings.t("hud.hotbar.seconds", { whole = def.Cooldown // 2, tenth = 0 }, "fr"))
+		expect(seconds.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(seconds.AnchorPoint).toBe(roblox.Vector2.new(0.5, 1))
+		expect(veil.Size.Y.Scale).toBeCloseTo(0.5, 2)
+		expect(seconds.Position.Y.Offset).toBeCloseTo(0.5 * ThemeConfig.Hud.HotbarSlot - 4, 1)
+		-- Nearly ready: the veil is thin, and the seconds stay whole at the top, on their ink stroke.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = 0.2 } })
+		world:advance(1)
+		expect(seconds.Text).toBe("0,2")
+		expect(seconds.Position.Y.Offset).toBeCloseTo(16, 1)
+		expect(seconds:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.Outline)
+		-- Ten and more: whole seconds.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = 12 } })
+		expect(seconds.Text).toBe("12")
+		-- Ready: gone.
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(seconds.Visible).toBe(false)
+	end)
+end)
+
+describe("a slot short of ink, run", function()
+	it("marks it with the blue drop on a rim of the sheet, built the first time it shows", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local hotbar = Hotbar.new({
+			Parent = gui,
+			Mode = "Slots",
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		hotbar:SetLoadout({ "Brand" })
+		local square = hotbar.Instance:FindFirstChild("Slot1"):FindFirstChild("Square")
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(square:FindFirstChild("Drop")).toBeNil()
+		hotbar:SetState({ Ink = GlyphConfig.byId("Brand").Cost - 1, Cooldowns = {} })
+		local holder = square:FindFirstChild("Drop")
+		assert(holder ~= nil, "a slot short of ink shows no drop: this gate would check nothing")
+		expect(holder.Visible).toBe(true)
+		local rim = holder:FindFirstChild("Rim")
+		local drop = holder:FindFirstChild("Drop")
+		expect(rim.Size).toBe(roblox.UDim2.fromOffset(18, 18))
+		expect(drop.Size).toBe(roblox.UDim2.fromOffset(14, 14))
+		expect(holder.Size).toBe(rim.Size)
+		expect(drop.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+		expect(drop.Position).toBe(roblox.UDim2.fromScale(0.5, 0.5))
+		-- The rim behind, the blue over it: each drawn in its own colour.
+		local order = holder:GetChildren()
+		expect(table.find(order, rim) :: number).toBeLessThan(table.find(order, drop) :: number)
+		for _, part in ipairs(rim:GetChildren()) do
+			if part:IsA("GuiObject") then
+				expect(part.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+			end
+		end
+		for _, part in ipairs(drop:GetChildren()) do
+			if part:IsA("GuiObject") then
+				expect(part.BackgroundColor3).toBe(Theme.Colors.InfoFill)
+			end
+		end
+		expect(holder.ZIndex).toBeGreaterThan(square:FindFirstChild("Drain").ZIndex)
+		-- The sheet stands out from the ink of the slot, where the blue barely does.
+		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Plate)).toBeGreaterThanOrEqual(3)
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(holder.Visible).toBe(false)
+	end)
+end)
 
 describe("the touch dock's pips, run", function()
 	it("fit every slot a pass opens in the narrowest dock", function()
@@ -262,6 +500,36 @@ describe("the preview pill, run", function()
 			expect(arrow.TextColor3).toBe(name.TextColor3)
 		end
 		expect(seen.Cinnabar and seen.Umber).toBe(true)
+	end)
+
+	it("drains its window from the right end, its left end held where the words begin", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ComboRow = world.require("src/ui/components/ComboRow")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local row = ComboRow.new({
+			Parent = gui,
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		local window = row.Instance:FindFirstChild("Window", true)
+		row:SetPreview("Brand", 0.35)
+		expect(window.AnchorPoint).toBe(roblox.Vector2.new(0, 1))
+		local left = window.Position
+		expect(left.X.Scale).toBe(0)
+		expect(left.X.Offset).toBe(14)
+		expect(window.Size.X.Scale).toBe(1)
+		expect(window.Size.X.Offset).toBe(-28)
+		world:advance(0.1)
+		-- Shorter, from the right: the left end has not moved.
+		expect(window.Size.X.Scale).toBeLessThan(1)
+		expect(window.Position).toBe(left)
+		world:advance(2)
+		expect(window.Size.X.Scale).toBeCloseTo(0, 2)
+		expect(window.Position).toBe(left)
 	end)
 end)
 

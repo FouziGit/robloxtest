@@ -1,8 +1,9 @@
 --!strict
--- The lock's mark (D-115, D-147): a diamond of ink on a sheet edge over the target, a plate under it with the
--- target's name and health, a warning before the lock breaks, a chevron toward a target out of view, and a
--- word for a press that locks nothing. It is drawn in the world, so it stays in ink (docs/ART_BIBLE.md rule
--- 1). The edge arithmetic is pure and run here; the rest is engine code, held by reading it.
+-- The lock's mark (D-115, D-147): the board's diamond, the sheet in a thick ink outline, over the target, a pill
+-- over it with the target's name and health, a warning before the lock breaks, a chevron toward a target out
+-- of view, and a word for a press that locks nothing. It is drawn in the world, so it stays in ink and the
+-- sheet (docs/ART_BIBLE.md rule 1). The edge arithmetic is pure and run here; the rest is engine code, held by
+-- reading it and by running it on tests/engine.luau.
 local Engine = require("./engine")
 local Harness = require("./harness")
 local LockOnConfig = require("../src/shared/Config/LockOnConfig")
@@ -12,6 +13,7 @@ local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -71,48 +73,57 @@ describe("the edge of the screen", function()
 end)
 
 describe("the lock's mark", function()
-	it("is a diamond of ink on a sheet edge, with a sheet dot, and never red (rule 1)", function()
+	it("is the sheet in an ink outline of four, and never red (rule 1)", function()
 		local marker = code(MARKER)
-		expect(has(marker, 'local ink = Theme.stroke(inkFrame, "Accent", INK_THICKNESS)')).toBe(true)
-		expect(has(marker, 'local edge = Theme.stroke(edgeFrame, "PanelRaised", EDGE_THICKNESS, "Border", "Outer")')).toBe(
-			true
-		)
+		expect(has(marker, "diamond.BackgroundColor3 = Theme.Colors.PanelRaised")).toBe(true)
+		expect(has(marker, 'local ink = Theme.stroke(diamond, "Accent", INK_THICKNESS)')).toBe(true)
 		expect(number(marker, "INK_THICKNESS")).toBe(4)
-		expect(number(marker, "EDGE_THICKNESS")).toBe(2)
-		expect(has(marker, "dot.BackgroundColor3 = Theme.Colors.PanelRaised")).toBe(true)
+		-- One frame: no sheet edge outside it and no dot in it.
+		expect(has(marker, '"Edge"')).toBe(false)
+		expect(has(marker, '"Dot"')).toBe(false)
 		expect(string.find(marker, "Danger")).toBeNil()
 		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Accent)).toBeGreaterThanOrEqual(3)
+		-- Taken and let go on the springs: the sheet and its outline fade together.
+		local show = body(marker, "show")
+		expect(has(show, 'Motion.to(ink, { Transparency = 0 }, "UiSnappy")')).toBe(true)
+		expect(has(show, 'Motion.to(diamond, { BackgroundTransparency = 0 }, "UiSnappy")')).toBe(true)
+		local hide = body(marker, "hide")
+		expect(has(hide, 'Motion.to(diamond, { BackgroundTransparency = 1 }, "UiSnappy")')).toBe(true)
+		expect(has(hide, 'Motion.to(ink, { Transparency = 1 }, "UiSnappy", function()')).toBe(true)
 	end)
 
-	it("names the target and draws its health on an ink plate under it, following the target's own health", function()
+	it("names the target and its health on an ink pill over it, following the target's own health", function()
 		local marker = code(MARKER)
-		expect(number(marker, "PLATE_WIDTH")).toBe(120)
-		expect(number(marker, "PLATE_HEIGHT")).toBe(40)
+		expect(number(marker, "PLATE_HEIGHT")).toBe(22)
+		expect(number(marker, "PLATE_CORNER")).toBe(6)
+		expect(number(marker, "PLATE_PADDING_Y")).toBe(2)
+		expect(number(marker, "PLATE_PADDING_X")).toBe(8)
+		expect(has(marker, "plate.AnchorPoint = Vector2.new(0.5, 1)")).toBe(true)
+		expect(has(marker, "plate.Position = UDim2.new(0.5, 0, 0.5, -(size / 2 + PLATE_GAP))")).toBe(true)
+		expect(has(marker, "plate.AutomaticSize = Enum.AutomaticSize.X")).toBe(true)
 		expect(has(marker, "plate.BackgroundColor3 = Theme.Colors.Plate")).toBe(true)
 		expect(has(marker, "plate.BackgroundTransparency = PLATE_TRANSPARENCY * UiPrefs.transparency()")).toBe(true)
 		expect(number(marker, "PLATE_TRANSPARENCY")).toBe(0.1)
-		expect(has(marker, "nameLabel.TextColor3 = Theme.Colors.TextInverse")).toBe(true)
+		expect(has(marker, "nameLabel.TextColor3 = Theme.Colors.PanelRaised")).toBe(true)
 		expect(has(marker, "nameLabel.TextTruncate = Enum.TextTruncate.AtEnd")).toBe(true)
+		-- In the heavy face, the board's 900 (the Bold face is its 800).
+		expect(has(marker, "nameLabel.FontFace = Theme.Fonts.Label")).toBe(true)
+		expect(ThemeConfig.Fonts.Label.Weight).toBe("Heavy")
 		expect(number(marker, "NAME_TEXT")).toBe(14)
-		expect(has(marker, "track.BackgroundColor3 = Theme.Colors.Well")).toBe(true)
-		expect(has(marker, "fill.BackgroundColor3 = Theme.Colors.PanelRaised")).toBe(true)
-		expect(number(marker, "STRIP_WIDTH")).toBe(80)
-		expect(number(marker, "STRIP_HEIGHT")).toBe(6)
-		expect(ThemeConfig.contrast(COLORS.TextInverse, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
-		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Well)).toBeGreaterThanOrEqual(3)
+		expect(has(marker, 'local TARGET_KEY = "hud.lock.target"\n')).toBe(true)
+		expect(Strings.Table["hud.lock.target"].en).toBe("{name} · {health}")
+		expect(Strings.Table["hud.lock.target"].fr).toBe("{name} · {health}")
+		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
+		-- The health strip is gone: the number says it.
+		expect(has(marker, "STRIP")).toBe(false)
 		local target = body(marker, "setTarget")
 		expect(has(target, "unfollow()")).toBe(true)
-		expect(
-			has(
-				target,
-				"local share = if humanoid.MaxHealth > 0 then math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1) else 0"
-			)
-		).toBe(true)
+		expect(has(target, "local health = math.max(0, math.ceil(humanoid.Health))")).toBe(true)
+		expect(has(target, "nameLabel.Text = localize.t(TARGET_KEY, { name = name, health = health })")).toBe(true)
 		expect(has(target, 'humanoid:GetPropertyChangedSignal("Health"):Connect(refresh)')).toBe(true)
-		expect(has(target, 'humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(refresh)')).toBe(true)
 		-- Followed only while it shows: let go, it hears nothing more.
 		expect(has(body(marker, "hide"), "unfollow()")).toBe(true)
-		-- The plate springs in and out with the diamond, never simply there or gone (rule 3).
+		-- The pill springs in and out with the diamond, never simply there or gone (rule 3).
 		expect(has(body(marker, "show"), 'Motion.to(plateScale, { Scale = 1 }, "UiPop")')).toBe(true)
 		expect(has(body(marker, "hide"), 'Motion.to(plateScale, { Scale = 0 }, "UiSnappy")')).toBe(true)
 		-- The controller names a player by their display name, anything else by what it is.
@@ -145,15 +156,17 @@ describe("the lock's mark", function()
 		expect(has(body(controller, "engage"), "warned = false current = lock")).toBe(true)
 		local marker = code(MARKER)
 		local warning = body(marker, "setWarning")
-		expect(has(warning, "ink.Color = Theme.Colors.Chalk")).toBe(true)
+		expect(has(warning, "diamond.BackgroundColor3 = Theme.Colors.Chalk")).toBe(true)
 		expect(
 			has(
 				warning,
-				'stopWarning = Motion.loop(ink, { Transparency = WARN_FROM }, { Transparency = WARN_TO }, "Ui")'
+				'stopWarning = Motion.loop( diamond, { BackgroundTransparency = WARN_FROM }, { BackgroundTransparency = WARN_TO }, "Ui" )'
 			)
 		).toBe(true)
 		expect(has(marker, "local WARN_FROM, WARN_TO = 0, 0.5")).toBe(true)
-		expect(has(body(marker, "endWarning"), "ink.Color = Theme.Colors.Accent")).toBe(true)
+		-- The ink outline stays ink through the warning: only the sheet turns chalk.
+		expect(has(marker, "ink.Color")).toBe(false)
+		expect(has(body(marker, "endWarning"), "diamond.BackgroundColor3 = Theme.Colors.PanelRaised")).toBe(true)
 		expect(has(body(marker, "hide"), "endWarning()")).toBe(true)
 	end)
 
@@ -212,24 +225,82 @@ describe("the lock's mark", function()
 	end)
 end)
 
-describe("the lock's plate, run", function()
-	it("rings the health track in the sheet, which the inkwell alone does not show on the plate", function()
+describe("the lock's mark, run", function()
+	local function build(): (any, any, any)
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 		local LockMarker = world.require("src/ui/components/LockMarker")
-		local Theme = world.require("src/ui/Theme")
-		LockMarker.new(world.playerGui, 34, {
-			t = function(key: string): string
-				return key
+		local marker = LockMarker.new(world.playerGui, LockOnConfig.Marker.SizePx, {
+			t = function(key: string, params: { [string]: any }?): string
+				return Strings.t(key, params, "fr")
 			end,
 		})
-		local track = world.playerGui:FindFirstChild("LockPlate"):FindFirstChild("Health", true)
-		expect(track).never.toBeNil()
-		expect(track.BackgroundColor3).toBe(Theme.Colors.Well)
-		local ring = track:FindFirstChildOfClass("UIStroke")
-		expect(ring).never.toBeNil()
-		expect(ring.Color).toBe(Theme.Colors.PanelRaised)
-		expect(ThemeConfig.contrast(COLORS.Well, COLORS.Plate)).toBeLessThan(3)
-		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(3)
+		return world, marker, world.require("src/ui/Theme")
+	end
+
+	it("draws one sheet diamond in its ink, turned, and the pill over it", function()
+		local world, marker, Theme = build()
+		local diamond = world.playerGui:FindFirstChild("LockMarker"):FindFirstChild("Diamond")
+		expect(diamond.Rotation).toBe(45)
+		expect(diamond.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+		local strokes, frames = 0, 0
+		for _, part in ipairs(diamond:GetChildren()) do
+			if part.ClassName == "UIStroke" then
+				strokes += 1
+				expect(part.Color).toBe(Theme.Colors.Accent)
+				expect(part.Thickness).toBeGreaterThanOrEqual(4)
+				expect(part.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+			elseif part:IsA("GuiObject") then
+				frames += 1
+			end
+		end
+		expect(strokes).toBe(1)
+		expect(frames).toBe(0)
+		-- Hidden until a lock is taken; taken, both fade in.
+		expect(diamond.BackgroundTransparency).toBe(1)
+		local root = Engine.instance("Part", world.workspace)
+		marker:Show(root, 3)
+		world:advance(1)
+		expect(diamond.BackgroundTransparency).toBeCloseTo(0, 2)
+		expect(diamond:FindFirstChildOfClass("UIStroke").Transparency).toBeCloseTo(0, 2)
+		-- The pill stands over the diamond, its foot the gap above its top.
+		local plate = world.playerGui:FindFirstChild("LockPlate"):FindFirstChild("Plate")
+		expect(plate.AnchorPoint).toBe(roblox.Vector2.new(0.5, 1))
+		expect(plate.Position).toBe(roblox.UDim2.new(0.5, 0, 0.5, -(LockOnConfig.Marker.SizePx / 2 + 6)))
+		expect(plate.Size.Y.Offset).toBe(22)
+		expect(plate.BackgroundColor3).toBe(Theme.Colors.Plate)
+		expect(plate:FindFirstChild("Health", true)).toBeNil()
+		-- Near the break it turns chalk and breathes, its outline still ink.
+		marker:SetWarning(true)
+		expect(diamond.BackgroundColor3).toBe(Theme.Colors.Chalk)
+		expect(diamond:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.Accent)
+		marker:SetWarning(false)
+		expect(diamond.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+		world:advance(1)
+		expect(diamond.BackgroundTransparency).toBeCloseTo(0, 2)
+	end)
+
+	it("writes the target's name and health, follows its health, and lets go when hidden", function()
+		local world, marker, Theme = build()
+		local humanoid = Engine.instance("Humanoid", world.workspace)
+		humanoid.MaxHealth = 100
+		humanoid.Health = 64
+		local root = Engine.instance("Part", world.workspace)
+		marker:Show(root, 3)
+		marker:SetTarget("Rival_07", humanoid)
+		local name = world.playerGui:FindFirstChild("LockPlate"):FindFirstChild("Name", true)
+		expect(name.Text).toBe("Rival_07 · 64")
+		-- The sheet, in the heavy face, as the board writes it.
+		expect(name.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(name.FontFace.Family).toBe(Theme.Fonts.Label.Family)
+		expect(name.FontFace.Weight).toBe(roblox.Enum.FontWeight.Heavy)
+		humanoid.Health = 50.2
+		expect(name.Text).toBe("Rival_07 · 51")
+		humanoid.Health = 0
+		expect(name.Text).toBe("Rival_07 · 0")
+		marker:Hide()
+		humanoid.Health = 90
+		expect(name.Text).toBe("Rival_07 · 0")
+		expect(humanoid:GetPropertyChangedSignal("Health"):count()).toBe(0)
 	end)
 end)
 

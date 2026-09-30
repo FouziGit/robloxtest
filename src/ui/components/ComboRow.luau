@@ -90,8 +90,8 @@ local GHOST_KEY = 20
 local GHOST_KEY_GAP = 4
 -- The row's place among its siblings: above the dock and the hotbar (ZIndexBehavior.Sibling).
 local ROW_Z = 2
--- The preview pill.
-local PREVIEW_PADDING = 10
+-- The preview pill: its ends, and the line under its words that drains toward its left end.
+local PREVIEW_PADDING = 14
 local PREVIEW_TEXT = 20
 local PREVIEW_LINE = 3
 local PREVIEW_ENTER = 0.6
@@ -273,7 +273,7 @@ function ComboRow.new(props: Props): ComboRow
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	layout.Padding = UDim.new(0, HUD.ChipRowGap)
 	layout.Parent = line
 	line.Parent = row
 	trove:Add(function()
@@ -299,8 +299,9 @@ function ComboRow.new(props: Props): ComboRow
 	previewLine.Name = "Window"
 	previewLine.BorderSizePixel = 0
 	previewLine.BackgroundColor3 = Theme.Colors.PanelRaised
-	previewLine.AnchorPoint = Vector2.new(0.5, 1)
-	previewLine.Position = UDim2.new(0.5, 0, 1, -PREVIEW_LINE)
+	-- Held at its left end, so the window drains from its right end, as the words are read.
+	previewLine.AnchorPoint = Vector2.new(0, 1)
+	previewLine.Position = UDim2.new(0, PREVIEW_PADDING, 1, -PREVIEW_LINE)
 	previewLine.ZIndex = 3
 	Theme.corner(previewLine, Theme.Pill)
 	previewLine.Parent = preview
@@ -363,7 +364,7 @@ function ComboRow.new(props: Props): ComboRow
 	keyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	keyLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	keyLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	keyLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	keyLayout.Padding = UDim.new(0, HUD.ChipRowGap)
 	keyLayout.Parent = keyStrip
 	keyStrip.Parent = row
 

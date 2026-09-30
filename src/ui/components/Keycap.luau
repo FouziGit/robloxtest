@@ -2,7 +2,8 @@
 -- Keycap: a key or a pad button drawn as the thing the player presses (D-147) -- a small sheet cap on a
 -- chalk lip, the key's character in the number face or its word in the label face. The hotbar, the settings, the glyph cards and the hub's
 -- prompts all name keys this way, so a player learns one picture for "press this". An optional strip of a
--- pigment along its bottom ties the key to its school: "J" on a Cinnabar strip.
+-- pigment along its foot, the width of the cap, ties the key to its school: "J" on a Cinnabar strip. The
+-- hotbar's caps stand on no lip, as the board draws them: they are a legend under a slot, not buttons.
 --
 -- What it says (Keycap.label): a letter, a digit or F1 to F8 as itself, in the number face; the D-pad as
 -- arrows, in the only face that has them; anything else as its `key.*` word, in the player's language ("Maj",
@@ -29,6 +30,8 @@ export type Props = {
 	Size: number?,
 	-- A PigmentConfig id: the strip along the bottom.
 	Pigment: string?,
+	-- Whether the cap stands on its chalk lip; true unless told otherwise.
+	Lip: boolean?,
 	LayoutOrder: number?,
 	Parent: Instance?,
 	Name: string?,
@@ -103,16 +106,21 @@ end
 function Keycap.new(props: Props): Keycap
 	local trove = Trove.new()
 	local height = props.Size or Theme.Sizes.Keycap
-	local corner = if props.Device == "Gamepad" then Theme.Pill else UDim.new(0, Theme.Sizes.CornerKeycap)
+	local round = props.Device == "Gamepad"
+	local corner = if round then Theme.Pill else UDim.new(0, Theme.Sizes.CornerKeycap)
+	local lip = props.Lip ~= false
+	local elevation = if lip then ELEVATION else 0
 
+	-- A cap on its lip is a pressable. One on none is a card on no shadow: nothing is under it to press, and
+	-- nothing of it, the lip's outline included, reaches past its face.
 	local sticker = Sticker.new({
-		Kind = "Pressable",
+		Kind = if lip then "Pressable" else "Card",
 		Fill = Theme.Colors.PanelRaised,
 		Lip = Theme.lip("Secondary"),
 		Corner = corner,
-		Elevation = ELEVATION,
+		Elevation = elevation,
 		Stroke = Theme.Sizes.StrokeThin,
-		Size = UDim2.fromOffset(0, height + ELEVATION),
+		Size = UDim2.fromOffset(0, height + elevation),
 		LayoutOrder = props.LayoutOrder,
 		Name = props.Name or "Keycap",
 	})
@@ -159,13 +167,20 @@ function Keycap.new(props: Props): Keycap
 	label.Parent = sticker.Face
 
 	if pigment ~= nil then
+		-- The pigment runs the width of the face inside its outline, flush on the face's foot, rounded as the
+		-- face's inner corner is. A pad's button is round: its strip keeps a corner's width off the curve.
+		local inset = if round then Theme.Sizes.CornerKeycap else Theme.Sizes.StrokeThin
 		local strip = Instance.new("Frame")
 		strip.Name = "Pigment"
 		strip.BorderSizePixel = 0
 		strip.BackgroundColor3 = Theme.pigmentColor(pigment)
 		strip.AnchorPoint = Vector2.new(0.5, 1)
-		strip.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - ELEVATION)
-		strip.Size = UDim2.new(1, -Theme.Sizes.CornerKeycap * 2, 0, STRIP_HEIGHT)
+		strip.Position = UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - elevation)
+		strip.Size = UDim2.new(1, -inset * 2, 0, STRIP_HEIGHT)
+		Theme.corner(
+			strip,
+			if round then Theme.Pill else UDim.new(0, Theme.Sizes.CornerKeycap - Theme.Sizes.StrokeThin)
+		)
 		strip.ZIndex = 3
 		strip.Parent = root
 	end

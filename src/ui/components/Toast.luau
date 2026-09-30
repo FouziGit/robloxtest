@@ -41,8 +41,9 @@ export type Props = {
 
 export type Toast = {
 	Instance: Frame,
-	-- `amount`, when given, is drawn in a chip beside the words: the Folios a reward paid.
-	Show: (self: Toast, text: string, kind: Kind, amount: number?) -> (),
+	-- `amount`, when given, is drawn in a chip beside the words: the Folios a reward paid, written as the words
+	-- are, in the player's language ("+4 000", reward.folios).
+	Show: (self: Toast, text: string, kind: Kind, amount: string?) -> (),
 	-- The kinds set in `kinds` wait in the queue from now on; Hold({}) lets them all through, in order.
 	Hold: (self: Toast, kinds: { [string]: boolean }) -> (),
 	SetMaxVisible: (self: Toast, count: number) -> (),
@@ -147,8 +148,8 @@ local function medallion(kind: string, fighting: boolean): Frame
 	return holder
 end
 
--- The Folios a reward paid, beside its words.
-local function amountChip(amount: number): Frame
+-- The Folios a reward paid, beside its words, as the caller wrote them.
+local function amountChip(amount: string): Frame
 	local chip = Instance.new("Frame")
 	chip.Name = "Amount"
 	chip.BorderSizePixel = 0
@@ -159,7 +160,7 @@ local function amountChip(amount: number): Frame
 	Theme.stroke(chip, "Accent", Theme.Sizes.StrokeThin)
 	local label = textLabel("Value", Theme.Fonts.Numeric, CHIP_TEXT, Theme.Colors.Text)
 	label.Size = UDim2.fromScale(1, 1)
-	label.Text = Theme.Glyphs.Plus .. tostring(math.floor(amount + 0.5))
+	label.Text = amount
 	label.Parent = chip
 	return chip
 end
@@ -373,7 +374,7 @@ function Toast.new(props: Props): Toast
 
 	container.Parent = props.Parent
 
-	local function show(_self: Toast, text: string, kind: Kind, amount: number?)
+	local function show(_self: Toast, text: string, kind: Kind, amount: string?)
 		if destroyed then
 			return
 		end

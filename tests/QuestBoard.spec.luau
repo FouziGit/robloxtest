@@ -2,6 +2,7 @@
 -- The quests board (D-147, slice B): what can be claimed comes first and what is done sinks, the countdown
 -- to the next draw never reads "none" while time is left, and the screen reads both the way this file
 -- computes them -- on the server's clock, refreshed when the minute turns, never per frame.
+local Engine = require("./engine")
 local Harness = require("./harness")
 local QuestBoard = require("../src/shared/Pure/QuestBoard")
 local Strings = require("../src/shared/Strings")
@@ -122,6 +123,36 @@ describe("the quests screen", function()
 		local wiggle = string.match(card, "local function wiggle%(.-\n\tend\n")
 		assert(wiggle ~= nil, "QuestCard has no wiggle: this gate would check nothing")
 		expect(wiggle).toContain('if state ~= "Claimable" or pending or UiPrefs.reducedMotion() then')
+	end)
+
+	it("claims in the Quests chapter's own blue, on its lip, with its gloss", function()
+		expect(card).toContain('Variant = "Owner",')
+		expect(card).toContain('Chapter = "Quests",')
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local QuestCard = world.require("src/ui/components/QuestCard")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local quest = QuestCard.new({
+			Title = "quest.castGlyphs",
+			Reward = "quest.reward",
+			ClaimText = "quest.claim",
+			ClaimedText = "quest.claimed",
+			OnClaim = function() end,
+			OnTimeout = function() end,
+			Parent = gui,
+		})
+		quest:Set("Claimable", 1, "3 / 3", false)
+		local claim = quest.Button.Instance
+		expect(claim.Visible).toBe(true)
+		local chapter = Theme.chapter("Quests")
+		expect(chapter.Band).toBe(Theme.Colors.InfoFill)
+		expect(claim:FindFirstChild("Face").BackgroundColor3).toBe(chapter.Band)
+		expect(claim:FindFirstChild("Base").BackgroundColor3).toBe(chapter.Lip)
+		expect(claim:FindFirstChild("Gloss")).never.toBeNil()
+		-- Its word, in the ink that reads on the blue.
+		local word = claim:FindFirstChild("Label", true)
+		expect(word.TextColor3).toBe(Theme.inkOn(chapter.Band))
+		expect(Theme.contrast(word.TextColor3, chapter.Band)).toBeGreaterThanOrEqual(4.5)
 	end)
 
 	it("waits for the server before it stamps a claim", function()

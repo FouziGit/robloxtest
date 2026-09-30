@@ -109,12 +109,12 @@ Strings.Table = {
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
-	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
+	["battlepass.claim"] = { en = "Claim", fr = "Réclamer" },
 	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
-	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
+	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà réclamé." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
 
 	-- Glyphs
@@ -322,8 +322,8 @@ Strings.Table = {
 	["quest.daily"] = { en = "Daily quests", fr = "Quêtes journalières" },
 	["quest.weekly"] = { en = "Weekly quests", fr = "Quêtes hebdomadaires" },
 	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
-	["quest.claim"] = { en = "Claim", fr = "Récupérer" },
-	["quest.claimed"] = { en = "Claimed", fr = "Récupérée" },
+	["quest.claim"] = { en = "Claim", fr = "Réclamer" },
+	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
 	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
@@ -445,7 +445,8 @@ Strings.Table = {
 	["queue.alreadyQueued"] = { en = "You are already in a queue.", fr = "Tu es déjà dans une file." },
 	["queue.inMatch"] = { en = "You are already in a match.", fr = "Tu es déjà en match." },
 	["match.countdown"] = { en = "{seconds}", fr = "{seconds}" },
-	["match.round"] = { en = "Round {round} / {total}", fr = "Manche {round} / {total}" },
+	-- The match's band (ScoreBand): the round, and the mode in the leaderboard's word for it ("1v1").
+	["match.band"] = { en = "Round {round} · {mode}", fr = "Manche {round} · {mode}" },
 	["match.timeLeft"] = { en = "{seconds}s", fr = "{seconds}s" },
 	["match.roundWon"] = { en = "Round won!", fr = "Manche gagnée !" },
 	["match.roundLost"] = { en = "Round lost", fr = "Manche perdue" },
@@ -715,7 +716,7 @@ Strings.Table = {
 	-- The battle pass (BattlepassScreen): its header's buttons, the showcase of the next reward, and a cell's
 	-- amounts. A cell is too narrow for "XP boost (30 min)": it shows the clock and the minutes.
 	["battlepass.getPremium"] = { en = "Get Premium", fr = "Obtenir le Premium" },
-	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout récupérer ({count})" },
+	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout réclamer ({count})" },
 	["battlepass.nextReward"] = { en = "Next reward", fr = "Prochaine récompense" },
 	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
 	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
@@ -723,11 +724,11 @@ Strings.Table = {
 	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
 	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
 	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
-	["daily.claim"] = { en = "Claim", fr = "Récupérer" },
+	["daily.claim"] = { en = "Claim", fr = "Réclamer" },
 	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
 	["daily.atRisk"] = {
 		en = "Claim today to keep your {streak}-day streak!",
-		fr = "Récupère aujourd'hui pour garder ta série de {streak} jours !",
+		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
 	},
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
@@ -745,7 +746,7 @@ Strings.Table = {
 	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
 	["common.undo"] = { en = "Undo", fr = "Annuler" },
 	-- The leaderboard: the way to the player's own row, and a board that could not be fetched.
-	["leaderboard.findMe"] = { en = "Find me", fr = "Me trouver" },
+	["leaderboard.findMe"] = { en = "My place", fr = "Ma place" },
 	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
 	-- Settings: the accessibility tab, the words of a switch and of a percentage, the way a pad rebinds, and
 	-- the question before a reset.
@@ -787,16 +788,74 @@ Strings.Table = {
 	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
 	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
 	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
-	-- The lock's mark (LockMarker): a press that finds nothing, and the plate's name for what is not a player.
+	-- The lock's mark (LockMarker): a press that finds nothing, the pill over the target with its name and the
+	-- health it has left, and the pill's name for what is not a player.
 	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
+	["hud.lock.target"] = { en = "{name} · {health}", fr = "{name} · {health}" },
+	-- A cooling glyph's seconds on its hotbar slot, in tenths under ten (CooldownText): the language's own mark.
+	["hud.hotbar.seconds"] = { en = "{whole}.{tenth}", fr = "{whole},{tenth}" },
 	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
 	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
 	-- A new player's first steps (MetaCluster), until all three are done.
 	["hud.checklist.title"] = { en = "First steps", fr = "Premiers pas" },
 	["hud.checklist.cast"] = { en = "Cast a glyph", fr = "Trace un glyphe" },
 	["hud.checklist.match"] = { en = "Play a match", fr = "Joue un match" },
-	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Récupère ta récompense du jour" },
+	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Réclame ta récompense du jour" },
 } :: { [string]: Entry }
+
+-- The placeholders that carry an amount of Folios or XP: an integer given to one of them is grouped by thousands
+-- in the player's language (Strings.number). Ratings, ranks, levels, counts, seconds and health are not amounts
+-- and are never grouped. {needed} is also queue.waiting's count of players, which never reaches a thousand. A
+-- price ({price}) is not grouped yet: a Today card's row holds its two prices with no room for the separator
+-- (tests/ShopEquip.spec.luau measures it).
+Strings.Quantities = {
+	xp = true,
+	needed = true,
+	folios = true,
+	amount = true,
+	before = true,
+	after = true,
+} :: { [string]: boolean }
+
+-- The mark between two groups of three digits: a narrow no-break space in French, a comma in English.
+local GROUP_SEPARATORS: { [string]: string } = { en = ",", fr = "\u{202F}" }
+local GROUP = 3
+
+-- `n` with its digits grouped by three for `locale` ("3 120" in French, "3,120" in English), the sign kept. A
+-- number under a thousand, or one that is not a whole number, reads exactly as tostring gives it.
+function Strings.number(n: number, locale: string?): string
+	if math.abs(n) < 1000 or n ~= math.floor(n) or math.abs(n) == math.huge then
+		return tostring(n)
+	end
+	local separator = GROUP_SEPARATORS[locale or Strings.DefaultLocale] or GROUP_SEPARATORS[Strings.DefaultLocale]
+	local digits = string.format("%.0f", math.abs(n))
+	local head = #digits % GROUP
+	local groups: { string } = {}
+	if head > 0 then
+		table.insert(groups, string.sub(digits, 1, head))
+	end
+	for start = head + 1, #digits, GROUP do
+		table.insert(groups, string.sub(digits, start, start + GROUP - 1))
+	end
+	local grouped = table.concat(groups, separator)
+	return if n < 0 then "-" .. grouped else grouped
+end
+
+-- `params` with every number given to a quantity grouped for `locale`; the table itself when it holds none.
+local function withAmounts(params: { [string]: any }?, locale: string): { [string]: any }?
+	if params == nil then
+		return nil
+	end
+	local amounts: { [string]: any }? = nil
+	for name, value in pairs(params) do
+		if Strings.Quantities[name] and type(value) == "number" then
+			local copy = amounts or table.clone(params)
+			copy[name] = Strings.number(value, locale)
+			amounts = copy
+		end
+	end
+	return amounts or params
+end
 
 -- Substitutes {name} placeholders. Missing params are left as-is.
 function Strings.format(template: string, params: { [string]: any }?): string
@@ -813,7 +872,8 @@ function Strings.format(template: string, params: { [string]: any }?): string
 	return result
 end
 
--- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible).
+-- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
+-- amount of Folios or XP is grouped by thousands the way the locale writes it (Strings.Quantities).
 function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
 	local entry = Strings.Table[key]
 	if entry == nil then
@@ -824,7 +884,7 @@ function Strings.t(key: string, params: { [string]: any }?, locale: string?): st
 	if type(template) ~= "string" then
 		template = entry.en
 	end
-	return Strings.format(template, params)
+	return Strings.format(template, withAmounts(params, chosen))
 end
 
 function Strings.has(key: string): boolean

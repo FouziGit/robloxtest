@@ -85,8 +85,6 @@ local COST_TICK_OVERHANG = 4
 local GUARD_SIZE = 16
 local GUARD_IDLE = 0.6
 local COMBAT_DOT = 8
--- The ring of the sheet inside the plate, and how far in from its edge.
-local RING_INSET = 3
 -- The low-health edges: four strips of the linear gradient, their dense side against the screen's edge, as
 -- deep as this share of its short side, breathing between the two transparencies, or still at the third.
 local VIGNETTE_DEPTH = 0.18
@@ -96,13 +94,14 @@ local VIGNETTE_STILL = 0.7
 local VIGNETTE_HOLD = 0.25
 local LOW_SOUND = "Error"
 
+-- A number on the plate, in the sheet: the board's ink plates write their numbers in it.
 local function numberLabel(name: string, size: number, order: number): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.FontFace = Theme.Fonts.Numeric
 	label.TextSize = size
-	label.TextColor3 = Theme.Colors.TextInverse
+	label.TextColor3 = Theme.Colors.PanelRaised
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Size = UDim2.fromScale(1, 1)
 	label.LayoutOrder = order
@@ -220,13 +219,13 @@ function CombatDock.new(props: Props): CombatDock
 	trove:Add(function()
 		plate:Destroy()
 	end)
-	-- The leaf's ring inside the ink: what shapes a plate against a dark floor.
+	-- The leaf's ring on the ink's own edge, inside it (the board's inset line): what shapes a plate against a
+	-- dark floor.
 	local ring = Instance.new("Frame")
 	ring.Name = "Ring"
 	ring.BackgroundTransparency = 1
-	ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
-	ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
-	Theme.corner(ring, CORNER - RING_INSET)
+	ring.Size = UDim2.fromScale(1, 1)
+	Theme.corner(ring, CORNER)
 	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
 	ring.Parent = plate.Face
 

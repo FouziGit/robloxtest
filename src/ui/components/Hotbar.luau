@@ -9,10 +9,10 @@
 -- Cinnabar, "K" on Indigo. That strip is what teaches the keyboard. On touch, where the discs already say it,
 -- a row of pips across the top of the dock.
 --
--- Cooling down, an ink veil drains off the chip, with the seconds left on it; ready again, the slot pops and
--- a seal flashes behind it. A glyph the ink cannot pay for turns chalk and shows a drop. It is a fight
--- surface: no value colour (rule 11). Slots are pooled by index, so a push at 5 Hz rebuilds nothing, and a
--- drain only springs when its value changed.
+-- Cooling down, an ink veil drains off the whole slot from the top, its edge straight, with the seconds left
+-- standing on it, in tenths under ten; ready again, the slot pops and a seal flashes behind it. A glyph the ink
+-- cannot pay for turns chalk and shows a drop. It is a fight surface: no value colour (rule 11). Slots are
+-- pooled by index, so a push at 5 Hz rebuilds nothing, and a drain only springs when its value changed.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,6 +20,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 
+local CooldownText = require(Shared:WaitForChild("Pure"):WaitForChild("CooldownText"))
 local GlyphConfig = require(Config:WaitForChild("GlyphConfig"))
 local Icon = require(script.Parent.Icon)
 local Keycap = require(script.Parent.Keycap)
@@ -80,14 +81,21 @@ local Hotbar = {}
 
 local HUD = ThemeConfig.Hud
 local CHIP = 40
-local SIGIL_SCALE = 0.6
-local RING_INSET = 3
--- The veil a cooling glyph wears, drained from the top as the cooldown runs out.
-local DRAIN_TRANSPARENCY = 0.35
+-- The sigil on a chip, in the heavy face (the board's 21 at 900).
+local SIGIL_TEXT = 21
+-- The short-ink drop, off the slot's bottom-right corner by this much, on a rim of the sheet this wide.
+local DROP_INSET = 4
+local DROP_RIM = 2
+-- The veil a cooling glyph wears, drained from the top as the cooldown runs out: the board's ink at 69 %.
+local DRAIN_TRANSPARENCY = 0.31
+-- The seconds left, standing this far over the veil's edge, and never above the top of the slot.
 local SECONDS_TEXT = 16
 local SECONDS_STROKE = 2
+local SECONDS_INSET = 4
+local SECONDS_KEY = "hud.hotbar.seconds"
 local DROP = 14
--- A key cap stands on a 3-unit lip: a cap of 19 fills the key strip exactly.
+-- A key cap of 19 (D-172), standing on no lip: the three units the strip has left are the gap between the slot
+-- and its keys, as the board draws them.
 local CAP = HUD.HotbarKeyStrip - 3
 local CAP_GAP = 2
 local PIP_GAP = 3
@@ -108,17 +116,46 @@ local function fill(slot: Slot, color: Color3, animate: boolean)
 	end
 end
 
--- The veil over a chip: ink, draining off from the top.
-local function drain(chip: Frame): Frame
+-- The veil over what cools: ink, draining off from the top. A pip's is the ink itself, inside the pip, which
+-- clips it. A slot's covers the whole slot, its chip and its ring, and is cut straight where it ends, as the
+-- board's face cuts it: a window as deep as the cooldown left, clipping an ink of the slot's own size and
+-- corner. Rounded itself, its edge would curve up at both ends.
+local function drain(parent: Frame, corner: number?): Frame
 	local veil = Instance.new("Frame")
 	veil.Name = "Drain"
 	veil.BorderSizePixel = 0
-	veil.BackgroundColor3 = Theme.Colors.Plate
-	veil.BackgroundTransparency = DRAIN_TRANSPARENCY
 	veil.Size = UDim2.fromScale(1, 0)
 	veil.ZIndex = 4
-	veil.Parent = chip
+	local ink = veil
+	if corner ~= nil then
+		veil.BackgroundTransparency = 1
+		veil.ClipsDescendants = true
+		ink = Instance.new("Frame")
+		ink.Name = "Ink"
+		ink.BorderSizePixel = 0
+		ink.Size = UDim2.new(1, 0, 0, HUD.HotbarSlot)
+		Theme.corner(ink, corner)
+		ink.Parent = veil
+	end
+	ink.BackgroundColor3 = Theme.Colors.Plate
+	ink.BackgroundTransparency = DRAIN_TRANSPARENCY
+	veil.Parent = parent
 	return veil
+end
+
+-- Where the seconds stand in a slot veiled `fraction` deep: their foot the inset over the veil's edge, and no
+-- higher than the text's own height from the top of the slot.
+local function secondsAt(fraction: number): UDim2
+	return UDim2.new(0.5, 0, 0, math.max(fraction * HUD.HotbarSlot, SECONDS_TEXT + SECONDS_INSET) - SECONDS_INSET)
+end
+
+-- The seconds a cooling glyph has left, as its slot writes them: tenths under ten, in the language's own mark.
+local function secondsText(remaining: number, localize: Keycap.Localizer): string
+	local whole, tenth = CooldownText.split(remaining)
+	if tenth == nil then
+		return tostring(whole)
+	end
+	return localize.t(SECONDS_KEY, { whole = whole, tenth = tenth })
 end
 
 local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.new())): Slot
@@ -173,14 +210,10 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	trove:Add(function()
 		plate:Destroy()
 	end)
-	local ring = Instance.new("Frame")
-	ring.Name = "Ring"
-	ring.BackgroundTransparency = 1
-	ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
-	ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
-	Theme.corner(ring, Theme.Sizes.CornerChip - RING_INSET)
-	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
-	ring.Parent = plate.Face
+	-- The sheet's ring on the plate's own edge, inside it (the board's inset line): what shapes the slot on a dark
+	-- floor, and the frame the chip sits in. On the edge, it is the face's own line rather than a frame of its
+	-- size: every object the pointer's HUD holds is counted (tests/HudBudget.spec.luau).
+	Theme.stroke(plate.Face, "PanelRaised", Theme.Sizes.StrokeThin)
 
 	local chip = Instance.new("Frame")
 	chip.Name = "Chip"
@@ -197,8 +230,8 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	sigil.Name = "Sigil"
 	sigil.BackgroundTransparency = 1
 	sigil.Size = UDim2.fromScale(1, 1)
-	sigil.FontFace = Theme.Fonts.Bold
-	sigil.TextSize = CHIP * SIGIL_SCALE
+	sigil.FontFace = Theme.Fonts.Label
+	sigil.TextSize = SIGIL_TEXT
 	sigil.ZIndex = 3
 	sigil.Parent = chip
 
@@ -222,7 +255,7 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 		Scale = scale,
 		Chip = chip,
 		Sigil = sigil,
-		Drain = drain(chip),
+		Drain = drain(square, Theme.Sizes.CornerChip),
 		Seconds = nil,
 		Drop = nil,
 		Square = square,
@@ -246,7 +279,9 @@ local function secondsOf(slot: Slot): TextLabel?
 		local seconds = Instance.new("TextLabel")
 		seconds.Name = "Seconds"
 		seconds.BackgroundTransparency = 1
-		seconds.Size = UDim2.fromScale(1, 1)
+		seconds.AnchorPoint = Vector2.new(0.5, 1)
+		seconds.Position = secondsAt(slot.Fraction)
+		seconds.Size = UDim2.new(1, 0, 0, SECONDS_TEXT)
 		seconds.FontFace = Theme.Fonts.Numeric
 		seconds.TextSize = SECONDS_TEXT
 		seconds.TextColor3 = Theme.Colors.PanelRaised
@@ -259,16 +294,30 @@ local function secondsOf(slot: Slot): TextLabel?
 	return slot.Seconds
 end
 
+-- The drop is the ink's blue on a rim of the sheet, the same drop a size larger behind it. It straddles the chalk
+-- chip, which the blue alone is 2.1 against, and the slot's ink; the sheet gives it one edge it stands out from
+-- on both (3.3).
 local function dropOf(slot: Slot): Frame?
 	local square = slot.Square
 	if slot.Drop == nil and square ~= nil then
+		local rimmed = DROP + DROP_RIM * 2
+		local holder = Instance.new("Frame")
+		holder.Name = "Drop"
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(1, 1)
+		holder.Position = UDim2.new(1, -DROP_INSET, 1, -DROP_INSET)
+		holder.Size = UDim2.fromOffset(rimmed, rimmed)
+		holder.ZIndex = 5
+		holder.Visible = false
+		local rim = Icon.new("Drop", rimmed, Theme.Colors.PanelRaised)
+		rim.Name = "Rim"
+		rim.Parent = holder
 		local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
-		drop.AnchorPoint = Vector2.new(1, 1)
-		drop.Position = UDim2.new(1, -RING_INSET, 1, -RING_INSET)
-		drop.ZIndex = 5
-		drop.Visible = false
-		drop.Parent = square
-		slot.Drop = drop
+		drop.AnchorPoint = Vector2.new(0.5, 0.5)
+		drop.Position = UDim2.fromScale(0.5, 0.5)
+		drop.Parent = holder
+		holder.Parent = square
+		slot.Drop = holder
 	end
 	return slot.Drop
 end
@@ -339,6 +388,10 @@ function Hotbar.new(props: Props): Hotbar
 			Motion.cancel(slot.Scale)
 			Motion.cancel(slot.Chip)
 			Motion.cancel(slot.Drain)
+			local seconds = slot.Seconds
+			if seconds ~= nil then
+				Motion.cancel(seconds)
+			end
 			local image, imageScale = slot.Flash, slot.FlashScale
 			if image ~= nil and imageScale ~= nil then
 				Motion.cancel(image)
@@ -370,6 +423,7 @@ function Hotbar.new(props: Props): Hotbar
 					Localize = props.Localize,
 					Size = CAP,
 					Pigment = pigment,
+					Lip = false,
 					LayoutOrder = step,
 					Parent = strip,
 				})
@@ -394,6 +448,7 @@ function Hotbar.new(props: Props): Hotbar
 		end
 		if seconds ~= nil then
 			seconds.Visible = false
+			Motion.set(seconds, { Position = secondsAt(0) })
 		end
 		drawKeys(slot, def)
 	end
@@ -465,20 +520,23 @@ function Hotbar.new(props: Props): Hotbar
 				local left = state.Cooldowns[def.Id]
 				local remaining = if type(left) == "number" and left > 0 then left else 0
 				local fraction = if def.Cooldown > 0 then math.clamp(remaining / def.Cooldown, 0, 1) else 0
+				local seconds = if remaining > 0 then secondsOf(slot) else slot.Seconds
 				if fraction ~= slot.Fraction then
 					-- Retargeted at the server's pace: the spring keeps its speed, so the drain reads as one
-					-- movement rather than five steps a second.
+					-- movement rather than five steps a second, and the seconds ride its edge on the same spring.
 					slot.Fraction = fraction
 					Motion.to(slot.Drain, { Size = UDim2.fromScale(1, fraction) }, "UiSnappy")
+					if seconds ~= nil then
+						Motion.to(seconds, { Position = secondsAt(fraction) }, "UiSnappy")
+					end
 				end
 				if slot.Remaining > 0 and remaining <= 0 then
 					ready(slot)
 				end
 				slot.Remaining = remaining
-				local seconds = if remaining > 0 then secondsOf(slot) else slot.Seconds
 				if seconds ~= nil then
 					seconds.Visible = remaining > 0
-					seconds.Text = tostring(math.ceil(remaining))
+					seconds.Text = secondsText(remaining, props.Localize)
 				end
 				local unaffordable = state.Ink < def.Cost
 				if unaffordable ~= slot.Unaffordable then

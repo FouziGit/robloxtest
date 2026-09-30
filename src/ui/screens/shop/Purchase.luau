@@ -1,10 +1,11 @@
 --!strict
 -- Purchase: a Folios purchase in the Shop (D-147). Nothing is bought on one tap: a card's price asks first,
--- in a sheet that slides up over the card -- the item again, and the balance before and after. Short of
--- Folios, the balance line turns the red only large text may wear, Buy says why it waits, and the way to
--- more Folios sits under it. Buy then waits for the server: the item turning up in the profile flashes the
--- button, stamps the item "Acquired!" and bursts, and the sheet goes; a refusal (the server's toast says
--- which) shakes the button; no answer at all says so. Only the sheet's own confirmation sends BuyCosmetic.
+-- in a sheet that slides up over the card -- the item again with its rarity, and the balance before and
+-- after. Short of Folios, the balance line turns the red only large text may wear, Buy says why it waits,
+-- and the way to more Folios sits under it. Buy then waits for the server: the item turning up in the
+-- profile flashes the button, stamps the item "Acquired!" and bursts, and the sheet goes; a refusal (the
+-- server's toast says which) shakes the button; no answer at all says so. Only the sheet's own
+-- confirmation sends BuyCosmetic.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,6 +17,7 @@ local Button = require(script.Parent.Parent.Parent.components.Button)
 local ConfirmSheet = require(script.Parent.Parent.Parent.components.ConfirmSheet)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local ItemPreview = require(script.Parent.Parent.Parent.components.ItemPreview)
+local RarityRibbon = require(script.Parent.Parent.Parent.components.RarityRibbon)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
 local Theme = require(script.Parent.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
@@ -203,6 +205,9 @@ function Purchase.new(context: Context): Purchases
 		ItemPreview.new(item, swatch, context.Localize)
 		local name = textLabel("Name", Theme.Fonts.Bold, Theme.Sizes.TextButton, 2, itemRow)
 		name.Text = t(entry.NameKey)
+		-- How rare it is, in its colour and its pips as well as in the sheet's words: a Legendary's shimmers. It
+		-- goes with the sheet, and its shimmer lets go of the screen with it (Shimmer).
+		RarityRibbon.new(entry.Rarity, t(Theme.rarity(entry.Rarity).WordKey), itemRow).Instance.LayoutOrder = 3
 		local line = textLabel("Balance", Theme.Fonts.Numeric, BALANCE_SIZE, 2, body)
 		line.Text = t("shop.confirm.balance", { before = before, after = after })
 		line.TextColor3 = if short then Theme.Colors.Danger else Theme.Colors.Text
@@ -228,7 +233,9 @@ function Purchase.new(context: Context): Purchases
 			Title = t("shop.confirm.title", { name = t(entry.NameKey) }),
 			Body = t(Theme.rarity(entry.Rarity).WordKey),
 			Preview = body,
-			Confirm = { Text = t("shop.buy") },
+			-- The price on the yellow, marked with its dot as on the card that asked: the board's "● 450 Folios"
+			-- where the sheet said "Buy".
+			Confirm = { Text = t("shop.buyFolios", { price = entry.PriceFolios }), Icon = "Dot" },
 			Cancel = { Text = t("common.cancel") },
 			OnConfirm = function()
 				buy(pending)

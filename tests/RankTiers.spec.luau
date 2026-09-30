@@ -29,6 +29,16 @@ describe("RankTiers", function()
 		expect(RankTiers.progress(0, tiers)).toBe(0)
 	end)
 
+	it("places a rank's key on the ladder, and no key that names none", function()
+		for index, tier in ipairs(tiers) do
+			expect(RankTiers.indexOfKey(tier.NameKey, tiers)).toBe(index)
+		end
+		expect(RankTiers.indexOfKey("", tiers)).toBeNil()
+		expect(RankTiers.indexOfKey("rank.nothing", tiers)).toBeNil()
+		-- A key, not an id.
+		expect(RankTiers.indexOfKey("Codex", tiers)).toBeNil()
+	end)
+
 	it("validates tier lists", function()
 		expect((RankTiers.validate(tiers))).toBe(true)
 		expect((RankTiers.validate({}))).toBe(false)

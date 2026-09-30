@@ -32,11 +32,14 @@ export type Name =
 	| "Invite"
 	| "Burger"
 	| "Shield"
+	| "Dot"
 
 local Icon = {}
 
 -- The five pigments of the deck, in their order, fanned from -12 to +12 degrees.
 local DECK_FAN = { -12, -6, 0, 6, 12 }
+-- The dot's share of its square: the size of the board's "●" set beside a price.
+local DOT_SCALE = 0.5
 
 -- Names already reported as unknown, so a caller's typo warns once.
 local warned: { [string]: boolean } = {}
@@ -214,6 +217,10 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 		for index = 1, 3 do
 			bar(square, 0.9, 0.14, 0.5, 0.2 + (index - 1) * 0.3, color)
 		end
+	end,
+	-- A price on the primary yellow: a dot of ink, where the coin would be one yellow disc on another.
+	Dot = function(square, color)
+		disc(square, DOT_SCALE, 0.5, 0.5, color)
 	end,
 	-- The guard: a diamond of the sheet, which a fight may show.
 	Shield = function(square)

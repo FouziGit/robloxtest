@@ -25,6 +25,7 @@ local ItemPreview = require(script.Parent.Parent.components.ItemPreview)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
+local RarityRibbon = require(script.Parent.Parent.components.RarityRibbon)
 local Remotes = require(Shared.Remotes)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Seal = require(script.Parent.Parent.components.Seal)
@@ -409,7 +410,16 @@ function BattlepassScreen.new(deps: Deps): Screen
 	showIcon.Size = UDim2.fromOffset(SHOWCASE_ICON, SHOWCASE_ICON)
 	showIcon.ZIndex = 2
 	local showName = textLabel("Name", Theme.Fonts.Title, SHOWCASE_NAME_SIZE, 3, showBody)
-	local showTier = textLabel("Tier", Theme.Fonts.Numeric, SHOWCASE_TIER_SIZE, 4, showBody)
+	-- An item's rarity, under its name: in its colour, its word and its pips, as the Shop shows it.
+	local showRarity: RarityRibbon.RarityRibbon? = nil
+	trove:Add(function()
+		local ribbon = showRarity
+		showRarity = nil
+		if ribbon ~= nil then
+			ribbon:Destroy()
+		end
+	end)
+	local showTier = textLabel("Tier", Theme.Fonts.Numeric, SHOWCASE_TIER_SIZE, 5, showBody)
 
 	local road = Track.new({
 		Tiers = TIERS,
@@ -428,6 +438,11 @@ function BattlepassScreen.new(deps: Deps): Screen
 	local function showNext(season: SeasonData?)
 		for _, child in ipairs(showIcon:GetChildren()) do
 			child:Destroy()
+		end
+		local shownRarity = showRarity
+		showRarity = nil
+		if shownRarity ~= nil then
+			shownRarity:Destroy()
 		end
 		local reached = if season ~= nil then season.Tier else 1
 		if reached >= MAX_TIER then
@@ -461,6 +476,9 @@ function BattlepassScreen.new(deps: Deps): Screen
 			if item ~= nil then
 				ItemPreview.new(item, showIcon, deps.Localize)
 				showName.Text = t(item.NameKey)
+				local ribbon = RarityRibbon.new(item.Rarity, t(Theme.rarity(item.Rarity).WordKey), showBody)
+				ribbon.Instance.LayoutOrder = 4
+				showRarity = ribbon
 			end
 		end
 	end

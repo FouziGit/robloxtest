@@ -1,10 +1,11 @@
 --!strict
 -- ShopScreen: the shop (D-147), in the green Shop chapter, in four tabs: today's rotation, the Folios
 -- packs, the passes and packs, and the locker of what the player owns (the last three are shop/Shelves).
--- Today is a track of item cards, the Legendary first and twice as wide: each wears its rarity (colour,
--- pips and word, since colour is never the only cue), a preview of what it looks like, its name, a Folios
--- price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase): nothing is bought on one
--- tap. The band holds the live Folios count; under Today's tab a line counts down to the next rotation.
+-- Today is a track of item cards, the Legendary first and twice as wide: each is headed by its rarity band
+-- (colour, pips and word, since colour is never the only cue), then what the item looks like on the page's
+-- vellum, its name, a Folios price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase):
+-- nothing is bought on one tap. The band holds the live Folios count; under Today's tab a line counts down to
+-- the next rotation.
 -- Opened with { Tab = "Folios" } (the Menu's "+", the sheet of a player short of Folios), it opens there.
 --
 -- The rotation comes from the server's ShopChanged snapshot; until one arrives (screens are built on
@@ -30,9 +31,10 @@ local ItemPreview = require(script.Parent.Parent.components.ItemPreview)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local Purchase = require(script.Parent.shop.Purchase)
-local RarityRibbon = require(script.Parent.Parent.components.RarityRibbon)
+local RarityBand = require(script.Parent.Parent.components.RarityBand)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Shelves = require(script.Parent.shop.Shelves)
+local Shimmer = require(script.Parent.Parent.components.Shimmer)
 local ShopConfig = require(Shared.Config.ShopConfig)
 local ShopRotation = require(Shared.Pure.ShopRotation)
 local Sticker = require(script.Parent.Parent.components.Sticker)
@@ -72,7 +74,7 @@ export type Screen = {
 
 type Destroyable = { Destroy: (self: any) -> () }
 type Entry = Types.ShopEntry
-type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Action: Button.Button }
+type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Equip: Button.Button, Action: Button.Button }
 type TabId = "Today" | "Folios" | "Passes" | "Locker"
 
 local ShopScreen = {}
@@ -81,16 +83,26 @@ local CHAPTER = "Shop"
 -- An item card with a pointer; a Legendary is two of them wide. On a phone the card takes the height the
 -- track has, which leaves no room for its two prices one over the other (they took the whole preview, and
 -- the Robux one hung under the card): it is as wide as the two side by side need, the longest price
--- included (tests/ShopEquip.spec.luau), and its preview keeps at least PREVIEW_MIN.
+-- included, inside the card's outline (tests/ShopEquip.spec.luau), and its preview keeps at least
+-- PREVIEW_MIN. There its band is the compact one and its body is packed tighter, which on a 667 x 375 phone
+-- leaves the preview its floor.
 local CARD_WIDTH = 260
-local CARD_WIDTH_TOUCH = 400
+local CARD_WIDTH_TOUCH = 404
 local CARD_HEIGHT = 330
 local PREVIEW_MIN = 32
-local CARD_PADDING = 12
 local CARD_ELEVATION = 5
+-- The body under the preview: the name and the prices, padded 10 over and 12 around (8 over and 10 under on
+-- a phone), the name in a row of 26 (22 on a phone).
+local BODY_PADDING = 12
+local BODY_PADDING_TOP = 10
+local BODY_PADDING_TOP_TOUCH = 8
+local BODY_PADDING_BOTTOM_TOUCH = 10
 local NAME_SIZE = 20
+local NAME_ROW = NAME_SIZE + 6
+local NAME_ROW_TOUCH = 22
 local MIN_SCALED_TEXT = 14
-local LEGENDARY_RIM = 3
+-- A Legendary's shine lies over everything on its face: the band, the preview and the prices.
+local SHINE_Z = 5
 local LINE_HEIGHT = 32
 local CLOCK_SIZE = 22
 local PILL_HEIGHT = 40
@@ -214,15 +226,6 @@ local function list(frame: Frame, direction: Enum.FillDirection, gap: number): U
 	layout.Padding = UDim.new(0, gap)
 	layout.Parent = frame
 	return layout
-end
-
-local function pad(frame: Frame, amount: number)
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, amount)
-	padding.PaddingBottom = UDim.new(0, amount)
-	padding.PaddingLeft = UDim.new(0, amount)
-	padding.PaddingRight = UDim.new(0, amount)
-	padding.Parent = frame
 end
 
 local function textLabel(name: string, font: Font, size: number, order: number, parent: Instance): TextLabel
@@ -384,14 +387,14 @@ function ShopScreen.new(deps: Deps): Screen
 	-- Waits for the server's answer, which it pushes on every path (a refusal too): a second tap before it
 	-- sent the same equip twice.
 	local function equip(card: Card)
-		card.Buy:SetPending(true)
+		card.Equip:SetPending(true)
 		deps.RemoteClient.fire("EquipCosmetic", card.SlotKey, card.Entry.CosmeticId)
 	end
 
 	-- The Cosmetics push that answers an equip: every button waiting on one is let go.
 	local function settleEquips()
 		for _, card in ipairs(cards) do
-			card.Buy:SetPending(false)
+			card.Equip:SetPending(false)
 		end
 		local current = shelf
 		local settle = if current ~= nil then current.Settle else nil
@@ -424,26 +427,26 @@ function ShopScreen.new(deps: Deps): Screen
 		})
 		own(pageTrove, sticker)
 		local face = sticker.Face
-		if legendary then
-			-- Full gold leaf: the rim of the one legendary in the rotation.
-			local rim = blank("Rim", face)
-			rim.Size = UDim2.fromScale(1, 1)
-			rim.ZIndex = 6
-			Theme.corner(rim, UDim.new(0, Theme.Sizes.CornerCard))
-			Theme.stroke(rim, "Primary", LEGENDARY_RIM)
-		end
 
-		local body = blank("Body", face)
-		body.Size = UDim2.fromScale(1, 1)
-		pad(body, CARD_PADDING)
-		list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
+		-- The rarity across the top, then the item on the page's vellum, then its name and its prices.
+		local band = RarityBand.new({
+			Rarity = entry.Rarity,
+			Word = t(Theme.rarity(entry.Rarity).WordKey),
+			Compact = touch,
+			Parent = face,
+		})
+		own(pageTrove, band)
+		local inset = Theme.Sizes.Stroke
+		local column = blank("Column", face)
+		column.Position = UDim2.fromOffset(inset, band.Bottom)
+		column.Size = UDim2.new(1, -inset * 2, 1, -band.Bottom)
+		list(column, Enum.FillDirection.Vertical, 0)
 
-		local well = blank("Preview", body)
+		local well = blank("Preview", column)
 		well.BackgroundTransparency = 0
 		well.BackgroundColor3 = Theme.Colors.Panel
 		well.Size = UDim2.fromScale(1, 0)
 		well.LayoutOrder = 1
-		Theme.corner(well, UDim.new(0, Theme.Sizes.CornerChip))
 		local wellFlex = Instance.new("UIFlexItem")
 		wellFlex.FlexMode = Enum.UIFlexMode.Fill
 		wellFlex.Parent = well
@@ -451,13 +454,27 @@ function ShopScreen.new(deps: Deps): Screen
 		wellFloor.MinSize = Vector2.new(0, PREVIEW_MIN)
 		wellFloor.Parent = well
 		ItemPreview.new(item, well, deps.Localize)
-		local ribbon = RarityRibbon.new(entry.Rarity, t(Theme.rarity(entry.Rarity).WordKey), face)
-		own(pageTrove, ribbon)
+
+		local body = blank("Body", column)
+		body.AutomaticSize = Enum.AutomaticSize.Y
+		body.Size = UDim2.fromScale(1, 0)
+		body.LayoutOrder = 2
+		local bodyPadding = Instance.new("UIPadding")
+		bodyPadding.PaddingTop = UDim.new(0, if touch then BODY_PADDING_TOP_TOUCH else BODY_PADDING_TOP)
+		bodyPadding.PaddingBottom = UDim.new(0, if touch then BODY_PADDING_BOTTOM_TOUCH else BODY_PADDING)
+		bodyPadding.PaddingLeft = UDim.new(0, BODY_PADDING)
+		bodyPadding.PaddingRight = UDim.new(0, BODY_PADDING)
+		bodyPadding.Parent = body
+		list(
+			body,
+			Enum.FillDirection.Vertical,
+			if touch then Theme.Sizes.PaddingSmall / 2 else Theme.Sizes.PaddingSmall
+		)
 
 		local name = Instance.new("TextLabel")
 		name.Name = "Name"
 		name.BackgroundTransparency = 1
-		name.Size = UDim2.new(1, 0, 0, NAME_SIZE + 6)
+		name.Size = UDim2.new(1, 0, 0, if touch then NAME_ROW_TOUCH else NAME_ROW)
 		name.LayoutOrder = 2
 		name.FontFace = Theme.Fonts.Title
 		name.TextScaled = true
@@ -480,25 +497,36 @@ function ShopScreen.new(deps: Deps): Screen
 		actionsLayout.HorizontalFlex = Enum.UIFlexAlignment.Fill
 
 		local card: Card
+		-- The price on the primary yellow is marked with a dot of ink: the yellow coin was lost on its own
+		-- colour. The coin stays where the page is paper, and in the pills.
 		local buyButton = Button.new({
 			Text = "",
 			Variant = "Primary",
-			Chapter = CHAPTER,
-			Icon = "Coin",
+			Icon = "Dot",
 			LayoutOrder = 1,
 			Parent = actions,
 			OnClick = function()
-				if isOwned(card.Entry) then
-					equip(card)
-				else
-					purchases:Ask(card.Entry)
-				end
+				purchases:Ask(card.Entry)
+			end,
+		})
+		own(pageTrove, buyButton)
+		-- Owned, the price gives way to the way to wear it: the chapter's own sticker, as in the Locker, and no
+		-- price mark (the board's green "Équiper"). Shown by updateCard.
+		local equipButton = Button.new({
+			Text = t("shop.equip"),
+			Variant = "Owner",
+			Chapter = CHAPTER,
+			LayoutOrder = 1,
+			Parent = actions,
+			OnClick = function()
+				equip(card)
 			end,
 			OnTimeout = function()
 				deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
 			end,
 		})
-		own(pageTrove, buyButton)
+		equipButton.Instance.Visible = false
+		own(pageTrove, equipButton)
 
 		local product = MonetizationConfig.Products[entry.ProductKey]
 		local action = Button.new({
@@ -512,24 +540,34 @@ function ShopScreen.new(deps: Deps): Screen
 		})
 		own(pageTrove, action)
 
-		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }
+		-- Full gold leaf: the sweep of light across the whole card, whose prices still take the clicks under it.
+		if Theme.rarity(entry.Rarity).Shimmer then
+			local outline = Theme.Sizes.Stroke
+			own(pageTrove, Shimmer.new(face, UDim.new(0, Theme.Sizes.CornerCard - outline), SHINE_Z, outline))
+		end
+
+		card = {
+			Entry = entry,
+			SlotKey = CosmeticConfig.slotKey(item),
+			Buy = buyButton,
+			Equip = equipButton,
+			Action = action,
+		}
 		return card
 	end
 
 	local function updateCard(card: Card)
 		local entry = card.Entry
-		if isOwned(entry) then
-			-- Owned: the price becomes the way to wear it, and wearing it is the end of the road.
-			card.Buy:SetVariant("Owner")
-			card.Buy:SetText(t("shop.equip"))
-			card.Buy:SetDisabled(isEquipped(card), "Owned", t("shop.equipped"))
-			card.Action.Instance.Visible = false
+		-- Owned: the price becomes the way to wear it, and wearing it is the end of the road.
+		local owned = isOwned(entry)
+		card.Buy.Instance.Visible = not owned
+		card.Equip.Instance.Visible = owned
+		card.Action.Instance.Visible = not owned
+		if owned then
+			card.Equip:SetDisabled(isEquipped(card), "Owned", t("shop.equipped"))
 			return
 		end
-		card.Buy:SetVariant("Primary")
 		card.Buy:SetText(t("shop.buyFolios", { price = entry.PriceFolios }))
-		card.Buy:SetDisabled(false)
-		card.Action.Instance.Visible = true
 		-- The Robux path is offered only for a product that exists on Roblox (D-128): an id of 0 is one nobody
 		-- has created yet, and buying it can only fail -- which, in Studio, is every one of them.
 		card.Action:SetDisabled(not robuxOffered(entry.ProductKey))
@@ -629,8 +667,9 @@ function ShopScreen.new(deps: Deps): Screen
 			updateCard(card)
 			-- Gamepad focus goes to the first button the player can actually press.
 			if firstButton == nil then
-				if not card.Buy:IsDisabled() then
-					firstButton = card.Buy.Instance
+				local main = if card.Equip.Instance.Visible then card.Equip else card.Buy
+				if not main:IsDisabled() then
+					firstButton = main.Instance
 				elseif card.Action.Instance.Visible and not card.Action:IsDisabled() then
 					firstButton = card.Action.Instance
 				end

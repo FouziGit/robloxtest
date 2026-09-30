@@ -5,6 +5,8 @@
 -- time was queued and sent 0.3 s later, and "Claim all" pressed again once its queue drained sent every claim
 -- still on its way: each duplicate came back as battlepass.alreadyClaimed in red, and spent a token of the
 -- bucket the screen mirrors.
+local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
+local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local Engine = require("./engine")
 local Harness = require("./harness")
 
@@ -166,6 +168,153 @@ describe("the battle pass's claims, run", function()
 		expect(claimAll(fixture).Visible).toBe(false)
 		fixture.world:advance(TIMEOUT)
 		expect(claimAll(fixture).Visible).toBe(true)
+	end)
+end)
+
+-- The cell of `tier`'s `track` reward on the road, when it is built.
+local function cellOf(fixture: Fixture, track: string, tier: number): any
+	for _, child in ipairs(fixture.screen.Instance:GetDescendants()) do
+		if child.Name == track .. tier and child.Parent.Name == "Track" then
+			return child
+		end
+	end
+	return nil
+end
+
+-- The rarity of `tier`'s `track` reward, when it is an item.
+local function rarityOf(track: string, tier: number): string?
+	local def = BattlepassConfig.Seasons[SEASON].Tiers[tier]
+	local reward = if track == "Premium" then def.Premium else def.Free
+	if reward == nil or reward.Kind ~= "Cosmetic" then
+		return nil
+	end
+	return CosmeticConfig.ById[reward.Id].Rarity
+end
+
+describe("the battle pass's items, run", function()
+	it("heads an item's cell with its rarity's colour and pips, and no other cell", function()
+		-- On tier 40 the road holds the season's Legendary aura, at 45.
+		local fixture = setup(40)
+		local Theme = fixture.world.require("src/ui/Theme")
+		local banded, legendary = 0, 0
+		for tier = 30, 50 do
+			for _, track in ipairs({ "Free", "Premium" }) do
+				local cell = cellOf(fixture, track, tier)
+				if cell == nil then
+					continue
+				end
+				local band = cell:FindFirstChild("RarityBand")
+				local rarity = rarityOf(track, tier)
+				if rarity == nil then
+					expect(band).toBeNil()
+					continue
+				end
+				banded += 1
+				assert(band ~= nil, ("%s%d holds an item and no rarity band"):format(track, tier))
+				-- The word-less band: the colour and the pips, inside the cell's own outline.
+				expect(band:FindFirstChild("Word", true)).toBeNil()
+				expect(band:FindFirstChild("Fill").BackgroundColor3).toBe(Theme.rarity(rarity).Fill)
+				local pips = 0
+				for _, pip in ipairs(band:FindFirstChild("Pips", true):GetChildren()) do
+					if pip:IsA("TextLabel") then
+						pips += 1
+					end
+				end
+				expect(pips).toBe(Theme.rarity(rarity).Pips)
+				local outline = cell:FindFirstChildOfClass("UIStroke").Thickness
+				expect(band.Position.Y.Offset).toBe(outline)
+				-- Under the locked veil, and no shimmer, even Legendary.
+				expect(band.ZIndex).toBeLessThan(cell:FindFirstChild("Veil").ZIndex)
+				expect(cell:FindFirstChild("Shine", true)).toBeNil()
+				if rarity == "Legendary" then
+					legendary += 1
+				end
+				-- The reward starts under the band, and the cell is tall enough for it and its Claim.
+				local body = cell:FindFirstChild("Body")
+				local padding = body:FindFirstChildOfClass("UIPadding")
+				expect(padding.PaddingTop.Offset).toBeGreaterThan(band.Position.Y.Offset + band.Size.Y.Offset)
+				local needed = padding.PaddingTop.Offset
+					+ 32
+					+ body:FindFirstChildOfClass("UIListLayout").Padding.Offset
+					+ Theme.touchTargetHeight(40)
+					+ padding.PaddingBottom.Offset
+				if needed > cell.Size.Y.Offset then
+					error(("%s%d needs %.1f and is %.1f tall"):format(track, tier, needed, cell.Size.Y.Offset))
+				end
+			end
+		end
+		expect(banded).toBeGreaterThanOrEqual(4)
+		expect(legendary).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("makes every cell of the road tall enough for an item's band and its Claim, on a phone", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		Engine.phone(world, 667, 375)
+		local Cell = world.require("src/ui/screens/pass/Cell")
+		local Theme = world.require("src/ui/Theme")
+		local parent = Engine.instance("Frame", Engine.instance("ScreenGui", world.game))
+		local localize = {
+			t = function(key: string): string
+				return key
+			end,
+		}
+		local height = Cell.height(112)
+		for _, track in ipairs({ "Free", "Premium" }) do
+			local reward = BattlepassConfig.Seasons[SEASON].Tiers[5][track]
+			local cell = Cell.new(5, track, reward, localize, parent, function() end)
+			local band = cell.Frame:FindFirstChild("RarityBand")
+			assert(band ~= nil, track .. ": tier 5's item has no band")
+			-- Clear of the outline as the phone draws it: the thin one is floored to 2.94 there.
+			local outline = cell.Frame:FindFirstChildOfClass("UIStroke").Thickness
+			expect(band.Position.X.Offset).toBeGreaterThanOrEqual(outline)
+			expect(band.Position.Y.Offset).toBeGreaterThanOrEqual(outline)
+			expect(band.Position.Y.Offset).toBeLessThan(outline + 1)
+			local body = cell.Frame:FindFirstChild("Body")
+			local padding = body:FindFirstChildOfClass("UIPadding")
+			local needed = padding.PaddingTop.Offset
+				+ 32
+				+ body:FindFirstChildOfClass("UIListLayout").Padding.Offset
+				+ Theme.touchTargetHeight(40)
+				+ padding.PaddingBottom.Offset
+			if needed > height then
+				error(
+					("%s: an item's cell needs %.1f on a phone and the road gives %.1f"):format(track, needed, height)
+				)
+			end
+			cell:Destroy()
+		end
+	end)
+
+	it("shows the next reward's rarity under its name when it is an item, and only then", function()
+		local Theme = Engine.world({ Stubs = Engine.interfaceStubs() }).require("src/ui/Theme")
+		-- Tier 4 reached: the next reward is tier 5's item.
+		local fixture = setup(4)
+		local showcase = fixture.screen.Instance:FindFirstChild("NextReward", true)
+		local body = showcase:FindFirstChild("Body", true)
+		local pill = body:FindFirstChild("Rarity")
+		assert(pill ~= nil, "the showcase does not say how rare the next item is")
+		local rarity = rarityOf("Free", 5) :: string
+		expect(pill:FindFirstChild("Word", true).Text).toBe(Theme.rarity(rarity).WordKey)
+		expect(pill.BackgroundColor3).toBe(Theme.rarity(rarity).Fill)
+		-- Under the name, over the tier.
+		expect(pill.LayoutOrder).toBeGreaterThan(body:FindFirstChild("Name").LayoutOrder)
+		expect(pill.LayoutOrder).toBeLessThan(body:FindFirstChild("Tier").LayoutOrder)
+		-- Tier 5 reached: the next is Folios, and the pill goes rather than stays or doubles.
+		fixture.data.Battlepass[SEASON].Tier = 5
+		fixture.changed:Fire("Battlepass")
+		fixture.world:advance(0.1)
+		expect(body:FindFirstChild("Rarity")).toBeNil()
+		-- Tier 9 reached: tier 10's item, one pill.
+		fixture.data.Battlepass[SEASON].Tier = 9
+		fixture.changed:Fire("Battlepass")
+		fixture.world:advance(0.1)
+		local pills = 0
+		for _, child in ipairs(body:GetChildren()) do
+			if child.Name == "Rarity" then
+				pills += 1
+			end
+		end
+		expect(pills).toBe(1)
 	end)
 end)
 

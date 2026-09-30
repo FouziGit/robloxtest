@@ -7,6 +7,7 @@
 -- on screen to say so.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -22,9 +23,10 @@ type Fixture = {
 	card: any,
 	bought: { string },
 	toasts: { string },
+	given: { [string]: any },
 }
 
-local function setup(folios: number): Fixture
+local function setup(folios: number, rarity: string?): Fixture
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 	})
@@ -34,10 +36,12 @@ local function setup(folios: number): Fixture
 	local bought: { string } = {}
 	local toasts: { string } = {}
 	local notified = Engine.signal()
+	local given: { [string]: any } = {}
 	local data = { Currency = { Folios = folios }, Cosmetics = { Owned = {} } }
 	local purchases = Purchase.new({
 		Localize = {
-			t = function(key: string): string
+			t = function(key: string, params: any?): string
+				given[key] = params
 				return key
 			end,
 		},
@@ -66,7 +70,7 @@ local function setup(folios: number): Fixture
 		CosmeticId = ITEM,
 		NameKey = "cosmetic." .. ITEM,
 		Slot = "Title",
-		Rarity = "Common",
+		Rarity = rarity or "Common",
 		PriceFolios = 100,
 		ProductKey = "",
 		Owned = false,
@@ -80,6 +84,7 @@ local function setup(folios: number): Fixture
 		card = card,
 		bought = bought,
 		toasts = toasts,
+		given = given,
 	}
 end
 
@@ -179,10 +184,79 @@ describe("a confirm sheet closing, run", function()
 	end)
 end)
 
+describe("a purchase sheet, run", function()
+	it("shows the item's rarity in its colour and its pips beside its name, as well as in words", function()
+		for rarity, def in pairs(ThemeConfig.Rarity) do
+			local fixture = setup(500, rarity)
+			local Theme = fixture.world.require("src/ui/Theme")
+			local row = fixture.card:FindFirstChild("Item", true)
+			assert(row ~= nil, "the sheet has no item row: this gate would check nothing")
+			local name = row:FindFirstChild("Name")
+			local pill = row:FindFirstChild("Rarity")
+			assert(pill ~= nil, rarity .. ": the sheet does not show the item's rarity")
+			expect(pill.LayoutOrder).toBeGreaterThan(name.LayoutOrder)
+			expect(pill.BackgroundColor3).toBe(Theme.rarity(rarity).Fill)
+			expect(pill:FindFirstChild("Word", true).Text).toBe("shop.rarity." .. rarity)
+			local pips = 0
+			for _, pip in ipairs(pill:FindFirstChild("Pips", true):GetChildren()) do
+				if pip:IsA("TextLabel") then
+					pips += 1
+				end
+			end
+			expect(pips).toBe(def.Pips)
+			-- A Legendary's shimmers, as its card does.
+			expect(pill:FindFirstChild("Shine") ~= nil).toBe(def.Shimmer == true)
+			-- The sheet still says it in words.
+			local said = false
+			for _, label in ipairs(fixture.card:GetDescendants()) do
+				if
+					label:IsA("TextLabel")
+					and label.Text == "shop.rarity." .. rarity
+					and not label:IsDescendantOf(pill)
+				then
+					said = true
+				end
+			end
+			expect(said).toBe(true)
+			-- Gone with the sheet.
+			fixture.purchases:Close()
+			fixture.world:advance(1)
+			expect(fixture.card:FindFirstChild("Rarity", true)).toBeNil()
+		end
+	end)
+end)
+
+describe("a purchase sheet's price, run", function()
+	it("is asked for on the yellow, marked with its dot, as on the card that asked", function()
+		-- The board's after: "● 450 Folios" where the sheet said "Buy".
+		local fixture = setup(500)
+		local Theme = fixture.world.require("src/ui/Theme")
+		local buy = answer(fixture, "shop.buyFolios")
+		assert(buy ~= nil, "the sheet does not ask for the price")
+		expect(fixture.given["shop.buyFolios"].price).toBe(100)
+		expect(answer(fixture, "shop.buy")).toBeNil()
+		expect(buy:FindFirstChild("Face", true).BackgroundColor3).toBe(Theme.Colors.Primary)
+		local slot = buy:FindFirstChild("Icon", true)
+		expect(slot.Visible).toBe(true)
+		expect(slot:FindFirstChild("Dot")).never.toBeNil()
+		expect(slot:FindFirstChild("Coin")).toBeNil()
+		-- Cancel is the sheet's plain answer.
+		local cancel = answer(fixture, "common.cancel")
+		expect(cancel:FindFirstChild("Icon", true).Visible).toBe(false)
+		-- Short of Folios, it says why it waits, with its lock in the dot's place.
+		local short = setup(10)
+		local waiting = answer(short, "shop.notEnoughFolios")
+		assert(waiting ~= nil, "a sheet short of Folios does not say so")
+		local lock = waiting:FindFirstChild("Icon", true)
+		expect(lock:FindFirstChild("Lock")).never.toBeNil()
+		expect(lock:FindFirstChild("Dot")).toBeNil()
+	end)
+end)
+
 describe("a Folios purchase, run", function()
 	it("sends BuyCosmetic once, whatever is tapped after the item arrives", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		expect(buy).never.toBeNil()
 		buy.Activated:Fire()
 		expect(#fixture.bought).toBe(1)
@@ -204,7 +278,7 @@ describe("a Folios purchase, run", function()
 
 	it("says Owned on the button once the item has come", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		buy.Activated:Fire()
 		table.insert(fixture.data.Cosmetics.Owned, ITEM)
 		fixture.purchases:Refresh()
@@ -214,7 +288,7 @@ describe("a Folios purchase, run", function()
 
 	it("buys nothing from a sheet sliding away after Cancel", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		answer(fixture, "common.cancel").Activated:Fire()
 		fixture.world:advance(0.1)
 		expect(sheetOpen(fixture)).toBe(true)
@@ -227,7 +301,7 @@ describe("a Folios purchase, run", function()
 
 	it("buys nothing from a sheet the Shop took away", function()
 		local fixture = setup(500)
-		local buy = answer(fixture, "shop.buy")
+		local buy = answer(fixture, "shop.buyFolios")
 		fixture.purchases:Close()
 		fixture.world:advance(0.1)
 		buy.Activated:Fire()

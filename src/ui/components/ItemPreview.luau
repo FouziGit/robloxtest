@@ -2,8 +2,9 @@
 -- ItemPreview: what a cosmetic looks like, drawn from the catalog with no image to upload (D-147). A title is
 -- its own words on a scrap of paper; anything else is a swatch of the colour it is worn in -- a skin in its
 -- glyph's pigment moved by its shade, exactly as the world draws it, and an aura, a trail or a finisher in
--- the page's ink it is made of (CosmeticConfig.Tones). The swatch is a disc in an ink outline (rule 11), as
--- large as the square it is given allows.
+-- the page's ink it is made of (CosmeticConfig.Tones). The swatch is a blot of that colour in an ink outline
+-- (rule 11), a little wider than tall and tipped, as the board draws it: about three fifths of the height it
+-- is given, whatever its width.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,8 +20,11 @@ export type Localizer = { t: (key: string, params: { [string]: any }?) -> string
 
 local ItemPreview = {}
 
--- The swatch's share of its square, the scrap's, and the title's share of the scrap.
-local SWATCH_SCALE = 0.62
+-- The blot's share of the height it is given, its width over its height and its tilt; the scrap's share of
+-- its square, and the title's share of the scrap.
+local BLOT_HEIGHT = 0.58
+local BLOT_ASPECT = 8 / 7
+local BLOT_TILT = -6
 local SCRAP_SCALE = 0.9
 local TITLE_WIDTH = 0.8
 local TITLE_HEIGHT = 0.5
@@ -80,20 +84,23 @@ function ItemPreview.new(item: CosmeticConfig.CosmeticDef, parent: GuiObject, lo
 		scrap.Parent = parent
 		return scrap
 	end
-	local disc = Instance.new("Frame")
-	disc.Name = "Swatch"
-	disc.BorderSizePixel = 0
-	disc.BackgroundColor3 = ItemPreview.color(item)
-	disc.AnchorPoint = Vector2.new(0.5, 0.5)
-	disc.Position = UDim2.fromScale(0.5, 0.5)
-	disc.Size = UDim2.fromScale(SWATCH_SCALE, SWATCH_SCALE)
-	Theme.corner(disc, Theme.Pill)
-	Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
-	local square = Instance.new("UIAspectRatioConstraint")
-	square.AspectRatio = 1
-	square.Parent = disc
-	disc.Parent = parent
-	return disc
+	local blot = Instance.new("Frame")
+	blot.Name = "Swatch"
+	blot.BorderSizePixel = 0
+	blot.BackgroundColor3 = ItemPreview.color(item)
+	blot.AnchorPoint = Vector2.new(0.5, 0.5)
+	blot.Position = UDim2.fromScale(0.5, 0.5)
+	-- As wide as the parent allows and BLOT_HEIGHT of its height: the constraint fits the blot's own shape inside.
+	blot.Size = UDim2.fromScale(1, BLOT_HEIGHT)
+	blot.Rotation = BLOT_TILT
+	Theme.corner(blot, Theme.Pill)
+	Theme.stroke(blot, "Accent", Theme.Sizes.Stroke)
+	local shape = Instance.new("UIAspectRatioConstraint")
+	shape.AspectRatio = BLOT_ASPECT
+	shape.AspectType = Enum.AspectType.FitWithinMaxSize
+	shape.Parent = blot
+	blot.Parent = parent
+	return blot
 end
 
 return ItemPreview

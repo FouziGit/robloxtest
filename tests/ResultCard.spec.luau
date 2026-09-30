@@ -4,7 +4,9 @@
 -- (a defeat never bounces), the rating's fall in red only at a size red may be read at, the default focus on
 -- Play again, and an auto-close that the player's first touch hands back to them -- with the lines the
 -- earlier Result pinned still where they were.
+local Engine = require("./engine")
 local Harness = require("./harness")
+local RankingConfig = require("../src/shared/Config/RankingConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
 
@@ -142,3 +144,76 @@ describe("the result takeover", function()
 		expect(screen).toContain("againButton:SetDisabled(MatchConfig.Modes[outcome.ModeId] == nil)")
 	end)
 end)
+
+-- The card over a ranked duel that moved the player from `before` to `after` (rank keys) by `delta`.
+local function ranked(before: string, after: string, delta: number): (any, any)
+	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+	local ResultCard = world.require("src/ui/components/ResultCard")
+	local parent = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+	local card = ResultCard.new({
+		t = function(key: string): string
+			return key
+		end,
+	}, parent)
+	card:Render({
+		ModeId = "Duel1v1",
+		Won = delta >= 0,
+		Draw = false,
+		Scores = { 3, 1 },
+		Xp = 0,
+		Folios = 0,
+		RatingBefore = 1500,
+		RatingAfter = 1500 + delta,
+		RankKeyBefore = before,
+		RankKeyAfter = after,
+		FirstWinOfDay = false,
+		Casts = 1,
+		Hits = 1,
+		DamageDealt = 1,
+		DamageTaken = 1,
+		Grade = "grade.clean",
+	})
+	return card.Instance, world.require("src/ui/Theme")
+end
+
+describe("the result's rank, run", function()
+	local tiers = RankingConfig.Tiers
+
+	it("stamps a new rank for a rise on the ladder", function()
+		for index = 2, #tiers do
+			local rows = ranked(tiers[index - 1].NameKey, tiers[index].NameKey, 20)
+			expect(rows:FindFirstChild("RankUp").Visible).toBe(true)
+			expect(rows:FindFirstChild("Rating").Visible).toBe(false)
+		end
+	end)
+
+	it("never stamps a fall as a new rank: the rating says it fell, in Cinnabar", function()
+		for index = 2, #tiers do
+			local rows, Theme = ranked(tiers[index].NameKey, tiers[index - 1].NameKey, -20)
+			expect(rows:FindFirstChild("RankUp").Visible).toBe(false)
+			local rating = rows:FindFirstChild("Rating")
+			expect(rating.Visible).toBe(true)
+			expect(rating.TextColor3).toBe(Theme.Colors.Danger)
+			expect(rating.Text).toBe("match.ratingDown")
+		end
+	end)
+
+	it("stamps nothing where the rank held, and nothing off the ranked ladder", function()
+		local held = ranked(tiers[2].NameKey, tiers[2].NameKey, 12)
+		expect(held:FindFirstChild("RankUp").Visible).toBe(false)
+		expect(held:FindFirstChild("Rating").Visible).toBe(true)
+		local unranked = ranked("", "", 0)
+		expect(unranked:FindFirstChild("RankUp").Visible).toBe(false)
+		expect(unranked:FindFirstChild("Rating").Visible).toBe(false)
+		-- A key the ladder does not know is no rank to stamp.
+		local unknown = ranked(tiers[1].NameKey, "rank.nothing", 12)
+		expect(unknown:FindFirstChild("RankUp").Visible).toBe(false)
+	end)
+
+	it("stamps the first rank a player is given", function()
+		local first = ranked("", tiers[2].NameKey, 12)
+		expect(first:FindFirstChild("RankUp").Visible).toBe(true)
+	end)
+end)
+
+return nil

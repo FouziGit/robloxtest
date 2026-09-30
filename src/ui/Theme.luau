@@ -118,7 +118,7 @@ Theme.Fonts = {
 	NumericMedium = font(ThemeConfig.Fonts.NumericMedium),
 	-- Glyph flavour lines, empty states, the pass subtitle: the page keeps its voice.
 	Lore = font(ThemeConfig.Fonts.Lore),
-	-- DropCap only: one illuminated character, never a word.
+	-- One illuminated character, never a word: a title's drop cap, a rank seal's initial, the F of a Folio.
 	Initial = font(ThemeConfig.Fonts.Initial),
 	-- The D-pad arrows, which only the roman has.
 	Symbol = font(ThemeConfig.Fonts.Symbol),
@@ -148,7 +148,7 @@ Theme.Sizes = {
 	TileHeight = 150,
 	-- The HUD's chips, hotbar slots and pips are ThemeConfig.Hud's, one home for the numbers HudFit adds up.
 	Keycap = 28,
-	Badge = 26,
+	Badge = 32,
 	Medallion = 48,
 	-- The ink outline of a sticker, and the thin one of a row, a chip or a keycap.
 	Stroke = 3,

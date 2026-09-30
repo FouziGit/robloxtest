@@ -16,13 +16,15 @@ local UserInputService = game:GetService("UserInputService")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Button)
+local Icon = require(script.Parent.Icon)
 local Motion = require(script.Parent.Parent.Motion)
 local Sticker = require(script.Parent.Sticker)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local UiPrefs = require(script.Parent.Parent.UiPrefs)
 
-export type Answer = { Text: string, Variant: Button.Variant? }
+-- An answer: its word, its variant where it is not the sheet's own, and an icon before the word.
+export type Answer = { Text: string, Variant: Button.Variant?, Icon: Icon.Name? }
 
 export type Props = {
 	Title: string,
@@ -190,6 +192,7 @@ function ConfirmSheet.new(props: Props): ConfirmSheet
 		local button = Button.new({
 			Text = which.Text,
 			Variant = which.Variant or variant,
+			Icon = which.Icon,
 			Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
 			LayoutOrder = order,
 			Parent = footer,

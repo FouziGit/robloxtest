@@ -4,7 +4,7 @@
 --
 --   Folios   three packs, the amount and a stack of coins, bought with Robux
 --   Passes   the game passes and the other Robux products, each with what it gives; one owned says so
---   Locker   every cosmetic the player owns, by slot, to wear or take off
+--   Locker   every cosmetic the player owns, by slot, each under its rarity band, to wear or take off
 --
 -- Everything is offered, never pushed: a Robux button opens the platform's own dialog for the entry the
 -- player tapped, only when that entry exists on Roblox (a non-zero id), and the server's prompt rules
@@ -25,6 +25,7 @@ local ItemPreview = require(script.Parent.Parent.Parent.components.ItemPreview)
 local ListRow = require(script.Parent.Parent.Parent.components.ListRow)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local RarityBand = require(script.Parent.Parent.Parent.components.RarityBand)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
 local Sticker = require(script.Parent.Parent.Parent.components.Sticker)
 local Theme = require(script.Parent.Parent.Parent.Theme)
@@ -84,7 +85,8 @@ local OFFER_DESC_SIZE = 16
 -- printed "{level}".
 local DESC_PARAMS = { level = ProgressionConfig.OrpimentUnlockLevel }
 local OWNED_SEAL = 28
--- A locker card: its preview, its name, and the one button.
+-- A locker card: its rarity band, then its preview, its name, and the one button. The band's room is added
+-- to the cell (RarityBand.bottom), compact on a phone.
 local LOCKER_CELL = Vector2.new(200, 140)
 local LOCKER_PREVIEW = 48
 local LOCKER_NAME_SIZE = 18
@@ -391,14 +393,23 @@ function Shelves.locker(context: Context): Shelf
 		local sticker = Sticker.new({
 			Kind = "Card",
 			Fill = Theme.Colors.PanelRaised,
-			Stroke = Theme.Sizes.StrokeThin,
 			Parent = holder,
 		})
 		shelfTrove:Add(function()
 			sticker:Destroy()
 		end)
+		local band = RarityBand.new({
+			Rarity = item.Rarity,
+			Word = t(Theme.rarity(item.Rarity).WordKey),
+			Compact = Theme.touchOnly(),
+			Parent = sticker.Face,
+		})
+		shelfTrove:Add(function()
+			band:Destroy()
+		end)
 		local body = blank("Body", sticker.Face)
-		body.Size = UDim2.fromScale(1, 1)
+		body.Position = UDim2.fromOffset(0, band.Bottom)
+		body.Size = UDim2.new(1, 0, 1, -band.Bottom)
 		pad(body, Theme.Sizes.PaddingSmall)
 		list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
 		local top = blank("Item", body)
@@ -484,10 +495,13 @@ function Shelves.locker(context: Context): Shelf
 			shelfTrove:Add(grid)
 			local gridLayout = Instance.new("UIGridLayout")
 			gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-			-- The card's button carries the touch minimum, which a phone makes taller than designed.
+			-- The card's band, and its button, which carries the touch minimum a phone makes taller than designed.
 			gridLayout.CellSize = UDim2.fromOffset(
 				LOCKER_CELL.X,
-				LOCKER_CELL.Y + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight) - Theme.Sizes.ButtonHeight
+				LOCKER_CELL.Y
+					+ RarityBand.bottom(Theme.touchOnly())
+					+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+					- Theme.Sizes.ButtonHeight
 			)
 			gridLayout.CellPadding = UDim2.fromOffset(Theme.Sizes.Gap, Theme.Sizes.Gap)
 			gridLayout.Parent = grid

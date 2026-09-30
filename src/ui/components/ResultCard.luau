@@ -22,8 +22,10 @@ local LeaderboardView = require(Shared:WaitForChild("Pure"):WaitForChild("Leader
 local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
 local ProgressionConfig = require(Config:WaitForChild("ProgressionConfig"))
+local RankTiers = require(Shared:WaitForChild("Pure"):WaitForChild("RankTiers"))
 local RankingConfig = require(Config:WaitForChild("RankingConfig"))
 local Seal = require(script.Parent.Seal)
+local Standings = require(script.Parent.Standings)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared:WaitForChild("Types"))
@@ -58,6 +60,7 @@ local ROW_GAP = Theme.Sizes.Gap
 local SCORE_HEIGHT = 72
 local SCORE_PADDING = 18
 local GRADE_SEAL = 56
+-- The new rank's seal: 60 with the rims of the higher tiers.
 local RANK_SEAL = 48
 -- The rank is stamped in a row of its own fixed height: a UIScale on a child of a list layout makes the
 -- layout measure the scaled size, and the lines under it were pushed down and snapped back.
@@ -191,8 +194,8 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 
 	-- 2. The new rank, stamped; or the rating and how it moved.
 	local rankRow = row("RankUp", RANK_ROW, 3, content)
-	local rankSeal =
-		Seal.new({ Text = "", Fill = Theme.Colors.Chalk, Size = RANK_SEAL, LayoutOrder = 1, Parent = rankRow })
+	-- The rank's own seal, its initial and its gold leaf: the Result sweeps no other shimmer.
+	local rankSeal = Standings.seal(RankingConfig.Tiers[1].Id, RANK_SEAL, rankRow, 1, localize, true)
 	trove:Add(function()
 		rankSeal:Destroy()
 	end)
@@ -339,8 +342,12 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		xpText.Text = t("reward.xp", { xp = 0 })
 		foliosText.Text = t("reward.folios", { amount = 0 })
 
+		-- A new rank is stamped only when the ladder was climbed: a fall changes the key too, and was stamped as a
+		-- new rank over the rating that said it fell.
 		local ranked = outcome.RankKeyAfter ~= ""
-		local rankedUp = ranked and outcome.RankKeyAfter ~= outcome.RankKeyBefore
+		local before = RankTiers.indexOfKey(outcome.RankKeyBefore, RankingConfig.Tiers)
+		local after = RankTiers.indexOfKey(outcome.RankKeyAfter, RankingConfig.Tiers)
+		local rankedUp = ranked and after ~= nil and (before == nil or after > before)
 		rankRow.Visible = rankedUp
 		ratingLine.Visible = ranked and not rankedUp
 		if ranked then
@@ -350,12 +357,12 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 			ratingLine.Text = t(key, { rank = rankName, rating = outcome.RatingAfter, delta = delta })
 			-- Up in the green of what went well; down in Cinnabar, at the large size it may be read at.
 			ratingLine.TextColor3 = if delta >= 0 then Theme.Colors.Success else Theme.Colors.Danger
-			local rank = Theme.rank(
-				LeaderboardView.tierId(outcome.RankKeyAfter, RankingConfig.Tiers) or RankingConfig.Tiers[1].Id
-			)
-			rankSeal:SetFill(rank.Fill, rank.Rim)
 			rankLine.Text = t("match.rankUp", { rank = rankName })
 		end
+		-- The seal of the rank reached; a hidden one holds the first, whose seal has no gold leaf to sweep for
+		-- nobody.
+		local reached = LeaderboardView.tierId(outcome.RankKeyAfter, RankingConfig.Tiers)
+		rankSeal:SetTier(if rankedUp and reached ~= nil then reached else RankingConfig.Tiers[1].Id)
 		firstWinRow.Visible = outcome.FirstWinOfDay
 	end
 

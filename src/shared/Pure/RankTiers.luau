@@ -42,6 +42,17 @@ function RankTiers.progress(rating: number, tiers: { Tier }): number
 	return math.clamp((rating - current.Min) / span, 0, 1)
 end
 
+-- The place on the ladder of the tier worded by `key` (a NameKey, as the server writes a rank), or nil for a
+-- key that names no tier. A higher place is a higher rank: that, and not a key that differs, is a rise.
+function RankTiers.indexOfKey(key: string, tiers: { Tier }): number?
+	for index, tier in ipairs(tiers) do
+		if tier.NameKey == key then
+			return index
+		end
+	end
+	return nil
+end
+
 -- Validates the tier list shape (ascending, unique ids). Returns (ok, reason?).
 function RankTiers.validate(tiers: { Tier }): (boolean, string?)
 	if #tiers == 0 then

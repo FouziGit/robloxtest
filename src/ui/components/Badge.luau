@@ -1,7 +1,10 @@
 --!strict
--- Badge: the count of what is waiting to be claimed, on a tile, a button or a seal (D-147). A blot of the
--- primary yellow -- never red: nothing is wrong, something is owed to you -- with the count, or "!", in
--- the heavy label face, tipped a few degrees. It pops in, and it breathes while it is there.
+-- Badge: the count of what is waiting to be claimed, on a tile, a button or a seal (D-147). An upright disc
+-- of the primary yellow in its ink outline, inside its host's top-right corner as the board draws it -- never
+-- red: nothing is wrong, something is owed to you -- with the count, or "!", in the number face; a count of
+-- two figures stretches it into a pill. A host less than twice the disc tall (a claim seal of the hub, a quick
+-- button) wears it astride its corner instead, where inside it hid what the host shows. It pops in, and it
+-- breathes while it is there.
 --
 -- Every badge breathes on ONE loop (Breath): ten badges on a screen cost one loop, and they breathe
 -- together, which is also what makes them read as one system rather than as ten alarms.
@@ -28,9 +31,14 @@ local Badge = {}
 
 -- How far a breath swells the badge.
 local BREATH_SCALE = 1.12
-local TILT = 6
--- The blot's ink reaches about two thirds of its plane, so the count sits in the middle two thirds.
-local LABEL_SCALE = 0.62
+-- The disc (its height and least width: Theme.Sizes.Badge), how far inside its host's corner it sits, the room
+-- either side of the count, and the count's size.
+local SIZE = Theme.Sizes.Badge
+local INSET = 8
+local PAD_X = 8
+local TEXT_SIZE = 17
+-- A host less than this tall wears the disc astride its corner.
+local HOLD = SIZE * 2
 
 local function display(value: Value?): string?
 	if value == nil or value == 0 then
@@ -39,48 +47,49 @@ local function display(value: Value?): string?
 	return tostring(value)
 end
 
--- A badge on the top-right corner of `parent`, showing `value`. `tint` is the blot's colour: the primary
+-- A badge in the top-right corner of `parent`, showing `value`. `tint` is the disc's colour: the primary
 -- yellow, or the sheet on a surface that is itself the primary yellow.
 function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	local trove = Trove.new()
-	local size = Theme.Sizes.Badge
 
-	-- The breath scales the holder, the pop scales the blot: two scales on two frames multiply.
+	-- The breath scales the holder, the pop scales the disc: two scales on two frames multiply.
 	local holder = Instance.new("Frame")
 	holder.Name = "Badge"
 	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	holder.Position = UDim2.new(1, -size / 4, 0, size / 4)
-	holder.Size = UDim2.fromOffset(size, size)
+	holder.AutomaticSize = Enum.AutomaticSize.X
+	holder.Size = UDim2.fromOffset(0, SIZE)
 	holder.ZIndex = 10
 	holder.Visible = false
 	trove:Add(holder)
 	local breathScale = Instance.new("UIScale")
 	breathScale.Parent = holder
 
-	local id = Theme.texture("InkBlot")
-	local blot: GuiObject
-	if id ~= "" then
-		local image = Instance.new("ImageLabel")
-		image.Image = id
-		image.ImageColor3 = tint or Theme.Colors.Primary
-		image.BackgroundTransparency = 1
-		blot = image
-	else
-		local disc = Instance.new("Frame")
-		disc.BackgroundColor3 = tint or Theme.Colors.Primary
-		Theme.corner(disc, Theme.Pill)
-		Theme.stroke(disc, "Accent", Theme.Sizes.StrokeThin)
-		blot = disc
-	end
-	blot.Name = "Blot"
-	blot.BorderSizePixel = 0
-	blot.Size = UDim2.fromScale(1, 1)
-	blot.Rotation = TILT
-	blot.ZIndex = 10
-	blot.Parent = holder
+	local disc = Instance.new("Frame")
+	disc.Name = "Blot"
+	disc.BorderSizePixel = 0
+	disc.BackgroundColor3 = tint or Theme.Colors.Primary
+	disc.AutomaticSize = Enum.AutomaticSize.X
+	disc.Size = UDim2.fromOffset(0, SIZE)
+	disc.ZIndex = 10
+	Theme.corner(disc, Theme.Pill)
+	Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
+	local least = Instance.new("UISizeConstraint")
+	least.MinSize = Vector2.new(SIZE, SIZE)
+	least.Parent = disc
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, PAD_X)
+	padding.PaddingRight = UDim.new(0, PAD_X)
+	padding.Parent = disc
+	-- The count in the middle of the disc: a lone figure, or "!", is narrower than the disc's least width, and
+	-- laid out from the left it sat against the disc's left edge.
+	local centre = Instance.new("UIListLayout")
+	centre.FillDirection = Enum.FillDirection.Horizontal
+	centre.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	centre.VerticalAlignment = Enum.VerticalAlignment.Center
+	centre.Parent = disc
+	disc.Parent = holder
 	local popScale = Instance.new("UIScale")
-	popScale.Parent = blot
+	popScale.Parent = disc
 	trove:Add(function()
 		Motion.cancel(popScale)
 	end)
@@ -88,17 +97,32 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	local label = Instance.new("TextLabel")
 	label.Name = "Count"
 	label.BackgroundTransparency = 1
-	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.Size = UDim2.fromScale(LABEL_SCALE, LABEL_SCALE)
-	label.FontFace = Theme.Fonts.Label
-	label.TextScaled = true
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Size = UDim2.fromScale(0, 1)
+	label.FontFace = Theme.Fonts.Numeric
+	label.TextSize = TEXT_SIZE
 	label.TextColor3 = Theme.Colors.Text
 	label.ZIndex = 11
-	label.Parent = blot
-	local cap = Instance.new("UITextSizeConstraint")
-	cap.MaxTextSize = 14
-	cap.Parent = label
+	label.Parent = disc
+
+	-- Inside the corner, unless the host is too short to hold the disc there (measured once it is laid out).
+	local function place()
+		local height = 0
+		local host = holder.Parent
+		if host ~= nil and host:IsA("GuiObject") then
+			height = host.AbsoluteSize.Y / Theme.activeScale()
+		end
+		if height > 0 and height < HOLD then
+			holder.AnchorPoint = Vector2.new(0.5, 0.5)
+			holder.Position = UDim2.fromScale(1, 0)
+		else
+			holder.AnchorPoint = Vector2.new(1, 0)
+			holder.Position = UDim2.new(1, -INSET, 0, INSET)
+		end
+	end
+	if parent:IsA("GuiObject") then
+		trove:Connect(parent:GetPropertyChangedSignal("AbsoluteSize"), place)
+	end
 
 	local reader: Breath.Reader? = nil
 	local following: RBXScriptConnection? = nil
@@ -150,6 +174,7 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	end
 
 	holder.Parent = parent
+	place()
 	set(nil, value)
 
 	local function destroy(_self: Badge)

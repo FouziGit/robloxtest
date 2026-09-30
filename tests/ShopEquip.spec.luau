@@ -11,7 +11,9 @@ local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -179,11 +181,20 @@ describe("today's cards on a phone, run", function()
 						continue
 					end
 					cards += 1
+					-- The card's face: its rarity band across the top, then a column of the preview and the body.
 					local body = actions.Parent
+					local column = body.Parent
+					local face = column.Parent
+					local band = face:FindFirstChild("RarityBand")
+					assert(band ~= nil, "the card has no rarity band: this gate would check nothing")
 					local padding = body:FindFirstChildOfClass("UIPadding")
 					local gap = body:FindFirstChildOfClass("UIListLayout").Padding.Offset
-					-- Across: the two prices side by side, the longest of them, in either language.
-					local across = holder.Size.X.Offset - padding.PaddingLeft.Offset - padding.PaddingRight.Offset
+					-- Across: the two prices side by side, the longest of them, in either language, inside the
+					-- card's outline.
+					local across = holder.Size.X.Offset
+						+ column.Size.X.Offset
+						- padding.PaddingLeft.Offset
+						- padding.PaddingRight.Offset
 					local row = actions:FindFirstChildOfClass("UIListLayout").Padding.Offset
 					for _, locale in ipairs(Strings.Locales) do
 						local folios, robux = longestPrices(locale)
@@ -196,15 +207,23 @@ describe("today's cards on a phone, run", function()
 							)
 						end
 					end
-					-- Down: the preview's floor, the name and one row of buttons at the touch floor fit the face.
-					local inside = Measure.heightOf(body, screenHeight)
-						- padding.PaddingTop.Offset
-						- padding.PaddingBottom.Offset
-					local well = body:FindFirstChild("Preview")
+					-- Down: the band and its rule, the preview's floor, the name and one row of buttons at the touch
+					-- floor fit the face. The column starts under the band and ends at the face's foot.
+					expect(column.Position.Y.Offset).toBe(band.Position.Y.Offset + band.Size.Y.Offset)
+					expect(column.Size.Y.Scale).toBe(1)
+					expect(column.Size.Y.Offset).toBe(-column.Position.Y.Offset)
+					local well = column:FindFirstChild("Preview")
 					local floor = well:FindFirstChildOfClass("UISizeConstraint").MinSize.Y
 					local name = body:FindFirstChild("Name").Size.Y.Offset
 					local buttons = Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-					local fixed = floor + name + buttons + gap * 2
+					local fixed = column.Position.Y.Offset
+						+ floor
+						+ padding.PaddingTop.Offset
+						+ name
+						+ gap
+						+ buttons
+						+ padding.PaddingBottom.Offset
+					local inside = Measure.heightOf(face, screenHeight)
 					if fixed > inside then
 						error(("the card needs %.1f down and its face has %.1f"):format(fixed, inside))
 					end
@@ -217,7 +236,7 @@ describe("today's cards on a phone, run", function()
 end)
 
 -- The Shop built with `on` for a RemoteClient's listening, a Localize that keeps what each key was given.
-local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (any, { [string]: any })
+local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (any, { [string]: any }, any)
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	local Screen = world.require("src/ui/screens/ShopScreen")
 	local given: { [string]: any } = {}
@@ -251,8 +270,279 @@ local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (a
 			return false
 		end,
 	})
-	return screen, given
+	return screen, given, world
 end
+
+-- The TextButton whose visible word is `word`, under `root`.
+local function buttonUnder(root: any, word: string): any
+	for _, child in ipairs(root:GetDescendants()) do
+		if child:IsA("TextButton") then
+			for _, label in ipairs(child:GetDescendants()) do
+				if label:IsA("TextLabel") and label.Text == word and label.Visible then
+					return child
+				end
+			end
+		end
+	end
+	return nil
+end
+
+describe("a price on the primary yellow, run", function()
+	it("is marked with a dot of ink, never with the yellow coin", function()
+		local ShopRotation = require("../src/shared/Pure/ShopRotation")
+		local screen = builtWith(function(name: string, handler: (...any) -> ()): any
+			if name == "ShopChanged" then
+				handler({ DayKey = ShopRotation.dayKey(os.time()), Entries = { { CosmeticId = ITEM } } })
+			end
+			return Engine.signal():Connect(handler)
+		end)
+		screen:Open({ Tab = "Today" })
+		local buy = buttonUnder(screen.Instance, "shop.buyFolios")
+		assert(buy ~= nil, "no card sells its item for Folios: this gate would check nothing")
+		expect(buy:FindFirstChild("Coin", true)).toBeNil()
+		local dot = buy:FindFirstChild("Dot", true)
+		assert(dot ~= nil, "the price has no dot")
+		-- One disc, in the ink the yellow face writes its word in, half the icon's square.
+		local disc = dot:FindFirstChild("Disc")
+		assert(disc ~= nil, "the dot draws no disc")
+		expect(#dot:GetChildren()).toBe(1)
+		local word = nil
+		for _, label in ipairs(buy:GetDescendants()) do
+			if label:IsA("TextLabel") and label.Text == "shop.buyFolios" then
+				word = label
+			end
+		end
+		expect(disc.BackgroundColor3).toBe(word.TextColor3)
+		expect(disc.BackgroundTransparency).toBe(0)
+		expect(disc.Size.X.Scale).toBe(0.5)
+		expect(disc.Size.Y.Scale).toBe(0.5)
+		expect(disc.AnchorPoint.X).toBe(0.5)
+		expect(disc.Position.X.Scale).toBe(0.5)
+		expect(disc.Position.Y.Scale).toBe(0.5)
+	end)
+end)
+
+-- The Shop, open on Today with a pointer, its rotation the Legendary `LEGENDARY` and the Common `ITEM`.
+local LEGENDARY = "GoldenInkAura"
+
+local function todayCards(): (any, { [string]: any }, any)
+	local ShopRotation = require("../src/shared/Pure/ShopRotation")
+	local screen, _given, world = builtWith(function(name: string, handler: (...any) -> ()): any
+		if name == "ShopChanged" then
+			handler({
+				DayKey = ShopRotation.dayKey(os.time()),
+				Entries = { { CosmeticId = LEGENDARY }, { CosmeticId = ITEM } },
+			})
+		end
+		return Engine.signal():Connect(handler)
+	end)
+	screen:Open({ Tab = "Today" })
+	world:advance(0.5)
+	local faces: { [string]: any } = {}
+	for _, id in ipairs({ LEGENDARY, ITEM }) do
+		local holder = screen.Instance:FindFirstChild(id, true)
+		assert(holder ~= nil, id .. " has no card: this gate would check nothing")
+		local actions = holder:FindFirstChild("Actions", true)
+		faces[id] = actions.Parent.Parent.Parent
+	end
+	return screen, faces, world
+end
+
+describe("a Today card, run", function()
+	it("is its rarity band over the item on vellum, then its name and its prices", function()
+		local _screen, faces, world = todayCards()
+		local Theme = world.require("src/ui/Theme")
+		local stroke = Theme.Sizes.Stroke
+		for id, face in pairs(faces) do
+			local band = face:FindFirstChild("RarityBand")
+			assert(band ~= nil, id .. "'s card has no rarity band")
+			-- The full band with a pointer, in the card's words.
+			expect(band:FindFirstChild("Fill").Size.Y.Offset).toBe(37)
+			expect(band:FindFirstChild("Word", true).Text).toBe(
+				"shop.rarity." .. (if id == ITEM then "Common" else "Legendary")
+			)
+			-- The ribbon it replaces is gone, and so is the Legendary's gold rim.
+			expect(face:FindFirstChild("Rarity", true)).toBeNil()
+			expect(face:FindFirstChild("Rim", true)).toBeNil()
+			-- Right under the rule, inside the outline on both sides: the preview, on the page's own vellum, square.
+			local column = face:FindFirstChild("Column")
+			expect(column.Position.X.Offset).toBe(stroke)
+			expect(column.Position.Y.Offset).toBe(band.Position.Y.Offset + band.Size.Y.Offset)
+			expect(column.Size.X.Scale).toBe(1)
+			expect(column.Size.X.Offset).toBe(-stroke * 2)
+			local preview = column:FindFirstChild("Preview")
+			local body = column:FindFirstChild("Body")
+			expect(preview.LayoutOrder).toBeLessThan(body.LayoutOrder)
+			expect(preview.BackgroundColor3).toBe(Theme.Colors.Panel)
+			expect(preview.BackgroundTransparency).toBe(0)
+			expect(preview:FindFirstChildOfClass("UICorner")).toBeNil()
+			expect(preview.Size.X.Scale).toBe(1)
+			expect(preview:FindFirstChildOfClass("UIFlexItem").FlexMode.Name).toBe("Fill")
+			expect(preview:FindFirstChildOfClass("UISizeConstraint").MinSize.Y).toBeGreaterThan(0)
+			expect(#preview:GetChildren()).toBeGreaterThan(2)
+			-- The name and the prices, 10 under the preview and 12 in from the sides and the foot.
+			local padding = body:FindFirstChildOfClass("UIPadding")
+			expect(padding.PaddingTop.Offset).toBe(10)
+			expect(padding.PaddingLeft.Offset).toBe(12)
+			expect(padding.PaddingRight.Offset).toBe(12)
+			expect(padding.PaddingBottom.Offset).toBe(12)
+			expect(body:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(Theme.Sizes.PaddingSmall)
+			expect(body:FindFirstChild("Name").Size.Y.Offset).toBe(26)
+		end
+	end)
+
+	it("once owned, offers to equip it on the chapter's own sticker, with no price mark", function()
+		-- The board's Legendary card: a green "Équiper", no dot beside it. The price button turned into it, and
+		-- kept the dot it was built with.
+		local fixture = setup("Today")
+		local Theme = fixture.world.require("src/ui/Theme")
+		local holder = fixture.screen.Instance:FindFirstChild(ITEM, true)
+		local actions = holder:FindFirstChild("Actions", true)
+		local shown = {}
+		for _, child in ipairs(actions:GetChildren()) do
+			if child:IsA("TextButton") and child.Visible then
+				table.insert(shown, child)
+			end
+		end
+		expect(#shown).toBe(1)
+		local equip = shown[1]
+		expect(equip).toBe(buttonSaying(fixture, "shop.equip"))
+		expect(equip:FindFirstChild("Face", true).BackgroundColor3).toBe(Theme.chapter("Shop").Band)
+		-- Its icon slot holds nothing and takes no room (a button's pending dots are also named Dot).
+		local slot = equip:FindFirstChild("Icon", true)
+		expect(#slot:GetChildren()).toBe(0)
+		expect(slot.Visible).toBe(false)
+		-- Not owned, the price shows with its dot, and nothing on the card offers to equip it.
+		local _screen, faces = todayCards()
+		local price = buttonUnder(faces[LEGENDARY], "shop.buyFolios")
+		assert(price ~= nil and price.Visible, "the Legendary card shows no price")
+		expect(price:FindFirstChild("Icon", true):FindFirstChild("Dot")).never.toBeNil()
+		for _, child in ipairs(faces[LEGENDARY]:FindFirstChild("Actions", true):GetChildren()) do
+			if child:IsA("TextButton") and child.Visible then
+				for _, label in ipairs(child:GetDescendants()) do
+					if label:IsA("TextLabel") and label.Text == "shop.equip" then
+						error("a card not owned offers to equip it")
+					end
+				end
+			end
+		end
+	end)
+end)
+
+describe("a Legendary card, run", function()
+	it("shimmers across its whole face, over its prices, which still take the clicks", function()
+		local screen, faces, world = todayCards()
+		local Theme = world.require("src/ui/Theme")
+		local shine = faces[LEGENDARY]:FindFirstChild("Shine")
+		assert(shine ~= nil, "the Legendary card does not shimmer")
+		expect(faces[ITEM]:FindFirstChild("Shine", true)).toBeNil()
+		-- Over the whole face, above everything else on it.
+		-- Inside its ink outline, which the sweep leaves crisp, on the outline's inner curve.
+		local stroke = Theme.Sizes.Stroke
+		expect(shine.Position).toBe(roblox.UDim2.fromOffset(stroke, stroke))
+		expect(shine.Size).toBe(roblox.UDim2.new(1, -stroke * 2, 1, -stroke * 2))
+		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerCard - stroke)
+		for _, sibling in ipairs(faces[LEGENDARY]:GetChildren()) do
+			if sibling ~= shine and sibling:IsA("GuiObject") then
+				expect(shine.ZIndex).toBeGreaterThan(sibling.ZIndex)
+			end
+		end
+		-- It sweeps, a pause between two sweeps.
+		local gradient = shine:FindFirstChildOfClass("UIGradient")
+		local moved = 0
+		local last = gradient.Offset
+		for _ = 1, 5 * 60 do
+			world:frames(1)
+			if gradient.Offset ~= last then
+				moved += 1
+				last = gradient.Offset
+			end
+		end
+		expect(moved).toBeGreaterThan(10)
+		-- The price under it asks, as on any card.
+		expect(shine.Interactable).toBe(false)
+		expect(shine.Active).toBe(false)
+		local price = buttonUnder(faces[LEGENDARY], "shop.buyFolios")
+		assert(price ~= nil, "the Legendary card has no price")
+		price.Activated:Fire()
+		expect(screen.Instance:FindFirstChild("ConfirmSheet", true)).never.toBeNil()
+	end)
+
+	it("keeps the Shop within the animated gradients a screen may sweep, its sheet open", function()
+		-- The rotation's Legendary cards, and the ribbon of the one the sheet asks about.
+		expect(ShopConfig.Rotation.Legendary + 1).toBeLessThanOrEqual(ThemeConfig.Budget.MaxAnimatedGradients)
+		local screen, faces, world = todayCards()
+		buttonUnder(faces[LEGENDARY], "shop.buyFolios").Activated:Fire()
+		world:advance(0.5)
+		local gradients = {}
+		for _, part in ipairs(screen.Instance:GetDescendants()) do
+			if part.Name == "Shine" then
+				table.insert(gradients, part:FindFirstChildOfClass("UIGradient"))
+			end
+		end
+		expect(#gradients).toBe(2)
+		-- Both sweep: neither is the one past the budget held still.
+		local moved: { [number]: boolean } = {}
+		local last = {}
+		for index, gradient in ipairs(gradients) do
+			last[index] = gradient.Offset
+		end
+		for _ = 1, 5 * 60 do
+			world:frames(1)
+			for index, gradient in ipairs(gradients) do
+				if gradient.Offset ~= last[index] then
+					moved[index] = true
+				end
+				last[index] = gradient.Offset
+			end
+		end
+		expect(moved[1] == true and moved[2] == true).toBe(true)
+	end)
+end)
+
+describe("the Locker, run", function()
+	for _, phone in ipairs({ false, true }) do
+		local where = if phone then "on a phone" else "with a pointer"
+		it("names each item's rarity on a band over its card, in the card's ink outline, " .. where, function()
+			local fixture = setup("Locker", if phone then { 667, 375 } else nil)
+			local Theme = fixture.world.require("src/ui/Theme")
+			local RarityBand = fixture.world.require("src/ui/components/RarityBand")
+			local holder = fixture.screen.Instance:FindFirstChild(ITEM, true)
+			assert(holder ~= nil and holder:FindFirstChild("Body", true) ~= nil, "the locker has no card for the item")
+			local body = holder:FindFirstChild("Body", true)
+			local face = body.Parent
+			local band = face:FindFirstChild("RarityBand")
+			assert(band ~= nil, "the locker card has no rarity band")
+			expect(band:FindFirstChild("Word", true).Text).toBe("shop.rarity.Common")
+			expect(band:FindFirstChild("Fill").Size.Y.Offset).toBe(if phone then 22 else 37)
+			-- The board's outline, not the thin one of a row.
+			expect(face:FindFirstChildOfClass("UIStroke").Thickness).toBe(Theme.Sizes.Stroke)
+			-- The body starts under the band and ends at the face's foot.
+			local bottom = band.Position.Y.Offset + band.Size.Y.Offset
+			expect(body.Position.Y.Offset).toBe(bottom)
+			expect(body.Size.Y.Scale).toBe(1)
+			expect(body.Size.Y.Offset).toBe(-bottom)
+			expect(RarityBand.bottom(phone)).toBe(bottom)
+			-- And the cell holds the band, the preview, the button at its touch floor and the card's shadow.
+			local grid = holder.Parent:FindFirstChildOfClass("UIGridLayout")
+			local padding = body:FindFirstChildOfClass("UIPadding")
+			local gap = body:FindFirstChildOfClass("UIListLayout").Padding.Offset
+			local preview = body:FindFirstChild("Item").Size.Y.Offset
+			local sticker = face.Parent
+			local elevation = sticker:FindFirstChild("Base").Position.Y.Offset
+			local needed = bottom
+				+ padding.PaddingTop.Offset
+				+ preview
+				+ gap
+				+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+				+ padding.PaddingBottom.Offset
+				+ elevation
+			if needed > grid.CellSize.Y.Offset then
+				error(("the locker card needs %.1f and its cell is %.1f"):format(needed, grid.CellSize.Y.Offset))
+			end
+		end)
+	end
+end)
 
 describe("the Shop's words and pushes, run", function()
 	it("is built when a rotation the server pushed before it reaches it as it listens", function()

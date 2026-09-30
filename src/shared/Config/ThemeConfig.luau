@@ -227,8 +227,8 @@ ThemeConfig.Gradients = {
 		Transparency = { { 0, 1 }, { 1, 0 } },
 		Rotation = 90,
 	},
-	-- The sweep of light across gold leaf: Legendary, Codex, the seventh day. RarityRibbon sweeps it, and
-	-- holds a screen to Budget.MaxAnimatedGradients of them.
+	-- The sweep of light across gold leaf: a Legendary ribbon and card, the Codex seal, the seventh day. The
+	-- Shimmer component sweeps it, and holds a screen to Budget.MaxAnimatedGradients of them.
 	Shimmer = {
 		Color = { { Time = 0, Role = "PanelRaised" }, { Time = 1, Role = "PanelRaised" } },
 		Transparency = { { 0, 1 }, { 0.42, 1 }, { 0.5, 0.3 }, { 0.58, 1 }, { 1, 1 } },
@@ -276,7 +276,7 @@ ThemeConfig.Timing = {
 -- Never the HUD, whose geometry is measured.
 ThemeConfig.TextScale = { Medium = 1, Large = 1.15, Larger = 1.3, Largest = 1.3 } :: { [string]: number }
 
--- What one open screen may cost: splats (Splat), animated gradients (RarityRibbon's shimmer), idle loops
+-- What one open screen may cost: splats (Splat), animated gradients (the Shimmer on gold leaf), idle loops
 -- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent. And what the HUD
 -- draws in a fight, in GuiObjects shown, with every slot a pass opens and a full 3v3 in the band: on a phone
 -- with its touch discs, the budget the colour pass set; with a pointer, whose hotbar spells each glyph's

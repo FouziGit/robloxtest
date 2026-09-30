@@ -137,8 +137,8 @@ describe("the Trials, on the server", function()
 		local ordered = {
 			"data.Stats.Kills += 1",
 			"if not TrialPay.active(lastActiveAt[killer], os.clock(), PAY) then",
-			'notify.send(killer, "trials.idle", nil, "Info")',
-			"return end",
+			-- Said once a session, however many kills go unpaid.
+			'if not toldIdle[killer] then toldIdle[killer] = true notify.send(killer, "trials.idle", nil, "Info") end return end',
 			"local today = DailyStreak.dayIndex(os.time())",
 			"local ledger = { Day = daily.TrialDay, Kills = daily.TrialKills, Folios = daily.TrialFolios }",
 			"local pay = TrialPay.kill( ledger, today, PAY, ProgressionConfig.XP.DummyKill, ProgressionConfig.Folios.DummyKill, DailyCap.take )",

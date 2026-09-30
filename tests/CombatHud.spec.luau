@@ -228,6 +228,10 @@ describe("the hotbar", function()
 		expect(has(state, "drop.Visible = unaffordable")).toBe(true)
 		expect(has(hotbar, 'Icon.new("Drop", DROP, Theme.Colors.InfoFill)')).toBe(true)
 		expect(ThemeConfig.contrast(COLORS.InfoFill, COLORS.Plate)).toBeGreaterThanOrEqual(GRAPHIC_CONTRAST)
+		-- On a rim of the sheet, the same drop a size larger (run in tests/BottomStack.spec.luau).
+		expect(has(hotbar, 'Icon.new("Drop", rimmed, Theme.Colors.PanelRaised)')).toBe(true)
+		expect(has(hotbar, "local rimmed = DROP + DROP_RIM * 2")).toBe(true)
+		expect(number(hotbar, "DROP_RIM")).toBe(2)
 	end)
 
 	it("keys the slots with a pointer, and puts pips inside the dock on touch", function()

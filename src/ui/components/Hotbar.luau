@@ -83,8 +83,9 @@ local HUD = ThemeConfig.Hud
 local CHIP = 40
 -- The sigil on a chip, in the heavy face (the board's 21 at 900).
 local SIGIL_TEXT = 21
--- The short-ink drop, off the slot's bottom-right corner by this much.
-local DROP_INSET = 3
+-- The short-ink drop, off the slot's bottom-right corner by this much, on a rim of the sheet this wide.
+local DROP_INSET = 4
+local DROP_RIM = 2
 -- The veil a cooling glyph wears, drained from the top as the cooldown runs out: the board's ink at 69 %.
 local DRAIN_TRANSPARENCY = 0.31
 -- The seconds left, standing this far over the veil's edge, and never above the top of the slot.
@@ -287,16 +288,30 @@ local function secondsOf(slot: Slot): TextLabel?
 	return slot.Seconds
 end
 
+-- The drop is the ink's blue on a rim of the sheet, the same drop a size larger behind it. It straddles the chalk
+-- chip, which the blue alone is 2.1 against, and the slot's ink; the sheet gives it one edge it stands out from
+-- on both (3.3).
 local function dropOf(slot: Slot): Frame?
 	local square = slot.Square
 	if slot.Drop == nil and square ~= nil then
+		local rimmed = DROP + DROP_RIM * 2
+		local holder = Instance.new("Frame")
+		holder.Name = "Drop"
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(1, 1)
+		holder.Position = UDim2.new(1, -DROP_INSET, 1, -DROP_INSET)
+		holder.Size = UDim2.fromOffset(rimmed, rimmed)
+		holder.ZIndex = 5
+		holder.Visible = false
+		local rim = Icon.new("Drop", rimmed, Theme.Colors.PanelRaised)
+		rim.Name = "Rim"
+		rim.Parent = holder
 		local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
-		drop.AnchorPoint = Vector2.new(1, 1)
-		drop.Position = UDim2.new(1, -DROP_INSET, 1, -DROP_INSET)
-		drop.ZIndex = 5
-		drop.Visible = false
-		drop.Parent = square
-		slot.Drop = drop
+		drop.AnchorPoint = Vector2.new(0.5, 0.5)
+		drop.Position = UDim2.fromScale(0.5, 0.5)
+		drop.Parent = holder
+		holder.Parent = square
+		slot.Drop = holder
 	end
 	return slot.Drop
 end

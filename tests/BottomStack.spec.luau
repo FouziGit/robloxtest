@@ -247,6 +247,59 @@ describe("a cooling slot, run", function()
 	end)
 end)
 
+describe("a slot short of ink, run", function()
+	it("marks it with the blue drop on a rim of the sheet, built the first time it shows", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local hotbar = Hotbar.new({
+			Parent = gui,
+			Mode = "Slots",
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		hotbar:SetLoadout({ "Brand" })
+		local square = hotbar.Instance:FindFirstChild("Slot1"):FindFirstChild("Square")
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(square:FindFirstChild("Drop")).toBeNil()
+		hotbar:SetState({ Ink = GlyphConfig.byId("Brand").Cost - 1, Cooldowns = {} })
+		local holder = square:FindFirstChild("Drop")
+		assert(holder ~= nil, "a slot short of ink shows no drop: this gate would check nothing")
+		expect(holder.Visible).toBe(true)
+		local rim = holder:FindFirstChild("Rim")
+		local drop = holder:FindFirstChild("Drop")
+		expect(rim.Size).toBe(roblox.UDim2.fromOffset(18, 18))
+		expect(drop.Size).toBe(roblox.UDim2.fromOffset(14, 14))
+		expect(holder.Size).toBe(rim.Size)
+		expect(drop.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+		expect(drop.Position).toBe(roblox.UDim2.fromScale(0.5, 0.5))
+		-- The rim behind, the blue over it: each drawn in its own colour.
+		local order = holder:GetChildren()
+		expect(table.find(order, rim) :: number).toBeLessThan(table.find(order, drop) :: number)
+		for _, part in ipairs(rim:GetChildren()) do
+			if part:IsA("GuiObject") then
+				expect(part.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+			end
+		end
+		for _, part in ipairs(drop:GetChildren()) do
+			if part:IsA("GuiObject") then
+				expect(part.BackgroundColor3).toBe(Theme.Colors.InfoFill)
+			end
+		end
+		expect(holder.ZIndex).toBeGreaterThan(square:FindFirstChild("Drain").ZIndex)
+		-- The sheet stands out from the ink of the slot, where the blue barely does.
+		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Plate)).toBeGreaterThanOrEqual(3)
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(holder.Visible).toBe(false)
+	end)
+end)
+
 describe("the touch dock's pips, run", function()
 	it("fit every slot a pass opens in the narrowest dock", function()
 		local most = ProgressionConfig.Loadout.MaxSlots

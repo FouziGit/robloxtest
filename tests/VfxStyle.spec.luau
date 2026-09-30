@@ -283,10 +283,18 @@ describe("a play taken back", function()
 			expect(played:find("local _, playId = api.Timeline.play(", 1, true)).never.toBe(nil)
 			expect(played:find("return playId", 1, true)).never.toBe(nil)
 		end
-		-- Forgotten with the player, so the table never outgrows the server.
+		-- Forgotten with the player, so the table never outgrows the server, and cut with him: the server stops
+		-- whatever a caster who left had running, and its retraction would name somebody this screen forgot.
 		expect(
 			read(LIBRARY):find(
-				"Players.PlayerRemoving:Connect(function(player: Player) retractable[player.UserId] = nil end)",
+				"Players.PlayerRemoving:Connect(function(player: Player) local plays = retractable[player.UserId] retractable[player.UserId] = nil if plays ~= nil and retractRuntime ~= nil then for _, playId in pairs(plays) do retractRuntime.cancel(playId) end end end)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			cut:find(
+				"local function retracted(id: string, packet: Packet, api: Api): boolean retractRuntime = api.Timeline",
 				1,
 				true
 			)

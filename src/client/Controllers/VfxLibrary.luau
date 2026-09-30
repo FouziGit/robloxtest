@@ -543,9 +543,11 @@ local function playCharge(id: string, glyphId: string, packet: Packet, api: Api)
 end
 
 -- The play each caster has running of an effect the server may still take back (GlyphEffects' retract, D-141):
--- a charge broken before its release, a rush a dash ended, a frame its caster stopped. By caster, then by
--- effect: a caster has one of each at a time. Forgotten with the player.
+-- a charge broken before its release, a rush a dash ended, a zone or a frame its caster stopped. By caster, then
+-- by effect: a caster has one of each at a time. Cut and forgotten with the player.
 local retractable: { [number]: { [string]: number? } } = {}
+-- The runtime those plays were given to (Api.Timeline), for the one cut no packet asks for: a caster who leaves.
+local retractRuntime: any = nil
 
 -- Keeps `playId` as the play of `id` that `packet`'s caster may have taken back.
 local function remember(id: string, packet: Packet, playId: number?)
@@ -564,6 +566,7 @@ end
 -- Whether `packet` is the server taking back its caster's play of `id` (Params.Cancel): that play is cut on the
 -- spot -- nothing of it still to come is drawn, and what it has on screen goes -- and nothing else is played.
 local function retracted(id: string, packet: Packet, api: Api): boolean
+	retractRuntime = api.Timeline
 	local params = packet.Params
 	if params == nil or params.Cancel ~= true then
 		return false
@@ -580,8 +583,17 @@ local function retracted(id: string, packet: Packet, api: Api): boolean
 	return true
 end
 
+-- A caster who leaves is forgotten before the server's retraction of what he left running can arrive: it comes on
+-- the effect's next tick, and names somebody this screen no longer keeps plays for. The server stops each of them
+-- (a caster gone is a caster stopped), so they are cut here, now.
 Players.PlayerRemoving:Connect(function(player: Player)
+	local plays = retractable[player.UserId]
 	retractable[player.UserId] = nil
+	if plays ~= nil and retractRuntime ~= nil then
+		for _, playId in pairs(plays) do
+			retractRuntime.cancel(playId)
+		end
+	end
 end)
 
 VfxLibrary.Wash = function(packet: Packet, _trove: TroveType, api: Api)
@@ -609,10 +621,14 @@ VfxLibrary.Sweep = function(packet: Packet, _trove: TroveType, api: Api)
 	})
 end
 
--- The zone's edge is drawn at the radius the server drinks from (the packet's), not a constant.
+-- The zone's edge is drawn at the radius the server drinks from (the packet's), not a constant. Taken back
+-- when its caster stops it before its last drink: the pool no longer burns.
 VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)
+	if retracted("Bleed", packet, api) then
+		return
+	end
 	local def = GlyphConfig.ById.Bleed
-	api.Timeline.play("Bleed", {
+	local _, playId = api.Timeline.play("Bleed", {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
 		Color = glyphColor(def.Pigment, packet, api),
@@ -622,6 +638,7 @@ VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)
 		Hand = casterHand(packet),
 		Radius = numberParam(packet, "Radius", 9),
 	})
+	remember("Bleed", packet, playId)
 end
 
 -- The slab this packet announced: tagged glyph collision, named for the Margin, standing where the packet
@@ -695,8 +712,11 @@ VfxLibrary.Margin = function(packet: Packet, _trove: TroveType, api: Api)
 	end)
 end
 
+-- Taken back when its caster stops it before its last tick: the ring round him no longer burns.
 VfxLibrary.Scorch = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Scorch", packet, api)
+	if not retracted("Scorch", packet, api) then
+		remember("Scorch", packet, playGlyph("Scorch", packet, api))
+	end
 end
 
 VfxLibrary.Rupture = function(packet: Packet, _trove: TroveType, api: Api)
@@ -744,12 +764,18 @@ VfxLibrary.Hairline = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Hairline", packet, api)
 end
 
+-- Taken back when its caster stops it before its last tick: the storm no longer pulls.
 VfxLibrary.Spiral = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Spiral", packet, api)
+	if not retracted("Spiral", packet, api) then
+		remember("Spiral", packet, playGlyph("Spiral", packet, api))
+	end
 end
 
+-- Taken back when its caster stops it before its last tick: the grain no longer slows.
 VfxLibrary.Pounce = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Pounce", packet, api)
+	if not retracted("Pounce", packet, api) then
+		remember("Pounce", packet, playGlyph("Pounce", packet, api))
+	end
 end
 
 -- A line ruled from the muzzle to where the server's ray stopped (D-126): the packet's Origin is the caster
@@ -785,8 +811,11 @@ VfxLibrary.Caret = function(packet: Packet, _trove: TroveType, api: Api)
 	})
 end
 
+-- Taken back when its caster stops it before its last tick: the mark no longer holds.
 VfxLibrary.Watermark = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Watermark", packet, api)
+	if not retracted("Watermark", packet, api) then
+		remember("Watermark", packet, playGlyph("Watermark", packet, api))
+	end
 end
 
 -- Colophon is the one glyph whose packet carries a PATH rather than a point. The server chains from body

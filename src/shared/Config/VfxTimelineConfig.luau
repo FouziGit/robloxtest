@@ -306,8 +306,9 @@ export type Timeline = {
 	Intent: string,
 	Phases: { Phase },
 	-- Drawn on the server's own time though it flies no carrier and fills no window: a charge whose
-	-- Anticipation is the wind-up the server waits through before it strikes (D-141). Held by an impact, its
-	-- "now" would come after the blow it announces.
+	-- Anticipation is the wind-up the server waits through before it strikes (D-141), and a glyph that strikes
+	-- on the server's ticks (a zone, a rush, a frame). Held by an impact, its "now" would come after the blow
+	-- it announces, and every tick after the first hit it lands a little later than the one that hurts.
 	Steady: boolean?,
 }
 
@@ -1828,6 +1829,8 @@ local WASH: Timeline = {
 -- when the last player it slowed gets their speed back. The page finishes drying when the spell is over.
 local BLEED: Timeline = {
 	Intent = "The page is wetted, drinks three times on the server's clock, and dries stained",
+	-- Counted on the server's clock: held by the hits its own drinks land, each later drink was drawn late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Impact",
@@ -3138,6 +3141,8 @@ local HAIRLINE: Timeline = {
 -- of ink in from a dome round the zone.
 local SPIRAL: Timeline = {
 	Intent = "Four times, the page is drawn into one point and does not let go",
+	-- Counted on the server's clock: held by the hits its own pulls land, each later pull was drawn late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -3486,6 +3491,8 @@ local SPIRAL: Timeline = {
 -- engine -- and its edge is held in the pigment while it pours.
 local POUNCE: Timeline = {
 	Intent = "Powder is poured over the page three times until nothing on it can move",
+	-- Counted on the server's clock: held by the hits its own pours land, each later pour was drawn late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -4824,6 +4831,8 @@ local RUPTURE: Timeline = {
 -- and moves. The ring says the radius and the rhythm at once, from any camera.
 local SCORCH: Timeline = {
 	Intent = "The ground round the caster catches three times, a ring of fire struck on each of the server's ticks",
+	-- Counted on the server's clock: held by the hits its own ticks land, each later ring caught late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -6402,6 +6411,8 @@ local CARET: Timeline = {
 -- laid on paper, invisible; they are a seal pressed onto an ink edge now.
 local WATERMARK: Timeline = {
 	Intent = "The mould comes down on the page four times, and the paper keeps the impression",
+	-- Counted on the server's clock: held by the hits its own presses land, each later press came down late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Impact",
@@ -8450,6 +8461,8 @@ local DAGGER: Timeline = {
 -- each tick's Hit packets bring theirs.
 local CARTOUCHE: Timeline = {
 	Intent = "A frame stamped out to the exact edge, the page inside flooded, a rim of rising ink pressing in on every tick",
+	-- Counted on the server's clock: held by the hits its seal and ticks land, each later press closed late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -9337,6 +9350,8 @@ local STITCH_CATCH: Timeline = {
 -- the finisher. The page under the rush keeps the cuts.
 local HATCHING: Timeline = {
 	Intent = "A flurry of vermilion strokes, each real one a heavier cut, then a last that throws a geyser of ink",
+	-- Counted on the server's clock: held by the hits its own strokes land, the finisher was drawn a stroke late.
+	Steady = true,
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -11994,7 +12009,7 @@ function VfxTimelineConfig.duration(timeline: Timeline): number
 end
 
 -- Whether a timeline is drawn on the server's own time: it flies a Carrier the server steps, fills a
--- window the server waits through, or says so (a charge, Timeline.Steady). Such a play runs on VfxClock's
+-- window the server waits through, or says so (a charge, a glyph on the server's ticks: Timeline.Steady). Such a play runs on VfxClock's
 -- steady clock, which an impact's hold never stops (D-119): held, it would fall behind the damage it draws.
 function VfxTimelineConfig.steady(timeline: Timeline): boolean
 	if timeline.Steady == true then

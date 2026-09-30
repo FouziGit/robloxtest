@@ -139,7 +139,7 @@ describe("a play the server will not finish", function()
 		local take = functionIn(EFFECTS, "local function retract(")
 		expect(
 			take:find(
-				"ctx.Vfx.emit({ Id = vfxId, Origin = ctx.Origin.Position, Caster = ctx.Caster.UserId, Params = { Cancel = true }, }, true)",
+				"ctx.Vfx.emit({ Id = vfxId, Origin = ctx.Origin.Position, Caster = ctx.Caster.UserId, Params = { Cancel = true }, }, true, alsoNear)",
 				1,
 				true
 			)
@@ -155,13 +155,20 @@ describe("a play the server will not finish", function()
 		expect(
 			cartouche:find("if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) return seal.Count end", 1, true)
 		).never.toBe(nil)
-		expect(before(cartouche, "end, held)", "if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId) end")).toBe(
-			true
+		-- Its ticks run through the zone, which takes the frame back itself on the frame it stops: once, so the
+		-- Cartouche asks nothing after it.
+		expect(cartouche:find("tickZone(ctx, center, params.Radius, params.Ticks, params.TickInterval,", 1, true)).never.toBe(
+			nil
 		)
-		-- The zone the Cartouche ticks through stops on that one question: read after it, it says whether it did.
+		expect(before(cartouche, "end, held)", "local struck = seal.Count")).toBe(true)
+		expect(count(cartouche, "retract(")).toBe(1)
+		-- The zone stops on that one question, and a stopped zone is taken back where it was drawn, before it stops.
 		local zone = functionIn(EFFECTS, "local function tickZone(")
-		expect(zone:find("if not casterAlive(ctx) then break end", 1, true)).never.toBe(nil)
+		expect(zone:find("if not casterAlive(ctx) then retract(ctx, ctx.Def.VfxId, center) break end", 1, true)).never.toBe(
+			nil
+		)
 		expect(count(zone, "break")).toBe(1)
+		expect(count(zone, "retract(")).toBe(1)
 	end)
 end)
 

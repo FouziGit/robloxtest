@@ -514,6 +514,7 @@
         {
           "id": "E4-S4",
           "title": "Classé désactivé dans les serveurs privés achetés",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -832,6 +833,7 @@
         {
           "id": "E6-S6",
           "title": "Qualité de départ choisie selon l'appareil",
+          "status": "partial",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -1384,6 +1386,7 @@
         {
           "id": "E10-S3",
           "title": "Plafonner les Épreuves du hub",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1398,6 +1401,7 @@
         {
           "id": "E10-S4",
           "title": "Simulateur de rythme dans les portes de qualité",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1416,6 +1420,7 @@
         {
           "id": "E10-S5",
           "title": "Le pass dure un Volume, pas une semaine",
+          "status": "partial",
           "owner": "both",
           "effort": "S",
           "acceptance": [
@@ -1497,6 +1502,7 @@
         {
           "id": "E10-S10",
           "title": "Des quêtes qu'un joueur seul peut finir, et une relance gratuite par jour",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1685,6 +1691,7 @@
         {
           "id": "E11-S4",
           "title": "Budget global de particules",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1700,6 +1707,7 @@
         {
           "id": "E11-S5",
           "title": "Budget d'objets par écran",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1722,6 +1730,7 @@
         {
           "id": "E12-S1",
           "title": "Un seul module décide si l'appareil est tactile",
+          "status": "partial",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -1737,6 +1746,7 @@
         {
           "id": "E12-S2",
           "title": "HUD en mode combat pendant l'Effacement programmé",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1751,6 +1761,7 @@
         {
           "id": "E12-S3",
           "title": "Langue suivie en direct et pluriels corrects",
+          "status": "partial",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -1768,6 +1779,7 @@
         {
           "id": "E12-S4",
           "title": "Navigation à la manette auditée",
+          "status": "partial",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -1784,6 +1796,7 @@
         {
           "id": "E12-S5",
           "title": "Les restes de l'interface",
+          "status": "done",
           "owner": "both",
           "effort": "S",
           "acceptance": [
@@ -1823,6 +1836,7 @@
         {
           "id": "E19-S1",
           "title": "Les zones à ticks s'arrêtent avec leur lanceur",
+          "status": "partial",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1853,6 +1867,7 @@
         {
           "id": "E19-S3",
           "title": "Hachures et écran d'équipement",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [

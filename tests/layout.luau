@@ -15,6 +15,10 @@
 --   Canvases         A ScrollingFrame's CanvasSize scale is of the ScrollingFrame's parent, as a Size is, not of
 --                    its window (D-171): a canvas of fromScale(1, 1) in a window its parent's header and footer
 --                    shorten is taller than the window, and it scrolls onto nothing.
+--   Least sizes      A frame that sizes itself on an axis holds its content to its UISizeConstraint's least size,
+--                    then adds its own padding on that axis outside it: a badge's disc of least 32, padded 8 either
+--                    side, drew a lone figure as a pill of 48 (seen in Studio, Encre vive pass). A touch floor
+--                    (Theme.minPixelSize, "TouchFloor") is exempt: padding outside it only makes a larger target.
 local Measure = require("./measure")
 
 local Layout = {}
@@ -185,10 +189,44 @@ function Layout.canvases(root: any): { string }
 	return found
 end
 
+function Layout.leastSizes(root: any): { string }
+	local found: { string } = {}
+	for _, object in ipairs(root:GetDescendants()) do
+		local padding = object:FindFirstChildOfClass("UIPadding")
+		if object:IsA("GuiObject") and padding ~= nil then
+			local pads = {
+				X = padding.PaddingLeft.Offset + padding.PaddingRight.Offset,
+				Y = padding.PaddingTop.Offset + padding.PaddingBottom.Offset,
+			}
+			for _, least in ipairs(object:GetChildren()) do
+				if least.ClassName == "UISizeConstraint" and least.Name ~= "TouchFloor" then
+					for _, axis in ipairs(AXES) do
+						if autoOn(object, axis) and (least.MinSize :: any)[axis] > 0 and pads[axis] ~= 0 then
+							table.insert(
+								found,
+								("%s sizes itself on %s to a least %d, and adds its padding of %d outside it"):format(
+									object:GetFullName(),
+									axis,
+									(least.MinSize :: any)[axis],
+									pads[axis]
+								)
+							)
+						end
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- Every rule, on `root`.
 function Layout.check(root: any, screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
 	for _, line in ipairs(Layout.canvases(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.leastSizes(root)) do
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.truncation(root, screenHeight)) do

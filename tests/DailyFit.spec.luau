@@ -122,6 +122,35 @@ describe("the daily reward on a phone, run", function()
 		end
 	end)
 
+	it("writes each day's word from the card's left, in a box that ends where today's badge begins", function()
+		for _, window in ipairs({ { 667, 375 }, { 844, 390 } }) do
+			local screen, screenHeight = build(window[1], window[2])
+			local screenWidth = screenHeight * window[1] / window[2]
+			local calendar = screen.Instance:FindFirstChild("Calendar", true)
+			for index = 1, 7 do
+				local card = calendar:FindFirstChild("Day" .. index)
+				local body = card:FindFirstChild("Face"):FindFirstChild("Body")
+				local word = body:FindFirstChild("DayRow"):FindFirstChild("Day")
+				-- Seen in Studio: centred across the card, today's "!" covered the number of "Day 1".
+				expect(word.TextXAlignment.Name).toBe("Left")
+				expect(word.TextTruncate.Name).toBe("AtEnd")
+				expect(word.AutomaticSize.Name).toBe("None")
+				local badge = card:FindFirstChild("Badge")
+				assert(badge ~= nil, "a day card has no badge: this gate would check nothing")
+				local disc = badge:FindFirstChild("Blot"):FindFirstChildOfClass("UISizeConstraint").MinSize.X
+				local cardWidth = Measure.widthOf(card, screenWidth)
+				local left = body:FindFirstChildOfClass("UIPadding").PaddingLeft.Offset + word.Position.X.Offset
+				-- A whole padding in from the card's edge, as the body's other lines stand.
+				expect(left).toBe(body:FindFirstChildOfClass("UIPadding").PaddingTop.Offset)
+				local right = left + Measure.widthOf(word, screenWidth)
+				expect(right).toBeLessThanOrEqual(cardWidth + badge.Position.X.Offset - disc)
+				-- The widest day word Studio measured, "Jour 7" in the heavy face at 14, is 31: it has its room.
+				expect(Measure.widthOf(word, screenWidth)).toBeGreaterThanOrEqual(31 + 8)
+				expect(word.Text).toBe("daily.day")
+			end
+		end
+	end)
+
 	it("draws the week's ribbon over its gold rim, clear of the day's word", function()
 		local screen = build(844, 390)
 		local calendar = screen.Instance:FindFirstChild("Calendar", true)

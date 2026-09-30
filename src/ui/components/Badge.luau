@@ -40,6 +40,11 @@ local TEXT_SIZE = 17
 -- A host less than this tall wears the disc astride its corner.
 local HOLD = SIZE * 2
 
+-- How far into its host's top-right corner a badge inside it reaches: what a host's own words keep clear of.
+function Badge.reach(): number
+	return INSET + SIZE
+end
+
 local function display(value: Value?): string?
 	if value == nil or value == 0 then
 		return nil
@@ -73,13 +78,11 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	disc.ZIndex = 10
 	Theme.corner(disc, Theme.Pill)
 	Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
+	-- The room either side of the count is the count's own: the engine holds a frame that sizes itself to its
+	-- least size before it adds that frame's padding, and a lone figure made a pill of 48 (seen in Studio).
 	local least = Instance.new("UISizeConstraint")
 	least.MinSize = Vector2.new(SIZE, SIZE)
 	least.Parent = disc
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, PAD_X)
-	padding.PaddingRight = UDim.new(0, PAD_X)
-	padding.Parent = disc
 	-- The count in the middle of the disc: a lone figure, or "!", is narrower than the disc's least width, and
 	-- laid out from the left it sat against the disc's left edge.
 	local centre = Instance.new("UIListLayout")
@@ -103,6 +106,10 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	label.TextSize = TEXT_SIZE
 	label.TextColor3 = Theme.Colors.Text
 	label.ZIndex = 11
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, PAD_X)
+	padding.PaddingRight = UDim.new(0, PAD_X)
+	padding.Parent = label
 	label.Parent = disc
 
 	-- Inside the corner, unless the host is too short to hold the disc there (measured once it is laid out).

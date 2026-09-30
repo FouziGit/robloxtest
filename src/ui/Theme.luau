@@ -295,6 +295,8 @@ end
 -- callers only destroy the object.
 function Theme.minPixelSize(object: GuiObject, pixels: number)
 	local constraint = Instance.new("UISizeConstraint")
+	-- Named for what it is: a floor for a finger, which padding added outside it only makes larger.
+	constraint.Name = "TouchFloor"
 	local unbind = Theme.bindScale(function()
 		local minimum = unscaled(pixels)
 		constraint.MinSize = Vector2.new(minimum, minimum)

@@ -279,9 +279,19 @@ function DailyScreen.new(deps: Deps): Screen
 		local bodyLayout = list(body, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
 		bodyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-		local dayLabel = textLabel("Day", Theme.Fonts.Label, DAY_LABEL_SIZE, 1, body)
+		-- The day's word from the card's left, in a box that ends where today's badge begins, as a tile's word
+		-- stands clear of its badge: centred across the card, today's "!" covered its number (seen in Studio).
+		local dayRow = blank("DayRow", body)
+		dayRow.Size = UDim2.new(1, 0, 0, DAY_LABEL_SIZE + 6)
+		dayRow.LayoutOrder = 1
+		local dayLabel = textLabel("Day", Theme.Fonts.Label, DAY_LABEL_SIZE, 1, dayRow)
+		dayLabel.AutomaticSize = Enum.AutomaticSize.None
+		-- A whole padding in from the card's edge (half of it is the body's), up to the badge's corner.
+		dayLabel.Position = UDim2.fromOffset(DAY_PADDING / 2, 0)
+		dayLabel.Size = UDim2.new(1, -Badge.reach(), 1, 0)
 		dayLabel.TextWrapped = false
-		dayLabel.TextXAlignment = Enum.TextXAlignment.Center
+		dayLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		dayLabel.TextXAlignment = Enum.TextXAlignment.Left
 		dayLabel.Text = t("daily.day", { day = index })
 		amountRow(body, 2, t("reward.xp", { xp = reward.Xp }))
 		amountRow(body, 3, t("reward.folios", { amount = reward.Folios }), Icon.new("Coin", COIN_SIZE))

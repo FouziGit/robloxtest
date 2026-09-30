@@ -81,6 +81,9 @@ local queues: { [string]: MatchmakingCore.Queue } = {}
 -- userId -> mode asked for from the result screen, honoured by the first scan after the match lets the
 -- player go: the one-click loop (docs/JUICE_PLAN.md phase 8, item 2). Shown to the client as queued.
 local pending: { [number]: string } = {}
+-- userId -> the mode and the loadout last counted into a queue (GlyphPick), until that wait ends in a match or runs
+-- out: a player who leaves and joins again, a button pressed over and over, takes the same glyphs in once.
+local picksTold: { [number]: string } = {}
 local accumulator = 0
 -- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
 -- stood still and can hand that time back to everybody waiting.
@@ -105,12 +108,18 @@ local function waited(joinedAt: number?, now: number): number
 end
 
 -- Each glyph `player` takes into the `modeId` queue, for the dashboards: the loadout they will play the match with.
+-- Once per wait (picksTold): the same loadout into the same queue again before a match or a time-out counts nothing.
 local function tellPicks(player: Player, modeId: string)
 	local data = dataService.get(player)
 	if data == nil then
 		return
 	end
 	local _, slots = loadout.fielded(data)
+	local picks = modeId .. ":" .. table.concat(slots, ",")
+	if picksTold[player.UserId] == picks then
+		return
+	end
+	picksTold[player.UserId] = picks
 	for _, glyphId in ipairs(slots) do
 		analytics.custom(player, "GlyphPick", 1, analytics.fields(glyphId, modeId))
 	end
@@ -283,6 +292,7 @@ local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: Matc
 		else
 			for _, members in ipairs(formed.Teams) do
 				for _, userId in ipairs(members) do
+					picksTold[userId] = nil
 					local player = Players:GetPlayerByUserId(userId)
 					if player ~= nil then
 						analytics.custom(player, "MatchFormed", waited(joinedAt[userId], now), analytics.fields(modeId))
@@ -333,6 +343,7 @@ local function tick(now: number)
 		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
 		local joinedAt = joinTimes(queue)
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
+			picksTold[userId] = nil
 			local player = Players:GetPlayerByUserId(userId)
 			if player ~= nil then
 				-- News, not a failure: nobody else was queuing. The toast says it in the neutral medallion (the red
@@ -363,6 +374,7 @@ end
 
 local function onPlayerRemoving(player: Player)
 	pending[player.UserId] = nil
+	picksTold[player.UserId] = nil
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		local queue = queues[modeId]
 		if queue ~= nil then

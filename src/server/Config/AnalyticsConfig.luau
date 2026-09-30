@@ -135,7 +135,7 @@ AnalyticsConfig.Events = {
 	-- The balance of the glyphs, in two events and no more. Each glyph a player cast in a match, at its result.
 	-- Value: the damage it dealt them there.
 	GlyphMatch = { "Glyph", "Mode", "GlyphOutcome" },
-	-- Each glyph a player takes into a queue.
+	-- Each glyph a player takes into a queue, once per wait (a leave and a join again count nothing more).
 	GlyphPick = { "Glyph", "Mode" },
 } :: { [string]: { string } }
 

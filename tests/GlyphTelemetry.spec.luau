@@ -111,8 +111,8 @@ local function sweep(setup: Server.Services, a: any, b: any)
 	expect(setup.match.getMatch(a).Phase).toBe("Result")
 end
 
--- A queue, run for real.
-local function queue(setup: Server.Services): (player: any, modeId: string) -> ()
+-- A queue, run for real: its JoinQueue, and its LeaveQueue.
+local function queue(setup: Server.Services): ((player: any, modeId: string) -> (), (player: any) -> ())
 	local handlers: { [string]: (...any) -> () } = {}
 	local matchmaking = setup.world.require("src/server/Services/MatchmakingService")
 	matchmaking.Init({
@@ -137,6 +137,8 @@ local function queue(setup: Server.Services): (player: any, modeId: string) -> (
 	matchmaking.Start()
 	return function(player: any, modeId: string)
 		handlers.JoinQueue(player, modeId)
+	end, function(player: any)
+		handlers.LeaveQueue(player)
 	end
 end
 
@@ -261,6 +263,54 @@ describe("GlyphPick, at the entry of a queue (E8-S7)", function()
 		expect(#data.Loadout.Slots).toBeGreaterThan(#fielded)
 		join(developer, DUEL.Id)
 		expect(#sent(setup.world, "GlyphPick")).toBe(#fielded)
+	end)
+
+	-- The Play button pressed over and over: every join counted again would hand one player's loadout the pick
+	-- rate of a whole server.
+	it("counts a loadout once per wait, however often the player leaves and joins again", function()
+		local setup = Server.services()
+		local join, leave = queue(setup)
+		local cleo = setup.world:join(612, "Cleo")
+		local _, fielded = setup.loadout.fielded(setup.data.get(cleo))
+		expect(#fielded).toBeGreaterThan(0)
+		for _ = 1, 4 do
+			join(cleo, TEAM.Id)
+			leave(cleo)
+		end
+		expect(#sent(setup.world, "GlyphPick")).toBe(#fielded)
+		-- Another queue is another pick.
+		join(cleo, DUEL.Id)
+		expect(#sent(setup.world, "GlyphPick")).toBe(2 * #fielded)
+		-- A wait that ran out lets the next one count.
+		setup.world:advance(MatchConfig.Matchmaking.MaxQueueSeconds + MatchConfig.Matchmaking.TickSeconds + 0.5)
+		expect(#sent(setup.world, "QueueTimedOut")).toBe(1)
+		join(cleo, DUEL.Id)
+		expect(#sent(setup.world, "GlyphPick")).toBe(3 * #fielded)
+		-- So does a visit that ended: back in the server, the same loadout is a new pick.
+		setup.world:leave(cleo)
+		setup.world:advance(10)
+		local back = setup.world:join(612, "Cleo")
+		setup.world:advance(1)
+		join(back, DUEL.Id)
+		expect(#sent(setup.world, "GlyphPick")).toBe(4 * #fielded)
+	end)
+
+	it("counts the loadout again for the queue a player joins from the result of a match", function()
+		local setup = Server.services()
+		local join = queue(setup)
+		local a = setup.world:join(613, "Ada")
+		local b = setup.world:join(614, "Bea")
+		local _, fielded = setup.loadout.fielded(setup.data.get(a))
+		join(a, DUEL.Id)
+		join(b, DUEL.Id)
+		setup.world:advance(MatchConfig.Matchmaking.TickSeconds + 0.1)
+		expect(setup.match.isInMatch(a)).toBe(true)
+		setup.world:advance(DUEL.CountdownSeconds + 0.5)
+		sweep(setup, a, b)
+		local before = #sent(setup.world, "GlyphPick")
+		join(a, DUEL.Id)
+		expect(setup.match.isInMatch(a)).toBe(false)
+		expect(#sent(setup.world, "GlyphPick") - before).toBe(#fielded)
 	end)
 end)
 

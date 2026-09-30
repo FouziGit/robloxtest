@@ -140,7 +140,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 
 **Où lire l'équilibre des 28 glyphes (E8-S7, pour le tableau de bord de E8-S6).** Creator Dashboard, l'expérience, **Analytics → Custom Events**, page **Explore** (le chemin exact des menus est à confirmer à la première capture sur Vellum-Test) :
 
-- **Taux de choix** : événement `GlyphPick`, agrégation *Count*, ventilé par `CustomField01` (le glyphe), filtré sur `CustomField02` (le mode) : la part de chaque glyphe dans les entrées en file du mode.
+- **Taux de choix** : événement `GlyphPick`, agrégation *Count*, ventilé par `CustomField01` (le glyphe), filtré sur `CustomField02` (le mode) : la part de chaque glyphe dans les entrées en file du mode, une par attente : quitter et rejoindre la file avec le même équipement ne recompte rien avant un match ou une file expirée (D-XXXh).
 - **Taux de victoire** : événement `GlyphMatch`, agrégation *Count*, ventilé par `CustomField01` puis `CustomField03` : `Win` / (`Win` + `Loss`) pour chaque glyphe, filtré sur le mode.
 - **Dégâts** : événement `GlyphMatch`, agrégation *Average value*, ventilé par `CustomField01` : les dégâts moyens d'un glyphe dans un match où il a été lancé (*Sum value* pour le total).
 

@@ -13,7 +13,8 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 local BALANCE = 20000
 local PLAYER_ID = 7
 
-type Outcome = "Grant" | "Refuse" | "Throw"
+-- "Delivered": the grant writes the item and throws after, the way a failure past the write would.
+type Outcome = "Grant" | "Refuse" | "Throw" | "Delivered"
 type Fixture = {
 	data: any,
 	toasts: { string },
@@ -68,6 +69,9 @@ local function setup(userId: number): Fixture
 					return false
 				end
 				table.insert(data.Cosmetics.Owned, cosmeticId)
+				if outcome == "Delivered" then
+					error("CosmeticService broke after the write")
+				end
 				return true
 			end,
 		},
@@ -108,6 +112,14 @@ describe("a Folios purchase in the shop", function()
 		fixture.buy("Throw")
 		expect(fixture.data.Currency.Folios).toBe(BALANCE)
 		expect(fixture.toasts).toEqual({ "purchase.failed" })
+	end)
+
+	it("keeps the debit when the grant throws after writing the item: never the item and the Folios both", function()
+		local fixture = setup(PLAYER_ID)
+		fixture.buy("Delivered")
+		expect(fixture.data.Cosmetics.Owned).toEqual({ fixture.item })
+		expect(fixture.data.Currency.Folios).toBe(BALANCE - fixture.price)
+		expect(fixture.toasts).toEqual({ "shop.purchased" })
 	end)
 
 	it("pays a VIP back what was taken, not the VIP rate a reward is paid at", function()

@@ -14,6 +14,9 @@ export type Options = {
 	-- Seconds before the client hears the servers' clock: until then GetServerTimeNow() is 0, as the engine
 	-- answers a client that has just started.
 	ClockHeardAfter: number?,
+	-- What the controllers read their words through (Localize): by default each key as itself, in a language
+	-- that never changes.
+	Localize: any?,
 }
 
 export type Fixture = {
@@ -22,6 +25,8 @@ export type Fixture = {
 	remote: (name: string, ...any) -> (),
 	-- The match the player is in, or nil.
 	match: (snapshot: any) -> (),
+	-- The server's queue snapshot for this player, as QueueChanged brings it.
+	queue: (snapshot: any) -> (),
 	-- The HUD's own ScreenGui.
 	screen: any,
 	-- The hub's meta cluster.
@@ -94,25 +99,30 @@ function Hud.build(options: Options?): Fixture
 		end,
 		fire = function() end,
 	}
-	local localize = {
-		t = function(key: string): string
-			return key
-		end,
-		resolveParams = function(params: any): any
-			return params
-		end,
-	}
+	local localize = if options ~= nil and options.Localize ~= nil
+		then options.Localize
+		else {
+			t = function(key: string): string
+				return key
+			end,
+			resolveParams = function(params: any): any
+				return params
+			end,
+			Changed = signal(),
+		}
 	local sound = { play = function() end, wantMusic = function() end }
 	local matchChanged = signal()
+	local queueChanged = signal()
 	local current: any = nil
+	local waiting: any = { Queued = false, WaitedSeconds = 0 }
 	local matchController = {
 		MatchChanged = matchChanged,
-		QueueChanged = signal(),
+		QueueChanged = queueChanged,
 		getMatch = function(): any
 			return current
 		end,
 		getQueue = function(): any
-			return { Queued = false, WaitedSeconds = 0 }
+			return waiting
 		end,
 		leaveQueue = function() end,
 	}
@@ -189,6 +199,10 @@ function Hud.build(options: Options?): Fixture
 		match = function(snapshot: any)
 			current = snapshot
 			matchChanged:Fire(snapshot)
+		end,
+		queue = function(snapshot: any)
+			waiting = snapshot
+			queueChanged:Fire(snapshot)
 		end,
 		screen = world.playerGui:FindFirstChild("Hud"),
 		cluster = world.playerGui:FindFirstChild("MetaCluster", true),

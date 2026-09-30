@@ -26,6 +26,7 @@ local GlyphService = require(Services.GlyphService)
 local HubService = require(Services.HubService)
 local LeaderboardService = require(Services.LeaderboardService)
 local LoadoutService = require(Services.LoadoutService)
+local LocaleService = require(Services.LocaleService)
 local Log = require(Shared.Util.Log)
 local MatchService = require(Services.MatchService)
 local MatchmakingService = require(Services.MatchmakingService)
@@ -60,6 +61,7 @@ local registry = RemoteRegistry.create(
 
 local deps = {
 	Registry = registry,
+	Locale = LocaleService,
 	DataService = DataService,
 	AntiCheat = AntiCheatService,
 	Notify = NotifyService,
@@ -97,6 +99,8 @@ local ordered: { Entry } = {
 	-- dummy ring from the first SpawnLocation in the Workspace.
 	{ Name = "HubService", Service = HubService },
 	{ Name = "ArenaService", Service = ArenaService },
+	-- Before the two services that kick: a kick's reason is written in the player's language.
+	{ Name = "LocaleService", Service = LocaleService },
 	{ Name = "DataService", Service = DataService },
 	{ Name = "AntiCheatService", Service = AntiCheatService },
 	{ Name = "NotifyService", Service = NotifyService },

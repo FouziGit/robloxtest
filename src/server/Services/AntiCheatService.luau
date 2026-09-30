@@ -49,6 +49,8 @@ local AntiCheatService = {}
 
 -- Strike timestamps (os.clock) per player and per kind, oldest first, pruned to the abuse window.
 local strikes: { [Player]: { [string]: { number } } } = {}
+-- The language each player reads a kick's reason in (LocaleService).
+local locale: { of: (player: Player) -> string }
 
 local function thresholdFor(kind: StrikeKind): number
 	if kind == "RateLimit" then
@@ -99,13 +101,14 @@ function AntiCheatService.strike(player: Player, source: string, reason: string,
 			strikeKind,
 			GameConfig.Server.AbuseWindowSeconds
 		)
-		player:Kick(Strings.t("kick.abuse", nil, Strings.localeFromId(player.LocaleId)))
+		player:Kick(Strings.t("kick.abuse", nil, locale.of(player)))
 	end
 end
 
 -- Strikes may arrive before Start (the registry reporter is wired first), so the cleanup hook is
 -- connected as soon as the service is initialised.
-function AntiCheatService.Init(_deps: Deps)
+function AntiCheatService.Init(deps: Deps)
+	locale = deps.Locale
 	Players.PlayerRemoving:Connect(function(player: Player)
 		strikes[player] = nil
 	end)

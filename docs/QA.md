@@ -31,7 +31,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. Si un numéro ne tombe plus
 ## 1. Démarrage et build
 
 1. **Les portes qualité.** Lancer `./scripts/check.sh`. Attendu : la dernière ligne est `✔ all quality gates green` (`scripts/check.sh:92`). Un échec ici arrête la passe.
-2. **Le serveur démarre.** `open build/Vellum.rbxl`, puis **Play**. Attendu : `[Bootstrap] Vellum v2.0.0 ready: 28 services started` (28 entrées dans la table `ordered` de `Bootstrap.server.luau` : les 26 du commit `c0b6687`, plus `BattlegroundService` et `PortalService` ; la version vient de `GameConfig.luau:6`). Si le nombre est plus bas, la ligne rouge juste au-dessus nomme le service fautif.
+2. **Le serveur démarre.** `open build/Vellum.rbxl`, puis **Play**. Attendu : `[Bootstrap] Vellum v2.0.0 ready: 29 services started` (29 entrées dans la table `ordered` de `Bootstrap.server.luau` : les 26 du commit `c0b6687`, plus `BattlegroundService`, `PortalService` et `LocaleService` ; la version vient de `GameConfig.luau:6`). Si le nombre est plus bas, la ligne rouge juste au-dessus nomme le service fautif.
 3. **Les identifiants d'achat.** Attendu : `[MonetizationService] started (4 passes, 10 products, 0 missing ids)` et aucune ligne `missing id` (`MonetizationService/init.luau:71-77,96`). Au commit `c0b6687`, les 14 identifiants valent encore `0` et la ligne dit `14 missing ids`. C'est normal tant que le §3 de `docs/PUBLISH.md` n'est pas fait.
 4. **Le client est complet.** Dans l'Output, filtre Client. Attendu : aucune ligne `[VfxController] no renderer for …` (`VfxController.luau:231`) et aucune liste de sons manquants de `SoundController` (`SoundController.luau:301-303`).
 5. **Un seul point d'apparition.** Attendu : aucune ligne `[HubService] foreign SpawnLocation` (`HubService.luau:422-429`).
@@ -201,12 +201,13 @@ Commencer dans Studio avec **Test → Device** (l'émulateur), puis sur un vrai 
 
 ## 10. Localisation EN/FR
 
-1. **Français.** Dans Studio, **Test → Player Emulator**, langue `fr-fr`. Attendu : chaque écran, chaque toast et chaque panneau du hub est en français, et le client écrit `[Localize] locale fr` (`Localize.luau:48-53` ; `Strings.localeFromId`, `Strings.luau:604-615`).
-2. **Autre langue.** Avec `es-es`. Attendu : tout est en anglais (`Strings.luau:10-11`).
+1. **Français.** Dans Studio, **Test → Player Emulator**, langue `fr-fr`. Attendu : chaque écran, chaque toast et chaque panneau du hub est en français, et le client écrit `[Localize] locale fr` (`Localize.Start`, puis `[Localize] locale fr (translator fr-fr)` si le Translator répond autre chose que la langue de l'application ; `Strings.localeFromId`).
+2. **Autre langue.** Avec `es-es`, puis `pt-br`. Attendu : tout est en anglais (`Strings.Locales`, D-XXX), aucune phrase traduite par la machine.
 3. **Textes longs.** En français, parcourir la boutique, les quêtes, l'écran de résultat et les options. Attendu : aucun texte coupé ni débordant. Le §5.4 de `docs/STUDIO_SETUP.md` ne vérifie que les boutons tactiles.
-4. **Message d'expulsion.** Refaire le §2.4 avec un compte réglé en français. Attendu : le message est en français (`DataService.luau:171`).
+4. **Message d'expulsion.** Refaire le §2.4 avec un compte réglé en français. Attendu : le message est en français (`LocaleService.of`, lu par `DataService` et `AntiCheatService`).
 5. **Portes.** Attendu : `check-strings` et `export-strings --check` passent (tous deux dans `scripts/check.sh`).
-6. **Après publication.** Refaire le §10.1 sur la place publiée. Si la traduction automatique de Roblox est active, vérifier qu'elle ne réécrit pas un texte déjà traduit (`docs/PUBLISH.md` §7.3).
+6. **Après publication.** Refaire le §10.1 sur la place publiée. Vérifier dans le tableau de bord que la capture automatique de texte et la traduction automatique sont coupées (`docs/PUBLISH.md` §7.3, D-XXX).
+7. **Changer de langue en jeu (à faire dans Studio, Lune ne le voit pas).** En jeu, **Échap → Paramètres → Langue**, passer de l'anglais au français puis revenir, une fois au hub (file en cours), une fois en duel, une fois un écran ouvert (Boutique, onglet Aujourd'hui) si la langue se change sans fermer le menu du jeu. Attendu, sans rejoindre : la barre rapide, la grappe du hub (premiers pas, Folios groupés « 2 480 » / « 2,480 »), la bande du match, celle du Champ de bataille (« 1 Faussaire debout · 2 vaincus »), celle de l'Effacement, la plaque de spectateur, les disques tactiles, le panneau du hub, les panneaux des portails, les titres au-dessus des têtes et la marque du verrou changent de langue ; l'écran ouvert est reconstruit à la même place ; les toasts déjà affichés gardent leurs mots. Le client écrit `[Localize] locale fr (translator fr-fr)` (`tests/LiveLocale.spec.luau` joue tout cela hors du moteur, sauf la bande du portail, qui remplit une interpolation).
 
 ## 11. Anti-triche et remotes
 

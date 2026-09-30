@@ -16,7 +16,8 @@
 --     is reborn in the hub) or the fight closes (BossChanged nil: its end sends whoever stands in the arena
 --     home). CosmeticController quiets every aura on this screen while it holds, with a ranked match (D-148).
 -- Both bands are ink plates in the HUD's top-centre column (HudController.topStack, D-147) and grow into place like
--- the match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop.
+-- the match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop. Their
+-- words are written from the last packet, again when the player's language changes (Localize.Changed).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -94,6 +95,10 @@ local placeLine: TextLabel
 local placeLineScale: UIScale
 -- The Forgers this member had defeated at the last packet: the count punches when it moves.
 local lastDefeated: number? = nil
+-- What the bands say, from the last packets: where the circle leads, and the Battleground's two counts.
+local portalZone: PortalConfig.ZoneDef? = nil
+local standingCount = 0
+local defeatedCount = 0
 local member = false
 -- In the Erasure's arena, as far as its gate and its fight say, and the fight's last phase heard.
 local inArena = false
@@ -239,6 +244,28 @@ local function startFill(seconds: number)
 	tween:Play()
 end
 
+-- The words of the portal band: where the circle the player stands in leads.
+local function wordPortal()
+	local zone = portalZone
+	if zone ~= nil then
+		portalTitle.Text = localize.t("portal.entering", { place = localize.t(zone.NameKey) })
+	end
+end
+
+-- The words of the place band. Each count in its own words: "1 Forger standing", "2 vaincus".
+local function wordPlace()
+	placeTitle.Text = localize.t("portal.battleground.name")
+	placeLine.Text = localize.t("battleground.status", {
+		standing = localize.t("battleground.standing", { standing = standingCount }),
+		defeated = localize.t("battleground.defeated", { defeated = defeatedCount }),
+	})
+end
+
+local function relabel()
+	wordPortal()
+	wordPlace()
+end
+
 -- The circle the player stands in and how long they must stay (Types.PortalSnapshot), or nil once they step
 -- out or set off.
 local function onPortalChanged(payload: any)
@@ -256,7 +283,8 @@ local function onPortalChanged(payload: any)
 	end
 	local snapshot = payload :: Types.PortalSnapshot
 	local seconds = if finite(snapshot.Seconds) and snapshot.Seconds > 0 then snapshot.Seconds else zone.DwellSeconds
-	portalTitle.Text = localize.t("portal.entering", { place = localize.t(zone.NameKey) })
+	portalZone = zone
+	wordPortal()
 	startFill(seconds)
 	grow(portalBand, portalScale)
 end
@@ -283,14 +311,10 @@ local function onBattlegroundChanged(payload: any)
 		return
 	end
 	local snapshot = payload :: Types.BattlegroundSnapshot
-	local standing = math.max(0, math.floor(snapshot.Standing))
 	local defeated = math.max(0, math.floor(snapshot.Defeated))
-	placeTitle.Text = localize.t("portal.battleground.name")
-	-- Each count in its own words: "1 Forger standing", "2 vaincus".
-	placeLine.Text = localize.t("battleground.status", {
-		standing = localize.t("battleground.standing", { standing = standing }),
-		defeated = localize.t("battleground.defeated", { defeated = defeated }),
-	})
+	standingCount = math.max(0, math.floor(snapshot.Standing))
+	defeatedCount = defeated
+	wordPlace()
 	-- A Forger this member helped take down: the count punches. Not on the band's first packet.
 	if not placeBand.Visible then
 		lastDefeated = nil
@@ -381,6 +405,7 @@ function TravelController.Start()
 	end
 	remoteClient.on("PortalChanged", onPortalChanged)
 	remoteClient.on("BattlegroundChanged", onBattlegroundChanged)
+	localize.Changed:Connect(relabel)
 	log.info("started")
 end
 

@@ -81,10 +81,13 @@ describe("the portal band", function()
 			"if payload == nil then stopFill() portalBand.Visible = false return end",
 			"then PortalConfig.Zones[payload.Id]",
 			"local seconds = if finite(snapshot.Seconds) and snapshot.Seconds > 0 then snapshot.Seconds else zone.DwellSeconds",
-			'portalTitle.Text = localize.t("portal.entering", { place = localize.t(zone.NameKey) })',
-			"startFill(seconds)",
+			"portalZone = zone wordPortal() startFill(seconds)",
 			"grow(portalBand, portalScale)",
 		}, "onPortalChanged")
+		requireAll(body(TRAVEL, "local function wordPortal("), {
+			"local zone = portalZone if zone ~= nil then",
+			'portalTitle.Text = localize.t("portal.entering", { place = localize.t(zone.NameKey) })',
+		}, "wordPortal")
 		-- One tween from empty to full over exactly those seconds, cancelled by the next packet: no loop.
 		requireAll(body(TRAVEL, "local function startFill("), {
 			"stopFill() portalFill.Size = UDim2.fromScale(0, 1)",
@@ -132,14 +135,17 @@ describe("the Battleground band", function()
 			local changed = body(TRAVEL, "local function onBattlegroundChanged(")
 			requireAll(changed, {
 				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) refreshFight() end local hud = hudController if hud ~= nil then hud.leftPlace(BATTLEGROUND_ZONE) end return end",
-				'placeTitle.Text = localize.t("portal.battleground.name")',
-				"local standing = math.max(0, math.floor(snapshot.Standing))",
 				"local defeated = math.max(0, math.floor(snapshot.Defeated))",
-				'placeLine.Text = localize.t("battleground.status", {',
-				'standing = localize.t("battleground.standing", { standing = standing }),',
-				'defeated = localize.t("battleground.defeated", { defeated = defeated }),',
+				"standingCount = math.max(0, math.floor(snapshot.Standing))",
+				"defeatedCount = defeated wordPlace()",
 				"if not member then member = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
 			}, "onBattlegroundChanged")
+			requireAll(body(TRAVEL, "local function wordPlace("), {
+				'placeTitle.Text = localize.t("portal.battleground.name")',
+				'placeLine.Text = localize.t("battleground.status", {',
+				'standing = localize.t("battleground.standing", { standing = standingCount }),',
+				'defeated = localize.t("battleground.defeated", { defeated = defeatedCount }),',
+			}, "wordPlace")
 			local travel = code(TRAVEL)
 			expect(travel:find('local MUSIC_SOURCE = "Battleground"', 1, true)).never.toBe(nil)
 			expect(travel:find('local MUSIC_ID = "Match"', 1, true)).never.toBe(nil)

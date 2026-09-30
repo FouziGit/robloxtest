@@ -14,7 +14,8 @@
 -- button beside the key that opens it, badged with what waits to be claimed; in a fight only the Menu, a small
 -- word-only pill beside its key, D-179), on touch the Play sticker left of
 -- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
--- visible text goes through Localize; server Notify payloads carry Strings keys, never text.
+-- visible text goes through Localize; server Notify payloads carry Strings keys, never text. When the player's
+-- language changes (Localize.Changed) every word it holds is written again (relabel).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -162,6 +163,7 @@ local QUICK_SCREENS: { { Screen: string, NameKey: string, Variant: Button.Varian
 local QUICK_ICONS: { [string]: Icon.Name } = { Play = "Play", Shop = "Coin", Leaderboard = "Podium" }
 -- On a phone the queue is one tap away too: a Play sticker left of the Menu disc, in the hub (D-147).
 local PLAY_SCREEN = "Play"
+local PLAY_STICKER_KEY = "queue.title"
 local PLAY_STICKER_HEIGHT = 44
 local PLAY_STICKER_GAP = 8
 -- Order inside the top-centre column (see buildTopStack): the match band this module draws, and the three bands
@@ -351,7 +353,7 @@ end
 local function buildPlaySticker(parent: Instance)
 	local sticker = Button.new({
 		Name = "PlaySticker",
-		Text = localize.t("queue.title"),
+		Text = localize.t(PLAY_STICKER_KEY),
 		Variant = "Primary",
 		Icon = "Play",
 		Size = UDim2.fromOffset(0, PLAY_STICKER_HEIGHT),
@@ -914,6 +916,20 @@ function HudController.leftPlace(zoneId: string)
 	end
 end
 
+-- The player's language changed (Localize.Changed): every word the HUD holds is written again in it. What is drawn
+-- from state is drawn again from that state -- the profile, the match -- and a message already on its way keeps
+-- the words it came with.
+local function relabel()
+	local sticker = playSticker
+	if sticker ~= nil then
+		sticker:SetText(localize.t(PLAY_STICKER_KEY))
+	end
+	metaCluster:Relabel()
+	spectatePlate:Relabel()
+	refreshProfile("*")
+	scoreBand:Set(lastMatch)
+end
+
 function HudController.Init(deps: Deps)
 	localize = deps.Localize
 	clientData = deps.ClientData
@@ -972,6 +988,7 @@ function HudController.Start()
 		refreshPrefs(clientData.get())
 	end)
 	refreshPrefs(clientData.get())
+	localize.Changed:Connect(relabel)
 	log.info("started")
 end
 

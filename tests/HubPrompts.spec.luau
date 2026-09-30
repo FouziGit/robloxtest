@@ -8,14 +8,15 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local PortalConfig = require("../src/shared/Config/PortalConfig")
+local Strings = require("../src/shared/Strings")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 -- The controller started on a hub as far as the shop kiosk, with `gates` standing in the Workspace beside it and
--- `signs` tagged as gates' signs. Returns the world, the prompt service, the kiosk's prompt, the PlayerGui, and the
--- signals that add and remove a sign's tag.
-local function setup(gates: { any }?, signs: { any }?)
+-- `signs` tagged as gates' signs, its words read through `localize` (each key as itself by default). Returns the
+-- world, the prompt service, the kiosk's prompt, the PlayerGui, and the signals that add and remove a sign's tag.
+local function setup(gates: { any }?, signs: { any }?, localize: any?)
 	local world: any
 	local player = Engine.instance("Player")
 	local playerGui = Engine.instance("PlayerGui", player)
@@ -43,10 +44,11 @@ local function setup(gates: { any }?, signs: { any }?)
 	player.Parent = world.game
 	local controller = world.require("src/client/Controllers/HubSignsController")
 	controller.Init({
-		Localize = {
+		Localize = localize or {
 			t = function(key: string): string
 				return key
 			end,
+			Changed = Engine.signal(),
 		},
 		MenuController = {
 			isOpen = function(): boolean
@@ -169,6 +171,38 @@ describe("a gate's sign, run", function()
 		nowhere.Parent = world.workspace
 		tags.Added:Fire(lost)
 		expect(#drawnOn(playerGui, lost)).toBe(0)
+	end)
+end)
+
+describe("the hub's words, when the language changes", function()
+	it("are written again in the new one: the kiosk's prompt and every gate's sign", function()
+		local state = { Locale = "en" }
+		local localize = {
+			t = function(key: string, params: { [string]: any }?): string
+				return Strings.t(key, params, state.Locale)
+			end,
+			Changed = Engine.signal(),
+		}
+		local gate, sign = gateSign("BossPortal", "WorldBoss")
+		local world, _prompts, prompt, playerGui = setup({ gate }, { sign }, localize)
+		expect(prompt.ActionText).toBe(Strings.t("hub.prompt.open", nil, "en"))
+		expect(prompt.ObjectText).toBe(Strings.t("shop.title", nil, "en"))
+		local zone = PortalConfig.Zones.WorldBoss
+		expect(drawnOn(playerGui, sign)[1]:FindFirstChild("Name", true).Text).toBe(Strings.t(zone.NameKey, nil, "en"))
+		local panel = prompt.Parent
+
+		state.Locale = "fr"
+		localize.Changed:Fire("fr")
+		world:advance(0.1)
+		expect(Engine.destroyed(prompt)).toBe(true)
+		local again = panel:FindFirstChildOfClass("ProximityPrompt")
+		assert(again ~= nil, "the kiosk lost its prompt")
+		expect(again.ActionText).toBe(Strings.t("hub.prompt.open", nil, "fr"))
+		expect(again.ObjectText).toBe(Strings.t("shop.title", nil, "fr"))
+		local drawn = drawnOn(playerGui, sign)
+		expect(#drawn).toBe(1)
+		expect(drawn[1]:FindFirstChild("Name", true).Text).toBe(Strings.t(zone.NameKey, nil, "fr"))
+		expect(drawn[1]:FindFirstChild("Hint", true).Text).toBe(Strings.t(zone.HintKey, nil, "fr"))
 	end)
 end)
 

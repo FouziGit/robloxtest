@@ -89,6 +89,8 @@ type Tracked = {
 
 local ATTRIBUTE_PREFIX = "Cosmetic"
 local SLOTS = { "Aura", "Trail", "Title" }
+-- The slot whose look is words, the only one a language change redraws.
+local TITLE_SLOT = "Title"
 -- The trunk of an R15 body and of an R6 one: the parts a body's width is read from.
 local TRUNK = { "UpperTorso", "LowerTorso", "Torso" }
 -- Below this horizontal speed a character is standing, and a trail's particles are not laid.
@@ -371,7 +373,7 @@ local function wear(entry: Tracked, slot: string)
 		worn = buildStyles(CosmeticConfig.AuraStyles, item.Look, entry, false)
 	elseif slot == "Trail" then
 		worn = buildStyles(CosmeticConfig.TrailStyles, item.Look, entry, true)
-	elseif slot == "Title" then
+	elseif slot == TITLE_SLOT then
 		worn = buildTitle(item.Look, entry)
 	end
 	if worn ~= nil then
@@ -494,6 +496,13 @@ local function rebuildAll()
 	end
 end
 
+-- The player's language changed: the title over every head is written again in it.
+local function rewordTitles()
+	for _, entry in pairs(tracked) do
+		wear(entry, TITLE_SLOT)
+	end
+end
+
 -- The local player is fighting while a match holds them or a portal has put them where others fight.
 local function refreshFight()
 	local now = matchController.getMatch() ~= nil or travelController.inFight()
@@ -519,6 +528,7 @@ function CosmeticController.Start()
 	quality.Changed:Connect(rebuildAll)
 	matchController.MatchChanged:Connect(refreshFight)
 	travelController.FightChanged:Connect(refreshFight)
+	localize.Changed:Connect(rewordTitles)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (%d cosmetics)", #CosmeticConfig.Items)
 end

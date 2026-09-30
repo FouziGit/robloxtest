@@ -34,6 +34,8 @@ export type LockMarker = {
 	-- A press found nothing to lock.
 	ShowMiss: (self: LockMarker) -> (),
 	Hide: (self: LockMarker) -> (),
+	-- The player's language changed: the miss's word is written again in it (the target's, by SetTarget).
+	Relabel: (self: LockMarker) -> (),
 }
 
 local LockMarker = {}
@@ -338,6 +340,10 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		end)
 	end
 
+	local function relabel(_self: LockMarker)
+		missLabel.Text = localize.t(MISS_KEY)
+	end
+
 	return {
 		Show = show,
 		SetTarget = setTarget,
@@ -345,6 +351,7 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		SetOffscreen = setOffscreen,
 		ShowMiss = showMiss,
 		Hide = hide,
+		Relabel = relabel,
 	}
 end
 

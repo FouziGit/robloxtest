@@ -761,6 +761,8 @@ function InputController.Start()
 		end
 	end)
 	Players.LocalPlayer.CharacterAdded:Connect(clearDash)
+	-- The discs' short words, again in the player's language when it changes.
+	localize.Changed:Connect(relayoutTouch)
 	applyBindings()
 	log.info("started (%d actions, touch %s)", #boundActions, tostring(UserInputService.TouchEnabled))
 end

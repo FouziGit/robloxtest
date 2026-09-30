@@ -63,6 +63,8 @@ DataService.ProfileReleased = Signal.new() -- (player: Player)
 DataService.BeforeRelease = Signal.new() -- (player: Player, data: ProfileData)
 
 local registry -- RemoteRegistry
+-- The language each player reads a kick's reason in (LocaleService).
+local locale: { of: (player: Player) -> string }
 local store
 local profiles: { [Player]: any } = {} -- ProfileStore Profile objects
 local loadedSignals: { [Player]: { any } } = {}
@@ -177,7 +179,7 @@ end
 
 local function kick(player: Player, key: string)
 	if player.Parent == Players then
-		player:Kick(Strings.t(key, nil, Strings.localeFromId(player.LocaleId)))
+		player:Kick(Strings.t(key, nil, locale.of(player)))
 	end
 end
 
@@ -341,8 +343,9 @@ end
 -- Public API
 ----------------------------------------------------------------
 
-function DataService.Init(deps: { Registry: any })
+function DataService.Init(deps: { Registry: any, Locale: any })
 	registry = deps.Registry
+	locale = deps.Locale
 	store = ProfileStore.New(STORE_NAME, storeTemplate())
 	if RunService:IsStudio() and ProfileStore.DataStoreState ~= "Access" then
 		log.info("DataStore state: %s (Studio without API access saves nothing)", ProfileStore.DataStoreState)

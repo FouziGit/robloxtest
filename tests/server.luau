@@ -337,6 +337,8 @@ export type Services = {
 	currency: any,
 	shop: any,
 	analytics: any,
+	-- The stand-in for CombatService: fire its Damaged to land a hit the way CombatService reports one.
+	combat: any,
 	-- The handler each client remote was given, by remote name.
 	handlers: { [string]: (...any) -> () },
 	-- Where the players stand beyond the hub and the match, as WorldBossService and BattlegroundService would
@@ -550,6 +552,7 @@ function Server.services(): Services
 		currency = currency,
 		shop = shop,
 		analytics = analytics,
+		combat = combat,
 		handlers = handlers,
 		places = places,
 		notices = notices,

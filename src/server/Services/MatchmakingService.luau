@@ -11,7 +11,8 @@
 -- decided here, never sent up.
 --
 -- The dashboards hear of every wait's end (AnalyticsConfig.Events): MatchFormed for each player of a match that
--- formed, QueueTimedOut for each player a queue let go, both with the seconds they waited.
+-- formed, QueueTimedOut for each player a queue let go, both with the seconds they waited; and of every glyph a
+-- player takes into a queue (GlyphPick), the pick rate of the balance telemetry.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,6 +44,9 @@ type MatchApi = {
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
 type WorldBossApi = { isLive: () -> boolean }
+type DataApi = { get: (player: Player) -> Types.ProfileData? }
+-- What a player fields where play pays out: their earned glyphs, cut to the slots they own (D-208).
+type LoadoutApi = { fielded: (data: Types.ProfileData) -> ({ string }, { string }) }
 type AnalyticsApi = {
 	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
 	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
@@ -53,6 +57,8 @@ type Deps = {
 	Ranking: RankingApi,
 	Match: MatchApi,
 	WorldBoss: WorldBossApi,
+	DataService: DataApi,
+	Loadout: LoadoutApi,
 	Analytics: AnalyticsApi,
 }
 
@@ -67,6 +73,8 @@ local notify: NotifyApi
 local ranking: RankingApi
 local match: MatchApi
 local worldBoss: WorldBossApi
+local dataService: DataApi
+local loadout: LoadoutApi
 local analytics: AnalyticsApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
@@ -94,6 +102,18 @@ end
 -- Whole seconds since `joinedAt`, for the dashboards.
 local function waited(joinedAt: number?, now: number): number
 	return math.floor(now - (joinedAt or now) + 0.5)
+end
+
+-- Each glyph `player` takes into the `modeId` queue, for the dashboards: the loadout they will play the match with.
+local function tellPicks(player: Player, modeId: string)
+	local data = dataService.get(player)
+	if data == nil then
+		return
+	end
+	local _, slots = loadout.fielded(data)
+	for _, glyphId in ipairs(slots) do
+		analytics.custom(player, "GlyphPick", 1, analytics.fields(glyphId, modeId))
+	end
 end
 
 -- The queue holding `userId`, if any.
@@ -200,6 +220,7 @@ local function onJoinQueue(player: Player, modeId: string)
 	end
 	notify.send(player, "queue.joined", { mode = def.NameKey }, "Success")
 	push(player, now)
+	tellPicks(player, modeId)
 	log.info("%s queued for %s (rating %d, %d waiting)", player.Name, modeId, rating, MatchmakingCore.size(queue))
 end
 
@@ -356,6 +377,8 @@ function MatchmakingService.Init(deps: Deps)
 	ranking = deps.Ranking
 	match = deps.Match
 	worldBoss = deps.WorldBoss
+	dataService = deps.DataService
+	loadout = deps.Loadout
 	analytics = deps.Analytics
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		queues[modeId] = MatchmakingCore.newQueue(modeId)

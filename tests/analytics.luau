@@ -3,6 +3,7 @@
 -- src/server/Services/AnalyticsService to talk to inside a pretend engine (tests/engine.luau). What reaches it is
 -- exactly what would reach Roblox: the per-player budget, the refusals and the transport are the service's own.
 local AnalyticsConfig = require("../src/server/Config/AnalyticsConfig")
+local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 
@@ -79,6 +80,10 @@ function Analytics.domains(): { [string]: { string } }
 		table.insert(domains.PurchaseKey, key)
 	end
 	domains.Mode = table.clone(MatchConfig.ModeOrder)
+	domains.Glyph = {}
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		table.insert(domains.Glyph, glyph.Id)
+	end
 	return domains
 end
 

@@ -101,6 +101,8 @@ AnalyticsConfig.FieldKeys = { "CustomField01", "CustomField02", "CustomField03" 
 AnalyticsConfig.Vocabulary = {
 	PurchaseKind = { "Pass", "Product" },
 	MatchOutcome = { "Win", "Loss", "Draw" },
+	-- A glyph's side of a match: it won, or it did not (a draw is not a win).
+	GlyphOutcome = { "Win", "Loss" },
 	-- Why a match ended with no result: every participant left, the server closed, or its mode could not say.
 	VoidCause = { "Empty", "Closing", "Error" },
 	BossKind = { "Event", "Practice" },
@@ -109,8 +111,9 @@ AnalyticsConfig.Vocabulary = {
 
 -- Every custom event the game sends, by name, with what each of its custom fields holds, CustomField01 first.
 -- A field names a list of Vocabulary above, or one the game's config owns: "Pass" and "Product" (the keys of
--- MonetizationConfig.Passes and .Products), "PurchaseKey" (either of them), "Mode" (MatchConfig.ModeOrder). An
--- event says beside it what its value counts; one that says nothing counts 1.
+-- MonetizationConfig.Passes and .Products), "PurchaseKey" (either of them), "Mode" (MatchConfig.ModeOrder),
+-- "Glyph" (the ids of GlyphConfig.Glyphs). An event says beside it what its value counts; one that says nothing
+-- counts 1.
 AnalyticsConfig.Events = {
 	-- A Robux dialog closed with a purchase, or without one.
 	PromptAccepted = { "PurchaseKind", "PurchaseKey" },
@@ -129,6 +132,11 @@ AnalyticsConfig.Events = {
 	MatchVoided = { "Mode", "VoidCause" },
 	-- A fight against the Erasure over, for each participant still in the server. Value: the seconds it lasted.
 	BossEnded = { "BossKind", "BossOutcome" },
+	-- The balance of the glyphs, in two events and no more. Each glyph a player cast in a match, at its result.
+	-- Value: the damage it dealt them there.
+	GlyphMatch = { "Glyph", "Mode", "GlyphOutcome" },
+	-- Each glyph a player takes into a queue.
+	GlyphPick = { "Glyph", "Mode" },
 } :: { [string]: { string } }
 
 return AnalyticsConfig

@@ -11,7 +11,8 @@
 -- decides who won.
 --
 -- It tells the dashboards how each match went (AnalyticsConfig.Events): MatchEnded for each player at the result,
--- and MatchVoided once for a match that ends with none.
+-- with a GlyphMatch for every glyph they cast in it and the damage it dealt, and MatchVoided once for a match that
+-- ends with none.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -91,7 +92,7 @@ type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: st
 type DamagedSignal = {
 	Connect: (
 		self: DamagedSignal,
-		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string, glyphId: string?) -> ()
 	) -> any,
 }
 type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
@@ -139,6 +140,7 @@ type Active = {
 	Placed: { [Player]: Placement }, -- the body each participant was last placed with, which falls are judged on
 	LeftAt: number, -- os.clock of the latest departure; 0 while nobody left
 	Emptied: boolean, -- ended because every participant was gone, or the server was closing
+	Glyphs: { [number]: { [string]: number } }, -- user id -> each glyph cast in the match -> the damage it dealt
 }
 
 -- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
@@ -403,6 +405,12 @@ local function award(active: Active, result: Types.MatchResult)
 		registry.fire("MatchEnded", player, outcome)
 		local issue = if draw then "Draw" elseif won then "Win" else "Loss"
 		analytics.custom(player, "MatchEnded", seconds, analytics.fields(match.ModeId, issue))
+		local glyphIssue = if won then "Win" else "Loss"
+		local cast: { [string]: number } = active.Glyphs[participant.UserId] or {}
+		for glyphId, damage in pairs(cast) do
+			local dealt = math.floor(damage + 0.5)
+			analytics.custom(player, "GlyphMatch", dealt, analytics.fields(glyphId, match.ModeId, glyphIssue))
+		end
 	end
 end
 
@@ -946,6 +954,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Placed = {},
 		LeftAt = 0,
 		Emptied = false,
+		Glyphs = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -989,12 +998,27 @@ local function counts(glyphId: string): boolean
 	return not GlyphConfig.isUtility(glyphId)
 end
 
+-- The glyphs `userId` fields in `active`, with the damage each dealt: every glyph cast, a wall or a buff too, so
+-- the balance of the whole roster can be read (GlyphMatch).
+local function glyphsOf(active: Active, userId: number): { [string]: number }
+	local glyphs = active.Glyphs[userId]
+	if glyphs == nil then
+		glyphs = {}
+		active.Glyphs[userId] = glyphs
+	end
+	return glyphs
+end
+
 local function onCast(player: Player, glyphId: string, _chain: number)
 	local active = activeByUserId[player.UserId]
-	if active == nil or active.Match.Phase == "Result" or not counts(glyphId) then
+	if active == nil or active.Match.Phase == "Result" or GlyphConfig.ById[glyphId] == nil then
 		return
 	end
-	statsOf(active, player.UserId).Casts += 1
+	local glyphs = glyphsOf(active, player.UserId)
+	glyphs[glyphId] = glyphs[glyphId] or 0
+	if counts(glyphId) then
+		statsOf(active, player.UserId).Casts += 1
+	end
 end
 
 -- No phase guard: a zone that resolves after the last round ended belongs to the cast that was counted
@@ -1007,7 +1031,7 @@ local function onCastLanded(player: Player, glyphId: string, hits: number)
 	statsOf(active, player.UserId).Hits += 1
 end
 
-local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
+local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string, glyphId: string?)
 	local active = activeByUserId[sourceUserId]
 	if active == nil or active.Match.Phase == "Result" then
 		return
@@ -1020,6 +1044,10 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	end
 	statsOf(active, sourceUserId).DamageDealt += applied
 	statsOf(active, target.UserId).DamageTaken += applied
+	if glyphId ~= nil and GlyphConfig.ById[glyphId] ~= nil then
+		local glyphs = glyphsOf(active, sourceUserId)
+		glyphs[glyphId] = (glyphs[glyphId] or 0) + applied
+	end
 end
 
 -- Lets one participant go while the match is still winding down on its result screen, which is what makes

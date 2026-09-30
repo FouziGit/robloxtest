@@ -124,6 +124,28 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 
 **Ce que reçoit le tableau Économie.** Chaque Folio gagné ou dépensé part une fois, de `CurrencyService`, avec la raison qu'on lui a donnée : `AnalyticsConfig.economyOf` en tire le type de transaction de Roblox et l'article. Les récompenses de jeu (matchs, KO, épreuves, Faussaires, Effacement, quêtes, pass, saison) sont `Gameplay`, la série quotidienne, la première victoire du jour et le bonus Premium `TimedReward`, les packs de Folios et ce qu'un reçu paie à la place de ce qu'il ne peut plus livrer `IAP` (article : le produit), un achat de la boutique `Shop` (article : l'objet, et le remboursement d'une attribution ratée repart en source sous le même article). Un achat du compte développeur ne déplace aucun Folio et n'envoie rien (D-129). `tests/EconomyEvents.spec.luau` liste chaque appel qui déplace des Folios et refuse celui qui n'y est pas.
 
+**Les événements personnalisés.** Onze noms, tous dans `AnalyticsConfig.Events` (Roblox en garde 100), chacun avec ses champs `CustomField01` à `03` en texte ; `AnalyticsService` refuse tout autre nom ou toute autre clé.
+
+| Événement | Champs (01, 02, 03) | Valeur | Pour lire |
+|---|---|---|---|
+| `PromptAccepted`, `PromptDeclined` | `Pass` ou `Product`, la clé | 1 | la conversion de chaque fenêtre d'achat |
+| `ProductPurchased`, `PassPurchased` | la clé | le prix en Robux | les revenus par offre |
+| `MatchFormed` | le mode | les secondes d'attente | l'attente avant un match |
+| `QueueTimedOut` | le mode | les secondes d'attente | les attentes abandonnées |
+| `MatchEnded` | le mode, `Win` / `Loss` / `Draw` | les secondes du match | les matchs par session, leur durée |
+| `MatchVoided` | le mode, `Empty` / `Closing` / `Error` | les secondes jouées | les matchs perdus pour tout le monde |
+| `BossEnded` | `Event` / `Practice`, `Defeated` / `Expired` | les secondes du combat | combien de fois l'Effacement tombe |
+| `GlyphPick` | le glyphe, le mode | 1 | le taux de choix |
+| `GlyphMatch` | le glyphe, le mode, `Win` / `Loss` (un nul n'est pas une victoire) | les dégâts du glyphe dans le match | le taux de victoire et les dégâts |
+
+**Où lire l'équilibre des 28 glyphes (E8-S7, pour le tableau de bord de E8-S6).** Creator Dashboard, l'expérience, **Analytics → Custom Events**, page **Explore** (le chemin exact des menus est à confirmer à la première capture sur Vellum-Test) :
+
+- **Taux de choix** : événement `GlyphPick`, agrégation *Count*, ventilé par `CustomField01` (le glyphe), filtré sur `CustomField02` (le mode) : la part de chaque glyphe dans les entrées en file du mode.
+- **Taux de victoire** : événement `GlyphMatch`, agrégation *Count*, ventilé par `CustomField01` puis `CustomField03` : `Win` / (`Win` + `Loss`) pour chaque glyphe, filtré sur le mode.
+- **Dégâts** : événement `GlyphMatch`, agrégation *Average value*, ventilé par `CustomField01` : les dégâts moyens d'un glyphe dans un match où il a été lancé (*Sum value* pour le total).
+
+Au plus 28 × 2 × 2 = 112 combinaisons de champs pour `GlyphMatch` et 56 pour `GlyphPick`, loin des 8 000 au-delà desquels Roblox regroupe le reste en « Other » (`tests/GlyphTelemetry.spec.luau`). Les événements ne partent que d'un serveur publié et mettent jusqu'à 24 h à paraître.
+
 ## 9. Raisonner en dollars (DevEx)
 
 - Roblox retient 30 % sur les game passes / developer products : le développeur reçoit 70 % des Robux.

@@ -88,6 +88,8 @@ local function queue(setup: Server.Services): Queue
 				return false
 			end,
 		},
+		DataService = setup.data,
+		Loadout = setup.loadout,
 		Analytics = setup.analytics,
 	})
 	matchmaking.Start()

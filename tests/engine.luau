@@ -904,6 +904,12 @@ function Engine.world(options: Options?): World
 		UserSettings = function(): any
 			return userSettings
 		end,
+		-- A ray's filter, as a module builds one at load (Feel's camera sight): its fields, and nothing casts it.
+		RaycastParams = {
+			new = function(): any
+				return {}
+			end,
+		},
 	}
 
 	local function load(path: string): any

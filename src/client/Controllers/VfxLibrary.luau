@@ -962,7 +962,9 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local outline = if fist then KIT_OUTLINE else color
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
-	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
+	-- The status that amplified the hit, which the server names by its Strings key (CombatService).
+	local status = stringParam(packet, "StatusKey", "")
+	local amplified = status ~= ""
 	local heavy = amount >= HEAVY_HIT_DAMAGE
 
 	api.Timeline.play("Hit", {
@@ -1029,9 +1031,12 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 				feel.impactFrame(bodies)
 			end
 		end
+		-- A glyph's number wears its pigment's form on ink, and an amplified one says what paid off (§4.12).
 		feel.damageNumber(packet.Origin, amount, number, {
 			Kind = if takenByMe then "Taken" elseif fist then "Fist" else "Glyph",
 			Amplified = amplified,
+			Pigment = if fist or pigment == "" then nil else pigment,
+			Status = if amplified then { Key = status, Percent = numberParam(packet, "StatusPercent", 0) } else nil,
 		})
 	end
 end

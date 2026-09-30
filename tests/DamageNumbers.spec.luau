@@ -8,6 +8,7 @@ local FeelConfig = require("../src/shared/Config/FeelConfig")
 local Harness = require("./harness")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -96,10 +97,10 @@ describe("the damage numbers", function()
 		expect(
 			has(
 				spawn,
-				"DamageNumber.dress( marker, Theme.Glyphs.Minus .. value, Theme.Colors.DangerFill, Theme.Colors.PanelRaised, sizeScale )"
+				"DamageNumber.dress( marker, Theme.Glyphs.Minus .. value, Theme.Colors.DangerFill, Theme.Colors.PanelRaised, sizeScale, tag )"
 			)
 		).toBe(true)
-		expect(has(spawn, "DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale)")).toBe(true)
+		expect(has(spawn, "DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale, tag)")).toBe(true)
 		-- Its fall is its own, kept with it, and the one loop moves every number by what it keeps.
 		expect(has(spawn, "Rise = if taken then config.TakenRiseStuds else config.RiseStuds,")).toBe(true)
 		local step = body(FEEL, "local function stepNumbers(")
@@ -132,5 +133,90 @@ describe("the damage numbers", function()
 		expect(again.Stroke.Color).toBe(Theme.Colors.Outline)
 		expect(again.Label.TextColor3).toBe(Theme.Colors.Danger)
 		expect(again.Stroke.Thickness).toBe(thickness)
+	end)
+end)
+
+-- The rest of §4.12 (D-156, D-XXX), run: the real Feel spawns each number on tests/engine.luau. A glyph's number
+-- was its exact pigment on the ink's stroke, and the exact Indigo (2.15) and Umber (2.30) do not read there; an
+-- amplified hit grew and said nothing of what had paid off, though the server names the status and its bonus.
+describe("a glyph's number and an amplified hit's status, run", function()
+	local function spawn(style: any): (any, any)
+		-- The camera's shake is not what is looked at here, and its package builds on the engine's Random.
+		local stubs = Engine.interfaceStubs()
+		stubs["Packages/Shake"] = {}
+		local world = Engine.world({ Stubs = stubs, Services = { HapticService = {} } })
+		local Feel = world.require("src/client/Controllers/Feel")
+		local Strings = require("../src/shared/Strings")
+		Feel.Init({
+			ClientData = {
+				get = function(): any
+					return nil
+				end,
+			},
+			MovementController = {},
+			Localize = {
+				t = function(key: string, params: any?): string
+					return Strings.t(key, params, "en")
+				end,
+				resolveParams = function(params: any?): any
+					local resolved = {}
+					for name, value in pairs(params or {}) do
+						resolved[name] = if type(value) == "string" and Strings.has(value)
+							then Strings.t(value, nil, "en")
+							else value
+					end
+					return resolved
+				end,
+			},
+		})
+		local Theme = world.require("src/ui/Theme")
+		Feel.damageNumber(roblox.Vector3.zero, 40, Theme.Colors.Accent, style)
+		local folder = world.workspace:FindFirstChild("VellumDamageNumbers")
+		assert(folder ~= nil, "Feel drew no number: this gate would check nothing")
+		local billboard = folder:FindFirstChild("DamageNumber"):FindFirstChild("Number")
+		return billboard, Theme
+	end
+
+	it("draws a glyph's number in its pigment's form on ink, each of them readable there", function()
+		for _, pigment in ipairs({ "Cinnabar", "Indigo", "Umber", "Verdigris", "Orpiment" }) do
+			local billboard, Theme = spawn({ Kind = "Glyph", Pigment = pigment })
+			local value = billboard:FindFirstChild("Value")
+			local fill, edge = Theme.pigmentOnInk(pigment)
+			expect(value.TextColor3).toBe(fill)
+			expect(value:FindFirstChildOfClass("UIStroke").Color).toBe(edge)
+			local function rgb(color: any): { number }
+				return { color.R * 255, color.G * 255, color.B * 255 }
+			end
+			if ThemeConfig.contrast(rgb(fill), rgb(edge)) < 3 then
+				error(
+					("a %s number is %.2f against its stroke"):format(
+						pigment,
+						ThemeConfig.contrast(rgb(fill), rgb(edge))
+					)
+				)
+			end
+		end
+		-- A fist's, or a hit with no pigment, keeps the colour it is given.
+		local billboard, Theme = spawn({ Kind = "Fist" })
+		expect(billboard:FindFirstChild("Value").TextColor3).toBe(Theme.Colors.Accent)
+	end)
+
+	it("says under an amplified hit which status paid off and by how much, in the player's language", function()
+		local billboard = spawn({
+			Kind = "Glyph",
+			Pigment = "Cinnabar",
+			Amplified = true,
+			Status = { Key = "status.fanned", Percent = 25 },
+		})
+		local status = billboard:FindFirstChild("Status")
+		expect(status.Visible).toBe(true)
+		expect(status.Text).toBe("Fanned: +25% damage")
+		-- Under the number, inside the billboard, never over it.
+		local value = billboard:FindFirstChild("Value")
+		expect(status.Position.Y.Scale).toBe(value.Size.Y.Scale)
+		expect(math.abs(value.Size.Y.Scale + status.Size.Y.Scale - 1)).toBeLessThan(1e-6)
+		-- No status: no line.
+		local plain = spawn({ Kind = "Glyph", Pigment = "Cinnabar", Amplified = false })
+		expect(plain:FindFirstChild("Status").Visible).toBe(false)
 	end)
 end)

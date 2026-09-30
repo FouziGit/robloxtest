@@ -39,15 +39,24 @@ local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 
 local log = Log.new("Feel")
 
-type Deps = { ClientData: any, MovementController: any }
+type Deps = { ClientData: any, MovementController: any, Localize: any }
 type SpringType = typeof(Spring.new(0, 1, 1))
 
 export type Role = "Dealt" | "Taken" | "None"
 -- How a hit's number is drawn (the redesign's 4.12): a glyph's, a fist's, or one the player took; a hit a status
 -- amplified is bigger whatever its kind.
-export type DamageStyle = { Kind: "Glyph" | "Fist" | "Taken", Amplified: boolean? }
+-- A hit's number: whose it is, whether a status amplified it and which (its Strings key and the bonus it paid), and
+-- for a glyph's the pigment it is drawn in.
+export type DamageStyle = {
+	Kind: "Glyph" | "Fist" | "Taken",
+	Amplified: boolean?,
+	Pigment: string?,
+	Status: { Key: string, Percent: number }?,
+}
 
 local RENDER_NAME = "VellumFeel"
+-- The words under an amplified hit's number: "{status}: +{percent}% damage".
+local STATUS_KEY = "hud.status.bonus"
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value + 1
 local ROOT_PART_NAME = "HumanoidRootPart"
 local GAMEPAD = Enum.UserInputType.Gamepad1
@@ -56,6 +65,7 @@ local Feel = {}
 
 local clientData: any
 local movementController: any
+local localize: any
 
 local player = Players.LocalPlayer
 local fovSpring: SpringType = Spring.new(0, FeelConfig.Fov.Tension, FeelConfig.Fov.Friction)
@@ -387,10 +397,11 @@ end
 -- Damage numbers
 --------------------------------------------------------------------------------------------------
 
--- Spawns a floating number. A hit dealt rises in `color` on the ink's stroke, larger the heavier it was. One
--- the player took is a red minus on the sheet's stroke that drifts down, at the base size: it is read, not
--- weighed, and red is the one colour that means it hit you. An amplified hit (docs/GAME_DESIGN.md §6) is bigger
--- again, so a player learns the interaction by seeing it pay off.
+-- Spawns a floating number. A hit dealt rises in `color` on the ink's stroke, larger the heavier it was; a glyph's
+-- in its pigment's form on ink (Theme.pigmentOnInk: the exact Indigo and Umber do not read on ink). One the player
+-- took is a red minus on the sheet's stroke that drifts down, at the base size: it is read, not weighed, and red
+-- is the one colour that means it hit you. An amplified hit (docs/GAME_DESIGN.md §6) is bigger again and says under
+-- it which status paid off and by how much, so a player learns the interaction by seeing it pay off.
 function Feel.damageNumber(position: Vector3, amount: number, color: Color3, style: DamageStyle)
 	local config = FeelConfig.DamageNumbers
 	if #numbers >= config.MaxConcurrent then
@@ -409,16 +420,24 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, sty
 
 	local marker = DamageNumber.acquire()
 	local value = tostring(math.floor(amount + 0.5))
+	local status = style.Status
+	local tag = if status ~= nil
+		then localize.t(STATUS_KEY, localize.resolveParams({ status = status.Key, percent = status.Percent }))
+		else nil
 	if taken then
 		DamageNumber.dress(
 			marker,
 			Theme.Glyphs.Minus .. value,
 			Theme.Colors.DangerFill,
 			Theme.Colors.PanelRaised,
-			sizeScale
+			sizeScale,
+			tag
 		)
+	elseif style.Pigment ~= nil then
+		local fill, edge = Theme.pigmentOnInk(style.Pigment)
+		DamageNumber.dress(marker, value, fill, edge, sizeScale, tag)
 	else
-		DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale)
+		DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale, tag)
 	end
 
 	-- Deterministic scatter: a counter through a sine rather than math.random, so two clients watching
@@ -680,6 +699,7 @@ end
 function Feel.Init(deps: Deps)
 	clientData = deps.ClientData
 	movementController = deps.MovementController
+	localize = deps.Localize
 end
 
 function Feel.Start()

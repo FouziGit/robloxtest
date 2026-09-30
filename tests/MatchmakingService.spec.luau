@@ -21,6 +21,8 @@ type Fixture = {
 	-- Each player's profile, which the Ranking stub reads the way RankingService.isNewcomer does, and their rating.
 	profiles: { [any]: any },
 	ratings: { [any]: number },
+	-- Set, the next match MatchService is asked to start is refused (the arena pool is full): it runs, then is cleared.
+	refuse: { Next: (() -> ())? },
 }
 
 local function fixture(): Fixture
@@ -33,6 +35,7 @@ local function fixture(): Fixture
 	local snapshots: { [any]: any } = {}
 	local profiles: { [any]: any } = {}
 	local ratings: { [any]: number } = {}
+	local refuse: { Next: (() -> ())? } = { Next = nil }
 	-- The whole table the bootstrap hands every service, the Erasure among it: the queue must not ask it anything.
 	service.Init({
 		Registry = {
@@ -69,6 +72,12 @@ local function fixture(): Fixture
 			end,
 			start = function(modeId: string, teams: { { number } }): string?
 				table.insert(started, { Mode = modeId, Teams = teams })
+				local refused = refuse.Next
+				if refused ~= nil then
+					refuse.Next = nil
+					refused()
+					return nil
+				end
 				return modeId .. "-" .. #started
 			end,
 		},
@@ -90,6 +99,7 @@ local function fixture(): Fixture
 		snapshots = snapshots,
 		profiles = profiles,
 		ratings = ratings,
+		refuse = refuse,
 	}
 end
 
@@ -151,6 +161,32 @@ describe("the quick duel for newcomers", function()
 		fx.queue(b, "Duel1v1")
 		fx.world:advance(MatchConfig.Matchmaking.TickSeconds + 0.5)
 		expect(#fx.started).toBe(1)
+	end)
+
+	-- The requeue of a refused match flags its newcomers again: without it, a newcomer the arena pool turned away went
+	-- back in as anybody, and the widest window paired them with whoever waited longest (found by review).
+	it("keeps a newcomer the arena turned away under their cap when they go back in the queue", function()
+		local fx = fixture()
+		local far = veteran(fx, 1, 60, 30)
+		fx.ratings[far] = 1700
+		fx.queue(far, "Duel1v1")
+		fx.world:advance(60)
+		local novice = veteran(fx, 2, 1, 3)
+		local other = veteran(fx, 3, 1, 3)
+		-- The two newcomers are paired, the arena refuses them, and the other one is gone before the requeue.
+		fx.refuse.Next = function()
+			fx.world:leave(other)
+		end
+		fx.queue(novice, "Duel1v1")
+		fx.queue(other, "Duel1v1")
+		fx.world:advance(MatchConfig.Matchmaking.TickSeconds + 0.5)
+		expect(#fx.started).toBe(1)
+		expect(fx.snapshots[novice].Queued).toBe(true)
+		-- Back in with the wait they had, still a newcomer: the veteran 700 away stays off them for two minutes.
+		fx.world:advance(MatchConfig.Newcomer.WindowSeconds - 8)
+		expect(#fx.started).toBe(1)
+		fx.world:advance(8)
+		expect(#fx.started).toBe(2)
 	end)
 
 	it("takes a player RankingService cannot tell about for a newcomer", function()

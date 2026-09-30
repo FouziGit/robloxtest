@@ -407,6 +407,119 @@ describe("FlyleafService", function()
 		expect(fx.snapshots[a].Kills).toBe(4)
 	end)
 
+	-- The ledger's claim (D-XXX, choice 3) had no spec: clearing it when a player left passed every gate (found by review).
+	-- CombatService credits a death that did not come from a blow (a reset, a fall) to the last attacker while the
+	-- fight is fresh, wherever either of them went since: the page pays only a kill of one of its own by one of its
+	-- own, or a rival who walked home would still earn from the page (found by review: no spec held either side).
+	it("pays nothing for a credited death once the killer or the fallen has left the page", function()
+		local fx = fixture()
+		local a, b = fx.join(1), fx.join(2)
+		fx.service.enter(a)
+		fx.service.enter(b)
+		fx.advance(5)
+		-- The killer went home through the gate before the rival pressed Reset.
+		fx.service.leave(a)
+		takeDown(fx, a, b)
+		expect(fx.xp[a]).toBeNil()
+		expect(fx.folios[a]).toBeNil()
+		expect(fx.said(a, "hud.playerKill")).toBe(0)
+
+		local c, d = fx.join(3), fx.join(4)
+		fx.service.enter(c)
+		fx.service.enter(d)
+		fx.advance(5)
+		-- The fallen went home first.
+		fx.service.leave(d)
+		takeDown(fx, c, d)
+		expect(fx.xp[c]).toBeNil()
+		expect(fx.folios[c]).toBeNil()
+		expect(fx.said(c, "hud.playerKill")).toBe(0)
+	end)
+
+	it("asks again once the page has streamed in: a match or a full page meanwhile keeps the player out", function()
+		local fx = fixture()
+		fx.world.engine.workspace.StreamingEnabled = true
+		local function quiet(player: any)
+			player.RequestStreamAroundAsync = function(_self: any, _position: any, _timeout: number) end
+		end
+		-- A match takes them while the page streams in around their seal.
+		local a = fx.join(1)
+		a.RequestStreamAroundAsync = function(_self: any, _position: any, _timeout: number)
+			fx.inMatch[a] = true
+		end
+		local entered, refusal = fx.service.enter(a)
+		expect(entered).toBe(false)
+		expect(refusal).toBe("queue.inMatch")
+		expect(fx.claim.Holds(a)).toBe(false)
+		expect(sealOf(a)).toBeNil()
+		-- The last place goes to somebody else while the page streams in around the seal.
+		local players = {}
+		for index = 1, FlyleafConfig.MaxMembers - 1 do
+			players[index] = fx.join(10 + index)
+			quiet(players[index])
+			expect(fx.service.enter(players[index])).toBe(true)
+		end
+		local late, first = fx.join(30), fx.join(31)
+		quiet(first)
+		late.RequestStreamAroundAsync = function(_self: any, _position: any, _timeout: number)
+			expect(fx.service.enter(first)).toBe(true)
+		end
+		entered, refusal = fx.service.enter(late)
+		expect(entered).toBe(false)
+		expect(refusal).toBe("flyleaf.full")
+		expect(fx.claim.Holds(late)).toBe(false)
+		expect(fx.snapshots[first].Members).toBe(FlyleafConfig.MaxMembers)
+	end)
+
+	it("lets a fallen member go when their next body never stands on a seal", function()
+		local fx = fixture()
+		local a, b = fx.join(1), fx.join(2)
+		fx.service.enter(a)
+		fx.service.enter(b)
+		fx.advance(5)
+		-- The engine never hands the new body back.
+		b.LoadCharacterAsync = function(_self: any)
+			coroutine.yield()
+		end
+		takeDown(fx, a, b)
+		expect(fx.snapshots[b] ~= nil).toBe(true)
+		fx.advance(FlyleafConfig.RespawnGiveUpSeconds - 0.5)
+		expect(fx.snapshots[b] ~= nil).toBe(true)
+		expect(fx.snapshots[a].Members).toBe(2)
+		fx.advance(1)
+		expect(fx.snapshots[b]).toBeNil()
+		expect(fx.snapshots[a].Members).toBe(1)
+	end)
+
+	it("keeps the deaths a rival took from its killer when either leaves the server and comes back", function()
+		for _, leaver in ipairs({ "victim", "killer" }) do
+			local fx = fixture()
+			local a, b = fx.join(1), fx.join(2)
+			fx.service.enter(a)
+			fx.service.enter(b)
+			for _ = 1, 3 do
+				fx.advance(5)
+				takeDown(fx, a, b)
+			end
+			expect(fx.xp[a]).toBe(3 * 60)
+			-- Out of the server and back in, as a new Player, then onto the page again.
+			local gone = if leaver == "victim" then b else a
+			fx.world:leave(gone)
+			fx.advance(1)
+			local back = fx.join(gone.UserId)
+			if leaver == "victim" then
+				b = back
+			else
+				a = back
+			end
+			expect(fx.service.enter(back)).toBe(true)
+			fx.advance(5)
+			takeDown(fx, a, b)
+			expect(fx.xp[a] or 0).toBe(if leaver == "victim" then 3 * 60 else 0)
+			expect(fx.said(a, "flyleaf.noPay")).toBe(1)
+		end
+	end)
+
 	it("pays Folios out of the day's 100 kept in the profile, and says so once when they run out", function()
 		local fx = fixture()
 		local a, b = fx.join(1), fx.join(2)

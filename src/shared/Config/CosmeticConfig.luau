@@ -247,6 +247,31 @@ CosmeticConfig.Items = {
 		Sellable = false,
 		Look = { TextKey = "cosmetic.title.TitleCodexSeason" },
 	},
+	-- Level milestones (ProgressionConfig.Milestones): 50, 75 and 100
+	{
+		Id = "TitleRubricator",
+		Slot = "Title",
+		Rarity = "Rare",
+		NameKey = "cosmetic.TitleRubricator",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleRubricator" },
+	},
+	{
+		Id = "TitleMasterCopyist",
+		Slot = "Title",
+		Rarity = "Epic",
+		NameKey = "cosmetic.TitleMasterCopyist",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleMasterCopyist" },
+	},
+	{
+		Id = "TitleHundredLeaves",
+		Slot = "Title",
+		Rarity = "Legendary",
+		NameKey = "cosmetic.TitleHundredLeaves",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleHundredLeaves" },
+	},
 	-- Skin pack (game pass)
 	{
 		Id = "SkinWashJade",

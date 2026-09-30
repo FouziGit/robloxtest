@@ -96,8 +96,11 @@ cosmetic.SkinWashJade,Deep Wash Skin,Vellum,,Deep Wash Skin,Skin Lavis Profond
 cosmetic.SteelStylus,Stylus Trail,Vellum,,Stylus Trail,Traînée de Stylet
 cosmetic.TitleCodex,Title: Bound in Vellum,Vellum,,Title: Bound in Vellum,Titre : Relié de Vélin
 cosmetic.TitleCodexSeason,Title: Codex of the Volume,Vellum,,Title: Codex of the Volume,Titre : Codex du volume
+cosmetic.TitleHundredLeaves,Title: A Hundred Leaves,Vellum,,Title: A Hundred Leaves,Titre : Cent feuillets
 cosmetic.TitleIllumination,Title: Illumination,Vellum,,Title: Illumination,Titre : Enluminure
+cosmetic.TitleMasterCopyist,Title: Master Copyist,Vellum,,Title: Master Copyist,Titre : Maître copiste
 cosmetic.TitleRookie,Title: Rookie,Vellum,,Title: Rookie,Titre : Recrue
+cosmetic.TitleRubricator,Title: Rubricator,Vellum,,Title: Rubricator,Titre : Rubricateur
 cosmetic.TitleScript,Title: Script,Vellum,,Title: Script,Titre : Écriture
 cosmetic.TitleShadow,Title: Silent Hand,Vellum,,Title: Silent Hand,Titre : Main Silencieuse
 cosmetic.TitleWanderer,Title: Wanderer,Vellum,,Title: Wanderer,Titre : Vagabond
@@ -114,8 +117,11 @@ cosmetic.title.FrisketMask,Frisket,Vellum,,Frisket,Frisquette
 cosmetic.title.ScriptoriumRobe,Scriptorium Hand,Vellum,,Scriptorium Hand,Main du Scriptorium
 cosmetic.title.TitleCodex,Bound in Vellum,Vellum,,Bound in Vellum,Relié de Vélin
 cosmetic.title.TitleCodexSeason,Codex of the Volume,Vellum,,Codex of the Volume,Codex du volume
+cosmetic.title.TitleHundredLeaves,A Hundred Leaves,Vellum,,A Hundred Leaves,Cent feuillets
 cosmetic.title.TitleIllumination,Illumination,Vellum,,Illumination,Enluminure
+cosmetic.title.TitleMasterCopyist,Master Copyist,Vellum,,Master Copyist,Maître copiste
 cosmetic.title.TitleRookie,Rookie,Vellum,,Rookie,Recrue
+cosmetic.title.TitleRubricator,Rubricator,Vellum,,Rubricator,Rubricateur
 cosmetic.title.TitleScript,Script,Vellum,,Script,Écriture
 cosmetic.title.TitleShadow,Silent Hand,Vellum,,Silent Hand,Main Silencieuse
 cosmetic.title.TitleWanderer,Wanderer,Vellum,,Wanderer,Vagabond
@@ -263,6 +269,9 @@ leaderboard.you,You: #{rank} ({rating}),Vellum,,You: #{rank} ({rating}),Toi : #{
 leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the top {count},Toi : hors du top {count}
 level.max,Max level,Vellum,,Max level,Niveau max
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
+levelroad.complete,Every level's reward is yours,Vellum,,Every level's reward is yours,Toutes les récompenses de niveau sont à toi
+levelroad.folios,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
+levelroad.foliosAndTitle,the title {title} and {amount} Folios,Vellum,,the title {title} and {amount} Folios,le titre {title} et {amount} Folios
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé
@@ -305,6 +314,9 @@ menu.loadout,Loadout,Vellum,,Loadout,Équipement
 menu.quests,Quests,Vellum,,Quests,Quêtes
 menu.shop,Shop,Vellum,,Shop,Boutique
 menu.title,Menu,Vellum,,Menu,Menu
+milestone.caughtUp,{count} milestones you had passed: +{amount} Folios,Vellum,,{count} milestones you had passed: +{amount} Folios,{count} jalons déjà passés : +{amount} Folios
+milestone.reached,Milestone of level {level}: +{amount} Folios,Vellum,,Milestone of level {level}: +{amount} Folios,Jalon du niveau {level} : +{amount} Folios
+milestone.reachedTitle,Milestone of level {level}: +{amount} Folios and the title {title},Vellum,,Milestone of level {level}: +{amount} Folios and the title {title},Jalon du niveau {level} : +{amount} Folios et le titre {title}
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
 mode.team3v3,Team 3v3,Vellum,,Team 3v3,3v3 en équipe
 nav.back,Back,Vellum,,Back,Retour

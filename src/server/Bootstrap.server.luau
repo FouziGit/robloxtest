@@ -23,6 +23,7 @@ local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphEffects = require(Effects.GlyphEffects)
 local GlyphService = require(Services.GlyphService)
+local HonoursService = require(Services.HonoursService)
 local HubService = require(Services.HubService)
 local LeaderboardService = require(Services.LeaderboardService)
 local LoadoutService = require(Services.LoadoutService)
@@ -83,6 +84,7 @@ local deps = {
 	Quest = QuestService,
 	Daily = DailyRewardService,
 	Loadout = LoadoutService,
+	Honours = HonoursService,
 	Cosmetic = CosmeticService,
 	Shop = ShopService,
 	Monetization = MonetizationService,
@@ -106,6 +108,8 @@ local ordered: { Entry } = {
 	{ Name = "CosmeticService", Service = CosmeticService },
 	{ Name = "BattlepassService", Service = BattlepassService },
 	{ Name = "LoadoutService", Service = LoadoutService },
+	-- After Progression, Currency and Cosmetic: a level's milestone pays its Folios and its title through them.
+	{ Name = "HonoursService", Service = HonoursService },
 	{ Name = "QuestService", Service = QuestService },
 	{ Name = "DailyRewardService", Service = DailyRewardService },
 	{ Name = "ShopService", Service = ShopService },

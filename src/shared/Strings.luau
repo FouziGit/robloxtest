@@ -298,6 +298,9 @@ Strings.Table = {
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
 	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
+	["cosmetic.TitleRubricator"] = { en = "Title: Rubricator", fr = "Titre : Rubricateur" },
+	["cosmetic.TitleMasterCopyist"] = { en = "Title: Master Copyist", fr = "Titre : Maître copiste" },
+	["cosmetic.TitleHundredLeaves"] = { en = "Title: A Hundred Leaves", fr = "Titre : Cent feuillets" },
 
 	-- Quests & daily
 	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
@@ -374,6 +377,9 @@ Strings.Table = {
 	["cosmetic.title.TitleScript"] = { en = "Script", fr = "Écriture" },
 	["cosmetic.title.TitleIllumination"] = { en = "Illumination", fr = "Enluminure" },
 	["cosmetic.title.TitleCodexSeason"] = { en = "Codex of the Volume", fr = "Codex du volume" },
+	["cosmetic.title.TitleRubricator"] = { en = "Rubricator", fr = "Rubricateur" },
+	["cosmetic.title.TitleMasterCopyist"] = { en = "Master Copyist", fr = "Maître copiste" },
+	["cosmetic.title.TitleHundredLeaves"] = { en = "A Hundred Leaves", fr = "Cent feuillets" },
 	["cosmetic.title.TitleRookie"] = { en = "Rookie", fr = "Recrue" },
 	["cosmetic.title.TitleWanderer"] = { en = "Wanderer", fr = "Vagabond" },
 
@@ -476,6 +482,29 @@ Strings.Table = {
 	["match.level"] = { en = "Level {level} · {xp} / {needed} XP", fr = "Niveau {level} · {xp} / {needed} XP" },
 	["match.levelMax"] = { en = "Level {level} · max", fr = "Niveau {level} · max" },
 	["match.nextUnlock"] = { en = "Next: {name} at level {level}", fr = "Prochain : {name} au niveau {level}" },
+	-- What a milestone of the level road pays (ProgressionConfig.Milestones), where the Result card names it and
+	-- where the Lectern lists the road; and the line that replaces the promise once the road is walked.
+	["levelroad.folios"] = { en = "{amount} Folios", fr = "{amount} Folios" },
+	["levelroad.foliosAndTitle"] = {
+		en = "the title {title} and {amount} Folios",
+		fr = "le titre {title} et {amount} Folios",
+	},
+	["levelroad.complete"] = {
+		en = "Every level's reward is yours",
+		fr = "Toutes les récompenses de niveau sont à toi",
+	},
+	["milestone.reached"] = {
+		en = "Milestone of level {level}: +{amount} Folios",
+		fr = "Jalon du niveau {level} : +{amount} Folios",
+	},
+	["milestone.caughtUp"] = {
+		en = "{count} milestones you had passed: +{amount} Folios",
+		fr = "{count} jalons déjà passés : +{amount} Folios",
+	},
+	["milestone.reachedTitle"] = {
+		en = "Milestone of level {level}: +{amount} Folios and the title {title}",
+		fr = "Jalon du niveau {level} : +{amount} Folios et le titre {title}",
+	},
 	["grade.steady"] = { en = "a steady hand", fr = "une main sûre" },
 	["grade.clean"] = { en = "a clean hand", fr = "une main nette" },
 	["grade.unsure"] = { en = "an unsure hand", fr = "une main incertaine" },

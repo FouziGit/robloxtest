@@ -129,6 +129,7 @@ function DataService.template(): { [string]: any }
 			PracticeDay = 0,
 			PracticePaid = 0,
 		},
+		Milestones = {},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },

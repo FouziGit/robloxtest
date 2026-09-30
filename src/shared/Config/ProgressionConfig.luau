@@ -86,6 +86,27 @@ ProgressionConfig.XpBoostMultiplier = 2
 -- Orpiment pigment: free unlock at this level, or instantly via the Orpiment game pass.
 ProgressionConfig.OrpimentUnlockLevel = 40
 
+-- The milestones of the level road past the last unlock (docs/GAME_DESIGN.md §9): the glyphs stop at 36 and
+-- the pigment at 40, and a veteran then climbed sixty levels for a number. From 45 to MaxLevel, every five
+-- levels pays its Folios once (ten per level of the milestone), and three of them a title too (CosmeticConfig,
+-- reward only). HonoursService pays them; Pure/LevelRoad sets them on the road beside the unlocks, which is
+-- how the Result card always has a next reward to name. docs/ECONOMY.md §2 counts what they add.
+export type Milestone = { Level: number, Folios: number, Title: string? }
+ProgressionConfig.Milestones = {
+	{ Level = 45, Folios = 450 },
+	{ Level = 50, Folios = 500, Title = "TitleRubricator" },
+	{ Level = 55, Folios = 550 },
+	{ Level = 60, Folios = 600 },
+	{ Level = 65, Folios = 650 },
+	{ Level = 70, Folios = 700 },
+	{ Level = 75, Folios = 750, Title = "TitleMasterCopyist" },
+	{ Level = 80, Folios = 800 },
+	{ Level = 85, Folios = 850 },
+	{ Level = 90, Folios = 900 },
+	{ Level = 95, Folios = 950 },
+	{ Level = 100, Folios = 1000, Title = "TitleHundredLeaves" },
+} :: { Milestone }
+
 -- Loadout: how many glyphs a player may equip. Extra slots come from the LoadoutSlots game pass.
 ProgressionConfig.Loadout = {
 	BaseSlots = 6,

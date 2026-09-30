@@ -107,6 +107,10 @@ export type DailyData = {
 	PracticePaid: number,
 }
 
+-- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level
+-- as a string (JSON-safe) -> true. HonoursService is its one writer, and a milestone in it is never paid again.
+export type MilestonesData = { [string]: boolean }
+
 export type PurchasesData = {
 	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
 	ProductCounts: { [string]: number }, -- productKey -> times purchased
@@ -150,6 +154,7 @@ export type ProfileData = {
 	Stats: StatsData,
 	Quests: QuestsData,
 	Daily: DailyData,
+	Milestones: MilestonesData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
 	Boosts: BoostsData,

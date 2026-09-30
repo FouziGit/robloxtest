@@ -117,7 +117,7 @@ describe("the simulator", function()
 			"../src/shared/Config/ProgressionConfig",
 			"../src/shared/Config/QuestConfig",
 			"../src/shared/Config/ShopConfig",
-			"../src/shared/Pure/DailyCap",
+			"../src/server/Pure/DailyCap",
 			"../src/shared/Pure/QuestLogic",
 			"../src/shared/Pure/ShopRotation",
 			"../src/server/Pure/TrialPay",

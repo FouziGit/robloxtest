@@ -367,7 +367,7 @@ Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qu
 | `BattlepassScreen` | 527 | 700 |
 | `DailyScreen` | 177 | 400 |
 | `LoadoutScreen` | 338 | 400 |
-| `QuestsScreen` | 179 | 400 |
+| `QuestsScreen` | 200 | 400 |
 | `LeaderboardScreen` | 362 | 400 |
 | `SettingsScreen` | 71 | 400 |
 | `LecternScreen (Drills)` | 197 | 400 |

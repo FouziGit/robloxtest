@@ -4,7 +4,7 @@
 -- Now a day of Trials pays its Folios up to a cap, its full XP for a number of kills and a share after, none of
 -- it to the pass, and nothing to a player who has not cast or dashed in the last minute. The rule is TrialPay's,
 -- run here; EnemyService, ProgressionService and GlyphService are read as text, since Lune cannot run them.
-local DailyCap = require("../src/shared/Pure/DailyCap")
+local DailyCap = require("../src/server/Pure/DailyCap")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")

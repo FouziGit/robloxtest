@@ -15,7 +15,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local DailyCap = require(Shared.Pure.DailyCap)
+local DailyCap = require(script.Parent.Parent.Pure.DailyCap)
 local DailyStreak = require(Shared.Pure.DailyStreak)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)

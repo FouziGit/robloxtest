@@ -421,7 +421,10 @@ describe("the practice's gap against the Erasure", function()
 	end)
 
 	it("starts at zero on a new profile, and is part of the Daily section", function()
-		expect(code("src/server/Services/DataService.luau")).toContain("PracticePaid = 0, PracticeLastPaidAt = 0, },")
+		-- The Trials' counts follow it in the section since the wave 2 merge (D-243).
+		expect(code("src/server/Services/DataService.luau")).toContain(
+			"PracticePaid = 0, PracticeLastPaidAt = 0, TrialDay = 0, TrialKills = 0, TrialFolios = 0, },"
+		)
 		expect(code("src/shared/Types.luau")).toContain("PracticeLastPaidAt: number,")
 		expect(code("src/server/Services/WorldBossService/init.luau"):find("lastPaidAt", 1, true)).toBeNil()
 	end)

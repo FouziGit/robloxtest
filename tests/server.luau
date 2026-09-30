@@ -336,6 +336,7 @@ export type Services = {
 	cosmetic: any,
 	currency: any,
 	shop: any,
+	analytics: any,
 	-- The handler each client remote was given, by remote name.
 	handlers: { [string]: (...any) -> () },
 	-- Where the players stand beyond the hub and the match, as WorldBossService and BattlegroundService would
@@ -481,6 +482,7 @@ function Server.services(): Services
 			end,
 		},
 		Glyph = glyph,
+		Analytics = analytics,
 	})
 	glyph.Init({
 		Registry = registry,
@@ -547,6 +549,7 @@ function Server.services(): Services
 		cosmetic = cosmetic,
 		currency = currency,
 		shop = shop,
+		analytics = analytics,
 		handlers = handlers,
 		places = places,
 		notices = notices,

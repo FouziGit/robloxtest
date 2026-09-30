@@ -2,6 +2,10 @@
 -- A pretend Roblox AnalyticsService that writes down every call it is given, for the real
 -- src/server/Services/AnalyticsService to talk to inside a pretend engine (tests/engine.luau). What reaches it is
 -- exactly what would reach Roblox: the per-player budget, the refusals and the transport are the service's own.
+local AnalyticsConfig = require("../src/server/Config/AnalyticsConfig")
+local MatchConfig = require("../src/shared/Config/MatchConfig")
+local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
+
 local Analytics = {}
 
 -- One call, as the engine would have received it: the method, the player, and its arguments after the player.
@@ -53,6 +57,29 @@ function Analytics.recorder(): Recorder
 	end
 
 	return recorder :: Recorder
+end
+
+local function keysOf(map: { [string]: any }): { string }
+	local keys: { string } = {}
+	for key in pairs(map) do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	return keys
+end
+
+-- Every word a custom field of AnalyticsConfig.Events may hold, by the name of the list the field names: the
+-- config's own Vocabulary, and the lists the game's config keeps.
+function Analytics.domains(): { [string]: { string } }
+	local domains = table.clone(AnalyticsConfig.Vocabulary)
+	domains.Pass = keysOf(MonetizationConfig.Passes)
+	domains.Product = keysOf(MonetizationConfig.Products)
+	domains.PurchaseKey = table.clone(domains.Pass)
+	for _, key in ipairs(domains.Product) do
+		table.insert(domains.PurchaseKey, key)
+	end
+	domains.Mode = table.clone(MatchConfig.ModeOrder)
+	return domains
 end
 
 return Analytics

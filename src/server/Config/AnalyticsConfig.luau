@@ -20,10 +20,13 @@ AnalyticsConfig.Limits = {
 }
 
 -- Each player's share of what the server may send: a burst, then a steady trickle. An event past it is dropped,
--- never queued: analytics is best-effort telemetry.
+-- never queued: analytics is best-effort telemetry. Roblox takes 120 + 20 per player requests a minute from a
+-- whole server (the event-types page): each player gets their 20, and the 120 are the headroom a burst draws on.
+-- The burst holds the end of a match -- MatchEnded, a GlyphMatch for each of the ten slots at most, the Folios of
+-- the result, of the first win and of the tiers they cross -- and the GlyphPick of the queue a rematch joins.
 AnalyticsConfig.Budget = {
-	Burst = 8,
-	PerMinute = 240,
+	Burst = 32,
+	PerMinute = 20,
 }
 
 ----------------------------------------------------------------
@@ -97,12 +100,17 @@ AnalyticsConfig.FieldKeys = { "CustomField01", "CustomField02", "CustomField03" 
 -- The words a custom field may hold, where the game's own config does not already list them.
 AnalyticsConfig.Vocabulary = {
 	PurchaseKind = { "Pass", "Product" },
+	MatchOutcome = { "Win", "Loss", "Draw" },
+	-- Why a match ended with no result: every participant left, the server closed, or its mode could not say.
+	VoidCause = { "Empty", "Closing", "Error" },
+	BossKind = { "Event", "Practice" },
+	BossOutcome = { "Defeated", "Expired" },
 } :: { [string]: { string } }
 
 -- Every custom event the game sends, by name, with what each of its custom fields holds, CustomField01 first.
 -- A field names a list of Vocabulary above, or one the game's config owns: "Pass" and "Product" (the keys of
--- MonetizationConfig.Passes and .Products), "PurchaseKey" (either of them). An event says beside it what its
--- value counts; one that says nothing counts 1.
+-- MonetizationConfig.Passes and .Products), "PurchaseKey" (either of them), "Mode" (MatchConfig.ModeOrder). An
+-- event says beside it what its value counts; one that says nothing counts 1.
 AnalyticsConfig.Events = {
 	-- A Robux dialog closed with a purchase, or without one.
 	PromptAccepted = { "PurchaseKind", "PurchaseKey" },
@@ -111,6 +119,16 @@ AnalyticsConfig.Events = {
 	ProductPurchased = { "Product" },
 	-- A game pass bought in the game. Value: its price in Robux.
 	PassPurchased = { "Pass" },
+	-- A match formed from the queue, for each of its players. Value: the seconds they waited.
+	MatchFormed = { "Mode" },
+	-- A wait the queue gave up on, for each player it let go. Value: the seconds they waited.
+	QueueTimedOut = { "Mode" },
+	-- A match played to its result, for each of its players still in the server. Value: the seconds it lasted.
+	MatchEnded = { "Mode", "MatchOutcome" },
+	-- A match that ended with no result, once for the match. Value: the seconds it had lasted.
+	MatchVoided = { "Mode", "VoidCause" },
+	-- A fight against the Erasure over, for each participant still in the server. Value: the seconds it lasted.
+	BossEnded = { "BossKind", "BossOutcome" },
 } :: { [string]: { string } }
 
 return AnalyticsConfig

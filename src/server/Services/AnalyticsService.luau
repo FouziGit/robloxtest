@@ -257,9 +257,13 @@ end
 -- Lifecycle
 ----------------------------------------------------------------
 
+-- Deferred: a service that hears of the departure after this one may still send the player's last event (a match
+-- they were the last to leave), which would otherwise open a bucket nobody ever closes.
 local function onPlayerRemoving(player: Player)
-	buckets[player] = nil
-	sessions[player] = nil
+	task.defer(function()
+		buckets[player] = nil
+		sessions[player] = nil
+	end)
 end
 
 function AnalyticsService.Init(_deps: Deps) end

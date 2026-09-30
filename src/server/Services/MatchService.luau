@@ -9,6 +9,9 @@
 -- a match owns (arena, kill-zone connection) hangs from its Trove, so a normal end, an abandon and a
 -- disconnect all release it the same way. The rules themselves live in GameModes: this service never
 -- decides who won.
+--
+-- It tells the dashboards how each match went (AnalyticsConfig.Events): MatchEnded for each player at the result,
+-- and MatchVoided once for a match that ends with none.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -93,6 +96,10 @@ type DamagedSignal = {
 }
 type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
+type AnalyticsApi = {
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
+}
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -107,6 +114,7 @@ type Deps = {
 	Quest: QuestApi,
 	Daily: DailyApi,
 	Glyph: GlyphApi,
+	Analytics: AnalyticsApi,
 }
 type TroveType = typeof(Trove.new())
 
@@ -168,6 +176,7 @@ local ranking: RankingApi
 local quest: QuestApi
 local daily: DailyApi
 local glyph: GlyphApi
+local analytics: AnalyticsApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
@@ -318,11 +327,38 @@ local function ratingChanges(active: Active, result: Types.MatchResult): { [numb
 	return (applied :: any) :: { [number]: RatingChange }
 end
 
+-- How long `active` has been under way, in whole seconds, for the dashboards.
+local function secondsOf(active: Active, now: number): number
+	return math.floor(now - active.Match.StartedAt + 0.5)
+end
+
+-- A match ending with no result, told to the dashboards as `cause`: by `player` when given (the last to leave,
+-- while they are still in the server), otherwise by the first participant still there. Once per match: the last
+-- one out tells it and the empty match that follows has nobody left to tell it again; a closing server or a mode
+-- that cannot say who won ends it with someone still there, and nobody last out.
+local function voided(active: Active, cause: string, player: Player?)
+	local teller = player
+	if teller == nil then
+		for _, participant in ipairs(active.Match.Participants) do
+			if isLive(participant) then
+				teller = participant.Player
+				break
+			end
+		end
+	end
+	if teller == nil then
+		return
+	end
+	local seconds = secondsOf(active, os.clock())
+	analytics.custom(teller, "MatchVoided", seconds, analytics.fields(active.Match.ModeId, cause))
+end
+
 -- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server.
 local function award(active: Active, result: Types.MatchResult)
 	local match = active.Match
 	local scale = REWARD_SCALES[active.Def.Id] or DEFAULT_SCALE
 	local changes = ratingChanges(active, result)
+	local seconds = secondsOf(active, match.EndedAt)
 	for _, participant in ipairs(match.Participants) do
 		if not isLive(participant) then
 			continue
@@ -365,6 +401,8 @@ local function award(active: Active, result: Types.MatchResult)
 			Grade = Execution.grade(stats.Casts, stats.Hits, stats.DamageDealt, stats.DamageTaken, won),
 		}
 		registry.fire("MatchEnded", player, outcome)
+		local issue = if draw then "Draw" elseif won then "Win" else "Loss"
+		analytics.custom(player, "MatchEnded", seconds, analytics.fields(match.ModeId, issue))
 	end
 end
 
@@ -418,6 +456,7 @@ local function enterResult(active: Active, now: number)
 	local ok, result = pcall(active.Mode.End, match)
 	if not ok then
 		log.warn("mode %s End failed for match %s: %s", active.Def.Id, match.Id, tostring(result))
+		voided(active, "Error")
 		return
 	end
 	local outcome = (result :: any) :: Types.MatchResult
@@ -495,6 +534,7 @@ local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: num
 				log.warn("match %s abandoned: no participant left", match.Id)
 			end
 			active.Emptied = true
+			voided(active, if closing then "Closing" else "Empty")
 			finish(active)
 			return
 		end
@@ -807,6 +847,11 @@ local function onPlayerRemoving(player: Player)
 		-- A hook that blew up must not leave a phantom teammate holding a team against a forfeit.
 		GameModes.markLeft(active.Match, player)
 	end
+	-- The last one out of a match with no result yet: the next verdict ends it with none, and by then nobody is
+	-- left in the server to tell the dashboards. They are, until this returns.
+	if active.Match.Phase ~= "Result" and GameModes.presentCount(active.Match) == 0 then
+		voided(active, if dataService.isClosing() then "Closing" else "Empty", player)
+	end
 	log.info("%s left match %s", player.Name, active.Match.Id)
 end
 
@@ -1022,6 +1067,7 @@ function MatchService.Init(deps: Deps)
 	quest = deps.Quest
 	daily = deps.Daily
 	glyph = deps.Glyph
+	analytics = deps.Analytics
 end
 
 function MatchService.Start()

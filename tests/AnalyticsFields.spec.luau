@@ -6,9 +6,9 @@
 --
 -- The real AnalyticsService in a pretend server (tests/server.luau), on a pretend Roblox analytics that writes down
 -- what it is given (tests/analytics.luau); then every custom event of src/server, read from the sources.
+local Analytics = require("./analytics")
 local AnalyticsConfig = require("../src/server/Config/AnalyticsConfig")
 local Harness = require("./harness")
-local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local Server = require("./server")
 local fs = require("@lune/fs")
 
@@ -97,25 +97,6 @@ local function customCalls(): { Site }
 		end
 	end
 	return sites
-end
-
--- The lists a custom field may name, and how many words each holds.
-local function vocabularies(): { [string]: number }
-	local sizes: { [string]: number } = {}
-	for name, words in pairs(AnalyticsConfig.Vocabulary) do
-		sizes[name] = #words
-	end
-	local passes, products = 0, 0
-	for _ in pairs(MonetizationConfig.Passes) do
-		passes += 1
-	end
-	for _ in pairs(MonetizationConfig.Products) do
-		products += 1
-	end
-	sizes.Pass = passes
-	sizes.Product = products
-	sizes.PurchaseKey = passes + products
-	return sizes
 end
 
 ----------------------------------------------------------------
@@ -229,14 +210,14 @@ describe("every custom event of src/server (E8-S2)", function()
 				sent[name] = true
 			end
 		end
-		local sizes = vocabularies()
+		local domains = Analytics.domains()
 		for name, declared in pairs(AnalyticsConfig.Events) do
 			if not sent[name] then
 				error(name .. " is in AnalyticsConfig.Events and nothing sends it")
 			end
 			expect(#declared).toBeLessThanOrEqual(#AnalyticsConfig.FieldKeys)
 			for _, field in ipairs(declared) do
-				if sizes[field] == nil or sizes[field] == 0 then
+				if domains[field] == nil or #domains[field] == 0 then
 					error(("%s declares the field %s, which names no list"):format(name, field))
 				end
 			end

@@ -79,6 +79,10 @@ export type HubApi = { teleportToHub: (player: Player) -> () }
 export type ArenaApi = { acquire: (arenaId: string) -> Arena?, release: (arena: Arena) -> () }
 export type MatchApi = { isInMatch: (player: Player) -> boolean }
 export type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
+export type AnalyticsApi = {
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
+}
 export type VfxPacket = {
 	Id: string,
 	Origin: Vector3,
@@ -104,6 +108,8 @@ export type Deps = {
 	-- way every other gameplay owner reports to it. Optional so a bootstrap without it still runs the
 	-- event (Start warns once): the fight never depends on the quest log.
 	Quest: QuestApi?,
+	-- How each fight ended, for the dashboards (BossEnded, AnalyticsConfig.Events).
+	Analytics: AnalyticsApi,
 }
 export type TroveType = typeof(Trove.new())
 

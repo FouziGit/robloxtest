@@ -74,6 +74,8 @@ local accumulator = 0
 local ticks = 0
 -- User id -> when a practice last paid them: the server's RewardGapSeconds guard (Rewards), across fights.
 local lastPaidAt: { [number]: number } = {}
+-- When the fight in the slot opened, for the length the dashboards are told.
+local fightOpenedAt = 0
 
 ----------------------------------------------------------------
 -- End of the fight
@@ -129,11 +131,20 @@ local function cleanupSeconds(): number
 	return if slot.Kind == "Practice" then PRACTICE.CleanupSeconds else SCHEDULE.CleanupSeconds
 end
 
+-- How the fight ended, told to the dashboards by every participant still in the server.
+local function reportEnd(outcome: string, now: number)
+	local seconds = math.floor(now - fightOpenedAt + 0.5)
+	for _, player in ipairs(Context.livePlayers(slot.Participants)) do
+		deps.Analytics.custom(player, "BossEnded", seconds, deps.Analytics.fields(slot.Kind, outcome))
+	end
+end
+
 local function defeat(live: Boss, current: State, now: number)
 	current.Phase = "Defeated"
 	WorldBossMode.setHealth(current, 0)
 	WorldBossMode.endAttack(current)
 	slot.PhaseEndsAt = now + cleanupSeconds()
+	reportEnd("Defeated", now)
 	-- No sound on the toast: the BossDefeated timeline is the sound of this, and the match's fanfare on
 	-- top of it was two endings at once.
 	Audience.tell("boss.defeated", nil, "Success")
@@ -163,6 +174,7 @@ local function expire(current: State, now: number)
 	current.Phase = "Expired"
 	WorldBossMode.endAttack(current)
 	slot.PhaseEndsAt = now + cleanupSeconds()
+	reportEnd("Expired", now)
 	Audience.tell("boss.expired", nil, "Info")
 	Audience.push(now)
 	log.info("%s: boss escaped with %d / %d health", slot.Kind, math.floor(current.Health + 0.5), current.MaxHealth)
@@ -210,6 +222,7 @@ local function openFight(players: { Player }, health: number, seconds: number, n
 	fresh.Phase = "Fighting"
 	slot.State = fresh
 	slot.PhaseEndsAt = now + seconds
+	fightOpenedAt = now
 
 	local live = Encounter.build(arena, fresh.MaxHealth)
 	trove:Add(live.Model)

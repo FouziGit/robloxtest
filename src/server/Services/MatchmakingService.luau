@@ -9,6 +9,9 @@
 --
 -- The client only ever asks to join or leave: ratings come from RankingService and the roster is
 -- decided here, never sent up.
+--
+-- The dashboards hear of every wait's end (AnalyticsConfig.Events): MatchFormed for each player of a match that
+-- formed, QueueTimedOut for each player a queue let go, both with the seconds they waited.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -40,12 +43,17 @@ type MatchApi = {
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
 type WorldBossApi = { isLive: () -> boolean }
+type AnalyticsApi = {
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
+}
 type Deps = {
 	Registry: Registry,
 	Notify: NotifyApi,
 	Ranking: RankingApi,
 	Match: MatchApi,
 	WorldBoss: WorldBossApi,
+	Analytics: AnalyticsApi,
 }
 
 -- MatchmakingCore.Config: the widening window and the maximum wait.
@@ -59,6 +67,7 @@ local notify: NotifyApi
 local ranking: RankingApi
 local match: MatchApi
 local worldBoss: WorldBossApi
+local analytics: AnalyticsApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
 -- userId -> mode asked for from the result screen, honoured by the first scan after the match lets the
@@ -71,6 +80,20 @@ local lastTickAt: number? = nil
 
 local function neededFor(def: MatchConfig.ModeDef): number
 	return def.TeamSize * def.Teams
+end
+
+-- When each entry of `queue` joined it, by user id: read before a scan takes entries out.
+local function joinTimes(queue: MatchmakingCore.Queue): { [number]: number }
+	local joinedAt: { [number]: number } = {}
+	for _, entry in ipairs(queue.Entries) do
+		joinedAt[entry.UserId] = entry.JoinedAt
+	end
+	return joinedAt
+end
+
+-- Whole seconds since `joinedAt`, for the dashboards.
+local function waited(joinedAt: number?, now: number): number
+	return math.floor(now - (joinedAt or now) + 0.5)
 end
 
 -- The queue holding `userId`, if any.
@@ -226,10 +249,7 @@ end
 -- Pairs whatever the queue holds now and hands each formed match to MatchService.
 local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: MatchmakingCore.Queue, now: number)
 	-- Captured before findMatches removes the entries, for the requeue of a refused match.
-	local joinedAt: { [number]: number } = {}
-	for _, entry in ipairs(queue.Entries) do
-		joinedAt[entry.UserId] = entry.JoinedAt
-	end
+	local joinedAt = joinTimes(queue)
 	for _, formed in ipairs(MatchmakingCore.findMatches(queue, def.TeamSize, def.Teams, now, WINDOW)) do
 		-- They are out of the queue now: their client leaves the searching state either way.
 		for _, members in ipairs(formed.Teams) do
@@ -240,6 +260,14 @@ local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: Matc
 		if match.start(modeId, formed.Teams) == nil then
 			requeue(modeId, formed.Teams, joinedAt, now)
 		else
+			for _, members in ipairs(formed.Teams) do
+				for _, userId in ipairs(members) do
+					local player = Players:GetPlayerByUserId(userId)
+					if player ~= nil then
+						analytics.custom(player, "MatchFormed", waited(joinedAt[userId], now), analytics.fields(modeId))
+					end
+				end
+			end
 			log.info("%s match formed (average rating %d)", modeId, math.floor(formed.AverageRating + 0.5))
 		end
 	end
@@ -282,12 +310,14 @@ local function tick(now: number)
 			end
 		end
 		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
+		local joinedAt = joinTimes(queue)
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
 			local player = Players:GetPlayerByUserId(userId)
 			if player ~= nil then
 				-- News, not a failure: nobody else was queuing. The toast says it in the neutral medallion (the red
 				-- "!" is for a refused purchase or claim, D-147), and the Play screen turns the card into a state.
 				notify.send(player, "queue.timedOut", nil, "Info")
+				analytics.custom(player, "QueueTimedOut", waited(joinedAt[userId], now), analytics.fields(modeId))
 				push(player, now)
 			end
 		end
@@ -326,6 +356,7 @@ function MatchmakingService.Init(deps: Deps)
 	ranking = deps.Ranking
 	match = deps.Match
 	worldBoss = deps.WorldBoss
+	analytics = deps.Analytics
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		queues[modeId] = MatchmakingCore.newQueue(modeId)
 	end

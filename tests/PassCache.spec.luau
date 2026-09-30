@@ -7,6 +7,7 @@
 local ChatConfig = require("../src/shared/Config/ChatConfig")
 local Engine = require("./engine")
 local Harness = require("./harness")
+local LogStub = require("./logstub")
 local PassCache = require("../src/shared/Pure/PassCache")
 local StudioConfig = require("../src/server/Config/StudioConfig")
 local roblox = require("@lune/roblox") :: any
@@ -16,32 +17,6 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 -- Asset ids given to the catalog inside the pretend world (the real config ships them at 0).
 local PASS_IDS = { Vip = 1001, LoadoutSlots = 1002, Orpiment = 1003, SkinPack = 1004 }
 local FOLIO_SMALL_ID = 2001
-
--- A Log whose lines a spec reads instead of printing them.
-local function recordingLog(): (any, { string })
-	local lines: { string } = {}
-	local function record(message: string, ...: any)
-		local ok, text = pcall(string.format, message, ...)
-		table.insert(lines, if ok then text else message)
-	end
-	local module = {
-		new = function(_prefix: string): any
-			return {
-				info = record,
-				warn = record,
-				error = record,
-				try = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					return (pcall(fn, ...))
-				end,
-				succeeded = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					local ok, result = pcall(fn, ...)
-					return ok and result and true or false
-				end,
-			}
-		end,
-	}
-	return module, lines
-end
 
 type Options = {
 	studio: boolean,
@@ -64,7 +39,7 @@ type Shop = {
 -- The real Passes and Receipts on a server that is Studio or not, for one player whose profile holds
 -- `passes`.
 local function shop(options: Options): Shop
-	local Log, lines = recordingLog()
+	local Log, lines = LogStub.new()
 	local market = {
 		UserOwnsGamePassAsync = function(_self: any, _userId: number, passId: number): boolean
 			for key, id in pairs(PASS_IDS) do

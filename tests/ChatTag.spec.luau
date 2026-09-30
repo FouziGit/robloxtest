@@ -9,37 +9,12 @@ local ChatConfig = require("../src/shared/Config/ChatConfig")
 local ChatTag = require("../src/shared/Pure/ChatTag")
 local Engine = require("./engine")
 local Harness = require("./harness")
+local LogStub = require("./logstub")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
-
--- A Log whose lines a spec reads instead of printing them.
-local function recordingLog(): (any, { string })
-	local lines: { string } = {}
-	local function record(message: string, ...: any)
-		local ok, text = pcall(string.format, message, ...)
-		table.insert(lines, if ok then text else message)
-	end
-	local module = {
-		new = function(_prefix: string): any
-			return {
-				info = record,
-				warn = record,
-				error = record,
-				try = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					return (pcall(fn, ...))
-				end,
-				succeeded = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					local ok, result = pcall(fn, ...)
-					return ok and result and true or false
-				end,
-			}
-		end,
-	}
-	return module, lines
-end
 
 -- Localize.t for a reader of `locale`.
 local function reader(locale: string): (key: string) -> string
@@ -63,7 +38,7 @@ type Chat = { service: any, world: any, lines: { string }, sender: (userId: numb
 local function chat(translate: (key: string) -> string, chatVersion: any?): Chat
 	local service = Engine.instance("TextChatService")
 	service.ChatVersion = chatVersion or roblox.Enum.ChatVersion.TextChatService
-	local Log, lines = recordingLog()
+	local Log, lines = LogStub.new()
 	local world = Engine.world({ Services = { TextChatService = service }, Stubs = { ["src/shared/Util/Log"] = Log } })
 	local players = world.game:GetService("Players")
 	local byId: { [number]: any } = {}
@@ -112,7 +87,7 @@ end
 ----------------------------------------------------------------
 
 local function passes(data: any): (any, any)
-	local Log = recordingLog()
+	local Log = LogStub.new()
 	local market = {
 		UserOwnsGamePassAsync = function(_self: any, _userId: number, _passId: number): boolean
 			return false

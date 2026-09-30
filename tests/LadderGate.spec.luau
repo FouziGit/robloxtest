@@ -8,36 +8,11 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local LadderGate = require("../src/shared/Pure/LadderGate")
+local LogStub = require("./logstub")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
 local StudioConfig = require("../src/server/Config/StudioConfig")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
-
--- A Log whose lines a spec reads instead of printing them.
-local function recordingLog(): (any, { string })
-	local lines: { string } = {}
-	local function record(message: string, ...: any)
-		local ok, text = pcall(string.format, message, ...)
-		table.insert(lines, if ok then text else message)
-	end
-	local module = {
-		new = function(_prefix: string): any
-			return {
-				info = record,
-				warn = record,
-				error = record,
-				try = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					return (pcall(fn, ...))
-				end,
-				succeeded = function(_context: string, fn: (...any) -> ...any, ...: any): boolean
-					local ok, result = pcall(fn, ...)
-					return ok and result and true or false
-				end,
-			}
-		end,
-	}
-	return module, lines
-end
 
 type Write = { Store: string, Key: string, Value: number }
 type Ladder = {
@@ -71,7 +46,7 @@ local function ladder(isStudio: boolean, writeLadders: boolean, rows: { [string]
 			}
 		end,
 	}
-	local Log, lines = recordingLog()
+	local Log, lines = LogStub.new()
 	local stubs = Engine.interfaceStubs()
 	stubs["src/shared/Util/Log"] = Log
 	stubs["src/server/Config/StudioConfig"] = { WriteLadders = writeLadders }

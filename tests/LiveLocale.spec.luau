@@ -201,6 +201,10 @@ describe("the server's language for a player", function()
 						if answer == false then
 							error("HTTP 503 (Service Unavailable)")
 						end
+						-- An answer that comes with something happening meanwhile.
+						if type(answer) == "function" then
+							return answer()
+						end
 						return answer
 					end,
 				},
@@ -249,6 +253,21 @@ describe("the server's language for a player", function()
 		players.PlayerRemoving:Fire(early)
 		picked.LocaleId = "en-us"
 		expect(LocaleService.of(early)).toBe("fr")
+	end)
+
+	it("keeps nothing of a player who left while the platform answered", function()
+		local _, LocaleService, players, join = server()
+		LocaleService.Init({})
+		LocaleService.Start()
+		local leaving: any
+		leaving = join(4, "en-us", function(): any
+			players.PlayerRemoving:Fire(leaving)
+			leaving.Parent = nil
+			return translator("fr-fr")
+		end)
+		players.PlayerAdded:Fire(leaving)
+		-- Their app's language: the translator that came after them was not kept.
+		expect(LocaleService.of(leaving)).toBe("en")
 	end)
 
 	it("is the language a kick for abuse is written in", function()

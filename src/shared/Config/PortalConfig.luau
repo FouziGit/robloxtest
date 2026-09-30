@@ -59,9 +59,10 @@ PortalConfig.EntryIFrameSeconds = 1.5
 PortalConfig.StreamTimeoutSeconds = 2
 
 -- The three hub gates: on a ring around the spawn, facing the centre, on the platform's empty north (-pi/2) -- the
--- Flyleaf's at the north itself, the Battleground's and the Erasure's AngleOffsetRadians either side of it.
--- tests/Hub.spec.luau recomputes their clearance from the hub's own numbers.
-PortalConfig.Hub = { RingRadiusStuds = 68, AngleOffsetRadians = 0.5 }
+-- Flyleaf's at the north itself, the Battleground's and the Erasure's AngleOffsetRadians either side of it: far
+-- enough apart that no sign covers another's words, near enough the north to leave the pedestal ring's arc beside it
+-- free. tests/Hub.spec.luau recomputes their clearance from the hub's own numbers.
+PortalConfig.Hub = { RingRadiusStuds = 68, AngleOffsetRadians = 0.45 }
 
 -- The Return gate of the Erasure's arena: this far in from both walls of one corner, facing the centre, so
 -- its posts stand inside the walls.

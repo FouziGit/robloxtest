@@ -153,6 +153,8 @@ describe("a chain of stun glyphs on one target", function()
 	end
 
 	it("never holds the target longer than its longest glyph, and gives the grace back between two", function()
+		-- The half second decided with the grace (D-XXXb).
+		expect(GRACE).toBe(0.5)
 		local longest, gap = worst(true)
 		expect(longest).toBeLessThanOrEqual(LONGEST + 1e-9)
 		expect(longest).toBeCloseTo(rupture.Stun, 9)

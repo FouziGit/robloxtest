@@ -158,6 +158,8 @@ FeelConfig.ImpactFrame = {
 FeelConfig.DamageNumbers = {
 	Seconds = 0.85,
 	RiseStuds = 4.2,
+	-- Damage the player took drifts down this far instead (negative): what rises is what they dealt.
+	TakenRiseStuds = -1.6,
 	-- Horizontal scatter so two hits in the same place do not print on top of each other.
 	SpreadStuds = 1.6,
 	-- Studs above the target's root where the number is born.

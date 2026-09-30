@@ -32,6 +32,7 @@ local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
 local Shake = require(Packages.Shake)
 local Spring = require(Shared.Pure.Spring)
+local Theme = require(UI.Theme)
 local WorldConfig = require(Shared.Config.WorldConfig)
 -- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
 local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
@@ -42,6 +43,9 @@ type Deps = { ClientData: any, MovementController: any }
 type SpringType = typeof(Spring.new(0, 1, 1))
 
 export type Role = "Dealt" | "Taken" | "None"
+-- How a hit's number is drawn (the redesign's 4.12): a glyph's, a fist's, or one the player took; a hit a status
+-- amplified is bigger whatever its kind.
+export type DamageStyle = { Kind: "Glyph" | "Fist" | "Taken", Amplified: boolean? }
 
 local RENDER_NAME = "VellumFeel"
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value + 1
@@ -64,11 +68,13 @@ local heldPosition = Vector3.zero
 local heldRotation = Vector3.zero
 
 -- A number in flight. Origin plus a per-number drift, so two hits in one spot do not print on top of
--- each other, and a pop spring that overshoots its size and settles back.
+-- each other, how far it climbs (down, for damage taken), and a pop spring that overshoots its size and
+-- settles back.
 type FlyingNumber = {
 	Marker: DamageNumber.Marker,
 	Origin: Vector3,
 	Drift: Vector3,
+	Rise: number,
 	Elapsed: number,
 	Pop: SpringType,
 }
@@ -381,9 +387,11 @@ end
 -- Damage numbers
 --------------------------------------------------------------------------------------------------
 
--- Spawns a floating number. `critical` is the amplified hit (docs/GAME_DESIGN.md §6), which gets its
--- own size and its own colour so a player learns the interaction by seeing it pay off.
-function Feel.damageNumber(position: Vector3, amount: number, color: Color3, critical: boolean?)
+-- Spawns a floating number. A hit dealt rises in `color` on the ink's stroke, larger the heavier it was. One
+-- the player took is a red minus on the sheet's stroke that drifts down, at the base size: it is read, not
+-- weighed, and red is the one colour that means it hit you. An amplified hit (docs/GAME_DESIGN.md §6) is bigger
+-- again, so a player learns the interaction by seeing it pay off.
+function Feel.damageNumber(position: Vector3, amount: number, color: Color3, style: DamageStyle)
 	local config = FeelConfig.DamageNumbers
 	if #numbers >= config.MaxConcurrent then
 		local oldest = table.remove(numbers, 1)
@@ -392,14 +400,26 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, cri
 		end
 	end
 
+	local taken = style.Kind == "Taken"
 	local severity = FeelMath.severity(amount, FeelConfig.HitStop)
-	local sizeScale = FeelMath.lerp(1, config.MaxSizeScale, severity)
-	if critical then
+	local sizeScale = if taken then 1 else FeelMath.lerp(1, config.MaxSizeScale, severity)
+	if style.Amplified then
 		sizeScale *= config.AmplifiedScale
 	end
 
 	local marker = DamageNumber.acquire()
-	DamageNumber.dress(marker, tostring(math.floor(amount + 0.5)), color, sizeScale)
+	local value = tostring(math.floor(amount + 0.5))
+	if taken then
+		DamageNumber.dress(
+			marker,
+			Theme.Glyphs.Minus .. value,
+			Theme.Colors.DangerFill,
+			Theme.Colors.PanelRaised,
+			sizeScale
+		)
+	else
+		DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale)
+	end
 
 	-- Deterministic scatter: a counter through a sine rather than math.random, so two clients watching
 	-- the same fight scatter their numbers the same way and a recording is reproducible.
@@ -415,6 +435,7 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, cri
 		Marker = marker,
 		Origin = position + Vector3.new(0, config.HeightStuds, 0),
 		Drift = drift,
+		Rise = if taken then config.TakenRiseStuds else config.RiseStuds,
 		Elapsed = 0,
 		Pop = pop,
 	})
@@ -431,8 +452,8 @@ local function stepNumbers(deltaTime: number)
 			DamageNumber.release(entry.Marker)
 			table.remove(numbers, index)
 		else
-			-- Rises fast then slows, the way a thrown thing does, instead of sliding up at one speed.
-			local rise = config.RiseStuds * (1 - (1 - alpha) * (1 - alpha))
+			-- Rises (or sinks) fast then slows, the way a thrown thing does, instead of sliding at one speed.
+			local rise = entry.Rise * (1 - (1 - alpha) * (1 - alpha))
 			local position = entry.Origin + Vector3.new(0, rise, 0) + entry.Drift * alpha
 			local transparency = 1 - FeelMath.holdThenFade(alpha, config.HoldFraction)
 			DamageNumber.place(entry.Marker, position, transparency, entry.Pop:step(deltaTime))

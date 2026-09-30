@@ -87,6 +87,7 @@ local TEXT_PAIRS = {
 	{ Ink = "Danger", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "large danger text on a card" },
 	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar sigil on its chip" },
 	{ Ink = "Danger", On = "Plate", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar damage number" },
+	{ Ink = "DangerFill", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "damage taken, in its sheet stroke" },
 }
 
 -- Graphics against what they are drawn on (WCAG 1.4.11: 3 for a part of the interface): a bar's fill on

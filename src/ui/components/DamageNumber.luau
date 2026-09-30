@@ -116,10 +116,13 @@ function DamageNumber.release(marker: Marker)
 	table.insert(pool, marker)
 end
 
--- Sets what a marker says and how it looks, once, at the moment it is spawned.
-function DamageNumber.dress(marker: Marker, text: string, color: Color3, sizeScale: number)
+-- Sets what a marker says and how it looks, once, at the moment it is spawned: its words, their fill, the colour
+-- of the stroke around them, and their size. The stroke is recoloured on every dress, since markers are pooled
+-- and a number the player took wears the sheet where a dealt one wears the ink; its thickness never changes.
+function DamageNumber.dress(marker: Marker, text: string, fill: Color3, stroke: Color3, sizeScale: number)
 	marker.Label.Text = text
-	marker.Label.TextColor3 = color
+	marker.Label.TextColor3 = fill
+	marker.Stroke.Color = stroke
 	marker.Label.TextSize = math.floor(FeelConfig.DamageNumbers.BaseTextSize * sizeScale + 0.5)
 end
 

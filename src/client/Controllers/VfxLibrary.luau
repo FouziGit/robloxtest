@@ -1029,7 +1029,10 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 				feel.impactFrame(bodies)
 			end
 		end
-		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else number, amplified)
+		feel.damageNumber(packet.Origin, amount, number, {
+			Kind = if takenByMe then "Taken" elseif fist then "Fist" else "Glyph",
+			Amplified = amplified,
+		})
 	end
 end
 

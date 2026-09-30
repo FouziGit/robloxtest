@@ -109,6 +109,14 @@ describe("QuestLogic", function()
 			ids[def.Id] = true
 			expect(def.Target).toBeGreaterThan(0)
 			expect(Strings.has(def.NameKey)).toBe(true)
+			-- A quest of one does not count it in the plural: "Win 1 matches" (seen in Studio).
+			if def.Target == 1 then
+				for _, words in pairs((Strings.Table :: any)[def.NameKey]) do
+					if string.find(words, "{target}", 1, true) ~= nil then
+						error(("%s counts its one in %q"):format(def.Id, words))
+					end
+				end
+			end
 		end
 		expect(#QuestLogic.select(QuestConfig.Pool, "Daily", QuestConfig.Periods.Daily.Count, "D1")).toBe(3)
 		expect(#QuestLogic.select(QuestConfig.Pool, "Weekly", QuestConfig.Periods.Weekly.Count, "W1")).toBe(3)

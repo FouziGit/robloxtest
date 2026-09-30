@@ -14,7 +14,7 @@ QuestConfig.Pool = {
 	{ Id = "DailyCastGlyphs", Period = "Daily", Event = "GlyphCast", Target = 30, NameKey = "quest.castGlyphs" },
 	{ Id = "DailyHitGlyphs", Period = "Daily", Event = "GlyphHit", Target = 20, NameKey = "quest.hitGlyphs" },
 	{ Id = "DailyDummies", Period = "Daily", Event = "DummyKill", Target = 10, NameKey = "quest.defeatDummies" },
-	{ Id = "DailyWin", Period = "Daily", Event = "MatchWin", Target = 1, NameKey = "quest.winMatches" },
+	{ Id = "DailyWin", Period = "Daily", Event = "MatchWin", Target = 1, NameKey = "quest.winMatch" },
 	{ Id = "DailyPlay", Period = "Daily", Event = "MatchPlayed", Target = 3, NameKey = "quest.playMatches" },
 	{ Id = "DailyDamage", Period = "Daily", Event = "DamageDealt", Target = 1500, NameKey = "quest.dealDamage" },
 	{ Id = "DailyDash", Period = "Daily", Event = "Dash", Target = 15, NameKey = "quest.useDash" },

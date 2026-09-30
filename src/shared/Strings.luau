@@ -304,6 +304,7 @@ Strings.Table = {
 	["quest.hitGlyphs"] = { en = "Hit enemies with {target} glyphs", fr = "Touche des ennemis avec {target} glyphes" },
 	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
 	["quest.defeatForgers"] = { en = "Defeat {target} Forgers", fr = "Vaincs {target} Faussaires" },
+	["quest.winMatch"] = { en = "Win a match", fr = "Gagne un match" },
 	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
 	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
 	["quest.dealDamage"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },

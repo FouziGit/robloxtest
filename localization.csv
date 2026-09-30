@@ -374,6 +374,7 @@ quest.resetsIn,Resets in {time},Vellum,,Resets in {time},Réinitialisation dans 
 quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
 quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
+quest.winMatch,Win a match,Vellum,,Win a match,Gagne un match
 quest.winMatches,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
 queue.alreadyQueued,You are already in a queue.,Vellum,,You are already in a queue.,Tu es déjà dans une file.
 queue.inMatch,You are already in a match.,Vellum,,You are already in a match.,Tu es déjà en match.

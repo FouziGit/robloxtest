@@ -2,9 +2,10 @@
 -- Progressive: a long list built a chunk at a time (D-XXX). A screen that built everything it lists as it opened
 -- drew 1 282 objects for a locker of forty-one cosmetics, 684 for a leaderboard's fifty rows and 510 for ten
 -- equipped glyphs, where a screen is held to 400 (ThemeConfig.Budget.MaxScreenObjects, tests/ScreenBudget.spec.luau).
--- The first chunk is built at once; the next each time the view comes within a window of the canvas's foot -- the
--- player scrolling, or a pad's selection that the engine scrolls to -- and UpTo builds as far as an item that must
--- be there (the player's own row, before the page scrolls to it). A list is only ever built down, in its order.
+-- The first chunk is built at once, and more while the view at rest at the top is not full; once the view moves,
+-- the next each time it comes within a window of the canvas's foot -- the player scrolling, or a pad's selection
+-- that the engine scrolls to -- and UpTo builds as far as an item that must be there (the player's own row, before
+-- the page scrolls to it). A list is only ever built down, in its order.
 
 local Progressive = {}
 
@@ -39,7 +40,11 @@ function Progressive.new(props: Props): Progressive
 		end
 	end
 
-	-- Within a window of the foot: a view not laid out yet (no window) asks for nothing more.
+	-- Within a window of the foot once the view has moved. At rest at the top, only until the view is full: the
+	-- canvas is never shorter than its window, so a list that does not fill it yet is one as tall as it. Looking a
+	-- window ahead from the top too built a locker's second chunk as it opened, 475 objects where a screen is held
+	-- to 400 (tests/ScreenBudget.spec.luau, which lays the list out as the engine does). A view not laid out yet (no
+	-- window) asks for nothing more.
 	local function grow()
 		if built >= props.Count then
 			return
@@ -48,7 +53,9 @@ function Progressive.new(props: Props): Progressive
 		if window <= 0 then
 			return
 		end
-		if scroller.CanvasPosition.Y + window * 2 >= scroller.AbsoluteCanvasSize.Y then
+		local at = scroller.CanvasPosition.Y
+		local ahead = if at > 0 then window else 0
+		if at + window + ahead >= scroller.AbsoluteCanvasSize.Y then
 			upTo(nil, built + props.Chunk)
 		end
 	end

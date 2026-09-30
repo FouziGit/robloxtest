@@ -304,7 +304,12 @@ GUI affichés, comme le HUD. Un écran en dessine **400** au plus (`Budget.MaxSc
 **700** (`Budget.MaxPassObjects`) ; le test échoue au-delà, et échoue aussi si ce tableau ne dit pas ce qu'il
 compte. Avant, le Casier de tout ce qui se vend en dessinait 1 282, le classement 684 et l'Équipement de dix
 glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les fait défiler
-(`src/ui/Progressive.luau`).
+(`src/ui/Progressive.luau`). Chaque écran est compté disposé comme le moteur le dispose en s'ouvrant : sa
+fenêtre, et un canevas qui n'est jamais plus haut que ce que ses rangées et ses grilles demandent au moins
+(le moteur de Lune ne dispose rien). Sans cela une liste par tranches était comptée à sa première tranche,
+alors que le moteur, qui en voyait le pied à moins d'une fenêtre, construisait la suivante dès l'ouverture : le
+Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qui remplit sa vue. La flèche
+« plus bas » d'une liste plus haute que sa fenêtre est comptée avec.
 
 | Écran | Objets | Plafond |
 |---|---|---|
@@ -312,13 +317,13 @@ glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les
 | `PlayScreen` | 104 | 400 |
 | `ShopScreen (Today)` | 236 | 400 |
 | `ShopScreen (Folios)` | 127 | 400 |
-| `ShopScreen (Passes)` | 165 | 400 |
-| `ShopScreen (Locker)` | 263 | 400 |
+| `ShopScreen (Passes)` | 167 | 400 |
+| `ShopScreen (Locker)` | 265 | 400 |
 | `BattlepassScreen` | 527 | 700 |
 | `DailyScreen` | 177 | 400 |
-| `LoadoutScreen` | 336 | 400 |
-| `QuestsScreen` | 177 | 400 |
-| `LeaderboardScreen` | 360 | 400 |
+| `LoadoutScreen` | 338 | 400 |
+| `QuestsScreen` | 179 | 400 |
+| `LeaderboardScreen` | 362 | 400 |
 | `SettingsScreen` | 71 | 400 |
 | `ResultScreen` | 78 | 400 |
 

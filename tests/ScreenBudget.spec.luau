@@ -7,9 +7,11 @@
 -- Nothing counted them: a locker of everything drew 1 282 objects, the leaderboard's fifty rows 684 and ten
 -- equipped glyphs 510. Those lists are built a chunk at a time now (src/ui/Progressive.luau). A GuiObject counted
 -- is one the engine lays out and draws, as tests/HudBudget.spec.luau counts the HUD: shown, with every ancestor
--- up to the screen. The table of docs/PERFORMANCE.md is these counts, and is held to them here.
+-- up to the screen, each screen laid out as the engine lays it out as it opens (laidOut). The table of
+-- docs/PERFORMANCE.md is these counts, and is held to them here.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Measure = require("./measure")
 local Screens = require("./screens")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
@@ -45,17 +47,92 @@ end
 
 type Measured = { Label: string, Count: number, Limit: number }
 
+-- Whether an automatic size (or an automatic canvas size) grows down: the engine's default is none.
+local function growsDown(automatic: any): boolean
+	return automatic ~= nil and (automatic.Name == "Y" or automatic.Name == "XY")
+end
+
+-- The least height `frame` lays its shown children out to: a grid's rows of cells, as many to a row as the widest
+-- the frame can be holds (Measure.widthOf, an upper bound); a vertical list's rows, each its fixed height or, sized
+-- by its content, the least its own layout needs. Never more than the engine lays out, so a canvas measured this
+-- way lets a list built as it is scrolled (Progressive) build at least what the engine has it build.
+local function leastHeight(frame: any, screenWidth: number): number
+	local shown: { any } = {}
+	for _, child in ipairs(frame:GetChildren()) do
+		if child:IsA("GuiObject") and child.Visible then
+			table.insert(shown, child)
+		end
+	end
+	local grid = frame:FindFirstChildOfClass("UIGridLayout")
+	if grid ~= nil then
+		if #shown == 0 then
+			return 0
+		end
+		local width = Measure.widthOf(frame, screenWidth)
+		local cell = grid.CellSize.X.Scale * width + grid.CellSize.X.Offset
+		local gap = grid.CellPadding.X.Scale * width + grid.CellPadding.X.Offset
+		local across = math.max(1, math.floor((width + gap) / (cell + gap)))
+		local rows = math.ceil(#shown / across)
+		return rows * grid.CellSize.Y.Offset + (rows - 1) * grid.CellPadding.Y.Offset
+	end
+	local list = frame:FindFirstChildOfClass("UIListLayout")
+	if list == nil or (list.FillDirection ~= nil and list.FillDirection.Name ~= "Vertical") then
+		return 0
+	end
+	local total = 0
+	for _, child in ipairs(shown) do
+		local own = child.Size.Y.Offset
+		total += if growsDown(child.AutomaticSize) then math.max(own, leastHeight(child, screenWidth)) else own
+	end
+	return total + math.max(0, #shown - 1) * list.Padding.Offset
+end
+
+-- The screen's list laid out as the engine lays it out once it opens: its window, and its canvas, never shorter
+-- than the window and only taller where it grows down (CardContent). A list built as it is scrolled hears both and
+-- may build more (Progressive); laid out again until nothing moves, as the engine does frame after frame. Lune lays
+-- nothing out, and without this a list that builds as far as its view needs was counted at its first chunk.
+local function laidOut(root: any, height: number, width: number)
+	local content = root:FindFirstChild("Content", true)
+	if content == nil or not content:IsA("ScrollingFrame") then
+		return
+	end
+	for _ = 1, 100 do
+		local window = Measure.heightOf(content, height)
+		local canvas = if growsDown(content.AutomaticCanvasSize)
+			then math.max(window, leastHeight(content, width))
+			else window
+		-- A Vector2 holds single precision: equal to within a hundredth of a unit is equal.
+		if
+			math.abs(content.AbsoluteWindowSize.Y - window) < 0.01
+			and math.abs(content.AbsoluteCanvasSize.Y - canvas) < 0.01
+		then
+			return
+		end
+		-- The canvas first, as the engine lays it out before it reports the view on it (and as the scroll below).
+		content.AbsoluteCanvasSize = roblox.Vector2.new(width, canvas)
+		content.AbsoluteWindowSize = roblox.Vector2.new(width, window)
+	end
+	error(root.Name .. "'s list never settles")
+end
+
+-- `name` opened on the phone by the player who owns everything, and laid out as the engine lays it out.
+local function openLaidOut(name: string, args: any?): any
+	local built, height = Screens.open(name, {
+		Phone = PHONE,
+		Args = args,
+		Profile = Screens.fullest,
+		Entries = math.huge,
+	})
+	laidOut(built.Instance, height, PHONE[1] * height / PHONE[2])
+	return built
+end
+
 -- Every screen and tab, as the player who owns everything opens it on the phone.
 local function measureAll(): { Measured }
 	local measured: { Measured } = {}
 	for _, entry in ipairs(Screens.LIST) do
 		for _, tab in ipairs(entry.Tabs or { "" }) do
-			local built = Screens.open(entry.Name, {
-				Phone = PHONE,
-				Args = if tab ~= "" then { Tab = tab } else nil,
-				Profile = Screens.fullest,
-				Entries = math.huge,
-			})
+			local built = openLaidOut(entry.Name, if tab ~= "" then { Tab = tab } else nil)
 			table.insert(measured, {
 				Label = entry.Name .. (if tab ~= "" then " (" .. tab .. ")" else ""),
 				Count = shownUnder(built.Instance),
@@ -144,8 +221,9 @@ describe("what a screen draws as it opens, counted", function()
 	end)
 end)
 
--- The lists that are built a chunk at a time (src/ui/Progressive.luau): the first chunk as the screen opens, the
--- next as the view comes within a window of its foot, and as far as an item that must be there.
+-- The lists that are built a chunk at a time (src/ui/Progressive.luau): the first chunk as the screen opens, more
+-- while the view at rest at the top is not full, the next as a moved view comes within a window of its foot, and as
+-- far as an item that must be there.
 describe("a long list built as it is scrolled, run", function()
 	-- A view `window` tall over a canvas `canvas` tall, scrolled to `at`, as the engine would lay it out.
 	-- The canvas first: the engine lays the canvas out before it reports where the view stands on it.
@@ -258,6 +336,35 @@ describe("a long list built as it is scrolled, run", function()
 				expect(child:FindFirstChild("Equipped", true).Visible).toBe(true)
 			end
 		end
+	end)
+
+	-- At rest at the top a list builds what fills its view and no more; the window ahead is for a view that moves.
+	it("fills the view it opens on, and looks a window ahead only once the view moves", function()
+		local built =
+			Screens.open("ShopScreen", { Phone = PHONE, Args = { Tab = "Locker" }, Profile = Screens.fullest })
+		local content = built.Instance:FindFirstChild("Content", true)
+		local function cards(): number
+			local count = 0
+			for _, part in ipairs(content:GetDescendants()) do
+				if part.Name == "Item" and part:FindFirstChild("Preview") ~= nil then
+					count += 1
+				end
+			end
+			return count
+		end
+		local first = cards()
+		-- Taller than its view, at the top, the foot within a window: nothing more.
+		scroll(content, 300, 500, 0)
+		expect(cards()).toBe(first)
+		-- A first chunk that does not fill the view (the canvas is the window): the next, and only it.
+		scroll(content, 300, 300, 0)
+		local filled = cards()
+		expect(filled).toBeGreaterThan(first)
+		scroll(content, 300, 700, 0)
+		expect(cards()).toBe(filled)
+		-- Moved down by a unit, the foot within a window of the view: the next again.
+		scroll(content, 300, 600, 1)
+		expect(cards()).toBeGreaterThan(filled)
 	end)
 end)
 

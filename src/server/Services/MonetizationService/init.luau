@@ -1,7 +1,8 @@
 --!strict
 -- MonetizationService: the only place in the game that talks to MarketplaceService. Game pass ownership
--- (Passes), contextual offers (Prompts), purchase dialogs (Purchases) and developer product receipts
--- (Receipts) live in this folder; this module wires them and owns the service lifecycle.
+-- (Passes), contextual offers (Prompts), purchase dialogs (Purchases), developer product receipts
+-- (Receipts) and Studio test purchases (Sandbox) live in this folder; this module wires them and owns the
+-- service lifecycle.
 --
 -- Asset ids live only in MonetizationConfig and are validated at startup: every id still at 0 is warned
 -- once by name (the owner pastes it from the Creator Dashboard, see docs/STUDIO_SETUP.md) and only that
@@ -22,6 +23,7 @@ local Passes = require(script.Passes)
 local Prompts = require(script.Prompts)
 local Purchases = require(script.Purchases)
 local Receipts = require(script.Receipts)
+local Sandbox = require(script.Sandbox)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MonetizationService")
@@ -65,6 +67,7 @@ function MonetizationService.Init(injected: Deps)
 	Prompts.Init(deps)
 	Purchases.Init(deps)
 	Receipts.Init(deps)
+	Sandbox.Init(deps)
 end
 
 function MonetizationService.Start()
@@ -93,6 +96,7 @@ function MonetizationService.Start()
 		end
 	end
 
+	Sandbox.announce()
 	log.info("started (%d passes, %d products, %d missing ids)", #Passes.Keys, productCount, #missing)
 end
 

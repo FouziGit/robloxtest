@@ -1,9 +1,17 @@
 --!strict
 -- Game pass ownership and effects. Ownership is read with UserOwnsGamePassAsync (pcall + retries) and
--- cached in ProfileData.Passes. The cache is never written back to false: Roblox does not revoke a pass,
--- so a failed check leaves the previous answer untouched instead of taking a pass away.
+-- cached in ProfileData.Passes. The cache follows Roblox's definite answers both ways (PassCache, D-204): each
+-- pass that has an id is asked about again on every join, and again when a purchase dialog closes without a
+-- sale, which is how Roblox closes it on a pass the player already owns. An owned pass enters the cache, and
+-- one Roblox says is not owned leaves it: a refund, a pass deleted from the inventory, a Studio test purchase.
+-- A check that fails leaves the previous answer untouched, so an outage never takes a pass away.
 --
--- Effects are idempotent: they run on every profile load of a cached pass and right after a purchase.
+-- Effects are idempotent: they run on every profile load of a cached pass and right after a purchase. What a
+-- pass gives while it is held follows the cache: the VIP multipliers read it, the chat tag mirrors it, and the
+-- extra loadout slots go back to none when it leaves. What a pass handed over once (its cosmetics, the
+-- Orpiment pigment) stays owned, as a delivered purchase does.
+--
+-- In Studio a test purchase grants nothing unless StudioConfig.PersistTestPurchases says so (Sandbox).
 --
 -- The chat tag the VIP pass sells (D-202) is decided here: the cache's Vip entry is mirrored onto the Player
 -- as ChatConfig.VipAttribute, which only the server can set for every client to see, and each client draws
@@ -19,7 +27,9 @@ local Context = require(script.Parent.Context)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
+local PassCache = require(Shared.Pure.PassCache)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local Sandbox = require(script.Parent.Sandbox)
 
 local log = Log.new("MonetizationService")
 
@@ -114,8 +124,41 @@ function Passes.cache(player: Player, passKey: string): boolean
 	return changed
 end
 
--- Checks every pass that has an id, then applies the ones the player owns. Yields (web calls), so the
--- profile is re-read after each check and the sync stops as soon as the player is gone.
+-- Takes back what a pass that left the cache gave only while it was held.
+local function withdraw(player: Player, passKey: string)
+	if passKey == PASS_LOADOUT_SLOTS then
+		log.try("setExtraSlots", deps.Loadout.setExtraSlots, player, 0)
+	end
+end
+
+-- Brings the cache in line with Roblox's definite `answers`, then applies every pass it holds. `held` is the
+-- cache as it stood when the questions were asked: a pass bought while Roblox was being asked arrived after
+-- the answer, and must not be taken out by it. Returns the passes that entered the cache.
+local function settle(
+	player: Player,
+	data: Context.ProfileData,
+	answers: { [string]: boolean },
+	held: { [string]: boolean }
+): { string }
+	local added, removed = PassCache.reconcile(data.Passes, answers, held)
+	if #added > 0 or #removed > 0 then
+		deps.DataService.push(player, "Passes")
+	end
+	for _, passKey in ipairs(removed) do
+		log.info("%s no longer owns pass %s: it leaves the cache", player.Name, passKey)
+		withdraw(player, passKey)
+	end
+	mirrorVip(player, data)
+	for _, passKey in ipairs(Passes.Keys) do
+		if data.Passes[passKey] == true then
+			Passes.apply(player, passKey)
+		end
+	end
+	return added
+end
+
+-- Asks Roblox about every pass that has an id, then settles the cache and applies what it holds. Yields (web
+-- calls), so the profile is re-read after each check and the sync stops as soon as the player is gone.
 function Passes.sync(player: Player)
 	-- The tag from what the cache already holds, before any web call: an owner is tagged from their first
 	-- message.
@@ -124,20 +167,19 @@ function Passes.sync(player: Player)
 		return
 	end
 	mirrorVip(player, cached)
+	local held = table.clone(cached.Passes)
 
-	local owned: { string } = {}
+	local answers: { [string]: boolean } = {}
 	for _, passKey in ipairs(Passes.Keys) do
 		local pass = MonetizationConfig.Passes[passKey]
-		local data = deps.DataService.get(player)
-		if data == nil then
-			return
-		end
-		local isOwned = data.Passes[passKey] == true
-		if not isOwned and pass.Id ~= 0 then
-			isOwned = ownsPass(player, pass.Id) == true
-		end
-		if isOwned then
-			table.insert(owned, passKey)
+		if pass.Id ~= 0 then
+			local owned = ownsPass(player, pass.Id)
+			if deps.DataService.get(player) == nil then
+				return
+			end
+			if owned ~= nil then
+				answers[passKey] = owned
+			end
 		end
 	end
 
@@ -145,23 +187,33 @@ function Passes.sync(player: Player)
 	if data == nil then
 		return
 	end
-	local changed = false
-	for _, passKey in ipairs(owned) do
-		if data.Passes[passKey] ~= true then
-			data.Passes[passKey] = true
-			changed = true
-		end
+	settle(player, data, answers, held)
+end
+
+-- A dialog Roblox closed without a sale. It closes that way on a pass the player already owns, which the
+-- cache misses when the check at join failed: ask again, and settle on a definite answer. Yields.
+local function recheck(player: Player, passKey: string, pass: MonetizationConfig.PassDef)
+	local before = deps.DataService.get(player)
+	if before == nil then
+		return
 	end
-	if changed then
-		deps.DataService.push(player, "Passes")
+	local held = table.clone(before.Passes)
+	local owned = ownsPass(player, pass.Id)
+	local data = deps.DataService.get(player)
+	if data == nil or owned == nil then
+		return
 	end
-	mirrorVip(player, data)
-	for _, passKey in ipairs(owned) do
-		Passes.apply(player, passKey)
+	local added = settle(player, data, { [passKey] = owned }, held)
+	if table.find(added, passKey) ~= nil then
+		deps.Notify.send(player, "purchase.passGranted", { name = pass.NameKey }, "Success", Context.SfxSuccess)
+		log.info("%s already owned pass %s: it enters the cache", player.Name, passKey)
 	end
 end
 
--- A pass bought during the session: cache it, apply it, tell the player and save right away.
+-- A pass dialog closed. A sale is cached, applied, told to the player and saved right away; a dialog closed
+-- without one is asked about again. In a Studio sandbox neither touches the cache: a sale grants nothing, and
+-- the recheck is skipped too, since Roblox may keep answering "owned" after a test sale for the rest of the
+-- session.
 function Passes.onPurchaseFinished(player: Player, gamePassId: number, wasPurchased: boolean)
 	local passKey, pass = MonetizationConfig.passByAssetId(gamePassId)
 	if passKey == nil or pass == nil then
@@ -169,6 +221,15 @@ function Passes.onPurchaseFinished(player: Player, gamePassId: number, wasPurcha
 	end
 	if not wasPurchased then
 		deps.Analytics.custom(player, Context.EventPromptDeclined, nil, { pass = passKey })
+		if not Sandbox.active() then
+			task.spawn(function()
+				log.try("pass recheck " .. passKey, recheck, player, passKey, pass)
+			end)
+		end
+		return
+	end
+	if Sandbox.active() then
+		Sandbox.acknowledge(player, "pass " .. passKey, pass.NameKey)
 		return
 	end
 	deps.Analytics.custom(player, Context.EventPromptAccepted, nil, { pass = passKey })

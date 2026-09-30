@@ -349,6 +349,7 @@ purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Ach
 purchase.grantedFoliosInstead,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
+purchase.sandboxed,Studio test purchase of {name}: nothing was granted or saved.,Vellum,,Studio test purchase of {name}: nothing was granted or saved.,Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
 quality.high,High,Vellum,,High,Élevée

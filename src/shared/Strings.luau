@@ -631,6 +631,11 @@ Strings.Table = {
 		fr = "Boost d'XP actif pendant {minutes} min",
 	},
 	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	-- Seen only in Studio, where a test purchase grants nothing (StudioConfig.PersistTestPurchases).
+	["purchase.sandboxed"] = {
+		en = "Studio test purchase of {name}: nothing was granted or saved.",
+		fr = "Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.",
+	},
 
 	-- Enemies
 

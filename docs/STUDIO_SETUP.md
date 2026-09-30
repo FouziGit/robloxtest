@@ -29,7 +29,7 @@ La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y t
 
 | Réglage | Valeur | Où |
 |---|---|---|
-| Accès API depuis Studio | activé | Game Settings → Security → *Enable Studio Access to API Services* |
+| Accès API depuis Studio | activé ; Studio n'écrit alors ni achat de test ni classement tant que `src/server/Config/StudioConfig.luau` le refuse (D-203, D-204) | Game Settings → Security → *Enable Studio Access to API Services* |
 | Publication | publiée (au moins en privé) | File → Publish to Roblox |
 | Joueurs max par serveur | 12 (assez pour 2 matchs 3v3 + hub) | Game Settings → Places → Max players |
 | Orientation | Paysage (`LandscapeSensor`, déjà fixé par `default.project.json`) | — |
@@ -94,7 +94,7 @@ Les écrans s'ouvrent par la barre en bas à droite (**Jouer**, **Boutique**, **
 6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Folios.
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
 8. `M` → **Équipement** : retirer un glyphe, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
-9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée.
+9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée. Dans Studio, un achat en Robux est un achat de test : Roblox ne débite rien, et le jeu n'accorde rien non plus, avec le toast « Achat de test dans Studio » (D-204). Pour qu'il soit accordé et enregistré dans ton vrai profil, passer `PersistTestPurchases` à `true` dans `src/server/Config/StudioConfig.luau` le temps du test, puis le remettre à `false`.
 10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
 
 ### Le classé, à deux joueurs (Studio le fait tout seul)

@@ -104,7 +104,8 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 ## 7. Idempotence et sécurité des achats
 
 - `ProcessReceipt` : lit le profil (`DataService.waitFor`), vérifie `Purchases.Receipts` (anneau de 100 ids), applique le produit, enregistre `PurchaseId`, force une sauvegarde (`saveNow`) puis renvoie `PurchaseGranted`. Toute erreur ou profil absent → `NotProcessedYet` (Roblox réessaiera). Jamais de yield non protégé.
-- Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries), cache dans `Passes`, mise à jour sur `PromptGamePassPurchaseFinished`. Achats hors connexion couverts par la vérification à la connexion.
+- Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries) pour chaque pass qui a un identifiant, cache dans `Passes` qui suit les réponses nettes de Roblox dans les deux sens (un pass remboursé ou retiré de l'inventaire en sort ; une vérification qui échoue ne change rien), mise à jour sur `PromptGamePassPurchaseFinished` (une vente entre dans le cache, une fenêtre fermée sans vente fait redemander le pass). Achats hors connexion couverts par la vérification à la connexion (D-204).
+- Studio : un achat de test n'accorde rien et ne s'enregistre pas tant que `StudioConfig.PersistTestPurchases` est éteint (D-204).
 - Aucune valeur de prix n'est lue depuis le client ; les IDs vivent uniquement dans `MonetizationConfig`, validés au démarrage (`warn` explicite par ID manquant).
 
 ## 8. KPIs à suivre (Analytics + Creator Dashboard)

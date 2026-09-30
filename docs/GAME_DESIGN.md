@@ -210,7 +210,7 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 ## 9. Rétention
 
-Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
+Quêtes journalières (3) et hebdomadaires (3) data-driven, calendrier de connexion de 28 jours (une série de jours réclamés d'affilée, un cosmétique jamais vendu aux jours 7, 14, 21 et 28, et le Signet, un marque-page gagné le 3ᵉ jour de chaque semaine, deux au plus, qui garde la série un jour manqué ; E15-S1), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
 
 **Ce que l'interface en montre (D-147).**
 - **Les badges.** Ce qui attend d'être récupéré (récompense du jour, quêtes terminées, paliers du pass) est compté par `Claimables` et badgé : sur le bouton Menu, et dans l'amas méta du hub, un sceau par sorte, dans la couleur de l'écran qu'il ouvre, visible seulement quand il y a quelque chose. Jamais en combat.

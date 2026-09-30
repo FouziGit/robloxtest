@@ -47,7 +47,14 @@ local function profile(today: number): any
 		Progression = { Level = 5, XP = 10, TotalXP = 410 },
 		Currency = { Folios = 100 },
 		Stats = { GlyphsCast = 3, GlyphsHit = 1, Kills = 0, Deaths = 0, MatchesPlayed = 2, BestChain = 0 },
-		Daily = { LastClaimDay = today - 1, Streak = 3, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = today - 1,
+			Streak = 3,
+			CalendarDay = 3,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+		},
 		Quests = { Daily = quests, Weekly = table.clone(quests) },
 		Battlepass = {
 			[GameConfig.SeasonId] = { Tier = 3, XP = 0, Premium = false, ClaimedFree = {}, ClaimedPremium = {} },

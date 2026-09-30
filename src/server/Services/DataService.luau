@@ -137,6 +137,8 @@ function DataService.template(): { [string]: any }
 		Daily = {
 			LastClaimDay = 0,
 			Streak = 0,
+			CalendarDay = 0,
+			Signets = 0,
 			FirstWinDay = 0,
 			PremiumBonusDay = 0,
 			ForgerDay = 0,

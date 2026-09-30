@@ -6,7 +6,7 @@ Toutes les valeurs sont des points de départ à ajuster avec les données réel
 
 | Monnaie | Nature | Obtention | Usage |
 |---|---|---|---|
-| **Folios** | douce (gagnée) | matchs, kills, quêtes, boss, streak, pass, achat de packs | boutique cosmétique, rotation quotidienne |
+| **Folios** | douce (gagnée) | matchs, kills, quêtes, boss, calendrier de connexion, pass, achat de packs | boutique cosmétique, rotation quotidienne |
 | **Robux** | dure | achat réel | game passes, developer products, depuis les surfaces d'achat (§5) |
 
 Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade débloquable au niveau 40 (`docs/GAME_DESIGN.md` §5), les slots de loadout apportent de la variété, tout le reste est cosmétique ou du confort (boost d'XP, saut de paliers).
@@ -25,10 +25,12 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
 | Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour (profil), 1 / 20 min ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
-| Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
-| **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
+| Calendrier de connexion (28 jours, moyenne) | 159 | ×1 | 159 |
+| **Total** | | | **≈ 1 020 Folios / h** (≈ 700 pour un joueur moyen) |
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
+
+**Calendrier de connexion (E15-S1).** 28 jours réclamés un par jour (`DailyConfig.Calendar`) : chaque semaine reprend la rangée montante de l'ancienne série de 7 jours, un peu plus haut que la précédente (850, 1 025, 1 200 et 1 375 Folios), soit **4 450 Folios et 8 000 XP par mois**, contre 4 000 Folios pour quatre semaines de l'ancienne série. Les jours 7, 14, 21 et 28 donnent un cosmétique jamais vendu (titre Rare, traînée Rare, titre Épique, aura Épique) ; un cosmétique déjà possédé (le deuxième mois) paie 300 Folios de plus à sa place (`OwnedCosmeticFolios`). Le 3ᵉ jour de chaque semaine glisse un Signet dans le livre, deux au plus : un Signet garde la série un jour manqué. Les Signets ne se vendent pas.
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 

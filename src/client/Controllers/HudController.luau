@@ -30,6 +30,7 @@ local Button = require(UI.components.Button)
 local Claims = require(UI.Claims)
 local CombatDock = require(UI.components.CombatDock)
 local ComboRow = require(UI.components.ComboRow)
+local DailyStreak = require(Shared.Pure.DailyStreak)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Hotbar = require(UI.components.Hotbar)
 local Icon = require(UI.components.Icon)
@@ -815,6 +816,10 @@ local function refreshProfile(section: string)
 			Match = data.Stats.MatchesPlayed > 0,
 			Daily = data.Daily.LastClaimDay > 0,
 		})
+	end
+	if section == "*" or section == "Daily" then
+		-- On the server's day, the one the calendar is claimed on.
+		metaCluster:SetStreak(DailyStreak.standing(data.Daily, DailyStreak.dayIndex(Workspace:GetServerTimeNow())))
 	end
 	offerDaily()
 end

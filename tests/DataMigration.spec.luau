@@ -58,6 +58,8 @@ local function template(): { [string]: any }
 		Daily = {
 			LastClaimDay = 0,
 			Streak = 0,
+			CalendarDay = 0,
+			Signets = 0,
 			FirstWinDay = 0,
 			PremiumBonusDay = 0,
 			ForgerDay = 0,
@@ -273,9 +275,53 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(8)
+		expect(#service).toBe(10)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
+	end)
+end)
+
+-- The login calendar (E15-S1): a profile of the seven-day streak goes on at the day of its week the streak last
+-- paid, keeps its streak's count, and holds no Signet, as a new profile does.
+describe("DataMigration to the login calendar", function()
+	local function before(streak: any): { [string]: any }
+		return {
+			DataVersion = 5,
+			Daily = { LastClaimDay = 20100, Streak = streak, FirstWinDay = 20100, PremiumBonusDay = 20099 },
+		}
+	end
+
+	it("puts a streak on the calendar at the day of its week, and keeps its count", function()
+		for streak, day in pairs({ [1] = 1, [3] = 3, [7] = 7, [8] = 1, [10] = 3, [14] = 7, [40] = 5 }) do
+			local data, info = DataMigration.migrate(before(streak), template(), "S1")
+			expect(info).toEqual({ From = 5, Migrated = true })
+			expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
+			expect(data.Daily.CalendarDay).toBe(day)
+			expect(data.Daily.Streak).toBe(streak)
+			expect(data.Daily.Signets).toBe(0)
+			expect(data.Daily.LastClaimDay).toBe(20100)
+		end
+	end)
+
+	it("leaves a profile with no streak, or a malformed one, before the calendar's first day", function()
+		for _, streak in ipairs({ 0, -3, 2.5, "7" } :: { any }) do
+			local data = DataMigration.migrate(before(streak), template(), "S1")
+			expect(data.Daily.CalendarDay).toBe(0)
+		end
+		local legacy = DataMigration.migrate({ DataVersion = 1, PlayerLevel = 3 }, template(), "S1")
+		expect(legacy.Daily.CalendarDay).toBe(0)
+		expect(legacy.Daily.Signets).toBe(0)
+	end)
+
+	it("never moves the calendar of a profile already on it", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Daily = { LastClaimDay = 20100, Streak = 12, CalendarDay = 12, Signets = 2 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info.Migrated).toBe(false)
+		expect(data.Daily.CalendarDay).toBe(12)
+		expect(data.Daily.Signets).toBe(2)
 	end)
 end)
 

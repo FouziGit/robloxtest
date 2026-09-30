@@ -98,7 +98,11 @@ export type QuestsData = {
 
 export type DailyData = {
 	LastClaimDay: number, -- days since epoch
-	Streak: number,
+	Streak: number, -- days claimed in a row, a day missed with a Signet included in none
+	-- The login calendar (DailyConfig.Calendar): the last of its days claimed (0 before the first), and the Signets
+	-- held, each of which keeps the streak through one missed day (Pure/DailyStreak).
+	CalendarDay: number,
+	Signets: number,
 	FirstWinDay: number,
 	PremiumBonusDay: number,
 	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each

@@ -1,7 +1,8 @@
 --!strict
 -- MetaCluster: what the player owns and what waits for them, in the hub (D-147). A column of four rows:
 --
---   Level    their level on a seal of the primary yellow, and its XP on a bar over an ink strip
+--   Level    their level on a seal of the primary yellow, and its XP on a bar over an ink strip, the login
+--            streak at the strip's other end (E15-S1), read and never pressed
 --   Folios   an ink pill: the coin, the count (counted up when it grows), and a "+" to the shop's Folios
 --   Claims   a seal per kind of claim waiting -- the daily reward, quests, pass tiers -- each badged with how
 --            many, shown only while there is one, and opening its screen
@@ -62,6 +63,8 @@ export type MetaCluster = {
 	SetClaims: (self: MetaCluster, claims: Claims) -> (),
 	SetQueue: (self: MetaCluster, queue: Types.QueueSnapshot) -> (),
 	SetChecklist: (self: MetaCluster, done: Checklist) -> (),
+	-- The login streak as it stands today (DailyStreak.standing): shown from one day on.
+	SetStreak: (self: MetaCluster, streak: number) -> (),
 	SetVisible: (self: MetaCluster, visible: boolean) -> (),
 	Destroy: (self: MetaCluster) -> (),
 }
@@ -78,6 +81,8 @@ local LEVEL_PUNCH = 1.25
 local XP_BAR_WIDTH = 200
 local XP_BAR_HEIGHT = 12
 local XP_TEXT = 14
+-- The streak's words at the strip's right end, and what they leave the XP's: "Streak 999" and "Série 999" fit.
+local STREAK_WIDTH = 76
 -- The pills: the Folios and the queue.
 local PILL_HEIGHT = 40
 local COIN = 26
@@ -236,7 +241,7 @@ function MetaCluster.new(props: Props): MetaCluster
 	end)
 	local xpText = textLabel("Value", Theme.Fonts.Numeric, XP_TEXT, Theme.Colors.TextInverse)
 	xpText.Position = UDim2.fromOffset(pad, GAP)
-	xpText.Size = UDim2.new(1, -pad * 2, 0, XP_TEXT)
+	xpText.Size = UDim2.new(1, -(pad * 2 + STREAK_WIDTH + GAP), 0, XP_TEXT)
 	xpText.TextXAlignment = Enum.TextXAlignment.Left
 	xpText.ZIndex = 3
 	xpText.Parent = strip.Face
@@ -254,6 +259,15 @@ function MetaCluster.new(props: Props): MetaCluster
 	trove:Add(function()
 		xpBar:Destroy()
 	end)
+	local streakText = textLabel("Streak", Theme.Fonts.Numeric, XP_TEXT, Theme.Colors.TextInverse)
+	streakText.AnchorPoint = Vector2.new(1, 0)
+	streakText.Position = UDim2.new(1, -pad, 0, GAP)
+	streakText.Size = UDim2.fromOffset(STREAK_WIDTH, XP_TEXT)
+	streakText.TextXAlignment = Enum.TextXAlignment.Right
+	streakText.TextTruncate = Enum.TextTruncate.AtEnd
+	streakText.ZIndex = 3
+	streakText.Visible = false
+	streakText.Parent = strip.Face
 
 	-- What the player taps: in the column with a pointer, in one row under the level on touch, which keeps the
 	-- claims' badges their room.
@@ -659,6 +673,11 @@ function MetaCluster.new(props: Props): MetaCluster
 		end
 	end
 
+	local function setStreak(_self: MetaCluster, streak: number)
+		streakText.Visible = streak > 0
+		streakText.Text = localize.t("hud.streak", { streak = streak })
+	end
+
 	-- Back in the hub, what was won in the fight counts up where the player sees it.
 	local function setVisible(_self: MetaCluster, visible: boolean)
 		column.Visible = visible
@@ -685,6 +704,7 @@ function MetaCluster.new(props: Props): MetaCluster
 		SetClaims = setClaims,
 		SetQueue = setQueue,
 		SetChecklist = setChecklist,
+		SetStreak = setStreak,
 		SetVisible = setVisible,
 		Destroy = destroy,
 	}

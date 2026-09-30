@@ -12,6 +12,11 @@
 
 local DataMigration = {}
 
+-- 6: the login calendar (E15-S1). `Daily.CalendarDay`, the last of the calendar's 28 days claimed, and
+-- `Daily.Signets`, the Signets held. The seven-day streak before it paid the day of its week the streak fell on,
+-- so upgradeToV6 puts a profile on the calendar at that same day of its first week: nobody jumps past the week's
+-- cosmetic, and the streak itself keeps its count. Signets start at none, as a new profile's do.
+--
 -- 5: `Cosmetics.Waived`, the cosmetics a developer account bought with Folios the developer list waived, so
 -- they leave with the list (D-208). No upgrade step: every profile before it holds none, which is the
 -- template's empty list.
@@ -26,7 +31,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 5
+DataMigration.CurrentVersion = 6
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {
@@ -281,6 +286,22 @@ local function upgradeToV4(raw: { [string]: any }, result: { [string]: any })
 	end
 end
 
+-- The days of the seven-day streak's week (DailyConfig before the calendar): the day of it a streak last paid.
+local LEGACY_STREAK_WEEK = 7
+
+-- The login calendar's start, read out of the raw profile's own streak: the day of the old week its last claim
+-- paid, which is where the calendar's first week stands for it. The generic overlay has already carried the
+-- streak and left the calendar day at the template's 0.
+local function upgradeToV6(raw: { [string]: any }, result: { [string]: any })
+	local daily = result.Daily
+	local oldDaily = if type(raw.Daily) == "table" then raw.Daily else {}
+	if type(daily) ~= "table" then
+		return
+	end
+	local streak = nonNegativeInteger(oldDaily.Streak, 0)
+	daily.CalendarDay = if streak > 0 then (streak - 1) % LEGACY_STREAK_WEEK + 1 else 0
+end
+
 -- A keybind map loaded over the template's defaults can hold one key twice: an action added after a
 -- player bound its new default key to something else -- LockOn's wheel click, D-115 -- arrives with that
 -- key while the player's own action still has it. Left alone, the new action silently took the key from
@@ -391,6 +412,11 @@ function DataMigration.migrate(
 	-- After V1's own path too: migrateV1 writes the balance it found under the old key.
 	if version < 4 then
 		upgradeToV4(raw, result)
+		info.Migrated = true
+	end
+
+	if version < 6 then
+		upgradeToV6(raw, result)
 		info.Migrated = true
 	end
 

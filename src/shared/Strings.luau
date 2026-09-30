@@ -298,6 +298,11 @@ Strings.Table = {
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
 	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
+	-- The login calendar's cosmetics (DailyConfig.Calendar), never sold.
+	["cosmetic.TitleFaithfulHand"] = { en = "Title: Faithful Hand", fr = "Titre : Main Fidèle" },
+	["cosmetic.TrailRibbon"] = { en = "Signet Ribbon Trail", fr = "Traînée du Signet" },
+	["cosmetic.TitleKeeperOfDays"] = { en = "Title: Keeper of Days", fr = "Titre : Gardien des Jours" },
+	["cosmetic.AuraSignet"] = { en = "Signet Aura", fr = "Aura du Signet" },
 
 	-- Quests & daily
 	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
@@ -328,7 +333,6 @@ Strings.Table = {
 	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
-	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
 	["daily.claimed"] = {
 		en = "Day {day} reward: +{xp} XP, +{folios} Folios",
 		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folios",
@@ -374,6 +378,8 @@ Strings.Table = {
 	["cosmetic.title.TitleScript"] = { en = "Script", fr = "Écriture" },
 	["cosmetic.title.TitleIllumination"] = { en = "Illumination", fr = "Enluminure" },
 	["cosmetic.title.TitleCodexSeason"] = { en = "Codex of the Volume", fr = "Codex du volume" },
+	["cosmetic.title.TitleFaithfulHand"] = { en = "Faithful Hand", fr = "Main Fidèle" },
+	["cosmetic.title.TitleKeeperOfDays"] = { en = "Keeper of Days", fr = "Gardien des Jours" },
 	["cosmetic.title.TitleRookie"] = { en = "Rookie", fr = "Recrue" },
 	["cosmetic.title.TitleWanderer"] = { en = "Wanderer", fr = "Vagabond" },
 
@@ -749,6 +755,33 @@ Strings.Table = {
 		en = "Claim today to keep your {streak}-day streak!",
 		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
 	},
+	-- The login calendar (E15-S1): where the player stands in its 28 days and in their streak, the Signets they
+	-- hold, what a Signet does, and what the day's claim brought beyond its Folios.
+	["daily.calendar"] = {
+		en = "Day {day} of {length} · Streak {streak}",
+		fr = "Jour {day} sur {length} · Série {streak}",
+	},
+	["daily.signets"] = { en = "Signets", fr = "Signets" },
+	["daily.signetHint"] = {
+		en = "A Signet keeps your streak through one missed day.",
+		fr = "Un Signet garde ta série un jour manqué.",
+	},
+	["daily.signetSaves"] = {
+		en = "You missed a day: your Signet keeps your streak. Claim today!",
+		fr = "Tu as manqué un jour : ton Signet garde ta série. Réclame aujourd'hui !",
+	},
+	["daily.tomorrow.signet"] = { en = "Tomorrow: {reward}, and a Signet", fr = "Demain : {reward}, et un Signet" },
+	["daily.signetUsed"] = {
+		en = "Signet used: your streak goes on!",
+		fr = "Signet utilisé : ta série continue !",
+	},
+	["daily.signetEarned"] = {
+		en = "A Signet slips into your book: it keeps your streak through a missed day.",
+		fr = "Un Signet se glisse dans ton livre : il garde ta série un jour manqué.",
+	},
+	["daily.cosmetic"] = { en = "New cosmetic: {name}!", fr = "Nouveau cosmétique : {name} !" },
+	-- The streak on the hub's HUD (MetaCluster), beside the level's XP.
+	["hud.streak"] = { en = "Streak {streak}", fr = "Série {streak}" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 	-- A time left, on a countdown (QuestBoard.countdown): days and hours past a day (under a day it reads

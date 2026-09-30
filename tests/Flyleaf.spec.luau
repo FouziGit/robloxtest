@@ -444,8 +444,11 @@ describe("FlyleafService", function()
 		expect(fx.said(c, "flyleaf.manicule")).toBe(1)
 		expect(fx.snapshots[a].Streak).toBe(3)
 		fx.advance(5)
+		local worn = a.Character
 		takeDown(fx, c, a)
 		expect(fx.said(b, "flyleaf.maniculeTaken")).toBe(1)
+		-- Off at the death, not three seconds later with the body: no hand hangs over a fallen rival (found by review).
+		expect(worn:GetAttribute(FlyleafConfig.ManiculeAttribute)).toBeNil()
 		fx.advance(4)
 		expect(a.Character:GetAttribute(FlyleafConfig.ManiculeAttribute)).toBeNil()
 		expect(fx.snapshots[a].Streak).toBe(0)

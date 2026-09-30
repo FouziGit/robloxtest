@@ -155,7 +155,8 @@ local function drop(player: Player)
 end
 
 -- A member's body died: the membership waits for the next body, which the page puts back on a seal
--- RespawnSeconds later (respawn). No nil is sent, so the band does not flicker through the death.
+-- RespawnSeconds later (respawn). No nil is sent, so the band does not flicker through the death. The Manicule goes
+-- with the life that earned it, not with the body three seconds later.
 local function onDied(member: Member)
 	local player = member.Player
 	if members[player] ~= member then
@@ -165,6 +166,7 @@ local function onDied(member: Member)
 	memberCount -= 1
 	member.Trove:Destroy()
 	unshield(member)
+	member.Character:SetAttribute(FlyleafConfig.ManiculeAttribute, nil)
 	pending[player] = { At = os.clock(), Kills = member.Kills, Streak = member.Streak, Respawning = false }
 end
 

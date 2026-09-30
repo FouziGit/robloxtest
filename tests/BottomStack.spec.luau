@@ -263,6 +263,36 @@ describe("the preview pill, run", function()
 		end
 		expect(seen.Cinnabar and seen.Umber).toBe(true)
 	end)
+
+	it("drains its window from the right end, its left end held where the words begin", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ComboRow = world.require("src/ui/components/ComboRow")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local row = ComboRow.new({
+			Parent = gui,
+			Localize = {
+				t = function(key: string): string
+					return key
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		local window = row.Instance:FindFirstChild("Window", true)
+		row:SetPreview("Brand", 0.35)
+		expect(window.AnchorPoint).toBe(roblox.Vector2.new(0, 1))
+		local left = window.Position
+		expect(left.X.Scale).toBe(0)
+		expect(left.X.Offset).toBe(14)
+		expect(window.Size.X.Scale).toBe(1)
+		expect(window.Size.X.Offset).toBe(-28)
+		world:advance(0.1)
+		-- Shorter, from the right: the left end has not moved.
+		expect(window.Size.X.Scale).toBeLessThan(1)
+		expect(window.Position).toBe(left)
+		world:advance(2)
+		expect(window.Size.X.Scale).toBeCloseTo(0, 2)
+		expect(window.Position).toBe(left)
+	end)
 end)
 
 return nil

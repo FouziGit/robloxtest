@@ -336,6 +336,17 @@ describe("the combo row", function()
 		expect(has(preview, "previewText.Text = localize.t(def.NameKey)")).toBe(true)
 		expect(has(preview, 'Motion.to(previewLine, { Size = UDim2.fromOffset(0, PREVIEW_LINE) }, "Ui")')).toBe(true)
 		expect(GameConfig.Combo.ExtendWindowSeconds).toBeGreaterThan(0)
+		-- The window is held at its left end and drains from its right, inside the pill's ends (the board's 14).
+		expect(has(row, "previewLine.AnchorPoint = Vector2.new(0, 1)")).toBe(true)
+		expect(has(row, "previewLine.Position = UDim2.new(0, PREVIEW_PADDING, 1, -PREVIEW_LINE)")).toBe(true)
+		expect(number(row, "PREVIEW_PADDING")).toBe(14)
+		expect(has(preview, "Motion.set(previewLine, { Size = UDim2.new(1, -PREVIEW_PADDING * 2, 0, PREVIEW_LINE) })")).toBe(
+			true
+		)
+		-- The chips stand the board's gap apart, and the ghosts' keys stay over their chips.
+		expect(has(row, "layout.Padding = UDim.new(0, HUD.ChipRowGap)")).toBe(true)
+		expect(has(row, "keyLayout.Padding = UDim.new(0, HUD.ChipRowGap)")).toBe(true)
+		expect(HUD.ChipRowGap).toBe(8)
 		-- How every pigment's name reads on the ink pill is run in tests/BottomStack.spec.luau.
 	end)
 

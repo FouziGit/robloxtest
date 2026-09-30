@@ -1,7 +1,7 @@
 --!strict
 -- The pacing of the game held to its ceilings (E10-S4, E10-S5): scripts/pacing.luau plays four players for
 -- sixty days through the real configs and the very rules the server runs (TrialPay, DailyCap, QuestLogic,
--- ShopRotation), and this gate fails the day a change to a reward, a cap or a cost breaks what the game promises.
+-- ExLibris, ShopRotation), and this gate fails the day a change to a reward, a cap or a cost breaks what the game promises.
 --
 -- - The safest thing in the game is not the best paid: an hour of Trials pays under 30 % of the XP of an hour of
 --   duels, a day of them no more Folios than their cap, and no pass at all.
@@ -9,9 +9,11 @@
 --   day not before day 15.
 -- - The numbers docs/ECONOMY.md, docs/GAME_DESIGN.md and docs/economy/ quote are the ones the simulator gives.
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
+local ExLibrisConfig = require("../src/shared/Config/ExLibrisConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local Pacing = require("../scripts/pacing")
+local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -102,6 +104,46 @@ describe("the pacing of sixty days", function()
 	end)
 end)
 
+describe("what is paid once", function()
+	-- The level road's milestones and the Ex-libris (wave 1, D-224, D-225) pay Folios once each, as HonoursService
+	-- pays them: the simulator pays them too, or its Folios and its catalogue day say less than the game gives.
+	it("pays each milestone a profile reaches, in order, and each plate its play meets", function()
+		local measures: { [string]: string } = {}
+		for _, plate in ipairs(ExLibrisConfig.Plates) do
+			measures[plate.Id] = plate.Measure
+		end
+		-- No profile fights the Erasure or does a drill: no plate of theirs is paid.
+		local unplayed = {
+			BossKills = true,
+			KitCalligraphy = true,
+			DrillsFairCopy = true,
+			DrillsCalligraphy = true,
+		}
+		for _, result in ipairs(RESULTS) do
+			local reached: { number } = {}
+			for _, milestone in ipairs(ProgressionConfig.Milestones) do
+				if milestone.Level <= result.Days[60].Level then
+					table.insert(reached, milestone.Level)
+				end
+			end
+			expect(result.Milestones).toEqual(reached)
+			for id, day in pairs(result.Plates) do
+				expect(unplayed[measures[id]]).toBeNil()
+				expect(day).toBeGreaterThanOrEqual(1)
+				expect(day).toBeLessThanOrEqual(60)
+			end
+		end
+		-- An hour of duels a day reaches the last level, and every plate of matches, kills and strokes.
+		expect(#BY_ID.Pvp60.Milestones).toBe(#ProgressionConfig.Milestones)
+		for _, id in ipairs({ "Pages25", "Pages250", "Erasures100", "Erasures1000", "Strokes1000", "Strokes10000" }) do
+			expect(BY_ID.Pvp60.Plates[id]).never.toBeNil()
+		end
+		-- A proof felled counts as a kill whatever it pays (EnemyService), and a farmer plays no match.
+		expect(BY_ID.Farmer.Plates.Erasures1000).never.toBeNil()
+		expect(BY_ID.Farmer.Plates.Pages25).toBeNil()
+	end)
+end)
+
 describe("the simulator", function()
 	it("reads the real configs and runs the rules the server runs", function()
 		local script = strip("scripts/pacing.luau")
@@ -111,6 +153,8 @@ describe("the simulator", function()
 			"../src/shared/Config/CombatConfig",
 			"../src/shared/Config/CosmeticConfig",
 			"../src/shared/Config/DailyConfig",
+			"../src/shared/Config/DrillConfig",
+			"../src/shared/Config/ExLibrisConfig",
 			"../src/shared/Config/GameConfig",
 			"../src/shared/Config/GlyphConfig",
 			"../src/shared/Config/MatchConfig",
@@ -118,6 +162,7 @@ describe("the simulator", function()
 			"../src/shared/Config/QuestConfig",
 			"../src/shared/Config/ShopConfig",
 			"../src/server/Pure/DailyCap",
+			"../src/shared/Pure/ExLibris",
 			"../src/shared/Pure/QuestLogic",
 			"../src/shared/Pure/ShopRotation",
 			"../src/server/Pure/TrialPay",
@@ -129,6 +174,8 @@ describe("the simulator", function()
 			"DailyCap.take(daily.ForgerDay, daily.ForgerFolios, today, BotConfig.Credit.DailyFolioCap, FOLIOS[target.RewardKey])",
 			"if PASS_EXCLUDED[reason] or player.Tier >= BattlepassConfig.MaxTier then",
 			"BattlepassConfig.xpForTier(player.Tier)",
+			"local milestone = MILESTONES[player.Level]",
+			"if ExLibris.due(plate, facts, player.Plates) then",
 			"ProgressionConfig.xpForLevel(player.Level)",
 			'QuestLogic.reroll(rules, "Daily", set, quest.Id)',
 			"QuestLogic.select(QuestConfig.Pool, period, count, periodSet.PeriodKey, QuestConfig.SoloFloor)",

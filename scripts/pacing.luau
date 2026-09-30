@@ -4,7 +4,8 @@
 -- It plays each profile day after day through the rules the game ships -- the level curve, the pass's tier
 -- cost and free track, the match, kill and quest rewards, the daily streak, the Forgers' and the Trials' daily
 -- caps (TrialPay and DailyCap themselves), the quests each day and week really draws (QuestLogic, Solo floor
--- and free reroll included) and the shop's real rotation -- and says how long things take: the minutes to
+-- and free reroll included), the level road's milestones and the plates of the Ex-libris (ExLibris itself) and
+-- the shop's real rotation -- and says how long things take: the minutes to
 -- levels 5, 10, 20 and 40, the day the pass is finished, the Folios earned by day 7 and day 30, and the day the
 -- catalogue a player can earn without Robux is complete.
 --
@@ -22,6 +23,9 @@ local CombatConfig = require("../src/shared/Config/CombatConfig")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local DailyCap = require("../src/server/Pure/DailyCap")
 local DailyConfig = require("../src/shared/Config/DailyConfig")
+local DrillConfig = require("../src/shared/Config/DrillConfig")
+local ExLibris = require("../src/shared/Pure/ExLibris")
+local ExLibrisConfig = require("../src/shared/Config/ExLibrisConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
@@ -59,6 +63,9 @@ export type Result = {
 	ActivityFolios: { [string]: number },
 	-- The pass XP each activity brought.
 	ActivityPassXp: { [string]: number },
+	-- The levels whose milestone was paid, in order, and the day each plate of the Ex-libris was earned.
+	Milestones: { number },
+	Plates: { [string]: number },
 	Days: { Day },
 }
 
@@ -83,7 +90,8 @@ Pacing.Assumptions = {
 	MeleeShare = { Duel = 0.3, Trials = 1, Forgers = 0.5 },
 	DashesPerMinute = 6,
 	DashCancelsPerMinute = 1,
-	-- Casts that follow the previous one inside the chain window.
+	-- Casts that follow the previous one inside the chain window. A player's best chain is taken as the longest
+	-- whose expected count over their casts is one at least (a chain of k is k - 1 of these in a row).
 	ChainShare = 0.2,
 	-- A Forger fights back and walks: the share of a player's damage that reaches it, and the walk to the next.
 	ForgerDamageShare = 0.6,
@@ -112,6 +120,15 @@ local DUEL = MatchConfig.Modes.Duel1v1
 local DUEL_REWARDS = MatchConfig.Rewards.Duel1v1
 local ENEMY = GameConfig.Enemy
 local SECONDS_PER_DAY = 86400
+-- The milestone each level pays when it is reached (HonoursService), and the kit's drills the Ex-libris reads.
+local MILESTONES: { [number]: ProgressionConfig.Milestone } = {}
+for _, milestone in ipairs(ProgressionConfig.Milestones) do
+	MILESTONES[milestone.Level] = milestone
+end
+local KIT_IDS: { string } = {}
+for _, kit in ipairs(DrillConfig.Kit) do
+	table.insert(KIT_IDS, kit.Id)
+end
 local PERIODS: { QuestConfig.Period } = { "Daily", "Weekly" }
 -- The events each activity produces, for the quests a profile can play and the ones it rerolls.
 local PRODUCES: { [Activity]: { string } } = {
@@ -230,6 +247,11 @@ type Player = {
 	Events: Periods<Counts>,
 	Applied: Periods<Counts>,
 	FirstWinDay: number,
+	-- The lifetime measures the Ex-libris reads (Stats), the casts behind them, and what HonoursService paid.
+	Casts: number,
+	Stats: ExLibris.Stats,
+	Milestones: { number },
+	Plates: { [string]: number },
 }
 
 local function newPlayer(): Player
@@ -259,6 +281,10 @@ local function newPlayer(): Player
 		Events = { Daily = {}, Weekly = {} },
 		Applied = { Daily = {}, Weekly = {} },
 		FirstWinDay = 0,
+		Casts = 0,
+		Stats = { Kills = 0, MatchesPlayed = 0, GlyphsCast = 0, BestChain = 0, BossKills = 0 },
+		Milestones = {},
+		Plates = {},
 	}
 end
 
@@ -274,8 +300,17 @@ local function freeReward(player: Player, tier: number)
 	end
 end
 
--- XP from `reason`, as ProgressionService grants it: levels cascade, and the pass takes it unless the source is
--- one ProgressionConfig.PassExcluded names. `activity` is the play it came from, for the hourly rates.
+local function grantFolios(player: Player, amount: number, activity: string?)
+	player.Folios += amount
+	player.FoliosEarned += amount
+	if activity ~= nil then
+		player.ActivityFolios[activity] = (player.ActivityFolios[activity] or 0) + amount
+	end
+end
+
+-- XP from `reason`, as ProgressionService grants it: levels cascade, each reached level pays its milestone
+-- (HonoursService, on LevelUp), and the pass takes it unless the source is one ProgressionConfig.PassExcluded
+-- names. `activity` is the play it came from, for the hourly rates; a milestone is no activity's.
 local function grantXp(player: Player, amount: number, reason: string, activity: string?)
 	if amount <= 0 then
 		return
@@ -294,6 +329,11 @@ local function grantXp(player: Player, amount: number, reason: string, activity:
 			player.Level += 1
 			if table.find(Pacing.Levels, player.Level) ~= nil then
 				player.LevelAt[player.Level] = player.Seconds / 60
+			end
+			local milestone = MILESTONES[player.Level]
+			if milestone ~= nil then
+				table.insert(player.Milestones, milestone.Level)
+				grantFolios(player, milestone.Folios)
 			end
 		end
 	end
@@ -315,11 +355,24 @@ local function grantXp(player: Player, amount: number, reason: string, activity:
 	end
 end
 
-local function grantFolios(player: Player, amount: number, activity: string?)
-	player.Folios += amount
-	player.FoliosEarned += amount
-	if activity ~= nil then
-		player.ActivityFolios[activity] = (player.ActivityFolios[activity] or 0) + amount
+-- The longest chain `casts` have likely reached: the longest whose expected count is one at least.
+local function bestChain(casts: number): number
+	local chain = if casts >= 1 then 1 else 0
+	while chain < casts and casts * A.ChainShare ^ chain >= 1 do
+		chain += 1
+	end
+	return chain
+end
+
+-- Every plate of the Ex-libris the lifetime measures now meet, granted once with its Folios (HonoursService,
+-- ExLibris.due). No profile here fights the Erasure or does a drill: those measures stay at zero.
+local function honours(player: Player)
+	local facts = ExLibris.facts(player.Stats, {}, KIT_IDS)
+	for _, plate in ipairs(ExLibrisConfig.Plates) do
+		if ExLibris.due(plate, facts, player.Plates) then
+			player.Plates[plate.Id] = player.Day
+			grantFolios(player, plate.Folios)
+		end
 	end
 end
 
@@ -346,6 +399,9 @@ end
 local function fight(player: Player, activity: Activity, seconds: number, glyphXp: boolean)
 	local casts = CASTS_PER_SECOND * seconds
 	local landed = casts * A.LandShare[activity]
+	player.Casts += casts
+	player.Stats.GlyphsCast = math.floor(player.Casts)
+	player.Stats.BestChain = bestChain(player.Casts)
 	report(player, "GlyphCast", casts)
 	report(player, "GlyphHit", landed)
 	report(player, "Chain", casts * A.ChainShare)
@@ -383,6 +439,8 @@ local function duel(player: Player, index: number): number
 	fight(player, "Duel", fightSeconds, true)
 	local health = CombatConfig.Health.Max
 	report(player, "DamageDealt", health * (roundsWon + A.LostRoundDamageShare * (rounds - roundsWon)))
+	player.Stats.MatchesPlayed += 1
+	player.Stats.Kills += roundsWon
 	for _ = 1, roundsWon do
 		grantXp(player, XP.PlayerKill, "PlayerKill", "Duel")
 		grantFolios(player, FOLIOS.PlayerKill, "Duel")
@@ -410,6 +468,8 @@ local function trial(player: Player, today: number): number
 	fight(player, "Trials", seconds, false)
 	report(player, "DamageDealt", ENEMY.DummyHealth)
 	report(player, "DummyKill", 1)
+	-- Counted whatever it pays (EnemyService).
+	player.Stats.Kills += 1
 	local pay = TrialPay.kill(player.Daily.Trial, today, ENEMY.Pay, XP.DummyKill, FOLIOS.DummyKill, DailyCap.take)
 	player.Daily.Trial = pay.Ledger
 	grantXp(player, pay.Xp, "DummyKill", "Trials")
@@ -427,6 +487,7 @@ local function forger(player: Player, today: number, index: number): number
 	fight(player, "Forgers", seconds, true)
 	report(player, "DamageDealt", target.Health)
 	report(player, "BotKill", 1)
+	player.Stats.Kills += 1
 	grantXp(player, XP[target.RewardKey], target.RewardKey, "Forgers")
 	local daily = player.Daily
 	local granted, used = DailyCap.take(
@@ -567,6 +628,7 @@ local function playDay(player: Player, profile: Profile, day: number)
 			else
 				used += forger(player, today, index)
 			end
+			honours(player)
 		end
 	end
 	shop(player, today)
@@ -609,6 +671,8 @@ function Pacing.simulate(profile: Profile): Result
 		XpPerHour = perHour,
 		ActivityFolios = player.ActivityFolios,
 		ActivityPassXp = player.ActivityPassXp,
+		Milestones = player.Milestones,
+		Plates = player.Plates,
 		Days = days,
 	}
 end

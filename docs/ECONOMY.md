@@ -48,20 +48,22 @@ Aucune de ces sources ne se renouvelle : un changement de serveur ou une reconne
 
 ## 2 bis. Le rythme, mesuré par le simulateur
 
-`lune run scripts/pacing -- --table` joue quatre profils pendant 60 jours avec les vraies configs et les règles que le serveur exécute (`TrialPay`, `DailyCap`, `QuestLogic` avec plancher Solo et relance gratuite, rotation réelle de la boutique) ; `tests/Pacing.spec.luau` le lance à chaque porte de qualité. L'export jour par jour est `docs/economy/pacing.csv`, repris en formules dans `docs/economy/Vellum-economie.xlsx` (`python3 tools/economy/workbook.py`). Sortie du 30/09/2026 :
+`lune run scripts/pacing -- --table` joue quatre profils pendant 60 jours avec les vraies configs et les règles que le serveur exécute (`TrialPay`, `DailyCap`, `QuestLogic` avec plancher Solo et relance gratuite, les jalons de niveau et les plaques de l'Ex-libris par `ExLibris` depuis la fusion de la vague 2, rotation réelle de la boutique) ; `tests/Pacing.spec.luau` le lance à chaque porte de qualité. L'export jour par jour est `docs/economy/pacing.csv`, repris en formules dans `docs/economy/Vellum-economie.xlsx` (`python3 tools/economy/workbook.py`). Sortie du 30/09/2026 :
 
 | Profil | Niv. 5 | Niv. 10 | Niv. 20 | Niv. 40 | Pass fini | Folios gagnés J7 | Folios gagnés J30 | Catalogue complet |
 |---|---|---|---|---|---|---|---|---|
-| 20 min/j seul (5 min d'Épreuves, 15 min de Faussaires) | 1 min | 9 min | 43 min | 253 min | J41 | 4 460 | 21 825 | après J60 |
-| 20 min/j en PvP (duels) | 3 min | 11 min | 52 min | 277 min | J34 | 7 170 | 34 825 | J41 |
-| 60 min/j en PvP (duels) | 3 min | 11 min | 65 min | 364 min | J15 | 15 205 | 60 375 | J32 |
-| Fermier d'Épreuves (60 min/j) | 1 min | 19 min | 237 min | 1 144 min | jamais | 2 830 | 12 875 | après J60 |
+| 20 min/j seul (5 min d'Épreuves, 15 min de Faussaires) | 1 min | 9 min | 43 min | 253 min | J41 | 4 910 | 24 675 | J58 |
+| 20 min/j en PvP (duels) | 3 min | 11 min | 52 min | 277 min | J34 | 7 470 | 37 325 | J36 |
+| 60 min/j en PvP (duels) | 3 min | 11 min | 65 min | 364 min | J15 | 15 805 | 67 375 | J18 |
+| Fermier d'Épreuves (60 min/j) | 1 min | 19 min | 237 min | 1 144 min | jamais | 4 180 | 15 175 | après J60 |
 
-XP par heure de chaque activité seule (sans quêtes, série ni première victoire) : duels 8 237, Faussaires 9 716, Épreuves du fermier 1 858 (22,6 % des duels ; le gate exige moins de 30 %). Le pass coûte 152 880 XP (D-249) ; 24 objets s'obtiennent sans Robux (les 14 de la boutique et les 10 de la piste gratuite). « Catalogue complet » : le jour où le profil possède ces 24 objets en achetant, chaque jour, le moins cher de la rotation qu'il peut payer.
+XP par heure de chaque activité seule (sans quêtes, série ni première victoire) : duels 8 237, Faussaires 9 716, Épreuves du fermier 1 858 (22,6 % des duels ; le gate exige moins de 30 %). Le pass coûte 152 880 XP (D-249) ; 24 objets s'obtiennent sans Robux (les 14 de la boutique et les 10 de la piste gratuite). « Catalogue complet » : le jour où le profil possède ces 24 objets en achetant, chaque jour, le moins cher de la rotation qu'il peut payer ; les titres des jalons et de l'Ex-libris, réservés, n'en sont pas.
+
+Les jalons et l'Ex-libris (D-224, D-225) comptent dans ces Folios : aucun profil ne fait d'exercice ni ne combat l'Effacement, les plaques payées sont celles des adversaires, des matchs, des glyphes et des chaînes (la plus longue chaîne d'un joueur est prise comme la plus longue dont le nombre attendu, sur ses lancers, atteint un). À la fusion de la vague 2, ils ont avancé le catalogue complet de J32 à J18 à une heure de duels par jour, de J41 à J36 à 20 minutes, et l'ont fait tenir dans les 60 jours du joueur seul (J58) ; une heure de duels par jour atteint le niveau 100 avant J60, et le fermier touche les plaques d'adversaires (100 et 1 000) dès J1 et J3, une Épreuve abattue comptant comme un kill qu'elle paie ou non (`EnemyService`).
 
 Ce que les configs ne disent pas est dans `Pacing.Assumptions`, une fois chacun, à remplacer par des mesures (E8) : file de 45 s et 10 s de portail par duel, manche de 50 s, matchs par quatre (deux gagnés, deux perdus, un net et un serré de chaque), un glyphe sur deux qui touche en duel (7 sur 10 sur un Faussaire, tous sur une Épreuve), un tiers du combat au corps à corps en duel, 6 ruées et 1 annulation par minute, un glyphe sur cinq enchaîné, un Faussaire qui encaisse 60 % des dégâts et demande 3 s d'approche. Les lancers de glyphes suivent l'encre en combat (`CombatConfig.Ink.RegenInCombat` sur le coût moyen de l'équipement de départ), les coups de poing la cadence du combo (`CombatConfig.Melee`).
 
-Deux constats pour le développeur, hors de ces stories : le niveau 40 (Orpiment) arrive en 4 à 6 h de jeu et non en 15-20 h, et une heure de Faussaires paie plus d'XP qu'une heure de duels.
+Trois constats pour le développeur, hors de ces stories : le niveau 40 (Orpiment) arrive en 4 à 6 h de jeu et non en 15-20 h ; une heure de Faussaires paie plus d'XP qu'une heure de duels ; et les plaques « adversaires » de l'Ex-libris se gagnent sur les Épreuves du hub (650 Folios au fermier en trois jours), ce que E17-S2 n'avait pas pesé.
 
 ## 3. Puits de Folios (boutique cosmétique)
 

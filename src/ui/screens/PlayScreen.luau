@@ -2,7 +2,7 @@
 -- PlayScreen: the queue screen (D-147), in the yellow Play chapter. One mode card per MatchConfig.ModeOrder
 -- entry, side by side: a picture of the fight (the number of fighters on each side IS the picture), the mode's
 -- name and its "Ranked" tag, its rule, and one button. On a private server a player bought, where no match is
--- ranked (D-XXX), a ranked mode's card says so under its name instead of wearing the tag. While the player waits, their card breathes a yellow
+-- ranked (E4-S4), a ranked mode's card says so under its name instead of wearing the tag. While the player waits, their card breathes a yellow
 -- ring and counts the wait in big numbers, the other card is veiled, and the way out is a plain Leave --
 -- leaving a queue is no danger. When the server gives up finding a match, the card says so and offers a
 -- retry or the way back to the hub, instead of a lone error line.

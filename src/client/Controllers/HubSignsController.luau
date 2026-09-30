@@ -156,6 +156,8 @@ local function wordBoard(folder: Instance, boardId: string, trove: typeof(Trove.
 		return
 	end
 	local surface = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	surface.AutoLocalize = false
 	surface.Name = "BoardWords_" .. boardId
 	surface.Adornee = panel
 	surface.Face = Enum.NormalId.Front
@@ -208,6 +210,8 @@ end
 -- not shrink with it.
 local function namePlate(adornee: BasePart, name: string, above: number, trove: typeof(Trove.new())): BillboardGui
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = signName(adornee)
 	billboard.Adornee = adornee
 	billboard.Size = PLATE_SIZE
@@ -248,6 +252,8 @@ end
 -- a phone. Only that face is written, so the back of one gate's sign never shows words over the other's.
 local function writeSign(sign: BasePart, name: string, hint: string, trove: typeof(Trove.new())): SurfaceGui
 	local surface = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	surface.AutoLocalize = false
 	surface.Name = signName(sign)
 	surface.Adornee = sign
 	surface.Face = Enum.NormalId.Front
@@ -336,6 +342,8 @@ local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityP
 		return
 	end
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = "Prompt_" .. prompt.Name
 	billboard.Adornee = prompt.Parent :: Instance
 	billboard.Size = PROMPT_SIZE

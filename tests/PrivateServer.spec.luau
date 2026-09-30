@@ -1,5 +1,5 @@
 --!strict
--- A private server a player bought plays unranked (E4-S4, D-XXX): its owner fills it with whoever they like, so
+-- A private server a player bought plays unranked (E4-S4): its owner fills it with whoever they like, so
 -- two accounts of one player could trade wins there forever. No Elo and no ladder move there, its matches pay a
 -- share of their rewards, and the queue says so. A reserved server, which the game fills itself, stays ranked.
 --

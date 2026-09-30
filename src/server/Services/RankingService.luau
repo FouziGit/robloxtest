@@ -9,7 +9,7 @@
 -- previous season's ladder, read once per player through LeaderboardService. Rank.LastRewardedSeason
 -- is written before any payout and re-checked after the read, so a reward can never be granted twice.
 --
--- In a private server a player bought, nothing here moves (Pure/ServerKind, D-XXX): its owner chooses who
+-- In a private server a player bought, nothing here moves (Pure/ServerKind, E4-S4): its owner chooses who
 -- fights, so no Elo is written and no rating reaches a ladder. RankingService.rankedHere says which it is.
 
 local Players = game:GetService("Players")

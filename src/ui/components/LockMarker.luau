@@ -83,6 +83,8 @@ end
 -- Builds the mark, hidden, under `parent` (the local PlayerGui), `size` pixels across.
 function LockMarker.new(parent: Instance, size: number, localize: Localizer): LockMarker
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = "LockMarker"
 	-- Room for the diamond's corners at its widest, when it clamps down from TAKE_FROM_SCALE.
 	billboard.Size = UDim2.fromOffset(size * 3, size * 3)
@@ -110,6 +112,8 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	-- The pill, on a billboard of its own centred where the diamond is: the pill stands in its upper half, over
 	-- the diamond, as wide as its words.
 	local plateBoard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	plateBoard.AutoLocalize = false
 	plateBoard.Name = "LockPlate"
 	plateBoard.Size = UDim2.fromOffset(PLATE_MAX_WIDTH, (size / 2 + PLATE_GAP + PLATE_HEIGHT) * 2)
 	plateBoard.AlwaysOnTop = true

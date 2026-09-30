@@ -428,7 +428,7 @@ function MenuScreen.new(deps: Deps): Screen
 
 	-- The Play tile: a ► on a disc of the sheet, its word at poster size and its line under it, and a "Ranked"
 	-- ribbon over its corner: every mode the queue offers is ranked (MatchConfig), except on a private server a
-	-- player bought, where the ribbon says none is (D-XXX). What a tile adds (the disc, the ribbon, the stripe) goes
+	-- player bought, where the ribbon says none is (E4-S4). What a tile adds (the disc, the ribbon, the stripe) goes
 	-- on its face, so it rides the face when it is pressed.
 	local playFace = playButton:Face()
 	local playLine: TextLabel? = nil

@@ -591,3 +591,57 @@ describe("the language's source", function()
 		expect(writers).toBeGreaterThanOrEqual(8)
 	end)
 end)
+
+describe("the languages the game speaks", function()
+	it("are English and French; Spanish, Brazilian Portuguese and every other read English", function()
+		expect(Strings.Locales).toEqual({ "en", "fr" })
+		expect(Strings.DefaultLocale).toBe("en")
+		for _, id in ipairs({ "es-es", "es-mx", "pt-br", "pt-pt", "de-de", "ja-jp" }) do
+			expect(Strings.localeFromId(id)).toBe("en")
+		end
+		expect(Strings.localeFromId("fr-fr")).toBe("fr")
+		expect(Strings.localeFromId("fr-ca")).toBe("fr")
+	end)
+
+	it("keeps Roblox's automatic translation off every surface the code draws words on", function()
+		local all: { string } = {}
+		files("src", all)
+		local roots = 0
+		for _, path in ipairs(all) do
+			local code = source(path)
+			local named = 0
+			for name in string.gmatch(code, 'local (%w+) = Instance%.new%("%w+Gui"%)') do
+				named += 1
+				if string.find(code, name .. ".AutoLocalize = false", 1, true) == nil then
+					error(("%s draws on a %s that Roblox's automatic translation may rewrite"):format(path, name))
+				end
+			end
+			-- A surface made any other way would go unread: each one has its own name to be switched off by.
+			local made = 0
+			for _ in string.gmatch(code, 'Instance%.new%("%w+Gui"%)') do
+				made += 1
+			end
+			if made ~= named then
+				error(
+					("%s makes a surface this gate cannot follow: give it `local <name> = Instance.new(...)`"):format(
+						path
+					)
+				)
+			end
+			roots += named
+		end
+		expect(roots).toBeGreaterThanOrEqual(11)
+		-- Run: a screen's root, and so everything under it, is not auto-localised.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local root = world.require("src/ui/components/ScreenRoot").new({ Name = "Probe", DisplayOrder = 1 })
+		expect(root.Instance.AutoLocalize).toBe(false)
+		local marker = world.require("src/ui/components/LockMarker")
+		marker.new(world.playerGui, 64, {
+			t = function(key: string): string
+				return key
+			end,
+		})
+		expect(world.playerGui:FindFirstChild("LockMarker").AutoLocalize).toBe(false)
+		expect(world.playerGui:FindFirstChild("LockPlate").AutoLocalize).toBe(false)
+	end)
+end)

@@ -30,7 +30,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios / jour via le bonus dédié.
 
-Serveur privé acheté (D-XXX) : le classé n'y compte pas. Un match y paie la moitié de son XP et de ses Folios (`MatchConfig.PrivateServer.RewardShare`), ni la première victoire du jour ni la quête d'une victoire, et aucun Elo ne bouge. Un serveur réservé par le jeu reste classé.
+Serveur privé acheté (D-XXX, serveur privé) : le classé n'y compte pas. Un match y paie la moitié de son XP et de ses Folios (`MatchConfig.PrivateServer.RewardShare`), ni la première victoire du jour ni la quête d'une victoire, et aucun Elo ne bouge. Un serveur réservé par le jeu reste classé.
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 

@@ -64,7 +64,7 @@ MatchConfig.Rewards = {
 	Team3v3 = { Xp = 1.2, Folios = 1.2 },
 }
 
--- A private server a player bought plays unranked (Pure/ServerKind, D-XXX): no Elo and no ladder, its matches
+-- A private server a player bought plays unranked (Pure/ServerKind, E4-S4): no Elo and no ladder, its matches
 -- pay this share of their XP and Folios, and neither the first win of the day nor a won match's quest. The
 -- server says so to its clients through this attribute of the Workspace, which the queue shows.
 MatchConfig.PrivateServer = {

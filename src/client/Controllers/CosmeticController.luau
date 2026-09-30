@@ -331,6 +331,8 @@ local function buildTitle(look: CosmeticConfig.Look, entry: Tracked): Worn?
 	end
 	local worn = newWorn()
 	local board = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	board.AutoLocalize = false
 	board.Name = "CosmeticTitle"
 	board.Size = UDim2.fromOffset(240, 24)
 	board.StudsOffset = Vector3.new(0, 2.1, 0)

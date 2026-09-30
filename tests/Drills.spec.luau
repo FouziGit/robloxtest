@@ -643,7 +643,10 @@ describe("the events a drill reads", function()
 			"WorldBossService",
 			"BattlegroundService",
 		}) do
-			local earlier = bootstrap:find(('{ Name = "%s", Service = %s }'):format(before, before), 1, true)
+			-- An entry is plain, or marked Critical (the server closes when it fails to start).
+			local plain = ('{ Name = "%s", Service = %s }'):format(before, before)
+			local critical = ('{ Name = "%s", Service = %s, Critical = true }'):format(before, before)
+			local earlier = bootstrap:find(plain, 1, true) or bootstrap:find(critical, 1, true)
 			if earlier == nil or earlier > at then
 				error(("DrillService starts before %s"):format(before))
 			end

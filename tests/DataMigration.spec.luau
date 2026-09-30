@@ -283,17 +283,16 @@ describe("DataMigration daily caps", function()
 	end)
 end)
 
--- Version 5: the level road's milestones, the Lectern's drills and the Ex-libris (E17-S2, E14-S2). A record of what
--- was paid once,
--- so losing it would pay it all a second time: an older profile arrives with empty ones, and a current profile
--- keeps every entry.
-describe("DataMigration to version 5", function()
-	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 5", function()
+-- Version 6: the level road's milestones, the Lectern's drills and the Ex-libris (E17-S2, E14-S2, D-226; version 5
+-- holds the developer's waived cosmetics and the practice gap). A record of what was paid once, so losing it would
+-- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
+describe("DataMigration to version 6", function()
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 6", function()
 		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(5)
+		expect(DataMigration.CurrentVersion).toBe(6)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(5)
+		expect(data.DataVersion).toBe(6)
 		expect(data.Milestones).toEqual({})
 		expect(data.Drills).toEqual({})
 		expect(data.ExLibris).toEqual({})

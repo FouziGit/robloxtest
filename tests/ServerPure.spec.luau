@@ -51,17 +51,21 @@ end
 
 -- Every pure module a source requires: its name, and whether it is asked of ReplicatedStorage ("Shared") or of
 -- the server's own tree ("Server"). The three forms in use: `Shared.Pure.X`, `...:WaitForChild("Pure"):WaitForChild("X")`
--- (or a `Pure` local bound to that folder), and `script.Parent...Pure.X`.
+-- (or a `Pure` local bound to that folder), and `script.Parent...Pure.X`. The last one stays in the tree of the file
+-- that asks: from src/shared it is ReplicatedStorage's Pure (DrillCatalog's `script.Parent.Pure.DrillLogic`), from
+-- anywhere else the server's. `path`, when given, is that file.
 type Wanted = { Name: string, Side: "Shared" | "Server" }
 
-local function pureRequires(source: string): { Wanted }
+local function pureRequires(source: string, path: string?): { Wanted }
+	local inShared = path ~= nil and path:sub(1, #"src/shared/") == "src/shared/"
 	local found: { Wanted } = {}
 	for call in source:gmatch("require(%b())") do
 		local dotted = call:match("Pure%.([%w_]+)%)$")
 		local waited = call:match('Pure"?%)?:WaitForChild%("([%w_]+)"%)%)$')
 		local name = dotted or waited
 		if name ~= nil then
-			local side: "Shared" | "Server" = if call:match("^%(script[%.%w_]*%.Pure%.") then "Server" else "Shared"
+			local relative = call:match("^%(script[%.%w_]*%.Pure%.") ~= nil
+			local side: "Shared" | "Server" = if relative and not inShared then "Server" else "Shared"
 			table.insert(found, { Name = name, Side = side })
 		end
 	end
@@ -74,7 +78,7 @@ local function requiredBy(roots: { string }): { [string]: { string } }
 		local files: { string } = {}
 		collect(root, files)
 		for _, path in ipairs(files) do
-			for _, wanted in ipairs(pureRequires(code(path))) do
+			for _, wanted in ipairs(pureRequires(code(path), path)) do
 				local list = users[wanted.Name] or {}
 				table.insert(list, path)
 				users[wanted.Name] = list
@@ -98,6 +102,10 @@ describe("the pure modules a client downloads", function()
 		expect(#pureRequires('local A = require(Shared:WaitForChild("Pure"):WaitForChild("RankTiers"))')).toBe(1)
 		expect(pureRequires("local A = require(script.Parent.Parent.Pure.Elo)")[1].Side).toBe("Server")
 		expect(pureRequires("local A = require(Shared.Pure.Elo)")[1].Side).toBe("Shared")
+		-- Relative to the file that asks: a shared module's own Pure is the replicated one.
+		local catalog = "local A = require(script.Parent.Pure.DrillLogic)"
+		expect(pureRequires(catalog, "src/shared/DrillCatalog.luau")[1].Side).toBe("Shared")
+		expect(pureRequires(catalog, "src/server/Services/DrillService.luau")[1].Side).toBe("Server")
 	end)
 
 	it(
@@ -146,7 +154,7 @@ describe("every require of a pure module", function()
 			local files: { string } = {}
 			collect(root, files)
 			for _, path in ipairs(files) do
-				for _, wanted in ipairs(pureRequires(code(path))) do
+				for _, wanted in ipairs(pureRequires(code(path), path)) do
 					local exists = if wanted.Side == "Server" then server[wanted.Name] else shared[wanted.Name]
 					if not exists then
 						table.insert(

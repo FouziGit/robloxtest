@@ -94,7 +94,8 @@ local SECONDS_STROKE = 2
 local SECONDS_INSET = 4
 local SECONDS_KEY = "hud.hotbar.seconds"
 local DROP = 14
--- A key cap stands on a 3-unit lip: a cap of 19 fills the key strip exactly.
+-- A key cap of 19 (D-172), standing on no lip: the three units the strip has left are the gap between the slot
+-- and its keys, as the board draws them.
 local CAP = HUD.HotbarKeyStrip - 3
 local CAP_GAP = 2
 local PIP_GAP = 3
@@ -417,6 +418,7 @@ function Hotbar.new(props: Props): Hotbar
 					Localize = props.Localize,
 					Size = CAP,
 					Pigment = pigment,
+					Lip = false,
 					LayoutOrder = step,
 					Parent = strip,
 				})

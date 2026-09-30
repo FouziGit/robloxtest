@@ -191,6 +191,48 @@ local function pipsAt(width: number, glyphs: number): (number, number, number)
 	return side, gap, inner
 end
 
+describe("the hotbar's keys, run", function()
+	it("run each key's pigment the width of its cap, on the foot of a cap with no lip", function()
+		local _root, _combo, _dock, hotbar, Theme = build(false)
+		local caps = 0
+		for _, strip in ipairs(hotbar.Instance:GetDescendants()) do
+			if strip.Name == "Pigment" then
+				caps += 1
+				local cap = strip.Parent
+				expect(cap.Size.Y.Offset).toBe(ThemeConfig.Hud.HotbarKeyStrip - 3)
+				expect(cap:FindFirstChild("Face").Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(strip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.StrokeThin * 2, 0, 4))
+				expect(strip.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin))
+				expect(strip:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+					roblox.UDim.new(0, Theme.Sizes.CornerKeycap - Theme.Sizes.StrokeThin)
+				)
+			end
+		end
+		expect(caps).toBeGreaterThanOrEqual(6)
+	end)
+
+	it("keep the lip everywhere else, and a pad's round button keeps its strip off the curve", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Keycap = world.require("src/ui/components/Keycap")
+		local Theme = world.require("src/ui/Theme")
+		local localize = {
+			t = function(key: string): string
+				return key
+			end,
+		}
+		local cap = Keycap.new({ Key = "J", Device = "Keyboard", Localize = localize, Size = 19, Pigment = "Cinnabar" })
+		expect(cap.Instance.Size.Y.Offset).toBe(22)
+		local strip = cap.Instance:FindFirstChild("Pigment")
+		expect(strip.Position).toBe(roblox.UDim2.new(0.5, 0, 1, -Theme.Sizes.StrokeThin - 3))
+		expect(strip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.StrokeThin * 2, 0, 4))
+		local pad =
+			Keycap.new({ Key = "ButtonX", Device = "Gamepad", Localize = localize, Size = 19, Pigment = "Indigo" })
+		local padStrip = pad.Instance:FindFirstChild("Pigment")
+		expect(padStrip.Size).toBe(roblox.UDim2.new(1, -Theme.Sizes.CornerKeycap * 2, 0, 4))
+		expect(padStrip:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+	end)
+end)
+
 describe("a cooling slot, run", function()
 	it("veils the whole slot and counts down in tenths on the veil's edge, in the language's mark", function()
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })

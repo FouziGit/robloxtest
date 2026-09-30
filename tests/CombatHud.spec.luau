@@ -184,8 +184,9 @@ describe("the hotbar", function()
 		local keys = body(hotbar, "drawKeys")
 		expect(has(keys, "for step, pigment in ipairs(def.Combo) do")).toBe(true)
 		expect(has(keys, "Key = keys[pigment]")).toBe(true)
-		-- Each key wears the strip of the pigment it presses: the legend of the keyboard.
+		-- Each key wears the strip of the pigment it presses: the legend of the keyboard, standing on no lip.
 		expect(has(keys, "Pigment = pigment,")).toBe(true)
+		expect(has(keys, "Lip = false,")).toBe(true)
 		-- The sigil reads on whatever the chip is filled with.
 		expect(has(body(hotbar, "fill"), "sigil.TextColor3 = Theme.inkOn(color)")).toBe(true)
 		-- The player's own keys, for every pigment, on the device in use.
@@ -240,8 +241,8 @@ describe("the hotbar", function()
 		expect(has(hud, "Parent = if touch then combatDock.PipRow or bottomStack else bottomStack,")).toBe(true)
 		expect(has(hud, "Pips = touch,")).toBe(true)
 		local hotbar = code(HOTBAR)
-		-- A cap on its three-unit lip fills the key strip exactly. How many pips fit the dock is run in
-		-- tests/BottomStack.spec.luau.
+		-- A cap of 19 in the key strip, on no lip: the three left are the gap under the slot. How many pips fit
+		-- the dock is run in tests/BottomStack.spec.luau.
 		expect(has(hotbar, "local CAP = HUD.HotbarKeyStrip - 3\n")).toBe(true)
 		expect(HUD.HotbarSlot).toBe(56)
 		expect(HUD.HotbarPipsHeight).toBe(26)

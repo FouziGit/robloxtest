@@ -88,6 +88,10 @@ local BALANCE_KEY = "folios.balance"
 -- The claims: a seal per kind, in its chapter's colour, with its screen's icon.
 local CLAIM_SEAL = 36
 local CLAIM_ICON = 20
+-- How far a claim's badge, astride its seal's corner, reaches above the seal as it breathes: the room the row
+-- holding the seals keeps over them, so a badge stops a whole gap short of the row above (the Folios with a
+-- pointer, the level on touch), where it covered the Folios' count (seen in play).
+local CLAIM_ROOM = Badge.overhang(CLAIM_SEAL)
 type ClaimKind = { Kind: string, Screen: string, Fill: string, Icon: Icon.Name }
 local CLAIMS: { ClaimKind } = {
 	{ Kind = "Daily", Screen = "Daily", Fill = "Primary", Icon = "Calendar" },
@@ -134,6 +138,16 @@ local function horizontal(parent: Instance, gap: number)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, gap)
 	layout.Parent = parent
+end
+
+-- The row holding the claim seals, `height` tall about them: taller by the room a badge needs over a seal
+-- centred in it, less what the row already leaves there, and what it holds laid out under that room.
+local function roomForBadges(row: Frame, height: number)
+	local room = CLAIM_ROOM - math.floor((height - CLAIM_SEAL) / 2)
+	row.Size = UDim2.fromOffset(0, height + room)
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, room)
+	padding.Parent = row
 end
 
 -- An ink pill, as wide as what it holds, laid out left to right.
@@ -241,14 +255,15 @@ function MetaCluster.new(props: Props): MetaCluster
 		xpBar:Destroy()
 	end)
 
-	-- What the player taps: in the column with a pointer, in one row under the level on touch.
+	-- What the player taps: in the column with a pointer, in one row under the level on touch, which keeps the
+	-- claims' badges their room.
 	local tray: Instance = column
 	if not bottom then
 		local row = Instance.new("Frame")
 		row.Name = "Tray"
 		row.BackgroundTransparency = 1
 		row.LayoutOrder = 2
-		row.Size = UDim2.fromOffset(0, PILL_HEIGHT)
+		roomForBadges(row, PILL_HEIGHT)
 		row.AutomaticSize = Enum.AutomaticSize.X
 		horizontal(row, GAP)
 		row.Parent = column
@@ -278,12 +293,17 @@ function MetaCluster.new(props: Props): MetaCluster
 	})
 	trove:Add(more)
 
-	-- The claims: a seal per kind, each opening its screen.
+	-- The claims: a seal per kind, each opening its screen. With a pointer their row is their own, under the
+	-- Folios, and keeps their badges' room itself.
 	local claimsRow = Instance.new("Frame")
 	claimsRow.Name = "Claims"
 	claimsRow.BackgroundTransparency = 1
 	claimsRow.LayoutOrder = 3
-	claimsRow.Size = UDim2.fromOffset(0, CLAIM_SEAL)
+	if bottom then
+		roomForBadges(claimsRow, CLAIM_SEAL)
+	else
+		claimsRow.Size = UDim2.fromOffset(0, CLAIM_SEAL)
+	end
 	claimsRow.AutomaticSize = Enum.AutomaticSize.X
 	claimsRow.Visible = false
 	horizontal(claimsRow, GAP)

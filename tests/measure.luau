@@ -9,8 +9,8 @@
 -- never shorter than its window, and its scale is of the ScrollingFrame's own parent, as the engine resolves
 -- it (measured in Studio, D-171). List layouts and automatic sizes are not modelled: measure the frames they
 -- do not size. One exception, listHeight: the height a vertical list lays out, where every row it places has a
--- fixed height or is a list itself. Widths the same way down the chain, less a vertical bar's inset, and a
--- cell of a UIGridLayout takes the grid's CellSize, not its own.
+-- fixed height or is a list itself, and listTop, how far down that list a row stands. Widths the same way down
+-- the chain, less a vertical bar's inset, and a cell of a UIGridLayout takes the grid's CellSize, not its own.
 local fs = require("@lune/fs")
 
 local Measure = {}
@@ -131,32 +131,58 @@ function Measure.lines(text: string, textSize: number, width: number): number
 	return lines + (if line ~= "" then 1 else 0)
 end
 
--- The height the vertical UIListLayout of `frame` lays its visible children out to, with the frame's own
--- padding: each child's fixed height, or for a child that sizes itself on Y the list inside it, and the list's
--- gap between two. A child sized by scale is an error: that is the engine's to lay out, not this.
-function Measure.listHeight(frame: any): number
+-- The vertical UIListLayout of `frame`.
+local function verticalList(frame: any): any
 	local layout = frame:FindFirstChildOfClass("UIListLayout")
 	assert(layout ~= nil, frame:GetFullName() .. " lays out no list")
 	assert(
 		layout.FillDirection == nil or layout.FillDirection.Name == "Vertical",
 		frame:GetFullName() .. " lays its list across"
 	)
+	return layout
+end
+
+-- How tall a vertical list lays `child` out: its fixed height, or for a child that sizes itself on Y the list
+-- inside it. A child sized by scale is an error: that is the engine's to lay out, not this.
+local function rowHeight(child: any): number
+	local automatic = child.AutomaticSize
+	if automatic ~= nil and (automatic.Name == "Y" or automatic.Name == "XY") then
+		return Measure.listHeight(child)
+	end
+	assert(child.Size.Y.Scale == 0, child:GetFullName() .. " takes its height from its list's frame")
+	return child.Size.Y.Offset
+end
+
+-- The height the vertical UIListLayout of `frame` lays its visible children out to, with the frame's own
+-- padding: each child's height (rowHeight), and the list's gap between two.
+function Measure.listHeight(frame: any): number
+	local layout = verticalList(frame)
 	local total, count = 0, 0
 	for _, child in ipairs(frame:GetChildren()) do
 		if child:IsA("GuiObject") and child.Visible ~= false then
-			local automatic = child.AutomaticSize
-			if automatic ~= nil and (automatic.Name == "Y" or automatic.Name == "XY") then
-				total += Measure.listHeight(child)
-			else
-				assert(child.Size.Y.Scale == 0, child:GetFullName() .. " takes its height from its list's frame")
-				total += child.Size.Y.Offset
-			end
+			total += rowHeight(child)
 			count += 1
 		end
 	end
 	local padding = frame:FindFirstChildOfClass("UIPadding")
 	local inset = if padding ~= nil then padding.PaddingTop.Offset + padding.PaddingBottom.Offset else 0
 	return inset + total + math.max(0, count - 1) * layout.Padding.Offset
+end
+
+-- How far down the vertical UIListLayout of `frame`, sorted by LayoutOrder, stands its visible child `child`:
+-- the frame's top padding, then each visible child it lays before it (rowHeight) with the list's gap after it.
+function Measure.listTop(frame: any, child: any): number
+	local layout = verticalList(frame)
+	assert(layout.SortOrder.Name == "LayoutOrder", frame:GetFullName() .. " sorts its list by something else")
+	assert(child.Parent == frame and child.Visible ~= false, child:GetFullName() .. " is not in the list shown")
+	local padding = frame:FindFirstChildOfClass("UIPadding")
+	local top = if padding ~= nil then padding.PaddingTop.Offset else 0
+	for _, other in ipairs(frame:GetChildren()) do
+		if other:IsA("GuiObject") and other.Visible ~= false and other.LayoutOrder < child.LayoutOrder then
+			top += rowHeight(other) + layout.Padding.Offset
+		end
+	end
+	return top
 end
 
 return Measure

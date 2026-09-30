@@ -3,8 +3,8 @@
 -- of the primary yellow in its ink outline, inside its host's top-right corner as the board draws it -- never
 -- red: nothing is wrong, something is owed to you -- with the count, or "!", in the number face; a count of
 -- two figures stretches it into a pill. A host less than twice the disc tall (a claim seal of the hub, a quick
--- button) wears it astride its corner instead, where inside it hid what the host shows. It pops in, and it
--- breathes while it is there.
+-- button) wears it astride its corner instead, where inside it hid what the host shows, and as small as the
+-- host: half its height, a quarter of it each way from the corner. It pops in, and it breathes while it is there.
 --
 -- Every badge breathes on ONE loop (Breath): ten badges on a screen cost one loop, and they breathe
 -- together, which is also what makes them read as one system rather than as ten alarms.
@@ -39,10 +39,29 @@ local PAD_X = 8
 local TEXT_SIZE = 17
 -- A host less than this tall wears the disc astride its corner.
 local HOLD = SIZE * 2
+-- Astride, the disc is this share of its host's height: 18 on a claim seal of 36, which the full disc covered
+-- almost whole, reaching into the Folios above it (seen in play). Its count is this share of the disc, which
+-- the full disc's share would make too small to read, and its outline the thin one, as on a small seal.
+local ASTRIDE_SHARE = 0.5
+local ASTRIDE_TEXT = 2 / 3
+
+-- The disc of a badge astride the corner of a host `height` tall.
+local function astride(height: number): number
+	return math.round(height * ASTRIDE_SHARE)
+end
 
 -- How far into its host's top-right corner a badge inside it reaches: what a host's own words keep clear of.
 function Badge.reach(): number
 	return INSET + SIZE
+end
+
+-- How far above the top of a host `height` tall its badge reaches at the height of its breath, in whole units:
+-- half the disc astride its corner, nothing inside it. The room a row of such hosts keeps over them.
+function Badge.overhang(height: number): number
+	if height >= HOLD then
+		return 0
+	end
+	return math.ceil(astride(height) * BREATH_SCALE / 2)
 end
 
 local function display(value: Value?): string?
@@ -62,7 +81,6 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	holder.Name = "Badge"
 	holder.BackgroundTransparency = 1
 	holder.AutomaticSize = Enum.AutomaticSize.X
-	holder.Size = UDim2.fromOffset(0, SIZE)
 	holder.ZIndex = 10
 	holder.Visible = false
 	trove:Add(holder)
@@ -74,14 +92,11 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	disc.BorderSizePixel = 0
 	disc.BackgroundColor3 = tint or Theme.Colors.Primary
 	disc.AutomaticSize = Enum.AutomaticSize.X
-	disc.Size = UDim2.fromOffset(0, SIZE)
 	disc.ZIndex = 10
 	Theme.corner(disc, Theme.Pill)
-	Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
 	-- The room either side of the count is the count's own: the engine holds a frame that sizes itself to its
 	-- least size before it adds that frame's padding, and a lone figure made a pill of 48 (seen in Studio).
 	local least = Instance.new("UISizeConstraint")
-	least.MinSize = Vector2.new(SIZE, SIZE)
 	least.Parent = disc
 	-- The count in the middle of the disc: a lone figure, or "!", is narrower than the disc's least width, and
 	-- laid out from the left it sat against the disc's left edge.
@@ -103,16 +118,36 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	label.AutomaticSize = Enum.AutomaticSize.X
 	label.Size = UDim2.fromScale(0, 1)
 	label.FontFace = Theme.Fonts.Numeric
-	label.TextSize = TEXT_SIZE
 	label.TextColor3 = Theme.Colors.Text
 	label.ZIndex = 11
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, PAD_X)
-	padding.PaddingRight = UDim.new(0, PAD_X)
 	padding.Parent = label
 	label.Parent = disc
 
-	-- Inside the corner, unless the host is too short to hold the disc there (measured once it is laid out).
+	-- The ink outline, made again when the disc changes size: Theme.stroke floors a line as it makes it.
+	local outline: UIStroke? = nil
+	local outlined = 0
+	-- The disc `height` tall and at least as wide, its count at `text` with `pad` either side, in an outline of
+	-- `stroke`.
+	local function shape(height: number, text: number, pad: number, stroke: number)
+		holder.Size = UDim2.fromOffset(0, height)
+		disc.Size = UDim2.fromOffset(0, height)
+		least.MinSize = Vector2.new(height, height)
+		label.TextSize = text
+		padding.PaddingLeft = UDim.new(0, pad)
+		padding.PaddingRight = UDim.new(0, pad)
+		if stroke ~= outlined then
+			local previous = outline
+			if previous ~= nil then
+				previous:Destroy()
+			end
+			outline = Theme.stroke(disc, "Accent", stroke)
+			outlined = stroke
+		end
+	end
+
+	-- Inside the corner, unless the host is too short to hold the disc there (measured once it is laid out):
+	-- then astride it, as small as the host, the room either side of the count scaled with the disc.
 	local function place()
 		local height = 0
 		local host = holder.Parent
@@ -120,9 +155,12 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 			height = host.AbsoluteSize.Y / Theme.activeScale()
 		end
 		if height > 0 and height < HOLD then
+			local size = astride(height)
+			shape(size, math.round(size * ASTRIDE_TEXT), math.floor(PAD_X * size / SIZE), Theme.Sizes.StrokeThin)
 			holder.AnchorPoint = Vector2.new(0.5, 0.5)
 			holder.Position = UDim2.fromScale(1, 0)
 		else
+			shape(SIZE, TEXT_SIZE, PAD_X, Theme.Sizes.Stroke)
 			holder.AnchorPoint = Vector2.new(1, 0)
 			holder.Position = UDim2.new(1, -INSET, 0, INSET)
 		end

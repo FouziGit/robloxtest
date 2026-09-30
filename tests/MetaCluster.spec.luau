@@ -7,6 +7,7 @@ local Engine = require("./engine")
 local Harness = require("./harness")
 local Hud = require("./hud")
 local InputConfig = require("../src/shared/Config/InputConfig")
+local Measure = require("./measure")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
@@ -262,14 +263,19 @@ describe("the hub's meta cluster over the thumbstick, run", function()
 		local column = cluster.Instance
 		local gap = column:FindFirstChildOfClass("UIListLayout").Padding.Offset
 		local level = column:FindFirstChild("Level").Size.Y.Offset
-		local tray = column:FindFirstChild("Tray").Size.Y.Offset
+		local row = column:FindFirstChild("Tray")
+		-- What the row holds stands under the room it keeps for the claims' badges.
+		local padding = row:FindFirstChildOfClass("UIPadding")
+		local room = if padding ~= nil then padding.PaddingTop.Offset else 0
+		local foot = if padding ~= nil then padding.PaddingBottom.Offset else 0
+		local tray = row.Size.Y.Offset - room - foot
 		for _, points in ipairs(PHONE_HEIGHTS) do
 			local scale = ThemeConfig.scaleFor(points, true)
 			local inset = TOP_INSET / scale
 			local frameTop = inset + (points / scale - inset) / 3
-			-- The row's taps stand centred on it, floored at the touch minimum.
+			-- The row's taps stand centred on what it holds, floored at the touch minimum.
 			local tallest = math.max(tray, Theme.MinTouchTarget / scale)
-			local bottom = inset + column.Position.Y.Offset + level + gap + tray / 2 + tallest / 2
+			local bottom = inset + column.Position.Y.Offset + level + gap + room + tray / 2 + tallest / 2
 			if bottom > frameTop then
 				error(
 					("on a %d-point phone the cluster takes taps down to %.1f, the thumbstick from %.1f"):format(
@@ -371,6 +377,164 @@ describe("the hub's meta cluster at a phone's touch floor, run", function()
 			local button = cluster.Instance:FindFirstChild(name, true)
 			expect(floored(button)).toBeGreaterThan(circle)
 			centred(button:FindFirstChild("Face"), circle)
+		end
+	end)
+end)
+
+describe("a claim's badge in the hub, run", function()
+	type Rect = { Name: string, Left: number, Top: number, Right: number, Bottom: number }
+
+	local function overlaps(a: Rect, b: Rect): boolean
+		return a.Left < b.Right and b.Left < a.Right and a.Top < b.Bottom and b.Top < a.Bottom
+	end
+
+	-- How far down `row` its list, centring across, places a child `height` tall: in the middle of what the row
+	-- leaves under its padding.
+	local function centred(row: any, height: number): number
+		local layout = row:FindFirstChildOfClass("UIListLayout")
+		assert(
+			layout.FillDirection.Name == "Horizontal" and layout.VerticalAlignment.Name == "Center",
+			row:GetFullName() .. " no longer centres its row: this gate would measure a layout nobody draws"
+		)
+		local padding = row:FindFirstChildOfClass("UIPadding")
+		local top = if padding ~= nil then padding.PaddingTop.Offset else 0
+		local foot = if padding ~= nil then padding.PaddingBottom.Offset else 0
+		return top + (row.Size.Y.Offset - top - foot - height) / 2
+	end
+
+	-- How large `object` is drawn on `axis`: its size, or its touch floor where that is larger.
+	local function drawn(object: any, axis: string): number
+		local size = (object.Size :: any)[axis].Offset
+		local floor = object:FindFirstChild("TouchFloor")
+		return if floor ~= nil then math.max(size, (floor.MinSize :: any)[axis]) else size
+	end
+
+	-- The claims' seals, visible, in the order their row lays them out.
+	local function shown(claims: any): { any }
+		local buttons = {}
+		for _, button in ipairs(claims:GetChildren()) do
+			if button:IsA("TextButton") and button.Visible then
+				table.insert(buttons, button)
+			end
+		end
+		table.sort(buttons, function(a: any, b: any): boolean
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		return buttons
+	end
+
+	-- The cluster in `corner`, on the phone when `phone`, with a claim of each kind waiting (one of two figures);
+	-- each seal measured as the engine lays it out, which is what its badge reads to sit astride it; and the
+	-- breath's peak, run.
+	local function laidOut(corner: string, phone: boolean): (any, number)
+		local world, cluster = build(corner, phone)
+		local scale = world.require("src/ui/Theme").activeScale()
+		cluster:SetClaims({ Daily = 1, Quests = 3, Pass = 12 })
+		local breath
+		for _, button in ipairs(shown(cluster.Instance:FindFirstChild("Claims", true))) do
+			local seal = button:FindFirstChild("Seal")
+			seal.AbsoluteSize = roblox.Vector2.new(seal.Size.X.Offset * scale, seal.Size.Y.Offset * scale)
+			breath = seal:FindFirstChild("Badge"):FindFirstChildOfClass("UIScale")
+		end
+		local peak = 1
+		for _ = 1, 4 * 60 do
+			world:frames(1)
+			peak = math.max(peak, breath.Scale)
+		end
+		return cluster, peak
+	end
+
+	it("stands clear of the Folios and of every row over the seals, with a pointer and on a phone", function()
+		for _, case in ipairs({ { Corner = "Bottom", Phone = false }, { Corner = "Top", Phone = true } }) do
+			local cluster, peak = laidOut(case.Corner, case.Phone)
+			local column = cluster.Instance
+			local claims = column:FindFirstChild("Claims", true)
+			local folios = column:FindFirstChild("Folios", true)
+			-- The column's row the seals stand in: their own with a pointer, the tray beside the Folios on touch.
+			local row = if claims.Parent == column then claims else claims.Parent
+			local rowTop = Measure.listTop(column, row)
+			local claimsTop = if row == claims then rowTop else rowTop + centred(row, claims.Size.Y.Offset)
+			-- Down from the column's top, across from the claims' left edge. The Folios pill is as wide as its count,
+			-- which Lune does not lay out: it is taken to reach as far as it could toward the seals, across the
+			-- column over them, and up to the tray's gap beside them.
+			local pill: Rect
+			if row == claims then
+				local top = Measure.listTop(column, folios)
+				pill = { Name = "Folios", Left = 0, Top = top, Right = math.huge, Bottom = top + folios.Size.Y.Offset }
+			else
+				expect(folios.Parent).toBe(row)
+				expect(folios.LayoutOrder + 1).toBe(claims.LayoutOrder)
+				local top = rowTop + centred(row, folios.Size.Y.Offset)
+				local beside = -row:FindFirstChildOfClass("UIListLayout").Padding.Offset
+				pill = {
+					Name = "Folios",
+					Left = -math.huge,
+					Top = top,
+					Right = beside,
+					Bottom = top + folios.Size.Y.Offset,
+				}
+			end
+			-- And every other row of the column over the seals' own, as wide as the column could be.
+			local over: { Rect } = { pill }
+			for _, other in ipairs(column:GetChildren()) do
+				local before = other:IsA("GuiObject") and other.Visible and other.LayoutOrder < row.LayoutOrder
+				if before and other ~= folios then
+					local top = Measure.listTop(column, other)
+					local bottom = top + other.Size.Y.Offset
+					table.insert(
+						over,
+						{ Name = other.Name, Left = -math.huge, Top = top, Right = math.huge, Bottom = bottom }
+					)
+				end
+			end
+			expect(#over).toBeGreaterThan(1)
+			-- Each seal in the middle of its hit area, the areas left to right; its badge astride its corner, swollen
+			-- by its breath about the point it is placed at.
+			local gap = claims:FindFirstChildOfClass("UIListLayout").Padding.Offset
+			local left, checked = 0, 0
+			for _, button in ipairs(shown(claims)) do
+				local seal = button:FindFirstChild("Seal")
+				local width, height = drawn(button, "X"), drawn(button, "Y")
+				local sealLeft = left + (width - seal.Size.X.Offset) / 2
+				local sealTop = claimsTop + centred(claims, height) + (height - seal.Size.Y.Offset) / 2
+				local holder = seal:FindFirstChild("Badge")
+				local disc = holder:FindFirstChild("Blot")
+				local count = disc:FindFirstChild("Count")
+				local room = count:FindFirstChildOfClass("UIPadding")
+				local words = Measure.textWidth(count.Text, count.TextSize) + room.PaddingLeft.Offset * 2
+				local tall = disc.Size.Y.Offset * peak
+				local wide = math.max(disc.Size.Y.Offset, words) * peak
+				local x = sealLeft
+					+ holder.Position.X.Scale * seal.Size.X.Offset
+					+ holder.Position.X.Offset
+					- holder.AnchorPoint.X * wide
+				local y = sealTop
+					+ holder.Position.Y.Scale * seal.Size.Y.Offset
+					+ holder.Position.Y.Offset
+					- holder.AnchorPoint.Y * tall
+				local badge = { Name = button.Name, Left = x, Top = y, Right = x + wide, Bottom = y + tall }
+				expect(holder.Visible).toBe(true)
+				for _, rect in ipairs(over) do
+					if overlaps(badge, rect) then
+						error(
+							("%s: %s's badge (%.1f to %.1f down, %.1f to %.1f across) reaches %s (%.1f to %.1f down)"):format(
+								case.Corner,
+								badge.Name,
+								badge.Top,
+								badge.Bottom,
+								badge.Left,
+								badge.Right,
+								rect.Name,
+								rect.Top,
+								rect.Bottom
+							)
+						)
+					end
+				end
+				left += width + gap
+				checked += 1
+			end
+			expect(checked).toBe(3)
 		end
 	end)
 end)

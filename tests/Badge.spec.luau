@@ -6,6 +6,7 @@
 -- into the blot in the label face.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Measure = require("./measure")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -106,6 +107,92 @@ describe("a badge, run", function()
 		expect(badge.Instance.AnchorPoint).toBe(roblox.Vector2.new(1, 0))
 		host.AbsoluteSize = roblox.Vector2.new(63, 63)
 		expect(badge.Instance.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+	end)
+
+	it("is half as tall as a host it sits astride, its count and outline with it, and whole again inside", function()
+		local _world, Badge, Theme, host = bench()
+		-- A claim seal of the hub, which the whole disc covered almost entirely (seen in play).
+		host.AbsoluteSize = roblox.Vector2.new(36, 36)
+		local holder = Badge.new(1, host).Instance
+		local disc = holder:FindFirstChild("Blot")
+		local count = disc:FindFirstChild("Count")
+		local room = count:FindFirstChildOfClass("UIPadding")
+		local function outline(): any
+			local found = {}
+			for _, child in ipairs(disc:GetChildren()) do
+				if child.ClassName == "UIStroke" then
+					table.insert(found, child)
+				end
+			end
+			expect(#found).toBe(1)
+			return found[1]
+		end
+		-- Centred on the corner and half the seal tall: a quarter of the seal each way from it.
+		expect(holder.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+		expect(holder.Position).toBe(roblox.UDim2.fromScale(1, 0))
+		expect(disc.Size.Y.Offset).toBe(18)
+		expect(holder.Size.Y.Offset).toBe(18)
+		expect(disc:FindFirstChildOfClass("UISizeConstraint").MinSize).toBe(roblox.Vector2.new(18, 18))
+		expect(disc.Size.Y.Offset / 2).toBeLessThanOrEqual(36 / 4)
+		-- Its count scaled to match in the number face, and a lone figure still the disc, with room either side.
+		expect(count.TextSize).toBe(12)
+		expect(count.FontFace).toBe(Theme.Fonts.Numeric)
+		expect(room.PaddingLeft.Offset).toBeGreaterThan(0)
+		expect(room.PaddingRight.Offset).toBe(room.PaddingLeft.Offset)
+		expect(Measure.textWidth(count.Text, count.TextSize) + room.PaddingLeft.Offset * 2).toBeLessThanOrEqual(18)
+		-- Still the primary yellow in its ink, in the thin outline.
+		expect(disc.BackgroundColor3).toBe(Theme.Colors.Primary)
+		expect(outline().Color).toBe(Theme.Colors.Accent)
+		expect(outline().Thickness).toBe(Theme.Sizes.StrokeThin)
+		-- The Menu quick button: half of it too.
+		host.AbsoluteSize = roblox.Vector2.new(120, 52)
+		expect(disc.Size.Y.Offset).toBe(26)
+		expect(count.TextSize).toBe(17)
+		expect(Measure.textWidth(count.Text, count.TextSize) + room.PaddingLeft.Offset * 2).toBeLessThanOrEqual(26)
+		-- A menu tile: the whole disc inside its corner again, as it was.
+		host.AbsoluteSize = roblox.Vector2.new(220, 150)
+		expect(disc.Size.Y.Offset).toBe(32)
+		expect(holder.Size.Y.Offset).toBe(32)
+		expect(disc:FindFirstChildOfClass("UISizeConstraint").MinSize).toBe(roblox.Vector2.new(32, 32))
+		expect(count.TextSize).toBe(17)
+		expect(room.PaddingLeft.Offset).toBe(8)
+		expect(outline().Thickness).toBe(Theme.Sizes.Stroke)
+	end)
+
+	it("reaches above a small host no further than its overhang, at the top of its breath", function()
+		local world, Badge, _Theme, host = bench()
+		host.AbsoluteSize = roblox.Vector2.new(36, 36)
+		local badge = Badge.new(1, host)
+		local breath = badge.Instance:FindFirstChildOfClass("UIScale")
+		local peak = 1
+		for _ = 1, 4 * 60 do
+			world:frames(1)
+			peak = math.max(peak, breath.Scale)
+		end
+		expect(peak).toBeGreaterThan(1)
+		-- Centred on the host's top edge, it swells about its middle: half of it above the edge.
+		expect(badge.Instance.AnchorPoint.Y).toBe(0.5)
+		local disc = badge.Instance:FindFirstChild("Blot").Size.Y.Offset
+		local reach = disc * peak / 2
+		expect(Badge.overhang(36)).toBeGreaterThanOrEqual(reach)
+		expect(Badge.overhang(36)).toBeLessThan(reach + 1)
+		-- Inside its host, it reaches nothing above it.
+		expect(Badge.overhang(64)).toBe(0)
+	end)
+
+	it("keeps its thin outline 2 pixels thick on a phone", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		Engine.phone(world, 667, 375)
+		local Badge = world.require("src/ui/components/Badge")
+		local Theme = world.require("src/ui/Theme")
+		local host = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+		local scale = Theme.activeScale()
+		expect(scale).toBeLessThan(1)
+		-- A claim seal of the hub, as the engine measures it on the phone.
+		host.AbsoluteSize = roblox.Vector2.new(36 * scale, 36 * scale)
+		local disc = Badge.new(1, host).Instance:FindFirstChild("Blot")
+		expect(disc.Size.Y.Offset).toBe(18)
+		expect(disc:FindFirstChildOfClass("UIStroke").Thickness).toBeGreaterThanOrEqual(2 / scale)
 	end)
 
 	it("pops in, breathes while it shows, and hides for nothing to claim", function()

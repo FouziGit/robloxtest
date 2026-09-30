@@ -22,6 +22,7 @@ local LeaderboardView = require(Shared:WaitForChild("Pure"):WaitForChild("Leader
 local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
 local ProgressionConfig = require(Config:WaitForChild("ProgressionConfig"))
+local RankTiers = require(Shared:WaitForChild("Pure"):WaitForChild("RankTiers"))
 local RankingConfig = require(Config:WaitForChild("RankingConfig"))
 local Seal = require(script.Parent.Seal)
 local Standings = require(script.Parent.Standings)
@@ -341,8 +342,12 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		xpText.Text = t("reward.xp", { xp = 0 })
 		foliosText.Text = t("reward.folios", { amount = 0 })
 
+		-- A new rank is stamped only when the ladder was climbed: a fall changes the key too, and was stamped as a
+		-- new rank over the rating that said it fell.
 		local ranked = outcome.RankKeyAfter ~= ""
-		local rankedUp = ranked and outcome.RankKeyAfter ~= outcome.RankKeyBefore
+		local before = RankTiers.indexOfKey(outcome.RankKeyBefore, RankingConfig.Tiers)
+		local after = RankTiers.indexOfKey(outcome.RankKeyAfter, RankingConfig.Tiers)
+		local rankedUp = ranked and after ~= nil and (before == nil or after > before)
 		rankRow.Visible = rankedUp
 		ratingLine.Visible = ranked and not rankedUp
 		if ranked then

@@ -407,19 +407,21 @@ describe("the interface, held to the engine's layouts", function()
 				expect(ribbon.AutomaticSize.Name).toBe("X")
 				expect(ribbon.AnchorPoint).toBe(roblox.Vector2.new(1, 0))
 				expect(ribbon.Position.X.Scale).toBe(1)
-				expect(ribbon.Position.Y.Offset).toBe(16)
-				-- Past the tile's edge, turned, by less than the gap to the Shop: it never covers it. Its width is the
-				-- widest its word is drawn in either language.
+				-- The board's `top: 16px; right: -12px`, measured from inside the tile's border: 16 under the ink,
+				-- 12 past the ink's inner edge.
+				local stroke = Theme.Sizes.Stroke
+				expect(ribbon.Position.Y.Offset).toBe(stroke + 16)
+				expect(ribbon.Position.X.Offset).toBe(12 - stroke)
+				-- Past the tile's edge, turned, and still short of the Shop's ink, whose rim stands a stroke into the
+				-- gap: it never touches it. A turned rounded ribbon reaches furthest at its narrowest, its padding alone
+				-- whatever its word.
 				local gap =
 					built.Instance:FindFirstChild("Deck", true):FindFirstChildOfClass("UIListLayout").Padding.Offset
 				local tilt = math.rad(ribbon.Rotation)
-				for _, locale in ipairs(Strings.Locales) do
-					local wide = Measure.textWidth(Strings.t("queue.ranked", nil, locale), ribbon.TextSize) + 2 * 12
-					local tall = ribbon.Size.Y.Offset
-					local swing = (wide * math.cos(tilt) + tall * math.sin(tilt) - wide) / 2
-					expect(ribbon.Position.X.Offset + swing).toBeLessThan(gap)
-				end
-				expect(ribbon.Position.X.Offset).toBe(12)
+				local bend = ribbon:FindFirstChildOfClass("UICorner").CornerRadius.Offset
+				local halfWide, halfTall = 12, ribbon.Size.Y.Offset / 2
+				local reach = (halfWide - bend) * math.cos(tilt) + (halfTall - bend) * math.sin(tilt) + bend - halfWide
+				expect(ribbon.Position.X.Offset + reach).toBeLessThan(gap - stroke)
 			end
 		)
 

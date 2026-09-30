@@ -74,8 +74,9 @@ local PLAY_LINE_SIZE = 18
 local PLAY_DISC_SHARE = 0.35
 local PLAY_GLYPH_SHARE = 0.47
 local PLAY_GLYPH_NUDGE = 0.045
--- Its ribbon across the top-right corner (the board's hero tile): this far down, past the tile's edge by less
--- than the gap to the Shop beside it, turned, rounded and padded as the board draws it.
+-- Its ribbon across the top-right corner (the board's hero tile, `top: 16px; right: -12px`, both measured from
+-- inside the tile's ink): this far down, this far past the ink's inner edge -- short of the Shop's own ink
+-- across the gap -- turned, rounded and padded as the board draws it.
 local RIBBON_DROP = 16
 local RIBBON_OVERHANG = 12
 local RIBBON_TILT = 8
@@ -488,7 +489,7 @@ function MenuScreen.new(deps: Deps): Screen
 		ribbon.AutomaticSize = Enum.AutomaticSize.X
 		ribbon.Size = UDim2.fromOffset(0, Theme.Sizes.TextLabel + RIBBON_PADDING_Y * 2)
 		ribbon.AnchorPoint = Vector2.new(1, 0)
-		ribbon.Position = UDim2.new(1, RIBBON_OVERHANG, 0, RIBBON_DROP)
+		ribbon.Position = UDim2.new(1, RIBBON_OVERHANG - Theme.Sizes.Stroke, 0, Theme.Sizes.Stroke + RIBBON_DROP)
 		ribbon.Rotation = RIBBON_TILT
 		ribbon.FontFace = Theme.Fonts.Label
 		ribbon.TextSize = Theme.Sizes.TextLabel

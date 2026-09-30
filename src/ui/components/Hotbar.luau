@@ -201,14 +201,9 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 		plate:Destroy()
 	end)
 	-- The sheet's ring on the plate's own edge, inside it (the board's inset line): what shapes the slot on a dark
-	-- floor, and the frame the chip sits in.
-	local ring = Instance.new("Frame")
-	ring.Name = "Ring"
-	ring.BackgroundTransparency = 1
-	ring.Size = UDim2.fromScale(1, 1)
-	Theme.corner(ring, Theme.Sizes.CornerChip)
-	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
-	ring.Parent = plate.Face
+	-- floor, and the frame the chip sits in. On the edge, it is the face's own line rather than a frame of its
+	-- size: every object the pointer's HUD holds is counted (tests/HudBudget.spec.luau).
+	Theme.stroke(plate.Face, "PanelRaised", Theme.Sizes.StrokeThin)
 
 	local chip = Instance.new("Frame")
 	chip.Name = "Chip"

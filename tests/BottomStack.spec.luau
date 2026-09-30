@@ -116,6 +116,20 @@ describe("the HUD's bottom stack, run", function()
 end)
 
 describe("the slots' and the dock's rings, run", function()
+	-- The sheet's line inside an edge, the board's inset ring: one stroke, drawn inward.
+	local function sheetLine(holder: any, Theme: any)
+		local strokes = 0
+		for _, part in ipairs(holder:GetChildren()) do
+			if part.ClassName == "UIStroke" then
+				strokes += 1
+				expect(part.Color).toBe(Theme.Colors.PanelRaised)
+				expect(part.Thickness).toBeGreaterThanOrEqual(Theme.Sizes.StrokeThin)
+				expect(part.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+			end
+		end
+		expect(strokes).toBe(1)
+	end
+
 	-- The sheet's ring on a plate: a frame the plate's own size and corner, its line inside the plate's edge.
 	local function flush(ring: any, plate: any, Theme: any)
 		assert(ring ~= nil and plate ~= nil, "no ring or no plate: this gate would check nothing")
@@ -124,9 +138,7 @@ describe("the slots' and the dock's rings, run", function()
 		expect(ring:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
 			plate:FindFirstChildOfClass("UICorner").CornerRadius
 		)
-		local line = ring:FindFirstChildOfClass("UIStroke")
-		expect(line.Color).toBe(Theme.Colors.PanelRaised)
-		expect(line.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+		sheetLine(ring, Theme)
 	end
 
 	it("sit on the plate's own edge, the board's inset line, with the plate's corner, round a heavy sigil", function()
@@ -136,7 +148,12 @@ describe("the slots' and the dock's rings, run", function()
 			if string.sub(slot.Name, 1, 4) == "Slot" then
 				slots += 1
 				local face = slot:FindFirstChild("Plate", true):FindFirstChild("Face")
-				flush(face:FindFirstChild("Ring"), face, Theme)
+				-- A slot's ring is its face's own line, with its corner: no frame drawn for it (the budget).
+				assert(face ~= nil, "a slot has no plate face: this gate would check nothing")
+				sheetLine(face, Theme)
+				for _, part in ipairs(face:GetChildren()) do
+					expect(part:IsA("GuiObject")).toBe(false)
+				end
 				expect(face:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
 					roblox.UDim.new(0, Theme.Sizes.CornerChip)
 				)

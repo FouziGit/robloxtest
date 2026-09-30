@@ -47,10 +47,11 @@ type NotifyApi = {
 type CurrencyApi = {
 	get: (player: Player) -> number,
 	trySpend: (player: Player, amount: number, reason: string) -> boolean,
+	waives: (player: Player) -> boolean,
 }
 type GrantedSignal = { Connect: (self: GrantedSignal, fn: (player: Player, cosmeticId: string) -> ()) -> any }
 type CosmeticApi = {
-	grant: (player: Player, cosmeticId: string) -> boolean,
+	grant: (player: Player, cosmeticId: string, waived: boolean?) -> boolean,
 	Granted: GrantedSignal?,
 }
 type AnalyticsApi = {
@@ -306,8 +307,10 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 	end
 
 	-- Debit first, then deliver: the balance is authoritative and a failed grant is a bug in
-	-- CosmeticService, reported here with its context rather than paid back at the VIP rate.
-	if not log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId) then
+	-- CosmeticService, reported here with its context rather than paid back at the VIP rate. A purchase the
+	-- developer list paid for is marked as such: it leaves with the list (CosmeticService.revokeWaived).
+	local waived = currency.waives(player)
+	if not log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId, waived) then
 		notify.send(player, "purchase.failed", nil, "Error", SFX_ERROR)
 		ShopService.refresh(player)
 		return

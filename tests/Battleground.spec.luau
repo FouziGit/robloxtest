@@ -481,8 +481,11 @@ describe("what the Battleground asked of the rest of the server", function()
 	it(
 		"GlyphService refuses free casting on the page, and the bootstrap wires the service after the Erasure",
 		function()
-			local free = body(code(GLYPHS), "local function freeCasting(", "GlyphService")
-			expect(free:find("and not battleground.isInside(player)", 1, true)).never.toBe(nil)
+			local glyphs = code(GLYPHS)
+			local perks = body(glyphs, "local function developerPerks(", "GlyphService")
+			expect(perks:find("and not battleground.isInside(player)", 1, true)).never.toBe(nil)
+			local free = body(glyphs, "local function freeCasting(", "GlyphService")
+			expect(free:find("DeveloperConfig.FreeCasting and developerPerks(player)", 1, true)).never.toBe(nil)
 			local bootstrap = code(BOOTSTRAP)
 			expect(bootstrap:find("Battleground = BattlegroundService,", 1, true)).never.toBe(nil)
 			expect(

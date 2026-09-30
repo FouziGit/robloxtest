@@ -39,6 +39,9 @@ export type BattlepassSeasonData = {
 export type CosmeticsData = {
 	Owned: { string },
 	Equipped: { [string]: string }, -- slot -> cosmetic id ("Aura", "Trail", "KillEffect", "Title", "Skin:<glyphId>")
+	-- The owned ids a developer account bought with Folios the developer list waived (D-129): they leave the
+	-- profile when the account leaves the list (CosmeticService.revokeWaived).
+	Waived: { string },
 }
 
 export type LoadoutData = {

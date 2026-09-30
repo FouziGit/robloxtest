@@ -87,14 +87,16 @@ type EffectContext = {
 type Effect = (ctx: EffectContext) -> number
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
--- Read only to decide whether free casting applies. A developer testing the roster must not carry
--- no-cost casting into a ranked match or a World Boss, where it takes real rating and real rewards from
--- other players.
+-- Read only to decide whether the developer perks apply. A developer testing the roster must not carry
+-- no-cost casting or the whole roster into a ranked match or a World Boss, where they take real rating and
+-- real rewards from other players.
 type MatchApi = { isInMatch: (player: Player) -> boolean }
 -- isLive is the scheduled event only; a practice's participants are refused through isEngaged (D-132).
 type WorldBossApi = { isLive: () -> boolean, isEngaged: (player: Player) -> boolean }
 -- The Battleground pays for every Forger (D-131): a member standing on its page is refused free casting too.
 type BattlegroundApi = { isInside: (player: Player) -> boolean }
+-- The glyphs a profile holds, and the loadout it could equip, with the developer list set aside.
+type LoadoutApi = { fielded: (data: ProfileData) -> ({ string }, { string }) }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -108,6 +110,7 @@ type Deps = {
 	Match: MatchApi,
 	WorldBoss: WorldBossApi,
 	Battleground: BattlegroundApi,
+	Loadout: LoadoutApi,
 	-- The skin a caster wears on a glyph, written into the packets of that cast (D-109).
 	Cosmetic: { skinShade: (player: Player, glyphId: string) -> number },
 }
@@ -138,6 +141,7 @@ local quest: QuestApi
 local match: MatchApi
 local worldBoss: WorldBossApi
 local battleground: BattlegroundApi
+local loadout: LoadoutApi
 
 local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 -- Per player: glyph id -> os.clock timestamp at which it can be cast again.
@@ -149,22 +153,15 @@ local cooldowns: { [Player]: { [string]: number } } = {}
 local lastCastAt: { [Player]: number } = {}
 local chainLength: { [Player]: number } = {}
 
--- A developer account testing the roster in the hub: no ink, and cooldowns collapsed to
--- DeveloperConfig.MinRecastSeconds.
+-- A developer account in the hub, where its perks reach (DeveloperConfig): free casting, the whole roster and
+-- every slot.
 --
 -- Deliberately refused inside a ranked match, during a World Boss event, in a practice against the Erasure
--- and on the Battleground's page. All of them pay out: a free-casting account would take real Elo from a real
+-- and on the Battleground's page. All of them pay out: a perked account would take real Elo from a real
 -- opponent and write it to the live seasonal ladder, would swallow a share of a boss payout that is divided
 -- between participants, and would farm a practice's pay or the Forgers' XP and Folios at no cost. The hub is
 -- where the roster is meant to be tried.
---
--- The CastGlyph token bucket still applies: it is flood protection against an untrusted client, not an
--- economy rule, so a developer is throttled to its refill rate like everybody else. That bounds the real
--- pace at a few casts a second, well below anything the effects were written against.
-local function freeCasting(player: Player): boolean
-	if not DeveloperConfig.FreeCasting then
-		return false
-	end
+local function developerPerks(player: Player): boolean
 	if not DeveloperConfig.isDeveloper(player.UserId, player.Name) then
 		return false
 	end
@@ -172,6 +169,26 @@ local function freeCasting(player: Player): boolean
 		and not worldBoss.isLive()
 		and not worldBoss.isEngaged(player)
 		and not battleground.isInside(player)
+end
+
+-- A developer testing the roster in the hub: no ink, and cooldowns collapsed to
+-- DeveloperConfig.MinRecastSeconds.
+--
+-- The CastGlyph token bucket still applies: it is flood protection against an untrusted client, not an
+-- economy rule, so a developer is throttled to its refill rate like everybody else. That bounds the real
+-- pace at a few casts a second, well below anything the effects were written against.
+local function freeCasting(player: Player): boolean
+	return DeveloperConfig.FreeCasting and developerPerks(player)
+end
+
+-- The unlocks and the loadout a cast is checked against. A developer's profile holds the whole roster in as
+-- many slots (DeveloperConfig.UnlimitedSlots), and that is a perk of the hub like free casting: anywhere else
+-- a developer fights with what a player with the same level, passes and slots would hold (docs/QA.md R6).
+local function fielded(player: Player, data: ProfileData): ({ string }, { string })
+	if DeveloperConfig.isDeveloper(player.UserId, player.Name) and not developerPerks(player) then
+		return loadout.fielded(data)
+	end
+	return data.Unlocks.Glyphs, data.Loadout.Slots
 end
 
 local function cooldownsOf(player: Player): { [string]: number }
@@ -212,11 +229,12 @@ local function resolveCast(player: Player, data: ProfileData, sequence: { string
 		log.error("recipe %s resolves to unknown glyph %s", table.concat(sequence, "-"), glyphId)
 		return nil
 	end
-	if table.find(data.Unlocks.Glyphs, glyphId) == nil then
+	local unlocked, slots = fielded(player, data)
+	if table.find(unlocked, glyphId) == nil then
 		notify.send(player, "hud.cast.locked", { name = def.NameKey }, "Error")
 		return nil
 	end
-	if table.find(data.Loadout.Slots, glyphId) == nil then
+	if table.find(slots, glyphId) == nil then
 		notify.send(player, "hud.cast.notEquipped", { name = def.NameKey }, "Error")
 		return nil
 	end
@@ -421,6 +439,7 @@ function GlyphService.Init(deps: Deps)
 	match = deps.Match
 	worldBoss = deps.WorldBoss
 	battleground = deps.Battleground
+	loadout = deps.Loadout
 end
 
 function GlyphService.Start()

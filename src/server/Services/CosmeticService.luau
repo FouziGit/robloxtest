@@ -163,8 +163,9 @@ function CosmeticService.equip(player: Player, slotKey: string, cosmeticId: stri
 end
 
 -- Grants ownership of `cosmeticId` (battle pass, season reward, shop). Idempotent: false when the
--- player already owns it, the profile is not loaded, or the id is not in the catalog.
-function CosmeticService.grant(player: Player, cosmeticId: string): boolean
+-- player already owns it, the profile is not loaded, or the id is not in the catalog. `waived` marks a
+-- purchase the developer list paid for (D-129), which revokeWaived takes back.
+function CosmeticService.grant(player: Player, cosmeticId: string, waived: boolean?): boolean
 	local data = dataService.get(player)
 	if data == nil then
 		log.warn("grant skipped for %s: profile not loaded", player.Name)
@@ -174,14 +175,53 @@ function CosmeticService.grant(player: Player, cosmeticId: string): boolean
 		log.error("unknown cosmetic %s for %s", cosmeticId, player.Name)
 		return false
 	end
+	local marked = table.find(data.Cosmetics.Waived, cosmeticId)
 	if table.find(data.Cosmetics.Owned, cosmeticId) ~= nil then
+		if marked ~= nil and not waived then
+			-- Earned now, whatever the list paid for before: it stays when the list lets go.
+			table.remove(data.Cosmetics.Waived, marked)
+			dataService.push(player, "Cosmetics")
+		end
 		return false
 	end
 	table.insert(data.Cosmetics.Owned, cosmeticId)
+	if waived then
+		table.insert(data.Cosmetics.Waived, cosmeticId)
+	end
 	dataService.push(player, "Cosmetics")
 	CosmeticService.Granted:Fire(player, cosmeticId)
 	log.info("%s now owns %s", player.Name, cosmeticId)
 	return true
+end
+
+-- Takes back every cosmetic the developer list paid for, from an account that is no longer on it
+-- (LoadoutService.revokeDeveloperGrants): no longer owned, and taken off any slot that wore it.
+function CosmeticService.revokeWaived(player: Player)
+	local data = dataService.get(player)
+	if data == nil then
+		log.warn("revokeWaived skipped for %s: profile not loaded", player.Name)
+		return
+	end
+	local cosmetics = data.Cosmetics
+	if #cosmetics.Waived == 0 then
+		return
+	end
+	local equipped = (cosmetics.Equipped :: any) :: { [string]: string? }
+	for _, cosmeticId in ipairs(cosmetics.Waived) do
+		local index = table.find(cosmetics.Owned, cosmeticId)
+		if index ~= nil then
+			table.remove(cosmetics.Owned, index)
+		end
+		for slotKey, worn in pairs(equipped) do
+			if worn == cosmeticId then
+				equipped[slotKey] = nil
+			end
+		end
+	end
+	log.info("%s gave back %d cosmetic(s) the developer list paid for", player.Name, #cosmetics.Waived)
+	table.clear(cosmetics.Waived)
+	dataService.push(player, "Cosmetics")
+	applyAttributes(player)
 end
 
 -- The shade of the skin `player` wears on `glyphId`, or 0. Read from the profile, never from a client: a

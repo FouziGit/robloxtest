@@ -235,6 +235,12 @@ function Server.world(options: Options?): World
 		Stubs = stubs,
 		Services = {
 			Players = players,
+			-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
+			CollectionService = {
+				HasTag = function(_self: any, _instance: any, _tag: string): boolean
+					return false
+				end,
+			},
 			-- DataService reads the V1 store of a brand new profile: there is none here.
 			DataStoreService = {
 				GetDataStore = function(_self: any, _name: string): any
@@ -307,15 +313,25 @@ function Server.world(options: Options?): World
 	return world :: World
 end
 
--- The services of a ranked match, wired as Bootstrap.server.luau wires them: DataService, RankingService,
--- MatchService and GlyphService are the real modules; everything they reach beyond is a stub that answers what
--- the match flow asks. Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
+-- The services of a profile, a ranked match and the shop, wired as Bootstrap.server.luau wires them:
+-- DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService, CurrencyService and
+-- ShopService are the real modules; everything they reach beyond is a stub that answers what they ask.
+-- Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
 export type Services = {
 	world: World,
 	data: any,
 	ranking: any,
 	match: any,
 	glyph: any,
+	loadout: any,
+	cosmetic: any,
+	currency: any,
+	shop: any,
+	-- The handler each client remote was given, by remote name.
+	handlers: { [string]: (...any) -> () },
+	-- Where the players stand beyond the hub and the match, as WorldBossService and BattlegroundService would
+	-- answer it: the scheduled event running, a player engaged against the Erasure, a player on the page.
+	places: { BossLive: boolean, Engaged: { [any]: boolean }, Inside: { [any]: boolean } },
 	-- Every Notify sent, as the player and the Strings key.
 	notices: { { Player: any, Key: string } },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
@@ -337,6 +353,10 @@ function Server.services(): Services
 	local ranking = world.require("src/server/Services/RankingService")
 	local match = world.require("src/server/Services/MatchService")
 	local glyph = world.require("src/server/Services/GlyphService")
+	local loadout = world.require("src/server/Services/LoadoutService")
+	local cosmetic = world.require("src/server/Services/CosmeticService")
+	local currency = world.require("src/server/Services/CurrencyService")
+	local shop = world.require("src/server/Services/ShopService")
 
 	local handlers: { [string]: (...any) -> () } = {}
 	local registry = {
@@ -351,6 +371,7 @@ function Server.services(): Services
 			table.insert(notices, { Player = player, Key = key })
 		end,
 	}
+	local places = { BossLive = false, Engaged = {}, Inside = {} }
 	local frozenUntil: { [any]: number } = {}
 	local movement = {
 		applyStun = function(_player: any, _seconds: number) end,
@@ -368,6 +389,7 @@ function Server.services(): Services
 	}
 	local combat = {
 		Damaged = Engine.signal(),
+		Killed = Engine.signal(),
 		setPolicy = function(_fn: any) end,
 		resyncPosition = function(_player: any, _position: any) end,
 		trustedOrigin = function(player: any): any
@@ -389,19 +411,46 @@ function Server.services(): Services
 	local killZone = Engine.instance("BasePart")
 	killZone.Position = roblox.Vector3.new(0, 460, 0)
 	killZone.Touched = Engine.signal()
-	local progression = { addXp = function(_player: any, _amount: number, _reason: string) end }
-	local currency = { add = function(_player: any, _amount: number, _reason: string) end }
+	local progression = {
+		LevelUp = Engine.signal(),
+		addXp = function(_player: any, _amount: number, _reason: string) end,
+	}
 	local quest = { report = function(_player: any, _event: string, _amount: number) end }
+	local vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end }
 
 	data.Init({ Registry = registry })
+	currency.Init({ DataService = data })
+	cosmetic.Init({ Registry = registry, Vfx = vfx, Combat = combat, DataService = data, Notify = notify })
+	loadout.Init({
+		Registry = registry,
+		DataService = data,
+		Notify = notify,
+		Progression = progression,
+		Cosmetic = cosmetic,
+	})
+	shop.Init({
+		Registry = registry,
+		DataService = data,
+		Notify = notify,
+		Currency = currency,
+		Cosmetic = cosmetic,
+		Analytics = {
+			economy = function(
+				_player: any,
+				_flow: string,
+				_currency: string,
+				_amount: number,
+				_balance: number,
+				_category: string,
+				_sku: string?
+			)
+			end,
+		},
+	})
 	ranking.Init({
 		DataService = data,
 		Currency = currency,
-		Cosmetic = {
-			grant = function(_player: any, _id: string): boolean
-				return true
-			end,
-		},
+		Cosmetic = cosmetic,
 		Notify = notify,
 	})
 	match.Init({
@@ -447,34 +496,36 @@ function Server.services(): Services
 				end
 			end,
 		}),
-		Vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end },
+		Vfx = vfx,
 		Movement = movement,
 		Progression = progression,
 		Quest = quest,
 		Match = match,
 		WorldBoss = {
 			isLive = function(): boolean
-				return false
+				return places.BossLive
 			end,
-			isEngaged = function(_player: any): boolean
-				return false
+			isEngaged = function(player: any): boolean
+				return places.Engaged[player] == true
 			end,
 		},
 		Battleground = {
-			isInside = function(_player: any): boolean
-				return false
+			isInside = function(player: any): boolean
+				return places.Inside[player] == true
 			end,
 		},
-		Cosmetic = {
-			skinShade = function(_player: any, _glyphId: string): number
-				return 0
-			end,
-		},
+		Loadout = loadout,
+		Cosmetic = cosmetic,
 	})
+	-- In the bootstrap's order.
 	data.Start()
+	currency.Start()
+	cosmetic.Start()
+	loadout.Start()
+	shop.Start()
+	glyph.Start()
 	ranking.Start()
 	match.Start()
-	glyph.Start()
 
 	local casts: { string } = {}
 	glyph.Cast:Connect(function(_player: any, glyphId: string, _chain: number)
@@ -492,6 +543,12 @@ function Server.services(): Services
 		ranking = ranking,
 		match = match,
 		glyph = glyph,
+		loadout = loadout,
+		cosmetic = cosmetic,
+		currency = currency,
+		shop = shop,
+		handlers = handlers,
+		places = places,
 		notices = notices,
 		cast = cast,
 	}

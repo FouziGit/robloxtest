@@ -13,16 +13,20 @@ local DeveloperConfig = {}
 DeveloperConfig.UserIds = { 3721321390 } :: { number } -- BakuyaraTZ
 DeveloperConfig.Names = {} :: { string }
 
--- Every glyph equipped at once instead of the purchased slot budget.
+-- Every glyph equipped at once instead of the purchased slot budget. In the hub only, like FreeCasting:
+-- wherever play pays out (a match, the World Boss, a practice against the Erasure, the Battleground),
+-- GlyphService checks a developer's casts against the glyphs and the slots a player with the same level
+-- and passes would have (LoadoutService.fielded).
 DeveloperConfig.UnlimitedSlots = true
 
 -- Folios purchases go through without debiting (D-129): the whole shop can be tested without grinding the
--- currency. The balance is never written up, so nothing unearned lands in the saved profile, and turning
--- this off leaves the account exactly as it was. Robux purchases are Roblox's and are not touched.
+-- currency. The balance is never written up, and what such a purchase buys is marked (Cosmetics.Waived) and
+-- taken back when the account leaves this list (CosmeticService.revokeWaived). Robux purchases are Roblox's
+-- and are not touched.
 DeveloperConfig.UnlimitedFolios = true
 
 -- No ink cost, and cooldowns collapsed to MinRecastSeconds. Deliberately NOT a free-for-all: see
--- MinRecastSeconds below, and note that LoadoutService and GlyphService only honour this in the hub.
+-- MinRecastSeconds below, and note that GlyphService only honours this in the hub, with UnlimitedSlots.
 DeveloperConfig.FreeCasting = true
 
 -- The floor a cooldown collapses to under FreeCasting. It is not zero because zero lets a glyph overlap

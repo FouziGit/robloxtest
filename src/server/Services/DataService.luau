@@ -116,7 +116,7 @@ function DataService.template(): { [string]: any }
 		Progression = { Level = 1, XP = 0, TotalXP = 0 },
 		Currency = { Folios = 0 },
 		Battlepass = { _template = seasonTemplate() },
-		Cosmetics = { Owned = {}, Equipped = {} },
+		Cosmetics = { Owned = {}, Equipped = {}, Waived = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
 		Unlocks = { Glyphs = GlyphConfig.defaultUnlocks(), Pigments = table.clone(PigmentConfig.Base) },
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },

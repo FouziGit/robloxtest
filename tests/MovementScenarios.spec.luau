@@ -555,8 +555,10 @@ describe("MovementScenarios: honest, slows, walls, shoves and respawns", functio
 			return nil, nil
 		end,
 	}, "clean")
+	-- Players pass through one another (the Characters collision group, D-XXXd): what can still ram a player and throw
+	-- them is a body the server owns and moves -- a Forger, the Erasure's hull -- which is the contact these cases give.
 	case({
-		Name = "fling victim: rammed, thrown 600 studs/s for 0.1 s",
+		Name = "fling victim: rammed by a Forger or the Erasure's hull, thrown 600 studs/s for 0.1 s",
 		Seconds = 6,
 		Latency = 0.1,
 		Contact = { { 2, 2.06 } },
@@ -764,7 +766,7 @@ describe("MovementScenarios: honest, the cases that pin a rule's margin", functi
 		}, "clean")
 	end
 	case({
-		Name = "fling victim thrown 30 studs per tick for 1.5 s",
+		Name = "fling victim thrown 30 studs per tick for 1.5 s by a body the server moves",
 		Seconds = 8,
 		Latency = 0.1,
 		Contact = { { 2, 2.06 } },

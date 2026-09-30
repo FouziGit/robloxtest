@@ -92,6 +92,9 @@ GameConfig.Movement = {
 	JumpPower = 50,
 	DoubleJumpVelocity = 50,
 	MaxJumps = 2,
+	-- The collision group of every part of a player's body, which does not collide with itself: players pass
+	-- through one another and nobody flings anybody (D-XXXd). The Forgers and the Erasure stay Default.
+	CharacterCollisionGroup = "Characters",
 }
 
 GameConfig.Spawn = {

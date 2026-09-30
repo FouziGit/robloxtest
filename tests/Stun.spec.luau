@@ -10,6 +10,7 @@ local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local MovementGuard = require("../src/shared/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
+local ServerWorld = require("./serverworld")
 local Sim = require("./movementsim")
 local StunClock = require("../src/shared/Pure/StunClock")
 local StunWatch = require("../src/shared/Pure/StunWatch")
@@ -287,92 +288,9 @@ end)
 -- The service and the client, in the pretend engine
 ----------------------------------------------------------------
 
-type Logged = { string }
-
--- A Log whose lines are kept, so the engine's worlds print nothing and a spec can read what was said.
-local function recordingLog(lines: Logged): any
-	local function line(prefix: string, message: string, ...: any): string
-		local ok, text = pcall(string.format, message, ...)
-		return "[" .. prefix .. "] " .. (if ok then text else message)
-	end
-	return {
-		new = function(prefix: string): any
-			return {
-				info = function(message: string, ...: any)
-					table.insert(lines, line(prefix, message, ...))
-				end,
-				warn = function(message: string, ...: any)
-					table.insert(lines, line(prefix, message, ...))
-				end,
-				error = function(message: string, ...: any)
-					table.insert(lines, line(prefix, "ERROR " .. message, ...))
-				end,
-				try = function(context: string, fn: (...any) -> ...any, ...: any): boolean
-					local ok, err = pcall(fn, ...)
-					if not ok then
-						table.insert(lines, line(prefix, "%s failed: %s", context, tostring(err)))
-					end
-					return ok
-				end,
-				succeeded = function(context: string, fn: (...any) -> ...any, ...: any): boolean
-					local ok, result = pcall(fn, ...)
-					if not ok then
-						table.insert(lines, line(prefix, "%s failed: %s", context, tostring(result)))
-					end
-					return ok and result ~= nil and result ~= false
-				end,
-			}
-		end,
-	}
-end
-
-export type Server = {
-	world: any,
-	service: any,
-	player: any,
-	character: any,
-	humanoid: any,
-	sent: { { any } },
-	lines: Logged,
-}
-
--- MovementService started in a world with one player standing in a fresh character, and every command it sends.
-local function server(): Server
-	local lines: Logged = {}
-	local world = Engine.world({ Stubs = { ["src/shared/Util/Log"] = recordingLog(lines) } })
-	local players = world.game:GetService("Players")
-	players.GetPlayers = function(): { any }
-		return { world.player }
-	end
-	local service = world.require("src/server/Services/MovementService")
-	local sent: { { any } } = {}
-	service.Init({
-		Registry = {
-			fire = function(name: string, player: any, payload: any)
-				table.insert(sent, { name, player, payload })
-			end,
-		},
-	})
-	service.Start()
-	local character = Engine.instance("Model", world.workspace)
-	character.Name = "Player"
-	local humanoid = Engine.instance("Humanoid", character)
-	world.player.Character = character
-	world.player.CharacterAdded:Fire(character)
-	return {
-		world = world,
-		service = service,
-		player = world.player,
-		character = character,
-		humanoid = humanoid,
-		sent = sent,
-		lines = lines,
-	}
-end
-
 describe("MovementService's stuns", function()
 	it("dates each stun and tells the client its seconds, then its end when it lets go early", function()
-		local s = server()
+		local s = ServerWorld.start()
 		s.world:advance(1)
 		s.service.applyStun(s.player, 0.8)
 		local startedAt, endsAt = s.service.stunDates(s.player)
@@ -394,7 +312,7 @@ describe("MovementService's stuns", function()
 	end)
 
 	it("ends a stun on the tick after its date, and the attribute with it", function()
-		local s = server()
+		local s = ServerWorld.start()
 		s.service.applyStun(s.player, 0.5)
 		s.world:advance(0.4)
 		expect(s.service.isStunned(s.player)).toBe(true)
@@ -405,7 +323,7 @@ describe("MovementService's stuns", function()
 	end)
 
 	it("refuses a glyph's stun while one runs and within the grace after it, and says so to nobody", function()
-		local s = server()
+		local s = ServerWorld.start()
 		s.service.applyStun(s.player, 0.5)
 		local before = #s.sent
 		expect(s.service.applyGlyphStun(s.player, 0.8)).toBe(false)
@@ -425,7 +343,7 @@ end)
 
 describe("the client's MovementController", function()
 	local function client(): (any, (any) -> ())
-		local world = Engine.world({ Stubs = { ["src/shared/Util/Log"] = recordingLog({}) } })
+		local world = Engine.world({ Stubs = { ["src/shared/Util/Log"] = ServerWorld.recordingLog({}) } })
 		local controller = world.require("src/client/Controllers/MovementController")
 		local handler: ((any) -> ())? = nil
 		controller.Init({

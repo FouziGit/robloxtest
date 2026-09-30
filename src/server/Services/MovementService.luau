@@ -1,8 +1,10 @@
 --!strict
 -- MovementService: owns Humanoid movement stats. Applies GameConfig.Movement on spawn, runs the
 -- slow / stun status timers on one Heartbeat accumulator (no per-player loops) and relays
--- server-approved movement commands to the owning client.
+-- server-approved movement commands to the owning client. Every part of a player's body joins the
+-- players' collision group, which does not collide with itself.
 
+local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -58,6 +60,7 @@ local RAGDOLL_ATTRIBUTE = CombatConfig.Status.RagdollAttribute
 local ROOT_JOINT = "Root"
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 local HUMANOID_WAIT_SECONDS = 10
+local CHARACTER_GROUP = GameConfig.Movement.CharacterCollisionGroup
 
 local MovementService = {}
 
@@ -209,6 +212,24 @@ local function releaseCharacter(state: State)
 	state.Humanoid = nil
 end
 
+-- A part of a player's body joins the players' collision group (D-XXXd). Two bodies no longer push each other, so
+-- no player can fling another, ram them off a ledge or pop them up off a shared pad; the world, the Forgers and the
+-- Erasure, all Default, still collide with them as before.
+local function joinGroup(instance: Instance)
+	if instance:IsA("BasePart") then
+		instance.CollisionGroup = CHARACTER_GROUP
+	end
+end
+
+-- Every part of `character`, now and whatever it is given later (an accessory that loads late, a tool), for as long
+-- as it is the player's body.
+local function groupCharacter(character: Model, characterTrove: TroveType)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		joinGroup(descendant)
+	end
+	characterTrove:Connect(character.DescendantAdded, joinGroup)
+end
+
 local function findHumanoid(character: Model): Humanoid?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid ~= nil then
@@ -229,6 +250,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	releaseCharacter(state)
 	local characterTrove = Trove.new()
 	state.CharacterTrove = characterTrove
+	groupCharacter(character, characterTrove)
 
 	local humanoid = findHumanoid(character)
 	if humanoid == nil then
@@ -565,7 +587,17 @@ function MovementService.Init(deps: Deps)
 	registry = deps.Registry
 end
 
+-- The players' group, which does not collide with itself and collides with everything else. Before any body joins
+-- it: a part in a group nobody registered collides as Default.
+local function registerGroup()
+	if not PhysicsService:IsCollisionGroupRegistered(CHARACTER_GROUP) then
+		PhysicsService:RegisterCollisionGroup(CHARACTER_GROUP)
+	end
+	PhysicsService:CollisionGroupSetCollidable(CHARACTER_GROUP, CHARACTER_GROUP, false)
+end
+
 function MovementService.Start()
+	log.try("register the " .. CHARACTER_GROUP .. " collision group", registerGroup)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

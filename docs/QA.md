@@ -177,6 +177,7 @@ Ce qu'un match laisse derrière lui se voit surtout au match suivant. Enchaîner
 9. **Pas de match fantôme.** Un joueur qui a abandonné revient. Attendu : il peut refaire la file et ne compte plus dans l'ancien match (`MatchService.luau:363-370`).
 10. **Règle de dégâts restaurée.** Après un World Boss, faire un duel. Attendu : les coups portent en duel, et le hub reste sans PvP (`WorldBossService/init.luau:102,110`).
 11. **Avantages développeur en match.** En match, le compte développeur a des temps de recharge normaux et dépense son encre (`GlyphService.luau:163`). Ses 20 emplacements, eux, le suivent en match : voir R6.
+12. **Les corps se traversent (D-XXXd).** Dans Studio à deux clients (Test > Clients and Servers, ou `StudioTestService`), marcher l'un dans l'autre au hub, sauter sur la tête de l'autre, puis se poser à deux sur un même pad en duel. Attendu : les deux personnages se traversent, aucun ne pousse, ne soulève ni ne projette l'autre, et `Workspace` > un `HumanoidRootPart` a `CollisionGroup = Characters`. Puis en duel, le 4e coup de M1 projette toujours l'adversaire, un Faussaire et l'Effacement bloquent et repoussent toujours un joueur, et un joueur ne traverse ni le sol ni les murs.
 
 ## 8. Mobile, tactile, manette
 

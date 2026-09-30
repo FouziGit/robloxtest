@@ -179,12 +179,35 @@ local function setup(): Setup
 				table.insert(teleported, player)
 			end,
 		},
+		-- The language a kick is written in (LocaleService), the glyphs a queue takes in (LoadoutService) and what
+		-- the dashboards are told (AnalyticsService): nothing here reads them.
+		Locale = {
+			of = function(): string
+				return "en"
+			end,
+		},
+		Loadout = {
+			fielded = function(): ({ string }, { string })
+				return {}, {}
+			end,
+		},
+		Analytics = {
+			fields = function(): { [string]: string }
+				return {}
+			end,
+			custom = function() end,
+			economy = function() end,
+		},
 	}
-	-- The matchmaker reads the ranking for a player's rating: the real rule, on a table of the spec's.
+	-- The matchmaker reads the ranking for a player's rating: the real rule, on a table of the spec's. Everybody
+	-- here is past the newcomers' quick duel (E10-S7).
 	local matchmakingDeps = table.clone(deps)
 	matchmakingDeps.Ranking = {
 		getRating = function(player: any): number
 			return ratings[player.UserId] or 1000
+		end,
+		isNewcomer = function(): boolean
+			return false
 		end,
 	}
 	data.Init(deps)

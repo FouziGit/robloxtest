@@ -20,7 +20,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Attacks = require(script.Parent.Attacks)
 local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
-local BotBrain = require(Shared.Pure.BotBrain)
+local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local Bots = require(script.Parent.Bots)
 local Context = require(script.Parent.Context)

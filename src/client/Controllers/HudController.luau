@@ -37,6 +37,7 @@ local Icon = require(UI.components.Icon)
 local InputConfig = require(Shared.Config.InputConfig)
 local Keycap = require(UI.components.Keycap)
 local Log = require(Shared.Util.Log)
+local MatchConfig = require(Shared.Config.MatchConfig)
 local MatchSplash = require(Shared.Pure.MatchSplash)
 local MetaCluster = require(UI.components.MetaCluster)
 local Motion = require(UI.Motion)
@@ -88,6 +89,8 @@ local DOCK_DISC_CLEARANCE = 12
 local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local MENU_NAME_KEY = "action.menu"
+-- The practice duel's mode (E10-S6), whose announcement names nobody: its opponent is a Forger.
+local SPAR_MODE_ID = MatchConfig.Modes.Spar1v1.Id
 -- The device a hint draws, by how the player plays (InputMode): a pad's buttons, the keyboard's keys, and on touch
 -- none, the discs saying it.
 local HINT_SOURCES: { [string]: string } = { Touch = "Touch", Pointer = "Keyboard", Gamepad = "Gamepad" }
@@ -729,8 +732,12 @@ local function place(zone: string?)
 end
 
 -- The announcement's versus plate (E10-S7): a quick duel says so first, then each opponent's name, level and rank --
--- "unranked" for one still in the quick duel.
-local function versusLines(snapshot: Types.MatchSnapshot): { string }
+-- "unranked" for one still in the quick duel. None for a practice duel (E10-S6): its opponent is a Forger, with no
+-- name, level or rank to announce.
+local function versusLines(snapshot: Types.MatchSnapshot): { string }?
+	if snapshot.ModeId == SPAR_MODE_ID then
+		return nil
+	end
 	local lines: { string } = {}
 	if not snapshot.Ranked then
 		table.insert(lines, localize.t("match.quickDuel"))
@@ -763,8 +770,9 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	for _, splash in ipairs(MatchSplash.between(lastMatch :: any, snapshot :: any)) do
 		banner:Show(splash.Kind, splash.Digit)
 		if splash.Kind == "MatchFound" and snapshot ~= nil then
-			banner:ShowVersus(versusLines(snapshot))
-			versusShown = true
+			local lines = versusLines(snapshot)
+			banner:ShowVersus(lines)
+			versusShown = lines ~= nil
 		elseif splash.Kind == "Fight" then
 			banner:ShowVersus(nil)
 			versusShown = false

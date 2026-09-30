@@ -101,7 +101,14 @@ local function profile(): any
 		Progression = { Level = 5, XP = 10, TotalXP = 410 },
 		Currency = { Folios = 2480 },
 		Stats = { GlyphsCast = 0, GlyphsHit = 0, Kills = 0, Deaths = 0, MatchesPlayed = 0, BestChain = 0 },
-		Daily = { LastClaimDay = today - 1, Streak = 3, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = today - 1,
+			Streak = 3,
+			CalendarDay = 3,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+		},
 		Quests = { Daily = quests, Weekly = table.clone(quests) },
 		Battlepass = {
 			[GameConfig.SeasonId] = { Tier = 3, XP = 0, Premium = false, ClaimedFree = {}, ClaimedPremium = {} },
@@ -564,6 +571,13 @@ local function menu(): (any, any, (locale: string) -> (), Captures)
 			end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
+			-- The practice duel the 1v1 card offers while its queue waits (E10-S6): not offered here.
+			SparChanged = signal(),
+			getSpar = function(): any
+				return { Offered = false, Sparring = false, PaidLeft = 3, PaidPerDay = 3 }
+			end,
+			startSpar = function() end,
+			leaveSpar = function() end,
 		},
 		HudController = { Notified = signal(), showLocalToast = function() end },
 		TravelController = { Travelled = signal() },

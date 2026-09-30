@@ -389,6 +389,13 @@ local function screenDeps(locale: string, ranked: boolean): any
 			end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
+			-- The practice duel the 1v1 card offers while its queue waits (E10-S6): not offered here.
+			SparChanged = signal(),
+			getSpar = function(): any
+				return { Offered = false, Sparring = false, PaidLeft = 3, PaidPerDay = 3 }
+			end,
+			startSpar = function() end,
+			leaveSpar = function() end,
 		},
 		OnClose = function() end,
 		OnNavigate = function() end,

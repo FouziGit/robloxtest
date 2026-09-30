@@ -64,6 +64,10 @@ local function build(state: State, phone: { number }?): Fixture
 			getQueue = function(): any
 				return queue
 			end,
+			-- A public server, where ranked play counts (E4-S4).
+			rankedHere = function(): boolean
+				return true
+			end,
 			joinQueue = function() end,
 			leaveQueue = function()
 				table.insert(asked, "leaveQueue")

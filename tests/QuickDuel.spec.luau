@@ -203,6 +203,13 @@ local function playScreen(
 			rankedHere = function(): boolean
 				return unrankedServer ~= true
 			end,
+			-- The practice duel the 1v1 card offers while its queue waits (E10-S6): not offered here.
+			SparChanged = signal(),
+			getSpar = function(): any
+				return { Offered = false, Sparring = false, PaidLeft = 3, PaidPerDay = 3 }
+			end,
+			startSpar = function() end,
+			leaveSpar = function() end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
 			QueueChanged = signal(),
@@ -313,6 +320,23 @@ describe("the match's announcement", function()
 		fight.Phase = "Playing"
 		fixture.match(fight)
 		fixture.world:advance(1)
+		expect(fixture.world.playerGui:FindFirstChild("Versus", true)).toBeNil()
+	end)
+
+	-- A practice duel (E10-S6) is fought against a Forger: no name, level or rank to announce, and no quick duel to
+	-- speak of.
+	it("names nobody for a practice duel against a Forger", function()
+		local Hud = require("./hud")
+		local fixture = Hud.build()
+		local snapshot = Hud.match(MatchConfig.Modes.Spar1v1.Id, 1)
+		snapshot.Phase = "Countdown"
+		snapshot.SecondsLeft = 3
+		snapshot.Ranked = false
+		snapshot.Teams[2][1].UserId = MatchConfig.Spar.ForgerUserId
+		snapshot.Teams[2][1].Level = 0
+		snapshot.Teams[2][1].RankKey = ""
+		fixture.match(snapshot)
+		fixture.world:advance(0.5)
 		expect(fixture.world.playerGui:FindFirstChild("Versus", true)).toBeNil()
 	end)
 end)

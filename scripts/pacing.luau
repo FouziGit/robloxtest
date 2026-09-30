@@ -2,7 +2,7 @@
 -- The pacing simulator (E10-S4): four players, sixty days, the real configs.
 --
 -- It plays each profile day after day through the rules the game ships -- the level curve, the pass's tier
--- cost and free track, the match, kill and quest rewards, the daily streak, the Forgers' and the Trials' daily
+-- cost and free track, the match, kill and quest rewards, the login calendar, the Forgers' and the Trials' daily
 -- caps (TrialPay and DailyCap themselves), the quests each day and week really draws (QuestLogic, Solo floor
 -- and free reroll included), the level road's milestones and the plates of the Ex-libris (ExLibris itself) and
 -- the shop's real rotation -- and says how long things take: the minutes to
@@ -612,9 +612,18 @@ end
 local function playDay(player: Player, profile: Profile, day: number)
 	local today = A.StartDay + day - 1
 	player.Day = day
-	local streak = DailyConfig.Streak[(day - 1) % #DailyConfig.Streak + 1]
-	grantXp(player, streak.Xp, "DailyStreak")
-	grantFolios(player, streak.Folios)
+	-- The login calendar (E15-S1), claimed every day: a week's last day gives its cosmetic, or pays for it once owned.
+	local calendar = DailyConfig.Calendar[(day - 1) % #DailyConfig.Calendar + 1]
+	grantXp(player, calendar.Xp, "DailyStreak")
+	grantFolios(player, calendar.Folios)
+	local cosmetic = calendar.Cosmetic
+	if cosmetic ~= nil then
+		if player.Owned[cosmetic] then
+			grantFolios(player, DailyConfig.OwnedCosmeticFolios)
+		else
+			player.Owned[cosmetic] = true
+		end
+	end
 	drawQuests(player, profile, today)
 	for _, entry in ipairs(profile.Minutes) do
 		local budget = entry.Minutes * 60

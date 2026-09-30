@@ -58,7 +58,8 @@ local function setup(day: number, missed: number, signets: number, owned: { stri
 		end,
 	}
 	local currency = world.require("src/server/Services/CurrencyService")
-	currency.Init({ DataService = dataService })
+	-- What the dashboards are told of each Folio (AnalyticsService, D-258): nothing here reads it.
+	currency.Init({ DataService = dataService, Analytics = { economy = function() end } })
 	local cosmetic = world.require("src/server/Services/CosmeticService")
 	cosmetic.Init({ Registry = { on = function() end }, DataService = dataService, Notify = notify })
 	local daily = world.require("src/server/Services/DailyRewardService")

@@ -23,7 +23,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
-local DailyCap = require(Shared.Pure.DailyCap)
+local DailyCap = require(script.Parent.Parent.Pure.DailyCap)
 local DailyStreak = require(Shared.Pure.DailyStreak)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
@@ -31,7 +31,7 @@ local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
-local SeriesOutcome = require(Shared.Pure.SeriesOutcome)
+local SeriesOutcome = require(script.Parent.Parent.Pure.SeriesOutcome)
 local SparRules = require(script.Parent.Parent.Pure.SparRules)
 local Types = require(Shared.Types)
 
@@ -202,10 +202,12 @@ local function forgerSide(spar: Spar): SparRules.Side
 end
 
 -- The spar as a match's snapshot, for the HUD's band: the player on team 1, the Forger on team 2 under
--- MatchConfig.Spar.ForgerUserId, with no name (the server words nothing for the player).
+-- MatchConfig.Spar.ForgerUserId, with no name (the server words nothing for the player). Unranked, and nobody in it
+-- holds a rank; the Forger has no level either (the announcement names no one for a spar, E10-S7).
 local function snapshot(spar: Spar, now: number): Types.MatchSnapshot
 	local player = spar.Player
 	local mine, theirs = playerSide(spar), forgerSide(spar)
+	local data = deps.DataService.get(player)
 	return {
 		MatchId = spar.Id,
 		ModeId = DEF.Id :: any,
@@ -223,6 +225,8 @@ local function snapshot(spar: Spar, now: number): Types.MatchSnapshot
 					Alive = mine.Alive,
 					Health = mine.Health,
 					MaxHealth = mine.MaxHealth,
+					Level = if data ~= nil then data.Progression.Level else 1,
+					RankKey = "",
 				},
 			},
 			{
@@ -233,10 +237,13 @@ local function snapshot(spar: Spar, now: number): Types.MatchSnapshot
 					Alive = theirs.Alive,
 					Health = theirs.Health,
 					MaxHealth = theirs.MaxHealth,
+					Level = 0,
+					RankKey = "",
 				},
 			},
 		},
 		LocalTeam = PLAYER_TEAM,
+		Ranked = false,
 	}
 end
 

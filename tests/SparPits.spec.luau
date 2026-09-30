@@ -4,7 +4,7 @@
 -- stand-ins for the bodies (Bots), the roster and the motion, which need the engine's humanoids; the geometry and
 -- the gate in front of every blow are the modules' own.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BotBrain = require("../src/shared/Pure/BotBrain")
+local BotBrain = require("../src/server/Pure/BotBrain")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")

@@ -297,9 +297,9 @@ describe("DataMigration daily caps", function()
 	-- Version 7 (E10-S3, E10-S10, D-243; 5 and 6 were taken by the QA pass and wave 1): the Trials' counts and each
 	-- quest set's swaps, with no upgrade step. A version 4 profile comes out with them at zero and empty, its quests
 	-- and its caps as they were, and is stamped current, so a build that has never heard of them keeps them instead
-	-- of dropping them. Since the wave 3 merge the current version is 9 (8 the day's ranked opponents, D-255; 9 the
-	-- Flyleaf's allowance, D-267).
-	it("brings a version 4 profile to version 9 with no Trials paid and no swap spent", function()
+	-- of dropping them. Since the wave 3 merge the current version is 11 (8 the day's ranked opponents, D-255; 9 the
+	-- Flyleaf's allowance, D-267; 10 the login calendar, D-271; 11 the practice duels paid, D-272).
+	it("brings a version 4 profile to version 11 with no Trials paid and no swap spent", function()
 		local raw = {
 			DataVersion = 4,
 			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
@@ -309,9 +309,9 @@ describe("DataMigration daily caps", function()
 			},
 		}
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(9)
+		expect(DataMigration.CurrentVersion).toBe(11)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(9)
+		expect(data.DataVersion).toBe(11)
 		expect(data.Daily.ForgerFolios).toBe(90)
 		expect(data.Daily.TrialDay).toBe(0)
 		expect(data.Daily.TrialKills).toBe(0)
@@ -362,13 +362,14 @@ end)
 -- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
 describe("DataMigration to version 6", function()
 	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243), and since the wave 3
-	-- merge 9: 8 the day's ranked opponents and match Folios (D-255), 9 the Flyleaf's allowance (D-267).
-	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 9", function()
+	-- merge 11: 8 the day's ranked opponents and match Folios (D-255), 9 the Flyleaf's allowance (D-267), 10 the login
+	-- calendar (D-271), 11 the practice duels paid (D-272).
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 11", function()
 		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(9)
+		expect(DataMigration.CurrentVersion).toBe(11)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(9)
+		expect(data.DataVersion).toBe(11)
 		expect(data.Milestones).toEqual({})
 		expect(data.Drills).toEqual({})
 		expect(data.ExLibris).toEqual({})
@@ -474,6 +475,19 @@ describe("DataMigration to the login calendar", function()
 		expect(info.Migrated).toBe(false)
 		expect(data.Daily.CalendarDay).toBe(12)
 		expect(data.Daily.Signets).toBe(2)
+	end)
+
+	-- The calendar came after the other lanes' versions at the wave 3 merge (6 to 9, D-271): a profile any of them
+	-- saved still holds the old seven-day streak, so the calendar's step runs for it too.
+	it("puts a profile saved between the old streak and the calendar on it, whatever its version", function()
+		for version = 5, 9 do
+			local raw = { DataVersion = version, Daily = { LastClaimDay = 20100, Streak = 10 } }
+			local data, info = DataMigration.migrate(raw, template(), "S1")
+			expect(info).toEqual({ From = version, Migrated = true })
+			expect(data.Daily.CalendarDay).toBe(3)
+			expect(data.Daily.Streak).toBe(10)
+			expect(data.Daily.Signets).toBe(0)
+		end
 	end)
 end)
 

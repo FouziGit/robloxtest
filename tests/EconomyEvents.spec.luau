@@ -98,7 +98,7 @@ local SERVICES = "src/server/Services/"
 local SITES: { Site } = {
 	{
 		File = "DailyRewardService",
-		Call = '(player, reward.Folios, "DailyStreak")',
+		Call = '(player, day.Folios + (if owned then OWNED_COSMETIC_FOLIOS else 0), "DailyStreak")',
 		Flow = "Source",
 		Reasons = { "DailyStreak" },
 	},
@@ -182,6 +182,13 @@ local SITES: { Site } = {
 		Reasons = { "BossKillBonus" },
 	},
 	{ File = "BattlegroundService/Rewards", Call = "(player, folios, key)", Flow = "Source", Reasons = botReasons() },
+	-- A practice duel against a Forger, under its daily allowance (D-272).
+	{
+		File = "SparService",
+		Call = '(player, SparRules.scaled(base.Folios, SPAR.RewardFactor), "Spar")',
+		Flow = "Source",
+		Reasons = { "Spar" },
+	},
 	-- A victory on the Flyleaf, paid by the page itself under its daily cap (D-267).
 	{
 		File = "FlyleafService/Rewards",

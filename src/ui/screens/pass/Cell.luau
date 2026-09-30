@@ -196,9 +196,10 @@ function Cell.new(
 	frame.BackgroundColor3 = Theme.Colors.PanelRaised
 	frame.ZIndex = 2
 	Theme.corner(frame, UDim.new(0, Theme.Sizes.CornerCard))
-	local outline = if track == "Premium" then PREMIUM_RIM else Theme.Sizes.StrokeThin
+	-- The outline as it is drawn, which a phone floors (Theme.stroke): an item's band sits inside it.
+	local outline: number
 	if track == "Premium" then
-		Theme.stroke(frame, "Primary", PREMIUM_RIM)
+		outline = Theme.stroke(frame, "Primary", PREMIUM_RIM).Thickness
 		local ringId = Theme.texture("SealRing")
 		if ringId ~= "" then
 			local ring = Instance.new("ImageLabel")
@@ -213,7 +214,7 @@ function Cell.new(
 			ring.Parent = frame
 		end
 	else
-		Theme.stroke(frame, "Accent", outline)
+		outline = Theme.stroke(frame, "Accent", Theme.Sizes.StrokeThin).Thickness
 	end
 
 	-- An item's rarity across the top, its colour and its pips: the cell has no room for the word, which the

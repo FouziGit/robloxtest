@@ -7,6 +7,7 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -109,8 +110,9 @@ describe("a rarity band, run", function()
 			{ Compact = true, ShowWord = true },
 			{ Compact = true, ShowWord = false },
 		}
-		-- The card's outline and the pass's thin one.
-		for _, inset in ipairs({ Theme.Sizes.Stroke, Theme.Sizes.StrokeThin }) do
+		-- The card's outline, the pass's thin one, and the thin one a phone and a tablet floor (Theme.stroke), which
+		-- the band clears whole: an offset is a whole number of units.
+		for _, inset in ipairs({ Theme.Sizes.Stroke, Theme.Sizes.StrokeThin, 2 / 0.68, 2 / 0.9 }) do
 			for _, shape in ipairs(shapes) do
 				local band = RarityBand.new({
 					Rarity = "Epic",
@@ -125,9 +127,14 @@ describe("a rarity band, run", function()
 					tostring(shape.ShowWord),
 					inset
 				)
+				local clear = math.ceil(inset)
+				expect(band.Instance.Position).toBe(roblox.UDim2.fromOffset(clear, clear))
+				expect(band.Instance.Size.X.Offset).toBe(-clear * 2)
+				expect(band.Bottom).toBe(clear + band.Height)
+				expect(RarityBand.bottom(shape.Compact, shape.ShowWord, inset)).toBe(band.Bottom)
 				local fill = band.Instance:FindFirstChild("Fill")
 				local round = fill:FindFirstChildOfClass("UICorner").CornerRadius
-				local curve = Theme.Sizes.CornerCard - inset
+				local curve = Theme.Sizes.CornerCard - clear
 				if round.Scale ~= 0 or math.abs(round.Offset - curve) > 1e-9 then
 					error(("%s: corners of %s on a curve of %.2f"):format(label, tostring(round), curve))
 				end

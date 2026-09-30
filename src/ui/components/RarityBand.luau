@@ -67,9 +67,15 @@ function RarityBand.height(compact: boolean?, showWord: boolean?): number
 	return fillHeight(compact, showWord) + Theme.Sizes.Stroke
 end
 
+-- How far in a band sits inside an outline of `inset`: a whole number of units, as an offset is one. A phone
+-- floors a thin outline to 2.94 (Theme.stroke), and a band at 2 covered the rest of it.
+local function clear(inset: number?): number
+	return math.ceil(inset or Theme.Sizes.Stroke)
+end
+
 -- Where what a card draws under such a band starts, from the card's top, inside an outline of `inset`.
 function RarityBand.bottom(compact: boolean?, showWord: boolean?, inset: number?): number
-	return (inset or Theme.Sizes.Stroke) + RarityBand.height(compact, showWord)
+	return clear(inset) + RarityBand.height(compact, showWord)
 end
 
 function RarityBand.new(props: Props): RarityBand
@@ -77,7 +83,7 @@ function RarityBand.new(props: Props): RarityBand
 	local look = Theme.rarity(props.Rarity)
 	local compact = props.Compact == true
 	local showWord = props.ShowWord ~= false
-	local inset = props.Inset or Theme.Sizes.Stroke
+	local inset = clear(props.Inset)
 	local zIndex = props.ZIndex or 1
 	local fill = fillHeight(compact, showWord)
 	local height = RarityBand.height(compact, showWord)

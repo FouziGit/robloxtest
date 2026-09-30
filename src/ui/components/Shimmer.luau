@@ -50,7 +50,9 @@ function Shimmer.new(host: GuiObject, corner: UDim, zIndex: number, inset: numbe
 	shine.Name = "Shine"
 	shine.BorderSizePixel = 0
 	shine.BackgroundColor3 = Theme.Colors.PanelRaised
-	local edge = inset or 0
+	-- A whole number of units, as an offset is one: a phone floors a thin outline to 2.94 (Theme.stroke), and a
+	-- shine at 2 swept over the rest of it.
+	local edge = math.ceil(inset or 0)
 	shine.Position = UDim2.fromOffset(edge, edge)
 	shine.Size = UDim2.new(1, -edge * 2, 1, -edge * 2)
 	shine.ZIndex = zIndex

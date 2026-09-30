@@ -140,6 +140,10 @@ describe("the shine, run", function()
 		expect(shine.Position).toBe(roblox.UDim2.fromOffset(3, 3))
 		expect(shine.Size).toBe(roblox.UDim2.new(1, -6, 1, -6))
 		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius).toBe(inner)
+		-- A phone's floored outline (2.94): the whole of it stays clear, an offset being a whole number.
+		local floored = Shimmer.new(host, inner, ZINDEX, 2 / 0.68).Instance
+		expect(floored.Position).toBe(roblox.UDim2.fromOffset(3, 3))
+		expect(floored.Size).toBe(roblox.UDim2.new(1, -6, 1, -6))
 		-- Told none, it covers the whole host.
 		local whole = Shimmer.new(host, CORNER, ZINDEX).Instance
 		expect(whole.Position).toBe(roblox.UDim2.new())

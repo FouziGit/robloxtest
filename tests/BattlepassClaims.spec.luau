@@ -264,6 +264,11 @@ describe("the battle pass's items, run", function()
 			local cell = Cell.new(5, track, reward, localize, parent, function() end)
 			local band = cell.Frame:FindFirstChild("RarityBand")
 			assert(band ~= nil, track .. ": tier 5's item has no band")
+			-- Clear of the outline as the phone draws it: the thin one is floored to 2.94 there.
+			local outline = cell.Frame:FindFirstChildOfClass("UIStroke").Thickness
+			expect(band.Position.X.Offset).toBeGreaterThanOrEqual(outline)
+			expect(band.Position.Y.Offset).toBeGreaterThanOrEqual(outline)
+			expect(band.Position.Y.Offset).toBeLessThan(outline + 1)
 			local body = cell.Frame:FindFirstChild("Body")
 			local padding = body:FindFirstChildOfClass("UIPadding")
 			local needed = padding.PaddingTop.Offset

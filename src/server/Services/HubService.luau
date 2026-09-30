@@ -20,7 +20,7 @@
 --
 -- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
 -- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
--- ShopKiosk, BattlegroundPortal, BossPortal, Lectern.
+-- ShopKiosk, BattlegroundPortal, BossPortal, DrillLectern.
 --
 -- The platform and its kerbs carry MovementGuardConfig.BarrierTag: the geometry no body may pass through,
 -- which is all the movement audit casts its noclip ray against. Nothing else here does.

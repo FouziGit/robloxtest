@@ -75,6 +75,8 @@ local function draw(character: Model)
 	local ink = Palette.world("Ink")
 	local chalk = Palette.world("Chalk")
 	local mark = Instance.new("BillboardGui")
+	-- A drawing with no words; kept out of Roblox's automatic translation like every surface the code draws (D-253).
+	mark.AutoLocalize = false
 	mark.Name = "Manicule"
 	mark.Adornee = head
 	mark.Size = UDim2.fromScale(MARK_STUDS.X, MARK_STUDS.Y)

@@ -173,9 +173,8 @@ local function erasure(): Fight
 			end,
 			knockback = function() end,
 			resyncPosition = function() end,
-			setPolicy = function(): any
-				return nil
-			end,
+			-- The Erasure's fight holds the Boss zone (ZoneConfig, D-266).
+			claimZone = function() end,
 			Damaged = signal,
 		},
 		Movement = { applyStun = function() end },

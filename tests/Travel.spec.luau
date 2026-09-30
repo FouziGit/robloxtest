@@ -156,11 +156,15 @@ describe("the Battleground band", function()
 		local changed = body(TRAVEL, "local function onFlyleafChanged(")
 		requireAll(changed, {
 			"if payload == nil then if flyleafMember then flyleafMember = false placeBand.Visible = false soundController.wantMusic(MUSIC_SOURCE, nil) refreshFight() end local hud = hudController if hud ~= nil then hud.leftPlace(FLYLEAF_ZONE) end return end",
-			'placeTitle.Text = localize.t("portal.flyleaf.name")',
-			'placeLine.Text = localize.t("flyleaf.status", {',
-			"members = math.max(0, math.floor(snapshot.Members) - 1),",
-			"if not flyleafMember then flyleafMember = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
+			"flyleafRivals = math.max(0, math.floor(snapshot.Members) - 1)",
+			"local joined = not flyleafMember flyleafMember = true wordPlace()",
+			"if joined then soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
 		}, "onFlyleafChanged")
+		-- The band's words, the Flyleaf's for a member, written again on a change of language (relabel).
+		requireAll(body(TRAVEL, "local function wordPlace("), {
+			'if flyleafMember then placeTitle.Text = localize.t("portal.flyleaf.name")',
+			'placeLine.Text = localize.t("flyleaf.status", { members = flyleafRivals, kills = flyleafKills, streak = flyleafStreak, }) return end',
+		}, "wordPlace")
 		expect(code(TRAVEL):find('local FLYLEAF_ZONE = "Flyleaf"', 1, true)).never.toBe(nil)
 		local start = body(TRAVEL, "function TravelController.Start(")
 		local built = start:find("if not build() then", 1, true)

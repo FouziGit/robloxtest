@@ -407,6 +407,69 @@ describe("a change of language, mid-session", function()
 	end)
 end)
 
+-- The Flyleaf writes the same place band as the Battleground (E16-S2): a change of language writes it again in the
+-- Flyleaf's words, never the Battleground's.
+describe("the Flyleaf's band, when the language changes", function()
+	it("writes its rivals, takedowns and run again, in the page's own words", function()
+		local localize, switch = switchable()
+		local fixture = Hud.build({ Profile = profile(), Localize = localize })
+		fixture.remote("FlyleafChanged", { Members = 3, Kills = 1, Streak = 1 })
+		fixture.world:advance(1)
+		local root = fixture.world.playerGui
+		local function lines(locale: string): { string }
+			return {
+				Strings.t("portal.flyleaf.name", nil, locale),
+				Strings.t("flyleaf.status", { members = 2, kills = 1, streak = 1 }, locale),
+			}
+		end
+		local english, french = lines("en"), lines("fr")
+		for _, words in ipairs(english) do
+			if not reads(root, words) then
+				error(("the band does not say %q: this gate would check nothing"):format(words))
+			end
+		end
+		switch("fr")
+		fixture.world:advance(1)
+		for index, words in ipairs(french) do
+			expect(reads(root, words)).toBe(true)
+			expect(reads(root, english[index])).toBe(false)
+		end
+		expect(reads(root, Strings.t("portal.battleground.name", nil, "fr"))).toBe(false)
+	end)
+end)
+
+-- The versus plate of a match's announcement (E10-S7): up for the countdown, and written again when the language
+-- changes under it, like every other word of the HUD (D-252).
+describe("the match's announcement, when the language changes", function()
+	it("writes its versus plate again", function()
+		local localize, switch = switchable()
+		local fixture = Hud.build({ Profile = profile(), Localize = localize })
+		local snapshot = Hud.match("Duel1v1", 1)
+		snapshot.Phase = "Countdown"
+		snapshot.SecondsLeft = 4
+		fixture.match(snapshot)
+		fixture.world:advance(0.5)
+		local root = fixture.world.playerGui
+		local function line(locale: string): string
+			local opponent = snapshot.Teams[2][1]
+			return Strings.t("match.versus", {
+				name = opponent.Name,
+				level = opponent.Level,
+				rank = Strings.t(opponent.RankKey, nil, locale),
+			}, locale)
+		end
+		local english, french = line("en"), line("fr")
+		expect(english).never.toBe(french)
+		if not reads(root, english) then
+			error(("the announcement does not say %q: this gate would check nothing"):format(english))
+		end
+		switch("fr")
+		fixture.world:advance(0.5)
+		expect(reads(root, french)).toBe(true)
+		expect(reads(root, english)).toBe(false)
+	end)
+end)
+
 describe("the lock's mark, when the language changes", function()
 	it("writes its miss again, and its target's words through SetTarget", function()
 		local localize, switch = switchable()

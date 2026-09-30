@@ -182,6 +182,13 @@ local SITES: { Site } = {
 		Reasons = { "BossKillBonus" },
 	},
 	{ File = "BattlegroundService/Rewards", Call = "(player, folios, key)", Flow = "Source", Reasons = botReasons() },
+	-- A victory on the Flyleaf, paid by the page itself under its daily cap (D-267).
+	{
+		File = "FlyleafService/Rewards",
+		Call = "(killer, folios, REASON)",
+		Flow = "Source",
+		Reasons = { "FlyleafKill" },
+	},
 	{
 		File = "MonetizationService/Receipts",
 		Call = '(player, amount, "Product:" .. productKey)',

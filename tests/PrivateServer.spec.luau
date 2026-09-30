@@ -32,6 +32,8 @@ type Played = {
 	-- Every write the ladders took: "<store> <user id> = <value>".
 	ladders: { string },
 	outcome: any,
+	-- The first MatchChanged snapshot player 1 received: what the match announced of itself (Ranked, each rank).
+	snapshot: any,
 	xp: number,
 	folios: number,
 	firstWins: number,
@@ -85,10 +87,12 @@ local function play(kind: Kind): Played
 			self.Character = character
 		end
 		byId[userId] = player
-		-- The sections of DataService's template the match and the ladder read and write.
+		-- The sections of DataService's template the match and the ladder read and write, for two players past the
+		-- newcomers' quick duel (E10-S7, D-269): what is judged here is the kind of server, not the players.
 		profiles[userId] = {
 			Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "", Opponents = { Day = 0, Counts = {} } },
-			Stats = { MatchesPlayed = 0 },
+			Stats = { MatchesPlayed = MatchConfig.Newcomer.MinMatches },
+			Progression = { Level = MatchConfig.Newcomer.MinLevel },
 			Daily = { MatchDay = 0, MatchFolios = 0 },
 		}
 		return player
@@ -130,6 +134,7 @@ local function play(kind: Kind): Played
 		moved = {},
 		ladders = ladders,
 		outcome = nil,
+		snapshot = nil,
 		xp = 0,
 		folios = 0,
 		firstWins = 0,
@@ -189,6 +194,8 @@ local function play(kind: Kind): Played
 			fire = function(name: string, player: any, payload: any)
 				if name == "MatchEnded" and player.UserId == 1 then
 					played.outcome = payload
+				elseif name == "MatchChanged" and player.UserId == 1 and payload ~= nil and played.snapshot == nil then
+					played.snapshot = table.clone(payload)
 				end
 			end,
 		},
@@ -198,7 +205,8 @@ local function play(kind: Kind): Played
 			Damaged = damaged,
 			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
 			Killed = Engine.signal(),
-			setPolicy = function() end,
+			-- The match holds the Match zone (ZoneConfig, D-266).
+			claimZone = function() end,
 			resyncPosition = function() end,
 		},
 		Movement = {
@@ -299,6 +307,13 @@ describe("ranked play on each kind of server", function()
 			expect(played.ladders).toContain(("%s 2 = %d"):format(duel, leaver.Rating))
 			expect(played.outcome.RatingAfter).toBeGreaterThan(played.outcome.RatingBefore)
 			expect(played.outcome.RankKeyAfter).never.toBe("")
+			-- The announcement calls it ranked and shows each duellist's rank.
+			expect(played.snapshot.Ranked).toBe(true)
+			for _, team in ipairs(played.snapshot.Teams) do
+				for _, member in ipairs(team) do
+					expect(member.RankKey).never.toBe("")
+				end
+			end
 			local scale = MatchConfig.Rewards.Duel1v1
 			expect(played.xp).toBe(math.floor(ProgressionConfig.XP.MatchWin * scale.Xp + 0.5))
 			expect(played.folios).toBe(math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios + 0.5))
@@ -321,6 +336,13 @@ describe("ranked play on each kind of server", function()
 		expect(played.outcome.RatingAfter).toBe(played.outcome.RatingBefore)
 		expect(played.outcome.RankKeyBefore).toBe("")
 		expect(played.outcome.RankKeyAfter).toBe("")
+		-- Nor does its announcement: an unranked match, and no rank on anybody (D-251, D-269).
+		expect(played.snapshot.Ranked).toBe(false)
+		for _, team in ipairs(played.snapshot.Teams) do
+			for _, member in ipairs(team) do
+				expect(member.RankKey).toBe("")
+			end
+		end
 		local scale = MatchConfig.Rewards.Duel1v1
 		local share = MatchConfig.PrivateServer.RewardShare
 		expect(share).toBeGreaterThan(0)

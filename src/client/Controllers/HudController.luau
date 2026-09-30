@@ -742,6 +742,10 @@ local function versusLines(snapshot: Types.MatchSnapshot): { string }
 	return lines
 end
 
+-- Whether the announcement's versus plate is up, from MatchFound until the fight is called or the match ends: a
+-- change of language writes it again (relabel).
+local versusShown = false
+
 local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	local active = snapshot ~= nil
 	if active and not inMatch then
@@ -759,12 +763,15 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 		banner:Show(splash.Kind, splash.Digit)
 		if splash.Kind == "MatchFound" and snapshot ~= nil then
 			banner:ShowVersus(versusLines(snapshot))
+			versusShown = true
 		elseif splash.Kind == "Fight" then
 			banner:ShowVersus(nil)
+			versusShown = false
 		end
 	end
 	if snapshot == nil and lastMatch ~= nil then
 		banner:Clear()
+		versusShown = false
 	end
 	lastMatch = snapshot
 end
@@ -1013,6 +1020,10 @@ local function relabel()
 	spectatePlate:Relabel()
 	refreshProfile("*")
 	scoreBand:Set(lastMatch)
+	local match = lastMatch
+	if versusShown and match ~= nil then
+		banner:ShowVersus(versusLines(match))
+	end
 end
 
 function HudController.Init(deps: Deps)

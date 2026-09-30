@@ -77,6 +77,17 @@ local function told(setup: Server.Services, player: any, key: string): number
 	return count
 end
 
+-- A player past the quick duel (E10-S7, D-269), at the level and with the matches ranked asks for: their matches are
+-- ranked, so the farm rules have a rating to hold. Again on every return, whatever the profile kept.
+local function join(setup: Server.Services, userId: number, name: string): any
+	local player = setup.world:join(userId, name)
+	local data = setup.data.get(player)
+	assert(data ~= nil, "no profile loaded for " .. name)
+	data.Stats.MatchesPlayed = math.max(data.Stats.MatchesPlayed, MatchConfig.Newcomer.MinMatches)
+	data.Progression.Level = math.max(data.Progression.Level, MatchConfig.Newcomer.MinLevel)
+	return player
+end
+
 -- A duel between `a` and `b`, past its countdown: the first round is being played.
 local function begin(setup: Server.Services, a: any, b: any)
 	expect(setup.match.start(DUEL.Id, { { a.UserId }, { b.UserId } })).never.toBeNil()
@@ -117,14 +128,14 @@ local function altWalksOut(setup: Server.Services, main: any, alt: any): any
 		expect(setup.match.releaseFromResult(main)).toBe(true)
 	end
 	expect(setup.match.isInMatch(main)).toBe(false)
-	return setup.world:join(alt.UserId, alt.Name)
+	return join(setup, alt.UserId, alt.Name)
 end
 
 describe("a main and an alt farming ranked (E4-S3)", function()
 	it("earns nothing in twenty rounds of the alt leaving on the countdown", function()
 		local setup = Server.services()
-		local main = setup.world:join(401, "Main")
-		local alt = setup.world:join(402, "Alt")
+		local main = join(setup, 401, "Main")
+		local alt = join(setup, 402, "Alt")
 		for _ = 1, 20 do
 			expect(setup.match.start(DUEL.Id, { { main.UserId }, { alt.UserId } })).never.toBeNil()
 			setup.world:advance(1)
@@ -149,8 +160,8 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 			-- The farm that plays along: thirty seconds, a hit each way, then the alt walks out. Every one is a real
 			-- forfeit, and only the day's first few move a rating.
 			local setup = Server.services()
-			local main = setup.world:join(411, "Main")
-			local alt = setup.world:join(412, "Alt")
+			local main = join(setup, 411, "Main")
+			local alt = join(setup, 412, "Alt")
 			local ratings: { number } = {}
 			for _ = 1, 20 do
 				begin(setup, main, alt)
@@ -175,8 +186,8 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 
 	it("keeps counting the pair on another server, and starts over on a new UTC day", function()
 		local setup = Server.services()
-		local main = setup.world:join(421, "Main")
-		local alt = setup.world:join(422, "Alt")
+		local main = join(setup, 421, "Main")
+		local alt = join(setup, 422, "Alt")
 		for _ = 1, FULL do
 			begin(setup, main, alt)
 			fight(setup, main, alt)
@@ -185,7 +196,7 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 		-- The main hops: the count comes back with the profile.
 		setup.world:leave(main)
 		setup.world:advance(GRACE + 1)
-		main = setup.world:join(421, "Main")
+		main = join(setup, 421, "Main")
 		local held = rating(setup, main)
 		begin(setup, main, alt)
 		fight(setup, main, alt)
@@ -203,8 +214,8 @@ end)
 describe("an honest rematch series (E4-S3)", function()
 	it("keeps every point of Elo over a duel and five rematches by Play again, with damage traded", function()
 		local setup = Server.services()
-		local a = setup.world:join(431, "Ada")
-		local b = setup.world:join(432, "Bea")
+		local a = join(setup, 431, "Ada")
+		local b = join(setup, 432, "Bea")
 		expect(FULL >= SERIES).toBe(true)
 		for match = 1, FULL do
 			local winner, loser = if match % 2 == 1 then a else b, if match % 2 == 1 then b else a
@@ -240,8 +251,8 @@ end)
 describe("a forfeit nobody fought is void (E4-S3)", function()
 	it("gives whoever stayed nothing, debits whoever left, and lets the survivor go at once", function()
 		local setup = Server.services()
-		local a = setup.world:join(441, "Ada")
-		local b = setup.world:join(442, "Bea")
+		local a = join(setup, 441, "Ada")
+		local b = join(setup, 442, "Bea")
 		begin(setup, a, b)
 		setup.hit(a, b, 10)
 		setup.hit(b, a, 10)
@@ -259,8 +270,8 @@ describe("a forfeit nobody fought is void (E4-S3)", function()
 
 	it("lets the survivor of a walk-out on the countdown move and cast at once", function()
 		local setup = Server.services()
-		local a = setup.world:join(445, "Ada")
-		local b = setup.world:join(446, "Bea")
+		local a = join(setup, 445, "Ada")
+		local b = join(setup, 446, "Bea")
 		expect(setup.match.start(DUEL.Id, { { a.UserId }, { b.UserId } })).never.toBeNil()
 		setup.world:advance(1)
 		setup.world:leave(b)
@@ -272,8 +283,8 @@ describe("a forfeit nobody fought is void (E4-S3)", function()
 
 	it("is void however long it lasted when not a point of damage was exchanged", function()
 		local setup = Server.services()
-		local a = setup.world:join(451, "Ada")
-		local b = setup.world:join(452, "Bea")
+		local a = join(setup, 451, "Ada")
+		local b = join(setup, 452, "Bea")
 		begin(setup, a, b)
 		setup.world:advance(MatchConfig.MinPlayedSeconds + 5)
 		setup.world:leave(b)
@@ -284,8 +295,8 @@ describe("a forfeit nobody fought is void (E4-S3)", function()
 
 	it("is a real forfeit once fought past the minimum: the one who stayed wins it", function()
 		local setup = Server.services()
-		local a = setup.world:join(461, "Ada")
-		local b = setup.world:join(462, "Bea")
+		local a = join(setup, 461, "Ada")
+		local b = join(setup, 462, "Bea")
 		begin(setup, a, b)
 		fight(setup, a, b)
 		setup.world:leave(b)
@@ -300,8 +311,8 @@ describe("a forfeit nobody fought is void (E4-S3)", function()
 	it("counts the play from the first round's start, not the latest one's", function()
 		-- Round one fought past the minimum and won; the loser walks out as round two begins.
 		local setup = Server.services()
-		local a = setup.world:join(475, "Ada")
-		local b = setup.world:join(476, "Bea")
+		local a = join(setup, 475, "Ada")
+		local b = join(setup, 476, "Bea")
 		begin(setup, a, b)
 		fight(setup, a, b)
 		knockOut(setup, b)
@@ -315,8 +326,8 @@ describe("a forfeit nobody fought is void (E4-S3)", function()
 
 	it("never voids a series already won on the field (D-34)", function()
 		local setup = Server.services()
-		local a = setup.world:join(471, "Ada")
-		local b = setup.world:join(472, "Bea")
+		local a = join(setup, 471, "Ada")
+		local b = join(setup, 472, "Bea")
 		begin(setup, a, b)
 		knockOut(setup, b)
 		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
@@ -332,8 +343,8 @@ end)
 describe("a day of matches pays at most its Folio cap", function()
 	it("pays what is left under the cap, then nothing, and says so; the count survives a hop", function()
 		local setup = Server.services()
-		local a = setup.world:join(481, "Ada")
-		local b = setup.world:join(482, "Bea")
+		local a = join(setup, 481, "Ada")
+		local b = join(setup, 482, "Bea")
 		local daily = setup.data.get(a).Daily
 		daily.MatchDay = today()
 		daily.MatchFolios = MatchConfig.DailyFolioCap - 10
@@ -344,7 +355,7 @@ describe("a day of matches pays at most its Folio cap", function()
 		expect(told(setup, a, "match.folioCap")).toBe(1)
 		setup.world:leave(a)
 		setup.world:advance(GRACE + 1)
-		a = setup.world:join(481, "Ada")
+		a = join(setup, 481, "Ada")
 		expect(setup.data.get(a).Daily.MatchFolios).toBe(MatchConfig.DailyFolioCap)
 		begin(setup, a, b)
 		fight(setup, a, b)
@@ -360,8 +371,8 @@ describe("a kill in a match pays its Folios under the day's cap (E4-S3)", functi
 	-- past every cap and every repeat, those kills paid its main without end.
 	it("pays them once, and counts them with the match's", function()
 		local setup = Server.services()
-		local a = setup.world:join(483, "Ada")
-		local b = setup.world:join(484, "Bea")
+		local a = join(setup, 483, "Ada")
+		local b = join(setup, 484, "Bea")
 		begin(setup, a, b)
 		setup.kill(a, b)
 		expect(folios(setup, a)).toBe(KILL_FOLIOS)
@@ -372,8 +383,8 @@ describe("a kill in a match pays its Folios under the day's cap (E4-S3)", functi
 
 	it("pays what is left under the cap, then nothing", function()
 		local setup = Server.services()
-		local a = setup.world:join(485, "Ada")
-		local b = setup.world:join(486, "Bea")
+		local a = join(setup, 485, "Ada")
+		local b = join(setup, 486, "Bea")
 		local daily = setup.data.get(a).Daily
 		daily.MatchDay = today()
 		daily.MatchFolios = MatchConfig.DailyFolioCap - 5
@@ -387,9 +398,9 @@ describe("a kill in a match pays its Folios under the day's cap (E4-S3)", functi
 
 	it("pays nothing for a player the killer is not in a match with", function()
 		local setup = Server.services()
-		local a = setup.world:join(487, "Ada")
-		local b = setup.world:join(488, "Bea")
-		local c = setup.world:join(489, "Cyd")
+		local a = join(setup, 487, "Ada")
+		local b = join(setup, 488, "Bea")
+		local c = join(setup, 489, "Cyd")
 		c:LoadCharacterAsync()
 		begin(setup, a, b)
 		setup.kill(a, c)
@@ -409,8 +420,8 @@ end)
 describe("a 3v3 with a pair met too often (E4-S3)", function()
 	it("holds the rating of both sides of that pair, and only theirs", function()
 		local setup = Server.services()
-		local team1 = { setup.world:join(491, "A1"), setup.world:join(492, "A2"), setup.world:join(493, "A3") }
-		local team2 = { setup.world:join(494, "B1"), setup.world:join(495, "B2"), setup.world:join(496, "B3") }
+		local team1 = { join(setup, 491, "A1"), join(setup, 492, "A2"), join(setup, 493, "A3") }
+		local team2 = { join(setup, 494, "B1"), join(setup, 495, "B2"), join(setup, 496, "B3") }
 		-- A1 has already played B1 the day's full matches; B1's own ledger knows nothing of it.
 		setup.data.get(team1[1]).Rank.Opponents = { Day = today(), Counts = { ["494"] = FULL } }
 		local ids = function(team: { any }): { number }

@@ -62,6 +62,8 @@ AnalyticsConfig.Transactions = {
 	BotSmudger = "Gameplay",
 	BotQuill = "Gameplay",
 	BotOverwriter = "Gameplay",
+	-- A victory on the Flyleaf, under its own daily cap (FlyleafService, D-267).
+	FlyleafKill = "Gameplay",
 	QuestDaily = "Gameplay",
 	QuestWeekly = "Gameplay",
 	Battlepass = "Gameplay",

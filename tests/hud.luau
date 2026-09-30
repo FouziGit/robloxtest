@@ -43,12 +43,17 @@ function Hud.match(mode: string, perTeam: number): any
 	for side = 1, 2 do
 		local team = {}
 		for index = 1, perTeam do
+			-- Every field a real snapshot carries (Types.MatchPlayerSnapshot): the announcement's versus plate reads
+			-- the level and the rank of each opponent (E10-S7).
 			table.insert(team, {
 				UserId = side * 100 + index,
 				Name = "P" .. side .. index,
+				Team = side,
 				Health = 100,
 				MaxHealth = 100,
 				Alive = true,
+				Level = 12,
+				RankKey = "rank.blank",
 			})
 		end
 		table.insert(teams, team)
@@ -63,6 +68,7 @@ function Hud.match(mode: string, perTeam: number): any
 		Scores = { 0, 0 },
 		Teams = teams,
 		LocalTeam = 1,
+		Ranked = true,
 	}
 end
 

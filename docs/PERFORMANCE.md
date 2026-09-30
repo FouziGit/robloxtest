@@ -359,7 +359,7 @@ Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qu
 | Écran | Objets | Plafond |
 |---|---|---|
 | `MenuScreen` | 171 | 400 |
-| `PlayScreen` | 104 | 400 |
+| `PlayScreen` | 106 | 400 |
 | `ShopScreen (Today)` | 236 | 400 |
 | `ShopScreen (Folios)` | 127 | 400 |
 | `ShopScreen (Passes)` | 167 | 400 |

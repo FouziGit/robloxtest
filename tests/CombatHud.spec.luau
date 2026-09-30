@@ -686,7 +686,10 @@ describe("the centre splashes", function()
 			true
 		)
 		expect(has(match, "banner:Show(splash.Kind, splash.Digit)")).toBe(true)
-		expect(has(match, "if snapshot == nil and lastMatch ~= nil then banner:Clear() end")).toBe(true)
+		-- The versus plate leaves with the match, and a change of language no longer writes it (D-252, D-269).
+		expect(has(match, "if snapshot == nil and lastMatch ~= nil then banner:Clear() versusShown = false end")).toBe(
+			true
+		)
 		expect(has(match, "lastMatch = snapshot")).toBe(true)
 	end)
 

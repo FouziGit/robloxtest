@@ -851,11 +851,20 @@ Strings.Table = {
 		en = "Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",
 		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current}).",
 	},
-	["queue.gate.matches"] = {
+	-- Counted sentences (Strings.Plurals): how many matches ranked asks for.
+	["queue.gate.matches.one"] = {
+		en = "Quick duel for now, unranked. Ranked after {count} match (played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé après {count} match (matchs joués : {played}).",
+	},
+	["queue.gate.matches.other"] = {
 		en = "Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",
 		fr = "Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played}).",
 	},
-	["queue.gate.both"] = {
+	["queue.gate.both.one"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} match (you: level {current}, played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} match (toi : niveau {current}, matchs joués : {played}).",
+	},
+	["queue.gate.both.other"] = {
 		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",
 		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played}).",
 	},
@@ -1299,6 +1308,8 @@ Strings.Plurals = {
 	["quest.reward"] = "folios",
 	["quest.useDash"] = "target",
 	["quest.winMatches"] = "target",
+	["queue.gate.both"] = "count",
+	["queue.gate.matches"] = "count",
 	["queue.rule"] = "rounds",
 	["queue.waiting"] = "needed",
 	["season.rewardGranted"] = "amount",

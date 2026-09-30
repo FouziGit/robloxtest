@@ -12,9 +12,9 @@
 
 local DataMigration = {}
 
--- 9: the Flyleaf's daily allowance (`Daily.FlyleafDay`, `FlyleafFolios`, E16-S2). No upgrade step: every profile
--- before it was paid nothing by the Flyleaf, which is the template's zeros. The version moves so a build that has
--- never heard of them keeps them rather than dropping them (see `newer` in migrate).
+-- 9: the Flyleaf's daily allowance (`Daily.FlyleafDay`, `FlyleafFolios`, E16-S2, D-267). No upgrade step: every
+-- profile before it was paid nothing by the Flyleaf, which is the template's zeros. The version moves so a build
+-- that has never heard of them keeps them rather than dropping them (see `newer` in migrate).
 --
 -- 8: the ranked opponents of the day (`Rank.Opponents`) and the Folios matches paid today (`Daily.MatchDay`,
 -- `MatchFolios`), D-255. No upgrade step: every profile before it met nobody today and was paid nothing under

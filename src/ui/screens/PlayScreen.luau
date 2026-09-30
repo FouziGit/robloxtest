@@ -397,9 +397,10 @@ function PlayScreen.new(deps: Deps): Screen
 		-- One round decides, or the first to so many wins: never "first to 1 rounds" (the rule's two forms).
 		rule.Text = t("queue.rule", { rounds = def.RoundsToWin })
 
-		-- Wrapped under the rule, as tall as its words: written by render, from the profile.
+		-- Wrapped under the rule, as tall as its words: written by render, from the profile. Only where the card is
+		-- ranked: on a server that is not, the notice above already says no match is.
 		local gate: TextLabel? = nil
-		if def.Ranked then
+		if def.Ranked and rankedHere then
 			local line = label("Gate", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 5, normal)
 			line.TextWrapped = true
 			line.TextTruncate = Enum.TextTruncate.None

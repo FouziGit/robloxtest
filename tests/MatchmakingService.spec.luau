@@ -86,6 +86,24 @@ local function fixture(): Fixture
 				return boss.Live
 			end,
 		},
+		-- The glyphs a player takes into a queue are told to the dashboards (GlyphPick, D-260): no profile here has a
+		-- loadout, so nothing is told.
+		DataService = {
+			get = function(): any
+				return nil
+			end,
+		},
+		Loadout = {
+			fielded = function(): ({ string }, { string })
+				return {}, {}
+			end,
+		},
+		Analytics = {
+			fields = function(): { [string]: string }
+				return {}
+			end,
+			custom = function() end,
+		},
 	})
 	service.Start()
 	return {

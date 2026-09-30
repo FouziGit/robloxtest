@@ -106,6 +106,10 @@ local member = false
 -- A member of the Flyleaf, as its last packet said, and the takedowns it counted: the count punches when it moves.
 local flyleafMember = false
 local lastKills: number? = nil
+-- What the Flyleaf's band says, from its last packet: the rivals on the page, the takedowns, the run.
+local flyleafRivals = 0
+local flyleafKills = 0
+local flyleafStreak = 0
 -- In the Erasure's arena, as far as its gate and its fight say, and the fight's last phase heard.
 local inArena = false
 local bossPhase: string? = nil
@@ -258,8 +262,18 @@ local function wordPortal()
 	end
 end
 
--- The words of the place band. Each count in its own words: "1 Forger standing", "2 vaincus".
+-- The words of the place band, the Flyleaf's for one of its members, the Battleground's otherwise: nobody is a member
+-- of both. Each count in its own words: "1 Forger standing", "2 vaincus".
 local function wordPlace()
+	if flyleafMember then
+		placeTitle.Text = localize.t("portal.flyleaf.name")
+		placeLine.Text = localize.t("flyleaf.status", {
+			members = flyleafRivals,
+			kills = flyleafKills,
+			streak = flyleafStreak,
+		})
+		return
+	end
 	placeTitle.Text = localize.t("portal.battleground.name")
 	placeLine.Text = localize.t("battleground.status", {
 		standing = localize.t("battleground.standing", { standing = standingCount }),
@@ -364,13 +378,13 @@ local function onFlyleafChanged(payload: any)
 	end
 	local snapshot = payload :: Types.FlyleafSnapshot
 	local kills = math.max(0, math.floor(snapshot.Kills))
-	placeTitle.Text = localize.t("portal.flyleaf.name")
-	placeLine.Text = localize.t("flyleaf.status", {
-		-- Everyone else on the page.
-		members = math.max(0, math.floor(snapshot.Members) - 1),
-		kills = kills,
-		streak = math.max(0, math.floor(snapshot.Streak)),
-	})
+	-- Everyone else on the page.
+	flyleafRivals = math.max(0, math.floor(snapshot.Members) - 1)
+	flyleafKills = kills
+	flyleafStreak = math.max(0, math.floor(snapshot.Streak))
+	local joined = not flyleafMember
+	flyleafMember = true
+	wordPlace()
 	if not placeBand.Visible then
 		lastKills = nil
 	end
@@ -379,8 +393,7 @@ local function onFlyleafChanged(payload: any)
 	end
 	lastKills = kills
 	grow(placeBand, placeScale)
-	if not flyleafMember then
-		flyleafMember = true
+	if joined then
 		soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID)
 		refreshFight()
 	end

@@ -168,7 +168,12 @@ local function key(text: string): string
 end
 
 -- The Play screen for a player with `played` matches at `level`; its words are their keys.
-local function playScreen(played: number, level: number): (any, any, any, { { Key: string, Params: any } })
+-- `unrankedServer`: a private server a player bought, where no match is ranked (E4-S4, D-251).
+local function playScreen(
+	played: number,
+	level: number,
+	unrankedServer: boolean?
+): (any, any, any, { { Key: string, Params: any } })
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	local data: any = { Stats = { MatchesPlayed = played }, Progression = { Level = level } }
 	local changed = Engine.signal()
@@ -194,6 +199,9 @@ local function playScreen(played: number, level: number): (any, any, any, { { Ke
 		MatchController = {
 			getQueue = function(): any
 				return { Queued = false, WaitedSeconds = 0, QueuedCount = 0, NeededCount = 2 }
+			end,
+			rankedHere = function(): boolean
+				return unrankedServer ~= true
 			end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
@@ -250,6 +258,13 @@ describe("the Play screen of a newcomer", function()
 		for _, line in ipairs(lines) do
 			expect(line.Visible).toBe(false)
 		end
+	end)
+
+	-- Where no match is ranked, the card already says so (queue.unranked): telling a newcomer how far ranked is
+	-- would promise what the server never plays.
+	it("says nothing of ranked on a private server a player bought, where every match is unranked", function()
+		local screen = playScreen(2, 7, true)
+		expect(#gates(screen)).toBe(0)
 	end)
 end)
 

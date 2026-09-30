@@ -440,8 +440,7 @@ local function award(active: Active, result: Types.MatchResult)
 		local baseXp = if draw then XP.MatchDraw elseif won then XP.MatchWin else XP.MatchLoss
 		local baseFolios = if draw then FOLIOS.MatchDraw elseif won then FOLIOS.MatchWin else FOLIOS.MatchLoss
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
-		local change = changes[participant.UserId]
-			or ratingFallback(player, active.Def.Id, active.Match.Ranked and rankedServer)
+		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, active.Match.Ranked)
 		-- A pair past its day's full matches is paid a quarter, and told why its rating held.
 		local repeatScale = if change.Repeat then REPEAT_SCALE else 1
 		local xp = math.floor(baseXp * scale.Xp * share * repeatScale + 0.5)
@@ -1108,8 +1107,10 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	local participants: { GameModes.Participant } = {}
 	local rosterTeams: { { number } } = {}
 	local userIds: { number } = {}
-	-- Ranked only when the mode is and nobody in it still plays the quick duel.
-	local ranked = def.Ranked
+	-- Ranked only when the mode is, the server is (a private server a player bought is not, D-251), and nobody in it
+	-- still plays the quick duel (D-269).
+	local rankedMode = def.Ranked and ranking.rankedHere()
+	local ranked = rankedMode
 	for team, members in ipairs(teams) do
 		rosterTeams[team] = {}
 		for slot, userId in ipairs(members) do
@@ -1133,7 +1134,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				Health = 0,
 				MaxHealth = 0,
 				Level = if data ~= nil then data.Progression.Level else 1,
-				RankKey = if eligible and def.Ranked then rankKeyOf(player, modeId) else "",
+				RankKey = if eligible and rankedMode then rankKeyOf(player, modeId) else "",
 			})
 			table.insert(rosterTeams[team], userId)
 			table.insert(userIds, userId)

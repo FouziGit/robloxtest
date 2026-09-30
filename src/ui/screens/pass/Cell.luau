@@ -1,7 +1,8 @@
 --!strict
 -- Cell: one reward of the battle pass on its track (D-147) -- a free one above the line, a premium one below,
 -- which wears the primary yellow inside its ink and a seal ring in its corner. It shows its reward (the coin
--- and the amount, the clock and the minutes, or the item's swatch) and what can be done with it now:
+-- and the amount, the clock and the minutes, or the item's swatch under the colour and the pips of its
+-- rarity, the band without its word) and what can be done with it now:
 --
 --   Claimable  a Claim button, which the track wiggles on the pass's one shared breath
 --   Claimed    a check seal
@@ -20,6 +21,7 @@ local Button = require(script.Parent.Parent.Parent.components.Button)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local Icon = require(script.Parent.Parent.Parent.components.Icon)
 local ItemPreview = require(script.Parent.Parent.Parent.components.ItemPreview)
+local RarityBand = require(script.Parent.Parent.Parent.components.RarityBand)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
 local Theme = require(script.Parent.Parent.Parent.Theme)
 local Types = require(Shared.Types)
@@ -51,9 +53,17 @@ local PREMIUM_RIM = 3
 local CORNER_RING = 24
 local VEIL_TRANSPARENCY = 0.4
 
--- The height a cell needs: its reward row and its Claim button, which carries the touch minimum on a phone.
+-- The height a cell needs: its reward row and its Claim button, which carries the touch minimum on a phone,
+-- under the rarity band an item's cell wears. Every cell of the road is this tall.
 function Cell.height(designed: number): number
-	return math.max(designed, PADDING * 4 + ICON + Theme.Sizes.PaddingSmall + Theme.touchTargetHeight(CLAIM_HEIGHT))
+	return math.max(
+		designed,
+		RarityBand.bottom(true, false, PREMIUM_RIM)
+			+ PADDING * 3
+			+ ICON
+			+ Theme.Sizes.PaddingSmall
+			+ Theme.touchTargetHeight(CLAIM_HEIGHT)
+	)
 end
 
 -- What claiming a reward would do now, by the server's own order of refusals (BattlepassService): already
@@ -186,6 +196,7 @@ function Cell.new(
 	frame.BackgroundColor3 = Theme.Colors.PanelRaised
 	frame.ZIndex = 2
 	Theme.corner(frame, UDim.new(0, Theme.Sizes.CornerCard))
+	local outline = if track == "Premium" then PREMIUM_RIM else Theme.Sizes.StrokeThin
 	if track == "Premium" then
 		Theme.stroke(frame, "Primary", PREMIUM_RIM)
 		local ringId = Theme.texture("SealRing")
@@ -202,14 +213,31 @@ function Cell.new(
 			ring.Parent = frame
 		end
 	else
-		Theme.stroke(frame, "Accent", Theme.Sizes.StrokeThin)
+		Theme.stroke(frame, "Accent", outline)
+	end
+
+	-- An item's rarity across the top, its colour and its pips: the cell has no room for the word, which the
+	-- showcase and the Shop write out. Never a shimmer here: fifty cells would spend a screen's budget.
+	local item = if reward.Kind == "Cosmetic" then CosmeticConfig.ById[reward.Id] else nil
+	local top = PADDING * 2
+	if item ~= nil then
+		local band = RarityBand.new({
+			Rarity = item.Rarity,
+			Word = t(Theme.rarity(item.Rarity).WordKey),
+			Compact = true,
+			ShowWord = false,
+			Inset = outline,
+			ZIndex = 2,
+			Parent = frame,
+		})
+		top = band.Bottom + PADDING
 	end
 
 	local body = blank("Body", frame)
 	body.Size = UDim2.fromScale(1, 1)
 	body.ZIndex = 2
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, PADDING * 2)
+	padding.PaddingTop = UDim.new(0, top)
 	padding.PaddingBottom = UDim.new(0, PADDING * 2)
 	padding.PaddingLeft = UDim.new(0, PADDING)
 	padding.PaddingRight = UDim.new(0, PADDING)

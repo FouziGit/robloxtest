@@ -50,6 +50,14 @@ describe("a badge, run", function()
 		expect(count.TextColor3).toBe(Theme.Colors.Text)
 		expect(count.TextScaled == true).toBe(false)
 		expect(count.TextSize).toBe(17)
+		-- In the middle of the disc: a lone figure is narrower than the disc's least width, and laid out from the
+		-- left it sat against the disc's left edge.
+		local centre = disc:FindFirstChildOfClass("UIListLayout")
+		assert(centre ~= nil, "the disc lays its count out from the left")
+		expect(centre.FillDirection.Name).toBe("Horizontal")
+		expect(centre.HorizontalAlignment.Name).toBe("Center")
+		expect(centre.VerticalAlignment.Name).toBe("Center")
+		expect(count.Parent).toBe(disc)
 		-- Nothing drawn from a texture: no ink blot image.
 		for _, part in ipairs(holder:GetDescendants()) do
 			expect(part:IsA("ImageLabel")).toBe(false)

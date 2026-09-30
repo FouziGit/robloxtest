@@ -80,6 +80,13 @@ function Badge.new(value: Value?, parent: Instance, tint: Color3?): Badge
 	padding.PaddingLeft = UDim.new(0, PAD_X)
 	padding.PaddingRight = UDim.new(0, PAD_X)
 	padding.Parent = disc
+	-- The count in the middle of the disc: a lone figure, or "!", is narrower than the disc's least width, and
+	-- laid out from the left it sat against the disc's left edge.
+	local centre = Instance.new("UIListLayout")
+	centre.FillDirection = Enum.FillDirection.Horizontal
+	centre.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	centre.VerticalAlignment = Enum.VerticalAlignment.Center
+	centre.Parent = disc
 	disc.Parent = holder
 	local popScale = Instance.new("UIScale")
 	popScale.Parent = disc

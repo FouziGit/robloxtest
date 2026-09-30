@@ -52,11 +52,8 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 ## 4. Données, accès API, comptes
 
-1. **Accès API.** *Enable Studio Access to API Services* (`docs/STUDIO_SETUP.md` §2) branche Studio sur les **vraies** données : chaque test multi-clients inscrit des identifiants négatifs dans les classements (R5), et chaque achat de test écrit dans le vrai profil (R9). Décision : faire la QA sur une copie de test et, sur l'expérience publique, n'activer l'accès que le temps d'un test précis.
-2. **Classements propres.** Avant l'ouverture au public, choisir une option :
-   - purger les entrées de test (toute clé négative) des stores `S1_Global`, `S1_Duel1v1` et `S1_Team3v3` ;
-   - ouvrir la saison publique sous un autre `SeasonId` (§2.5) ;
-   - n'écrire que les `UserId > 0` dans `writeDue` (`LeaderboardService.luau:240-244`).
+1. **Accès API.** *Enable Studio Access to API Services* (`docs/STUDIO_SETUP.md` §2) branche Studio sur les **vraies** données. Les classements en sont protégés (R5 corrigé, D-203 : ni identifiant de test ni valeur venue de Studio sans `StudioConfig.WriteLadders`) ; chaque achat de test, lui, écrit dans le vrai profil (R9). Décision : faire la QA sur une copie de test et, sur l'expérience publique, n'activer l'accès que le temps d'un test précis.
+2. **Classements propres.** Fait dans le code (R5 corrigé, D-203) : un identifiant négatif ou nul n'est jamais écrit dans `S1_Global`, `S1_Duel1v1` et `S1_Team3v3`, ni une valeur venue de Studio tant que `StudioConfig.WriteLadders` est à `false` ; les lignes de test écrites avant le correctif restent dans les stores mais ne s'affichent plus. Avant l'ouverture au public, vérifier que `WriteLadders` est bien à `false` dans `src/server/Config/StudioConfig.luau`. Une purge des anciennes clés négatives n'est plus nécessaire ; elle ne ferait que rendre leur place aux 50 lignes que lit chaque tableau (`RankingConfig.Leaderboard.TopCount`).
 3. **Profil du développeur.** Les passes obtenus par des achats de test restent en cache (`Passes.luau:2-4`), et les cosmétiques achetés avec les Folios illimités restent possédés (R6). Décider si ce profil part tel quel.
 4. **Réglages développeur.** Dans `src/server/Config/DeveloperConfig.luau`, trancher `UnlimitedSlots` (`:17`), `UnlimitedFolios` (`:22`) et `FreeCasting` (`:26`) avant l'ouverture au public. Aujourd'hui, le compte développeur joue le classé avec 20 emplacements et tout le roster contre des joueurs qui en ont 6 (R6). Noter la décision dans `docs/DECISIONS.md`.
 5. **World Boss.** `WorldBossConfig.Schedule` doit être à 1200 / 60 / 300 / 15 / 2 (`WorldBossConfig.luau:23-29`). Le raccourci de test fait échouer `tests/Config.spec.luau:615-617`.

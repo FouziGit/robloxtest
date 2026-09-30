@@ -20,7 +20,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. Si un numéro ne tombe plus
 | Lieu | Pour | Attention |
 |---|---|---|
 | Studio, fichier construit (`./scripts/check.sh && open build/Vellum.rbxl`, méthode A de `docs/STUDIO_SETUP.md`) | §1, §6 à §11 | Ce fichier est une copie figée : le reconstruire après chaque modification. |
-| Studio, **Test → Clients and Servers** (2 ou 6 joueurs) | §5, §6, §6 bis, §7 | Les joueurs de test ont des identifiants **négatifs**. Avec l'accès API, ils s'inscrivent dans les vrais classements (R5). |
+| Studio, **Test → Clients and Servers** (2 ou 6 joueurs) | §5, §6, §6 bis, §7 | Les joueurs de test ont des identifiants **négatifs** : ils n'entrent jamais dans les classements, et Studio n'y écrit rien tant que `StudioConfig.WriteLadders` est éteint (D-203, §5.17). |
 | Une **copie de test** : la même place publiée en privé dans un autre univers | §2, §3, §4, et tout ce qui écrit dans un DataStore ou achète | C'est le seul endroit où un achat de test ou une ligne de classement ne salit pas les données publiques (R5, R9). |
 | Un serveur de l'expérience publique | la passe courte après publication (§13) | Les achats y sont réels. |
 
@@ -45,7 +45,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. Si un numéro ne tombe plus
 2. **Un réglage conservé.** `M` → Options, réassigner une touche, arrêter, relancer. Attendu : la touche est conservée (`docs/STUDIO_SETUP.md` §5.3).
 3. **Revenir vite.** En ligne : gagner des Folios, quitter, rejoindre dans les 5 s. Attendu : le profil se charge, parfois avec quelques secondes de retard, le temps que l'ancien serveur relâche la session. Les Folios et l'XP de la session précédente sont là, **comptés une seule fois** (`onPlayerRemoving` → `profile:EndSession()`, `DataService.luau:308-329`).
 4. **Un compte sur deux serveurs.** Le même compte rejoint un second serveur alors qu'il est encore sur le premier. Attendu : le premier serveur l'expulse avec le message traduit `kick.sessionElsewhere` (`Strings.luau:556-559`, `onSessionEnd`, `DataService.luau:205-210`). Si cela arrive pendant un duel classé, voir R4.
-5. **Arrêt du serveur.** Gagner des Folios, puis Creator Dashboard → **Shut down servers** (ou **Stop** dans Studio avec l'accès API). Attendu : au retour, les Folios sont là (le `BindToClose` de ProfileStore, `ProfileStore.luau:2208`) et la valeur de classement a été écrite (`LeaderboardService.luau:535`, attente bornée par `CLOSE_WAIT_SECONDS = 15`, `:73`). Noter le message d'expulsion affiché : voir R15.
+5. **Arrêt du serveur.** Gagner des Folios, puis Creator Dashboard → **Shut down servers** (ou **Stop** dans Studio avec l'accès API). Attendu : au retour, les Folios sont là (le `BindToClose` de ProfileStore, `ProfileStore.luau:2208`) et, sur la copie de test (Studio n'écrit pas dans les classements, D-203), la valeur de classement a été écrite (`LeaderboardService.luau:535`, attente bornée par `CLOSE_WAIT_SECONDS = 15`, `:73`). Noter le message d'expulsion affiché : voir R15.
 6. **Pour mémoire (pas un test).** Seuls les achats forcent une écriture immédiate (`DataService.saveNow`, `DataService.luau:452`). Le reste attend la sauvegarde automatique toutes les 300 s (`ProfileStore.luau:170`) ou la fin de session. Un crash de serveur fait donc perdre jusqu'à cinq minutes de progression.
 
 ## 3. Achats et reçus (Robux)
@@ -103,6 +103,7 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 14. **Récompenses.** Avec le compte secondaire, sans VIP ni boost. Attendu : 350 XP et 60 Folios pour une victoire, 120 XP et 20 Folios pour une défaite, ×1,2 en 3v3. La première victoire du jour ajoute +500 XP et +100 Folios, une seule fois (`ProgressionConfig.luau:43-64`, `MatchConfig.luau:61-65`, `DailyRewardService.markFirstWin`, `:84`).
 15. **Arrêt du serveur pendant un classé.** Arrêter le serveur pendant un duel. Attendu : aucune ligne `abandoned` et des classements inchangés. Voir R3.
 16. **Changement de serveur pendant un classé.** Voir §2.4 et R4.
+17. **Rien dans les classements.** Après un match classé joué dans Studio. Attendu : dans l'Output serveur, une seule ligne `[LeaderboardService] <nom> has the test id <id>: ratings of non-positive ids stay off the ladders` pour tout le serveur, quel que soit le nombre de matchs (`LadderGate`, `onRatingChanged`, D-203). En Play solo avec son propre compte, la ligne est `Studio session: ratings stay off the ladders (StudioConfig.WriteLadders is off)`. Au prochain rafraîchissement (60 s), aucun tableau du hub ne montre un identifiant brut, négatif ou nul, même dans un classement qu'un test avait sali avant le correctif.
 
 ## 6. World Boss
 

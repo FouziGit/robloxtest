@@ -480,11 +480,13 @@ function ShopScreen.new(deps: Deps): Screen
 		actionsLayout.HorizontalFlex = Enum.UIFlexAlignment.Fill
 
 		local card: Card
+		-- The price on the primary yellow is marked with a dot of ink: the yellow coin was lost on its own
+		-- colour. The coin stays where the page is paper, and in the pills.
 		local buyButton = Button.new({
 			Text = "",
 			Variant = "Primary",
 			Chapter = CHAPTER,
-			Icon = "Coin",
+			Icon = "Dot",
 			LayoutOrder = 1,
 			Parent = actions,
 			OnClick = function()

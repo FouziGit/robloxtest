@@ -254,6 +254,55 @@ local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (a
 	return screen, given
 end
 
+-- The TextButton whose visible word is `word`, under `root`.
+local function buttonUnder(root: any, word: string): any
+	for _, child in ipairs(root:GetDescendants()) do
+		if child:IsA("TextButton") then
+			for _, label in ipairs(child:GetDescendants()) do
+				if label:IsA("TextLabel") and label.Text == word and label.Visible then
+					return child
+				end
+			end
+		end
+	end
+	return nil
+end
+
+describe("a price on the primary yellow, run", function()
+	it("is marked with a dot of ink, never with the yellow coin", function()
+		local ShopRotation = require("../src/shared/Pure/ShopRotation")
+		local screen = builtWith(function(name: string, handler: (...any) -> ()): any
+			if name == "ShopChanged" then
+				handler({ DayKey = ShopRotation.dayKey(os.time()), Entries = { { CosmeticId = ITEM } } })
+			end
+			return Engine.signal():Connect(handler)
+		end)
+		screen:Open({ Tab = "Today" })
+		local buy = buttonUnder(screen.Instance, "shop.buyFolios")
+		assert(buy ~= nil, "no card sells its item for Folios: this gate would check nothing")
+		expect(buy:FindFirstChild("Coin", true)).toBeNil()
+		local dot = buy:FindFirstChild("Dot", true)
+		assert(dot ~= nil, "the price has no dot")
+		-- One disc, in the ink the yellow face writes its word in, half the icon's square.
+		local disc = dot:FindFirstChild("Disc")
+		assert(disc ~= nil, "the dot draws no disc")
+		expect(#dot:GetChildren()).toBe(1)
+		local word = nil
+		for _, label in ipairs(buy:GetDescendants()) do
+			if label:IsA("TextLabel") and label.Text == "shop.buyFolios" then
+				word = label
+			end
+		end
+		expect(disc.BackgroundColor3).toBe(word.TextColor3)
+		expect(disc.BackgroundTransparency).toBe(0)
+		expect(disc.Size.X.Scale).toBe(0.5)
+		expect(disc.Size.Y.Scale).toBe(0.5)
+		expect(disc.AnchorPoint.X).toBe(0.5)
+		expect(disc.Position.X.Scale).toBe(0.5)
+		expect(disc.Position.Y.Scale).toBe(0.5)
+	end)
+end)
+
 describe("the Shop's words and pushes, run", function()
 	it("is built when a rotation the server pushed before it reaches it as it listens", function()
 		local ShopRotation = require("../src/shared/Pure/ShopRotation")

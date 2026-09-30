@@ -130,6 +130,30 @@ describe("Strings", function()
 		expect(named).toEqual(audited)
 	end)
 
+	it("says a claim « réclamer » in French, the whole family, as the board does", function()
+		local count = 0
+		for key, entry in pairs(Strings.Table) do
+			if string.find(string.lower(entry.en), "claim", 1, true) ~= nil then
+				count += 1
+				if
+					string.find(entry.fr, "écupér", 1, true) ~= nil
+					or string.find(entry.fr, "éclam", 1, true) == nil
+				then
+					error(("%s says a claim %q in French"):format(key, entry.fr))
+				end
+			end
+		end
+		expect(count).toBeGreaterThanOrEqual(8)
+		expect(Strings.t("quest.claim", nil, "fr")).toBe("Réclamer")
+		expect(Strings.t("battlepass.claim", nil, "fr")).toBe("Réclamer")
+		expect(Strings.t("daily.claim", nil, "fr")).toBe("Réclamer")
+		expect(Strings.t("battlepass.claimAll", { count = 3 }, "fr")).toBe("Tout réclamer (3)")
+		expect(Strings.t("quest.claim", nil, "en")).toBe("Claim")
+		-- The leaderboard's way to the player's own row.
+		expect(Strings.t("leaderboard.findMe", nil, "fr")).toBe("Ma place")
+		expect(Strings.t("leaderboard.findMe", nil, "en")).toBe("My place")
+	end)
+
 	it("lists keys sorted", function()
 		local keys = Strings.keys()
 		expect(#keys).toBeGreaterThan(50)

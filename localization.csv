@@ -14,9 +14,9 @@ battleground.entered,The Forgers have seen you.,Vellum,,The Forgers have seen yo
 battleground.folioCap,Forgers pay no more Folios today. XP still counts.,Vellum,,Forgers pay no more Folios today. XP still counts.,Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
 battleground.full,The battleground is full. Try again in a moment.,Vellum,,The battleground is full. Try again in a moment.,Le champ de bataille est plein. Réessaie dans un instant.
 battleground.status,{standing} Forgers standing · {defeated} defeated,Vellum,,{standing} Forgers standing · {defeated} defeated,{standing} Faussaires debout · {defeated} vaincus
-battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà récupéré.
-battlepass.claim,Claim,Vellum,,Claim,Récupérer
-battlepass.claimAll,Claim all ({count}),Vellum,,Claim all ({count}),Tout récupérer ({count})
+battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà réclamé.
+battlepass.claim,Claim,Vellum,,Claim,Réclamer
+battlepass.claimAll,Claim all ({count}),Vellum,,Claim all ({count}),Tout réclamer ({count})
 battlepass.completed,Completed!,Vellum,,Completed!,Terminé !
 battlepass.getPremium,Get Premium,Vellum,,Get Premium,Obtenir le Premium
 battlepass.nextReward,Next reward,Vellum,,Next reward,Prochaine récompense
@@ -128,9 +128,9 @@ cosmetics.slot.Skin,Glyph skins,Vellum,,Glyph skins,Apparences de glyphe
 cosmetics.slot.Title,Titles,Vellum,,Titles,Titres
 cosmetics.slot.Trail,Trails,Vellum,,Trails,Traînées
 currency.folio,Folios,Vellum,,Folios,Folios
-daily.atRisk,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Récupère aujourd'hui pour garder ta série de {streak} jours !
+daily.atRisk,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Réclame aujourd'hui pour garder ta série de {streak} jours !
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
-daily.claim,Claim,Vellum,,Claim,Récupérer
+daily.claim,Claim,Vellum,,Claim,Réclamer
 daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
 daily.day,Day {day},Vellum,,Day {day},Jour {day}
 daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
@@ -208,7 +208,7 @@ hud.cast.locked,{name} is locked,Vellum,,{name} is locked,{name} est verrouillé
 hud.cast.notEnoughInk,Not enough ink,Vellum,,Not enough ink,Plus d'encre
 hud.cast.notEquipped,{name} is not in your loadout,Vellum,,{name} is not in your loadout,{name} n'est pas dans ton équipement
 hud.checklist.cast,Cast a glyph,Vellum,,Cast a glyph,Trace un glyphe
-hud.checklist.daily,Claim your daily reward,Vellum,,Claim your daily reward,Récupère ta récompense du jour
+hud.checklist.daily,Claim your daily reward,Vellum,,Claim your daily reward,Réclame ta récompense du jour
 hud.checklist.match,Play a match,Vellum,,Play a match,Joue un match
 hud.checklist.title,First steps,Vellum,,First steps,Premiers pas
 hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
@@ -251,7 +251,7 @@ leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
 leaderboard.board.Global,Global,Vellum,,Global,Global
 leaderboard.board.Team3v3,3v3,Vellum,,3v3,3v3
 leaderboard.empty,No ranked player yet.,Vellum,,No ranked player yet.,Aucun joueur classé pour l'instant.
-leaderboard.findMe,Find me,Vellum,,Find me,Me trouver
+leaderboard.findMe,My place,Vellum,,My place,Ma place
 leaderboard.rating,{rating},Vellum,,{rating},{rating}
 leaderboard.row,#{rank}  {name},Vellum,,#{rank}  {name},#{rank}  {name}
 leaderboard.title,Leaderboard,Vellum,,Leaderboard,Classement
@@ -354,8 +354,8 @@ quality.performance,Performance,Vellum,,Performance,Performance
 quest.cancelRecovery,Cancel {target} recoveries with a dash,Vellum,,Cancel {target} recoveries with a dash,Annule {target} récupérations d'une ruée
 quest.castGlyphs,Cast {target} glyphs,Vellum,,Cast {target} glyphs,Trace {target} glyphes
 quest.chainCasts,Chain {target} glyphs,Vellum,,Chain {target} glyphs,Enchaîne {target} glyphes
-quest.claim,Claim,Vellum,,Claim,Récupérer
-quest.claimed,Claimed,Vellum,,Claimed,Récupérée
+quest.claim,Claim,Vellum,,Claim,Réclamer
+quest.claimed,Claimed,Vellum,,Claimed,Réclamée
 quest.completed,Quest completed: {name},Vellum,,Quest completed: {name},Quête terminée : {name}
 quest.daily,Daily quests,Vellum,,Daily quests,Quêtes journalières
 quest.dealDamage,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégâts

@@ -109,12 +109,12 @@ Strings.Table = {
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
-	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
+	["battlepass.claim"] = { en = "Claim", fr = "Réclamer" },
 	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
-	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
+	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà réclamé." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
 
 	-- Glyphs
@@ -322,8 +322,8 @@ Strings.Table = {
 	["quest.daily"] = { en = "Daily quests", fr = "Quêtes journalières" },
 	["quest.weekly"] = { en = "Weekly quests", fr = "Quêtes hebdomadaires" },
 	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
-	["quest.claim"] = { en = "Claim", fr = "Récupérer" },
-	["quest.claimed"] = { en = "Claimed", fr = "Récupérée" },
+	["quest.claim"] = { en = "Claim", fr = "Réclamer" },
+	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
 	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
@@ -715,7 +715,7 @@ Strings.Table = {
 	-- The battle pass (BattlepassScreen): its header's buttons, the showcase of the next reward, and a cell's
 	-- amounts. A cell is too narrow for "XP boost (30 min)": it shows the clock and the minutes.
 	["battlepass.getPremium"] = { en = "Get Premium", fr = "Obtenir le Premium" },
-	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout récupérer ({count})" },
+	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout réclamer ({count})" },
 	["battlepass.nextReward"] = { en = "Next reward", fr = "Prochaine récompense" },
 	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
 	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
@@ -723,11 +723,11 @@ Strings.Table = {
 	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
 	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
 	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
-	["daily.claim"] = { en = "Claim", fr = "Récupérer" },
+	["daily.claim"] = { en = "Claim", fr = "Réclamer" },
 	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
 	["daily.atRisk"] = {
 		en = "Claim today to keep your {streak}-day streak!",
-		fr = "Récupère aujourd'hui pour garder ta série de {streak} jours !",
+		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
 	},
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
@@ -745,7 +745,7 @@ Strings.Table = {
 	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
 	["common.undo"] = { en = "Undo", fr = "Annuler" },
 	-- The leaderboard: the way to the player's own row, and a board that could not be fetched.
-	["leaderboard.findMe"] = { en = "Find me", fr = "Me trouver" },
+	["leaderboard.findMe"] = { en = "My place", fr = "Ma place" },
 	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
 	-- Settings: the accessibility tab, the words of a switch and of a percentage, the way a pad rebinds, and
 	-- the question before a reset.
@@ -795,7 +795,7 @@ Strings.Table = {
 	["hud.checklist.title"] = { en = "First steps", fr = "Premiers pas" },
 	["hud.checklist.cast"] = { en = "Cast a glyph", fr = "Trace un glyphe" },
 	["hud.checklist.match"] = { en = "Play a match", fr = "Joue un match" },
-	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Récupère ta récompense du jour" },
+	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Réclame ta récompense du jour" },
 } :: { [string]: Entry }
 
 -- The placeholders that carry an amount of Folios or XP: an integer given to one of them is grouped by thousands

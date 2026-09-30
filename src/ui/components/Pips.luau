@@ -20,11 +20,13 @@ local Pips = {}
 local DEFAULT_MAX = 4
 local PIP_SIZE = 12
 
--- `count` of `max` pips filled in `color`, the rest in chalk.
-function Pips.new(count: number, max: number?, color: Color3?): Pips
+-- `count` of `max` pips filled in `color`, the rest in chalk, each `size` tall (12 unless told otherwise; a
+-- rarity band sets them larger, beside its word).
+function Pips.new(count: number, max: number?, color: Color3?, size: number?): Pips
 	local trove = Trove.new()
 	local total = max or DEFAULT_MAX
 	local fill = color or Theme.Colors.Text
+	local pipSize = size or PIP_SIZE
 
 	local row = Instance.new("Frame")
 	row.Name = "Pips"
@@ -48,7 +50,7 @@ function Pips.new(count: number, max: number?, color: Color3?): Pips
 		pip.Size = UDim2.new()
 		pip.LayoutOrder = index
 		pip.FontFace = Theme.Fonts.Bold
-		pip.TextSize = PIP_SIZE
+		pip.TextSize = pipSize
 		pip.Text = Theme.Glyphs.Pip
 		pip.Parent = row
 		pips[index] = pip

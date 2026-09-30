@@ -714,6 +714,40 @@ describe("the restyled controls", function()
 		expect(string.find(button, "measure.Size = UDim2.new(0, minWidth, 1, 0)", 1, true)).never.toBeNil()
 	end)
 
+	it("lift a hovered button and sink a pressed one, and never grow or shrink one", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		for _, variant in ipairs({ "Primary", "Secondary", "Tile" }) do
+			local button =
+				Button.new({ Text = "Go", Variant = variant :: any, Chapter = "Shop", Parent = world.playerGui })
+			local instance = button.Instance
+			local face = instance:FindFirstChild("Face")
+			local scale = instance:FindFirstChildOfClass("UIScale")
+			local function scaled(): number
+				return if scale ~= nil then scale.Scale else 1
+			end
+			instance.MouseEnter:Fire()
+			world:advance(1)
+			expect(face.Position.Y.Offset).toBeLessThan(0)
+			expect(scaled()).toBe(1)
+			instance.MouseButton1Down:Fire()
+			world:advance(1)
+			expect(face.Position.Y.Offset).toBeGreaterThan(0)
+			expect(scaled()).toBe(1)
+			instance.MouseButton1Up:Fire()
+			instance.MouseLeave:Fire()
+			instance.SelectionGained:Fire()
+			world:advance(1)
+			-- A gamepad's focus is its ring, not a bigger button.
+			expect(scaled()).toBe(1)
+			expect(face.Position.Y.Offset).toBeCloseTo(0, 3)
+		end
+		local code = source("Button")
+		for _, name in ipairs({ "HOVER_SCALE", "PRESSED_SCALE", "FOCUS_SCALE" }) do
+			expect(string.find(code, name, 1, true)).toBeNil()
+		end
+	end)
+
 	it("click only when they act: a disabled or pending button is silent", function()
 		local activated = handler(source("Button"), "trove:Connect(button.Activated, function()")
 		local guard = string.find(activated, "if disabled or pending then%s+return%s+end")

@@ -1,6 +1,7 @@
 --!strict
 -- Button: a sticker you press (D-147). A flat face on a coloured lip: hover lifts it, a press sinks it onto
--- the lip, and letting go springs it back with the overshoot of a real key -- the overshoot is the click.
+-- the lip, and letting go springs it back with the overshoot of a real key -- the overshoot is the click. It
+-- never grows or shrinks to say so (the board's buttons only move): the gamepad's focus is its ring.
 -- The face says what the button is before its word does:
 --
 --   Primary    the primary yellow: go, claim, buy          Secondary  the sheet: everything else
@@ -84,9 +85,8 @@ local TILE_TEXT_SIZE = 24
 local GHOST_TEXT_SIZE = 18
 local SUBLABEL_SIZE = 18
 local MIN_SCALED_TEXT = 14
-local HOVER_SCALE = 1.03
-local PRESSED_SCALE = 0.97
-local FOCUS_SCALE = 1.06
+-- A success is a beat of the whole button, once.
+local SUCCESS_PUNCH = 1.06
 local DOT_SIZE = 8
 local DOT_BOUNCE = 4
 local RIM_TRANSPARENCY = 0.2
@@ -146,7 +146,7 @@ function Button.new(props: Props): Button
 	local reasonText: string? = nil
 	local pending = false
 	local pendingToken = 0
-	local hovered, pressed, focused = false, false, false
+	local hovered, pressed = false, false
 	local isTile = variant == "Tile"
 
 	local button = Instance.new("TextButton")
@@ -168,6 +168,7 @@ function Button.new(props: Props): Button
 	button.SelectionImageObject = trove:Add(Theme.focusRing(nil, look.Corner))
 	trove:Add(button)
 
+	-- Only a success beats it (Flash).
 	local scale = Instance.new("UIScale")
 	scale.Name = "Scale"
 	scale.Parent = button
@@ -406,7 +407,7 @@ function Button.new(props: Props): Button
 		measurePadding.PaddingLeft = UDim.new(0, PADDING_X + lead)
 	end
 
-	local function render(animate: boolean)
+	local function render()
 		local shown = if disabled and reasonText ~= nil then reasonText :: string else text
 		label.Text = shown
 		measure.Text = shown
@@ -437,21 +438,6 @@ function Button.new(props: Props): Button
 			end
 			face:SetState(state)
 		end
-		local target = 1
-		if not disabled then
-			if pressed then
-				target = PRESSED_SCALE
-			elseif focused then
-				target = FOCUS_SCALE
-			elseif hovered then
-				target = HOVER_SCALE
-			end
-		end
-		if animate then
-			Motion.to(scale, { Scale = target }, if target == 1 then "UiPop" else "UiSnappy")
-		else
-			Motion.set(scale, { Scale = target })
-		end
 	end
 
 	local function setPending(_self: Button?, next: boolean)
@@ -480,7 +466,7 @@ function Button.new(props: Props): Button
 			end)
 		end
 		drawIcon()
-		render(true)
+		render()
 	end
 	trove:Add(function()
 		pending = false
@@ -494,29 +480,24 @@ function Button.new(props: Props): Button
 
 	trove:Connect(button.MouseEnter, function()
 		hovered = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseLeave, function()
 		hovered = false
 		pressed = false
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseButton1Down, function()
 		pressed = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.MouseButton1Up, function()
 		pressed = false
-		render(true)
-	end)
-	trove:Connect(button.SelectionGained, function()
-		focused = true
-		render(true)
+		render()
 	end)
 	trove:Connect(button.SelectionLost, function()
-		focused = false
 		pressed = false
-		render(true)
+		render()
 	end)
 	trove:Connect(button.Activated, function()
 		if disabled or pending then
@@ -531,7 +512,7 @@ function Button.new(props: Props): Button
 
 	buildFace()
 	drawIcon()
-	render(false)
+	render()
 	if props.Badge ~= nil then
 		badge =
 			Badge.new(props.Badge, button, if look.Face == Theme.Colors.Primary then Theme.Colors.PanelRaised else nil)
@@ -540,7 +521,7 @@ function Button.new(props: Props): Button
 
 	local function setText(_self: Button, next: string)
 		text = next
-		render(false)
+		render()
 	end
 
 	local function setDisabled(_self: Button, value: boolean, why: DisabledReason?, whyText: string?)
@@ -549,7 +530,7 @@ function Button.new(props: Props): Button
 		reasonText = if value then whyText else nil
 		button.Selectable = not value
 		drawIcon()
-		render(true)
+		render()
 	end
 
 	local function setVariant(_self: Button, next: Variant)
@@ -560,7 +541,7 @@ function Button.new(props: Props): Button
 		look = lookFor(next, props.Chapter)
 		buildFace()
 		drawIcon()
-		render(false)
+		render()
 	end
 
 	local function isDisabled(_self: Button): boolean
@@ -577,7 +558,7 @@ function Button.new(props: Props): Button
 		label.Text = if success then Theme.Glyphs.Check else text
 		label.TextColor3 = Theme.Colors.Text
 		if success then
-			Motion.punch(scale, FOCUS_SCALE)
+			Motion.punch(scale, SUCCESS_PUNCH)
 		else
 			-- The word shakes on the face: the button itself is placed by its row's layout.
 			Motion.shake(content)
@@ -586,7 +567,7 @@ function Button.new(props: Props): Button
 		task.delay(Theme.Timing.SuccessFlashSeconds, function()
 			if sticker == shownFace and button:IsDescendantOf(game) then
 				shownFace:SetFill(look.Face)
-				render(true)
+				render()
 			end
 		end)
 	end

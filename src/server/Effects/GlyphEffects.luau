@@ -89,7 +89,8 @@ export type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	-- Lifts the slow a glyph put on its own caster, the moment the charge it held them for breaks.
 	clearSlow: (player: Player, key: string?) -> (),
-	applyStun: (player: Player, seconds: number) -> (),
+	-- A glyph's stun: refused on a body already stunned or within the grace after its last stun (D-XXXb).
+	applyGlyphStun: (player: Player, seconds: number) -> boolean,
 }
 export type Context = {
 	Caster: Player,
@@ -313,13 +314,14 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	return true
 end
 
--- Holds a model the glyph just hit for `seconds`. A player is stunned by MovementService; any other body
--- is handed to whoever owns it (CombatService.controlNpc), so a stun glyph stops a Forger too. Every control
--- a glyph applies goes through this or slowModel: a site that asked Movement directly reached players only.
+-- Holds a model the glyph just hit for `seconds`. A player is stunned by MovementService, as a glyph's stun: it
+-- never extends one that runs, nor lands within the grace after one ended (D-XXXb). Any other body is handed to
+-- whoever owns it (CombatService.controlNpc), so a stun glyph stops a Forger too. Every control a glyph applies
+-- goes through this or slowModel: a site that asked Movement directly reached players only.
 local function stunModel(ctx: Context, model: Model, seconds: number)
 	local player = playerOf(model)
 	if player ~= nil then
-		ctx.Movement.applyStun(player, seconds)
+		ctx.Movement.applyGlyphStun(player, seconds)
 	else
 		ctx.Combat.controlNpc(model, "Stun", seconds, 0, ctx.Def.Id)
 	end

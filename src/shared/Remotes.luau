@@ -153,7 +153,8 @@ Remotes.Definitions = {
 	-- Server-approved movement applied by the owning client (characters are client-simulated on Roblox):
 	-- ({Kind = "Dash", Direction: Vector3, Distance: number, Duration: number}
 	--  | {Kind = "Knockback", Velocity: Vector3, Duration: number}
-	--  | {Kind = "Stun", Seconds: number})
+	--  | {Kind = "Stun", Seconds: number}
+	--  | {Kind = "StunEnd"})
 	MovementCommand = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Queue state of the receiving player (Types.QueueSnapshot), pushed on every change.
 	QueueChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },

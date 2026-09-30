@@ -13,15 +13,18 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local StunClock = require(Shared.Pure.StunClock)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MovementService")
 
--- Payload of the MovementCommand remote (see Shared/Remotes).
+-- Payload of the MovementCommand remote (see Shared/Remotes). A stun is told twice: when it begins or grows (the
+-- seconds left) and, when the server lets go of it before its time, when it ends.
 export type Command =
 	{ Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
 	| { Kind: "Stun", Seconds: number }
+	| { Kind: "StunEnd" }
 
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type Deps = { Registry: Registry }
@@ -43,7 +46,7 @@ type State = {
 	Slows: { [string]: SlowEntry }, -- keyed by source, empty when no slow is active
 	SlowFactor: number, -- minimum factor over the live entries, 1 when none
 	SlowUntil: number, -- latest os.clock expiry over the live entries, 0 when none
-	StunUntil: number, -- os.clock expiry, 0 when inactive
+	Stun: StunClock.Clock, -- the stun, dated on os.clock: when it began, when it ends, when the last one ended
 	Fall: Fall?, -- nil unless the body is down
 }
 
@@ -89,7 +92,7 @@ local function applyStats(state: State, now: number)
 	if humanoid == nil then
 		return
 	end
-	if state.StunUntil > now then
+	if StunClock.running(state.Stun, now) then
 		humanoid.WalkSpeed = 0
 		humanoid.JumpPower = 0
 		return
@@ -188,7 +191,7 @@ local function clearStatuses(state: State)
 	state.Slows = {}
 	state.SlowFactor = 1
 	state.SlowUntil = 0
-	state.StunUntil = 0
+	state.Stun = StunClock.new()
 	local humanoid = state.Humanoid
 	if humanoid ~= nil then
 		humanoid:SetAttribute(SLOW_ATTRIBUTE, nil)
@@ -275,7 +278,7 @@ local function onPlayerAdded(player: Player)
 		Slows = {},
 		SlowFactor = 1,
 		SlowUntil = 0,
-		StunUntil = 0,
+		Stun = StunClock.new(),
 		Fall = nil,
 	}
 	states[player] = state
@@ -329,8 +332,7 @@ local function onHeartbeat(deltaTime: number)
 				changed = true
 			end
 		end
-		if state.StunUntil > 0 and state.StunUntil <= now then
-			state.StunUntil = 0
+		if StunClock.expire(state.Stun, now) then
 			humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
 			changed = true
 		end
@@ -404,7 +406,8 @@ function MovementService.clearSlow(player: Player, key: string?)
 end
 
 -- Freezes the character for `seconds` (capped by CombatConfig.Hit.StunMaxSeconds, never shortened
--- when already stunned) and tells the owning client to lock its input for the remaining time.
+-- when already stunned) and tells the owning client to lock its input for the remaining time. A combat hold:
+-- a melee hit, a guard break, a fall, a Forger's or the Erasure's blow. A glyph asks applyGlyphStun.
 function MovementService.applyStun(player: Player, seconds: number)
 	if not isFinitePositive(seconds) then
 		log.warn("applyStun rejected for %s: seconds %s", player.Name, tostring(seconds))
@@ -419,11 +422,30 @@ function MovementService.applyStun(player: Player, seconds: number)
 		return
 	end
 	local now = os.clock()
-	local capped = math.min(seconds, CombatConfig.Hit.StunMaxSeconds)
-	state.StunUntil = math.max(state.StunUntil, now + capped)
-	humanoid:SetAttribute(STUN_ATTRIBUTE, state.StunUntil)
+	local left = StunClock.hold(state.Stun, now, math.min(seconds, CombatConfig.Hit.StunMaxSeconds))
+	humanoid:SetAttribute(STUN_ATTRIBUTE, state.Stun.Until)
 	applyStats(state, now)
-	MovementService.command(player, { Kind = "Stun", Seconds = state.StunUntil - now })
+	MovementService.command(player, { Kind = "Stun", Seconds = left })
+end
+
+-- A glyph's stun (GlyphEffects): it lands only where StunClock admits it -- no stun running, and
+-- CombatConfig.Hit.StunGraceSeconds since the last one ended -- and then holds as applyStun does. Returns whether
+-- it landed. A chain of glyphs used to extend one stun into the next and hold a player for as long as three
+-- casters could keep casting (D-XXXb).
+function MovementService.applyGlyphStun(player: Player, seconds: number): boolean
+	if not isFinitePositive(seconds) then
+		log.warn("applyGlyphStun rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return false
+	end
+	local state = states[player]
+	if state == nil or state.Humanoid == nil then
+		return false
+	end
+	if not StunClock.admits(state.Stun, os.clock(), CombatConfig.Hit.StunGraceSeconds) then
+		return false
+	end
+	MovementService.applyStun(player, seconds)
+	return true
 end
 
 -- Freezes the character for `seconds` without the CombatConfig.Hit.StunMaxSeconds cap that protects
@@ -443,27 +465,31 @@ function MovementService.applyFreeze(player: Player, seconds: number)
 		return
 	end
 	local now = os.clock()
-	state.StunUntil = math.max(state.StunUntil, now + seconds)
-	humanoid:SetAttribute(STUN_ATTRIBUTE, state.StunUntil)
+	local left = StunClock.hold(state.Stun, now, seconds)
+	humanoid:SetAttribute(STUN_ATTRIBUTE, state.Stun.Until)
 	applyStats(state, now)
-	MovementService.command(player, { Kind = "Stun", Seconds = state.StunUntil - now })
+	MovementService.command(player, { Kind = "Stun", Seconds = left })
 end
 
--- Ends a stun or a freeze now. The result screen's freeze lasts as long as the screen, and a player who
--- asks for another duel from that screen is let go before it (MatchService.releaseFromResult): without
--- this they would walk into the next match still frozen.
+-- Ends a stun or a freeze now, and tells the owning client it has ended. The result screen's freeze lasts as long
+-- as the screen, and a player who asks for another duel from that screen is let go before it
+-- (MatchService.releaseFromResult): without this they would walk into the next match still frozen. The end is a
+-- message of its own, which the client applies at once: `Seconds = 0` was dropped as malformed, so the input stayed
+-- locked until the screen's own end, and the attribute left at 0 (not nil) kept the double jump off until the next
+-- stun (D-139).
 function MovementService.clearStun(player: Player)
 	local state = states[player]
 	if state == nil then
 		return
 	end
-	state.StunUntil = 0
+	local now = os.clock()
+	StunClock.clear(state.Stun, now)
 	local humanoid = state.Humanoid
 	if humanoid ~= nil then
-		humanoid:SetAttribute(STUN_ATTRIBUTE, 0)
+		humanoid:SetAttribute(STUN_ATTRIBUTE, nil)
 	end
-	applyStats(state, os.clock())
-	MovementService.command(player, { Kind = "Stun", Seconds = 0 })
+	applyStats(state, now)
+	MovementService.command(player, { Kind = "StunEnd" })
 end
 
 -- Lets the player's body go limp for `seconds`, then stand back up over CombatConfig.Hit.RagdollRiseSeconds,
@@ -514,7 +540,17 @@ end
 
 function MovementService.isStunned(player: Player): boolean
 	local state = states[player]
-	return state ~= nil and state.StunUntil > os.clock()
+	return state ~= nil and StunClock.running(state.Stun, os.clock())
+end
+
+-- When the running stun began and when it ends, on os.clock; 0, 0 when none runs. The movement audit reads it to
+-- see a body walk through a stun it had been told of (Security/MovementAudit).
+function MovementService.stunDates(player: Player): (number, number)
+	local state = states[player]
+	if state == nil or not StunClock.running(state.Stun, os.clock()) then
+		return 0, 0
+	end
+	return state.Stun.StartedAt, state.Stun.Until
 end
 
 -- Sends a server-approved movement to the owning client (characters are client-simulated).

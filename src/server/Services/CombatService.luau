@@ -68,6 +68,8 @@ type MovementApi = {
 	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	isDown: (player: Player) -> boolean,
+	-- The running stun's dates, for the movement audit (Security/MovementAudit).
+	stunDates: (player: Player) -> (number, number),
 	command: (player: Player, payload: MovementCommand) -> (),
 }
 type VfxPacket = {

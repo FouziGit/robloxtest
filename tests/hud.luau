@@ -11,6 +11,8 @@ export type Options = {
 	Profile: any?,
 	-- A landscape phone, `{ width, height }` points, rather than a desktop.
 	Phone: { number }?,
+	-- How the player plays there (Engine.plays), when it is not the phone's touch or the desktop's pointer.
+	Plays: Engine.Plays?,
 	-- Seconds before the client hears the servers' clock: until then GetServerTimeNow() is 0, as the engine
 	-- answers a client that has just started.
 	ClockHeardAfter: number?,
@@ -76,6 +78,10 @@ function Hud.build(options: Options?): Fixture
 	local phone = if options ~= nil then options.Phone else nil
 	if phone ~= nil then
 		Engine.phone(world, phone[1], phone[2])
+	end
+	local plays = if options ~= nil then options.Plays else nil
+	if plays ~= nil then
+		Engine.plays(world, plays)
 	end
 	local profile = if options ~= nil then options.Profile else nil
 	-- Every listener of a remote, in the order it connected: the real RemoteClient connects each one to the
@@ -160,6 +166,8 @@ function Hud.build(options: Options?): Fixture
 			end,
 		},
 		TravelController = Travel,
+		-- The same reader Theme was handed as it loaded (tests/engine.luau), as the bootstrap hands it both.
+		InputMode = world.require("src/client/Controllers/InputMode"),
 	})
 	Travel.Init({
 		RemoteClient = remoteClient,

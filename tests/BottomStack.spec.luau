@@ -8,6 +8,8 @@
 -- included: the dock's plate hid its words on a phone, the hotbar's slots with a pointer.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Hud = require("./hud")
+local InputConfig = require("../src/shared/Config/InputConfig")
 local Layout = require("./layout")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Strings = require("../src/shared/Strings")
@@ -571,6 +573,83 @@ describe("the preview pill, run", function()
 		world:advance(2)
 		expect(window.Size.X.Scale).toBeCloseTo(0, 2)
 		expect(window.Position).toBe(left)
+	end)
+end)
+
+-- The stack the HUD itself builds, by how the player plays (InputMode, D-XXX), run: the real HudController, so the
+-- stack a touch laptop gets when it is touched is the one built again, not one this spec assembles. Its refusal
+-- still hangs over whatever stands under it.
+describe("the HUD's own bottom stack, by how the player plays, run", function()
+	local function player(): any
+		local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+		return {
+			Settings = {
+				Keyboard = table.clone(InputConfig.DefaultKeyboard),
+				Gamepad = table.clone(InputConfig.DefaultGamepad),
+				CameraShake = true,
+			},
+			Loadout = { Slots = { "Brand", "Wash", "Serif" }, SlotLimit = 6 },
+			Progression = { Level = 5, XP = 10 },
+			Currency = { Folios = 100 },
+			Stats = { GlyphsCast = 3, MatchesPlayed = 2 },
+			Daily = { LastClaimDay = 0, Streak = 0 },
+			Quests = { Daily = quests, Weekly = table.clone(quests) },
+			Battlepass = {},
+		}
+	end
+
+	-- The stack's refusal pill painted over every part of what stands under it: the dock, and its pips or the
+	-- hotbar's slots. Returns which of the two the stack draws.
+	local function refusalOnTop(fixture: Hud.Fixture): string
+		local stacks = {}
+		for _, part in ipairs(fixture.screen:GetDescendants()) do
+			if part.Name == "BottomStack" then
+				table.insert(stacks, part)
+			end
+		end
+		expect(#stacks).toBe(1)
+		local stack = stacks[1]
+		local pill = stack:FindFirstChild("Refusal", true):FindFirstChild("Pill")
+		local checked = 0
+		for _, name in ipairs({ "Dock", "Hotbar" }) do
+			local under = stack:FindFirstChild(name, true)
+			if under ~= nil then
+				for _, part in ipairs(under:GetDescendants()) do
+					if part:IsA("GuiObject") then
+						checked += 1
+						if not paintsOver(pill, part) then
+							error(("the refusal is painted under the %s's %s"):format(name, part:GetFullName()))
+						end
+					end
+				end
+			end
+		end
+		expect(checked).toBeGreaterThan(0)
+		if stack:FindFirstChild("Pip1", true) ~= nil then
+			return "Pips"
+		end
+		assert(stack:FindFirstChild("Slot1", true) ~= nil, "the stack draws neither pips nor slots")
+		return "Slots"
+	end
+
+	it("draws a touch laptop typed on the slots, and a phone with a pad the pips, under its refusal", function()
+		local typed = Hud.build({ Profile = player(), Plays = "TouchKeyboard" })
+		typed.world:advance(1)
+		expect(refusalOnTop(typed)).toBe("Slots")
+		local padded = Hud.build({ Profile = player(), Phone = { 844, 390 }, Plays = "TouchGamepad" })
+		padded.world:advance(1)
+		expect(refusalOnTop(padded)).toBe("Pips")
+	end)
+
+	it("is built again with the pips when a touch laptop is touched, and with the slots when it is typed on", function()
+		local fixture = Hud.build({ Profile = player(), Plays = "TouchKeyboard" })
+		fixture.world:advance(1)
+		Engine.plays(fixture.world, "TouchLaptop")
+		fixture.world:advance(1)
+		expect(refusalOnTop(fixture)).toBe("Pips")
+		Engine.plays(fixture.world, "TouchKeyboard")
+		fixture.world:advance(1)
+		expect(refusalOnTop(fixture)).toBe("Slots")
 	end)
 end)
 

@@ -137,7 +137,7 @@ end)
 describe("watching on a gamepad, run", function()
 	local function plate(gamepad: boolean): (any, any, { number })
 		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
-		world.userInput.GamepadEnabled = gamepad
+		Engine.plays(world, if gamepad then "Gamepad" else "Pointer")
 		local SpectatePlate = world.require("src/ui/components/SpectatePlate")
 		local parent = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
 		local shown = SpectatePlate.new({

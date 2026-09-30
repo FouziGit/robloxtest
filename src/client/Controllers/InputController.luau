@@ -5,8 +5,8 @@
 -- next raw key of the requested kind for the rebind screen (Escape and the Roblox menu cancel it);
 -- `setSuspended` unbinds everything (touch buttons disappear with the bindings) while a menu is open, but
 -- the Menu key, which closes it.
--- Touch buttons are laid out in absolute screen space from `InputConfig.Touch`, clear of the engine
--- jump button and of each other (TouchCluster.layout). A locked pigment keeps its keys but gets no disc; the
+-- Touch buttons are drawn while the player touches (InputMode, D-XXX), and laid out in absolute screen space from
+-- `InputConfig.Touch`, clear of the engine jump button and of each other (TouchCluster.layout). A locked pigment keeps its keys but gets no disc; the
 -- dash disc shows the cooldown the local throttle keeps (CombatController), and the HUD tells the discs
 -- which ones continue the sequence and which ones the ink can still pay for (setHints, setAffordable).
 
@@ -40,7 +40,7 @@ local log = Log.new("InputController")
 export type CaptureKind = "Keyboard" | "Gamepad"
 
 type TroveType = typeof(Trove.new())
-type Deps = { ClientData: any, Localize: any, MenuController: any }
+type Deps = { ClientData: any, Localize: any, MenuController: any, InputMode: any }
 type Capture = { Kind: CaptureKind, Callback: (keyName: string?) -> (), Trove: TroveType }
 type BindInput = Enum.KeyCode | Enum.UserInputType
 export type Rect = { Min: Vector2, Max: Vector2 }
@@ -105,6 +105,7 @@ InputController.TouchLayoutChanged = Signal.new()
 local clientData: any
 local localize: any
 local menuController: any
+local inputMode: any
 
 local bindTrove = Trove.new() -- touch button visuals and layout watchers of the current bindings
 local touchVisuals: { [string]: TouchButton.TouchButton } = {}
@@ -127,6 +128,8 @@ local lockedSignature = ""
 -- When the local throttle lets the next dash through (os.clock), and the tick chain drawing its veil.
 local dashReadyAt = 0
 local dashToken = 0
+-- Whether the player touches (InputMode), which is whether the discs are drawn.
+local touching = false
 
 local keyCodeByName: { [string]: Enum.KeyCode } = {}
 for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
@@ -221,7 +224,7 @@ end
 -- Dash.CooldownSeconds of the last it sent): the disc shows the wait until the next.
 local function onDashPressed()
 	local now = os.clock()
-	if not UserInputService.TouchEnabled or now < dashReadyAt then
+	if not touching or now < dashReadyAt then
 		return
 	end
 	dashReadyAt = now + CombatConfig.Dash.CooldownSeconds
@@ -497,7 +500,7 @@ local function bindAll()
 	local generation = bindGeneration
 	local keyboard = keybinds("Keyboard")
 	local gamepad = keybinds("Gamepad")
-	local touchScreen = UserInputService.TouchEnabled
+	local touchScreen = touching
 	-- A pigment the player cannot cast yet keeps its keys, which the server answers with why, but gets no
 	-- disc: the cluster shows what can be pressed (D-147).
 	local locked = lockedPigments()
@@ -741,8 +744,24 @@ function InputController.rebuild()
 end
 
 function relayoutTouch()
-	if UserInputService.TouchEnabled then
+	if touching then
 		InputController.rebuild()
+	end
+end
+
+-- A touch laptop touched, or typed on again; a tablet whose pad is picked up or put down: the discs come and go
+-- with the touch (InputMode). Gone, they are not suspended as a menu suspends them: nothing lays itself out
+-- around their last places any more.
+local function onInputMode()
+	local now = inputMode.get() == "Touch"
+	if now == touching then
+		return
+	end
+	touching = now
+	InputController.rebuild()
+	if not touching then
+		table.clear(touchRectsByAction)
+		InputController.TouchLayoutChanged:Fire()
 	end
 end
 
@@ -750,6 +769,7 @@ function InputController.Init(deps: Deps)
 	clientData = deps.ClientData
 	localize = deps.Localize
 	menuController = deps.MenuController
+	inputMode = deps.InputMode
 end
 
 function InputController.Start()
@@ -761,8 +781,10 @@ function InputController.Start()
 		end
 	end)
 	Players.LocalPlayer.CharacterAdded:Connect(clearDash)
+	touching = inputMode.get() == "Touch"
+	inputMode.Changed:Connect(onInputMode)
 	applyBindings()
-	log.info("started (%d actions, touch %s)", #boundActions, tostring(UserInputService.TouchEnabled))
+	log.info("started (%d actions, touch %s)", #boundActions, tostring(touching))
 end
 
 return InputController

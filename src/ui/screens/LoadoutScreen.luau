@@ -13,7 +13,6 @@
 -- the foot of the card for a few seconds, saying what changed, with the way to undo it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -436,7 +435,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 	end)
 
 	-- The recipes follow the hand: a player who picks up a pad sees its buttons.
-	trove:Connect(UserInputService.LastInputTypeChanged, function()
+	trove:Add(Theme.bindInput(function()
 		local latest: GlyphCard.Device = GlyphCard.device()
 		if latest == device then
 			return
@@ -446,7 +445,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 		for _, card in pairs(cards) do
 			card:SetRecipe(bindings, device)
 		end
-	end)
+	end))
 
 	syncEquipped()
 	buildTab()

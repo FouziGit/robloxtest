@@ -18,7 +18,6 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -71,6 +70,7 @@ type Deps = {
 	InputController: any,
 	QualityController: any,
 	TravelController: any,
+	InputMode: any,
 }
 
 local DISPLAY_ORDER = Theme.Layers.Hud
@@ -86,7 +86,9 @@ local DOCK_DISC_CLEARANCE = 12
 local DOCK_SPAN = { Clearance = DOCK_DISC_CLEARANCE, Widest = HUD.DockWidthTouchMax, Narrowest = HUD.DockWidthTouchMin }
 local MENU_ACTION: InputConfig.ActionId = "Menu"
 local MENU_NAME_KEY = "action.menu"
-local GAMEPAD_PREFIX = "Gamepad"
+-- The device a hint draws, by how the player plays (InputMode): a pad's buttons, the keyboard's keys, and on touch
+-- none, the discs saying it.
+local HINT_SOURCES: { [string]: string } = { Touch = "Touch", Pointer = "Keyboard", Gamepad = "Gamepad" }
 -- The kinds a server message may name. The HUD adds two of its own, by key: a celebration and a reward.
 local TOAST_KINDS: { [string]: boolean } = { Info = true, Success = true, Error = true }
 -- The moments worth the primary yellow and a splat: a level, a pass tier, a finished quest, the first win of
@@ -224,11 +226,17 @@ local toast: Toast.Toast
 local toastRoot: ScreenRoot.ScreenRoot
 local topStack: Frame
 local notifyWarned = false
-local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the last input type
+local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from how the player plays (HINT_SOURCES)
 local menuController: any
 local inputController: any
 local qualityController: any
 local travelController: any
+local inputMode: any
+-- Whether the pieces laid out per screen were built for one held in the hand (Theme.touchOnly), and what an
+-- eliminated player watches and the onboarding asks for, which they are fed again if they are built again.
+local laidHandheld = false
+local watching: { Name: string, OnCycle: (step: number) -> () }? = nil
+local ghosts: { string }? = nil
 local inMatch = false
 -- In the Battleground or the World Boss's arena (setPlace): a fight, like a match. Which of the two: an arena
 -- the server lets the player out of without a portal is left only if it is the one they are in (leftPlace).
@@ -418,12 +426,11 @@ local function buildBottomStack(parent: Instance, touch: boolean)
 	})
 end
 
-local function build()
-	root = ScreenRoot.new({ Name = "Hud", DisplayOrder = DISPLAY_ORDER })
-	local content = root.Content
-
-	-- Bottom-left with a pointer, the engine's chat being top-left; top-left on touch, the thumbstick's corner
-	-- being bottom-left.
+-- What is laid out for the screen in hand (Theme.touchOnly): the meta cluster's corner, bottom-left with a pointer,
+-- the engine's chat being top-left, and top-left in the hand, the thumbstick's corner being bottom-left; and the
+-- bottom stack, the hotbar's slots or the dock's pips.
+local function buildForHand(content: Frame)
+	laidHandheld = Theme.touchOnly()
 	metaCluster = MetaCluster.new({
 		Parent = content,
 		Localize = localize,
@@ -435,12 +442,17 @@ local function build()
 			matchController.leaveQueue()
 		end,
 	})
-	buildBottomStack(content, UserInputService.TouchEnabled)
+	buildBottomStack(content, Theme.touchOnly())
+end
 
+local function build()
+	root = ScreenRoot.new({ Name = "Hud", DisplayOrder = DISPLAY_ORDER })
+	local content = root.Content
+
+	buildForHand(content)
 	buildQuickBar(content)
-	if UserInputService.TouchEnabled then
-		buildPlaySticker(content)
-	end
+	-- Shown only once the discs are laid out (refreshHub): a player who touches a laptop gets it then.
+	buildPlaySticker(content)
 
 	buildTopStack(content)
 	scoreBand = ScoreBand.new({ Parent = topStack, Localize = localize, LayoutOrder = MATCH_BAND_ORDER })
@@ -546,15 +558,15 @@ local function refreshFight()
 	refreshHub()
 end
 
--- The Play sticker, left of the Menu disc and level with it, in the HUD's design units.
+-- The Play sticker, left of the Menu disc and level with it, in the HUD's design units; and out of sight with the
+-- disc, when the player stops touching.
 local function placePlaySticker()
 	local sticker = playSticker
 	local menu = inputController.touchRects()[MENU_ACTION]
-	if sticker == nil or menu == nil then
-		return
+	if sticker ~= nil and menu ~= nil then
+		local at = root:ToContent(Vector2.new(menu.Min.X, (menu.Min.Y + menu.Max.Y) / 2))
+		sticker.Instance.Position = UDim2.fromOffset(at.X - PLAY_STICKER_GAP, at.Y)
 	end
-	local at = root:ToContent(Vector2.new(menu.Min.X, (menu.Min.Y + menu.Max.Y) / 2))
-	sticker.Instance.Position = UDim2.fromOffset(at.X - PLAY_STICKER_GAP, at.Y)
 	refreshHub()
 end
 
@@ -591,6 +603,7 @@ end
 function HudController.showSpectating(name: string?, onCycle: ((step: number) -> ())?)
 	spectateToken += 1
 	local token = spectateToken
+	watching = if name ~= nil and onCycle ~= nil then { Name = name, OnCycle = onCycle } else nil
 	if name ~= nil and onCycle ~= nil then
 		Motion.to(dockScale, { Scale = 0 }, "UiExit", function()
 			if token == spectateToken then
@@ -611,6 +624,7 @@ end
 -- Shows `pigments` as ghost chips, or clears them with nil (OnboardingController): with a pointer each under
 -- the key that presses it, and on touch the discs that press them breathe.
 function HudController.showGhostSequence(pigments: { string }?)
+	ghosts = pigments
 	comboRow:ShowGhosts(pigments, if hintSource == "Touch" then nil else hotbarKeys)
 	inputController.setHints(ONBOARDING_HINTS, pigments or {})
 end
@@ -637,17 +651,6 @@ local function onPreview(glyphId: string?, windowSeconds: number?)
 	comboRow:SetPreview(glyphId, windowSeconds)
 	local def = if glyphId ~= nil then GlyphConfig.byId(glyphId) else nil
 	combatDock:SetCost(if def ~= nil then def.Cost else nil)
-end
-
--- Touch players read the on-screen Menu button, so the hint only targets keyboard and gamepad.
-local function sourceFor(inputType: Enum.UserInputType): string
-	if string.sub(inputType.Name, 1, #GAMEPAD_PREFIX) == GAMEPAD_PREFIX then
-		return "Gamepad"
-	end
-	if inputType == Enum.UserInputType.Touch then
-		return "Touch"
-	end
-	return "Keyboard"
 end
 
 -- The key that opens the menu, the player's own on the device in use, as a cap beside the Menu button (a
@@ -677,8 +680,9 @@ local function refreshMenuKey(source: string, data: Types.ProfileData)
 	})
 end
 
+-- Touch players read the on-screen Menu disc, so the bar and its key are for the keyboard and the pad.
 local function refreshQuickBar(data: Types.ProfileData)
-	local source = sourceFor(UserInputService:GetLastInputType())
+	local source = HINT_SOURCES[inputMode.get()]
 	hintSource = source
 	if source == "Touch" then
 		quickBar.Visible = false
@@ -905,6 +909,50 @@ function HudController.setPlace(zoneId: string)
 	place(if arena then zoneId else nil)
 end
 
+local function onQueue(snapshot: Types.QueueSnapshot)
+	queued = snapshot.Queued
+	metaCluster:SetQueue(snapshot)
+	refreshHub()
+end
+
+-- The pieces laid out for the screen in hand, built again when it stops or starts being held in the hand: a touch
+-- laptop touched, or typed on again (InputMode, D-XXX). The toasts keep their queue and move lanes; the rest is fed
+-- again what the old pieces showed.
+local function relayOut()
+	if Theme.touchOnly() == laidHandheld then
+		return
+	end
+	metaCluster:Destroy()
+	hotbar:Destroy()
+	combatDock:Destroy()
+	comboRow:Destroy()
+	spectatePlate:Destroy()
+	bottomStack:Destroy()
+	buildForHand(root.Content)
+	toast:SetLane(if Theme.touchOnly() then "Touch" else "Pointer")
+	refreshProfile("*")
+	refreshCombat(combatController.getState())
+	onQueue(matchController.getQueue())
+	refreshFight()
+	local watched = watching
+	if watched ~= nil then
+		combatDock.Instance.Visible = false
+		dockScale.Scale = 0
+		spectatePlate:Show(watched.Name, watched.OnCycle)
+	end
+end
+
+-- How the player plays changed (InputMode): the layout for the screen in hand, then the shortcuts and the keys the
+-- hints draw, the onboarding's ghosts under them.
+local function onInputChanged()
+	relayOut()
+	refreshProfile("Settings")
+	if ghosts ~= nil then
+		HudController.showGhostSequence(ghosts)
+	end
+	placeToasts()
+end
+
 -- Whether the player fights, as TravelController hears it (FightChanged). The one way into an arena that no
 -- Travelled says is the scheduled Erasure: as it turns from announced to fighting, WorldBossService puts everybody
 -- alive and in no match on its pads. The HUD stayed the hub's through that whole fight -- level, Folios,
@@ -940,17 +988,14 @@ function HudController.Init(deps: Deps)
 	inputController = deps.InputController
 	qualityController = deps.QualityController
 	travelController = deps.TravelController
+	inputMode = deps.InputMode
 	build()
 end
 
 function HudController.Start()
 	clientData.Changed:Connect(refreshProfile)
 	refreshProfile("*")
-	UserInputService.LastInputTypeChanged:Connect(function(inputType: Enum.UserInputType)
-		if sourceFor(inputType) ~= hintSource then
-			refreshProfile("Settings")
-		end
-	end)
+	inputMode.Changed:Connect(onInputChanged)
 	comboController.SequenceChanged:Connect(onSequence)
 	comboController.PreviewChanged:Connect(onPreview)
 	comboController.SequenceBroken:Connect(function()
@@ -970,17 +1015,10 @@ function HudController.Start()
 	remoteClient.on("Notify", onNotify)
 	inputController.TouchLayoutChanged:Connect(placeToasts)
 	placeToasts()
-	if UserInputService.TouchEnabled then
-		inputController.TouchLayoutChanged:Connect(fitDock)
-		fitDock()
-		inputController.TouchLayoutChanged:Connect(placePlaySticker)
-		placePlaySticker()
-	end
-	local function onQueue(snapshot: Types.QueueSnapshot)
-		queued = snapshot.Queued
-		metaCluster:SetQueue(snapshot)
-		refreshHub()
-	end
+	inputController.TouchLayoutChanged:Connect(fitDock)
+	fitDock()
+	inputController.TouchLayoutChanged:Connect(placePlaySticker)
+	placePlaySticker()
 	matchController.QueueChanged:Connect(onQueue)
 	onQueue(matchController.getQueue())
 	qualityController.Changed:Connect(function()

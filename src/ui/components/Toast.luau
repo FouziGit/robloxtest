@@ -51,6 +51,8 @@ export type Toast = {
 	Pause: (self: Toast, paused: boolean) -> (),
 	-- Touch lane: how far below the top of its safe area the first message hangs, in design units.
 	SetTop: (self: Toast, top: number) -> (),
+	-- Moves the lane, its messages and its queue with it: a touch laptop touched, or typed on again.
+	SetLane: (self: Toast, lane: Lane) -> (),
 	-- In a fight (a match or an arena), a message that shows from now on wears no value colour (rule 11).
 	SetFight: (self: Toast, fighting: boolean) -> (),
 	Destroy: (self: Toast) -> (),
@@ -307,15 +309,11 @@ function Toast.new(props: Props): Toast
 	local sequence = 0
 	local destroyed = false
 	local fighting = false
-	local touch = props.Lane == "Touch"
+	local touch = false
 
 	local container = Instance.new("Frame")
 	container.Name = props.Name or "Toasts"
 	container.AnchorPoint = Vector2.new(1, 0)
-	container.Position = if touch
-		then UDim2.new(1, -EDGE, 0, Theme.Sizes.Padding)
-		else UDim2.new(1, -EDGE, POINTER_TOP, 0)
-	container.Size = UDim2.fromScale(if touch then TOUCH_SHARE else POINTER_SHARE, 0)
 	container.AutomaticSize = Enum.AutomaticSize.Y
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
@@ -404,6 +402,14 @@ function Toast.new(props: Props): Toast
 		end
 	end
 
+	local function setLane(_self: Toast, lane: Lane)
+		touch = lane == "Touch"
+		container.Position = if touch
+			then UDim2.new(1, -EDGE, 0, Theme.Sizes.Padding)
+			else UDim2.new(1, -EDGE, POINTER_TOP, 0)
+		container.Size = UDim2.fromScale(if touch then TOUCH_SHARE else POINTER_SHARE, 0)
+	end
+
 	local function setFight(_self: Toast, next: boolean)
 		fighting = next
 	end
@@ -420,9 +426,11 @@ function Toast.new(props: Props): Toast
 		SetMaxVisible = setMaxVisible,
 		Pause = pause,
 		SetTop = setTop,
+		SetLane = setLane,
 		SetFight = setFight,
 		Destroy = destroy,
 	}
+	setLane(object, props.Lane or "Pointer")
 	return object
 end
 

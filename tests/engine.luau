@@ -531,6 +531,10 @@ end
 local PathMeta: any = {}
 local pathOf: { [any]: string } = setmetatable({}, { __mode = "k" }) :: any
 
+-- Theme, and the client's reader of how the player plays, which the bootstrap hands it (Engine.world's load).
+local THEME = "src/ui/Theme"
+local INPUT_MODE = "src/client/Controllers/InputMode"
+
 -- ReplicatedStorage's children, and where they come from on disk.
 local REPLICATED = { Shared = "src/shared", UI = "src/ui", Packages = "Packages" }
 local REPLICATED_ROOT = "<ReplicatedStorage>"
@@ -618,6 +622,10 @@ export type Options = {
 	Services: { [string]: any }?,
 }
 
+-- An action bound through ContextActionService: at what priority, on which inputs, and whether it asked the engine
+-- for a touch button.
+export type Binding = { Priority: number?, Inputs: { any }, Touch: boolean }
+
 export type World = {
 	game: any,
 	workspace: any,
@@ -626,7 +634,7 @@ export type World = {
 	guiService: any,
 	userInput: any,
 	actions: { [string]: (string, any, any) -> any },
-	bindings: { [string]: { Priority: number?, Inputs: { any } } },
+	bindings: { [string]: Binding },
 	now: number,
 	Heartbeat: Signal,
 	warnings: { string },
@@ -662,12 +670,13 @@ function Engine.world(options: Options?): World
 		return began + world.now
 	end
 
-	-- A keyboard and a mouse, no touch and no pad, unless the spec says otherwise.
+	-- A keyboard and a mouse, no touch and no pad, unless the spec says otherwise (Engine.phone, Engine.plays).
 	local userInput = Engine.instance("UserInputService", game)
 	userInput.TouchEnabled = false
 	userInput.KeyboardEnabled = true
 	userInput.MouseEnabled = true
 	userInput.GamepadEnabled = false
+	userInput.PreferredInput = roblox.Enum.PreferredInput.KeyboardAndMouse
 	userInput.GetLastInputType = function(self: any): any
 		if self.GamepadEnabled then
 			return roblox.Enum.UserInputType.Gamepad1
@@ -703,28 +712,32 @@ function Engine.world(options: Options?): World
 	-- The actions bound through ContextActionService, by name: what a spec presses a key or a button with, and
 	-- at what priority and on which inputs each was bound.
 	local actions: { [string]: (string, any, any) -> any } = {}
-	local bindings: { [string]: { Priority: number?, Inputs: { any } } } = {}
+	local bindings: { [string]: Binding } = {}
 	world.actions = actions
 	world.bindings = bindings
 	local contextActions = {
-		BindAction = function(_self: any, name: string, handler: any, _touch: boolean, ...: any)
+		BindAction = function(_self: any, name: string, handler: any, touch: boolean, ...: any)
 			actions[name] = handler
-			bindings[name] = { Priority = nil, Inputs = { ... } }
+			bindings[name] = { Priority = nil, Inputs = { ... }, Touch = touch }
 		end,
 		BindActionAtPriority = function(
 			_self: any,
 			name: string,
 			handler: any,
-			_touch: boolean,
+			touch: boolean,
 			priority: number,
 			...: any
 		)
 			actions[name] = handler
-			bindings[name] = { Priority = priority, Inputs = { ... } }
+			bindings[name] = { Priority = priority, Inputs = { ... }, Touch = touch }
 		end,
 		UnbindAction = function(_self: any, name: string)
 			actions[name] = nil
 			bindings[name] = nil
+		end,
+		-- The engine's own touch button for an action, which it makes on a real touch screen only: none here.
+		GetButton = function(_self: any, _name: string): any
+			return nil
 		end,
 	}
 
@@ -897,6 +910,13 @@ function Engine.world(options: Options?): World
 		local chunk = luau.load(source, { debugName = path, environment = env })
 		local result = chunk()
 		cache[path] = result
+		-- The interface's door to how the player plays, opened as the client bootstrap opens it: before any
+		-- screen reads Theme (src/client/Bootstrap.client.luau, D-XXX).
+		if path == THEME and stubs[INPUT_MODE] == nil then
+			local inputMode = load(INPUT_MODE)
+			inputMode.start()
+			result.useInput(inputMode)
+		end
 		return result
 	end
 
@@ -910,14 +930,41 @@ Engine.TOP_INSET = 36
 -- Makes `world` a landscape phone `width` x `height` points: a touch screen with no keyboard, and the top
 -- bar over its game. Returns the height of its screens in design units, at the scale the interface takes.
 function Engine.phone(world: any, width: number, height: number): number
-	world.userInput.TouchEnabled = true
-	world.userInput.KeyboardEnabled = false
 	world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(width, height)
 	world.guiService.GetGuiInset = function(): (any, any)
 		return roblox.Vector2.new(0, Engine.TOP_INSET), roblox.Vector2.zero
 	end
+	Engine.plays(world, "Touch")
 	local Theme = world.require("src/ui/Theme")
 	return height / Theme.activeScale()
+end
+
+-- The devices of `world` for a way of playing, and the engine's answer to them (UserInputService.PreferredInput),
+-- last, as the engine changes it when the player switches:
+--   "Touch"          a phone or a tablet: a touch screen, no keyboard, touched
+--   "Pointer"        a desktop: a keyboard and a mouse
+--   "Gamepad"        a desktop with a pad, playing with the pad
+--   "TouchKeyboard"  a touch laptop, or a tablet with a keyboard, typed on
+--   "TouchGamepad"   a phone or a tablet with a pad paired, playing with the pad
+--   "TouchLaptop"    a touch laptop, or a tablet with a keyboard, touched
+export type Plays = "Touch" | "Pointer" | "Gamepad" | "TouchKeyboard" | "TouchGamepad" | "TouchLaptop"
+local DEVICES: { [string]: { Touch: boolean, Keyboard: boolean, Gamepad: boolean, Preferred: string } } = {
+	Touch = { Touch = true, Keyboard = false, Gamepad = false, Preferred = "Touch" },
+	Pointer = { Touch = false, Keyboard = true, Gamepad = false, Preferred = "KeyboardAndMouse" },
+	Gamepad = { Touch = false, Keyboard = true, Gamepad = true, Preferred = "Gamepad" },
+	TouchKeyboard = { Touch = true, Keyboard = true, Gamepad = false, Preferred = "KeyboardAndMouse" },
+	TouchGamepad = { Touch = true, Keyboard = false, Gamepad = true, Preferred = "Gamepad" },
+	TouchLaptop = { Touch = true, Keyboard = true, Gamepad = false, Preferred = "Touch" },
+}
+
+function Engine.plays(world: any, plays: Plays)
+	local device = DEVICES[plays]
+	local userInput = world.userInput
+	userInput.TouchEnabled = device.Touch
+	userInput.KeyboardEnabled = device.Keyboard
+	userInput.MouseEnabled = device.Keyboard
+	userInput.GamepadEnabled = device.Gamepad
+	userInput.PreferredInput = (roblox.Enum.PreferredInput :: any)[device.Preferred]
 end
 
 return Engine

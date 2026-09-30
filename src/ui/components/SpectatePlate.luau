@@ -11,7 +11,6 @@
 
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
@@ -180,7 +179,7 @@ function SpectatePlate.new(props: Props): SpectatePlate
 		end
 		shown = true
 		for _, cap in ipairs(caps) do
-			cap.Visible = UserInputService.GamepadEnabled
+			cap.Visible = Theme.input() == "Gamepad"
 		end
 		ContextActionService:BindActionAtPriority(
 			STEP_ACTION,

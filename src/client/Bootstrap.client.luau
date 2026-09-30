@@ -29,6 +29,8 @@ local log = Log.new("ClientBootstrap")
 
 -- Order in which Start-installed behaviour becomes available (see the contract above).
 local ORDER = {
+	-- How the player plays: started with the interface's doors below, before any Init builds a screen.
+	"InputMode",
 	"ClientData",
 	"Localize",
 	"SoundController",
@@ -89,10 +91,11 @@ for _, name in ipairs(ORDER) do
 	end
 end
 
--- The interface's two doors to the client (D-147), opened before any screen or the HUD is built: the
--- player's own Roblox accessibility settings, which every spring and background reads, and the sound a
--- component plays on its own (src/ui never requires a controller). Guarded like a controller: a failure here
--- costs the interface its sound or its preferences, never the client.
+-- The interface's three doors to the client (D-147, D-XXX), opened before any screen or the HUD is built: the
+-- player's own Roblox accessibility settings, which every spring and background reads, the sound a component
+-- plays on its own, and how the player plays, which every layout and key hint reads (src/ui never requires a
+-- controller). Guarded like a controller: a failure here costs the interface its sound, its preferences or its
+-- phone layouts, never the client.
 log.try("wire the interface", function()
 	local UI = ReplicatedStorage:WaitForChild("UI")
 	require(UI:WaitForChild("UiPrefs")).start()
@@ -101,6 +104,13 @@ log.try("wire the interface", function()
 		require(UI:WaitForChild("UiSound")).setPlayer(soundController.play)
 	else
 		log.warn("SoundController did not load: the interface plays no sound")
+	end
+	local inputMode = deps.InputMode
+	if inputMode ~= nil then
+		inputMode.start()
+		require(UI:WaitForChild("Theme")).useInput(inputMode)
+	else
+		log.warn("InputMode did not load: the interface is laid out for a pointer")
 	end
 end)
 

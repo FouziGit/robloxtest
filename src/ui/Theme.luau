@@ -3,15 +3,17 @@
 -- and this reads the palette and the typography from ThemeConfig, which is pure data a test holds to
 -- docs/ART_BIBLE.md and to a contrast ratio. Nothing in src/ui names a colour or a font that is not here.
 
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 
 local AssetIds = require(Config:WaitForChild("AssetIds"))
 local Log = require(Shared:WaitForChild("Util"):WaitForChild("Log"))
 local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
 local RankingConfig = require(Config:WaitForChild("RankingConfig"))
+local Signal = require(Packages:WaitForChild("Signal"))
 local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
 
 local log = Log.new("Theme")
@@ -223,13 +225,46 @@ local MIN_STROKE_PIXELS = 2
 -- Viewport assumed before a camera exists: 16:9 at the reference height, which scales by exactly 1.
 local FALLBACK_VIEWPORT = Vector2.new(Theme.ReferenceHeight * 16 / 9, Theme.ReferenceHeight)
 
--- A device with a touch screen and no keyboard: a phone or a tablet held in the hand. A touch laptop or a
--- tablet with a keyboard is used like a desktop and gets the pointer floor.
+-- How the player plays, from the client's one reader of it (src/client/Controllers/InputMode, D-XXX): handed in
+-- by the client bootstrap before any screen is built, as UiPrefs and UiSound are, since src/ui never requires a
+-- controller. Until it is, a pointer.
+export type InputMode = "Touch" | "Pointer" | "Gamepad"
+export type InputSource = { get: () -> InputMode, handheld: () -> boolean, Changed: any }
+local inputSource: InputSource? = nil
+-- Fired whenever the source says how the player plays has changed, and once as it is handed in.
+local inputChanged = Signal.new()
+
+function Theme.useInput(source: InputSource)
+	inputSource = source
+	source.Changed:Connect(function()
+		inputChanged:Fire()
+	end)
+	inputChanged:Fire()
+end
+
+-- How the player plays right now: which keys a hint draws, and whether any does (InputMode.get).
+function Theme.input(): InputMode
+	local source = inputSource
+	return if source ~= nil then source.get() else "Pointer"
+end
+
+-- A screen held in the hand (InputMode.handheld): a phone or a tablet, or a touch laptop while it is touched. A
+-- touch laptop or a tablet typed on is used like a desktop and gets the pointer floor.
 local function touchOnly(): boolean
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local source = inputSource
+	return source ~= nil and source.handheld()
 end
 -- The same test, for a component laid out per device: a screen card has no size cap on a phone.
 Theme.touchOnly = touchOnly
+
+-- Calls `callback` whenever how the player plays can have changed. Returns the disconnect function, which a
+-- Trove holds directly.
+function Theme.bindInput(callback: () -> ()): () -> ()
+	local connection = inputChanged:Connect(callback)
+	return function()
+		connection:Disconnect()
+	end
+end
 
 function Theme.scaleFor(viewportSize: Vector2): number
 	return ThemeConfig.scaleFor(viewportSize.Y, touchOnly())
@@ -277,10 +312,13 @@ function Theme.bindScale(callback: () -> ()): () -> ()
 	end
 
 	local cameraConnection = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera)
+	-- A touch laptop touched, or typed on again, changes its floor (touchOnly).
+	local inputConnection = inputChanged:Connect(callback)
 	bindCamera()
 
 	return function()
 		cameraConnection:Disconnect()
+		inputConnection:Disconnect()
 		local connection = viewportConnection
 		if connection ~= nil then
 			connection:Disconnect()

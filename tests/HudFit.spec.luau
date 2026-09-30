@@ -288,3 +288,182 @@ describe("the HUD's fit", function()
 		)
 	end)
 end)
+
+-- The HUD by how the player plays (InputMode, D-XXX), run: laid out for the screen in hand, with the shortcuts and
+-- the keys for the input in use. A touch laptop typed on is a desktop; a phone with a pad is still a phone in the
+-- hand, which the stack above is measured for, with the pad's keys; a touch laptop touched becomes a phone's HUD
+-- and gives the desktop's back when its keys are pressed again.
+describe("the HUD by how the player plays, run", function()
+	local function player(): any
+		local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+		return {
+			Settings = {
+				Keyboard = table.clone(InputConfig.DefaultKeyboard),
+				Gamepad = table.clone(InputConfig.DefaultGamepad),
+				CameraShake = true,
+			},
+			Loadout = { Slots = { "Brand", "Wash" }, SlotLimit = 6 },
+			Progression = { Level = 5, XP = 10 },
+			Currency = { Folios = 100 },
+			Stats = { GlyphsCast = 3, MatchesPlayed = 2 },
+			Daily = { LastClaimDay = 0, Streak = 0 },
+			Quests = { Daily = quests, Weekly = table.clone(quests) },
+			Battlepass = {},
+		}
+	end
+
+	type Laid = {
+		ClusterAtTop: boolean,
+		Pips: boolean,
+		Slots: boolean,
+		QuickBar: boolean,
+		MenuKey: string?,
+		TouchLane: boolean,
+		Clusters: number,
+		Stacks: number,
+	}
+
+	-- What the HUD of `fixture` laid out, as the player sees it.
+	local function laid(fixture: Hud.Fixture): Laid
+		local screen = fixture.screen
+		local clusters, stacks = 0, 0
+		local cluster: any, stack: any = nil, nil
+		for _, part in ipairs(screen:GetDescendants()) do
+			if part.Name == "MetaCluster" then
+				clusters += 1
+				cluster = part
+			elseif part.Name == "BottomStack" then
+				stacks += 1
+				stack = part
+			end
+		end
+		assert(
+			cluster ~= nil and stack ~= nil,
+			"the HUD has no cluster or no bottom stack: this gate would check nothing"
+		)
+		local bar = screen:FindFirstChild("QuickBar", true)
+		local cap = screen:FindFirstChild("MenuKey", true)
+		local capText: string? = nil
+		if cap ~= nil then
+			for _, part in ipairs(cap:GetDescendants()) do
+				if part:IsA("TextLabel") and part.Text ~= "" then
+					capText = part.Text
+				end
+			end
+		end
+		local lane = fixture.world.playerGui:FindFirstChild("Toasts"):FindFirstChild("Toasts", true)
+		return {
+			ClusterAtTop = cluster.AnchorPoint.Y == 0,
+			Pips = stack:FindFirstChild("Pip1", true) ~= nil,
+			Slots = stack:FindFirstChild("Slot1", true) ~= nil,
+			QuickBar = bar.Visible,
+			MenuKey = capText,
+			TouchLane = lane.Position.Y.Scale == 0,
+			Clusters = clusters,
+			Stacks = stacks,
+		}
+	end
+
+	it("gives a touch laptop typed on the desktop's HUD, with its keys", function()
+		local fixture = Hud.build({ Profile = player(), Plays = "TouchKeyboard" })
+		fixture.world:advance(1)
+		local seen = laid(fixture)
+		expect(seen.ClusterAtTop).toBe(false)
+		expect(seen.Slots).toBe(true)
+		expect(seen.Pips).toBe(false)
+		expect(seen.QuickBar).toBe(true)
+		expect(seen.MenuKey).toBe(InputConfig.DefaultKeyboard.Menu)
+		expect(seen.TouchLane).toBe(false)
+	end)
+
+	it("gives a phone played with a pad the phone's stack, and the pad's keys on the shortcuts", function()
+		local fixture = Hud.build({ Profile = player(), Phone = { 667, 375 }, Plays = "TouchGamepad" })
+		fixture.world:advance(1)
+		local seen = laid(fixture)
+		-- The layout the fit above holds a landscape phone to: the pips in the dock, the cluster top-left.
+		expect(seen.ClusterAtTop).toBe(true)
+		expect(seen.Pips).toBe(true)
+		expect(seen.Slots).toBe(false)
+		expect(seen.TouchLane).toBe(true)
+		-- No disc to open the menu: the shortcuts are there, and the Menu names the pad's button.
+		expect(seen.QuickBar).toBe(true)
+		expect(seen.MenuKey).toBe("key." .. InputConfig.DefaultGamepad.Menu)
+		local Theme = fixture.world.require("src/ui/Theme")
+		expect(Theme.activeScale()).toBe(ThemeConfig.Scale.TouchFloor)
+	end)
+
+	it("keeps the shortcuts beside a phone's bottom stack when a pad plays it", function()
+		-- The same sum as the pointer's, on the narrowest phone at the touch floor, with the phone's dock at its
+		-- widest (no disc narrows it) and the shortcuts' widest row.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		local width = 667 / ThemeConfig.Scale.TouchFloor
+		local keycap = code(KEYCAP)
+		local widest = 0
+		for _, locale in ipairs(Strings.Locales) do
+			for _, key in ipairs({ "queue.title", "menu.shop", "leaderboard.title" }) do
+				widest =
+					math.max(widest, Measure.buttonWidth(Strings.t(key, nil, locale), Theme.Sizes.TextButton, true))
+			end
+			-- The Menu's row: the pad's cap, then the button.
+			local cap = number(keycap, "PADDING") * 2
+				+ Measure.textWidth(
+					Strings.t("key." .. InputConfig.DefaultGamepad.Menu, nil, locale),
+					number(keycap, "TEXT_SIZE")
+				)
+			local menu = Measure.buttonWidth(Strings.t("action.menu", nil, locale), Theme.Sizes.TextButton, true)
+			widest = math.max(widest, cap + Theme.Sizes.Gap + menu)
+		end
+		local stackRight = width / 2 + HUD.DockWidthTouchMax / 2
+		local barLeft = width - Theme.Sizes.Padding - widest
+		if stackRight + Theme.Sizes.Gap > barLeft then
+			error(
+				("on a 667-point phone with a pad the shortcuts start at %.1f, the stack ends at %.1f"):format(
+					barLeft,
+					stackRight
+				)
+			)
+		end
+	end)
+
+	it("becomes a phone's HUD when a touch laptop is touched, and the desktop's again when it is typed on", function()
+		local fixture = Hud.build({ Profile = player(), Plays = "TouchKeyboard" })
+		fixture.world:advance(1)
+		Engine.plays(fixture.world, "TouchLaptop")
+		fixture.world:advance(1)
+		local touched = laid(fixture)
+		expect(touched.ClusterAtTop).toBe(true)
+		expect(touched.Pips).toBe(true)
+		expect(touched.Slots).toBe(false)
+		expect(touched.QuickBar).toBe(false)
+		expect(touched.TouchLane).toBe(true)
+		-- Built again, not beside the old: one of each.
+		expect(touched.Clusters).toBe(1)
+		expect(touched.Stacks).toBe(1)
+		Engine.plays(fixture.world, "TouchKeyboard")
+		fixture.world:advance(1)
+		local typed = laid(fixture)
+		expect(typed.ClusterAtTop).toBe(false)
+		expect(typed.Slots).toBe(true)
+		expect(typed.QuickBar).toBe(true)
+		expect(typed.TouchLane).toBe(false)
+		expect(typed.Clusters).toBe(1)
+		expect(typed.Stacks).toBe(1)
+	end)
+
+	it("feeds the HUD it builds again what the old one showed: the fight, the level, the loadout", function()
+		local fixture = Hud.build({ Profile = player(), Plays = "TouchKeyboard" })
+		fixture.match(Hud.match("Duel", 1))
+		fixture.world:advance(1)
+		Engine.plays(fixture.world, "TouchLaptop")
+		fixture.world:advance(1)
+		local cluster = fixture.screen:FindFirstChild("MetaCluster", true)
+		-- Still a fight: the hub's cluster stays hidden.
+		expect(cluster.Visible).toBe(false)
+		local stack = fixture.screen:FindFirstChild("BottomStack", true)
+		expect(stack:FindFirstChild("Pip2", true)).never.toBeNil()
+		fixture.match(nil)
+		fixture.world:advance(1)
+		expect(cluster.Visible).toBe(true)
+	end)
+end)

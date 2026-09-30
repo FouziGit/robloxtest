@@ -416,9 +416,13 @@ describe("the lock's mark, when the language changes", function()
 	end)
 end)
 
+-- What the screens asked of InputController's key capture: the captures begun, and those given back.
+type Captures = { Begun: number, Cancelled: number }
+
 -- MenuController and its screens, as the client wires them, in a language the spec changes.
-local function menu(): (any, any, (locale: string) -> ())
+local function menu(): (any, any, (locale: string) -> (), Captures)
 	local localize, switch = switchable()
+	local captures: Captures = { Begun = 0, Cancelled = 0 }
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 		Services = {
@@ -452,8 +456,12 @@ local function menu(): (any, any, (locale: string) -> ())
 		},
 		InputController = {
 			setSuspended = function() end,
-			captureNext = function() end,
-			cancelCapture = function() end,
+			captureNext = function()
+				captures.Begun += 1
+			end,
+			cancelCapture = function()
+				captures.Cancelled += 1
+			end,
 		},
 		SoundController = { play = function() end },
 		MatchController = {
@@ -479,7 +487,7 @@ local function menu(): (any, any, (locale: string) -> ())
 		TravelController = { Travelled = signal() },
 	})
 	MenuController.Start()
-	return world, MenuController, switch
+	return world, MenuController, switch, captures
 end
 
 describe("the screens, when the language changes", function()
@@ -522,6 +530,27 @@ describe("the screens, when the language changes", function()
 			expect(shows(back, shopEn)).toBe(false)
 		end
 	)
+
+	it("gives the key a Settings row was waiting for back to the game when the screen is built again", function()
+		local world, MenuController, switch, captures = menu()
+		MenuController.open("Settings")
+		world:advance(0.5)
+		local row = world.playerGui:FindFirstChild("Melee", true)
+		local key = if row ~= nil then row:FindFirstChildWhichIsA("TextButton", true) else nil
+		assert(key ~= nil, "the Settings show no Melee key: this gate would check nothing")
+		key.Activated:Fire()
+		assert(captures.Begun == 1, "the Melee key began no capture: this gate would check nothing")
+		expect(captures.Cancelled).toBe(0)
+
+		-- The page that asked for the key is let go: InputController stops waiting for it, and the rebuilt
+		-- Settings, open where they were, wait for nothing.
+		switch("fr")
+		world:advance(0.5)
+		expect(captures.Cancelled).toBe(1)
+		local again = world.playerGui:FindFirstChild("SettingsScreen")
+		assert(again ~= nil and again.Enabled, "the Settings were not built again, open")
+		expect(captures.Begun).toBe(1)
+	end)
 
 	it("lets a closed screen go, to be built in the new language the next time it opens", function()
 		local world, MenuController, switch = menu()

@@ -58,6 +58,12 @@ local DEEPEN_TRANSPARENCY = 0.25 / 0.35
 -- The outcome takes the top of the screen; the card the rest, as wide as a readable measure allows.
 local BANNER_SHARE = 0.3
 local CARD_SHARE = Vector2.new(0.94, 0.68)
+-- On a short window the card grows up into the outcome's share, as far as its fullest rows (this tall: a new
+-- rank, a level, the first win, the details) need to stand without scrolling, and the outcome keeps at least
+-- this much for its word: at 771 high, as on a 1366 x 768 screen, the rows scrolled by 53 (seen in Studio).
+-- Held by tests/ResultFit.spec.luau.
+local FULLEST_ROWS = 478
+local BANNER_MIN = 130
 local CARD_WIDTH = 760
 local CARD_ELEVATION = 8
 local ENTER_SCALE = 0.88
@@ -208,6 +214,33 @@ function ResultScreen.new(deps: Deps): Screen
 		footer.Size = UDim2.new(1, 0, 0, height)
 		rowsArea.Size = UDim2.new(1, 0, 1, -height)
 	end))
+
+	-- Its foot stays where the shares put it; with a pointer, on a window too short for the fullest rows at the
+	-- card's share, its top rises into the outcome's, which shrinks to what is left above it (never under
+	-- BANNER_MIN). A phone folds the details instead (ResultCard).
+	local function lay()
+		local topLeft, bottomRight = GuiService:GetGuiInset()
+		local camera = workspace.CurrentCamera
+		local scale = Theme.activeScale() * UiPrefs.textScale()
+		local height = if camera ~= nil then (camera.ViewportSize.Y - topLeft.Y - bottomRight.Y) / scale else 0
+		local foot = BANNER_SHARE + CARD_SHARE.Y
+		local tall = math.min(FULLEST_ROWS + CARD_ELEVATION + footerHeight(), foot * height - BANNER_MIN)
+		if Theme.touchOnly() or height <= 0 or tall <= CARD_SHARE.Y * height then
+			bannerArea.Size = UDim2.fromScale(1, BANNER_SHARE)
+			card.Instance.Position = UDim2.fromScale(0.5, BANNER_SHARE)
+			card.Instance.Size = UDim2.fromScale(CARD_SHARE.X, CARD_SHARE.Y)
+			return
+		end
+		local top = math.floor(foot * height - tall)
+		bannerArea.Size = UDim2.new(1, 0, 0, top)
+		card.Instance.Position = UDim2.new(0.5, 0, 0, top)
+		card.Instance.Size = UDim2.new(CARD_SHARE.X, 0, 0, math.ceil(tall))
+	end
+	trove:Add(Theme.bindScale(lay))
+	local relaying = UiPrefs.Changed:Connect(lay)
+	trove:Add(function()
+		relaying:Disconnect()
+	end)
 
 	-- The auto-close ring: what is left of the wait, emptying once a second (ThemeConfig ResultRing).
 	local ring: GuiObject

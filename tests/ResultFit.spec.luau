@@ -9,12 +9,14 @@ local Engine = require("./engine")
 local Harness = require("./harness")
 local Measure = require("./measure")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
+local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local STUDIO_WINDOW = { 1529, 886 }
 local STUDIO_TOP_BAR = 58
+local SCREEN = "src/ui/screens/ResultScreen.luau"
 
 -- The fullest card a match ends on: a new rank, the first win of the day, a glyph to unlock next, a best chain.
 local OUTCOME = {
@@ -102,6 +104,16 @@ local function build(
 	return rows, screenHeight, world.require("src/ui/Theme")
 end
 
+-- The takeover the rows stand in.
+local function takeoverOf(rows: any): any
+	local current = rows
+	while current ~= nil and current.Name ~= "Takeover" do
+		current = current.Parent
+	end
+	assert(current ~= nil, "the rows stand in no takeover: this gate would check nothing")
+	return current
+end
+
 describe("the Result, run", function()
 	it("is measured as Studio measured it: the card seen scrolling overran its window by 17", function()
 		local rows, screenHeight = build(STUDIO_WINDOW[1], STUDIO_WINDOW[2], STUDIO_TOP_BAR, false, SEEN, SEEN_PROFILE)
@@ -136,6 +148,36 @@ describe("the Result, run", function()
 			end
 		end
 		expect(lines).toBeGreaterThanOrEqual(6)
+	end)
+
+	-- Seen in Studio at 1529 x 771: the fullest card scrolled by 53. A 1366 x 768 screen is as short.
+	for _, window in ipairs({ { 1529, 771 }, { 1366, 768 } }) do
+		it(
+			("holds its fullest card without scrolling in a %d x %d window, with a pointer"):format(
+				window[1],
+				window[2]
+			),
+			function()
+				local rows, screenHeight = build(window[1], window[2], STUDIO_TOP_BAR, false)
+				expect(rows:FindFirstChild("Details").Visible).toBe(true)
+				expect(Measure.listHeight(rows)).toBeLessThanOrEqual(Measure.heightOf(rows, screenHeight))
+				-- The card rose into the outcome's share, which keeps room for its word.
+				local banner = takeoverOf(rows):FindFirstChild("Banner")
+				local least = tonumber(string.match(fs.readFile(SCREEN), "\nlocal BANNER_MIN = (%d+)\n"))
+				assert(
+					least ~= nil and least >= 120,
+					"the outcome keeps no room for its word: this gate would check nothing"
+				)
+				expect(Measure.heightOf(banner, screenHeight)).toBeGreaterThanOrEqual(least :: number)
+			end
+		)
+	end
+
+	it("keeps the outcome's third where the card already holds its rows", function()
+		local rows = build(STUDIO_WINDOW[1], STUDIO_WINDOW[2], STUDIO_TOP_BAR, false)
+		local takeover = takeoverOf(rows)
+		expect(takeover:FindFirstChild("Banner").Size).toBe(roblox.UDim2.fromScale(1, 0.3))
+		expect(takeover:FindFirstChild("Card").Size).toBe(roblox.UDim2.fromScale(0.94, 0.68))
 	end)
 
 	for _, phone in ipairs({ { 667, 375 }, { 844, 390 } }) do

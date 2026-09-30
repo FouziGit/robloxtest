@@ -2,7 +2,10 @@
 -- GlyphService: validates every CastGlyph request (profile, alive, not stunned / guarding, real
 -- recipe, unlocked, equipped, cooldown, ink), then runs the server effect from GlyphEffects with
 -- the caster's HumanoidRootPart as origin. Hits feed XP and stats. The single owner of glyph cooldowns.
+-- A hit on a Trial proof counts for the stats and the quests but pays no XP: the Trials pay by the kill
+-- (EnemyService, TrialPay).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -83,6 +86,7 @@ type EffectContext = {
 	Combat: CombatApi,
 	Vfx: VfxApi,
 	Movement: MovementApi,
+	Landed: { [Model]: boolean }?,
 }
 type Effect = (ctx: EffectContext) -> number
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
@@ -114,6 +118,8 @@ type Deps = {
 
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
 local MAX_REWARDED_HITS = 3
+-- The tag of the hub's Trial proofs (EnemyService), whose hits pay no XP.
+local PROOF_TAG = GameConfig.Enemy.Tag
 local ROOT_PART_NAME = "HumanoidRootPart"
 
 local GlyphService = {}
@@ -247,7 +253,8 @@ local function shadedVfx(shade: number): VfxApi
 	}
 end
 
--- Runs the effect in the handler thread (timed effects yield inline). Returns distinct models hit.
+-- Runs the effect in the handler thread (timed effects yield inline). Returns distinct models hit, and how
+-- many of them pay XP: every one but a Trial proof.
 local function runEffect(
 	player: Player,
 	def: GlyphDef,
@@ -255,8 +262,9 @@ local function runEffect(
 	origin: CFrame,
 	direction: Vector3,
 	shade: number
-): number
+): (number, number)
 	local hits = 0
+	local landed: { [Model]: boolean } = {}
 	local ctx: EffectContext = {
 		Caster = player,
 		Def = def,
@@ -265,6 +273,7 @@ local function runEffect(
 		Combat = combat,
 		Vfx = shadedVfx(shade),
 		Movement = movement,
+		Landed = landed,
 	}
 	xpcall(function()
 		hits = effect(ctx)
@@ -272,10 +281,16 @@ local function runEffect(
 		log.error("effect %s failed for %s: %s", def.Effect, player.Name, tostring(err))
 		notify.send(player, "hud.cast.failed", { name = def.NameKey }, "Error")
 	end)
-	return hits
+	local paying = 0
+	for model in pairs(landed) do
+		if not CollectionService:HasTag(model, PROOF_TAG) then
+			paying += 1
+		end
+	end
+	return hits, paying
 end
 
-local function recordCast(player: Player, glyphId: string, hits: number, chain: number)
+local function recordCast(player: Player, glyphId: string, hits: number, paying: number, chain: number)
 	GlyphService.CastLanded:Fire(player, glyphId, hits)
 	-- Timed effects yield: the profile may have been released meanwhile.
 	local data = dataService.get(player)
@@ -290,7 +305,9 @@ local function recordCast(player: Player, glyphId: string, hits: number, chain: 
 	if hits > 0 then
 		data.Stats.GlyphsHit += hits
 		quest.report(player, "GlyphHit", hits)
-		progression.addXp(player, ProgressionConfig.XP.GlyphHit * math.min(hits, MAX_REWARDED_HITS), "GlyphHit")
+	end
+	if paying > 0 then
+		progression.addXp(player, ProgressionConfig.XP.GlyphHit * math.min(paying, MAX_REWARDED_HITS), "GlyphHit")
 	end
 	dataService.push(player, "Stats")
 end
@@ -377,8 +394,8 @@ local function onCastGlyph(player: Player, sequence: { string })
 		)
 	end
 
-	local hits = runEffect(player, def, effect, origin, direction, shade)
-	recordCast(player, def.Id, hits, chain)
+	local hits, paying = runEffect(player, def, effect, origin, direction, shade)
+	recordCast(player, def.Id, hits, paying, chain)
 end
 
 -- Remaining cooldown per glyph id, only entries still counting down. Expired entries are dropped.

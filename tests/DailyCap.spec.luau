@@ -1,9 +1,10 @@
 --!strict
--- The daily allowances kept in the profile (D-131, D-132). A count that survived midnight, or one that could
--- be pushed past its cap by a single large grant, is a farm: the Forgers' Folios and the Erasure's practice
--- pay would have no ceiling at all.
+-- The daily allowances kept in the profile (D-131, D-132, E10-S3). A count that survived midnight, or one that
+-- could be pushed past its cap by a single large grant, is a farm: the Forgers' Folios, the Erasure's practice
+-- pay and the Trials' Folios and full XP would have no ceiling at all.
 local BotConfig = require("../src/shared/Config/BotConfig")
 local DailyCap = require("../src/shared/Pure/DailyCap")
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
@@ -74,5 +75,23 @@ describe("DailyCap.take", function()
 			fights += granted
 		end
 		expect(fights).toBe(practices)
+	end)
+
+	it("holds the Trials' caps: a day of proofs, its Folios and its kills paid in full", function()
+		local pay = GameConfig.Enemy.Pay
+		local folios, paid = 0, 0
+		local kills, full = 0, 0
+		for _ = 1, 500 do
+			local granted
+			granted, folios = DailyCap.take(TODAY, folios, TODAY, pay.DailyFolioCap, ProgressionConfig.Folios.DummyKill)
+			paid += granted
+			granted, kills = DailyCap.take(TODAY, kills, TODAY, pay.FullXpKills, 1)
+			full += granted
+		end
+		expect(paid).toBe(pay.DailyFolioCap)
+		expect(full).toBe(pay.FullXpKills)
+		-- The next day, both allowances are whole again.
+		expect((DailyCap.take(TODAY, folios, TODAY + 1, pay.DailyFolioCap, 2))).toBe(2)
+		expect((DailyCap.take(TODAY, kills, TODAY + 1, pay.FullXpKills, 1))).toBe(1)
 	end)
 end)

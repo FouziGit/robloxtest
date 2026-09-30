@@ -64,6 +64,9 @@ local function template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			TrialDay = 0,
+			TrialKills = 0,
+			TrialFolios = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
@@ -261,15 +264,23 @@ describe("DataMigration daily caps", function()
 		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
 		expect(data.Daily.Streak).toBe(6)
 		expect(data.Daily.PremiumBonusDay).toBe(20099)
-		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
+		for _, key in ipairs({
+			"ForgerDay",
+			"ForgerFolios",
+			"PracticeDay",
+			"PracticePaid",
+			"TrialDay",
+			"TrialKills",
+			"TrialFolios",
+		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
 	end)
 
-	-- Version 5 (E10-S10): each quest set's swaps, with no upgrade step. A version 4 profile comes out with
-	-- them empty, its quests and its caps as they were, and is stamped current, so a build that has never heard
-	-- of them keeps them instead of dropping them.
-	it("brings a version 4 profile to version 5 with no swap spent", function()
+	-- Version 5 (E10-S3, E10-S10): the Trials' counts and each quest set's swaps, with no upgrade step. A
+	-- version 4 profile comes out with them at zero and empty, its quests and its caps as they were, and is
+	-- stamped current, so a build that has never heard of them keeps them instead of dropping them.
+	it("brings a version 4 profile to version 5 with no Trials paid and no swap spent", function()
 		local raw = {
 			DataVersion = 4,
 			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
@@ -283,6 +294,9 @@ describe("DataMigration daily caps", function()
 		expect(info).toEqual({ From = 4, Migrated = true })
 		expect(data.DataVersion).toBe(5)
 		expect(data.Daily.ForgerFolios).toBe(90)
+		expect(data.Daily.TrialDay).toBe(0)
+		expect(data.Daily.TrialKills).toBe(0)
+		expect(data.Daily.TrialFolios).toBe(0)
 		expect(data.Quests.Daily).toEqual({
 			PeriodKey = "D20400@2",
 			Progress = { DailyDash = 7 },
@@ -318,7 +332,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(8)
+		expect(#service).toBe(11)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)

@@ -74,6 +74,9 @@ ProgressionConfig.Folios = {
 
 -- Battlepass XP mirrors player XP with this multiplier.
 ProgressionConfig.BattlepassXpMultiplier = 1
+-- XP sources (the reason ProgressionService.addXp is given) whose XP never reaches the pass: the Trials of the
+-- hub are practice, and a pass is earned by playing (E10-S3).
+ProgressionConfig.PassExcluded = { DummyKill = true } :: { [string]: boolean }
 
 -- VIP game pass multiplies XP and Folios from every source.
 ProgressionConfig.VipXpMultiplier = 2

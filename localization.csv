@@ -465,3 +465,5 @@ status.stoneSkin,Stone Skin,Vellum,,Stone Skin,Peau de Pierre
 time.daysHours,{days}d {hours}h,Vellum,,{days}d {hours}h,{days} j {hours} h
 time.hoursMinutes,{hours}h {minutes}m,Vellum,,{hours}h {minutes}m,{hours} h {minutes}
 time.minutesSeconds,{minutes}:{seconds},Vellum,,{minutes}:{seconds},{minutes}:{seconds}
+trials.capped,The training dummies pay less until tomorrow. The portals pay more!,Vellum,,The training dummies pay less until tomorrow. The portals pay more!,Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus !
+trials.idle,Cast a glyph or dash to earn from the training dummies.,Vellum,,Cast a glyph or dash to earn from the training dummies.,Trace un glyphe ou fais une ruée pour gagner avec les mannequins.

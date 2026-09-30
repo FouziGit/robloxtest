@@ -188,7 +188,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 
 | Mode | Joueurs | Durée | Victoire | Récompenses |
 |---|---|---|---|---|
-| Hub | tous | libre | — | XP des mannequins, quêtes |
+| Hub | tous | libre | — | Épreuves (mannequins) : 40 Folios/jour au plus, XP entière pour 25 kills puis 25 %, rien sans glyphe ni ruée dans la minute, jamais d'XP de pass (D-XXX) ; quêtes |
 | 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass |
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |

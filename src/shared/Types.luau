@@ -107,6 +107,11 @@ export type DailyData = {
 	ForgerFolios: number,
 	PracticeDay: number,
 	PracticePaid: number,
+	-- The hub's Trials (TrialPay): the day both counts belong to, the kills paid their whole XP, and the Folios
+	-- paid (GameConfig.Enemy.Pay).
+	TrialDay: number,
+	TrialKills: number,
+	TrialFolios: number,
 }
 
 export type PurchasesData = {

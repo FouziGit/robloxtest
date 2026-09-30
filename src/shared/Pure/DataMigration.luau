@@ -12,9 +12,10 @@
 
 local DataMigration = {}
 
--- 5: each quest set's `Swaps` (E10-S10). No upgrade step: every profile before it rerolled nothing, which is the
--- template's empty map. The version moves so a build that has never heard of it keeps it rather than dropping it
--- (see `newer` in migrate).
+-- 5: the day's Trials counts (`Daily.TrialDay`, `TrialKills`, `TrialFolios`, E10-S3) and each quest set's
+-- `Swaps` (E10-S10). No upgrade step: every profile before it paid no Trials under a cap and rerolled nothing,
+-- which is the template's zeros and empty maps. The version moves so a build that has never heard of them
+-- keeps them rather than dropping them (see `newer` in migrate).
 --
 -- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
 -- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the

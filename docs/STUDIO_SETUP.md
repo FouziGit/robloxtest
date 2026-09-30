@@ -91,7 +91,7 @@ La méthode A de l'introduction suffit : `open build/Vellum.rbxl`, puis **Play**
 
 Les écrans s'ouvrent par la barre en bas à droite (**Jouer**, **Boutique**, **Classement**, **Menu (M)**), par la touche `M`, ou en s'approchant du terminal de file et de la boutique du hub (touche `E`). `M` referme l'écran ouvert.
 
-6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Folios.
+6. `M` → **Quêtes** : trois quêtes du jour, dont au moins deux qu'un joueur seul peut finir. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Folios. « Changer » remplace une quête du jour en cours par une autre qu'on peut finir seul, une fois par jour. Un mannequin ne paie que si l'on a lancé un glyphe ou rué dans la minute, et moins après les 25 premiers du jour (`docs/QA.md` §6 ter).
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
 8. `M` → **Équipement** : retirer un glyphe, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
 9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée.

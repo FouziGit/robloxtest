@@ -105,6 +105,10 @@ GameConfig.Enemy = {
 	DummyHealth = 150,
 	DummyRingRadius = 22,
 	DummyRespawnSeconds = 3,
+	-- What the Trials pay a day (E10-S3, TrialPay): Folios stop at DailyFolioCap (before VIP), XP is whole for
+	-- the first FullXpKills kills and TailXpShare of it after, and nothing is paid without a glyph cast or a dash
+	-- in the last ActiveWindowSeconds. Counted in the profile (Daily.TrialDay, TrialKills, TrialFolios).
+	Pay = { DailyFolioCap = 40, FullXpKills = 25, TailXpShare = 0.25, ActiveWindowSeconds = 60 },
 }
 
 return GameConfig

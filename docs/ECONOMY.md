@@ -18,7 +18,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Victoire 1v1 / 3v3 | 60 | ×3 | 180 |
 | Défaite | 20 | ×3 | 60 |
 | Kill joueur | 15 | ×8 | 120 |
-| Mannequin | 2 | ×20 | 40 |
+| Épreuve du hub (mannequin, E10-S3) | 2 | ×20, plafond **40 / jour** (profil) | 40 |
 | Quête journalière | 50 | ×2 | 100 |
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
@@ -32,7 +32,9 @@ VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Fol
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
-**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub en donnent déjà environ 19 000, écart plus grand encore, qui demande sa propre revue. À mesurer en jeu avant d'ajuster.
+Les Épreuves du hub le sont aussi depuis E10-S3 (`TrialPay`, compteurs `Daily.TrialDay` / `TrialKills` / `TrialFolios`) : 40 Folios par jour au plus, l'XP entière (40) pour les 25 premiers kills du jour puis 25 % (10 XP), rien sans glyphe lancé ni ruée dans la minute, et jamais d'XP de pass ; un glyphe qui touche une Épreuve ne paie pas d'XP (D-XXX). Un toast le dit une fois par jour, au kill qui épuise les Folios.
+
+**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub, qui en donnaient environ 19 000, sont plafonnés depuis E10-S3 (ci-dessus). À mesurer en jeu avant d'ajuster.
 
 ## 3. Puits de Folios (boutique cosmétique)
 

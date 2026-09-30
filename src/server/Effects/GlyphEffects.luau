@@ -97,6 +97,9 @@ export type Context = {
 	Combat: CombatApi,
 	Vfx: VfxApi,
 	Movement: MovementApi,
+	-- Every model the cast landed damage on, filled by damageModel for GlyphService to pay its hits by what
+	-- they struck (a Trial proof pays by the kill, never by the hit).
+	Landed: { [Model]: boolean }?,
 }
 export type Effect = (ctx: Context) -> number
 
@@ -308,6 +311,9 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 		tracker.Count += 1
 	end
 	tracker.Hits[model] = (hits or 0) + 1
+	if ctx.Landed ~= nil then
+		ctx.Landed[model] = true
+	end
 	return true
 end
 

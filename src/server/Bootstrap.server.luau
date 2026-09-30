@@ -19,6 +19,7 @@ local CosmeticService = require(Services.CosmeticService)
 local CurrencyService = require(Services.CurrencyService)
 local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
+local DrillService = require(Services.DrillService)
 local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphEffects = require(Effects.GlyphEffects)
@@ -91,6 +92,7 @@ local deps = {
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
 	Portal = PortalService,
+	Drill = DrillService,
 }
 
 -- Dependency order: each service only reads services listed before it.
@@ -126,6 +128,9 @@ local ordered: { Entry } = {
 	{ Name = "WorldBossService", Service = WorldBossService },
 	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
 	{ Name = "BattlegroundService", Service = BattlegroundService },
+	-- After every service whose events a drill counts (Glyph, Combat) and every place that takes a player out of the
+	-- hub (Match, WorldBoss, Battleground).
+	{ Name = "DrillService", Service = DrillService },
 	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },

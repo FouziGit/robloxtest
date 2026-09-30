@@ -144,6 +144,26 @@ daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
+drills.grade.calligraphy,Calligraphy,Vellum,,Calligraphy,Calligraphie
+drills.grade.draft,Draft,Vellum,,Draft,Brouillon
+drills.grade.fairCopy,Fair copy,Vellum,,Fair copy,Mise au net
+drills.graded,"{name}: {grade}! +{folios} Folios, +{xp} XP",Vellum,,"{name}: {grade}! +{folios} Folios, +{xp} XP","{name} : {grade} ! +{folios} Folios, +{xp} XP"
+drills.gradedAgain,{name}: {grade}. Only a better grade pays,Vellum,,{name}: {grade}. Only a better grade pays,{name} : {grade}. Seul un meilleur grade paie
+drills.kit.cancel,The cancel,Vellum,,The cancel,L'annulation
+drills.kit.cancel.hint,"Land the last stroke, then dash out of its recovery, {reps} times",Vellum,,"Land the last stroke, then dash out of its recovery, {reps} times","Place le dernier coup, puis rue hors de sa récupération, {reps} fois"
+drills.kit.chain,Chain of three,Vellum,,Chain of three,Chaîne de trois
+drills.kit.chain.hint,"Chain three glyphs, each within a second, {reps} times",Vellum,,"Chain three glyphs, each within a second, {reps} times","Enchaîne trois glyphes, chacun dans la seconde, {reps} fois"
+drills.kit.string,Four strokes,Vellum,,Four strokes,Les quatre traits
+drills.kit.string.hint,"Land all four strokes of a string, {reps} times",Vellum,,"Land all four strokes of a string, {reps} times","Place les quatre coups d'un enchaînement, {reps} fois"
+drills.lapsed,Drill put down: nothing counted for a minute,Vellum,,Drill put down: nothing counted for a minute,Exercice posé : rien n'a compté depuis une minute
+drills.left,Drill put down: drills are done in the hub,Vellum,,Drill put down: drills are done in the hub,Exercice posé : on s'exerce au hub
+drills.miss,{name} · missed ({misses}),Vellum,,{name} · missed ({misses}),{name} · raté ({misses})
+drills.notInHub,Drills are done in the hub,Vellum,,Drills are done in the hub,On s'exerce au hub
+drills.recipe.hint,"Land it on a training dummy, {reps} times",Vellum,,"Land it on a training dummy, {reps} times","Place-le sur un mannequin, {reps} fois"
+drills.recipe.hintUtility,"Draw it, {reps} times",Vellum,,"Draw it, {reps} times","Trace-le, {reps} fois"
+drills.rep,{name} · {count} / {reps},Vellum,,{name} · {count} / {reps},{name} · {count} / {reps}
+drills.started,Drill: {name}. {hint},Vellum,,Drill: {name}. {hint},Exercice : {name}. {hint}
+drills.stopped,Drill put down,Vellum,,Drill put down,Exercice posé
 folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
@@ -267,11 +287,31 @@ leaderboard.title,Leaderboard,Vellum,,Leaderboard,Classement
 leaderboard.unranked,Unranked — play a ranked match,Vellum,,Unranked — play a ranked match,Non classé — joue un match classé
 leaderboard.you,You: #{rank} ({rating}),Vellum,,You: #{rank} ({rating}),Toi : #{rank} ({rating})
 leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the top {count},Toi : hors du top {count}
+lectern.again,Again,Vellum,,Again,Refaire
+lectern.blank,not drawn yet,Vellum,,not drawn yet,pas encore tracé
+lectern.drillLine,{hint} · {grade},Vellum,,{hint} · {grade},{hint} · {grade}
+lectern.kit,The kit,Vellum,,The kit,Le kit
+lectern.prompt,Practise,Vellum,,Practise,S'exercer
+lectern.recipes,The recipes,Vellum,,The recipes,Les recettes
+lectern.road.glyph,A glyph to draw,Vellum,,A glyph to draw,Un glyphe à tracer
+lectern.road.held,Yours,Vellum,,Yours,Acquis
+lectern.road.level,Level {level},Vellum,,Level {level},Niveau {level}
+lectern.road.milestone,A milestone,Vellum,,A milestone,Un jalon
+lectern.road.next,Next,Vellum,,Next,Prochain
+lectern.road.pigment,A pigment and its four glyphs,Vellum,,A pigment and its four glyphs,Un pigment et ses quatre glyphes
+lectern.road.titled,A milestone and its title,Vellum,,A milestone and its title,Un jalon et son titre
+lectern.running,Now: {name} · {count} / {reps} · missed {misses},Vellum,,Now: {name} · {count} / {reps} · missed {misses},En cours : {name} · {count} / {reps} · ratés {misses}
+lectern.start,Start,Vellum,,Start,Commencer
+lectern.stop,Put down,Vellum,,Put down,Poser
+lectern.tab.drills,Drills,Vellum,,Drills,Exercices
+lectern.tab.road,Level road,Vellum,,Level road,Jalons
+lectern.title,The Lectern,Vellum,,The Lectern,Le Pupitre
 level.max,Max level,Vellum,,Max level,Niveau max
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 levelroad.complete,Every level's reward is yours,Vellum,,Every level's reward is yours,Toutes les récompenses de niveau sont à toi
 levelroad.folios,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
 levelroad.foliosAndTitle,the title {title} and {amount} Folios,Vellum,,the title {title} and {amount} Folios,le titre {title} et {amount} Folios
+levelroad.titleRow,{title} · {amount} Folios,Vellum,,{title} · {amount} Folios,{title} · {amount} Folios
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé

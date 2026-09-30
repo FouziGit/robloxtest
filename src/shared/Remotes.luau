@@ -2,6 +2,7 @@
 -- Typed remote registry. The server creates instances from `Definitions`; both sides look them up by
 -- name. Every client→server definition carries a Guard schema per argument and a token-bucket rate.
 
+local DrillCatalog = require(script.Parent.DrillCatalog)
 local GameConfig = require(script.Parent.Config.GameConfig)
 local GlyphConfig = require(script.Parent.Config.GlyphConfig)
 local Guard = require(script.Parent.Util.Guard)
@@ -140,6 +141,20 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf({ "Melee", "Dash", "BlockStart", "BlockEnd" }) },
 		Rate = { Capacity = 12, Refill = 6 },
 	},
+	-- A drill of the Lectern, by its id (DrillCatalog): the server checks the glyph is unlocked and equipped, and
+	-- counts the set from what it accepts itself (DrillService).
+	StartDrill = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf((DrillCatalog.ids() :: any) :: { any }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	StopDrill = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
 
 	-- Server → Client
 	ProfileChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" }, -- (section: string | "*", value)
@@ -174,6 +189,8 @@ Remotes.Definitions = {
 	Travelled = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Today's shop rotation with ownership resolved for the receiver (Types.ShopSnapshot).
 	ShopChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The drill its player is doing at the Lectern ({Drill, Reps, Target, Misses}), or nil once it is put down.
+	DrillChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 } :: { [string]: Definition }
 
 function Remotes.names(): { string }

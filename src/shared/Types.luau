@@ -111,6 +111,10 @@ export type DailyData = {
 -- as a string (JSON-safe) -> true. HonoursService is its one writer, and a milestone in it is never paid again.
 export type MilestonesData = { [string]: boolean }
 
+-- The best grade each drill of the Lectern reached (DrillConfig, Pure/DrillLogic): drill id -> 1 Draft, 2 Fair
+-- Copy, 3 Calligraphy. DrillService is its one writer, and every grade at or under it has been paid.
+export type DrillsData = { [string]: number }
+
 export type PurchasesData = {
 	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
 	ProductCounts: { [string]: number }, -- productKey -> times purchased
@@ -155,6 +159,7 @@ export type ProfileData = {
 	Quests: QuestsData,
 	Daily: DailyData,
 	Milestones: MilestonesData,
+	Drills: DrillsData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
 	Boosts: BoostsData,

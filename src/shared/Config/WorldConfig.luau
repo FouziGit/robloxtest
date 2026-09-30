@@ -84,6 +84,8 @@ WorldConfig.HubAnchors = {
 	-- The two portal gates (PortalConfig): the way to the Battleground and to the Erasure.
 	BattlegroundPortal = "BattlegroundPortal",
 	BossPortal = "BossPortal",
+	-- The Lectern, where the drills are picked (DrillService): a pedestal like the terminal and the kiosk.
+	Lectern = "DrillLectern",
 }
 
 -- The hub boards' face (D-128), in the pixels of a SurfaceGui drawn at PixelsPerStud: the server's rows and

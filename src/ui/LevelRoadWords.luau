@@ -46,6 +46,18 @@ function LevelRoadWords.reward(step: LevelRoad.Step, t: Translate): string
 	return t("levelroad.folios", { amount = step.Folios })
 end
 
+-- What `step` gives, as the title of its row on the Lectern's road: a name, or a milestone's Folios and title.
+function LevelRoadWords.row(step: LevelRoad.Step, t: Translate): string
+	if step.Kind ~= "Milestone" then
+		return t(step.NameKey)
+	end
+	local title = titleWords(step.Title)
+	if title ~= nil then
+		return t("levelroad.titleRow", { amount = step.Folios, title = t(title) })
+	end
+	return t("levelroad.folios", { amount = step.Folios })
+end
+
 -- Whether the profile already holds what `step` gives.
 function LevelRoadWords.holds(data: Types.ProfileData, step: LevelRoad.Step): boolean
 	if step.Kind == "Glyph" then

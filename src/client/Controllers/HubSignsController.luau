@@ -4,8 +4,9 @@
 -- every viewer. So what the hub says is added here, on the parts the server built:
 --   * each leaderboard board's title in its band, and its empty state while the ladder has no row --
 --     the boards used to stand as blank cream panels, and a blank panel says nothing, not "no one yet";
---   * the queue terminal's and the shop kiosk's names above them, and a prompt at each that opens the
---     Play or the Shop screen -- they looked like the way in to a match or the shop and did nothing;
+--   * the queue terminal's, the shop kiosk's and the Lectern's names above them, and a prompt at each that opens
+--     the Play, the Shop or the Lectern screen -- they looked like the way in to a match or the shop and did
+--     nothing;
 --   * on every portal gate's sign (D-130, D-174), wherever it stands -- the hub's two, the Battleground's
 --     camp, the Erasure's arena -- where its circle leads and what it asks: stay in it. No prompt and no
 --     remote: the server moves whoever stands in the circle (PortalService), so there is nothing here to press.
@@ -486,6 +487,7 @@ local function wordHub(folder: Instance)
 	end
 	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Queue, "hub.queue.name", "queue.title", "Play", trove))
 	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Shop, "shop.title", "hub.prompt.open", "Shop", trove))
+	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Lectern, "lectern.title", "lectern.prompt", "Lectern", trove))
 end
 
 function HubSignsController.Init(deps: Deps)

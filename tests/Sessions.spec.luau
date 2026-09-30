@@ -2,7 +2,6 @@
 -- How a session ends, and what a ranked match makes of it (docs/QA.md R3, R4, R15). DataService, RankingService
 -- and MatchService run for real in a pretend server (tests/server.luau): the order of a departure, a shutdown and
 -- another server taking the profile is exactly what the source gates could not see.
-local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
@@ -10,7 +9,6 @@ local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Server = require("./server")
 local Strings = require("../src/shared/Strings")
 local fs = require("@lune/fs")
-local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -19,97 +17,13 @@ local GRACE = GameConfig.Server.LeaveGraceSeconds
 local VENDOR = "src/server/Vendor/ProfileStore.luau"
 local ELSEWHERE_FR = Strings.t("kick.sessionElsewhere", nil, "fr")
 
-type Ranked = {
-	world: Server.World,
-	match: any,
-	data: any,
-}
-
 local function key(player: any): string
 	return "Player_" .. tostring(player.UserId)
 end
 
-local function pad(x: number): any
-	local part = Engine.instance("BasePart")
-	part.Position = roblox.Vector3.new(x, 500, 0)
-	return part
-end
-
--- DataService, RankingService and MatchService wired as the bootstrap wires them, everything else a stub.
-local function ranked(): Ranked
-	local world = Server.world()
-	local data = world.require("src/server/Services/DataService")
-	local ranking = world.require("src/server/Services/RankingService")
-	local match = world.require("src/server/Services/MatchService")
-	local registry = {
-		fire = function(_name: string, _player: any, _payload: any) end,
-		on = function(_name: string, _handler: any) end,
-	}
-	local notify = { send = function(_player: any, _key: string, _params: any, _kind: any, _sfx: any) end }
-	data.Init({ Registry = registry })
-	ranking.Init({
-		DataService = data,
-		Currency = { add = function(_player: any, _amount: number, _reason: string) end },
-		Cosmetic = {
-			grant = function(_player: any, _id: string): boolean
-				return true
-			end,
-		},
-		Notify = notify,
-	})
-	local killZone = Engine.instance("BasePart")
-	killZone.Position = roblox.Vector3.new(0, 460, 0)
-	killZone.Touched = Engine.signal()
-	match.Init({
-		Registry = registry,
-		DataService = data,
-		Notify = notify,
-		Combat = {
-			Damaged = Engine.signal(),
-			setPolicy = function(_fn: any) end,
-			resyncPosition = function(_player: any, _position: any) end,
-		},
-		Movement = {
-			applyStun = function(_player: any, _seconds: number) end,
-			applyFreeze = function(_player: any, _seconds: number) end,
-			clearStun = function(_player: any) end,
-			isStunned = function(_player: any): boolean
-				return false
-			end,
-		},
-		Progression = { addXp = function(_player: any, _amount: number, _reason: string) end },
-		Currency = { add = function(_player: any, _amount: number, _reason: string) end },
-		Hub = { teleportToHub = function(_player: any) end },
-		Arena = {
-			acquire = function(_arenaId: string): any
-				return {
-					Instance = Engine.instance("Model"),
-					Id = DUEL.ArenaId,
-					SlotIndex = 1,
-					Spawns = { { pad(-30) }, { pad(30) } },
-					KillZone = killZone,
-				}
-			end,
-			release = function(_arena: any) end,
-		},
-		Ranking = ranking,
-		Quest = { report = function(_player: any, _event: string, _amount: number) end },
-		Daily = {
-			markFirstWin = function(_player: any): boolean
-				return false
-			end,
-		},
-		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal() },
-	})
-	data.Start()
-	ranking.Start()
-	match.Start()
-	return { world = world, match = match, data = data }
-end
-
 -- Two players in a ranked duel, past the countdown: the round is being played.
-local function duel(): (Ranked, any, any)
-	local setup = ranked()
+local function duel(): (Server.Services, any, any)
+	local setup = Server.services()
 	local a = setup.world:join(101, "Ada")
 	local b = setup.world:join(102, "Bea")
 	expect(setup.match.start(DUEL.Id, { { a.UserId }, { b.UserId } })).never.toBe(nil)
@@ -126,7 +40,7 @@ local function writtenDuel(world: Server.World, player: any): any
 end
 
 -- Takes `player` down, and lets the tick that sees it close the round.
-local function knockOut(setup: Ranked, player: any)
+local function knockOut(setup: Server.Services, player: any)
 	player.Character:FindFirstChildOfClass("Humanoid").Health = 0
 	setup.world:advance(0.2)
 end
@@ -271,7 +185,7 @@ end)
 
 describe("the message a session end shows (R15)", function()
 	it("says nothing about another server when the shutdown releases a player still here", function()
-		local setup = ranked()
+		local setup = Server.services()
 		local a = setup.world:join(201, "Cyd")
 		setup.world:close()
 		setup.world.store:shutdown()
@@ -280,7 +194,7 @@ describe("the message a session end shows (R15)", function()
 	end)
 
 	it("says nothing either when ProfileStore closes before the server's own bind ran", function()
-		local setup = ranked()
+		local setup = Server.services()
 		local a = setup.world:join(202, "Dov")
 		setup.world.store:shutdown()
 		expect(kicked(setup.world, a)).toBeNil()
@@ -288,7 +202,7 @@ describe("the message a session end shows (R15)", function()
 
 	it("says nothing during a shutdown, even of a session another server takes meanwhile", function()
 		-- Roblox's own shutdown message is the one the player reads; a second one would only cover it.
-		local setup = ranked()
+		local setup = Server.services()
 		local a = setup.world:join(206, "Hal")
 		setup.world:close()
 		setup.world.store:external(key(a))
@@ -296,7 +210,7 @@ describe("the message a session end shows (R15)", function()
 	end)
 
 	it("still tells a player whose session another server took, in their language", function()
-		local setup = ranked()
+		local setup = Server.services()
 		local a = setup.world:join(203, "Eli")
 		local b = setup.world:join(204, "Fay")
 		setup.world.store:external(key(a))
@@ -306,7 +220,7 @@ describe("the message a session end shows (R15)", function()
 	end)
 
 	it("never kicks a player who left: their session ends after them, without a word", function()
-		local setup = ranked()
+		local setup = Server.services()
 		local a = setup.world:join(205, "Gil")
 		setup.world:leave(a)
 		setup.world:advance(GRACE + 1)

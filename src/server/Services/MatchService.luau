@@ -91,7 +91,7 @@ type DamagedSignal = {
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
 }
-type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal }
+type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
@@ -389,6 +389,7 @@ local function finish(active: Active)
 			activeByUserId[participant.UserId] = nil
 		end
 		if isLive(participant) and not participant.Released then
+			glyph.resetCooldowns(participant.Player)
 			registry.fire("MatchChanged", participant.Player, nil)
 			notify.send(participant.Player, "match.returning", nil, "Info")
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
@@ -425,7 +426,9 @@ end
 
 -- Round setup: yields on LoadCharacterAsync, so it runs in its own thread and bails out when the match
 -- moved on meanwhile. A fresh character is the only reset CombatService exposes — it restores full
--- health, full ink and spawn protection on CharacterAdded — so every round starts on one.
+-- health, full ink and spawn protection on CharacterAdded — so every round starts on one, and with every
+-- glyph ready (D-20): the cooldowns are the player's, not the character's, and outlived the old body. They
+-- are cleared with the freeze on, so no cast lands between the reset and the round.
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)
@@ -449,6 +452,7 @@ local function prepareRound(active: Active)
 				end
 				participant.Alive = true
 				movement.applyFreeze(player, active.Def.CountdownSeconds)
+				glyph.resetCooldowns(player)
 			end
 		end
 	end
@@ -989,6 +993,7 @@ function MatchService.releaseFromResult(player: Player): boolean
 	end
 	activeByUserId[player.UserId] = nil
 	movement.clearStun(player)
+	glyph.resetCooldowns(player)
 	registry.fire("MatchChanged", player, nil)
 	log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
 	return true

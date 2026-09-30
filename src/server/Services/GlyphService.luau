@@ -381,6 +381,13 @@ local function onCastGlyph(player: Player, sequence: { string })
 	recordCast(player, def.Id, hits, chain)
 end
 
+-- Forgets every cooldown of `player`. MatchService calls it on every round's fresh character and when a match
+-- lets them go, so nothing a round cost carries into the next one or out of the match (D-20). Only the
+-- server's match flow calls it: never a respawn or a portal, which a player can trigger as often as they like.
+function GlyphService.resetCooldowns(player: Player)
+	cooldowns[player] = nil
+end
+
 -- Remaining cooldown per glyph id, only entries still counting down. Expired entries are dropped.
 function GlyphService.getCooldowns(player: Player): { [string]: number }
 	local result: { [string]: number } = {}

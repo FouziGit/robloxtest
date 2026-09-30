@@ -307,4 +307,194 @@ function Server.world(options: Options?): World
 	return world :: World
 end
 
+-- The services of a ranked match, wired as Bootstrap.server.luau wires them: DataService, RankingService,
+-- MatchService and GlyphService are the real modules; everything they reach beyond is a stub that answers what
+-- the match flow asks. Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
+export type Services = {
+	world: World,
+	data: any,
+	ranking: any,
+	match: any,
+	glyph: any,
+	-- Every Notify sent, as the player and the Strings key.
+	notices: { { Player: any, Key: string } },
+	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
+	cast: (player: any, glyphId: string) -> boolean,
+}
+
+local DUEL_ARENA = "Duel"
+
+local function pad(x: number): any
+	local part = Engine.instance("BasePart")
+	part.Position = roblox.Vector3.new(x, 500, 0)
+	return part
+end
+
+function Server.services(): Services
+	local world = Server.world()
+	local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+	local data = world.require("src/server/Services/DataService")
+	local ranking = world.require("src/server/Services/RankingService")
+	local match = world.require("src/server/Services/MatchService")
+	local glyph = world.require("src/server/Services/GlyphService")
+
+	local handlers: { [string]: (...any) -> () } = {}
+	local registry = {
+		fire = function(_name: string, _player: any, _payload: any) end,
+		on = function(name: string, handler: (...any) -> ())
+			handlers[name] = handler
+		end,
+	}
+	local notices: { { Player: any, Key: string } } = {}
+	local notify = {
+		send = function(player: any, key: string, _params: any, _kind: any, _sfx: any)
+			table.insert(notices, { Player = player, Key = key })
+		end,
+	}
+	local frozenUntil: { [any]: number } = {}
+	local movement = {
+		applyStun = function(_player: any, _seconds: number) end,
+		applyFreeze = function(player: any, seconds: number)
+			frozenUntil[player] = math.max(frozenUntil[player] or 0, world.engine.now + seconds)
+		end,
+		clearStun = function(player: any)
+			frozenUntil[player] = nil
+		end,
+		isStunned = function(player: any): boolean
+			return (frozenUntil[player] or 0) > world.engine.now
+		end,
+		applySlow = function(_player: any, _key: string, _factor: number, _seconds: number) end,
+		command = function(_player: any, _payload: any) end,
+	}
+	local combat = {
+		Damaged = Engine.signal(),
+		setPolicy = function(_fn: any) end,
+		resyncPosition = function(_player: any, _position: any) end,
+		trustedOrigin = function(player: any): any
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			return if root ~= nil then roblox.CFrame.new(root.Position) else nil
+		end,
+		trySpendInk = function(_player: any, _cost: number): boolean
+			return true
+		end,
+		addInk = function(_player: any, _amount: number) end,
+		isBlocking = function(_player: any): boolean
+			return false
+		end,
+		isStunned = movement.isStunned,
+		isChanneling = function(_player: any): boolean
+			return false
+		end,
+	}
+	local killZone = Engine.instance("BasePart")
+	killZone.Position = roblox.Vector3.new(0, 460, 0)
+	killZone.Touched = Engine.signal()
+	local progression = { addXp = function(_player: any, _amount: number, _reason: string) end }
+	local currency = { add = function(_player: any, _amount: number, _reason: string) end }
+	local quest = { report = function(_player: any, _event: string, _amount: number) end }
+
+	data.Init({ Registry = registry })
+	ranking.Init({
+		DataService = data,
+		Currency = currency,
+		Cosmetic = {
+			grant = function(_player: any, _id: string): boolean
+				return true
+			end,
+		},
+		Notify = notify,
+	})
+	match.Init({
+		Registry = registry,
+		DataService = data,
+		Notify = notify,
+		Combat = combat,
+		Movement = movement,
+		Progression = progression,
+		Currency = currency,
+		Hub = { teleportToHub = function(_player: any) end },
+		Arena = {
+			acquire = function(_arenaId: string): any
+				return {
+					Instance = Engine.instance("Model"),
+					Id = DUEL_ARENA,
+					SlotIndex = 1,
+					Spawns = { { pad(-30) }, { pad(30) } },
+					KillZone = killZone,
+				}
+			end,
+			release = function(_arena: any) end,
+		},
+		Ranking = ranking,
+		Quest = quest,
+		Daily = {
+			markFirstWin = function(_player: any): boolean
+				return false
+			end,
+		},
+		Glyph = glyph,
+	})
+	glyph.Init({
+		Registry = registry,
+		DataService = data,
+		Notify = notify,
+		Combat = combat,
+		-- Every effect resolves at once and hits nothing: what is judged here is whether the cast is accepted.
+		Effects = setmetatable({}, {
+			__index = function(): any
+				return function(_ctx: any): number
+					return 0
+				end
+			end,
+		}),
+		Vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end },
+		Movement = movement,
+		Progression = progression,
+		Quest = quest,
+		Match = match,
+		WorldBoss = {
+			isLive = function(): boolean
+				return false
+			end,
+			isEngaged = function(_player: any): boolean
+				return false
+			end,
+		},
+		Battleground = {
+			isInside = function(_player: any): boolean
+				return false
+			end,
+		},
+		Cosmetic = {
+			skinShade = function(_player: any, _glyphId: string): number
+				return 0
+			end,
+		},
+	})
+	data.Start()
+	ranking.Start()
+	match.Start()
+	glyph.Start()
+
+	local casts: { string } = {}
+	glyph.Cast:Connect(function(_player: any, glyphId: string, _chain: number)
+		table.insert(casts, glyphId)
+	end)
+	local function cast(player: any, glyphId: string): boolean
+		local before = #casts
+		handlers.CastGlyph(player, table.clone(GlyphConfig.ById[glyphId].Combo))
+		return #casts > before
+	end
+
+	return {
+		world = world,
+		data = data,
+		ranking = ranking,
+		match = match,
+		glyph = glyph,
+		notices = notices,
+		cast = cast,
+	}
+end
+
 return Server

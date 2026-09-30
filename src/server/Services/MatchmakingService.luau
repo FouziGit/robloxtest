@@ -9,6 +9,10 @@
 --
 -- The client only ever asks to join or leave: ratings come from RankingService and the roster is
 -- decided here, never sent up.
+--
+-- Nothing pauses the queues: a match formed while the Erasure's event runs keeps its participant PvP, because
+-- every place owns its own damage rule now (CombatService.claimZone, E16-S1), and a participant the event had
+-- engaged is let go the moment the match takes them (WorldBossService's Audience).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -39,13 +43,11 @@ type MatchApi = {
 	releaseFromResult: (player: Player) -> boolean,
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
-type WorldBossApi = { isLive: () -> boolean }
 type Deps = {
 	Registry: Registry,
 	Notify: NotifyApi,
 	Ranking: RankingApi,
 	Match: MatchApi,
-	WorldBoss: WorldBossApi,
 }
 
 -- MatchmakingCore.Config: the widening window and the maximum wait.
@@ -58,16 +60,12 @@ local registry: Registry
 local notify: NotifyApi
 local ranking: RankingApi
 local match: MatchApi
-local worldBoss: WorldBossApi
 
 local queues: { [string]: MatchmakingCore.Queue } = {}
 -- userId -> mode asked for from the result screen, honoured by the first scan after the match lets the
 -- player go: the one-click loop (docs/JUICE_PLAN.md phase 8, item 2). Shown to the client as queued.
 local pending: { [number]: string } = {}
 local accumulator = 0
--- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
--- stood still and can hand that time back to everybody waiting.
-local lastTickAt: number? = nil
 
 local function neededFor(def: MatchConfig.ModeDef): number
 	return def.TeamSize * def.Teams
@@ -246,18 +244,6 @@ local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: Matc
 end
 
 local function tick(now: number)
-	-- A World Boss event owns the single CombatService PvP policy for its whole duration, so a match
-	-- started now would lose participant PvP. Match formation is suspended for the event and the wait it
-	-- costs is handed back: every JoinedAt slides forward by the paused interval, so a queue only ages
-	-- while the server is really trying to pair it. Otherwise an event (375s) outlasts MaxQueueSeconds
-	-- (240s) and every entry would be dropped mid-event for a wait nobody was serving. Clients still get
-	-- QueueChanged while paused, and the first scan after the event pairs the queue again.
-	local paused = worldBoss.isLive()
-	local pausedSeconds = 0
-	if paused and lastTickAt ~= nil then
-		pausedSeconds = math.max(0, now - lastTickAt)
-	end
-	lastTickAt = now
 	-- The wishes kept from result screens: every player the match has let go joins now, with a fresh
 	-- wait, the same way a JoinQueue would have.
 	for userId, modeId in pairs(pending) do
@@ -275,13 +261,6 @@ local function tick(now: number)
 		if def == nil or queue == nil then
 			continue
 		end
-		if pausedSeconds > 0 then
-			for _, entry in ipairs(queue.Entries) do
-				-- Clamped to now: an entry that joined inside the paused interval has waited nothing yet.
-				entry.JoinedAt = math.min(now, entry.JoinedAt + pausedSeconds)
-			end
-		end
-		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
 			local player = Players:GetPlayerByUserId(userId)
 			if player ~= nil then
@@ -291,10 +270,8 @@ local function tick(now: number)
 				push(player, now)
 			end
 		end
-		if not paused then
-			formMatches(modeId, def, queue, now)
-		end
-		-- Everybody still waiting sees their timer: advancing normally, standing still while paused.
+		formMatches(modeId, def, queue, now)
+		-- Everybody still waiting sees their timer advance.
 		for _, entry in ipairs(queue.Entries) do
 			pushUserId(entry.UserId, now)
 		end
@@ -325,7 +302,6 @@ function MatchmakingService.Init(deps: Deps)
 	notify = deps.Notify
 	ranking = deps.Ranking
 	match = deps.Match
-	worldBoss = deps.WorldBoss
 	for _, modeId in ipairs(MatchConfig.ModeOrder) do
 		queues[modeId] = MatchmakingCore.newQueue(modeId)
 	end

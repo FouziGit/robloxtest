@@ -390,7 +390,7 @@ function Server.services(): Services
 	local combat = {
 		Damaged = Engine.signal(),
 		Killed = Engine.signal(),
-		setPolicy = function(_fn: any) end,
+		claimZone = function(_zone: string, _claim: any) end,
 		resyncPosition = function(_player: any, _position: any) end,
 		trustedOrigin = function(player: any): any
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")

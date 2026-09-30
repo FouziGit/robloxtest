@@ -3,8 +3,8 @@
 -- dash / melee timers, spawn protection, per-glyph hit memory), the M1 / dash / block handlers and
 -- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ, and the
 -- movement audit, Security/MovementAudit, stepped once per tick).
--- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so PvP policy,
--- spawn protection, i-frames and guard rules apply everywhere.
+-- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so the zones' rules
+-- (who may hurt whom, place by place: claimZone), spawn protection, i-frames and guard rules apply everywhere.
 -- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, Gilding): they
 -- live as Humanoid attributes named by CombatConfig.Status, carry their own expiry and are read back
 -- inside ApplyDamage / knockback, so no status needs a ticker and clients can render them.
@@ -19,6 +19,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local ChannelHold = require(Shared.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
+local DamageZones = require(script.Parent.Parent.Pure.DamageZones)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MovementAudit = require(script.Parent.Parent.Security.MovementAudit)
@@ -29,13 +30,20 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
+local ZoneConfig = require(Shared.Config.ZoneConfig)
 
 local log = Log.new("CombatService")
 
 export type DamageKind = Types.DamageKind
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
 export type CombatState = { Ink: number, MaxInk: number, InCombat: boolean, Blocking: boolean, Stunned: boolean }
-export type Policy = (source: Player?, targetModel: Model) -> boolean
+export type ZoneId = ZoneConfig.ZoneId
+-- What the owner of a zone tells this service (claimZone): whether it holds a player now and, where players may
+-- hurt each other there, whether this pair may. Both are read on every hit, and must not yield.
+export type ZoneClaim = {
+	Holds: (player: Player) -> boolean,
+	Pair: ((source: Player, target: Player) -> boolean)?,
+}
 export type Action = "Melee" | "Dash" | "BlockStart" | "BlockEnd"
 -- A glyph's hold on a body that is not a player's (controlNpc): a stun, or a slow by a factor.
 export type ControlKind = "Stun" | "Slow"
@@ -169,9 +177,6 @@ local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 -- CombatState snapshots per second (unreliable remote; the HUD tweens between them).
 local STATE_REPLICATION_HZ = GameConfig.Server.CombatStateHz
 local TICKS_PER_REPLICATION = math.max(1, math.floor(GameConfig.Server.TickRate / STATE_REPLICATION_HZ))
--- Hub safe zone: the dummy ring plus a margin. Players inside cannot be damaged by other players.
-local SAFE_ZONE_MARGIN_STUDS = GameConfig.Spawn.SafeZoneMarginStuds
-local SAFE_ZONE_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + SAFE_ZONE_MARGIN_STUDS
 -- Vertical extent of the M1 hitbox (covers crouching / jumping targets in front of the attacker).
 local MELEE_HITBOX_HEIGHT = CombatConfig.Melee.HitboxHeight
 -- Read by EnemyService on death to credit the killer.
@@ -240,7 +245,8 @@ local glyph: GlyphApi? = nil
 local deps: Deps
 
 local states: { [Player]: State } = {}
-local policy: Policy
+-- Zone -> what its owner said (claimZone). The fallback zone, the hub, holds everybody no owner holds.
+local claims: { [string]: ZoneClaim } = {}
 local accumulator = 0
 local ticksSinceReplication = 0
 -- os.clock of the previous tick, so regeneration integrates over the time that really passed. 0 until
@@ -304,7 +310,7 @@ local function findHumanoid(character: Model): Humanoid?
 	return nil
 end
 
--- The hub SpawnLocation (centre of the safe zone), re-resolved when the cached one leaves the world.
+-- The hub SpawnLocation (where the engine puts a new body), re-resolved when the cached one leaves the world.
 local function findSpawn(): SpawnLocation?
 	local cached = cachedSpawn
 	if cached ~= nil and cached:IsDescendantOf(Workspace) then
@@ -769,38 +775,38 @@ local function releaseBlock(state: State, now: number)
 	end
 end
 
-local function isInSafeZone(spawn: SpawnLocation, model: Model): boolean
-	return (model:GetPivot().Position - spawn.Position).Magnitude <= SAFE_ZONE_RADIUS_STUDS
+local ZONE_RULES = (ZoneConfig.Rules :: any) :: { [string]: DamageZones.Rule }
+local ZONE_ORDER = (ZoneConfig.Order :: any) :: { string }
+
+local function holdsIn(zone: string, player: Player): boolean
+	local claim = claims[zone]
+	return claim ~= nil and claim.Holds(player)
 end
 
--- Default PvP policy: NPCs are always valid targets; players only outside spawn protection and the
--- hub safe zone. The safe zone is symmetric: standing inside it protects from PvP damage AND
--- forbids dealing it, so the zone can never be used as a one-way firing position. A source without
--- a character (NPC, environment) is not zone-tested. Match / boss modes replace it through setPolicy.
-local function defaultPolicy(source: Player?, targetModel: Model): boolean
+-- The zone `player` stands in: the first of ZoneConfig.Order whose owner holds them, the hub otherwise.
+local function zoneOf(player: Player): string
+	return DamageZones.zoneOf(ZONE_ORDER, ZoneConfig.Fallback, holdsIn, player)
+end
+
+-- Whether the zones let a hit from `source` land on `targetModel` (E16-S1). Server-authored damage (no source:
+-- the boss, the Forgers, a kill plane) is no zone's business. A player hurts another only when both stand in
+-- the same zone and its owner says this pair may -- opponents of the same live match, two members of the
+-- Flyleaf -- and hurts a body no player owns only where their zone allows it: the hub's proofs, the Erasure.
+-- A hub with no owner at all is the fallback's rule: nobody hurts anybody, and the proofs are open.
+local function zoneAllows(source: Player?, targetModel: Model): boolean
+	if source == nil then
+		return true
+	end
+	local sourceZone = zoneOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
-	if targetPlayer == nil then
-		return true
+	local verdict = DamageZones.judge(ZONE_RULES, sourceZone, if targetPlayer ~= nil then zoneOf(targetPlayer) else nil)
+	if verdict ~= "Owner" or targetPlayer == nil then
+		return verdict == "Allow"
 	end
-	local now = os.clock()
-	if isSpawnProtected(states[targetPlayer], targetModel, now) then
-		return false
-	end
-	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
-	if source ~= nil and isSpawnProtected(states[source], sourceCharacter, now) then
-		return false
-	end
-	local spawn = findSpawn()
-	if spawn == nil then
-		return true
-	end
-	if isInSafeZone(spawn, targetModel) then
-		return false
-	end
-	return sourceCharacter == nil or not isInSafeZone(spawn, sourceCharacter)
+	local claim = claims[sourceZone]
+	local pair = if claim ~= nil then claim.Pair else nil
+	return pair ~= nil and pair(source, targetPlayer)
 end
-
-policy = defaultPolicy
 
 ----------------------------------------------------------------
 -- Character lifecycle
@@ -1016,15 +1022,18 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 			dataService.push(targetPlayer, "Stats")
 		end
 		if source ~= nil then
-			local xp = ProgressionConfig.XP.PlayerKill
-			progression.addXp(source, xp, "PlayerKill")
-			currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
 			local sourceData = dataService.get(source)
 			if sourceData ~= nil then
 				sourceData.Stats.Kills += 1
 				dataService.push(source, "Stats")
 			end
-			notify.send(source, "hud.playerKill", { name = targetPlayer.DisplayName, xp = xp }, "Success", "Kill")
+			-- A zone that pays its own kills (the Flyleaf, under its daily cap) hears this one through Killed.
+			if DamageZones.combatPays(ZONE_RULES, zoneOf(source)) then
+				local xp = ProgressionConfig.XP.PlayerKill
+				progression.addXp(source, xp, "PlayerKill")
+				currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
+				notify.send(source, "hud.playerKill", { name = targetPlayer.DisplayName, xp = xp }, "Success", "Kill")
+			end
 		end
 	end
 	CombatService.Killed:Fire(if source ~= nil then source.UserId else 0, targetModel)
@@ -1105,11 +1114,11 @@ local function refuses(source: Player?, targetModel: Model, now: number): boolea
 	if targetState ~= nil and now < targetState.IFramesUntil then
 		return true
 	end
-	return not policy(source, targetModel)
+	return not zoneAllows(source, targetModel)
 end
 
--- Whether a hit from `source` on `targetModel` would be let through right now: the safe zone, a match's PvP
--- rule, spawn protection, i-frames and a body on the ground, exactly as ApplyDamage judges them. For an effect
+-- Whether a hit from `source` on `targetModel` would be let through right now: the zones' rules, spawn
+-- protection, i-frames and a body on the ground, exactly as ApplyDamage judges them. For an effect
 -- that has to choose its body before it strikes (the Dagger moves its caster first).
 function CombatService.canDamage(source: Player, targetModel: Model): boolean
 	return not refuses(source, targetModel, os.clock())
@@ -1716,17 +1725,28 @@ function CombatService.isChanneling(player: Player): boolean
 	return state ~= nil and ChannelHold.refuses(state.Channel, os.clock())
 end
 
--- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.
--- Installs the PvP rule and returns the one it replaced, so a temporary owner (a World Boss event)
--- can hand it back. There is a single slot: two owners at once must coordinate, never interleave.
-function CombatService.setPolicy(fn: Policy): Policy?
-	if type(fn) ~= "function" then
-		log.warn("setPolicy rejected: expected function, got %s", typeof(fn))
-		return nil
+-- The owner of a zone (ZoneConfig) says who it holds and, where players may hurt each other there, which pairs may
+-- (E16-S1): MatchService its participants, WorldBossService the players its fight engaged, FlyleafService its
+-- members. The rules run after spawn protection, i-frames and a body on the ground. One owner per zone: the hub is
+-- everybody no owner holds and is claimed by nobody, and a zone whose players may hurt each other needs its Pair.
+function CombatService.claimZone(zone: ZoneId, claim: ZoneClaim)
+	local rule = ZONE_RULES[zone]
+	if rule == nil or zone == ZoneConfig.Fallback then
+		log.warn("claimZone rejected: %s is not a zone an owner can claim", tostring(zone))
+		return
 	end
-	local previous = policy
-	policy = fn
-	return previous
+	if rule.BetweenPlayers == "Owner" and claim.Pair == nil then
+		log.warn("claimZone for %s has no Pair: no player there can hurt another", zone)
+	end
+	if claims[zone] ~= nil then
+		log.warn("zone %s claimed twice: the later claim replaces the first", zone)
+	end
+	claims[zone] = claim
+end
+
+-- The zone `player` stands in now (ZoneConfig.Order): what decides whom they may hurt, and who pays their kills.
+function CombatService.zoneOf(player: Player): ZoneId
+	return zoneOf(player) :: ZoneId
 end
 
 ----------------------------------------------------------------
@@ -1767,10 +1787,10 @@ function CombatService.Start()
 	registry.on("CombatAction", onCombatAction)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info(
-		"started (tick %d Hz, state %d Hz, safe zone %d studs)",
+		"started (tick %d Hz, state %d Hz, zones %s)",
 		GameConfig.Server.TickRate,
 		STATE_REPLICATION_HZ,
-		SAFE_ZONE_RADIUS_STUDS
+		table.concat(ZONE_ORDER, " > ")
 	)
 end
 

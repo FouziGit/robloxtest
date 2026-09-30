@@ -107,7 +107,7 @@ Les écrans s'ouvrent par la barre en bas à droite (**Jouer**, **Boutique**, **
 ### Le World Boss, sans attendre vingt minutes
 
 15. L'événement se déclenche toutes les `WorldBossConfig.Schedule.IntervalSeconds` (1200 s) et demande deux joueurs. Pour le voir tout de suite : ramener `IntervalSeconds` à `30` et `AnnounceSeconds` à `5` dans `src/shared/Config/WorldBossConfig.luau`, relancer le test à 2 joueurs, attendre l'annonce, frapper le boss. **Remettre les valeurs d'origine après.**
-16. Pendant l'événement, la file de match est en pause et le compteur d'attente ne tourne pas : c'est voulu (D-25 et le correctif de file).
+16. Pendant l'événement, la file de match continue : un match s'y forme, et ses participants se blessent dans leur arène pendant que ceux de l'événement ne se blessent pas entre eux (D-XXX, règles de dégâts par zone).
 
 ### Les portails, le champ de bataille et l'Effacement en entraînement, à un seul joueur (5 minutes)
 

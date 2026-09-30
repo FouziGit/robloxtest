@@ -7,8 +7,8 @@
 -- frees its slot; a second release on the same arena frees nothing.
 --
 -- Spawn markers are plain anchored Parts, never SpawnLocations: HubSpawn must stay the only
--- SpawnLocation in the world, because CombatService and EnemyService resolve the hub safe zone and
--- the dummy ring from the first SpawnLocation they find.
+-- SpawnLocation in the world, because CombatService and EnemyService resolve the spawn point and the
+-- dummy ring from the first SpawnLocation they find.
 --
 -- The kill zone is exposed, not armed: it is an environment kill, and CombatService.ApplyDamage needs
 -- a source, so MatchService owns the reaction (eliminate the participant that falls into it).

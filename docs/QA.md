@@ -99,7 +99,7 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 7. **Départ pendant l'attente.** Quitter le jeu pendant qu'on est en file. Attendu : le joueur est retiré de la file et aucun match fantôme ne se crée (`MatchmakingService.luau:311-319`).
 8. **Attente trop longue.** Rester seul en file pendant 240 s. Attendu : toast `queue.timedOut` en information (médaillon « i », pas le « ! » rouge d'un échec, D-147) ; écran Jouer ouvert, la carte du mode devient « Personne en file pour l'instant » avec Réessayer et Retour au hub (`MatchConfig.luau:58`, `MatchmakingService.luau:285-293`, `PlayScreen.luau`).
 9. **Rejouer.** Cliquer **Rejouer** sur l'écran de résultat. Attendu : retour immédiat en file, pendant que l'autre joueur voit toujours son écran de résultat (`MatchService.releaseFromResult`, `MatchService.luau:896`).
-10. **Pas de PvP au hub.** Deux joueurs au hub se frappent. Attendu : aucun dégât, nulle part dans le hub. Les mannequins, eux, prennent des dégâts (`allowDamage`, `MatchService.luau:616-636`).
+10. **Pas de PvP au hub.** Deux joueurs au hub se frappent. Attendu : aucun dégât, nulle part dans le hub. Les mannequins, eux, prennent des dégâts (zone `Hub` de `ZoneConfig.Rules`, appliquée par `CombatService.claimZone` et `zoneAllows` ; `tests/DamageZones.spec.luau`).
 11. **3v3 sans tir allié.** Avec six clients, frapper un coéquipier. Attendu : aucun dégât (`MatchService.luau:628-632`, D-113).
 12. **3v3 avec un joueur qui part.** Fermer un client. Attendu : son équipe continue à deux et le joueur parti est débité. Si toute une équipe part, le match se termine par forfait (`GameModes.forfeitVerdict`, `GameModes/init.luau:146-160`).
 13. **3v3, joueur éliminé.** Attendu : la caméra suit un coéquipier, avec le bandeau `match.watching` (`SpectateController.luau`).
@@ -114,9 +114,9 @@ L'événement revient toutes les 1200 s. Pour le déclencher tout de suite, suiv
 
 1. **Déroulé.** Avec 2 clients. Attendu : annonce, apparition du boss, et le boss prend des coups (`WorldBossService/init.luau:247-328`).
 2. **Un seul joueur.** Avec 1 client. Attendu : `[WorldBossService] event skipped: 1 player(s) available, 2 needed` (`init.luau:247-253`).
-3. **File gelée.** Attendu : pendant l'événement, la file est en pause et le temps d'attente n'est pas compté (`MatchmakingService.luau:248-300`, `docs/STUDIO_SETUP.md` §5.16).
-4. **Duel en cours.** Avec 4 clients, dont deux en duel au moment de l'annonce. Attendu : les duellistes ne sont pas emmenés à l'événement, et leurs dégâts entre eux fonctionnent toujours (`bossPolicy`, `init.luau:80-93` ; `Context.eligiblePlayers`).
-5. **Pas de PvP pendant l'événement.** Deux joueurs de l'événement se frappent. Attendu : aucun dégât entre eux, mais le boss en prend (`init.luau:92`).
+3. **La file continue.** Avec 4 clients, deux en file 1v1 pendant l'événement. Attendu : le match se forme pendant l'événement, le temps d'attente compte normalement, et les deux duellistes se blessent dans leur arène ; l'événement les libère (`Audience.releaseMatched`) et ils gardent leur part (`MatchmakingService.tick`, zone `Match` avant la zone `Boss`, D-XXX ; `tests/MatchmakingService.spec.luau`).
+4. **Duel en cours.** Avec 4 clients, dont deux en duel au moment de l'annonce. Attendu : les duellistes ne sont pas emmenés à l'événement, et leurs dégâts entre eux fonctionnent toujours (zone `Match`, `CombatService.zoneOf` ; `Context.eligiblePlayers`).
+5. **Pas de PvP pendant l'événement.** Deux joueurs de l'événement se frappent. Attendu : aucun dégât entre eux, mais le boss en prend (zone `Boss` de `ZoneConfig.Rules`, réclamée dans `WorldBossService.Start`).
 6. **Seuils de récompense.** Attendu : à partir de 1 % des dégâts, toast `boss.reward` ; à partir de 15 %, `boss.killBonus` en plus ; sous 1 %, aucun des deux (`WorldBossConfig.luau:104-107`, `rewardParticipants`, `init.luau:190-210`).
 7. **Chrono écoulé.** Ne pas tuer le boss en 300 s. Attendu : `boss.expired`, retour au hub après 15 s, puis l'événement suivant est planifié (`WorldBossConfig.luau:23-29`, `init.luau:238`).
 8. **Tout le monde mort ou parti.** Attendu : l'événement se termine comme expiré (issue `Empty`, `init.luau:362`).

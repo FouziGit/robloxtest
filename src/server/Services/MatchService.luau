@@ -62,9 +62,13 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
+type ZoneClaim = {
+	Holds: (player: Player) -> boolean,
+	Pair: ((source: Player, target: Player) -> boolean)?,
+}
 type CombatApi = {
 	Damaged: DamagedSignal,
-	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
+	claimZone: (zone: "Match", claim: ZoneClaim) -> (),
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
 type MovementApi = {
@@ -649,7 +653,7 @@ local function onHeartbeat(deltaTime: number)
 end
 
 ----------------------------------------------------------------
--- Arena hazards, PvP policy, disconnects
+-- Arena hazards, the Match zone's rule, disconnects
 ----------------------------------------------------------------
 
 -- The kill zone as the client that owns the falling body reports it: Touched.
@@ -678,19 +682,12 @@ local function teamOfParticipant(active: Active, userId: number): number?
 	return nil
 end
 
--- PvP is a match privilege: two OPPONENTS of the same match hurt each other while it is being played,
--- and nothing else. Server-authored damage (no source: environment, NPC, boss) is not a PvP decision and
--- stays allowed. This replaces CombatService's hub policy, so hub players can no longer damage each other
--- at all, while training dummies stay open to everyone outside a match.
-local function allowDamage(source: Player?, targetModel: Model): boolean
-	if source == nil then
-		return true
-	end
+-- PvP is a match privilege: two OPPONENTS of the same match hurt each other while it is being played, and
+-- nothing else. This is the Match zone's rule (CombatService.claimZone, E16-S1): CombatService only asks it for two
+-- players it holds, and keeps a participant's hands off every body no player owns (ZoneConfig.Rules.Match), so a
+-- training proof or the Erasure is out of a duel's reach; server-authored damage is never asked.
+local function allowDamage(source: Player, targetPlayer: Player): boolean
 	local sourceActive = activeByUserId[source.UserId]
-	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
-	if targetPlayer == nil then
-		return sourceActive == nil
-	end
 	if sourceActive == nil or activeByUserId[targetPlayer.UserId] ~= sourceActive then
 		return false
 	end
@@ -1025,7 +1022,7 @@ function MatchService.Init(deps: Deps)
 end
 
 function MatchService.Start()
-	combat.setPolicy(allowDamage)
+	combat.claimZone("Match", { Holds = MatchService.isInMatch, Pair = allowDamage })
 	dataService.BeforeRelease:Connect(onBeforeRelease)
 	-- A session that ends without BeforeRelease (the server closing) leaves its forfeit unpaid.
 	dataService.ProfileReleased:Connect(function(player: Player)

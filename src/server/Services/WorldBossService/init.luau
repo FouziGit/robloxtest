@@ -7,15 +7,14 @@
 --   * a PRACTICE (D-132), opened on demand by one player through the hub's gate (`enterFromPortal`): the same
 --     Erasure, weaker, growing with each player who joins and strikes it, paying a fraction of the event a few
 --     times a day.
---     It never pauses ranked matchmaking (`isLive` stays the event's), never borrows the PvP policy, never
---     moves the schedule, and only its own participants hear of it.
+--     It never moves the schedule, and only its own participants hear of it.
 --
 -- Either fight is joined in progress through the hub's gate, and left through a gate (`leave`); `isEngaged`
 -- is what the other places that hold a player ask before they do.
 --
 -- This module owns the lifecycle: the schedule, the announce, the arena and the return to the hub. The slot
 -- itself is one record (Context.Slot) every submodule shares. Who hears about the fight is Audience, the
--- hub's gate is Admission, the PvP rule the event borrows is Policy, the pay is Rewards, the boss in the
+-- hub's gate is Admission, the pay is Rewards, the boss in the
 -- world (its model, its walk, its telegraphs, its hits) is Encounter, and the rules it follows (phases,
 -- attack rotation, telegraph windows, hit shapes, knockback, reward split) are GameModes/WorldBossMode —
 -- the way a match keeps its rules in its mode. What keeps a practice from taking the slot away from the
@@ -25,9 +24,10 @@
 -- outlive the fight. Everything a fight owns (boss model, arena, health connection) hangs from one Trove,
 -- so a victory, a timeout, an empty arena and a failed spawn all release it the same way.
 --
--- The boss damages players through CombatService.ApplyDamage with no source, which is how
--- server-authored damage keeps landing while PvP is switched off for the event (see Policy), and
--- under MatchService's own rule during a practice. Players damage it through the ordinary glyph and melee
+-- Whoever either fight engaged stands in the Boss zone (CombatService.claimZone, E16-S1), where no player hurts
+-- another and the Erasure takes every hit; a match that takes a participant holds them in its own zone first, so
+-- ranked keeps pairing through the event. The boss damages players through CombatService.ApplyDamage with no
+-- source, which no zone judges. Players damage it through the ordinary glyph and melee
 -- path, and their contribution comes from CombatService.Damaged, one application at a time with who dealt
 -- it (Encounter.recordDamage). The quest log is pushed to, never polled (QuestService.report), like every
 -- other gameplay owner.
@@ -46,7 +46,6 @@ local Encounter = require(script.Encounter)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
-local Policy = require(script.Policy)
 local Rewards = require(script.Rewards)
 local Trove = require(Packages.Trove)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
@@ -79,12 +78,11 @@ local lastPaidAt: { [number]: number } = {}
 -- End of the fight
 ----------------------------------------------------------------
 
--- Last step of every path out of a fight, including the ones that never spawned a boss: the PvP policy
--- goes back, the Trove destroys the boss and releases the arena, the HUD is cleared and the slot is the
+-- Last step of every path out of a fight, including the ones that never spawned a boss: the Trove destroys
+-- the boss and releases the arena, the HUD is cleared and the slot is the
 -- event's again. Only the event moves the schedule: a practice closing, or failing to open, leaves the next
 -- event where it was. Safe to call from any phase, and twice.
 local function reset(now: number)
-	Policy.release()
 	local trove = slot.Trove
 	slot.Trove = nil
 	if trove ~= nil then
@@ -188,7 +186,7 @@ end
 
 -- Opens a fight in the slot for `players`: acquires the arena, builds the boss with `health`, drops everybody
 -- on the ring and tells them. The event and a practice both open through here; what differs (who is taken,
--- the quest, the PvP policy) is the caller's. False, holding nothing, when no Boss arena is free.
+-- the quest) is the caller's. False, holding nothing, when no Boss arena is free.
 local function openFight(players: { Player }, health: number, seconds: number, now: number): boolean
 	local arena = deps.Arena.acquire(Context.ArenaId)
 	if arena == nil then
@@ -252,7 +250,7 @@ local function openFight(players: { Player }, health: number, seconds: number, n
 	return true
 end
 
--- The scheduled event: everybody it may take, its PvP rule, and the participation quest for being pulled in,
+-- The scheduled event: everybody it may take, and the participation quest for being pulled in,
 -- so the quest credit does not depend on how the fight ends.
 local function spawnBoss(now: number)
 	local eligible = Context.eligiblePlayers(deps.Match)
@@ -261,7 +259,6 @@ local function spawnBoss(now: number)
 		reset(now)
 		return
 	end
-	Policy.take()
 	if not openFight(eligible, WorldBossConfig.healthFor(#eligible), SCHEDULE.FightSeconds, now) then
 		log.warn("event cancelled: no free %s arena", Context.ArenaId)
 		reset(now)
@@ -381,9 +378,9 @@ end
 -- Public API
 ----------------------------------------------------------------
 
--- True while the scheduled EVENT holds the slot, from the announce until the arena is released: PvP is off,
--- players are being pulled into the boss arena and ranked matchmaking waits for it. A practice is never live
--- (D-132): one player practising must not freeze ranked for the whole server.
+-- True while the scheduled EVENT holds the slot, from the announce until the arena is released: players are
+-- being pulled into the boss arena, and a developer's perks are off for the whole server (GlyphService). Ranked
+-- matchmaking no longer waits for it (E16-S1). A practice is never live (D-132).
 function WorldBossService.isLive(): boolean
 	return slot.State ~= nil and slot.Kind == "Event"
 end
@@ -416,7 +413,7 @@ function WorldBossService.enterFromPortal(player: Player): (boolean, string?, { 
 		return false, refusal, params
 	end
 	-- Marked a practice before it opens, so the opening already speaks to its own participant only, and a
-	-- failure leaves the schedule where it was. Never the event's PvP rule: a practice takes no policy.
+	-- failure leaves the schedule where it was.
 	slot.Kind = "Practice"
 	local opened = log.succeeded(
 		"open a practice for " .. player.Name,
@@ -447,7 +444,6 @@ end
 function WorldBossService.Init(injected: Deps)
 	deps = injected
 	Encounter.Init(injected)
-	Policy.Init(injected)
 	Audience.Init(injected, slot)
 	Admission.Init(injected, slot)
 end
@@ -457,6 +453,8 @@ function WorldBossService.Start()
 		log.warn("Quest dependency missing: boss fights will not advance the World Boss quests")
 	end
 	slot.NextEventAt = os.clock() + SCHEDULE.IntervalSeconds
+	-- Whoever a fight engaged, event or practice, hurts nobody but the Erasure (ZoneConfig.Rules.Boss).
+	deps.Combat.claimZone("Boss", { Holds = WorldBossService.isEngaged })
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info(
 		"%s started (every %ds, %ds warning, %ds fight, %d players minimum; practice %ds)",

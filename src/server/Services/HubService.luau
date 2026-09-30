@@ -80,8 +80,8 @@ local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
 -- ladder every floor builder shares (WorldConfig.Ladder), in studs above the platform's top face (y = 0).
 local FLAT_THICKNESS_STUDS = WorldConfig.FlatThicknessStuds
 local LADDER = WorldConfig.Ladder
--- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
--- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
+-- The training ground: the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) and the spawn's margin
+-- around it. No player hurts another anywhere in the hub (ZoneConfig), so the marker only says where to train.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
 local TRAINING_MARKER_TRANSPARENCY = 0.4
 -- Props stand clear of the dummy ring; boards sit a little further out so their panels never touch.
@@ -372,15 +372,12 @@ local function buildBoard(parent: Folder, board: BoardLayout)
 	model.Parent = parent
 end
 
--- Any SpawnLocation outside this folder would steal the hub safe zone CombatService and EnemyService
--- resolve from the first SpawnLocation in the Workspace, so it is reported loudly.
+-- Any SpawnLocation outside this folder would steal the spawn point CombatService anchors new bodies on and the
+-- dummy ring EnemyService builds, both resolved from the first SpawnLocation in the Workspace: reported loudly.
 local function warnOnForeignSpawns(folder: Folder)
 	for _, descendant in ipairs(Workspace:GetDescendants()) do
 		if descendant:IsA("SpawnLocation") and not descendant:IsDescendantOf(folder) then
-			log.warn(
-				"foreign SpawnLocation %s: the hub safe zone must be centred on HubSpawn only",
-				descendant:GetFullName()
-			)
+			log.warn("foreign SpawnLocation %s: every body must spawn on HubSpawn only", descendant:GetFullName())
 		end
 	end
 end

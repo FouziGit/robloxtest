@@ -237,7 +237,7 @@ local function grantProduct(
 	local counts = data.Purchases.ProductCounts
 	counts[productKey] = (counts[productKey] or 0) + 1
 	deps.DataService.push(player, "Purchases")
-	deps.Analytics.custom(player, Context.EventProductPurchased, def.PriceRobux, { product = productKey })
+	deps.Analytics.custom(player, "ProductPurchased", def.PriceRobux, deps.Analytics.fields(productKey))
 	log.info("%s received %s", player.Name, productKey)
 	return true
 end

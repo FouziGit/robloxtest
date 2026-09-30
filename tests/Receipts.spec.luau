@@ -1,11 +1,13 @@
 --!strict
--- A developer product receipt, run (tests/engine.luau): the real Receipts, BattlepassService and
--- CurrencyService, with the profile, its save and the player's toasts as the only fakes.
+-- A developer product receipt, run (tests/engine.luau): the real Receipts, BattlepassService, CurrencyService and
+-- AnalyticsService, with the profile, its save, the player's toasts and Roblox's analytics (tests/analytics.luau) as
+-- the only fakes.
 --
 -- The Robux are taken when the player confirms the dialog, and only PurchaseGranted settles a receipt:
 -- NotProcessedYet leaves it pending, and Roblox delivers it again at every join. A tier skip that found the
 -- pass at its last tier answered NotProcessedYet for ever (R2), and one bought between tiers 46 and 49 gave
 -- fewer tiers than it sold, without a word (R14).
+local Analytics = require("./analytics")
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
@@ -29,10 +31,14 @@ type Fixture = {
 	saves: number,
 	-- Product ids of every Roblox purchase dialog the server opened.
 	opened: { number },
+	-- What reached Roblox's analytics.
+	analytics: Analytics.Recorder,
 	-- The player presses a Robux button (the PromptPurchase remote).
 	ask: (productKey: string) -> (),
 	-- Roblox delivers the receipt of a confirmed dialog.
 	deliver: (productKey: string, purchaseId: string) -> any,
+	-- The dialog of `productKey` closes, bought or not.
+	finish: (productKey: string, bought: boolean) -> (),
 }
 
 local function profile(tier: number, xp: number): any
@@ -49,15 +55,14 @@ end
 
 local function setup(tier: number, xp: number?): Fixture
 	local opened: { number } = {}
-	local world = Engine.world({
-		Services = {
-			MarketplaceService = {
-				PromptProductPurchase = function(_self: any, _player: any, productId: number)
-					table.insert(opened, productId)
-				end,
-			},
-		},
-	})
+	local analytics = Analytics.recorder()
+	local services = table.clone(analytics.services)
+	services.MarketplaceService = {
+		PromptProductPurchase = function(_self: any, _player: any, productId: number)
+			table.insert(opened, productId)
+		end,
+	}
+	local world = Engine.world({ Services = services })
 	-- The ids ship at 0 until the Creator Dashboard fills them; this world's copy of the config gets its own.
 	local config = world.require("src/shared/Config/MonetizationConfig")
 	local keys: { string } = {}
@@ -76,7 +81,14 @@ local function setup(tier: number, xp: number?): Fixture
 	end
 
 	local data = profile(tier, xp or 0)
-	local fixture = { data = data, toasts = {} :: { Toast }, saves = 0, opened = opened, config = config } :: any
+	local fixture = {
+		data = data,
+		toasts = {} :: { Toast },
+		saves = 0,
+		opened = opened,
+		config = config,
+		analytics = analytics,
+	} :: any
 	local dataService = {
 		get = function(): any
 			return data
@@ -121,7 +133,7 @@ local function setup(tier: number, xp: number?): Fixture
 		Notify = notify,
 		Currency = currency,
 		Battlepass = battlepass,
-		Analytics = { economy = function() end, custom = function() end },
+		Analytics = world.require("src/server/Services/AnalyticsService"),
 	}
 	local receipts = world.require("src/server/Services/MonetizationService/Receipts")
 	receipts.Init(deps)
@@ -130,6 +142,10 @@ local function setup(tier: number, xp: number?): Fixture
 
 	fixture.ask = function(productKey: string)
 		purchases.prompt(player, "Product", productKey)
+	end
+
+	fixture.finish = function(productKey: string, bought: boolean)
+		purchases.onPurchaseFinished(USER_ID, config.Products[productKey].Id, bought)
 	end
 
 	fixture.deliver = function(productKey: string, purchaseId: string): any
@@ -282,6 +298,29 @@ describe("a Premium Pass receipt", function()
 		-- Once Premium, the dialog does not open again.
 		fixture.ask("PremiumPass")
 		expect(#fixture.opened).toBe(2)
+	end)
+end)
+
+describe("what the Creator Dashboard learns of a purchase (E8-S2)", function()
+	it("names the product in CustomField01 of the purchase, at its price in Robux", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		local sent = fixture.analytics:of("LogCustomEvent", "ProductPurchased")
+		expect(#sent).toBe(1)
+		expect(sent[1].Args[2]).toBe(MonetizationConfig.Products.FolioSmall.PriceRobux)
+		expect(sent[1].Args[3]).toEqual({ CustomField01 = "FolioSmall" })
+	end)
+
+	it("says of each closed dialog that it was a product, and which", function()
+		local fixture = setup(3, 0)
+		fixture.finish("XpBoost1h", true)
+		fixture.finish("TierSkip5", false)
+		local accepted = fixture.analytics:of("LogCustomEvent", "PromptAccepted")
+		local declined = fixture.analytics:of("LogCustomEvent", "PromptDeclined")
+		expect(#accepted).toBe(1)
+		expect(#declined).toBe(1)
+		expect(accepted[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "XpBoost1h" })
+		expect(declined[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "TierSkip5" })
 	end)
 end)
 

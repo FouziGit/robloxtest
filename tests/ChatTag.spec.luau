@@ -130,7 +130,12 @@ local function passes(data: any, pasted: boolean): (any, any)
 				return true
 			end,
 		},
-		Analytics = { custom = function() end },
+		Analytics = {
+			custom = function() end,
+			fields = function(): { [string]: string }
+				return {}
+			end,
+		},
 		Notify = { send = function() end },
 	})
 	local player = Engine.instance("Player", world.game:GetService("Players"))

@@ -6,6 +6,7 @@
 -- Most server gates read the services' source, because Lune has no engine. That cannot see an order of
 -- events: a session another server takes before this one sees the player go, a shutdown that removes the
 -- players a moment before it says so. Those are what this runs.
+local Analytics = require("./analytics")
 local Engine = require("./engine")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
@@ -24,6 +25,8 @@ export type World = {
 	-- What game:BindToClose was handed, run by close().
 	closers: { () -> () },
 	store: Store,
+	-- Everything the services told Roblox's analytics (tests/analytics.luau).
+	analytics: Analytics.Recorder,
 	require: (path: string) -> any,
 	join: (self: World, userId: number, name: string) -> any,
 	leave: (self: World, player: any) -> (),
@@ -190,6 +193,7 @@ function Server.world(options: Options?): World
 	local kicks: { { Player: any, Message: string } } = {}
 	local closers: { () -> () } = {}
 	local store = Server.profileStore()
+	local analytics = Analytics.recorder()
 
 	local players = Engine.instance("Players")
 	players.Name = "Players"
@@ -234,6 +238,9 @@ function Server.world(options: Options?): World
 	local engine = Engine.world({
 		Stubs = stubs,
 		Services = {
+			-- Roblox's analytics, and the GUIDs AnalyticsService numbers its funnel sessions with.
+			AnalyticsService = analytics.services.AnalyticsService,
+			HttpService = analytics.services.HttpService,
 			Players = players,
 			-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
 			CollectionService = {
@@ -264,6 +271,7 @@ function Server.world(options: Options?): World
 		kicks = kicks,
 		closers = closers,
 		store = store,
+		analytics = analytics,
 		require = engine.require,
 	}
 

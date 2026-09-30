@@ -7,6 +7,11 @@
 --
 -- Callers pass plain values (a flow type as "Source" / "Sink", a status as "Start" / "Complete" / …);
 -- the Roblox enums live here so no other service needs to know them.
+--
+-- A custom event carries its dimensions in the only three custom fields Roblox reads, CustomField01 to 03, as
+-- text: every caller builds them with `fields`, and `custom` refuses an event AnalyticsConfig does not name, or
+-- fields that are not exactly the ones its entry there declares. Refused, never sent: a key Roblox ignores
+-- would record the event with its dimensions silently gone.
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -18,6 +23,7 @@ local RobloxAnalytics = game:GetService("AnalyticsService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local AnalyticsConfig = require(script.Parent.Parent.Config.AnalyticsConfig)
 local Log = require(Shared.Util.Log)
 local TokenBucket = require(Shared.Util.TokenBucket)
 local Trove = require(Packages.Trove)
@@ -26,7 +32,9 @@ local log = Log.new("AnalyticsService")
 
 export type FlowType = "Source" | "Sink"
 export type ProgressionStatus = "Start" | "Complete" | "Fail" | "Custom"
-export type Fields = { [string]: any }
+-- Custom fields as Roblox reads them: CustomField01 to 03, each a string. Built by `fields`, never by hand.
+export type Fields = { [string]: string }
+export type FieldValue = string | number
 
 type Deps = {}
 
@@ -50,6 +58,8 @@ local sessions: { [Player]: string } = {}
 local failures = 0
 local disabledUntil = 0
 local warned = false
+-- Custom events already refused, by name: the refusal is logged once, the next ones are dropped quietly.
+local refused: { [string]: boolean } = {}
 
 ----------------------------------------------------------------
 -- Budget and transport
@@ -105,6 +115,37 @@ end
 
 local function isPositive(value: number): boolean
 	return value == value and value ~= math.huge and value > 0
+end
+
+local function isFinite(value: number): boolean
+	return value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- Why `eventName` with this value and these fields cannot be sent, or nil when it can: its name is in
+-- AnalyticsConfig.Events, and its fields are exactly the keys that entry declares, in order, each a string.
+local function refusal(eventName: string, value: number?, fields: Fields?): string?
+	local declared = AnalyticsConfig.Events[eventName]
+	if declared == nil then
+		return "not in AnalyticsConfig.Events"
+	end
+	if value ~= nil and not isFinite(value) then
+		return "invalid value " .. tostring(value)
+	end
+	local given = 0
+	for key, text in pairs(fields or {}) do
+		local index = table.find(AnalyticsConfig.FieldKeys, key)
+		if index == nil or index > #declared then
+			return "custom field " .. tostring(key) .. " is not one it declares"
+		end
+		if type(text) ~= "string" then
+			return "custom field " .. key .. " is not text"
+		end
+		given += 1
+	end
+	if given ~= #declared then
+		return ("%d custom field(s) given, %d declared"):format(given, #declared)
+	end
+	return nil
 end
 
 ----------------------------------------------------------------
@@ -164,14 +205,37 @@ function AnalyticsService.progression(player: Player, status: ProgressionStatus,
 	end)
 end
 
--- Anything that is not a currency movement, a funnel step or a level: prompts, match results, boss
--- kills, session length. `fields` values must be strings or numbers.
+-- The custom fields of one event, as Roblox reads them: `first` in CustomField01, then `second` and `third`,
+-- each written as text. Every custom event's fields are built here.
+function AnalyticsService.fields(first: FieldValue, second: FieldValue?, third: FieldValue?): Fields
+	local keys = AnalyticsConfig.FieldKeys
+	local fields: Fields = { [keys[1]] = tostring(first) }
+	if second ~= nil then
+		fields[keys[2]] = tostring(second)
+	end
+	if third ~= nil then
+		fields[keys[3]] = tostring(third)
+	end
+	return fields
+end
+
+-- Anything that is not a currency movement, a funnel step or a level: prompts, match results, boss fights,
+-- glyph balance. `eventName` is a name of AnalyticsConfig.Events and `fields` what `fields` built for it;
+-- anything else is refused (see the header). `value` defaults to 1, a count.
 function AnalyticsService.custom(player: Player, eventName: string, value: number?, fields: Fields?)
+	local problem = refusal(eventName, value, fields)
+	if problem ~= nil then
+		if not refused[eventName] then
+			refused[eventName] = true
+			log.warn("custom event %s dropped: %s", eventName, problem)
+		end
+		return
+	end
 	if not allow(player) then
 		return
 	end
 	send("LogCustomEvent " .. eventName, function()
-		RobloxAnalytics:LogCustomEvent(player, eventName, value, fields)
+		RobloxAnalytics:LogCustomEvent(player, eventName, value or 1, fields)
 	end)
 end
 

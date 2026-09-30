@@ -220,7 +220,7 @@ function Passes.onPurchaseFinished(player: Player, gamePassId: number, wasPurcha
 		return
 	end
 	if not wasPurchased then
-		deps.Analytics.custom(player, Context.EventPromptDeclined, nil, { pass = passKey })
+		deps.Analytics.custom(player, "PromptDeclined", nil, deps.Analytics.fields("Pass", passKey))
 		if not Sandbox.active() then
 			task.spawn(function()
 				log.try("pass recheck " .. passKey, recheck, player, passKey, pass)
@@ -232,10 +232,10 @@ function Passes.onPurchaseFinished(player: Player, gamePassId: number, wasPurcha
 		Sandbox.acknowledge(player, "pass " .. passKey, pass.NameKey)
 		return
 	end
-	deps.Analytics.custom(player, Context.EventPromptAccepted, nil, { pass = passKey })
+	deps.Analytics.custom(player, "PromptAccepted", nil, deps.Analytics.fields("Pass", passKey))
 	Passes.cache(player, passKey)
 	deps.Notify.send(player, "purchase.passGranted", { name = pass.NameKey }, "Success", Context.SfxSuccess)
-	deps.Analytics.custom(player, Context.EventPassPurchased, pass.PriceRobux, { pass = passKey })
+	deps.Analytics.custom(player, "PassPurchased", pass.PriceRobux, deps.Analytics.fields(passKey))
 	log.info("%s owns pass %s", player.Name, passKey)
 	task.spawn(function()
 		log.try("saveNow " .. player.Name, deps.DataService.saveNow, player)

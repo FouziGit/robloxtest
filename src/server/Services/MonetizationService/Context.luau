@@ -63,7 +63,10 @@ export type AnalyticsApi = {
 		category: string,
 		itemSku: string?
 	) -> (),
-	custom: (player: Player, eventName: string, value: number?, fields: { [string]: any }?) -> (),
+	-- CustomField01 to 03 of one event, as text (AnalyticsService.fields).
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	-- `eventName` is a name of AnalyticsConfig.Events, and `fields` what `fields` built for it.
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
 }
 export type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 export type Deps = {
@@ -86,11 +89,6 @@ Context.SfxError = "Error"
 Context.SfxTierUp = "TierUp"
 -- Roblox analytics transaction type name for a Robux purchase.
 Context.TransactionIap = "IAP"
--- Analytics event names: Creator Dashboard dimensions, never shown to a player.
-Context.EventPromptAccepted = "PromptAccepted"
-Context.EventPromptDeclined = "PromptDeclined"
-Context.EventProductPurchased = "ProductPurchased"
-Context.EventPassPurchased = "PassPurchased"
 
 function Context.seasonOf(data: ProfileData): Types.BattlepassSeasonData?
 	return data.Battlepass[GameConfig.SeasonId]

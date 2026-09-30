@@ -598,22 +598,30 @@ describe("the sticker", function()
 			assert(found ~= nil, "the button has no gloss: this gate would check nothing")
 			return found
 		end
-		-- A pill's: 10 in from its ends, 3 under its outline, over 38 % of its face, a pill itself.
+		-- The board measures its insets from inside the border, and its height as a share of what the border
+		-- encloses: the face, less the lip under it and the outline above and below.
+		local function enclosed(share: number, elevation: number): number
+			return -math.round(share * (elevation + stroke * 2))
+		end
+		-- A pill's: 10 in from its ends and 3 under its outline, both inside the ink, over 38 %, a pill itself.
 		local primary = Button.new({ Text = "Go", Variant = "Primary", Parent = world.playerGui })
 		local light = gloss(primary)
-		expect(light.Position.X.Offset).toBe(10)
+		expect(light.Position.X.Offset).toBe(stroke + 10)
 		expect(light.Position.Y.Offset).toBe(stroke + 3)
 		expect(light.Size.X.Scale).toBe(1)
-		expect(light.Size.X.Offset).toBe(-20)
+		expect(light.Size.X.Offset).toBe(-(stroke + 10) * 2)
 		expect(light.Size.Y.Scale).toBeCloseTo(0.38, 5)
+		expect(light.Size.Y.Offset).toBe(enclosed(0.38, 5))
 		expect(light:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
-		-- A tile's: 8 in from its sides, over 36 %, under a corner 4 tighter than the tile's.
+		-- A tile's (the board's `.4cqw .8cqw`, at the tile's 10 units a cqw): 8 in from its sides and 4 under its
+		-- outline, inside the ink, over 36 %, under a corner 4 tighter than the tile's.
 		local tile = Button.new({ Text = "Shop", Variant = "Tile", Chapter = "Shop", Parent = world.playerGui })
 		local tileLight = gloss(tile)
-		expect(tileLight.Position.X.Offset).toBe(8)
-		expect(tileLight.Position.Y.Offset).toBe(stroke + 3)
-		expect(tileLight.Size.X.Offset).toBe(-16)
+		expect(tileLight.Position.X.Offset).toBe(stroke + 8)
+		expect(tileLight.Position.Y.Offset).toBe(stroke + 4)
+		expect(tileLight.Size.X.Offset).toBe(-(stroke + 8) * 2)
 		expect(tileLight.Size.Y.Scale).toBeCloseTo(0.36, 5)
+		expect(tileLight.Size.Y.Offset).toBe(enclosed(0.36, 6))
 		expect(tileLight:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerTile - 4)
 		-- It rides a press and comes back to rest inside the ink.
 		local face = primary.Instance:FindFirstChild("Face")
@@ -623,7 +631,7 @@ describe("the sticker", function()
 		expect(face.Position.Y.Offset).toBeGreaterThan(0)
 		primary.Instance.MouseButton1Up:Fire()
 		world:advance(2)
-		expect(light.Position.X.Offset).toBeCloseTo(10, 3)
+		expect(light.Position.X.Offset).toBeCloseTo(stroke + 10, 3)
 		expect(light.Position.Y.Offset).toBeCloseTo(stroke + 3, 3)
 		-- Half the sheet at its top, fading out, as the board's `opacity: .5`.
 		expect(ThemeConfig.Gradients.Gloss.Transparency).toEqual({ { 0, 0.5 }, { 1, 1 } })

@@ -4,7 +4,8 @@
 --
 -- A chapter screen (D-147) also gets its backdrop here, the same one for every screen: the ink dim over the
 -- whole viewport, swallowing the clicks meant for the world, the chapter's colour washing out from the
--- centre, and three blots of it in the corners. And its entrance and its exit, which are the backdrop's and
+-- centre, and three blots of it in the corners -- save the Menu, whose ink would only darken the dim: its page
+-- warms at its corners instead, as the board's does. And its entrance and its exit, which are the backdrop's and
 -- the card's (SetCard): in, the dim and the colour come up as the card springs into place; out, the card
 -- fades as one piece while the dim lifts, and only then is the screen disabled. Nothing appears and nothing
 -- vanishes (docs/ART_BIBLE.md rule 3).
@@ -72,6 +73,20 @@ local CORNERS: { { Position: UDim2, Size: number, Rotation: number } } = {
 	{ Position = UDim2.fromScale(1, 1), Size = 420, Rotation = 24 },
 	{ Position = UDim2.fromScale(1, 0), Size = 220, Rotation = 7 },
 }
+-- A colour role at a transparency, for a layer of the backdrop.
+type Tint = { Role: string, Transparency: number }
+-- The chapters whose backdrop is not their own colour, by layer: the wash, and a blot by its place in CORNERS.
+-- The Menu's (the board's `.menu-bg`): the gold from the top-left and through the wash, the Tyrian purple from
+-- the bottom-right, each as strong as the board's (0x44 and 0x33 of 255).
+local WARMTH: { [string]: { Wash: Tint, Corners: { [number]: Tint } } } = {
+	Menu = {
+		Wash = { Role = "Primary", Transparency = 0.73 },
+		Corners = {
+			[1] = { Role = "Primary", Transparency = 0.73 },
+			[2] = { Role = "Epic", Transparency = 0.8 },
+		},
+	},
+}
 
 function ScreenRoot.new(props: Props): ScreenRoot
 	local trove = Trove.new()
@@ -134,6 +149,10 @@ function ScreenRoot.new(props: Props): ScreenRoot
 	local dim: Frame? = nil
 	local wash: ImageLabel? = nil
 	local corners: { GuiObject } = {}
+	-- Each blot's place in CORNERS, and how far each layer fades in for the chapter it is painted in.
+	local cornerPlaces: { [GuiObject]: number } = {}
+	local washTarget = WASH_TRANSPARENCY
+	local cornerTargets: { [GuiObject]: number } = {}
 
 	local function dimTarget(): number
 		return DIM * UiPrefs.transparency()
@@ -149,12 +168,17 @@ function ScreenRoot.new(props: Props): ScreenRoot
 
 	local function paint(chapter: string)
 		local color = Theme.chapter(chapter).Band
+		local warmth = WARMTH[chapter]
+		local washTint = if warmth ~= nil then warmth.Wash else nil
+		washTarget = if washTint ~= nil then washTint.Transparency else WASH_TRANSPARENCY
 		local image = wash
 		if image ~= nil then
-			image.ImageColor3 = color
+			image.ImageColor3 = if washTint ~= nil then Theme.color(washTint.Role) else color
 		end
 		for _, splat in ipairs(corners) do
-			Splat.tint(splat, color)
+			local tint = if warmth ~= nil then warmth.Corners[cornerPlaces[splat]] else nil
+			Splat.tint(splat, if tint ~= nil then Theme.color(tint.Role) else color)
+			cornerTargets[splat] = if tint ~= nil then tint.Transparency else CORNER_TRANSPARENCY
 		end
 	end
 
@@ -195,7 +219,7 @@ function ScreenRoot.new(props: Props): ScreenRoot
 			wash = image
 		end
 
-		for _, corner in ipairs(CORNERS) do
+		for place, corner in ipairs(CORNERS) do
 			local splat = Splat.new({
 				Size = UDim2.fromOffset(corner.Size, corner.Size),
 				Tint = Theme.Colors.Plate,
@@ -208,6 +232,7 @@ function ScreenRoot.new(props: Props): ScreenRoot
 			})
 			if splat ~= nil then
 				table.insert(corners, splat)
+				cornerPlaces[splat] = place
 			end
 		end
 		paint(chapter)
@@ -244,13 +269,13 @@ function ScreenRoot.new(props: Props): ScreenRoot
 			if entering then
 				Motion.set(image, { ImageTransparency = 1 })
 			end
-			Motion.to(image, { ImageTransparency = if entering then WASH_TRANSPARENCY else 1 }, "Ui")
+			Motion.to(image, { ImageTransparency = if entering then washTarget else 1 }, "Ui")
 		end
 		for _, splat in ipairs(corners) do
 			if entering then
 				Splat.fade(splat, 1)
 			end
-			Splat.fade(splat, if entering then CORNER_TRANSPARENCY else 1, "Ui")
+			Splat.fade(splat, if entering then cornerTargets[splat] or CORNER_TRANSPARENCY else 1, "Ui")
 		end
 	end
 

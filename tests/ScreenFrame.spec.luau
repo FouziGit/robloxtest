@@ -155,6 +155,58 @@ describe("the backdrop", function()
 		expect(string.find(root, "overlay.Active = true", 1, true)).never.toBeNil()
 	end)
 
+	it("warms the Menu's page at its corners, gold and purple, and every other chapter in its own colour", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ScreenRoot = world.require("src/ui/components/ScreenRoot")
+		local Theme = world.require("src/ui/Theme")
+		local function backdrop(chapter: string): (any, any, { [string]: any })
+			local root = ScreenRoot.new({ Name = chapter, Chapter = chapter, Parent = world.playerGui })
+			root:PlayEnter()
+			world:advance(2)
+			local frame = root.Instance:FindFirstChild("Backdrop")
+			local blots: { [string]: any } = {}
+			for _, child in ipairs(frame:GetChildren()) do
+				if child.Name == "Corner" then
+					blots[("%d,%d"):format(child.Position.X.Scale, child.Position.Y.Scale)] = child
+				end
+			end
+			return frame:FindFirstChild("Overlay"), frame:FindFirstChild("Wash"), blots
+		end
+		local function tint(blot: any): any
+			return if blot:IsA("ImageLabel") then blot.ImageColor3 else blot.BackgroundColor3
+		end
+		local function faded(blot: any): number
+			return if blot:IsA("ImageLabel") then blot.ImageTransparency else blot.BackgroundTransparency
+		end
+		-- The board's `.menu-bg`: the gold from the top-left (0x44 of 255) and through the wash, the purple from the
+		-- bottom-right (0x33), the ink dim kept.
+		local dim, wash, blots = backdrop("Menu")
+		assert(wash ~= nil and blots["0,0"] ~= nil and blots["1,1"] ~= nil, "the Menu has no wash or no blots")
+		expect(dim.BackgroundColor3).toBe(Theme.Colors.Overlay)
+		expect(dim.BackgroundTransparency).toBeCloseTo(0.35, 2)
+		expect(wash.ImageColor3).toBe(Theme.Colors.Primary)
+		expect(wash.ImageTransparency).toBeCloseTo(0.73, 2)
+		expect(tint(blots["0,0"])).toBe(Theme.Colors.Primary)
+		expect(faded(blots["0,0"])).toBeCloseTo(0.73, 2)
+		expect(tint(blots["1,1"])).toBe(Theme.Colors.Epic)
+		expect(faded(blots["1,1"])).toBeCloseTo(0.8, 2)
+		expect(tint(blots["1,0"])).toBe(Theme.Colors.Plate)
+		expect(faded(blots["1,0"])).toBeCloseTo(0.85, 2)
+		-- Every other chapter as before: its own colour through the wash and in every blot.
+		for chapter in pairs(ThemeConfig.Chapters) do
+			if chapter ~= "Menu" then
+				local _, otherWash, otherBlots = backdrop(chapter)
+				local band = Theme.chapter(chapter).Band
+				expect(otherWash.ImageColor3).toBe(band)
+				expect(otherWash.ImageTransparency).toBeCloseTo(0.72, 2)
+				for _, blot in pairs(otherBlots) do
+					expect(tint(blot)).toBe(band)
+					expect(faded(blot)).toBeCloseTo(0.85, 2)
+				end
+			end
+		end
+	end)
+
 	it("draws no corner blots on the lowest graphics tier", function()
 		expect(string.find(body(code(ROOT), "showCorners"), "local shown = not UiPrefs.lowQuality()", 1, true)).never.toBeNil()
 	end)

@@ -70,7 +70,7 @@ Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · 
 | Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
 | Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s ; **pigment Terre d'Ombre** (le mur est la moitié Ombre du §6), combo Indigo |
 | Indigo | I U | Volute | AoE | 25 | 6 | 24 | chargée 0,4 s dans la main (canalisation), puis plaquée sur le corps le plus proche devant soi : projeté, étourdi 0,4 s |
-| Indigo | I I I I | Cartouche | Ultime | 50 | 20 | 28 + 4 ×5 | cadre de rayon 16 autour de soi : un sceau qui brise la garde et étourdit 0,4 s, puis 5 ticks qui ralentissent 50 % |
+| Indigo | I I I I | Cartouche | Ultime | 50 | 20 | 28 + 4 ×5 | cadre de rayon 16 autour de soi : un sceau qui brise la garde et étourdit 0,4 s, puis 5 ticks qui ralentissent 50 % ; tant que le lanceur s'y tient, ses autres glyphes se rechargent deux fois plus vite (4 s gagnées au plus, D-XXXframe) |
 | Terre d'Ombre | U U | Empattement | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
 | Terre d'Ombre | U I | Pointillé | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
 | Terre d'Ombre | U V | Dorure | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
@@ -149,7 +149,7 @@ ou en position.
 | Rubrique (ligne chargée) | quitter la ligne tracée au sol | Marge l'arrête ; étourdir le lanceur rompt la charge, le repousser de plus de 6 studs la lui fait perdre | 0,7 s de charge, lanceur immobile |
 | Paraphe (vague au sol) | Marge l'arrête | sauter au bon moment (5 de haut), ruée latérale (12 de large) | environ 0,55 s pour traverser 41 studs |
 | Obèle (dans le dos) | ruée : ses i-frames font qu'il ne vous choisit pas | dos au mur (pas de place derrière) ; garde | recharge 10 s, aucun étourdissement |
-| Cartouche (ultime, sceau puis ticks) | Dorure préventive | sortir du cadre après le sceau ; étourdir le lanceur arrête les ticks | combo à 4 touches, 50 encre, 20 s |
+| Cartouche (ultime, sceau puis ticks) | Dorure préventive | sortir du cadre après le sceau ; étourdir le lanceur arrête les ticks et sa recharge accélérée ; le pousser hors de son cadre lui retire la seconde | combo à 4 touches, 50 encre, 20 s |
 | Gaufrage (souffle) | Dorure (immunité au knockback) | rester à plus de 13 studs | instantané, recharge 12 s |
 | Chaînette (ramène, enracine) | Marge l'arrête | ruée latérale ; Dorure (pas de traction) | projectile visible sur 32 studs |
 | Hachures (rafale canalisée) | ruée hors de la boîte (7 studs devant le lanceur) | garde | 1,36 s de rafale, seul le dernier trait projette |

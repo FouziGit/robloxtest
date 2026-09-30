@@ -401,6 +401,10 @@ export type Services = {
 	gains: { { Player: any, Amount: number, Reason: string } },
 	-- `source` lands `amount` of damage on `target`'s body, as CombatService.Damaged reports a hit.
 	hit: (source: any, target: any, amount: number) -> (),
+	-- The movement every service was given: applyFreeze holds a player as a stun does.
+	movement: any,
+	-- The players who hold their guard up, as CombatService.isBlocking answers.
+	guarding: { [any]: boolean },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
 	cast: (player: any, glyphId: string) -> boolean,
 }
@@ -454,6 +458,7 @@ function Server.services(options: Options?): Services
 		applySlow = function(_player: any, _key: string, _factor: number, _seconds: number) end,
 		command = function(_player: any, _payload: any) end,
 	}
+	local guarding: { [any]: boolean } = {}
 	local combat = {
 		Damaged = Engine.signal(),
 		Killed = Engine.signal(),
@@ -463,12 +468,16 @@ function Server.services(options: Options?): Services
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			return if root ~= nil then roblox.CFrame.new(root.Position) else nil
 		end,
+		trustedPosition = function(player: any): any
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			return if root ~= nil then root.Position else nil
+		end,
 		trySpendInk = function(_player: any, _cost: number): boolean
 			return true
 		end,
 		addInk = function(_player: any, _amount: number) end,
-		isBlocking = function(_player: any): boolean
-			return false
+		isBlocking = function(player: any): boolean
+			return guarding[player] == true
 		end,
 		isStunned = movement.isStunned,
 		isChanneling = function(_player: any): boolean
@@ -629,6 +638,8 @@ function Server.services(options: Options?): Services
 		notices = notices,
 		reports = reports,
 		gains = gains,
+		movement = movement,
+		guarding = guarding,
 		hit = function(source: any, target: any, amount: number)
 			combat.Damaged:Fire(source.UserId, target.Character, amount, "Glyph")
 		end,

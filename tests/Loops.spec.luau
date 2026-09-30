@@ -39,6 +39,7 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	},
 	["src/server/Services/MovementService.luau"] = { Count = 1, Why = "stuns, slows and freezes expiring" },
 	["src/server/Services/MatchService.luau"] = { Count = 1, Why = "match phases and snapshots" },
+	["src/server/Services/GlyphService.luau"] = { Count = 1, Why = "the Cartouche's frame hastening its caster" },
 	["src/server/Services/MatchmakingService.luau"] = { Count = 1, Why = "the queue scan" },
 	["src/server/Services/QuestService.luau"] = { Count = 1, Why = "period rollover" },
 	["src/server/Services/ShopService.luau"] = { Count = 1, Why = "the daily rotation" },

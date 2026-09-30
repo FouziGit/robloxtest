@@ -656,7 +656,7 @@ local function tickMatch(active: Active, now: number)
 		log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
 		active.Preparing = false
 	end
-	if not active.Finished and not active.Preparing then
+	if not active.Preparing then
 		-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
 		judgeFalls(active, now)
 		refresh(active)

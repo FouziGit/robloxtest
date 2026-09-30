@@ -761,7 +761,10 @@ describe("the kill zone, judged by the server", function()
 
 	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
 		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
-			"if not active.Finished and not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+			'assert(not active.Finished, "a finished match is still ticking")'
+		)
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
+			"if not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
 		)
 		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
 			'if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then cancel(active) end'

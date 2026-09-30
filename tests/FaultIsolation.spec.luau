@@ -311,18 +311,32 @@ local function duelist(players: any, name: string, userId: number): any
 	return player
 end
 
-describe("a match whose mode throws", function()
+type MatchWorld = {
+	world: any,
+	players: any,
+	MatchService: any,
+	GameModes: any,
+	released: { Arena },
+	releasedAt: { number },
+	sentHome: { any },
+	told: { [any]: string },
+	results: { number },
+	-- Set by a spec: what Registry.fire does besides nothing.
+	fire: (name: string, player: any, payload: any) -> (),
+}
+
+-- MatchService on the pretend engine, with every service it talks to faked and recorded.
+local function matchWorld(): MatchWorld
 	local players = fakePlayers()
 	local world = Engine.world({ Services = { Players = players } })
-	local released: { Arena } = {}
-	local releasedAt: number? = nil
-	local firstThrowAt: number? = nil
-	local sentHome: { any } = {}
-	local told: { [any]: string } = {}
-	local resultsApplied = 0
 	local slots = 0
+	local context: MatchWorld
 	local deps = {
-		Registry = { fire = function() end },
+		Registry = {
+			fire = function(name: string, player: any, payload: any)
+				context.fire(name, player, payload)
+			end,
+		},
 		DataService = {
 			get = function()
 				return nil
@@ -332,7 +346,7 @@ describe("a match whose mode throws", function()
 		},
 		Notify = {
 			send = function(player: any, key: string)
-				told[player] = key
+				context.told[player] = key
 			end,
 		},
 		Combat = {
@@ -352,7 +366,7 @@ describe("a match whose mode throws", function()
 		Currency = { add = function() end },
 		Hub = {
 			teleportToHub = function(player: any)
-				table.insert(sentHome, player)
+				table.insert(context.sentHome, player)
 			end,
 		},
 		Arena = {
@@ -361,8 +375,8 @@ describe("a match whose mode throws", function()
 				return newArena(world, slots)
 			end,
 			release = function(arena: Arena)
-				table.insert(released, arena)
-				releasedAt = releasedAt or world.now
+				table.insert(context.released, arena)
+				table.insert(context.releasedAt, world.now)
 			end,
 		},
 		Ranking = {
@@ -373,7 +387,7 @@ describe("a match whose mode throws", function()
 				return 1000
 			end,
 			applyResult = function()
-				resultsApplied += 1
+				table.insert(context.results, world.now)
 				return {}
 			end,
 			applyAbandon = function()
@@ -391,18 +405,36 @@ describe("a match whose mode throws", function()
 		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal() },
 	}
 	local MatchService = world.require("src/server/Services/MatchService")
-	local GameModes = world.require("src/server/GameModes")
+	context = {
+		world = world,
+		players = players,
+		MatchService = MatchService,
+		GameModes = world.require("src/server/GameModes"),
+		released = {},
+		releasedAt = {},
+		sentHome = {},
+		told = {},
+		results = {},
+		fire = function() end,
+	}
 	MatchService.Init(deps :: any)
 	MatchService.Start()
+	return context
+end
 
-	local a1, a2 = duelist(players, "HealthyA", 11), duelist(players, "HealthyB", 12)
-	local b1, b2 = duelist(players, "BrokenA", 21), duelist(players, "BrokenB", 22)
+describe("a match whose mode throws", function()
+	local m = matchWorld()
+	local world, MatchService = m.world, m.MatchService
+	local firstThrowAt: number? = nil
+
+	local a1, a2 = duelist(m.players, "HealthyA", 11), duelist(m.players, "HealthyB", 12)
+	local b1, b2 = duelist(m.players, "BrokenA", 21), duelist(m.players, "BrokenB", 22)
 	local healthy = MatchService.start("Duel1v1", { { 11 }, { 12 } })
 	local broken = MatchService.start("Duel1v1", { { 21 }, { 22 } })
 	assert(healthy ~= nil and broken ~= nil, "the spec could not start its two duels")
 
 	-- The mode's verdict breaks for one match only, from this tick on.
-	local duel = GameModes.get("Duel1v1")
+	local duel = m.GameModes.get("Duel1v1")
 	local verdict = duel.RoundVerdict
 	duel.RoundVerdict = function(match: any, now: number): any
 		if match.Id == broken then
@@ -417,24 +449,24 @@ describe("a match whose mode throws", function()
 	it("is cancelled within a second, and its arena released", function()
 		expect(MatchService.isInMatch(b1)).toBe(false)
 		expect(MatchService.isInMatch(b2)).toBe(false)
-		expect(#released).toBe(1)
-		expect(released[1].SlotIndex).toBe(2)
-		assert(firstThrowAt ~= nil and releasedAt ~= nil, "the broken match never threw, or was never released")
-		expect(releasedAt - firstThrowAt).toBeLessThanOrEqual(1)
+		expect(#m.released).toBe(1)
+		expect(m.released[1].SlotIndex).toBe(2)
+		assert(firstThrowAt ~= nil, "the broken match never threw")
+		expect(m.releasedAt[1] - firstThrowAt).toBeLessThanOrEqual(1)
 	end)
 
 	it("sends its players home, told why, with nothing applied", function()
-		expect(table.find(sentHome, b1)).never.toBeNil()
-		expect(table.find(sentHome, b2)).never.toBeNil()
-		expect(told[b1]).toBe("match.cancelled")
-		expect(told[b2]).toBe("match.cancelled")
-		expect(resultsApplied).toBe(0)
+		expect(table.find(m.sentHome, b1)).never.toBeNil()
+		expect(table.find(m.sentHome, b2)).never.toBeNil()
+		expect(m.told[b1]).toBe("match.cancelled")
+		expect(m.told[b2]).toBe("match.cancelled")
+		expect(#m.results).toBe(0)
 	end)
 
 	it("leaves the other match running", function()
 		expect(MatchService.isInMatch(a1)).toBe(true)
 		expect(MatchService.isInMatch(a2)).toBe(true)
-		expect(table.find(sentHome, a1)).toBeNil()
+		expect(table.find(m.sentHome, a1)).toBeNil()
 		-- Past its countdown, it plays.
 		world:advance(MatchConfig.Modes.Duel1v1.CountdownSeconds)
 		expect(MatchService.getMatch(a1).Phase).toBe("Playing")
@@ -443,6 +475,33 @@ describe("a match whose mode throws", function()
 	it("writes one warning, and says in its last line that it was cancelled", function()
 		expect(mentioning(world.warnings, broken)).toBe(1)
 		expect(mentioning(world.warnings, healthy)).toBe(0)
+	end)
+end)
+
+describe("a match whose end throws halfway", function()
+	it("is still released within a second, instead of ticking finished forever", function()
+		local m = matchWorld()
+		local stays, leaves = duelist(m.players, "Stays", 31), duelist(m.players, "Leaves", 32)
+		local id = m.MatchService.start("Duel1v1", { { 31 }, { 32 } })
+		assert(id ~= nil, "the spec could not start its duel")
+		-- Letting the winner go breaks: finish throws after it marked the match over and before it released it.
+		local endedAt: number? = nil
+		m.fire = function(name: string, player: any, payload: any)
+			if name == "MatchChanged" and payload == nil and player == stays then
+				endedAt = endedAt or m.world.now
+				error("the result screen could not be closed")
+			end
+		end
+		-- One side walks out: a forfeit, then the result screen, then the end.
+		m.world:advance(1)
+		leaves.Parent = nil
+		m.players.PlayerRemoving:Fire(leaves)
+		m.world:advance(1 + MatchConfig.Modes.Duel1v1.ResultSeconds + 1)
+		assert(endedAt ~= nil, "the match never reached its end")
+		expect(#m.results).toBe(1)
+		expect(#m.released).toBe(1)
+		expect(m.releasedAt[1] - endedAt).toBeLessThanOrEqual(1)
+		expect(m.MatchService.isInMatch(stays)).toBe(false)
 	end)
 end)
 

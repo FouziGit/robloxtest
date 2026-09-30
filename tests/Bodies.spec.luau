@@ -173,6 +173,33 @@ describe("a body whose Humanoid was taken away", function()
 		expect(#s.strikes).toBe(1)
 	end)
 
+	it("is replaced when its Humanoid comes back between the half second and the next tick", function()
+		-- The service looks once a tick: a Humanoid given back in the gap between the half second and that tick did
+		-- not come back in time. Every phase of the detach against the tick, a 240th of a second apart.
+		local FRAME = 1 / 240
+		local late = 0
+		for offset = 0, math.round(TICK / FRAME) - 1 do
+			local s = ServerWorld.start()
+			s.world:advance(offset * FRAME, FRAME)
+			local humanoid = s.humanoid
+			humanoid.Parent = nil
+			local at = s.world.now
+			while s.world.now - at <= RETURN + 1e-9 do
+				s.world:advance(FRAME, FRAME)
+			end
+			if #s.loads == 0 then
+				late += 1
+				humanoid.Parent = s.character
+			end
+			s.world:advance(2)
+			expect(#s.loads).toBe(1)
+			expect(#s.strikes).toBe(1)
+			expect(#s.lost).toBe(1)
+		end
+		-- A sweep that never fell in the gap would check nothing.
+		expect(late).toBeGreaterThan(0)
+	end)
+
 	it("leaves a normal death, and a body the server replaces, to the engine", function()
 		local s = ServerWorld.start()
 		s.humanoid.Health = 0

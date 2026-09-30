@@ -295,7 +295,9 @@ local function onCharacterAdded(player: Player, character: Model)
 	-- Same guard as CombatService: a Humanoid the owning client detached from its character must not
 	-- keep receiving WalkSpeed / JumpPower and status writes through the cached reference. A live one that
 	-- leaves is timed away (respawnLost); given back, the body is held as before, and its time away is kept:
-	-- a client that took it out and put it back over and over would otherwise never be replaced.
+	-- a client that took it out and put it back over and over would otherwise never be replaced. Given back once
+	-- that time has run out, it came back too late: it stays away, and the next tick replaces the body, where a
+	-- Humanoid returned between the half second and that tick was taken back with no strike.
 	local function onHumanoidDetached()
 		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
 			return
@@ -304,6 +306,9 @@ local function onCharacterAdded(player: Player, character: Model)
 		local lost = state.Lost
 		if humanoid.Parent == character then
 			if lost ~= nil and lost.Character == character and lost.Since ~= nil then
+				if lost.Away + now - lost.Since >= GameConfig.Spawn.HumanoidReturnSeconds then
+					return
+				end
 				lost.Away += now - lost.Since
 				lost.Since = nil
 				state.Humanoid = humanoid

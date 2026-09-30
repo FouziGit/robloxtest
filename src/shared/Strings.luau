@@ -798,6 +798,60 @@ Strings.Table = {
 	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Récupère ta récompense du jour" },
 } :: { [string]: Entry }
 
+-- The placeholders that carry an amount of Folios or XP: an integer given to one of them is grouped by thousands
+-- in the player's language (Strings.number). Ratings, ranks, levels, counts, seconds and health are not amounts
+-- and are never grouped. {needed} is also queue.waiting's count of players, which never reaches a thousand. A
+-- price ({price}) is not grouped yet: a Today card's row holds its two prices with no room for the separator
+-- (tests/ShopEquip.spec.luau measures it).
+Strings.Quantities = {
+	xp = true,
+	needed = true,
+	folios = true,
+	amount = true,
+	before = true,
+	after = true,
+} :: { [string]: boolean }
+
+-- The mark between two groups of three digits: a narrow no-break space in French, a comma in English.
+local GROUP_SEPARATORS: { [string]: string } = { en = ",", fr = "\u{202F}" }
+local GROUP = 3
+
+-- `n` with its digits grouped by three for `locale` ("3 120" in French, "3,120" in English), the sign kept. A
+-- number under a thousand, or one that is not a whole number, reads exactly as tostring gives it.
+function Strings.number(n: number, locale: string?): string
+	if math.abs(n) < 1000 or n ~= math.floor(n) or math.abs(n) == math.huge then
+		return tostring(n)
+	end
+	local separator = GROUP_SEPARATORS[locale or Strings.DefaultLocale] or GROUP_SEPARATORS[Strings.DefaultLocale]
+	local digits = string.format("%.0f", math.abs(n))
+	local head = #digits % GROUP
+	local groups: { string } = {}
+	if head > 0 then
+		table.insert(groups, string.sub(digits, 1, head))
+	end
+	for start = head + 1, #digits, GROUP do
+		table.insert(groups, string.sub(digits, start, start + GROUP - 1))
+	end
+	local grouped = table.concat(groups, separator)
+	return if n < 0 then "-" .. grouped else grouped
+end
+
+-- `params` with every number given to a quantity grouped for `locale`; the table itself when it holds none.
+local function withAmounts(params: { [string]: any }?, locale: string): { [string]: any }?
+	if params == nil then
+		return nil
+	end
+	local amounts: { [string]: any }? = nil
+	for name, value in pairs(params) do
+		if Strings.Quantities[name] and type(value) == "number" then
+			local copy = amounts or table.clone(params)
+			copy[name] = Strings.number(value, locale)
+			amounts = copy
+		end
+	end
+	return amounts or params
+end
+
 -- Substitutes {name} placeholders. Missing params are left as-is.
 function Strings.format(template: string, params: { [string]: any }?): string
 	if params == nil then
@@ -813,7 +867,8 @@ function Strings.format(template: string, params: { [string]: any }?): string
 	return result
 end
 
--- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible).
+-- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
+-- amount of Folios, XP or Robux is grouped by thousands the way the locale writes it (Strings.Quantities).
 function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
 	local entry = Strings.Table[key]
 	if entry == nil then
@@ -824,7 +879,7 @@ function Strings.t(key: string, params: { [string]: any }?, locale: string?): st
 	if type(template) ~= "string" then
 		template = entry.en
 	end
-	return Strings.format(template, params)
+	return Strings.format(template, withAmounts(params, chosen))
 end
 
 function Strings.has(key: string): boolean

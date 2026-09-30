@@ -12,6 +12,10 @@ export type ProductDef = {
 	Amount: number?, -- Folios amount / tiers
 	Minutes: number?, -- XpBoost
 	Rarity: string?, -- Cosmetic
+	-- Folios paid for each unit a receipt can no longer deliver when it lands (a tier past the last one, for a
+	-- TierSkip): the Robux are already taken, so the receipt is settled in Folios rather than refused (D-202).
+	-- At least what the same Robux buy in FolioSmall, the dearest rate (tests/Receipts.spec.luau).
+	CompensationFolios: number?,
 	NameKey: string,
 	DescKey: string,
 }
@@ -75,6 +79,7 @@ MonetizationConfig.Products = {
 		PriceRobux = 149,
 		Kind = "TierSkip",
 		Amount = 5,
+		CompensationFolios = 310, -- per tier past the last one: 149 R$ / 5 ≈ 30 R$ ≈ 301 Folios at FolioSmall's rate
 		NameKey = "product.tierSkip5",
 		DescKey = "product.tierSkip5.desc",
 	},

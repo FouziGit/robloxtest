@@ -338,7 +338,7 @@ product.folios.desc,Folios to spend in the cosmetic shop.,Vellum,,Folios to spen
 product.premiumPass,Premium Battle Pass,Vellum,,Premium Battle Pass,Battle Pass Premium
 product.premiumPass.desc,Unlock the premium track of the current volume.,Vellum,,Unlock the premium track of the current volume.,Débloque la piste premium du volume en cours.
 product.tierSkip5,+5 Tiers,Vellum,,+5 Tiers,+5 paliers
-product.tierSkip5.desc,Advance five battle pass tiers.,Vellum,,Advance five battle pass tiers.,Avance de cinq paliers du battle pass.
+product.tierSkip5.desc,Five battle pass tiers; any past the last one are paid in Folios.,Vellum,,Five battle pass tiers; any past the last one are paid in Folios.,Cinq paliers du battle pass ; ceux au-delà du dernier sont payés en Folios.
 product.xpBoost1h,XP Boost (1 h),Vellum,,XP Boost (1 h),Boost d'XP (1 h)
 product.xpBoost1h.desc,Double XP for one hour.,Vellum,,Double XP for one hour.,XP doublée pendant une heure.
 purchase.alreadyOwned,You already own this.,Vellum,,You already own this.,Tu possèdes déjà cet article.
@@ -349,6 +349,7 @@ purchase.grantedFoliosInstead,You own every item of that rarity: +{amount} Folio
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
+purchase.tiersPastLast,Past the last tier: +{amount} Folios instead,Vellum,,Past the last tier: +{amount} Folios instead,Au-delà du dernier palier : +{amount} Folios à la place
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
 quality.high,High,Vellum,,High,Élevée
 quality.low,Low,Vellum,,Low,Basse

@@ -412,8 +412,8 @@ Strings.Table = {
 	},
 	["product.tierSkip5"] = { en = "+5 Tiers", fr = "+5 paliers" },
 	["product.tierSkip5.desc"] = {
-		en = "Advance five battle pass tiers.",
-		fr = "Avance de cinq paliers du battle pass.",
+		en = "Five battle pass tiers; any past the last one are paid in Folios.",
+		fr = "Cinq paliers du battle pass ; ceux au-delà du dernier sont payés en Folios.",
 	},
 	["product.xpBoost1h"] = { en = "XP Boost (1 h)", fr = "Boost d'XP (1 h)" },
 	["product.xpBoost1h.desc"] = { en = "Double XP for one hour.", fr = "XP doublée pendant une heure." },
@@ -629,6 +629,10 @@ Strings.Table = {
 		fr = "Boost d'XP actif pendant {minutes} min",
 	},
 	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	["purchase.tiersPastLast"] = {
+		en = "Past the last tier: +{amount} Folios instead",
+		fr = "Au-delà du dernier palier : +{amount} Folios à la place",
+	},
 
 	-- Enemies
 

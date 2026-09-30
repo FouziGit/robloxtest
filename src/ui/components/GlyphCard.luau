@@ -3,7 +3,8 @@
 -- that pigment across the top holding its name and its sigil. Under the band, its recipe as the player
 -- presses it: the keys they bound (each keycap carries the strip of the pigment it presses), the D-pad
 -- arrows on a gamepad, or small pigment discs on a phone. Then what it costs and does, with icons -- a hit
--- mark for its damage, a drop for its ink, a clock for its cooldown -- one line of its lore, and the action.
+-- mark for the damage of its whole cast, a drop for its ink, a clock for its cooldown -- one line of its lore,
+-- and the action.
 --
 --   Available  the chapter's Equip
 --   Equipped   a thicker ink ring, a green check seal on the corner, and Unequip on the sheet (never red:
@@ -270,8 +271,9 @@ function GlyphCard.new(props: Props): GlyphCard
 
 	local recipe = bodyRow("Recipe", RECIPE_HEIGHT, 1, KEY_GAP, body)
 	local stats = bodyRow("Stats", STAT_HEIGHT, 2, INSET, body)
-	-- A hit mark, not ✦: that is the Orpiment's sigil.
-	stat(stats, "Cross", nil, tostring(def.Damage), 1)
+	-- A hit mark, not ✦: that is the Orpiment's sigil. The whole cast's damage, every tick and stroke of it: a
+	-- zone read as one tick of it, and the Cartouche as its seal alone (28 of 48).
+	stat(stats, "Cross", nil, tostring(GlyphConfig.castDamage(def)), 1)
 	stat(stats, "Drop", Theme.Colors.Info, tostring(def.Cost), 2)
 	stat(stats, "Clock", nil, t("common.seconds", { seconds = def.Cooldown }), 3)
 	local lore = textLabel("Lore", Theme.Fonts.Lore, LORE_SIZE, Theme.Colors.TextMuted, 3)

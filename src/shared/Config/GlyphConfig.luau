@@ -660,6 +660,20 @@ function GlyphConfig.isUtility(id: string): boolean
 	return def ~= nil and def.Damage <= 0
 end
 
+-- What one body takes from a whole cast, which is what the loadout card shows: one hit for most glyphs, every
+-- tick of a zone and every stroke of a rush (Params.Ticks, capped by MaxHitsPerTarget for a trail a body crosses
+-- twice at most), and for an ultimate that opens with a hit and ticks after it (Params.TickDamage, D-140) that hit
+-- plus its ticks -- the Cartouche's 48, not its seal's 28. tests/Config.spec.luau counts a cast the same way, on
+-- its own, for the damage budgets.
+function GlyphConfig.castDamage(def: GlyphDef): number
+	local params = def.Params
+	local tickDamage = params.TickDamage
+	if tickDamage ~= nil then
+		return def.Damage + tickDamage * (params.Ticks or 0)
+	end
+	return def.Damage * (params.MaxHitsPerTarget or params.Ticks or 1)
+end
+
 function GlyphConfig.recipes(): { { Id: string, Combo: { string } } }
 	local recipes = {}
 	for _, glyph in ipairs(GlyphConfig.Glyphs) do

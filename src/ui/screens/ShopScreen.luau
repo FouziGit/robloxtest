@@ -33,6 +33,7 @@ local Purchase = require(script.Parent.shop.Purchase)
 local RarityBand = require(script.Parent.Parent.components.RarityBand)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Shelves = require(script.Parent.shop.Shelves)
+local Shimmer = require(script.Parent.Parent.components.Shimmer)
 local ShopConfig = require(Shared.Config.ShopConfig)
 local ShopRotation = require(Shared.Pure.ShopRotation)
 local Sticker = require(script.Parent.Parent.components.Sticker)
@@ -99,6 +100,8 @@ local NAME_SIZE = 20
 local NAME_ROW = NAME_SIZE + 6
 local NAME_ROW_TOUCH = 22
 local MIN_SCALED_TEXT = 14
+-- A Legendary's shine lies over everything on its face: the band, the preview and the prices.
+local SHINE_Z = 5
 local LINE_HEIGHT = 32
 local CLOCK_SIZE = 22
 local PILL_HEIGHT = 40
@@ -526,6 +529,11 @@ function ShopScreen.new(deps: Deps): Screen
 			end,
 		})
 		own(pageTrove, action)
+
+		-- Full gold leaf: the sweep of light across the whole card, whose prices still take the clicks under it.
+		if Theme.rarity(entry.Rarity).Shimmer then
+			own(pageTrove, Shimmer.new(face, UDim.new(0, Theme.Sizes.CornerCard), SHINE_Z))
+		end
 
 		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }
 		return card

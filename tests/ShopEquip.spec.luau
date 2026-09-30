@@ -11,6 +11,7 @@ local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local ShopConfig = require("../src/shared/Config/ShopConfig")
 local Strings = require("../src/shared/Strings")
+local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -387,6 +388,56 @@ describe("a Today card, run", function()
 			expect(body:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(Theme.Sizes.PaddingSmall)
 			expect(body:FindFirstChild("Name").Size.Y.Offset).toBe(26)
 		end
+	end)
+end)
+
+describe("a Legendary card, run", function()
+	it("shimmers across its whole face, over its prices, which still take the clicks", function()
+		local screen, faces, world = todayCards()
+		local Theme = world.require("src/ui/Theme")
+		local shine = faces[LEGENDARY]:FindFirstChild("Shine")
+		assert(shine ~= nil, "the Legendary card does not shimmer")
+		expect(faces[ITEM]:FindFirstChild("Shine", true)).toBeNil()
+		-- The face's own size and corner, above everything else on it.
+		expect(shine.Size.X.Scale).toBe(1)
+		expect(shine.Size.Y.Scale).toBe(1)
+		expect(shine:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerCard)
+		for _, sibling in ipairs(faces[LEGENDARY]:GetChildren()) do
+			if sibling ~= shine and sibling:IsA("GuiObject") then
+				expect(shine.ZIndex).toBeGreaterThan(sibling.ZIndex)
+			end
+		end
+		-- It sweeps, a pause between two sweeps.
+		local gradient = shine:FindFirstChildOfClass("UIGradient")
+		local moved = 0
+		local last = gradient.Offset
+		for _ = 1, 5 * 60 do
+			world:frames(1)
+			if gradient.Offset ~= last then
+				moved += 1
+				last = gradient.Offset
+			end
+		end
+		expect(moved).toBeGreaterThan(10)
+		-- The price under it asks, as on any card.
+		expect(shine.Interactable).toBe(false)
+		expect(shine.Active).toBe(false)
+		local price = buttonUnder(faces[LEGENDARY], "shop.buyFolios")
+		assert(price ~= nil, "the Legendary card has no price")
+		price.Activated:Fire()
+		expect(screen.Instance:FindFirstChild("ConfirmSheet", true)).never.toBeNil()
+	end)
+
+	it("keeps the Shop within the animated gradients a screen may sweep", function()
+		expect(ShopConfig.Rotation.Legendary).toBeLessThanOrEqual(ThemeConfig.Budget.MaxAnimatedGradients)
+		local screen = todayCards()
+		local shines = 0
+		for _, part in ipairs(screen.Instance:GetDescendants()) do
+			if part.Name == "Shine" then
+				shines += 1
+			end
+		end
+		expect(shines).toBe(1)
 	end)
 end)
 

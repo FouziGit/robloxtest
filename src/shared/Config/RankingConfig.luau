@@ -40,6 +40,9 @@ RankingConfig.Leaderboard = {
 	-- scan never meets it because MinWriteIntervalSeconds is longer; the forced flush when a player leaves
 	-- does, and waits it out rather than burning its retries on a throttled call.
 	KeyCooldownSeconds = 6,
+	-- Usernames the boards remember (LeaderboardService, least recently used let go first): a long-lived server
+	-- sees far more ids across its boards and its players than it ever shows at once.
+	NameCacheSize = 500,
 }
 
 -- End-of-season rewards by tier reached (Folios + cosmetic title id).

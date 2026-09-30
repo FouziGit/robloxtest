@@ -64,6 +64,7 @@ local function template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			PracticeLastPaidAt = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
@@ -274,7 +275,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(8)
+		expect(#service).toBe(9)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)

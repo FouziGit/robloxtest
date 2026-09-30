@@ -84,6 +84,8 @@ type RankingApi = {
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
+	hold: (matchId: string, modeId: string, players: { Player }) -> (),
+	release: (matchId: string) -> (),
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, count: number) -> ()) -> any }
@@ -922,6 +924,15 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
+	end)
+	-- RankingService remembers the roster's ratings for as long as the match can be scored, and not a tick longer.
+	local roster: { Player } = {}
+	for _, participant in ipairs(participants) do
+		table.insert(roster, participant.Player)
+	end
+	log.try("Ranking.hold " .. match.Id, ranking.hold, match.Id, def.Id, roster)
+	trove:Add(function()
+		log.try("Ranking.release " .. match.Id, ranking.release, match.Id)
 	end)
 	trove:Connect(arena.KillZone.Touched, function(part: BasePart)
 		onKillZoneTouched(active, part)

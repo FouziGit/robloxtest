@@ -379,6 +379,8 @@ describe("a match whose mode throws", function()
 			applyAbandon = function()
 				return nil
 			end,
+			hold = function() end,
+			release = function() end,
 		},
 		Quest = { report = function() end },
 		Daily = {

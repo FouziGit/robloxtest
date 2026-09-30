@@ -16,11 +16,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
-local BattlegroundLayout = require(Shared.Pure.BattlegroundLayout)
-local BotBrain = require(Shared.Pure.BotBrain)
+local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.BattlegroundLayout)
+local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
 local Map = require(script.Parent.Map)
+local Teleport = require(script.Parent.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
@@ -94,19 +95,13 @@ function Roster.nextLanding(): Vector3
 	return handle.Arrivals[nextArrival].Position
 end
 
--- Puts the character down on `landing`, facing into the page, with its velocity cleared -- and re-anchors the
--- position CombatService trusts on that point. Without the resync the move reads as a 1500-stud teleport and
--- the player acts from the hub for half a minute; with the client's next report instead of `landing`, trust
--- would follow whatever the client says.
+-- Puts the character down on `landing` now, facing into the page (Teleport.place): its velocity cleared, and the
+-- position CombatService trusts re-anchored on that point. Without the resync the move reads as a 1500-stud
+-- teleport and the player acts from the hub for half a minute. Every caller has had the camp streamed in around
+-- `landing` first (Teleport.streamAround) and asked again what that wait may have changed.
 function Roster.place(player: Player, character: Model, landing: Vector3)
 	local center = Context.Origin
-	character:PivotTo(CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))
-	local root = character.PrimaryPart
-	if root ~= nil then
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-	end
-	deps.Combat.resyncPosition(player, landing)
+	Teleport.place(deps.Combat, player, character, CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))
 end
 
 -- Lets go of a member now and tells them. Nothing for a player who is not one.
@@ -136,6 +131,15 @@ local function onDied(member: Member)
 	members[player] = nil
 	memberCount -= 1
 	member.Trove:Destroy()
+end
+
+-- A member whose body MovementService is replacing because its client took the Humanoid away (BodyLost, D-216):
+-- a death inside, so the camp takes the new body back. Nothing for a player who is not a member.
+function Roster.lost(player: Player)
+	local member = members[player]
+	if member ~= nil then
+		onDied(member)
+	end
 end
 
 -- Makes `player` a member standing on `landing`, bound to this `character` (replacing any membership they
@@ -180,6 +184,9 @@ end
 -- the meantime belongs to no one.
 local function redirect(player: Player, character: Model, defeated: number)
 	character:WaitForChild(Context.RootPartName, Context.RootWaitSeconds)
+	-- The new body stands on the hub, 1500 studs away: the camp streams in around its landing first.
+	local landing = Roster.nextLanding()
+	Teleport.streamAround(player, landing)
 	if
 		player.Character ~= character
 		or deps.Match.isInMatch(player)
@@ -190,7 +197,6 @@ local function redirect(player: Player, character: Model, defeated: number)
 		tell(player, nil)
 		return
 	end
-	local landing = Roster.nextLanding()
 	Roster.place(player, character, landing)
 	Roster.pushSnapshot(Roster.admit(player, character, landing, os.clock(), defeated))
 end

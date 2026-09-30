@@ -25,7 +25,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
-local MatchmakingCore = require(Shared.Pure.MatchmakingCore)
+local MatchmakingCore = require(script.Parent.Parent.Pure.MatchmakingCore)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Types = require(Shared.Types)
 

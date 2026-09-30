@@ -4,9 +4,9 @@ local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
-local MovementGuard = require("../src/shared/Pure/MovementGuard")
+local MovementGuard = require("../src/server/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
-local OriginGuard = require("../src/shared/Pure/OriginGuard")
+local OriginGuard = require("../src/server/Pure/OriginGuard")
 local Sim = require("./movementsim")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -556,6 +556,131 @@ describe("a server grant's window", function()
 		expect(dashThenSwing(0.4, 0.5)).toBe(1)
 		expect(dashThenSwing(0.5, 0.5)).toBe(1)
 		expect(dashThenSwing(0.1, 0.5)).toBe(0)
+	end)
+end)
+
+-- The origin a loop the server runs asks for: a charge's release, the Scorch's ticks, a Stitch's pull, the
+-- Hatching's strokes (CombatService.currentOrigin). The player chose the cast, which is judged as an action; the
+-- server chose when its loop asks again, and those asks are judged as the per-tick sampling is.
+describe("a server loop's origin through a network freeze", function()
+	local scorch = GlyphConfig.ById.Scorch.Params
+	local hatching = GlyphConfig.ById.Hatching.Params
+	-- When each loop asks, in seconds after its cast: the Scorch's ticks and the Hatching's strokes on their beat.
+	local LOOPS: { [string]: { number } } = { Scorch = {}, Hatching = {} }
+	for k = 1, scorch.Ticks do
+		LOOPS.Scorch[k] = (k - 1) * scorch.TickInterval
+	end
+	for k = 1, hatching.Ticks do
+		LOOPS.Hatching[k] = (k - 1) * hatching.TickInterval
+	end
+	-- What the client sent through a freeze reaches the server after it, in order and faster than it was sent: this
+	-- many packets a tick until the backlog is gone, or all of it at once (math.huge, the plain catch-up).
+	local REPLAYS = { 2, 4, 8, math.huge }
+	local FREEZES = { 1.2, 2, 3, 5, 8 }
+	local FREEZE_AT = 2
+	-- Casts from a second before the freeze to this long after it: the longest backlog is still coming in.
+	local AFTER_SECONDS = 4
+
+	-- A walker at WalkSpeed casting at `castAt` a loop that asks at `asks`, its uplink silent from FREEZE_AT for
+	-- `freeze` s and then replayed `replay` packets a tick. The asks are judged as actions when `asActions`, as
+	-- trustedOrigin judged them. Returns the Origin strikes and the violations counted.
+	local function channel(
+		asks: { number },
+		castAt: number,
+		freeze: number,
+		replay: number,
+		asActions: boolean
+	): (number, number)
+		local STEPS = 240
+		local LATENCY = 0.05
+		local anchor = newAnchor()
+		local seen = 0
+		local queue: { number } = {}
+		local inFlight: { { number } } = {}
+		local nextAsk = 1
+		for step = 1, math.round((castAt + asks[#asks] + 1) * STEPS) do
+			local now = step / STEPS
+			local onTick = step % (STEPS / RATE) == 0
+			if onTick then
+				table.insert(queue, WALK * now)
+				local frozen = now >= FREEZE_AT and now < FREEZE_AT + freeze
+				local drain = if frozen then 0 elseif #queue > 1 then replay else 1
+				local sent = 0
+				while #queue > 0 and sent < drain do
+					table.insert(inFlight, { now + LATENCY, table.remove(queue, 1) })
+					sent += 1
+				end
+			end
+			while #inFlight > 0 and inFlight[1][1] <= now + 1e-9 do
+				seen = table.remove(inFlight, 1)[2]
+			end
+			if onTick then
+				judgeAt(anchor, seen, now, false)
+			end
+			if nextAsk <= #asks and now >= castAt + asks[nextAsk] then
+				judgeAt(anchor, seen, now, asActions)
+				nextAsk += 1
+			end
+		end
+		return anchor.Strikes, anchor.Refusals
+	end
+
+	-- The most strikes and violations one cast of `glyph` took, over every freeze, every backlog and every cast from a
+	-- second before the freeze to AFTER_SECONDS after it, a tenth apart.
+	local function worst(glyph: string, asActions: boolean): (number, number)
+		local strikes, counted = 0, 0
+		for _, freeze in ipairs(FREEZES) do
+			for _, replay in ipairs(REPLAYS) do
+				for tenth = -10, math.round((freeze + AFTER_SECONDS) * 10) do
+					local s, c = channel(LOOPS[glyph], FREEZE_AT + tenth / 10, freeze, replay, asActions)
+					strikes, counted = math.max(strikes, s), math.max(counted, c)
+				end
+			end
+		end
+		return strikes, counted
+	end
+
+	it(
+		"costs no Origin strike and counts no violation, whatever the freeze and however its backlog comes in",
+		function()
+			for glyph in pairs(LOOPS) do
+				local strikes, counted = worst(glyph, false)
+				expect(strikes).toBe(0)
+				expect(counted).toBe(0)
+			end
+		end
+	)
+
+	it("struck when the loop was judged as the player's action", function()
+		-- The wiring before: a backlog replayed faster than the chase, once the freeze had stopped counting as one,
+		-- and three asks of one channel were a strike. A Scorch after an 8-second freeze was enough.
+		for glyph in pairs(LOOPS) do
+			local strikes = worst(glyph, true)
+			expect(strikes).toBeGreaterThanOrEqual(1)
+		end
+	end)
+
+	it("still strikes a cast whose origin was forged", function()
+		-- A client that puts its root on a victim 60 studs away for the instant it casts, three times in ten seconds:
+		-- the cast is an action, judged by trustedOrigin, and nothing a loop does forgives it.
+		local anchor = newAnchor()
+		local casts = { 1, 4, 7 }
+		for tick = 1, 10 * RATE do
+			local now = tick * TICK
+			local forged = false
+			for _, at in ipairs(casts) do
+				if math.abs(now - at) < TICK / 2 then
+					forged = true
+				end
+			end
+			local x = WALK * now
+			judgeAt(anchor, if forged then x + 60 else x, now, false)
+			if forged then
+				judgeAt(anchor, x + 60, now + TICK / 4, true)
+			end
+		end
+		expect(anchor.Refusals).toBe(#casts)
+		expect(anchor.Strikes).toBe(1)
 	end)
 end)
 

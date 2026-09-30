@@ -17,15 +17,15 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local ChannelHold = require(Shared.Pure.ChannelHold)
+local ChannelHold = require(script.Parent.Parent.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local DamageZones = require(script.Parent.Parent.Pure.DamageZones)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MovementAudit = require(script.Parent.Parent.Security.MovementAudit)
-local MovementGuard = require(Shared.Pure.MovementGuard)
+local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
-local OriginGuard = require(Shared.Pure.OriginGuard)
+local OriginGuard = require(script.Parent.Parent.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
@@ -33,6 +33,8 @@ local Types = require(Shared.Types)
 local ZoneConfig = require(Shared.Config.ZoneConfig)
 
 local log = Log.new("CombatService")
+-- Each player's tick is a step of its own: one whose state throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 export type DamageKind = Types.DamageKind
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
@@ -76,6 +78,8 @@ type MovementApi = {
 	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	isDown: (player: Player) -> boolean,
+	-- The running stun's dates, for the movement audit (Security/MovementAudit).
+	stunDates: (player: Player) -> (number, number),
 	command: (player: Player, payload: MovementCommand) -> (),
 }
 type VfxPacket = {
@@ -704,6 +708,21 @@ function CombatService.trustedOrigin(player: Player): CFrame?
 	return trustedCFrame(state, root, os.clock(), true)
 end
 
+-- The same origin, for a loop the SERVER runs on its own clock: a charge's release, the Scorch's ticks, the pull of a
+-- Stitch, the strokes of the Hatching. Judged and chased exactly as trustedOrigin judges it, so the zone and the
+-- strokes follow the same anchor, but as the per-tick sampling is: no violation counted, no tolerance spent. The
+-- player chose the cast, which trustedOrigin judged; they did not choose when the server's loop asks again, and
+-- three ticks after a network freeze were three violations -- a strike -- that no action of theirs had made. nil
+-- when the caster has no live character: the loop then stops, never falls back to the client's word.
+function CombatService.currentOrigin(player: Player): CFrame?
+	local state = states[player]
+	local root = playerRoot(player)
+	if state == nil or root == nil then
+		return nil
+	end
+	return trustedCFrame(state, root, os.clock(), false)
+end
+
 -- Where the server last believed `player` stood: the anchor the per-tick sampling keeps, read as it is. Never
 -- judged here and never counted as an action, so reading it can neither move the anchor nor strike anyone --
 -- which is what a watcher that asks every tick needs (the Battleground's roster, and anything else that must
@@ -1005,6 +1024,7 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	faults.forget(player)
 	MovementAudit.remove(player)
 	releaseCharacter(state, os.clock())
 	state.Trove:Destroy()
@@ -1655,7 +1675,7 @@ local function onHeartbeat(deltaTime: number)
 	local elapsed = if lastTickAt > 0 then now - lastTickAt else 0
 	lastTickAt = now
 	for player, state in pairs(states) do
-		tickPlayer(player, state, now, elapsed, replicate)
+		faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate)
 	end
 	-- Once per tick, after every player's own: a tick that came late is a server hitch, which excuses what it
 	-- makes a body look like. Under its own MicroProfiler label, so its cost can be read apart.

@@ -248,6 +248,9 @@ local function fixture(): Fixture
 			end,
 			resyncPosition = function(_player: any, _position: any) end,
 			trustedPosition = function(player: any): any
+				if fx.broken == player then
+					error("no trusted position for " .. player.Name)
+				end
 				local body = player.Character
 				local root = if body ~= nil then body:FindFirstChild("HumanoidRootPart") else nil
 				return if root ~= nil then root.Position else nil
@@ -475,6 +478,20 @@ describe("FlyleafService", function()
 		a.Character:PivotTo(roblox.CFrame.new(MAP.Origin[1] + 10, MAP.KillZoneDepth - 5, 0))
 		fx.advance(0.2)
 		expect(a.Character:FindFirstChildOfClass("Humanoid").Health).toBe(0)
+	end)
+
+	it("keeps stepping every other member when one member's step throws", function()
+		local fx: any = fixture()
+		local a, b = fx.join(1), fx.join(2)
+		fx.service.enter(a)
+		fx.service.enter(b)
+		fx.advance(1)
+		fx.broken = a
+		b.Character:PivotTo(roblox.CFrame.new(0, 3, 0))
+		fx.advance(0.5)
+		expect(fx.claim.Holds(b)).toBe(false)
+		expect(fx.snapshots[b]).toBeNil()
+		expect(fx.world:said("step of")).toBe(true)
 	end)
 
 	it("refuses a player in a match, and past its members, and a gate lets a member go", function()

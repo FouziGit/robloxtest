@@ -257,6 +257,7 @@ key.RightControl,Right Ctrl,Vellum,,Right Ctrl,Ctrl droite
 key.RightShift,Right Shift,Vellum,,Right Shift,Maj droite
 kick.abuse,Disconnected: too many invalid requests.,Vellum,,Disconnected: too many invalid requests.,Déconnecté : trop de requêtes invalides.
 kick.loadFailed,Could not load your data. Please try again in a minute.,Vellum,,Could not load your data. Please try again in a minute.,Impossible de charger tes données. Réessaie dans une minute.
+kick.serverError,Server error: this server could not start. Please rejoin.,Vellum,,Server error: this server could not start. Please rejoin.,Erreur serveur : ce serveur n'a pas pu démarrer. Rejoins à nouveau.
 kick.sessionElsewhere,Your session was opened on another server. Please rejoin.,Vellum,,Your session was opened on another server. Please rejoin.,Ta session a été ouverte sur un autre serveur. Rejoins à nouveau.
 leaderboard.board.Duel1v1,1v1,Vellum,,1v1,1v1
 leaderboard.board.Global,Global,Vellum,,Global,Global
@@ -288,6 +289,7 @@ loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
 match.again,Play again,Vellum,,Play again,Rejouer
 match.band,Round {round} · {mode},Vellum,,Round {round} · {mode},Manche {round} · {mode}
 match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
+match.cancelled,"Match cancelled after a server error: nothing won, nothing lost.",Vellum,,"Match cancelled after a server error: nothing won, nothing lost.","Match annulé après une erreur du serveur : rien de gagné, rien de perdu."
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité

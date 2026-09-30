@@ -18,7 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Pure.BossPractice)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)

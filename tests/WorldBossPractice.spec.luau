@@ -159,7 +159,16 @@ describe("a practice leaves the server's event alone", function()
 				'log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)'
 			)
 		).toBe(true)
-		expect(count(module("init"), "deps.Hub.teleportToHub")).toBe(1)
+		-- The one other way home is a fall off the page (K2, D-214), which only a participant under the arena's
+		-- floor takes (tests/MovementGates.spec.luau).
+		expect(count(module("init"), "deps.Hub.teleportToHub")).toBe(2)
+		expect(
+			ordered(
+				body(module("init"), "local function judgeFalls(", "init"),
+				"and root.Position.Y < live.FallY",
+				'log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)'
+			)
+		).toBe(true)
 		local context = module("Context")
 		local reach = body(context, "local function rootInArena(", "Context")
 		expect(has(reach, "(root.Position - center).Magnitude <= Context.ArenaReachStuds")).toBe(true)
@@ -303,7 +312,12 @@ describe("the hub's gate", function()
 		expect(has(module("Admission"), "local STANDING_HEALTH = 1")).toBe(true)
 		-- A joiner is dropped where the server says, and trust follows them there.
 		local place = body(module("Encounter"), "function Encounter.placeOne(", "Encounter")
-		expect(ordered(place, "character:PivotTo(", "deps.Combat.resyncPosition(player, position)")).toBe(true)
+		expect(
+			has(
+				place,
+				"Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))"
+			)
+		).toBe(true)
 		expect(has(body(module("Encounter"), "function Encounter.place(", "Encounter"), "Encounter.placeOne(")).toBe(
 			true
 		)
@@ -434,7 +448,7 @@ describe("an emptied practice", function()
 end)
 
 describe("what a fight pays", function()
-	it("pays a practice a fraction, under the profile's daily count and the server's gap", function()
+	it("pays a practice a fraction, under the profile's daily count and the profile's gap", function()
 		local rewards = module("Rewards")
 		local pay = body(rewards, "function Rewards.pay(", "Rewards")
 		expect(has(pay, 'if ctx.Kind == "Practice" then payPractice(ctx) else payEvent(ctx)')).toBe(true)
@@ -444,9 +458,7 @@ describe("what a fight pays", function()
 		)
 		local each = body(rewards, "local function practicePay(", "Rewards")
 		expect(has(each, "WorldBossMode.rewardFor(share, PRACTICE.RewardFactor)")).toBe(true)
-		expect(ordered(each, "practiceAllowed(ctx, player, today)", "ctx.LastPaidAt[player.UserId] = ctx.Now")).toBe(
-			true
-		)
+		expect(has(each, "if not practiceAllowed(ctx, player, today) then return nil end return reward")).toBe(true)
 		-- A practice counts no boss kill and advances no "BossKill" quest: both are the event's.
 		for _, text in ipairs({ practice, each }) do
 			expect(has(text, "bumpBossKills")).toBe(false)
@@ -459,10 +471,11 @@ describe("what a fight pays", function()
 
 		local allowed = body(rewards, "local function practiceAllowed(", "Rewards")
 		local steps = {
-			"ctx.Now - last < PRACTICE.RewardGapSeconds",
+			"local now = os.time() local last = daily.PracticeLastPaidAt if now - last < PRACTICE.RewardGapSeconds then",
 			'"boss.practice.noReward"',
 			"DailyCap.take(daily.PracticeDay, daily.PracticePaid, today, PRACTICE.RewardsPerDay, 1)",
 			"daily.PracticePaid = used",
+			"if granted >= 1 then daily.PracticeLastPaidAt = now",
 			'deps.DataService.push(player, "Daily")',
 			'"boss.practice.dailyDone"',
 		}
@@ -486,7 +499,6 @@ describe("what a fight pays", function()
 				.. "return { Xp = reward.Xp, Folios = 0, BonusXp = reward.BonusXp, BonusFolios = 0 } end",
 			-- At or over it: a paid practice, under both caps.
 			"if not practiceAllowed(ctx, player, today) then return nil end",
-			"ctx.LastPaidAt[player.UserId] = ctx.Now",
 			"return reward",
 		}
 		for index = 2, #steps do
@@ -496,7 +508,8 @@ describe("what a fight pays", function()
 		end
 		-- The caps are charged in that one place, and nowhere else.
 		expect(count(rewards, "practiceAllowed(ctx, player, today)")).toBe(1)
-		expect(count(rewards, "LastPaidAt[player.UserId] =")).toBe(1)
+		expect(count(rewards, "PracticeLastPaidAt = now")).toBe(1)
+		expect(count(rewards, "LastPaidAt[")).toBe(0)
 		expect(count(rewards, "DailyCap.take(")).toBe(1)
 	end)
 

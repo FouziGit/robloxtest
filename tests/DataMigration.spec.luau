@@ -1,5 +1,5 @@
 --!strict
-local DataMigration = require("../src/shared/Pure/DataMigration")
+local DataMigration = require("../src/server/Pure/DataMigration")
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 
@@ -62,10 +62,11 @@ local function template(): { [string]: any }
 			PremiumBonusDay = 0,
 			ForgerDay = 0,
 			ForgerFolios = 0,
-			PracticeDay = 0,
-			PracticePaid = 0,
 			FlyleafDay = 0,
 			FlyleafFolios = 0,
+			PracticeDay = 0,
+			PracticePaid = 0,
+			PracticeLastPaidAt = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
@@ -282,7 +283,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(10)
+		expect(#service).toBe(11)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)

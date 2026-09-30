@@ -25,12 +25,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BotConfig = require(Shared.Config.BotConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
-local MovementGuard = require(Shared.Pure.MovementGuard)
+local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
 local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
+local StunWatch = require(script.Parent.Parent.Pure.StunWatch)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("Combat.MovementAudit")
+-- One body's audit is a step of its own, logged at most once per body per GameConfig.Server.FaultLogSeconds.
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 export type Deps = {
 	AntiCheat: {
@@ -41,7 +44,11 @@ export type Deps = {
 			kind: ("Schema" | "RateLimit" | "Origin" | "Movement")?
 		) -> (),
 	},
-	Movement: { isDown: (player: Player) -> boolean },
+	Movement: {
+		isDown: (player: Player) -> boolean,
+		-- When the running stun began and when it ends, on os.clock; 0, 0 when none runs.
+		stunDates: (player: Player) -> (number, number),
+	},
 	Registry: { lastInbound: (player: Player) -> number },
 	-- CombatService re-anchors OriginGuard's trusted position on a point this module pulled a body back to.
 	Reanchor: (player: Player, position: Vector3) -> (),
@@ -78,6 +85,8 @@ type Record = {
 	-- Queries that leave the body itself out and pass through whatever does not collide.
 	Probe: RaycastParams,
 	Overlap: OverlapParams,
+	-- What the body did through the stun that runs (watchStun).
+	Stun: StunWatch.Watch,
 }
 
 -- One audited body on this tick.
@@ -729,6 +738,37 @@ local function markSupport(bodies: { Body })
 	end
 end
 
+-- A body that walked through a stun it had been told of (Pure/StunWatch, D-213): logged, once per stun and in every
+-- mode, and never acted on. A push the server granted, a touch or a fall carries the body and is not walking, nor is
+-- a step past the speed ceiling (a pivot, a correction, a stall's catch-up), which the judge's own rules weigh.
+local function watchStun(body: Body, sample: MovementGuard.Sample, now: number)
+	local record = body.Record
+	local startedAt, endsAt = deps.Movement.stunDates(record.Player)
+	local track = record.Track
+	local carried = sample.Down or body.Contact or MovementGuard.granting(track, now) or now < track.ContactUntil
+	local learned = StunWatch.learnedAt(startedAt, sample.Rtt, AUDIT.SettleOverheadSeconds)
+	local walked = StunWatch.step(
+		record.Stun,
+		now,
+		startedAt,
+		endsAt,
+		learned,
+		body.X,
+		body.Z,
+		carried,
+		AUDIT.StunWalkSlackStuds,
+		config.MaxSpeedStudsPerSecond
+	)
+	if walked ~= nil then
+		log.warn(
+			"%s observe stun walk: %.1f studs through a %.2f s stun it had been told of; logged only",
+			record.Player.Name,
+			walked,
+			endsAt - startedAt
+		)
+	end
+end
+
 local function audit(body: Body, now: number, hitch: boolean)
 	local record = body.Record
 	local track = record.Track
@@ -744,6 +784,9 @@ local function audit(body: Body, now: number, hitch: boolean)
 		record.LastX, record.LastY, record.LastZ = body.X, body.Y, body.Z
 	end
 	enforce(body, sample, verdict, now)
+	if body.Sane then
+		watchStun(body, sample, now)
+	end
 end
 
 -- One CombatService tick. `hitch` says the server itself stalled since the last one.
@@ -753,7 +796,7 @@ function MovementAudit.step(now: number, hitch: boolean)
 	markSupport(bodies)
 	for _, body in ipairs(bodies) do
 		-- One body's failure must not blind the audit to the others.
-		log.try("audit of " .. body.Record.Player.Name, audit, body, now, hitch)
+		faults.try(body.Record.Player, "audit of", audit, body, now, hitch)
 	end
 end
 
@@ -806,11 +849,13 @@ function MovementAudit.add(player: Player)
 		LoggedAt = {},
 		Probe = probe,
 		Overlap = overlap,
+		Stun = StunWatch.new(),
 	}
 end
 
 function MovementAudit.remove(player: Player)
 	records[player] = nil
+	faults.forget(player)
 end
 
 -- A new body, where the engine spawned it.

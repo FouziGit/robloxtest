@@ -4,7 +4,7 @@
 -- (tests/MovementScenarios.spec.luau); these gates are about what the services around it must keep doing
 -- for its verdicts to mean anything.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
+local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -23,7 +23,7 @@ local BATTLEGROUND_MAP = "src/server/Services/BattlegroundService/Map.luau"
 local TAG_BARRIER = "CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)"
 local REGISTRY = "src/server/RemoteRegistry.luau"
 local AUDIT_MODULE = "src/server/Security/MovementAudit.luau"
-local GUARD = "src/shared/Pure/MovementGuard.luau"
+local GUARD = "src/server/Pure/MovementGuard.luau"
 
 local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))
@@ -188,6 +188,48 @@ describe("the trusted anchor", function()
 			expect(entry).never.toContain("state.ToleranceSpent =")
 		end
 	end)
+
+	it(
+		"counts a violation only for what the player chose: the cast and the swing, never a loop of the server's",
+		function()
+			-- The same anchor either way; only an action may count a violation or spend the tolerance
+			-- (tests/OriginGuard.spec.luau, "a server loop's origin through a network freeze").
+			expect(functionIn(COMBAT, "function CombatService.trustedOrigin(")).toContain(
+				"return trustedCFrame(state, root, os.clock(), true)"
+			)
+			expect(functionIn(COMBAT, "function CombatService.currentOrigin(")).toContain(
+				"if state == nil or root == nil then return nil end return trustedCFrame(state, root, os.clock(), false)"
+			)
+			expect(functionIn(COMBAT, "local function onMelee(")).toContain(
+				"local rootCFrame = trustedCFrame(state, root, now, true)"
+			)
+			local source = strip(fs.readFile(COMBAT))
+			expect(count(source, "trustedCFrame(state, root, now, true)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, root, os.clock(), true)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, root, os.clock(), false)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, sampleRoot, now, false)")).toBe(1)
+			expect(count(source, "trustedCFrame(")).toBe(5)
+			-- The cast is the player's action.
+			expect(functionIn("src/server/Services/GlyphService.luau", "local function onCastGlyph(")).toContain(
+				"local origin = combat.trustedOrigin(player) if origin == nil then return end"
+			)
+			-- Every loop an effect runs after it asks for the current origin: the charge's release, the Scorch's ticks,
+			-- the Stitch's pull and the Hatching's strokes, and nothing in the effects judges an action.
+			local EFFECTS = "src/server/Effects/GlyphEffects.luau"
+			local loops = {
+				["local function charge("] = "local frame = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Scorch("] = "local centre = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Stitch("] = "local anchor = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Hatching("] = "local frame = ctx.Combat.currentOrigin(ctx.Caster)",
+			}
+			for header, ask in pairs(loops) do
+				expect(functionIn(EFFECTS, header)).toContain(ask)
+			end
+			local effects = strip(fs.readFile(EFFECTS))
+			expect(count(effects, "ctx.Combat.currentOrigin(")).toBe(4)
+			expect(effects).never.toContain("trustedOrigin")
+		end
+	)
 end)
 
 -- CombatService around the audit: every server-authored move reaches it, and nothing it is told comes from the
@@ -196,7 +238,7 @@ describe("the movement audit's wiring", function()
 	it("is stepped once per tick, after every player, with the server's own hitch, under its own label", function()
 		local beat = functionIn(COMBAT, "local function onHeartbeat(")
 		expect(beat).toContain(
-			'for player, state in pairs(states) do tickPlayer(player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
+			'for player, state in pairs(states) do faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate) end debug.profilebegin(AUDIT_PROFILE_LABEL) log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds) debug.profileend() end'
 		)
 		expect(count(strip(fs.readFile(COMBAT)), "MovementAudit.step,")).toBe(1)
 		expect(strip(fs.readFile(COMBAT))).toContain('local AUDIT_PROFILE_LABEL = "MovementAudit"')
@@ -349,20 +391,16 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads, the Battleground's camp and the
-		-- Flyleaf's seals.
-		expect(players).toBe(8)
+		-- Caret, the Dagger, and Teleport.place, through which a match pad, the hub, the Erasure's pads, the
+		-- Battleground's camp and the Flyleaf's seals all put a body down (D-221).
+		expect(players).toBe(3)
 		expect(others).toBe(3)
 	end)
 
 	it("sends the destination itself, never a position read back from the body", function()
 		for path, call in pairs({
 			["src/server/Effects/GlyphEffects.luau"] = "ctx.Combat.resyncPosition(ctx.Caster, landing)",
-			["src/server/Services/MatchService.luau"] = "combat.resyncPosition(player, position)",
-			["src/server/Services/HubService.luau"] = "combat.resyncPosition(player, landing)",
-			["src/server/Services/WorldBossService/Encounter.luau"] = "deps.Combat.resyncPosition(player, position)",
-			["src/server/Services/BattlegroundService/Roster.luau"] = "deps.Combat.resyncPosition(player, landing)",
-			["src/server/Services/FlyleafService/init.luau"] = "deps.Combat.resyncPosition(player, landing)",
+			["src/server/World/Teleport.luau"] = "combat.resyncPosition(player, target.Position)",
 		}) do
 			expect(strip(fs.readFile(path))).toContain(call)
 		end
@@ -764,8 +802,14 @@ describe("the kill zone, judged by the server", function()
 	)
 
 	it("judges falls on every match tick, before the verdict, and keeps Touched through the same kill", function()
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
+			'assert(not active.Finished, "a finished match is still ticking")'
+		)
+		expect(functionIn(MATCH, "local function tickMatch(")).toContain(
+			"if not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+		)
 		expect(functionIn(MATCH, "local function onHeartbeat(")).toContain(
-			"if not active.Finished and not active.Preparing then judgeFalls(active, now) refresh(active) advance(active, now) end"
+			'if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then cancel(active) end'
 		)
 		local touched = functionIn(MATCH, "local function onKillZoneTouched(")
 		expect(touched).toContain(
@@ -782,7 +826,7 @@ describe("the kill zone, judged by the server", function()
 		-- new body stands on the hub, far under the arena, and the client replicates the hub for a round trip after
 		-- its pad. Judged on those, an honest player was killed at the start of the round.
 		expect(functionIn(MATCH, "local function prepareRound(")).toContain(
-			"placeCharacter(player, character, pad, center) active.Placed[player] = { Character = character, At = os.clock() }"
+			"elseif placeCharacter(player, character, pad, center, current) then active.Placed[player] = { Character = character, At = os.clock() } end"
 		)
 		local source = strip(fs.readFile(MATCH))
 		expect(count(source, "active.Placed[")).toBe(2)
@@ -838,5 +882,101 @@ describe("the kill zone, judged by the server", function()
 			end
 		end
 		expect(found).toBe(true)
+	end)
+end)
+
+-- K2 (D-214): the Erasure's arena stands in the stack the duels stand in, and a body that fell off it fell into the
+-- match below. The server looks for itself, every fight tick, and takes the body home instead of killing it.
+describe("a fall from the Erasure's arena", function()
+	local BOSS_DIR = "src/server/Services/WorldBossService/"
+	local INIT = BOSS_DIR .. "init.luau"
+
+	it("takes a participant under the arena's floor back to the hub, and never kills them", function()
+		local judge = functionIn(INIT, "local function judgeFalls(")
+		expect(judge).toContain("local plane = live.Arena.KillZone local half = plane.Size / 2")
+		expect(judge).toContain(
+			"for userId, placed in pairs(slot.Placed) do local player = Players:GetPlayerByUserId(userId) local root = if player ~= nil then Context.liveRoot(player) else nil"
+		)
+		expect(judge).toContain(
+			"player ~= nil and root ~= nil and not slot.Departed[userId] and player.Character == placed.Character and now - placed.At >= MovementGuardConfig.SettleMaxSeconds and root.Position.Y < live.FallY then"
+		)
+		expect(judge).toContain(
+			'local offset = plane.CFrame:PointToObjectSpace(root.Position) if math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then slot.Placed[userId] = nil log.info("%s: %s fell off the arena, back to the hub", slot.Kind, player.Name) log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player) end'
+		)
+		-- Every fight tick, before the fight looks at who is left in the arena, and through the victory or timeout
+		-- screen, while the page still stands.
+		expect(functionIn(INIT, "local function tickFight(")).toContain(
+			"if now >= slot.PhaseEndsAt then expire(current, now) return end judgeFalls(live, now) Audience.releaseMatched()"
+		)
+		expect(functionIn(INIT, "local function onHeartbeat(")).toContain(
+			'elseif now >= slot.PhaseEndsAt then log.try("finish", finish, now) return elseif slot.Boss ~= nil then judgeFalls(slot.Boss, now) end'
+		)
+		-- Nobody in the folder kills a player: the Erasure's blows go through ApplyDamage, a fall goes home.
+		for _, entry in ipairs(fs.readDir(BOSS_DIR)) do
+			local source = strip(fs.readFile(BOSS_DIR .. entry))
+			expect(source).never.toContain("Health = 0")
+			expect(source).never.toContain(":BreakJoints(")
+		end
+		expect(strip(fs.readFile(INIT))).never.toContain("KillZone.Touched")
+	end)
+
+	it("judges only the body the fight placed, from the underside of the arena's floor", function()
+		-- Each placement is the body placed, when: the opening's and the hub gate's, forgotten with the fight.
+		expect(functionIn(INIT, "local function openFight(")).toContain(
+			"for userId, character in pairs(Encounter.place(arena, participants, live.Center)) do slot.Placed[userId] = { Character = character, At = now } end"
+		)
+		expect(functionIn(BOSS_DIR .. "Admission.luau", "local function admit(")).toContain(
+			"local character = Encounter.placeOne(live.Arena, player, pad, live.Center) if character ~= nil then slot.Placed[userId] = { Character = character, At = now } end"
+		)
+		expect(functionIn(INIT, "local function reset(")).toContain("slot.Placed = {}")
+		local placeOne = functionIn(BOSS_DIR .. "Encounter.luau", "function Encounter.placeOne(")
+		expect(placeOne).toContain(
+			"Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z))) return character end"
+		)
+		expect(functionIn(BOSS_DIR .. "Encounter.luau", "local function floorOf(")).toContain(
+			"return floor.Position.Y + floor.Size.Y / 2, floor.Position.Y - floor.Size.Y / 2 end return fallback, fallback end"
+		)
+		expect(functionIn(BOSS_DIR .. "Encounter.luau", "function Encounter.build(")).toContain(
+			"local floorY, fallY = floorOf(arena, center.Y)"
+		)
+	end)
+
+	it("brings a body home before it can reach any pad, wall or match plane of an arena below", function()
+		-- Relative to the centre of the Erasure's floor, which ArenaService puts on its slot's altitude; the slot below
+		-- is MatchConfig.ArenaSpacingStuds lower. The body is thrown as high as the audit grants lift, plus a jump and a
+		-- double jump, off the edge of the page; it crosses the underside of the floor, the server sees it a way
+		-- later, judges it on its tick, and the hub's pivot reaches the client a way after that -- at the longest
+		-- round trip a server pivot is waited out for.
+		local function localNumber(path: string, pattern: string): number
+			local found = tonumber(strip(fs.readFile(path)):match(pattern))
+			assert(found ~= nil, path .. " has no " .. pattern .. ": this gate would check nothing")
+			return found :: number
+		end
+		local GRAVITY = 196.2
+		local TICK = 1 / GameConfig.Server.TickRate
+		local thickness = localNumber(ARENA, "\nlocal FLOOR_THICKNESS_STUDS = ([%d%.]+)\n")
+		local marker = localNumber(ARENA, "\nlocal CHARACTER_PIVOT_STUDS = ([%d%.]+)\n")
+		local floorTop = thickness / 2
+		local fallY = -thickness / 2
+		local jumps = (GameConfig.Movement.JumpPower ^ 2 + GameConfig.Movement.DoubleJumpVelocity ^ 2) / (2 * GRAVITY)
+		local peak = floorTop + MovementGuardConfig.MaxLiftStuds + jumps
+		local speed = math.sqrt(2 * GRAVITY * (peak - fallY))
+		local late = MovementGuardConfig.SettleMaxSeconds + TICK
+		local feet = fallY - (speed * late + GRAVITY * late * late / 2) - MovementGuardConfig.DefaultStandHeightStuds
+		-- The highest thing any arena below holds: its wall rule, over its pads and its kill zone.
+		local below = -MatchConfig.ArenaSpacingStuds + floorTop
+		local highest = -math.huge
+		for _, def in pairs(MatchConfig.Arenas :: { [string]: { WallHeight: number, KillZoneDepth: number } }) do
+			highest = math.max(highest, below + def.WallHeight + WorldConfig.Arena.WallRuleProudStuds)
+			expect(below + marker).toBeLessThan(below + def.WallHeight)
+			expect(def.KillZoneDepth).toBeLessThan(0)
+		end
+		expect(feet).toBeGreaterThan(highest)
+		-- Judged at the kill zone, as a match judges its own, the same body would already stand in the duel below.
+		local zone = floorTop + (MatchConfig.Arenas :: any).Boss.KillZoneDepth
+		local fromZone = math.sqrt(2 * GRAVITY * (peak - zone))
+		expect(zone - (fromZone * late + GRAVITY * late * late / 2) - MovementGuardConfig.DefaultStandHeightStuds).toBeLessThan(
+			highest
+		)
 	end)
 end)

@@ -102,6 +102,7 @@ local ABSTRACT: { [string]: { [string]: boolean } } = {
 	GuiObject = GUI_OBJECTS,
 	GuiButton = { TextButton = true, ImageButton = true },
 	LayerCollector = { ScreenGui = true, BillboardGui = true, SurfaceGui = true },
+	BasePart = { Part = true, MeshPart = true, WedgePart = true, SpawnLocation = true },
 	ValueBase = { NumberValue = true, StringValue = true, BoolValue = true, IntValue = true, ObjectValue = true },
 }
 
@@ -236,6 +237,16 @@ local function setParent(instance: any, parent: any)
 	fireAncestry(instance)
 	if parent ~= nil then
 		signalOf(dataOf[parent], "ChildAdded"):Fire(instance)
+		-- Every ancestor hears of the instance and of everything it brings with it, as the engine tells them.
+		local arrived = { instance }
+		descendants(instance, arrived)
+		local ancestor = parent
+		while ancestor ~= nil do
+			for _, each in ipairs(arrived) do
+				signalOf(dataOf[ancestor], "DescendantAdded"):Fire(each)
+			end
+			ancestor = dataOf[ancestor].Parent
+		end
 	end
 end
 

@@ -218,7 +218,12 @@ describe("the circles", function()
 
 	it("leave a traveller alone until the trip is over, whatever happens in it", function()
 		local heartbeat = body(PORTALS, "local function onHeartbeat(")
-		expect(has(heartbeat, "if travelling[player] == nil then step(player, watch, now) end")).toBe(true)
+		expect(
+			has(
+				heartbeat,
+				'if travelling[player] == nil then faults.try(player, "watch of", step, player, watch, now) end'
+			)
+		).toBe(true)
 		local travel = body(PORTALS, "local function travel(")
 		expect(ordered(travel, "log.try(", "travelling[player] = nil")).toBe(true)
 		expect(has(travel, ", journey, player, id)")).toBe(true)
@@ -227,6 +232,7 @@ describe("the circles", function()
 			"watches[player] = nil",
 			"travelling[player] = nil",
 			"cooldownUntil[player] = nil",
+			"faults.forget(player)",
 		}, "forget")
 		expect(has(code(PORTALS), "Players.PlayerRemoving:Connect(forget)")).toBe(true)
 	end)
@@ -240,9 +246,9 @@ describe("where a trip goes", function()
 		expect(ordered(dispatch, "deps.WorldBoss.leave(player)", "deps.Flyleaf.enter(player)")).toBe(true)
 		-- Return, the rest: out of the Battleground, the Flyleaf and the Erasure's fight, then home.
 		local home = dispatch:sub(dispatch:find("deps.Flyleaf.enter(player)", 1, true) :: number)
-		expect(ordered(home, "deps.Battleground.leave(player)", "deps.Hub.teleportToHub(player)")).toBe(true)
-		expect(ordered(home, "deps.Flyleaf.leave(player)", "deps.Hub.teleportToHub(player)")).toBe(true)
-		expect(ordered(home, "deps.WorldBoss.leave(player)", "deps.Hub.teleportToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.Battleground.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.Flyleaf.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.WorldBoss.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
 		expect(ordered(dispatch, 'if id == "Battleground" then', 'elseif id == "WorldBoss" then')).toBe(true)
 		expect(ordered(dispatch, 'elseif id == "WorldBoss" then', 'elseif id == "Flyleaf" then')).toBe(true)
 	end)

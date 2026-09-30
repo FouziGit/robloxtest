@@ -240,10 +240,12 @@ describe("a ragdoll", function()
 		expect(restore:find("saved.Joint.IsKinematic = saved.Kinematic", 1, true)).never.toBe(nil)
 		expect(restore:find("fall.Character:SetAttribute(RAGDOLL_ATTRIBUTE, nil)", 1, true)).never.toBe(nil)
 		-- The tick advances it, and a death, a respawn or a departure puts the joints back.
+		local tick = functionIn(MOVEMENT, "local function tickState(")
+		expect(tick:find("local fall = state.Fall if fall ~= nil then stepFall(player, state, fall, now)", 1, true)).never.toBe(
+			nil
+		)
 		local heartbeat = functionIn(MOVEMENT, "local function onHeartbeat(")
-		expect(
-			heartbeat:find("local fall = state.Fall if fall ~= nil then stepFall(player, state, fall, now)", 1, true)
-		).never.toBe(nil)
+		expect(heartbeat:find('faults.try(player, "tick of", tickState, player, state, now)', 1, true)).never.toBe(nil)
 		local clear = functionIn(MOVEMENT, "local function clearStatuses(")
 		expect(clear:find("state.Fall = nil restoreJoints(fall)", 1, true)).never.toBe(nil)
 		-- Except a death: the corpse stays down instead of snapping to its standing pose.

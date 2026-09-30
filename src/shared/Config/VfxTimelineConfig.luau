@@ -131,7 +131,7 @@ export type Layer = {
 	-- Anchored to Context.Follow -- the caster's own body -- and moved with it every frame.
 	--
 	-- Not a convenience. Several glyphs are zones the server re-centres on the caster on every tick
-	-- (GlyphEffects.Scorch calls trustedOrigin each time), so a visual pinned to the cast point would
+	-- (GlyphEffects.Scorch calls currentOrigin each time), so a visual pinned to the cast point would
 	-- draw a lit boundary around empty floor while the player carries an unmarked kill radius around
 	-- with them. And a Trail has no meaning at all on a part that never moves: buildTrail would hand
 	-- back a ribbon between two attachments that never separate, which draws nothing while costing

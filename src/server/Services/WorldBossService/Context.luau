@@ -118,10 +118,14 @@ export type Boss = {
 	Band: BasePart, -- the ink band across the face, whose height says the phase
 	Center: Vector3, -- middle of the arena: what "still in the fight" is measured from
 	GroundY: number, -- top of the arena floor, so the clients paint the telegraphs on it
+	FallY: number, -- underside of the arena floor: a participant's root under it fell off the page (K2, D-214)
 	Facing: Vector3,
 	LastHealth: number,
 	ContactNextAt: { [number]: number }, -- user id -> os.clock of its next contact tick
 }
+
+-- The body the fight put on a pad of its ring, and when: the one body its fall rule judges (K2, D-214).
+export type Placement = { Character: Model, At: number }
 
 -- The one encounter slot and the fight it holds (D-132). WorldBossService creates the record once and hands
 -- the same table to every submodule that reads or changes the fight: its fields are reassigned as fights open
@@ -135,6 +139,7 @@ export type Slot = {
 	Departed: { [number]: Release }, -- participants let go since, and how (a gate, or a practice's by a match)
 	Reentries: { [number]: number }, -- times each participant walked back in through the hub's gate
 	GrowthOwed: { [number]: true }, -- practice joiners it has not grown for yet: their first hit does (Admission)
+	Placed: { [number]: Placement }, -- user id -> the body the fight last placed, until it falls or the fight ends
 	Starter: number?, -- who opened the practice in the slot, and when (BossPractice.startPenalty)
 	StartedAt: number,
 	EmptySince: number?, -- when a practice's arena last emptied, while it waits for a returner
@@ -174,6 +179,7 @@ function Context.newSlot(): Slot
 		Departed = {},
 		Reentries = {},
 		GrowthOwed = {},
+		Placed = {},
 		Starter = nil,
 		StartedAt = 0,
 		EmptySince = nil,

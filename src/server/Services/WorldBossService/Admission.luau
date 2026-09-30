@@ -10,7 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Audience = require(script.Parent.Audience)
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Parent.Context)
 local Encounter = require(script.Parent.Encounter)
 local Log = require(Shared.Util.Log)
@@ -147,7 +147,10 @@ local function admit(player: Player, verdict: BossPractice.EntryVerdict, now: nu
 	end
 	slot.Departed[userId] = nil
 	local pad = table.find(slot.Participants, userId) or #slot.Participants
-	Encounter.placeOne(live.Arena, player, pad, live.Center)
+	local character = Encounter.placeOne(live.Arena, player, pad, live.Center)
+	if character ~= nil then
+		slot.Placed[userId] = { Character = character, At = now }
+	end
 	deps.Notify.send(player, "boss.started", nil, "Info")
 	Audience.push(now)
 	log.info("%s: %s %s (%d participant(s))", slot.Kind, player.Name, verdict, #slot.Participants)

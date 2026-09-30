@@ -7,7 +7,7 @@
 -- they hand each other. Under-covering fails; over-covering is allowed (a bolt's line is painted through the cover
 -- that will stop it, because where it stops is only known when it flies).
 local AssetIds = require("../src/shared/Config/AssetIds")
-local BotBrain = require("../src/shared/Pure/BotBrain")
+local BotBrain = require("../src/server/Pure/BotBrain")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local Harness = require("./harness")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")

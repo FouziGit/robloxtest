@@ -19,14 +19,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Attacks = require(script.Attacks)
 local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
-local BotBrain = require(Shared.Pure.BotBrain)
+local BotBrain = require(script.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local Bots = require(script.Bots)
 local Context = require(script.Context)
@@ -35,9 +34,9 @@ local Log = require(Shared.Util.Log)
 local Map = require(script.Map)
 local Motion = require(script.Motion)
 local Perception = require(script.Perception)
-local PortalConfig = require(Shared.Config.PortalConfig)
 local Rewards = require(script.Rewards)
 local Roster = require(script.Roster)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("BattlegroundService")
@@ -462,11 +461,7 @@ function BattlegroundService.enter(player: Player): (boolean, string?)
 		return false, nil
 	end
 	local landing = Roster.nextLanding()
-	if Workspace.StreamingEnabled then
-		log.try("RequestStreamAroundAsync", function()
-			player:RequestStreamAroundAsync(landing, PortalConfig.StreamTimeoutSeconds)
-		end)
-	end
+	Teleport.streamAround(player, landing)
 	if deps.Match.isInMatch(player) then
 		return false, "queue.inMatch"
 	end
@@ -527,6 +522,7 @@ function BattlegroundService.Start()
 	trove:Add(deps.Combat.Killed:Connect(onKilled))
 	trove:Add(deps.Combat.Shoved:Connect(onShoved))
 	trove:Add(deps.Combat.Controlled:Connect(onControlled))
+	trove:Add(deps.Movement.BodyLost:Connect(Roster.lost))
 	trove:Connect(Players.PlayerAdded, Roster.track)
 	trove:Connect(Players.PlayerRemoving, onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

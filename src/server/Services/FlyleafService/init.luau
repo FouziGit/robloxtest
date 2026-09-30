@@ -19,7 +19,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -27,14 +26,17 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Context = require(script.Context)
 local FlyleafConfig = require(Shared.Config.FlyleafConfig)
 local FlyleafRules = require(script.Parent.Parent.Pure.FlyleafRules)
+local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local Map = require(script.Map)
-local PortalConfig = require(Shared.Config.PortalConfig)
 local Rewards = require(script.Rewards)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
 local log = Log.new("FlyleafService")
+-- Each member's step, and each fallen one's, is a step of its own: one that throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 type Deps = Context.Deps
 type TroveType = typeof(Trove.new())
@@ -127,17 +129,13 @@ local function nextLanding(map: Map.Handle, player: Player): Vector3
 	return map.Standing[FlyleafRules.farthestSeal(map.Layout.Seals, others, turn)]
 end
 
--- Puts the character down on `landing`, facing the centre of the page, with its velocity cleared -- and re-anchors
--- the position CombatService trusts on that point, never on what the client says next.
+-- Puts the character down on `landing` now, facing the centre of the page (Teleport.place): its velocity cleared, and
+-- the position CombatService trusts re-anchored on that point, never on what the client says next. Every caller has
+-- had the page streamed in around `landing` first (Teleport.streamAround) and asked again what that wait may have
+-- changed.
 local function place(player: Player, character: Model, landing: Vector3)
 	local center = Context.Origin
-	character:PivotTo(CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))
-	local root = character.PrimaryPart
-	if root ~= nil then
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-	end
-	deps.Combat.resyncPosition(player, landing)
+	Teleport.place(deps.Combat, player, character, CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))
 end
 
 -- Lets go of a member now: their body loses the page's marks, and they are told. Nothing for a non-member.
@@ -214,15 +212,6 @@ local function hasRoom(player: Player): boolean
 	return members[player] ~= nil or count < FlyleafConfig.MaxMembers
 end
 
--- Waits, at most PortalConfig.StreamTimeoutSeconds, for the world around `landing` to stream in for `player`.
-local function streamAround(player: Player, landing: Vector3)
-	if Workspace.StreamingEnabled then
-		log.try("RequestStreamAroundAsync", function()
-			player:RequestStreamAroundAsync(landing, PortalConfig.StreamTimeoutSeconds)
-		end)
-	end
-end
-
 -- A fallen member who will not come back: they are told, and the others see one rival fewer.
 local function abandon(player: Player)
 	pending[player] = nil
@@ -255,7 +244,7 @@ local function respawn(map: Map.Handle, player: Player, entry: Pending)
 		return
 	end
 	local landing = nextLanding(map, player)
-	streamAround(player, landing)
+	Teleport.streamAround(player, landing)
 	if pending[player] ~= entry then
 		return
 	end
@@ -291,24 +280,34 @@ local function stays(member: Member, now: number): boolean
 	return false
 end
 
+-- A member still one or let go, and their protection ended once it is over.
+local function stepMember(player: Player, member: Member, now: number)
+	if not stays(member, now) then
+		drop(player)
+	elseif member.Shield ~= nil and now >= member.ProtectedUntil then
+		unshield(member)
+	end
+end
+
+-- A fallen member given up on, or brought back once RespawnSeconds have passed.
+local function stepFallen(map: Map.Handle, player: Player, entry: Pending, now: number)
+	if claimedElsewhere(player) or now - entry.At >= FlyleafConfig.RespawnGiveUpSeconds then
+		abandon(player)
+	elseif not entry.Respawning and now - entry.At >= FlyleafConfig.RespawnSeconds then
+		entry.Respawning = true
+		task.spawn(function()
+			log.try("respawn " .. player.Name, respawn, map, player, entry)
+		end)
+	end
+end
+
 local function tick(map: Map.Handle, now: number)
 	Map.judgeFalls(map)
 	for player, member in pairs(members) do
-		if not stays(member, now) then
-			drop(player)
-		elseif member.Shield ~= nil and now >= member.ProtectedUntil then
-			unshield(member)
-		end
+		faults.try(player, "step of", stepMember, player, member, now)
 	end
 	for player, entry in pairs(pending) do
-		if claimedElsewhere(player) or now - entry.At >= FlyleafConfig.RespawnGiveUpSeconds then
-			abandon(player)
-		elseif not entry.Respawning and now - entry.At >= FlyleafConfig.RespawnSeconds then
-			entry.Respawning = true
-			task.spawn(function()
-				log.try("respawn " .. player.Name, respawn, map, player, entry)
-			end)
-		end
+		faults.try(player, "respawn watch of", stepFallen, map, player, entry, now)
 	end
 	Rewards.prune(now)
 end
@@ -380,6 +379,7 @@ local function onPlayerRemoving(player: Player)
 		abandon(player)
 	end
 	Rewards.forget(player)
+	faults.forget(player)
 end
 
 ----------------------------------------------------------------
@@ -415,7 +415,7 @@ function FlyleafService.enter(player: Player): (boolean, string?)
 		return false, nil
 	end
 	local landing = nextLanding(map, player)
-	streamAround(player, landing)
+	Teleport.streamAround(player, landing)
 	if deps.Match.isInMatch(player) then
 		return false, "queue.inMatch"
 	end

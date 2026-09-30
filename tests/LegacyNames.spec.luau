@@ -5,10 +5,10 @@
 -- leaving it green, so treat the old spellings here as data, never as names to update.
 -- tests are the proof: they migrate a realistic version 2 profile and check that every unlock, every
 -- equipped slot and every owned pigment survived, translated.
-local DataMigration = require("../src/shared/Pure/DataMigration")
+local DataMigration = require("../src/server/Pure/DataMigration")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
-local LegacyNames = require("../src/shared/Pure/LegacyNames")
+local LegacyNames = require("../src/server/Pure/LegacyNames")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 

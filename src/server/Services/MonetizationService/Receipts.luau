@@ -29,7 +29,7 @@ local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
-local ReceiptProcessor = require(Shared.Pure.ReceiptProcessor)
+local ReceiptProcessor = require(script.Parent.Parent.Parent.Pure.ReceiptProcessor)
 local Sandbox = require(script.Parent.Sandbox)
 local ShopConfig = require(Shared.Config.ShopConfig)
 

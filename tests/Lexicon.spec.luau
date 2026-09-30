@@ -82,8 +82,8 @@ local BORROWED: { [string]: string } = {
 -- The two literals are DataStore names. A DataStore is addressed by its name: change the string and the
 -- engine returns a different, empty store, and every profile ever saved reads as a brand new player.
 local EXEMPT_FILES: { [string]: boolean } = {
-	["src/shared/Pure/LegacyNames.luau"] = true,
-	["src/shared/Pure/DataMigration.luau"] = true,
+	["src/server/Pure/LegacyNames.luau"] = true,
+	["src/server/Pure/DataMigration.luau"] = true,
 	["tests/LegacyNames.spec.luau"] = true,
 	["tests/DataMigration.spec.luau"] = true,
 	["tests/Lexicon.spec.luau"] = true,
@@ -198,7 +198,7 @@ describe("lexicon", function()
 		-- The exemption above lets these four files hold old spellings. That is only safe while they
 		-- actually still do: a sweep that "tidied" LegacyNames into an identity map would leave every
 		-- other test green and quietly wipe the profiles it exists to save.
-		local legacy = fs.readFile("src/shared/Pure/LegacyNames.luau")
+		local legacy = fs.readFile("src/server/Pure/LegacyNames.luau")
 		for _, pair in ipairs({ { "Fireball", "Brand" }, { "Raijin", "Colophon" }, { "Genin", "Blank" } }) do
 			local old, fresh = pair[1], pair[2]
 			local expected = ("%s = %q,"):format(old, fresh)

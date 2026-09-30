@@ -2,7 +2,7 @@
 -- Invariants of the pure config modules.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
-local BossPractice = require("../src/shared/Pure/BossPractice")
+local BossPractice = require("../src/server/Pure/BossPractice")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local ComboResolver = require("../src/shared/Pure/ComboResolver")

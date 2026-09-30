@@ -3,7 +3,7 @@
 -- other glyph -- and a dash is the one way out. Without it a caster could turn a charged line mid-charge with
 -- the Caret, or stack M1 on top of a rush. Every hold is numbered and its effect asks about its own number
 -- (ChannelHold, pure, held to its outcomes below); the services touch Roblox, so their sources are read here.
-local ChannelHold = require("../src/shared/Pure/ChannelHold")
+local ChannelHold = require("../src/server/Pure/ChannelHold")
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 

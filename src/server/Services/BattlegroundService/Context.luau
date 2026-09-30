@@ -14,8 +14,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
-local BattlegroundLayout = require(Shared.Pure.BattlegroundLayout)
-local BotBrain = require(Shared.Pure.BotBrain)
+local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.BattlegroundLayout)
+local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
@@ -74,6 +74,8 @@ export type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
 	ragdoll: (player: Player, seconds: number) -> (),
 	isDown: (player: Player) -> boolean,
+	-- A body whose Humanoid its client took away is about to be replaced (D-216): a death, for a member.
+	BodyLost: { Connect: (self: any, fn: (player: Player) -> ()) -> any },
 }
 export type Deps = {
 	Registry: { fire: (name: string, player: Player, ...any) -> () },

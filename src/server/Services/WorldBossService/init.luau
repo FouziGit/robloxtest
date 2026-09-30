@@ -32,6 +32,7 @@
 -- it (Encounter.recordDamage). The quest log is pushed to, never polled (QuestService.report), like every
 -- other gameplay owner.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -40,13 +41,15 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Admission = require(script.Admission)
 local Audience = require(script.Audience)
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Context)
 local Encounter = require(script.Encounter)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local Rewards = require(script.Rewards)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.GameModes.WorldBossMode)
@@ -71,8 +74,6 @@ local deps: Deps
 local slot: Context.Slot = Context.newSlot()
 local accumulator = 0
 local ticks = 0
--- User id -> when a practice last paid them: the server's RewardGapSeconds guard (Rewards), across fights.
-local lastPaidAt: { [number]: number } = {}
 
 ----------------------------------------------------------------
 -- End of the fight
@@ -98,6 +99,7 @@ local function reset(now: number)
 	slot.Departed = {}
 	slot.Reentries = {}
 	slot.GrowthOwed = {}
+	slot.Placed = {}
 	slot.Starter = nil
 	slot.EmptySince = nil
 	slot.PhaseEndsAt = 0
@@ -150,8 +152,6 @@ local function defeat(live: Boss, current: State, now: number)
 		State = current,
 		Participants = slot.Participants,
 		Kind = slot.Kind,
-		Now = now,
-		LastPaidAt = lastPaidAt,
 	}
 	log.try("Rewards.pay", Rewards.pay, pay)
 	Audience.push(now)
@@ -225,7 +225,9 @@ local function openFight(players: { Player }, health: number, seconds: number, n
 	end))
 	slot.Boss = live
 
-	Encounter.place(arena, participants, live.Center)
+	for userId, character in pairs(Encounter.place(arena, participants, live.Center)) do
+		slot.Placed[userId] = { Character = character, At = now }
+	end
 	Audience.tell("boss.started", nil, "Info")
 	deps.Vfx.emit({
 		Id = Context.SpawnVfxId,
@@ -308,11 +310,42 @@ local function closeEmpty(current: State, now: number)
 	Admission.closedEmpty(now)
 end
 
+-- K2 (D-214): the Erasure's arena stands in the same stack as the duels, and a participant who fell off its page
+-- fell into whichever match was below. Whoever the fight placed and is still in it, whose root is under the arena's
+-- floor within the reach of its kill zone, is taken back to the hub -- never killed. Only the body the fight placed,
+-- once its pivot settled: a body just placed still replicates the hub, far under the arena, for a round trip (as
+-- MatchService judges its falls, D-138). Judged here rather than by Touched, which the falling body's own client
+-- reports; and once per placement, so a body the hub's gate places again is judged again.
+local function judgeFalls(live: Boss, now: number)
+	local plane = live.Arena.KillZone
+	local half = plane.Size / 2
+	for userId, placed in pairs(slot.Placed) do
+		local player = Players:GetPlayerByUserId(userId)
+		local root = if player ~= nil then Context.liveRoot(player) else nil
+		if
+			player ~= nil
+			and root ~= nil
+			and not slot.Departed[userId]
+			and player.Character == placed.Character
+			and now - placed.At >= MovementGuardConfig.SettleMaxSeconds
+			and root.Position.Y < live.FallY
+		then
+			local offset = plane.CFrame:PointToObjectSpace(root.Position)
+			if math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then
+				slot.Placed[userId] = nil
+				log.info("%s: %s fell off the arena, back to the hub", slot.Kind, player.Name)
+				log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)
+			end
+		end
+	end
+end
+
 local function tickFight(live: Boss, current: State, now: number)
 	if now >= slot.PhaseEndsAt then
 		expire(current, now)
 		return
 	end
+	judgeFalls(live, now)
 	Audience.releaseMatched()
 	local phaseBefore = current.PhaseIndex
 	local ok, outcome, dirty = pcall(Encounter.step, live, current, slot.Participants, now, TICK_SECONDS)
@@ -366,6 +399,9 @@ local function onHeartbeat(deltaTime: number)
 	elseif now >= slot.PhaseEndsAt then
 		log.try("finish", finish, now)
 		return
+	elseif slot.Boss ~= nil then
+		-- The victory or timeout screen: the page still stands, and a body can still fall off it.
+		judgeFalls(slot.Boss, now)
 	end
 
 	ticks += 1
@@ -398,6 +434,12 @@ end
 -- open a practice. Returns whether they were taken in, and otherwise the Strings key of the reason and its
 -- params; no key when there is nothing to say (no live character).
 function WorldBossService.enterFromPortal(player: Player): (boolean, string?, { [string]: any }?)
+	-- A fight under way: its arena streams in around the ring before the gate lets anybody in (Teleport), and
+	-- everything below is asked after that wait, which may have changed any of it.
+	local live = slot.Boss
+	if live ~= nil then
+		Teleport.streamAround(player, live.Center)
+	end
 	if deps.Match.isInMatch(player) then
 		return false, "queue.inMatch"
 	end

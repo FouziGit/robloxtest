@@ -32,7 +32,7 @@ export type Deps = {
 	},
 	Combat: {
 		claimZone: (zone: "Flyleaf", claim: ZoneClaim) -> (),
-		-- Called after the service places a player, with the position the SERVER chose.
+		-- Called after the service places a player (World/Teleport), with the position the SERVER chose.
 		resyncPosition: (player: Player, position: Vector3?) -> (),
 		-- Where the server last believed the player stood. Never judged, never strikes.
 		trustedPosition: (player: Player) -> Vector3?,

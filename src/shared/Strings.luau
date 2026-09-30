@@ -485,6 +485,11 @@ Strings.Table = {
 	["match.bestChain"] = { en = "Best chain: ×{count}", fr = "Meilleure chaîne : ×{count}" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
 	["match.returning"] = { en = "Returning to the hub…", fr = "Retour au hub…" },
+	-- A match whose tick kept failing (MatchService.cancel): no result, nothing won or lost.
+	["match.cancelled"] = {
+		en = "Match cancelled after a server error: nothing won, nothing lost.",
+		fr = "Match annulé après une erreur du serveur : rien de gagné, rien de perdu.",
+	},
 	["leaderboard.title"] = { en = "Leaderboard", fr = "Classement" },
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },
@@ -710,6 +715,11 @@ Strings.Table = {
 	["kick.abuse"] = {
 		en = "Disconnected: too many invalid requests.",
 		fr = "Déconnecté : trop de requêtes invalides.",
+	},
+	-- A critical service failed to start (Boot.close): the server sends everyone away.
+	["kick.serverError"] = {
+		en = "Server error: this server could not start. Please rejoin.",
+		fr = "Erreur serveur : ce serveur n'a pas pu démarrer. Rejoins à nouveau.",
 	},
 
 	-- D-147 · slice F (components and shared)

@@ -203,7 +203,13 @@ end)
 describe("a member", function()
 	it("is placed with trust re-anchored on the landing the server chose", function()
 		local place = body(module("Roster"), "function Roster.place(", "Roster")
-		expect(ordered(place, "character:PivotTo(", "deps.Combat.resyncPosition(player, landing)")).toBe(true)
+		expect(
+			place:find(
+				"Teleport.place(deps.Combat, player, character, CFrame.lookAt(landing, Vector3.new(center.X, landing.Y, center.Z)))",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		local enter = body(module("init"), "function BattlegroundService.enter(", "init")
 		expect(ordered(enter, "Roster.place(player, character, landing)", "Roster.admit(")).toBe(true)
 		local redirect = body(module("Roster"), "local function redirect(", "Roster")
@@ -231,7 +237,7 @@ describe("a member", function()
 		local steps = {
 			"local admitted, refusal = BattlegroundService.admits(player)",
 			"if not admitted then return false, refusal end",
-			"RequestStreamAroundAsync",
+			"Teleport.streamAround(player, landing)",
 			"deps.Match.isInMatch(player)",
 			"Roster.hasRoom(player)",
 			"deps.WorldBoss.isEngaged(player)",
@@ -425,8 +431,10 @@ describe("what the Battleground asked of the rest of the server", function()
 
 	it("GlyphEffects holds a Forger with every stun and slow it holds a player with", function()
 		local effects = code(EFFECTS)
-		-- Movement is asked once for each, inside the helpers; every other site goes through them.
-		expect(count(effects, "ctx.Movement.applyStun(")).toBe(1)
+		-- Movement is asked once for each, inside the helpers; every other site goes through them. A player's stun is
+		-- a glyph's, which the grace may refuse (D-213), never a combat hold.
+		expect(count(effects, "ctx.Movement.applyGlyphStun(")).toBe(1)
+		expect(count(effects, "ctx.Movement.applyStun(")).toBe(0)
 		expect(count(effects, "ctx.Movement.applySlow(")).toBe(1)
 		local stun = body(effects, "local function stunModel(", "GlyphEffects")
 		expect(stun:find('else ctx.Combat.controlNpc(model, "Stun", seconds, 0, ctx.Def.Id) end', 1, true)).never.toBe(

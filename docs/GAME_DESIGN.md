@@ -36,7 +36,7 @@ Aucune touche par défaut n'entre en conflit avec WASD (QWERTY), ZQSD (AZERTY), 
 - **M1** : combo de 4 coups (8 / 8 / 8 / 14), fenêtre de chaînage 0,9 s, portée 7 studs. Le 4e coup projette (knockback + léger envol), étourdit 0,5 s, brise la garde, puis impose 1,2 s de recharge. Sur un avatar articulé (AJU), la victime est projetée inerte, tombe, reste à terre un instant et se relève : 1,1 s pendant lesquelles elle ne peut pas agir et **ne peut pas être touchée** (D-113) — un knockdown n'offre jamais de suite garantie.
 - **Dash** : 22 studs en 0,22 s, 0,25 s d'invulnérabilité, recharge 2,5 s, coûte 10 encre. Direction = déplacement en cours, sinon regard.
 - **Garde** : -70 % de dégâts, marche à 50 %, 4 s max puis 1,5 s de recharge. Brisée (1 s de stun) par les *Ultimes* et par le 4e coup de M1.
-- **Stun / ragdoll léger** : sur certains impacts (Empattement, Rupture, finisher M1) — jamais plus de 2 s cumulées.
+- **Stun / ragdoll léger** : sur certains impacts (Empattement, Rupture, finisher M1) — jamais plus de 2 s cumulées. Un étourdissement de glyphe ne prolonge jamais celui qui court et ne tombe pas dans la demi-seconde qui suit sa fin (D-213) : un enchaînement de glyphes ne tient personne plus longtemps que son plus long glyphe (0,8 s, la Rupture).
 - **Protection de spawn** : 4 s sans donner ni recevoir de dégâts. Les **zones** disent qui blesse qui (`ZoneConfig`, D-XXX) : aucun PvP au hub ni au Champ de bataille (les mannequins et les Faussaires restent frappables), les adversaires d'un même match entre eux, les membres de la Page de garde entre eux hors de leur protection, jamais entre joueurs de l'Effacement.
 
 ## 4. Combos : règles de résolution
@@ -143,7 +143,7 @@ ou en position.
 | Poncif (brouille la vue) | sortir : la brume est locale, la zone est petite | Rature (hitscan, n'a pas besoin de voir la trajectoire) | 3 ticks, ralentissement 30 % |
 | Rature (hitscan) | **rien ne l'esquive** : la réponse est l'encre — 20 par tir, et 70 studs de portée obligent le lanceur à rester exposé | Marge l'arrête (c'est un projectile instantané, pas un rayon ignorant les murs) | cooldown 4 s, coût 20 |
 | Insertion (téléport) | Reliure à l'arrivée, Filigrane / Spiral sur la zone d'arrivée probable | poursuivre : 0,4 s d'i-frames seulement | cooldown 7 s |
-| Filigrane (micro-stuns) | Dorure, puis sortir : les stuns sont courts mais empilent | Insertion | 4 ticks, zone fixe |
+| Filigrane (micro-stuns) | Dorure, puis sortir : les stuns sont courts mais reviennent à chaque tick (jamais sur un autre étourdissement, D-213) | Insertion | 4 ticks, zone fixe |
 | Colophon (ultime, chaîne 3 cibles) | se séparer : la chaîne a besoin de cibles proches | Marge pour le premier maillon | combo à 4 touches, 55 encre, 25 s |
 | Volute (chargée, projette) | ruée pendant les 0,4 s de charge | garde (−70 %), Dorure (pas de projection) | la charge se voit dans la main, portée 8 |
 | Rubrique (ligne chargée) | quitter la ligne tracée au sol | Marge l'arrête ; étourdir le lanceur rompt la charge, le repousser de plus de 6 studs la lui fait perdre | 0,7 s de charge, lanceur immobile |
@@ -194,7 +194,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 | Champ de bataille (D-131) | tous (12 max) | libre | — | XP/Folios par Faussaire vaincu (Folios plafonnés à 150/jour), quête `BotKill` |
 | Page de garde (E16-S2, D-XXX) | tous (12 max) | libre | — | 60 XP par victoire, 5 Folios (plafonnés à 100/jour), rien au-delà de 3 morts du même rival en 10 min ; ni rang ni Elo |
-| Entraînement contre l'Effacement (D-132) | 1+ (rejoindre en cours ; le boss grandit au premier coup du nouveau venu) | 4 min | boss vaincu | ×0,25 d'une participation, 3 fois/jour, 1 fois/20 min (une paie sous 1 Folio ne décompte rien), ni quête ni `BossKills` |
+| Entraînement contre l'Effacement (D-132) | 1+ (rejoindre en cours ; le boss grandit au premier coup du nouveau venu) | 4 min | boss vaincu | ×0,25 d'une participation, 3 fois/jour, 1 fois/20 min, les deux tenus par le profil (une paie sous 1 Folio ne décompte rien), ni quête ni `BossKills` |
 
 Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D-130) : on se tient dans le cercle de craie sous le portique (1,5 s ; 2 s pour revenir), sans touche ni remote, et le serveur déplace. Au champ de bataille, PvE seulement : les Faussaires (Barbouilleur au corps à corps, Plume à distance, Surchargeur lourd — le joueur ne lit que « Faussaires ») annoncent chaque coup à l'encre au sol pendant toute sa préparation (D-133) ; trois pour un joueur, un de plus par joueur actif, dix au plus ; un camp à l'ouest où ils n'entrent pas, où l'on régénère et où l'on réapparaît, et d'où un coup ne compte pour rien (D-134). L'événement de l'Effacement y appelle les joueurs comme ailleurs.
 

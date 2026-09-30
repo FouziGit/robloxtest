@@ -73,6 +73,10 @@ CombatConfig.Hit = {
 	IFrameSeconds = 0.3,
 	KnockbackDurationSeconds = 0.25,
 	StunMaxSeconds = 2,
+	-- A glyph's stun never lands on a body already stunned, nor this soon after its last stun ended
+	-- (Pure/StunClock, D-213): a chain of glyphs holds nobody longer than its longest glyph's stun, and gives
+	-- this much back between two. The Watermark's own ticks (0.18 s of stun every 0.7 s) still all land.
+	StunGraceSeconds = 0.5,
 	-- How long the melee finisher leaves its victim limp (MovementService.ragdoll, D-112), then how long its
 	-- joints pull the body back into its pose before they are rigid again. The victim acts again only once
 	-- both are over, and nothing can hit it until then (CombatService.ApplyDamage): a knockdown is a pause

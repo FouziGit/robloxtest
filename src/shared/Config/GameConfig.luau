@@ -45,6 +45,11 @@ GameConfig.Server = {
 	-- the server's doing, never an abandon (docs/QA.md R3). Also what a player who rejoins another server
 	-- at once may wait on top of ProfileStore's own session hand-over.
 	LeaveGraceSeconds = 2,
+	-- A per-player or per-match step of a tick that throws is written to the log at most once per element this
+	-- often (Log.faults), and a match whose tick throws this many ticks in a row is cancelled, its arena released
+	-- (MatchService): at TickRate, well within a second of its first failure.
+	FaultLogSeconds = 10,
+	MatchFaultTicks = 5,
 }
 
 GameConfig.Vfx = {
@@ -98,11 +103,17 @@ GameConfig.Movement = {
 	JumpPower = 50,
 	DoubleJumpVelocity = 50,
 	MaxJumps = 2,
+	-- The collision group of every part of a player's body, which does not collide with itself: players pass
+	-- through one another and nobody flings anybody (D-215). The Forgers and the Erasure stay Default.
+	CharacterCollisionGroup = "Characters",
 }
 
 GameConfig.Spawn = {
 	ProtectionSeconds = 4, -- no damage taken/dealt right after (re)spawn
 	SafeZoneMarginStuds = 10, -- PvP disabled within DummyRingRadius + this margin of the hub spawn
+	-- A Humanoid its client took out of the body and did not give back within this is replaced with a new body and a
+	-- Schema strike (MovementService, D-216): without one, nothing can hurt the body.
+	HumanoidReturnSeconds = 0.5,
 }
 
 GameConfig.Enemy = {

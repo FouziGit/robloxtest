@@ -13,7 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Context = require(script.Parent.Context)
-local DailyCap = require(Shared.Pure.DailyCap)
+local DailyCap = require(script.Parent.Parent.Parent.Pure.DailyCap)
 local DailyStreak = require(Shared.Pure.DailyStreak)
 local FlyleafConfig = require(Shared.Config.FlyleafConfig)
 local FlyleafRules = require(script.Parent.Parent.Parent.Pure.FlyleafRules)

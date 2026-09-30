@@ -437,8 +437,9 @@ end
 -- arena goes back to the pool, so a broken match never holds either. Whatever finish got through before it threw,
 -- if it did, nothing of the match outlives this: every step below is harmless when finish already took it. Whoever
 -- that finish did not reach is sent home here, each step on its own so the one that broke finish cannot stop the
--- next, and before the arena under them is released (ArenaService destroys it). A match that was already finished
--- had its end, and its result stands: they are told it is over, not that it was cancelled.
+-- next, and before the arena under them is released (ArenaService destroys it), with every glyph ready as finish
+-- would have left them (D-207). A match that was already finished had its end, and its result stands: they are told
+-- it is over, not that it was cancelled.
 local function cancel(active: Active)
 	local ended = active.Finished
 	local key = if ended then "match.returning" else "match.cancelled"
@@ -452,6 +453,7 @@ local function cancel(active: Active)
 		if isLive(participant) and not participant.Released then
 			participant.Released = true
 			local player = participant.Player
+			log.try("resetCooldowns for " .. player.Name, glyph.resetCooldowns, player)
 			log.try("MatchChanged for " .. player.Name, registry.fire, "MatchChanged", player, nil)
 			log.try("notify " .. player.Name, notify.send, player, key, nil, kind)
 			log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)

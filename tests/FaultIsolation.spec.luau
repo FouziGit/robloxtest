@@ -535,6 +535,36 @@ describe("a match whose end throws halfway", function()
 		expect(m.told[stays]).toBe("match.returning")
 		expect(table.find(m.sentHome, leaves)).toBeNil()
 	end)
+
+	it("sends whoever it never reached home with every glyph ready, as it would have (D-207)", function()
+		local m = matchWorld()
+		local first, second = duelist(m.players, "First", 41), duelist(m.players, "Second", 42)
+		local id = m.MatchService.start("Duel1v1", { { 41 }, { 42 } })
+		assert(id ~= nil, "the spec could not start its duel")
+		-- The round's own reset is behind them: what is counted below is the way home.
+		local before = m.resets[second] or 0
+		-- The mode's verdict breaks, so the match is cancelled; its finish then breaks on the first player it lets
+		-- go, before it ever reaches the second.
+		local duel = m.GameModes.get("Duel1v1")
+		local verdict = duel.RoundVerdict
+		duel.RoundVerdict = function(match: any, now: number): any
+			if match.Id == id then
+				error("a verdict nobody can give")
+			end
+			return verdict(match, now)
+		end
+		m.fire = function(name: string, player: any, payload: any)
+			if name == "MatchChanged" and payload == nil and player == first then
+				error("the first player's screen could not be closed")
+			end
+		end
+		m.world:advance(2)
+		duel.RoundVerdict = verdict
+		expect(m.MatchService.isInMatch(second)).toBe(false)
+		expect(table.find(m.sentHome, second)).never.toBeNil()
+		expect(m.told[second]).toBe("match.cancelled")
+		expect((m.resets[second] or 0) - before).toBe(1)
+	end)
 end)
 
 ----------------------------------------------------------------

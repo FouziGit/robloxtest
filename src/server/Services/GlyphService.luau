@@ -5,7 +5,6 @@
 -- A hit on a Trial proof counts for the stats and the quests but pays no XP: the Trials pay by the kill
 -- (EnemyService, TrialPay).
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -118,8 +117,6 @@ type Deps = {
 
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
 local MAX_REWARDED_HITS = 3
--- The tag of the hub's Trial proofs (EnemyService), whose hits pay no XP.
-local PROOF_TAG = GameConfig.Enemy.Tag
 local ROOT_PART_NAME = "HumanoidRootPart"
 
 local GlyphService = {}
@@ -254,7 +251,7 @@ local function shadedVfx(shade: number): VfxApi
 end
 
 -- Runs the effect in the handler thread (timed effects yield inline). Returns distinct models hit, and how
--- many of them pay XP: every one but a Trial proof.
+-- many of them pay XP: every one but a model that was a Trial proof when the cast struck it (Context.Landed).
 local function runEffect(
 	player: Player,
 	def: GlyphDef,
@@ -282,8 +279,8 @@ local function runEffect(
 		notify.send(player, "hud.cast.failed", { name = def.NameKey }, "Error")
 	end)
 	local paying = 0
-	for model in pairs(landed) do
-		if not CollectionService:HasTag(model, PROOF_TAG) then
+	for _, proof in pairs(landed) do
+		if not proof then
 			paying += 1
 		end
 	end

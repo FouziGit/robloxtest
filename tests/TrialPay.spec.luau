@@ -181,11 +181,11 @@ describe("the Trials, on the server", function()
 		local glyph = strip("src/server/Services/GlyphService.luau")
 		local run = body(glyph, "local function runEffect(")
 		expect(has(run, "Landed = landed,")).toBe(true)
-		expect(has(run, "for model in pairs(landed) do if not CollectionService:HasTag(model, PROOF_TAG) then")).toBe(
-			true
-		)
+		expect(has(run, "for _, proof in pairs(landed) do if not proof then paying += 1 end end")).toBe(true)
 		expect(has(run, "return hits, paying")).toBe(true)
-		expect(has(glyph, "local PROOF_TAG = GameConfig.Enemy.Tag")).toBe(true)
+		-- The service never reads the tag itself: by the time a zone stops ticking, a proof it felled has lost it
+		-- (EnemyService takes it on the death), and a proof read then paid its killer a hit.
+		expect(has(glyph, "HasTag")).toBe(false)
 		local record = body(glyph, "local function recordCast(")
 		expect(
 			has(
@@ -193,15 +193,26 @@ describe("the Trials, on the server", function()
 				'if paying > 0 then progression.addXp(player, ProgressionConfig.XP.GlyphHit * math.min(paying, MAX_REWARDED_HITS), "GlyphHit") end'
 			)
 		).toBe(true)
-		-- Every landed hit is recorded where damage lands, whatever the glyph.
+		-- Every landed hit is recorded where damage lands, whatever the glyph, and whether it struck a proof is read
+		-- before the hit, which may fell the proof and take its tag.
 		local effects = strip("src/server/Effects/GlyphEffects.luau")
+		expect(has(effects, "local PROOF_TAG = GameConfig.Enemy.Tag")).toBe(true)
 		local damage = body(effects, "local function damageModel(")
-		expect(
-			has(
-				damage,
-				"tracker.Hits[model] = (hits or 0) + 1 if ctx.Landed ~= nil then ctx.Landed[model] = true end return true"
-			)
-		).toBe(true)
+		local ordered = {
+			"local landed = ctx.Landed local proof = landed ~= nil and CollectionService:HasTag(model, PROOF_TAG)",
+			'local result = ctx.Combat.ApplyDamage(ctx.Caster, model, tracker.Amount, "Glyph", tracker.Tags, ctx.Def.Pigment)',
+			"tracker.Hits[model] = (hits or 0) + 1 if landed ~= nil and landed[model] == nil then landed[model] = proof end return true",
+		}
+		local from = 1
+		for _, line in ipairs(ordered) do
+			local at = damage:find(line, from, true)
+			if at == nil then
+				error(("GlyphEffects.damageModel lost, or reordered, %q"):format(line))
+			end
+			from = at + #line
+		end
+		local _, reads = damage:gsub("HasTag", "")
+		expect(reads).toBe(1)
 	end)
 
 	it("tell the player, in both languages", function()

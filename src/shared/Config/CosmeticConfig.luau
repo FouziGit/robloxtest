@@ -305,6 +305,39 @@ CosmeticConfig.Items = {
 		Sellable = false,
 		Look = { TextKey = "cosmetic.title.TitleCalligrapher" },
 	},
+	-- The login calendar (DailyConfig.Calendar): the last day of each of its four weeks. Never sold.
+	{
+		Id = "TitleFaithfulHand",
+		Slot = "Title",
+		Rarity = "Rare",
+		NameKey = "cosmetic.TitleFaithfulHand",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleFaithfulHand" },
+	},
+	{
+		Id = "TrailRibbon",
+		Slot = "Trail",
+		Rarity = "Rare",
+		NameKey = "cosmetic.TrailRibbon",
+		Sellable = false,
+		Look = { Styles = { "Stroke" }, Tone = "Madder" },
+	},
+	{
+		Id = "TitleKeeperOfDays",
+		Slot = "Title",
+		Rarity = "Epic",
+		NameKey = "cosmetic.TitleKeeperOfDays",
+		Sellable = false,
+		Look = { TextKey = "cosmetic.title.TitleKeeperOfDays" },
+	},
+	{
+		Id = "AuraSignet",
+		Slot = "Aura",
+		Rarity = "Epic",
+		NameKey = "cosmetic.AuraSignet",
+		Sellable = false,
+		Look = { Styles = { "Pages", "Motes" }, Tone = "Madder", Tones = { "Madder", "GoldLeaf" } },
+	},
 	-- Skin pack (game pass)
 	{
 		Id = "SkinWashJade",

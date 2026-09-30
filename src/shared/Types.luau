@@ -105,7 +105,11 @@ export type QuestsData = {
 
 export type DailyData = {
 	LastClaimDay: number, -- days since epoch
-	Streak: number,
+	Streak: number, -- days claimed in a row, a day missed with a Signet included in none
+	-- The login calendar (DailyConfig.Calendar): the last of its days claimed (0 before the first), and the Signets
+	-- held, each of which keeps the streak through one missed day (Pure/DailyStreak).
+	CalendarDay: number,
+	Signets: number,
 	FirstWinDay: number,
 	PremiumBonusDay: number,
 	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each
@@ -130,6 +134,9 @@ export type DailyData = {
 	-- The Flyleaf's daily allowance (FlyleafConfig): the day it belongs to and the Folios its kills paid.
 	FlyleafDay: number,
 	FlyleafFolios: number,
+	-- The practice duels against a Forger that paid out today (MatchConfig.Spar.PaidPerDay, SparService).
+	SparDay: number,
+	SparPaid: number,
 }
 
 -- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level
@@ -225,7 +232,7 @@ export type HitEvent = {
 	Killed: boolean,
 }
 
-export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss"
+export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss" | "Spar1v1"
 
 export type MatchResult = {
 	-- Identifies which match this result belongs to, so a rating move already written for a player who
@@ -298,6 +305,15 @@ export type QueueSnapshot = {
 	WaitedSeconds: number,
 	QueuedCount: number, -- players waiting in that mode on this server
 	NeededCount: number, -- players required to start
+}
+
+-- The practice duel against a Forger, as the queue's card shows it (SparChanged): whether it is offered now,
+-- whether the player is fighting one, and how many of today's paid spars are left (MatchConfig.Spar).
+export type SparSnapshot = {
+	Offered: boolean,
+	Sparring: boolean,
+	PaidLeft: number,
+	PaidPerDay: number,
 }
 
 export type LeaderboardEntry = {

@@ -808,7 +808,8 @@ describe("BotConfig", function()
 				expect(bolt.WindupSeconds).toBeGreaterThanOrEqual(BotConfig.MinWindupSeconds)
 			end
 		end
-		expect(count).toBe(3)
+		-- The page's three, and the spar's Duelist.
+		expect(count).toBe(4)
 	end)
 
 	it("throws nothing past the page or its packets, and never whiffs forever at a player over its head", function()
@@ -831,19 +832,30 @@ describe("BotConfig", function()
 		end
 	end)
 
-	it("pays every tier's kill from the progression tables", function()
-		for id, tier in pairs(tiers) do
-			local xp = ProgressionConfig.XP[tier.RewardKey]
-			local folios = ProgressionConfig.Folios[tier.RewardKey]
-			if xp == nil or xp <= 0 or folios == nil or folios <= 0 then
-				error(("%s pays %s, which ProgressionConfig does not price"):format(id, tier.RewardKey))
+	it(
+		"pays every tier's kill on the page from the progression tables, and a spar's Duelist's through its duel",
+		function()
+			for id, tier in pairs(tiers) do
+				local key = tier.RewardKey
+				if table.find(BotConfig.Roster, id) == nil then
+					-- A tier the page never fields (MatchConfig.Spar.TierId): its duel pays, never its kill.
+					if key ~= nil then
+						error(("%s never stands on the page and still pays %s by its kill"):format(id, key))
+					end
+					continue
+				end
+				local xp = if key ~= nil then ProgressionConfig.XP[key] else nil
+				local folios = if key ~= nil then ProgressionConfig.Folios[key] else nil
+				if xp == nil or xp <= 0 or folios == nil or folios <= 0 then
+					error(("%s pays %s, which ProgressionConfig does not price"):format(id, tostring(key)))
+				end
 			end
+			local credit = BotConfig.Credit
+			expect(credit.DailyFolioCap).toBeGreaterThan(0)
+			expect(credit.AssistShare).toBeGreaterThan(0)
+			expect(credit.AssistShare).toBeLessThanOrEqual(1)
 		end
-		local credit = BotConfig.Credit
-		expect(credit.DailyFolioCap).toBeGreaterThan(0)
-		expect(credit.AssistShare).toBeGreaterThan(0)
-		expect(credit.AssistShare).toBeLessThanOrEqual(1)
-	end)
+	)
 
 	it("fills every slot with a tier, and fields all of them before the Battleground is full", function()
 		expect(#BotConfig.Roster).toBe(BotConfig.MaxBots)

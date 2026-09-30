@@ -79,6 +79,29 @@ BattlegroundConfig.Map = {
 	Grid = { StepStuds = 10, MarginStuds = 5 },
 }
 
+-- The pits of the practice duel (MatchConfig.Spar, E10-S6): walled floors in the page's own frame, east of it and
+-- in a row along its axis, where one player meets one Duelist Forger. A pit holds one duel at a time; Count is
+-- how many a server runs at once.
+--   * Its floor is the page's height, so the Forgers walk, aim and fall in it as they do on the page (Motion,
+--     Attacks, the page's frame).
+--   * Each is more than GameConfig.Vfx.BroadcastRadiusStuds (250) from the page and from the next pit: nothing
+--     drawn in one is sent to anybody in another.
+--   * Its walls stand higher than the double jump reaches (12.74, as the page's covers).
+--   * The player's pad is on its east side and the Forger's on its west, both on the page's axis: a body put down
+--     facing the page's centre (Roster.place) faces the Forger.
+BattlegroundConfig.Pits = {
+	Count = 4,
+	-- The centre of the first pit's floor, in the page's frame, and the step to the next one along x.
+	FirstX = 420,
+	SpacingX = 330,
+	Size = 60,
+	WallHeight = 20,
+	-- Each pad this far in from its wall.
+	PadInsetStuds = 14,
+	-- A body whose root falls this far under the floor has fallen out of the pit: a death of the environment.
+	FallDepthStuds = 40,
+}
+
 -- What the map's parts are called, for every reader (docs/GAME_DESIGN.md §8): the Workspace model, the
 -- landing and spawn markers (the prefix plus their index), the kill plane and the floor.
 BattlegroundConfig.Anchors = {
@@ -87,6 +110,9 @@ BattlegroundConfig.Anchors = {
 	BotSpawn = "BotSpawn_",
 	KillZone = "KillZone",
 	Floor = "Floor",
+	-- The Workspace folder the pits stand in, and each one's model (the prefix plus its index).
+	Pits = "SparPits",
+	Pit = "Pit_",
 }
 
 -- Players inside at once. Past it, the gate refuses with a toast.

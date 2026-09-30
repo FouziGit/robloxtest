@@ -6,7 +6,7 @@ Toutes les valeurs sont des points de départ à ajuster avec les données réel
 
 | Monnaie | Nature | Obtention | Usage |
 |---|---|---|---|
-| **Folios** | douce (gagnée) | matchs, kills, quêtes, boss, streak, pass, achat de packs | boutique cosmétique, rotation quotidienne |
+| **Folios** | douce (gagnée) | matchs, kills, quêtes, boss, calendrier de connexion, pass, achat de packs | boutique cosmétique, rotation quotidienne |
 | **Robux** | dure | achat réel | game passes, developer products, depuis les surfaces d'achat (§5) |
 
 Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade débloquable au niveau 40 (`docs/GAME_DESIGN.md` §5), les slots de loadout apportent de la variété, tout le reste est cosmétique ou du confort (boost d'XP, saut de paliers).
@@ -25,11 +25,14 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
 | Page de garde (E16-S2) | 5 par victoire (60 XP) | plafond **100 / jour** (profil) ; rien au-delà de 3 morts du même rival en 10 min | hors du total ci-dessous |
 | Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour, 1 / 20 min (les deux dans le profil, D-222) ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
+| Duel d'épreuve contre un Faussaire (E10-S6) | 30 / 18 / 10 (×0,5 d'une victoire, égalité, défaite) | 3 / jour (profil, `Daily.SparDay` / `SparPaid`) | ≤ 90 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
-| Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
-| **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
+| Calendrier de connexion (28 jours, moyenne) | 159 | ×1 | 159 |
+| **Total** | | | **≈ 1 020 Folios / h** (≈ 700 pour un joueur moyen) |
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
+
+**Calendrier de connexion (E15-S1).** 28 jours réclamés un par jour (`DailyConfig.Calendar`) : chaque semaine reprend la rangée montante de l'ancienne série de 7 jours, un peu plus haut que la précédente (850, 1 025, 1 200 et 1 375 Folios), soit **4 450 Folios et 8 000 XP par mois**, contre 4 000 Folios pour quatre semaines de l'ancienne série. Les jours 7, 14, 21 et 28 donnent un cosmétique jamais vendu (titre Rare, traînée Rare, titre Épique, aura Épique) ; un cosmétique déjà possédé (le deuxième mois) paie 300 Folios de plus à sa place (`OwnedCosmeticFolios`). Le 3ᵉ jour de chaque semaine glisse un Signet dans le livre, deux au plus : un Signet garde la série un jour manqué. Les Signets ne se vendent pas.
 
 Les matchs classés sont bornés eux aussi (D-255) : **1 400 Folios par jour** au plus, résultats et kills ensemble (`MatchConfig.DailyFolioCap`, montant de base avant le VIP, compté dans le profil : `Daily.MatchDay` / `MatchFolios` ; `MatchService` paie les Folios d'un kill), soit environ quatre heures de matchs au rythme du tableau ci-dessus (360 / h) ; au-delà, un match ne paie plus que de l'XP, et un toast le dit. Au-delà de 6 matchs d'une même paire de joueurs dans la journée UTC (un duel et cinq revanches) (`RankingConfig.Opponents`, compté dans les deux profils : `Rank.Opponents`), le match ne rapporte qu'un quart de son XP et de ses Folios, et l'Elo de la paire ne bouge plus. Un forfait avant 30 s de jeu ou sans dégâts échangés est nul : le survivant ne touche rien. Ce que rapporte au mieux un farm à deux comptes : six victoires pleines par compte secondaire et par jour, sous le même plafond qu'une journée honnête. Aucun âge de compte minimum n'est exigé.
 

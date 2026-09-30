@@ -159,6 +159,8 @@ function DataService.template(): { [string]: any }
 		Daily = {
 			LastClaimDay = 0,
 			Streak = 0,
+			CalendarDay = 0,
+			Signets = 0,
 			FirstWinDay = 0,
 			PremiumBonusDay = 0,
 			ForgerDay = 0,
@@ -173,6 +175,8 @@ function DataService.template(): { [string]: any }
 			TrialFolios = 0,
 			MatchDay = 0,
 			MatchFolios = 0,
+			SparDay = 0,
+			SparPaid = 0,
 		},
 		Milestones = {},
 		Drills = {},

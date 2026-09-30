@@ -563,7 +563,7 @@ describe("the hub's claims, run", function()
 					Progression = { Level = 5, XP = 10 },
 					Currency = { Folios = 100 },
 					Stats = { GlyphsCast = 3, MatchesPlayed = 2 },
-					Daily = { LastClaimDay = today - 1, Streak = 1 },
+					Daily = { LastClaimDay = today - 1, Streak = 1, CalendarDay = 1, Signets = 0 },
 					Quests = { Daily = quests, Weekly = table.clone(quests) },
 					Battlepass = {},
 				},

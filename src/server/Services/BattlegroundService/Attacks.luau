@@ -122,14 +122,20 @@ end
 
 -- The character to hit and the point to measure it at, or nil when `member` may not be hit by this Forger now:
 -- no longer in the roster, not standing on the page by the position the server trusts, or no longer a target
--- (down, in the camp, too fresh, ignored). The point is where a Forger sees them (Context.targetPoint).
+-- (down, in the camp, too fresh, ignored). The point is where a Forger sees them (Context.targetPoint). A pit's
+-- Forger (a spar's, Pits) asks its pit instead of the page: its one duellist, on its floor, while a round is on.
 local function strikeable(bot: Bot, member: Member, now: number): (Model?, Vector3?)
 	local player = member.Player
-	if Roster.get(player) ~= member then
-		return nil, nil
-	end
 	local trusted = deps.Combat.trustedPosition(player)
-	if trusted == nil or not Context.insideBounds(handle.Layout, trusted) then
+	local pit = bot.Pit
+	if pit == nil then
+		if Roster.get(player) ~= member then
+			return nil, nil
+		end
+		if trusted == nil or not Context.insideBounds(handle.Layout, trusted) then
+			return nil, nil
+		end
+	elseif not pit.Live or pit.Member ~= member or trusted == nil or not Context.insideRect(pit.Bounds, trusted) then
 		return nil, nil
 	end
 	local point = Context.targetPoint(deps.Combat, player)

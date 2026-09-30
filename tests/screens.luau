@@ -6,6 +6,7 @@
 -- gamepad's selection graph (tests/GamepadGraph.spec.luau).
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
+local DailyConfig = require("../src/shared/Config/DailyConfig")
 local DrillConfig = require("../src/shared/Config/DrillConfig")
 local Engine = require("./engine")
 local ExLibrisConfig = require("../src/shared/Config/ExLibrisConfig")
@@ -57,7 +58,14 @@ function Screens.profile(today: number): any
 		Progression = { Level = 5, XP = 10, TotalXP = 410 },
 		Currency = { Folios = 100 },
 		Stats = { GlyphsCast = 3, GlyphsHit = 1, Kills = 0, Deaths = 0, MatchesPlayed = 2, BestChain = 0 },
-		Daily = { LastClaimDay = today - 1, Streak = 3, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = today - 1,
+			Streak = 3,
+			CalendarDay = 3,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+		},
 		Quests = { Daily = quests, Weekly = table.clone(quests) },
 		Battlepass = {
 			[GameConfig.SeasonId] = { Tier = 3, XP = 0, Premium = false, ClaimedFree = {}, ClaimedPremium = {} },
@@ -99,7 +107,15 @@ function Screens.fullest(today: number): any
 	data.Passes = passes
 	data.Progression = { Level = 40, XP = 10, TotalXP = 99999 }
 	data.Currency = { Folios = 123456 }
-	data.Daily = { LastClaimDay = today - 1, Streak = 6, FirstWinDay = 0, PremiumBonusDay = 0 }
+	-- The calendar's week on its prize day, with every Signet a player may hold (DailyConfig.MaxSignets).
+	data.Daily = {
+		LastClaimDay = today - 1,
+		Streak = 6,
+		CalendarDay = 6,
+		Signets = DailyConfig.MaxSignets,
+		FirstWinDay = 0,
+		PremiumBonusDay = 0,
+	}
 	data.Battlepass = {
 		[GameConfig.SeasonId] = {
 			Tier = BattlepassConfig.MaxTier,
@@ -251,6 +267,13 @@ function Screens.open(name: string, options: Options?): (any, number, any, any, 
 			end,
 			joinQueue = function() end,
 			leaveQueue = function() end,
+			-- The practice duel the 1v1 card offers while its queue waits (E10-S6): not offered here.
+			SparChanged = signal(),
+			getSpar = function(): any
+				return { Offered = false, Sparring = false, PaidLeft = 3, PaidPerDay = 3 }
+			end,
+			startSpar = function() end,
+			leaveSpar = function() end,
 		},
 		OnClose = function() end,
 		OnNavigate = function() end,

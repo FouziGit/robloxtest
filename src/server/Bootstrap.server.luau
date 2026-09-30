@@ -45,6 +45,7 @@ local RankingService = require(Services.RankingService)
 local RemoteRegistry = require(script.Parent.RemoteRegistry)
 local SettingsService = require(Services.SettingsService)
 local ShopService = require(Services.ShopService)
+local SparService = require(Services.SparService)
 local Types = require(Shared.Types)
 local VfxBroadcaster = require(Services.VfxBroadcaster)
 local WorldBossService = require(Services.WorldBossService)
@@ -94,6 +95,7 @@ local deps = {
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
 	Flyleaf = FlyleafService,
+	Spar = SparService,
 	Portal = PortalService,
 	Drill = DrillService,
 }
@@ -140,6 +142,9 @@ local ordered: { Boot.Entry } = {
 	-- After Match and WorldBoss, as another place that takes a player out of the hub, and after Combat, whose
 	-- Flyleaf zone it claims.
 	{ Name = "FlyleafService", Service = FlyleafService },
+	-- After the queue, the matches, the Erasure and the Battleground: its duel is fought in the Battleground's pits,
+	-- while its player waits in the queue.
+	{ Name = "SparService", Service = SparService },
 	-- After every builder of a gate (Hub, Arena, Battleground, Flyleaf) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },

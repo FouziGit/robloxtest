@@ -58,8 +58,9 @@ export type TierDef = {
 	StaggerImmune: boolean,
 	Melee: MeleeDef,
 	Bolt: BoltDef?,
-	-- The ProgressionConfig.XP / Folios key its kill pays.
-	RewardKey: string,
+	-- The ProgressionConfig.XP / Folios key its kill pays; nil for a tier that never stands on the page, whose kill
+	-- pays nothing by itself (the Duelist: a spar's result pays, SparService).
+	RewardKey: string?,
 }
 
 local BotConfig = {}
@@ -309,6 +310,53 @@ BotConfig.Tiers = {
 			KnockbackSpeed = 25,
 		},
 		RewardKey = "BotOverwriter",
+	},
+	-- The duellist of a practice duel (MatchConfig.Spar), fought one on one in a pit, never on the page. It stands
+	-- between a Smudger and an Overwriter: 160 health, which a player's melee takes in about 8 s and a glyph or two
+	-- sooner, a chain of 5 + 6 + 9 that knocks down on its finisher, and a bolt for the player who only runs. It
+	-- walks at 15, under a player's 16, so a player can always make room; its chain and its bolt together are
+	-- about 8 damage a second on a player who never guards, 100 health in about 12 s. Never staggered by less
+	-- than every hit a Smudger is, so a player who presses sees it flinch.
+	Duelist = {
+		Role = "Melee",
+		Health = 160,
+		WalkSpeed = 15,
+		Scale = 1,
+		AggroRadius = 80,
+		LoseSightSeconds = 6,
+		AggroMemorySeconds = 10,
+		CommitSeconds = 3,
+		SwitchMarginStuds = 12,
+		KeepRange = { 0, 4 },
+		StaggerImmune = false,
+		Melee = {
+			Damage = { 5, 6, 9 },
+			Range = 6.5,
+			HalfWidth = 3.5,
+			HalfHeight = 4,
+			WindupSeconds = 0.55,
+			ChainGapSeconds = 0.45,
+			FinisherGapSeconds = 0.5,
+			ChainSlackStuds = 2,
+			RecoverySeconds = 1.5,
+			FinisherKnockback = 35,
+			FinisherLift = 12,
+			FinisherStunSeconds = 0.3,
+			FinisherBreaksGuard = false,
+			FinisherRagdoll = true,
+		},
+		Bolt = {
+			Damage = 10,
+			Range = 50,
+			MinRange = 10,
+			HitRadius = 2,
+			HalfHeight = 4,
+			SpawnOffset = 2,
+			WindupSeconds = 0.7,
+			CooldownSeconds = 5,
+			KnockbackSpeed = 20,
+		},
+		RewardKey = nil,
 	},
 } :: { [string]: TierDef }
 

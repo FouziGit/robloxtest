@@ -358,7 +358,8 @@ describe("the Forgers' figures", function()
 			end
 			worn[shape] = tierId
 		end
-		expect(count).toBe(3)
+		-- The page's three, and the spar's Duelist.
+		expect(count).toBe(4)
 		for tierId in pairs(WorldConfig.Forgers.Marks) do
 			expect(BotConfig.Tiers[tierId] ~= nil).toBe(true)
 		end

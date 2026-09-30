@@ -4,6 +4,9 @@
 -- in-match band, UI/screens for Play and Result) and forwards the only two queue intents the client is
 -- allowed to send. Every value exposed here is server-authored; payloads are sanitized before use so a
 -- truncated push can never error a screen.
+--
+-- It mirrors the practice duel's offer too (SparChanged, E10-S6) and forwards its two intents, take it and walk
+-- out of it. The duel itself arrives as a match, in the Spar1v1 mode.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -22,6 +25,7 @@ local log = Log.new("MatchController")
 export type QueueSnapshot = Types.QueueSnapshot
 export type MatchSnapshot = Types.MatchSnapshot
 export type MatchOutcome = Types.MatchOutcome
+export type SparSnapshot = Types.SparSnapshot
 
 type Deps = { RemoteClient: any, SoundController: any }
 
@@ -34,6 +38,7 @@ local MatchController = {}
 MatchController.QueueChanged = Signal.new() -- (snapshot: QueueSnapshot)
 MatchController.MatchChanged = Signal.new() -- (snapshot: MatchSnapshot?)
 MatchController.MatchEnded = Signal.new() -- (outcome: MatchOutcome)
+MatchController.SparChanged = Signal.new() -- (snapshot: SparSnapshot)
 
 local remoteClient: any
 local soundController: any
@@ -44,6 +49,8 @@ local function idleQueue(): QueueSnapshot
 end
 
 local queue: QueueSnapshot = idleQueue()
+-- Nothing offered until the server says so.
+local spar: SparSnapshot = { Offered = false, Sparring = false, PaidLeft = 0, PaidPerDay = 0 }
 local match: MatchSnapshot? = nil
 local lastOutcome: MatchOutcome? = nil
 local malformedWarned: { [string]: boolean } = {}
@@ -185,6 +192,28 @@ local function readOutcome(payload: any): MatchOutcome?
 	}
 end
 
+local function readSpar(payload: any): SparSnapshot?
+	if type(payload) ~= "table" then
+		return nil
+	end
+	return {
+		Offered = payload.Offered == true,
+		Sparring = payload.Sparring == true,
+		PaidLeft = count(payload.PaidLeft, 0),
+		PaidPerDay = count(payload.PaidPerDay, 0),
+	}
+end
+
+local function onSparChanged(payload: any)
+	local snapshot = readSpar(payload)
+	if snapshot == nil then
+		warnOnce("SparChanged", payload)
+		return
+	end
+	spar = snapshot
+	MatchController.SparChanged:Fire(snapshot)
+end
+
 local function onQueueChanged(payload: any)
 	local snapshot = readQueue(payload)
 	if snapshot == nil then
@@ -288,15 +317,36 @@ function MatchController.rankedHere(): boolean
 	return Workspace:GetAttribute(MatchConfig.PrivateServer.UnrankedAttribute) ~= true
 end
 
+-- Joins the queue `modeId` is played from: its own, or, for a practice duel's "play again", the queue it was
+-- offered in (MatchConfig.queueOf). JoinQueue only ever carries a queue.
 function MatchController.joinQueue(modeId: string)
-	if MatchConfig.Modes[modeId] == nil then
-		log.warn("join refused: unknown mode %s", modeId)
+	local queueId = MatchConfig.queueOf(modeId)
+	if queueId == nil then
+		log.warn("join refused: no queue plays mode %s", modeId)
 		return
 	end
-	if queue.Queued and queue.ModeId == modeId then
+	if queue.Queued and queue.ModeId == queueId then
 		return -- already waiting in that queue: nothing to ask the server
 	end
-	remoteClient.fire("JoinQueue", modeId)
+	remoteClient.fire("JoinQueue", queueId)
+end
+
+function MatchController.getSpar(): SparSnapshot
+	return spar
+end
+
+-- Takes the practice duel the card offers. Nothing to ask while it is not offered.
+function MatchController.startSpar()
+	if spar.Offered then
+		remoteClient.fire("StartSpar")
+	end
+end
+
+-- Walks out of the practice duel being fought.
+function MatchController.leaveSpar()
+	if spar.Sparring then
+		remoteClient.fire("LeaveSpar")
+	end
 end
 
 function MatchController.leaveQueue()
@@ -315,6 +365,7 @@ function MatchController.Start()
 	remoteClient.on("QueueChanged", onQueueChanged)
 	remoteClient.on("MatchChanged", onMatchChanged)
 	remoteClient.on("MatchEnded", onMatchEnded)
+	remoteClient.on("SparChanged", onSparChanged)
 	log.info("started")
 end
 

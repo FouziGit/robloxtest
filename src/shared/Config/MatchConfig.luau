@@ -41,9 +41,52 @@ MatchConfig.Modes = {
 		ResultSeconds = 8,
 		ArenaId = "Team",
 	},
+	-- A practice duel against a Duelist Forger while the player waits in the 1v1 queue (E10-S6, SparService, and
+	-- MatchConfig.Spar below). It has no queue of its own and no arena: it is offered from the queue's card and
+	-- fought in a pit beside the Battleground. Unranked, the rounds of the ranked duel, a shorter count first.
+	Spar1v1 = {
+		Id = "Spar1v1",
+		NameKey = "mode.spar1v1",
+		TeamSize = 1,
+		Teams = 2,
+		Ranked = false,
+		DurationSeconds = 180,
+		RoundsToWin = 2,
+		CountdownSeconds = 3,
+		ResultSeconds = 6,
+		-- Not a MatchConfig.Arenas entry: a spar is fought in one of the Battleground's pits, never an arena.
+		ArenaId = "Pit",
+	},
 } :: { [string]: ModeDef }
 
 MatchConfig.ModeOrder = { "Duel1v1", "Team3v3" } :: { string }
+
+MatchConfig.Spar = {
+	-- The queue it is offered from, and after how long waiting there with nobody else in it.
+	QueueModeId = "Duel1v1",
+	OfferAfterSeconds = 20,
+	-- The Forger it is fought against (BotConfig.Tiers), and the user id that stands for it in a snapshot.
+	TierId = "Duelist",
+	ForgerUserId = 0,
+	-- Spars paid a day, counted in the profile (Daily.SparDay / SparPaid, DailyCap), each at this share of what
+	-- the ranked duel pays for the same result (ProgressionConfig.XP / Folios MatchWin, MatchLoss, MatchDraw). A
+	-- spar past the day's allowance pays nothing, and is still fought.
+	PaidPerDay = 3,
+	RewardFactor = 0.5,
+	-- How often the offer is looked at for every player in the queue.
+	OfferTickSeconds = 1,
+}
+
+-- The queue a mode is played from: its own, or the one a spar is offered in. nil for a mode no queue leads to.
+function MatchConfig.queueOf(modeId: string): string?
+	if table.find(MatchConfig.ModeOrder, modeId) ~= nil then
+		return modeId
+	end
+	if modeId == MatchConfig.Modes.Spar1v1.Id then
+		return MatchConfig.Spar.QueueModeId
+	end
+	return nil
+end
 
 -- Pause shown between two rounds of a multi-round mode, before the next countdown.
 MatchConfig.RoundOverSeconds = 3

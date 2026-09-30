@@ -299,6 +299,7 @@ Strings.Table = {
 	["rank.codex"] = { en = "Codex", fr = "Codex" },
 	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
+	["mode.spar1v1"] = { en = "Practice duel", fr = "Duel d'épreuve" },
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
 	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
@@ -309,6 +310,11 @@ Strings.Table = {
 	["cosmetic.TitleDogEared"] = { en = "Title: Dog-Eared", fr = "Titre : Écorné" },
 	["cosmetic.TitleOneBreath"] = { en = "Title: In One Breath", fr = "Titre : D'un seul souffle" },
 	["cosmetic.TitleCalligrapher"] = { en = "Title: Calligrapher", fr = "Titre : Calligraphe" },
+	-- The login calendar's cosmetics (DailyConfig.Calendar), never sold.
+	["cosmetic.TitleFaithfulHand"] = { en = "Title: Faithful Hand", fr = "Titre : Main Fidèle" },
+	["cosmetic.TrailRibbon"] = { en = "Signet Ribbon Trail", fr = "Traînée du Signet" },
+	["cosmetic.TitleKeeperOfDays"] = { en = "Title: Keeper of Days", fr = "Titre : Gardien des Jours" },
+	["cosmetic.AuraSignet"] = { en = "Signet Aura", fr = "Aura du Signet" },
 
 	-- Quests & daily
 	["quest.castGlyphs.one"] = { en = "Cast {target} glyph", fr = "Trace {target} glyphe" },
@@ -367,7 +373,6 @@ Strings.Table = {
 		fr = "Trace un glyphe ou fais une ruée pour gagner avec les mannequins.",
 	},
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
-	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
 	["daily.claimed.one"] = {
 		en = "Day {day} reward: +{xp} XP, +{folios} Folio",
 		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folio",
@@ -432,6 +437,8 @@ Strings.Table = {
 	["cosmetic.title.TitleDogEared"] = { en = "Dog-Eared", fr = "Écorné" },
 	["cosmetic.title.TitleOneBreath"] = { en = "In One Breath", fr = "D'un seul souffle" },
 	["cosmetic.title.TitleCalligrapher"] = { en = "Calligrapher", fr = "Calligraphe" },
+	["cosmetic.title.TitleFaithfulHand"] = { en = "Faithful Hand", fr = "Main Fidèle" },
+	["cosmetic.title.TitleKeeperOfDays"] = { en = "Keeper of Days", fr = "Gardien des Jours" },
 	["cosmetic.title.TitleRookie"] = { en = "Rookie", fr = "Recrue" },
 	["cosmetic.title.TitleWanderer"] = { en = "Wanderer", fr = "Vagabond" },
 
@@ -617,6 +624,7 @@ Strings.Table = {
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },
 	["leaderboard.board.Team3v3"] = { en = "3v3", fr = "3v3" },
+	["leaderboard.board.Spar1v1"] = { en = "Practice", fr = "Épreuve" },
 	["leaderboard.empty"] = { en = "No ranked player yet.", fr = "Aucun joueur classé pour l'instant." },
 	-- The hub, worded by each client (HubSignsController, D-128).
 	["hub.board.title"] = { en = "Leaderboard · {board}", fr = "Classement · {board}" },
@@ -1103,6 +1111,40 @@ Strings.Table = {
 		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
 		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
 	},
+	-- The practice duel against a Forger while waiting in the 1v1 queue (E10-S6, SparService): the offer on the
+	-- queue's card, the duel going on, and what the server says about it.
+	["spar.pitch"] = {
+		en = "Spar a Duelist Forger while you wait: first to 2, unranked",
+		fr = "Affronte un Faussaire Duelliste en attendant : premier à 2, non classé",
+	},
+	["spar.start"] = { en = "Spar", fr = "S'entraîner" },
+	["spar.paidLeft"] = {
+		en = "Rewards: {left} of {total} left today",
+		fr = "Récompenses : encore {left} sur {total} aujourd'hui",
+	},
+	["spar.noneLeft"] = {
+		en = "No rewards left today: the practice is still yours",
+		fr = "Plus de récompenses aujourd'hui : l'entraînement reste à toi",
+	},
+	["spar.sparring"] = {
+		en = "Practice duel under way. A real opponent takes over at the next round break.",
+		fr = "Duel d'épreuve en cours. Un vrai adversaire prend la main à la prochaine pause de manche.",
+	},
+	["spar.leave"] = { en = "Leave practice", fr = "Quitter l'épreuve" },
+	["spar.started"] = {
+		en = "A Duelist Forger answers. First to 2 rounds!",
+		fr = "Un Faussaire Duelliste répond. Premier à 2 manches !",
+	},
+	["spar.handover"] = {
+		en = "An opponent is here: to the ranked duel!",
+		fr = "Un adversaire est là : au duel classé !",
+	},
+	["spar.unavailable"] = { en = "No practice duel right now.", fr = "Pas de duel d'épreuve pour l'instant." },
+	["spar.unpaid"] = {
+		en = "Practice duels pay again tomorrow.",
+		fr = "Les duels d'épreuve paient de nouveau demain.",
+	},
+	["spar.left"] = { en = "You left the practice duel.", fr = "Tu as quitté le duel d'épreuve." },
 	-- Slice F's shared words, entered with their first reader (D-150).
 	["common.retry"] = { en = "Retry", fr = "Réessayer" },
 	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
@@ -1161,6 +1203,33 @@ Strings.Table = {
 		en = "Claim today to keep your {streak}-day streak!",
 		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
 	},
+	-- The login calendar (E15-S1): where the player stands in its 28 days and in their streak, the Signets they
+	-- hold, what a Signet does, and what the day's claim brought beyond its Folios.
+	["daily.calendar"] = {
+		en = "Day {day} of {length} · Streak {streak}",
+		fr = "Jour {day} sur {length} · Série {streak}",
+	},
+	["daily.signets"] = { en = "Signets", fr = "Signets" },
+	["daily.signetHint"] = {
+		en = "A Signet keeps your streak through one missed day.",
+		fr = "Un Signet garde ta série un jour manqué.",
+	},
+	["daily.signetSaves"] = {
+		en = "You missed a day: your Signet keeps your streak. Claim today!",
+		fr = "Tu as manqué un jour : ton Signet garde ta série. Réclame aujourd'hui !",
+	},
+	["daily.tomorrow.signet"] = { en = "Tomorrow: {reward}, and a Signet", fr = "Demain : {reward}, et un Signet" },
+	["daily.signetUsed"] = {
+		en = "Signet used: your streak goes on!",
+		fr = "Signet utilisé : ta série continue !",
+	},
+	["daily.signetEarned"] = {
+		en = "A Signet slips into your book: it keeps your streak through a missed day.",
+		fr = "Un Signet se glisse dans ton livre : il garde ta série un jour manqué.",
+	},
+	["daily.cosmetic"] = { en = "New cosmetic: {name}!", fr = "Nouveau cosmétique : {name} !" },
+	-- The streak on the hub's HUD (MetaCluster), beside the level's XP.
+	["hud.streak"] = { en = "Streak {streak}", fr = "Série {streak}" },
 
 	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
 	-- A time left, on a countdown (QuestBoard.countdown): days and hours past a day (under a day it reads

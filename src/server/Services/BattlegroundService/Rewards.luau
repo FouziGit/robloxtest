@@ -84,12 +84,13 @@ local function payOne(player: Player, member: Roster.Member, key: string, killer
 end
 
 -- Pays the Forger's kill to its killer and its assists, each once. A kill with no player behind it (0) pays
--- nobody, whoever had hurt the Forger before: the page's own deaths are not a reward.
+-- nobody, whoever had hurt the Forger before: the page's own deaths are not a reward. Nor does a tier with no
+-- RewardKey: a spar's Duelist, whose duel pays through its result.
 function Rewards.pay(bot: Bot, killerUserId: number, now: number)
-	if killerUserId == 0 then
+	local key = bot.Def.RewardKey
+	if killerUserId == 0 or key == nil then
 		return
 	end
-	local key = bot.Def.RewardKey
 	for _, userId in
 		ipairs(BotBrain.creditedUsers(killerUserId, bot.Ledger, bot.Humanoid.MaxHealth, CREDIT.AssistShare))
 	do

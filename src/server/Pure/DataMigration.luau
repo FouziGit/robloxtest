@@ -12,6 +12,17 @@
 
 local DataMigration = {}
 
+-- 11: the practice duel against a Forger (E10-S6): `Daily.SparDay` and `Daily.SparPaid`, the spars paid today. New
+-- keys with the template's zero and no upgrade step: the version moves so a server still on 10 keeps the count a
+-- newer build wrote, rather than dropping it and paying the day's spars again.
+--
+-- 10: the login calendar (E15-S1). `Daily.CalendarDay`, the last of the calendar's 28 days claimed, and
+-- `Daily.Signets`, the Signets held. The seven-day streak before it paid the day of its week the streak fell on,
+-- so upgradeToV10 puts a profile on the calendar at that same day of its first week: a streak short of its week's
+-- end still reaches the week's cosmetic, one that stood on that end -- paid it already, in Folios -- takes the next
+-- week and meets the first cosmetic on the calendar's next turn, and the streak itself keeps its count. Signets
+-- start at none, as a new profile's do.
+--
 -- 9: the Flyleaf's daily allowance (`Daily.FlyleafDay`, `FlyleafFolios`, E16-S2, D-267). No upgrade step: every
 -- profile before it was paid nothing by the Flyleaf, which is the template's zeros. The version moves so a build
 -- that has never heard of them keeps them rather than dropping them (see `newer` in migrate).
@@ -48,7 +59,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 9
+DataMigration.CurrentVersion = 11
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {
@@ -303,6 +314,22 @@ local function upgradeToV4(raw: { [string]: any }, result: { [string]: any })
 	end
 end
 
+-- The days of the seven-day streak's week (DailyConfig before the calendar): the day of it a streak last paid.
+local LEGACY_STREAK_WEEK = 7
+
+-- The login calendar's start, read out of the raw profile's own streak: the day of the old week its last claim
+-- paid, which is where the calendar's first week stands for it. The generic overlay has already carried the
+-- streak and left the calendar day at the template's 0.
+local function upgradeToV10(raw: { [string]: any }, result: { [string]: any })
+	local daily = result.Daily
+	local oldDaily = if type(raw.Daily) == "table" then raw.Daily else {}
+	if type(daily) ~= "table" then
+		return
+	end
+	local streak = nonNegativeInteger(oldDaily.Streak, 0)
+	daily.CalendarDay = if streak > 0 then (streak - 1) % LEGACY_STREAK_WEEK + 1 else 0
+end
+
 -- A keybind map loaded over the template's defaults can hold one key twice: an action added after a
 -- player bound its new default key to something else -- LockOn's wheel click, D-115 -- arrives with that
 -- key while the player's own action still has it. Left alone, the new action silently took the key from
@@ -413,6 +440,12 @@ function DataMigration.migrate(
 	-- After V1's own path too: migrateV1 writes the balance it found under the old key.
 	if version < 4 then
 		upgradeToV4(raw, result)
+		info.Migrated = true
+	end
+
+	-- Every profile before the calendar holds the old seven-day streak, whatever the other steps between gave it.
+	if version < 10 then
+		upgradeToV10(raw, result)
 		info.Migrated = true
 	end
 

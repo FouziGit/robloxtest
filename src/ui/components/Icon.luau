@@ -28,6 +28,7 @@ export type Name =
 	| "Burger"
 	| "Shield"
 	| "Dot"
+	| "Bookmark"
 
 local Icon = {}
 
@@ -183,6 +184,12 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 	-- A price on the primary yellow: a dot of ink, where the coin would be one yellow disc on another.
 	Dot = function(square, color)
 		disc(square, DOT_SCALE, 0.5, 0.5, color)
+	end,
+	-- A Signet (the login calendar's): a ribbon laid down the page, its end cut into two tails.
+	Bookmark = function(square, color)
+		bar(square, 0.44, 0.66, 0.5, 0.37, color, 0, UDim.new())
+		bar(square, 0.2, 0.34, 0.38, 0.76, color, 18, UDim.new())
+		bar(square, 0.2, 0.34, 0.62, 0.76, color, -18, UDim.new())
 	end,
 	-- The guard: a diamond of the sheet, which a fight may show.
 	Shield = function(square)

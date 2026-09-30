@@ -21,7 +21,14 @@ local function build(width: number, height: number): (any, number)
 	-- A three-day streak claimed yesterday: today can be claimed, and the nudge has something to say.
 	local data = {
 		Currency = { Folios = 0 },
-		Daily = { LastClaimDay = today - 1, Streak = 3, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = today - 1,
+			Streak = 3,
+			CalendarDay = 3,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+		},
 	}
 	local screen = Screen.new({
 		Localize = {

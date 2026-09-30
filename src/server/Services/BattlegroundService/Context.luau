@@ -77,6 +77,9 @@ export type MovementApi = {
 	-- A body whose Humanoid its client took away is about to be replaced (D-216): a death, for a member.
 	BodyLost: { Connect: (self: any, fn: (player: Player) -> ()) -> any },
 }
+-- A pit's ground, as its Forger's blows ask it (Attacks.strikeable): the one duellist it holds, whether a round is
+-- being played, and its floor's rectangle in the page's frame. Pits writes it; nothing else does.
+export type PitGround = { Live: boolean, Member: { Player: Player, UserId: number }?, Bounds: BattlegroundLayout.Rect }
 export type Deps = {
 	Registry: { fire: (name: string, player: Player, ...any) -> () },
 	DataService: {
@@ -148,6 +151,15 @@ end
 function Context.insideBounds(layout: BattlegroundLayout.Layout, position: Vector3): boolean
 	local x, y, z = Context.toLocal(position)
 	return BattlegroundLayout.inRect(layout.Bounds, x, z)
+		and y >= -BattlegroundConfig.BoundsDepthStuds
+		and y <= BattlegroundConfig.BoundsHeightStuds
+end
+
+-- Whether a world position is on a pit's floor (`rect`, the page's frame), between the same depth and height a
+-- member of the page is held to.
+function Context.insideRect(rect: BattlegroundLayout.Rect, position: Vector3): boolean
+	local x, y, z = Context.toLocal(position)
+	return BattlegroundLayout.inRect(rect, x, z)
 		and y >= -BattlegroundConfig.BoundsDepthStuds
 		and y <= BattlegroundConfig.BoundsHeightStuds
 end

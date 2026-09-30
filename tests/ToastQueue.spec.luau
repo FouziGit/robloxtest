@@ -1,6 +1,7 @@
 --!strict
 -- The toast lane's queue (D-147): how many messages show at once, which one falls off a full queue, how long
 -- each stays, and the value kinds a fight holds back until the player is out of it (rule 11).
+local Engine = require("./engine")
 local Harness = require("./harness")
 local PortalConfig = require("../src/shared/Config/PortalConfig")
 local Strings = require("../src/shared/Strings")
@@ -267,6 +268,56 @@ describe("the HUD's toasts", function()
 				true
 			)
 		).never.toBeNil()
+	end)
+
+	it("write a reward's chip as its sentence writes the same Folios, grouped in the player's language", function()
+		local hud = code(HUD)
+		expect(string.find(hud, 'local REWARD_CHIP_KEY = "reward.folios"\n', 1, true)).never.toBeNil()
+		expect(
+			string.find(
+				body(hud, "local function amountOf("),
+				"return localize.t(REWARD_CHIP_KEY, { amount = math.floor(amount + 0.5) })",
+				1,
+				true
+			)
+		).never.toBeNil()
+		-- The toast draws the words it is given, and writes no number of its own.
+		local toast = code(TOAST)
+		expect(string.find(body(toast, "local function amountChip("), "label.Text = amount", 1, true)).never.toBeNil()
+		expect(string.find(toast, "tostring(", 1, true)).toBeNil()
+		-- Every reward's sentence and its chip write an amount of four digits the same way, in both languages:
+		-- "+4 000" beside "... : +4 000 Folios", never "+4000".
+		local rewards = 0
+		for key in pairs(keysOf(hud, "REWARD_KEYS")) do
+			rewards += 1
+			for _, locale in ipairs({ "en", "fr" }) do
+				local grouped = Strings.number(4000, locale)
+				local chip = Strings.t("reward.folios", { amount = 4000 }, locale)
+				local text = Strings.t(key, { folios = 4000, amount = 4000, xp = 10, day = 1, rank = "Codex" }, locale)
+				expect(chip).toBe("+" .. grouped)
+				if string.find(text, grouped, 1, true) == nil then
+					error(("%s in %s says %q, where its chip says %q"):format(key, locale, text, chip))
+				end
+			end
+		end
+		expect(rewards).toBeGreaterThanOrEqual(5)
+		expect(Strings.number(4000, "fr")).toBe("4\u{202F}000")
+		expect(Strings.number(4000, "en")).toBe("4,000")
+	end)
+
+	it("draw a reward's chip in the words the HUD wrote, run", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Toast = world.require("src/ui/components/Toast")
+		local ScreenRoot = world.require("src/ui/components/ScreenRoot")
+		local root = ScreenRoot.new({ Name = "Toasts", DisplayOrder = 50 })
+		root.Instance.Parent = world.playerGui
+		local toast = Toast.new({ Parent = root.Content, Lane = "Pointer" })
+		local words = Strings.t("reward.folios", { amount = 4000 }, "fr")
+		toast:Show(Strings.t("season.rewardGranted", { rank = "Codex", amount = 4000 }, "fr"), "Reward", words)
+		world:advance(0.2)
+		local chip = root.Content:FindFirstChild("Amount", true)
+		assert(chip ~= nil, "a reward toast draws no chip: this gate would check nothing")
+		expect(chip:FindFirstChild("Value").Text).toBe(words)
 	end)
 
 	it("say their kind with a medallion whose sign reads on it", function()

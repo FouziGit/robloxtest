@@ -211,7 +211,7 @@ describe("the interface, held to the engine's layouts", function()
 		root.Instance.Parent = world.playerGui
 		local toast = Toast.new({ Parent = root.Content, Lane = "Pointer" })
 		for _, kind in ipairs({ "Info", "Success", "Error", "Reward", "Celebrate" }) do
-			toast:Show("toast." .. kind, kind :: any, if kind == "Reward" then 50 else nil)
+			toast:Show("toast." .. kind, kind :: any, if kind == "Reward" then "+50" else nil)
 		end
 		world:advance(0.2)
 		expect(#root.Content:GetDescendants()).toBeGreaterThan(10)

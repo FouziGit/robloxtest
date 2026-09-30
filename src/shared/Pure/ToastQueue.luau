@@ -15,7 +15,9 @@
 --             filling, and presents in order once resumed.
 --   duration  how long a message stays: long enough to read it, never so long it outstays the next one.
 
-export type Entry = { Text: string, Kind: string, Amount: number? }
+-- `Amount`: the Folios a reward paid, in the words its chip shows ("+4 000"), written by the caller in the
+-- player's language as the message's own words are.
+export type Entry = { Text: string, Kind: string, Amount: string? }
 
 -- ThemeConfig.Timing.Toast.
 export type Timing = {

@@ -11,12 +11,12 @@
 -- The zone is measured from the Seal part at the gate's foot, which carries SealTag and names its destination
 -- in SealAttribute.
 
-export type PortalId = "Battleground" | "WorldBoss" | "Return"
+export type PortalId = "Battleground" | "WorldBoss" | "Flyleaf" | "Return"
 export type ZoneDef = { NameKey: string, HintKey: string, DwellSeconds: number }
 
 local PortalConfig = {}
 
-PortalConfig.Ids = { "Battleground", "WorldBoss", "Return" } :: { PortalId }
+PortalConfig.Ids = { "Battleground", "WorldBoss", "Flyleaf", "Return" } :: { PortalId }
 
 -- The CollectionService tag on every gate's Seal part. A tag survives Clone(), so a gate built into an arena
 -- template arrives with every copy of it.
@@ -29,7 +29,7 @@ PortalConfig.SealAttribute = "PortalId"
 PortalConfig.SignTag = "PortalSign"
 
 -- What a gate's parts are called: the invisible Seal every reader measures from, the Sign its words are written
--- on, and the Model name of the gate that leads back to the hub from the Battleground and from the Erasure's
+-- on, and the Model name of the gate that leads back to the hub from the Battleground, the Flyleaf and the Erasure's
 -- arena (docs/GAME_DESIGN.md §8).
 PortalConfig.Anchors = { Seal = "Seal", Sign = "Sign", ReturnGate = "ReturnPortal" }
 
@@ -38,6 +38,7 @@ PortalConfig.Anchors = { Seal = "Seal", Sign = "Sign", ReturnGate = "ReturnPorta
 PortalConfig.Zones = {
 	Battleground = { NameKey = "portal.battleground.name", HintKey = "portal.hint.enter", DwellSeconds = 1.5 },
 	WorldBoss = { NameKey = "portal.worldBoss.name", HintKey = "portal.hint.enter", DwellSeconds = 1.5 },
+	Flyleaf = { NameKey = "portal.flyleaf.name", HintKey = "portal.hint.enter", DwellSeconds = 1.5 },
 	-- Longer: a return gate stands where fights happen, so an accidental pass-through must take effort.
 	Return = { NameKey = "portal.return.name", HintKey = "portal.hint.return", DwellSeconds = 2 },
 } :: { [string]: ZoneDef }
@@ -56,9 +57,10 @@ PortalConfig.EntryIFrameSeconds = 1.5
 -- (Workspace.StreamingEnabled): the Battleground lies past the default streaming radius.
 PortalConfig.StreamTimeoutSeconds = 2
 
--- The two hub gates: on a ring around the spawn, either side of the platform's empty north (-pi/2), facing
--- the centre. tests/Hub.spec.luau recomputes their clearance from the hub's own numbers.
-PortalConfig.Hub = { RingRadiusStuds = 68, AngleOffsetRadians = 0.25 }
+-- The three hub gates: on a ring around the spawn, facing the centre, on the platform's empty north (-pi/2) -- the
+-- Flyleaf's at the north itself, the Battleground's and the Erasure's AngleOffsetRadians either side of it.
+-- tests/Hub.spec.luau recomputes their clearance from the hub's own numbers.
+PortalConfig.Hub = { RingRadiusStuds = 68, AngleOffsetRadians = 0.5 }
 
 -- The Return gate of the Erasure's arena: this far in from both walls of one corner, facing the centre, so
 -- its posts stand inside the walls.

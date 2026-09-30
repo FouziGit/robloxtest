@@ -136,7 +136,7 @@ local TAKEDOWN_KEY = "hud.playerKill"
 -- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
-local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true }
+local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true, Flyleaf = true }
 local ERASURE_ZONE = "WorldBoss"
 -- Below the Menu disc, on a touch screen: the gap between the disc and the first message.
 local TOAST_UNDER_MENU = 8

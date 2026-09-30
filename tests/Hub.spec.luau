@@ -97,6 +97,7 @@ describe("a hub board", function()
 		for _, use in ipairs({
 			'PortalGate.build(folder, ANCHORS.BattlegroundPortal, layout.BattlegroundPortalCFrame, "Battleground")',
 			'PortalGate.build(folder, ANCHORS.BossPortal, layout.BossPortalCFrame, "WorldBoss")',
+			'PortalGate.build(folder, ANCHORS.FlyleafPortal, layout.FlyleafPortalCFrame, "Flyleaf")',
 		}) do
 			expect(folded:find(use, 1, true)).never.toBe(nil)
 		end
@@ -113,14 +114,21 @@ describe("a hub board", function()
 				seen[name] = key
 			end
 		end
-		-- The two portal gates stand in the hub's folder beside the rest.
+		-- The three portal gates stand in the hub's folder beside the rest.
 		expect(seen[ANCHORS.BattlegroundPortal]).toBe("BattlegroundPortal")
 		expect(seen[ANCHORS.BossPortal]).toBe("BossPortal")
+		expect(seen[ANCHORS.FlyleafPortal]).toBe("FlyleafPortal")
 	end)
 end)
 
--- The two portal gates (D-130), placed from PortalConfig.Hub against the hub's own numbers: HubService needs
--- an engine to require, so the numbers it places things by are read from its source.
+-- The three portal gates (D-130, E16-S2), placed from PortalConfig.Hub against the hub's own numbers: HubService
+-- needs an engine to require, so the numbers it places things by are read from its source. The Flyleaf's stands at
+-- the north itself, the Battleground's and the Erasure's AngleOffsetRadians either side of it.
+local function gateAngles(): { number }
+	local offset = PortalConfig.Hub.AngleOffsetRadians
+	return { -math.pi / 2 - offset, -math.pi / 2, -math.pi / 2 + offset }
+end
+
 describe("the hub's portal gates", function()
 	local function hubNumber(pattern: string): number
 		local value = string.match(code(HUB), pattern)
@@ -157,8 +165,7 @@ describe("the hub's portal gates", function()
 			local radius = PortalConfig.Hub.RingRadiusStuds
 			local footprint = Gate.footprint()
 			local bases: { { number } } = {}
-			for _, side in ipairs({ -1, 1 }) do
-				local angle = -math.pi / 2 + side * PortalConfig.Hub.AngleOffsetRadians
+			for _, angle in ipairs(gateAngles()) do
 				local x, z = math.cos(angle) * radius, math.sin(angle) * radius
 				table.insert(bases, { x, z })
 				-- Every corner of the gate inside the ruling; its rim's inner edge outside the training ground.
@@ -171,11 +178,21 @@ describe("the hub's portal gates", function()
 					expect(apart).toBeGreaterThanOrEqual(PortalConfig.ZoneRadiusStuds + 12)
 				end
 			end
-			local between = math.sqrt((bases[1][1] - bases[2][1]) ^ 2 + (bases[1][2] - bases[2][2]) ^ 2)
-			expect(between).toBeGreaterThan(2 * footprint.RimRadius)
-			-- Either side of the north, the empty side of the platform (the boards stand south, at pi / 2).
-			expect(bases[1][1] < 0 and bases[2][1] > 0).toBe(true)
-			expect(bases[1][2] < 0 and bases[2][2] < 0).toBe(true)
+			-- No two gates' rims touch, and none of their footprints overlap.
+			for first = 1, #bases do
+				for second = first + 1, #bases do
+					local a, b = bases[first], bases[second]
+					local between = math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2)
+					expect(between).toBeGreaterThan(2 * footprint.RimRadius)
+					expect(between).toBeGreaterThan(2 * math.max(footprint.HalfWidth, footprint.SignHalfWidth))
+				end
+			end
+			-- Across the north, the empty side of the platform (the boards stand south, at pi / 2), west to east.
+			expect(bases[1][1] < 0 and bases[3][1] > 0).toBe(true)
+			expect(math.abs(bases[2][1]) < 1e-9).toBe(true)
+			for _, base in ipairs(bases) do
+				expect(base[2] < 0).toBe(true)
+			end
 		end
 	)
 
@@ -187,6 +204,7 @@ describe("the hub's portal gates", function()
 		for _, placement in ipairs({
 			"BattlegroundPortalCFrame = facingCenter(ringPosition(-math.pi / 2 - PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0))",
 			"BossPortalCFrame = facingCenter(ringPosition(-math.pi / 2 + PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0))",
+			"FlyleafPortalCFrame = facingCenter(ringPosition(-math.pi / 2, PORTALS.RingRadiusStuds, 0))",
 		}) do
 			expect(layout:find(placement, 1, true)).never.toBe(nil)
 		end
@@ -194,14 +212,13 @@ describe("the hub's portal gates", function()
 		expect(facing:find("CFrame.lookAt(position, Vector3.new(0, position.Y, 0))", 1, true)).never.toBe(nil)
 	end)
 
-	it("never let one sign cover the other's words, from anywhere both are read, the spawn among them", function()
+	it("never let one sign cover another's words, from anywhere two are read, the spawn among them", function()
 		-- Each sign's front face on the ground (WorldConfig.Portal: on the lintel and flush with its front, the
 		-- circle's radius behind the base), its two ends and the way it faces: where the gate's players come from.
 		local radius = PortalConfig.Hub.RingRadiusStuds
 		local half = WorldConfig.Portal.SignStuds[1] / 2
 		local faces: { { Centre: { number }, Look: { number }, Ends: { { number } } } } = {}
-		for _, side in ipairs({ -1, 1 }) do
-			local angle = -math.pi / 2 + side * PortalConfig.Hub.AngleOffsetRadians
+		for _, angle in ipairs(gateAngles()) do
 			local x, z = math.cos(angle) * radius, math.sin(angle) * radius
 			local lookX, lookZ = -x / radius, -z / radius
 			-- Behind the base is -look; its RightVector is (-lookZ, lookX) on the ground (tests/gate.luau).
@@ -216,24 +233,32 @@ describe("the hub's portal gates", function()
 		local function ahead(face: any, point: { number }): number
 			return face.Look[1] * (point[1] - face.Centre[1]) + face.Look[2] * (point[2] - face.Centre[2])
 		end
-		-- Signs stand upright, so this holds at every height. A reader in front of both faces reads both; each face
-		-- lies wholly in front of the other, so no line of sight to one crosses the other, from any spot and any
+		-- Signs stand upright, so this holds at every height. A reader in front of two faces reads both; each face
+		-- lies wholly in front of every other, so no line of sight to one crosses another, from any spot and any
 		-- camera height. Behind a sign its words are not written (writeSign: the Front face only), and the words
-		-- of one are never drawn over the other's.
+		-- of one are never drawn over another's.
 		for index, face in ipairs(faces) do
-			for _, point in ipairs(faces[3 - index].Ends) do
-				expect(ahead(face, point)).toBeGreaterThan(0)
+			for other, facing in ipairs(faces) do
+				if other ~= index then
+					for _, point in ipairs(facing.Ends) do
+						expect(ahead(face, point)).toBeGreaterThan(0)
+					end
+				end
 			end
 			expect(ahead(face, { 0, 0 })).toBeGreaterThan(0)
 		end
-		-- And two signs, not one banner: at least a gate's opening of sky between their nearer ends.
-		local nearest = math.huge
-		for _, one in ipairs(faces[1].Ends) do
-			for _, other in ipairs(faces[2].Ends) do
-				nearest = math.min(nearest, math.sqrt((one[1] - other[1]) ^ 2 + (one[2] - other[2]) ^ 2))
+		-- And separate signs, not one banner: at least a gate's opening of sky between any two nearer ends.
+		for index = 1, #faces do
+			for other = index + 1, #faces do
+				local nearest = math.huge
+				for _, one in ipairs(faces[index].Ends) do
+					for _, end_ in ipairs(faces[other].Ends) do
+						nearest = math.min(nearest, math.sqrt((one[1] - end_[1]) ^ 2 + (one[2] - end_[2]) ^ 2))
+					end
+				end
+				expect(nearest).toBeGreaterThanOrEqual(WorldConfig.Portal.OpeningStuds)
 			end
 		end
-		expect(nearest).toBeGreaterThanOrEqual(WorldConfig.Portal.OpeningStuds)
 		-- Read from the spawn: its words are drawn out to twice as far as the sign stands from the spawn's floor, a
 		-- camera pulled back as far again.
 		local maxDistance = tonumber(string.match(code(SIGNS), "\nlocal PLATE_MAX_DISTANCE = ([%d%.]+)\n"))

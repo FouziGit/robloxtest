@@ -144,6 +144,31 @@ describe("the Battleground band", function()
 		end
 	)
 
+	it("is the Flyleaf's too: rivals, takedowns and the run, the fight's loop, and a way out of fight mode", function()
+		local changed = body(TRAVEL, "local function onFlyleafChanged(")
+		requireAll(changed, {
+			"if payload == nil then if flyleafMember then flyleafMember = false placeBand.Visible = false soundController.wantMusic(MUSIC_SOURCE, nil) refreshFight() end local hud = hudController if hud ~= nil then hud.leftPlace(FLYLEAF_ZONE) end return end",
+			'placeTitle.Text = localize.t("portal.flyleaf.name")',
+			'placeLine.Text = localize.t("flyleaf.status", {',
+			"members = math.max(0, math.floor(snapshot.Members) - 1),",
+			"if not flyleafMember then flyleafMember = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
+		}, "onFlyleafChanged")
+		expect(code(TRAVEL):find('local FLYLEAF_ZONE = "Flyleaf"', 1, true)).never.toBe(nil)
+		local start = body(TRAVEL, "function TravelController.Start(")
+		local built = start:find("if not build() then", 1, true)
+		local heard = start:find('remoteClient.on("FlyleafChanged", onFlyleafChanged)', 1, true)
+		expect(heard).never.toBe(nil)
+		expect((built :: number) < (heard :: number)).toBe(true)
+		-- The HUD takes the Flyleaf for a fight, like the Battleground.
+		expect(
+			code(HUD):find(
+				"local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true, Flyleaf = true }",
+				1,
+				true
+			)
+		).never.toBe(nil)
+	end)
+
 	it("is outranked by a match and by the Erasure for the music", function()
 		-- A member the event draws in hears the boss; one a match takes hears the match.
 		expect(code(SOUND):find('local MUSIC_SOURCES = { "Match", "Boss", "Battleground" }', 1, true)).never.toBe(nil)
@@ -172,17 +197,20 @@ end)
 
 describe("a fight the portals know of", function()
 	-- D-148: while the local player fights, every aura on their screen steps back so the glyphs keep the colour
-	-- of the fight. A ranked match is MatchController's to say; the Battleground and the Erasure's arena are the
-	-- portals', and each way out of them has to end the fight, or an aura stays quiet in the hub for good.
-	it("holds while a member of the Battleground or inside the Erasure's arena, and says so once per change", function()
-		requireAll(body(TRAVEL, "local function refreshFight("), {
-			"local now = member or inArena",
-			"if now == fighting then return end",
-			"fighting = now TravelController.FightChanged:Fire(now)",
-		}, "refreshFight")
-		requireAll(body(TRAVEL, "function TravelController.inFight("), { "return fighting" }, "inFight")
-		expect(code(TRAVEL):find("TravelController.FightChanged = Signal.new()", 1, true)).never.toBe(nil)
-	end)
+	-- of the fight. A ranked match is MatchController's to say; the Battleground, the Flyleaf and the Erasure's arena
+	-- are the portals', and each way out of them has to end the fight, or an aura stays quiet in the hub for good.
+	it(
+		"holds while a member of the Battleground or the Flyleaf, or inside the Erasure's arena, and says so once per change",
+		function()
+			requireAll(body(TRAVEL, "local function refreshFight("), {
+				"local now = member or flyleafMember or inArena",
+				"if now == fighting then return end",
+				"fighting = now TravelController.FightChanged:Fire(now)",
+			}, "refreshFight")
+			requireAll(body(TRAVEL, "function TravelController.inFight("), { "return fighting" }, "inFight")
+			expect(code(TRAVEL):find("TravelController.FightChanged = Signal.new()", 1, true)).never.toBe(nil)
+		end
+	)
 
 	it("enters the arena by its gate and leaves it by the way back, a death, or the fight's end", function()
 		local travel = code(TRAVEL)

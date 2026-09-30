@@ -139,6 +139,13 @@ daily.premium,Premium bonus: +{folios} Folios and double XP for {minutes} min,Ve
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
+flyleaf.entered,Everyone here is a rival. No rank at stake.,Vellum,,Everyone here is a rival. No rank at stake.,"Ici, chacun est ton rival. Aucun rang en jeu."
+flyleaf.folioCap,The Flyleaf pays no more Folios today. XP still counts.,Vellum,,The Flyleaf pays no more Folios today. XP still counts.,La Page de garde ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.
+flyleaf.full,The Flyleaf is full. Try again in a moment.,Vellum,,The Flyleaf is full. Try again in a moment.,La Page de garde est pleine. Réessaie dans un instant.
+flyleaf.manicule,{name} wears the Manicule: three in a row!,Vellum,,{name} wears the Manicule: three in a row!,{name} porte la Manicule : trois d'affilée !
+flyleaf.maniculeTaken,{name} took the Manicule off {rival}!,Vellum,,{name} took the Manicule off {rival}!,{name} a fait tomber la Manicule de {rival} !
+flyleaf.noPay,{name} again: nothing more for them for now. Find another rival!,Vellum,,{name} again: nothing more for them for now. Find another rival!,Encore {name} : plus rien pour l'instant. Trouve un autre rival !
+flyleaf.status,Rivals: {members} · Takedowns: {kills} · Run: {streak},Vellum,,Rivals: {members} · Takedowns: {kills} · Run: {streak},Rivaux : {members} · Victoires : {kills} · Série : {streak}
 folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
@@ -325,6 +332,7 @@ pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
 portal.battleground.name,Battleground,Vellum,,Battleground,Champ de bataille
 portal.cooldown,Wait a moment before travelling again.,Vellum,,Wait a moment before travelling again.,Attends un instant avant de repartir.
 portal.entering,Stay in the circle: {place},Vellum,,Stay in the circle: {place},Reste dans le cercle : {place}
+portal.flyleaf.name,The Flyleaf,Vellum,,The Flyleaf,La Page de garde
 portal.hint.enter,Stay in the circle to enter,Vellum,,Stay in the circle to enter,Reste dans le cercle pour entrer
 portal.hint.return,Stay in the circle to go back,Vellum,,Stay in the circle to go back,Reste dans le cercle pour revenir
 portal.return.name,Back to the hub,Vellum,,Back to the hub,Retour au hub

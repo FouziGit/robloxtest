@@ -991,7 +991,7 @@ describe("PortalConfig", function()
 				error(("portal %s has no emblem on its gate"):format(id))
 			end
 		end
-		expect(#PortalConfig.Ids).toBe(3)
+		expect(#PortalConfig.Ids).toBe(4)
 		for id in pairs(PortalConfig.Zones) do
 			expect(ids[id]).toBe(true)
 		end

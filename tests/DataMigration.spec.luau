@@ -64,6 +64,8 @@ local function template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			FlyleafDay = 0,
+			FlyleafFolios = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
@@ -260,7 +262,14 @@ describe("DataMigration daily caps", function()
 		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
 		expect(data.Daily.Streak).toBe(6)
 		expect(data.Daily.PremiumBonusDay).toBe(20099)
-		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
+		for _, key in ipairs({
+			"ForgerDay",
+			"ForgerFolios",
+			"PracticeDay",
+			"PracticePaid",
+			"FlyleafDay",
+			"FlyleafFolios",
+		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
 	end)
@@ -273,7 +282,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(8)
+		expect(#service).toBe(10)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)

@@ -2,7 +2,7 @@
 -- PortalService: the portals (D-130). A portal is a circle a player STANDS in -- the chalk seal at the foot of
 -- a gate (World/PortalGate) -- not a button. Ten times a second the server looks at where it trusts each
 -- player stands (CombatService.trustedPosition), and whoever has stayed in one circle for its DwellSeconds is
--- moved: into the Battleground, into the Erasure's fight, or back to the hub.
+-- moved: into the Battleground, into the Erasure's fight, onto the Flyleaf, or back to the hub.
 --
 -- No client-to-server remote exists for travelling, and none may (tests/Portal.spec.luau): the client never
 -- asks to be moved, so there is nothing to forge, rate-limit or count against it, and a circle works the same
@@ -58,6 +58,11 @@ type Deps = {
 	},
 	WorldBoss: {
 		enterFromPortal: (player: Player) -> (boolean, string?, { [string]: any }?),
+		leave: (player: Player) -> (),
+	},
+	Flyleaf: {
+		admits: (player: Player) -> (boolean, string?),
+		enter: (player: Player) -> (boolean, string?),
 		leave: (player: Player) -> (),
 	},
 }
@@ -151,9 +156,19 @@ local function dispatch(player: Player, id: PortalId): (boolean, string?, { [str
 		return entered, refusal, nil
 	elseif id == "WorldBoss" then
 		return deps.WorldBoss.enterFromPortal(player)
+	elseif id == "Flyleaf" then
+		-- As the Battleground's: the Erasure's fight lets go only of a player the page has said it takes.
+		local open, closed = deps.Flyleaf.admits(player)
+		if not open then
+			return false, closed, nil
+		end
+		deps.WorldBoss.leave(player)
+		local entered, refusal = deps.Flyleaf.enter(player)
+		return entered, refusal, nil
 	end
-	-- Back to the hub: out of wherever the gate stood first, so neither place still counts them as its own.
+	-- Back to the hub: out of wherever the gate stood first, so no place still counts them as its own.
 	deps.Battleground.leave(player)
+	deps.Flyleaf.leave(player)
 	deps.WorldBoss.leave(player)
 	deps.Hub.teleportToHub(player)
 	return true, nil, nil

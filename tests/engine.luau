@@ -430,6 +430,7 @@ local SIGNALS = {
 	PromptShown = true,
 	PromptHidden = true,
 	Triggered = true,
+	Touched = true,
 	CharacterAdded = true,
 	CharacterRemoving = true,
 	Died = true,

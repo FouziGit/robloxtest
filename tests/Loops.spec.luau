@@ -45,6 +45,10 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/server/Services/LeaderboardService.luau"] = { Count = 1, Why = "the board refresh" },
 	["src/server/Services/WorldBossService/init.luau"] = { Count = 1, Why = "the event schedule and the fight" },
 	["src/server/Services/BattlegroundService/init.luau"] = { Count = 1, Why = "the Forgers and the roster" },
+	["src/server/Services/FlyleafService/init.luau"] = {
+		Count = 1,
+		Why = "the Flyleaf's members, protections, falls and respawns",
+	},
 	["src/server/Services/PortalService.luau"] = { Count = 1, Why = "portal zones" },
 	["src/server/Services/VfxBroadcaster.luau"] = {
 		Count = 1,

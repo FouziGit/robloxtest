@@ -53,6 +53,8 @@ type CombatApi = {
 	isStunned: (player: Player) -> boolean,
 	-- A charged glyph or a rush holding its caster (D-142): no other glyph until it ends or a dash breaks it.
 	isChanneling: (player: Player) -> boolean,
+	-- Where the player stands (ZoneConfig): a developer's perks reach the hub's zone only.
+	zoneOf: (player: Player) -> string,
 	grantIFrames: (player: Player, seconds: number) -> (),
 	applyStoneSkin: (player: Player) -> boolean,
 }
@@ -156,11 +158,11 @@ local chainLength: { [Player]: number } = {}
 -- A developer account in the hub, where its perks reach (DeveloperConfig): free casting, the whole roster and
 -- every slot.
 --
--- Deliberately refused inside a ranked match, during a World Boss event, in a practice against the Erasure
--- and on the Battleground's page. All of them pay out: a perked account would take real Elo from a real
--- opponent and write it to the live seasonal ladder, would swallow a share of a boss payout that is divided
--- between participants, and would farm a practice's pay or the Forgers' XP and Folios at no cost. The hub is
--- where the roster is meant to be tried.
+-- Deliberately refused inside a ranked match, during a World Boss event, in a practice against the Erasure,
+-- on the Battleground's page and on the Flyleaf (any zone but the hub's). All of them pay out: a perked account
+-- would take real Elo from a real opponent and write it to the live seasonal ladder, would swallow a share of a
+-- boss payout that is divided between participants, would farm a practice's pay or the Forgers' XP and Folios at
+-- no cost, and would take the Flyleaf's rivals down unfairly. The hub is where the roster is meant to be tried.
 local function developerPerks(player: Player): boolean
 	if not DeveloperConfig.isDeveloper(player.UserId, player.Name) then
 		return false
@@ -169,6 +171,7 @@ local function developerPerks(player: Player): boolean
 		and not worldBoss.isLive()
 		and not worldBoss.isEngaged(player)
 		and not battleground.isInside(player)
+		and combat.zoneOf(player) == "Hub"
 end
 
 -- A developer testing the roster in the hub: no ink, and cooldowns collapsed to

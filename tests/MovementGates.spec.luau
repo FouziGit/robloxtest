@@ -349,8 +349,9 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
-		expect(players).toBe(7)
+		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads, the Battleground's camp and the
+		-- Flyleaf's seals.
+		expect(players).toBe(8)
 		expect(others).toBe(3)
 	end)
 
@@ -361,6 +362,7 @@ describe("a server teleport of a player", function()
 			["src/server/Services/HubService.luau"] = "combat.resyncPosition(player, landing)",
 			["src/server/Services/WorldBossService/Encounter.luau"] = "deps.Combat.resyncPosition(player, position)",
 			["src/server/Services/BattlegroundService/Roster.luau"] = "deps.Combat.resyncPosition(player, landing)",
+			["src/server/Services/FlyleafService/init.luau"] = "deps.Combat.resyncPosition(player, landing)",
 		}) do
 			expect(strip(fs.readFile(path))).toContain(call)
 		end

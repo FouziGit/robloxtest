@@ -23,6 +23,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
 | Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
+| Page de garde (E16-S2) | 5 par victoire (60 XP) | plafond **100 / jour** (profil) ; rien au-delà de 3 morts du même rival en 10 min | hors du total ci-dessous |
 | Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour (profil), 1 / 20 min ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
@@ -30,9 +31,9 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
 
-Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
+Les trois sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios`, `PracticeDay` / `PracticePaid` et `FlyleafDay` / `FlyleafFolios`) : changer de serveur ne les remet pas à zéro. À la Page de garde, une victoire ne passe pas par le « Kill joueur » du match (15 Folios, 120 XP) : la page la paie elle-même, 5 Folios et 60 XP, et ne paie plus rien pour un rival qu'on a vaincu trois fois dans les dix dernières minutes (le registre vit dans la mémoire du serveur, et quitter puis revenir ne l'efface pas). Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
-**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub en donnent déjà environ 19 000, écart plus grand encore, qui demande sa propre revue. À mesurer en jeu avant d'ajuster.
+**XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub en donnent déjà environ 19 000, écart plus grand encore, qui demande sa propre revue. À mesurer en jeu avant d'ajuster. À la Page de garde, l'XP n'est pas plafonnée non plus (60 par victoire) mais elle suit les victoires sur de vrais joueurs : une victoire toutes les 30 à 60 s donnerait **3 600 à 7 200 XP/h**, sous la courbe d'un match ; deux comptes qui échangent leurs victoires s'arrêtent à trois chacun toutes les dix minutes (≈ 2 200 XP/h pour chacun).
 
 ## 3. Puits de Folios (boutique cosmétique)
 

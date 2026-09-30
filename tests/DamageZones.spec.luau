@@ -3,7 +3,8 @@
 -- and CombatService applies it to every hit through the claims of the zones' owners. The rule is run first; then
 -- the real CombatService, in a pretend server, judges the hits QA plays by hand: no PvP in the hub while the
 -- proofs take damage (docs/QA.md §5.10), none between the Erasure's players while the boss takes it (§6.5), the
--- opponents of one match and nobody else, even while the event runs, and a kill paid as it always was.
+-- opponents of one match and nobody else, even while the event runs, the Flyleaf's members out of their protection,
+-- and a kill paid where the zone says.
 local DamageZones = require("../src/server/Pure/DamageZones")
 local Harness = require("./harness")
 local Server = require("./server")
@@ -25,6 +26,9 @@ describe("the zones' rule", function()
 		-- Nobody claims the hub: a claim that said so is never asked.
 		held.Hub = false
 		expect(DamageZones.zoneOf(ZoneConfig.Order, ZoneConfig.Fallback, holds, "a")).toBe("Hub")
+		held.Flyleaf = true
+		expect(DamageZones.zoneOf(ZoneConfig.Order, ZoneConfig.Fallback, holds, "a")).toBe("Flyleaf")
+		-- The Erasure's event takes a Flyleaf member before their page lets them go: the fight's rule already holds.
 		held.Boss = true
 		expect(DamageZones.zoneOf(ZoneConfig.Order, ZoneConfig.Fallback, holds, "a")).toBe("Boss")
 		-- A ranked match takes a participant of the event: the duel's rule, and the event lets them go.
@@ -33,14 +37,18 @@ describe("the zones' rule", function()
 		expect(ZoneConfig.Order[#ZoneConfig.Order]).toBe(ZoneConfig.Fallback)
 	end)
 
-	it("is the story's: the hub none, a match its participants, the Erasure never", function()
+	it("is the story's: the hub none, a match its participants, the Erasure never, the Flyleaf its members", function()
 		expect(RULES.Hub.BetweenPlayers).toBe("Never")
 		expect(RULES.Match.BetweenPlayers).toBe("Owner")
 		expect(RULES.Boss.BetweenPlayers).toBe("Never")
-		-- The proofs and the Erasure take hits; nothing that is not a player stands in a duel.
+		expect(RULES.Flyleaf.BetweenPlayers).toBe("Owner")
+		-- The proofs and the Erasure take hits; nothing that is not a player stands in a duel or on the Flyleaf.
 		expect(RULES.Hub.OnBodies).toBe(true)
 		expect(RULES.Boss.OnBodies).toBe(true)
 		expect(RULES.Match.OnBodies).toBe(false)
+		expect(RULES.Flyleaf.OnBodies).toBe(false)
+		-- The Flyleaf pays its own kills, under its cap; nowhere else changes.
+		expect(DamageZones.combatPays(RULES, "Flyleaf")).toBe(false)
 		expect(DamageZones.combatPays(RULES, "Match")).toBe(true)
 		for _, zone in ipairs(ZoneConfig.Order) do
 			expect(RULES[zone] ~= nil).toBe(true)
@@ -257,6 +265,34 @@ describe("CombatService's zones", function()
 		expect(fx.combat.canDamage(watcher, red.Character)).toBe(false)
 		expect(fx.combat.canDamage(red, dummy)).toBe(false)
 		expect(fx.combat.canDamage(watcher, dummy)).toBe(true)
+	end)
+
+	it("let the Flyleaf's members fight each other, out of their protection, and nobody from outside", function()
+		local fx = fixture()
+		local a, b, outsider = fx.join(1, 0), fx.join(2, 4), fx.join(3, 8)
+		local shielded: { [any]: boolean } = {}
+		owner(fx, "Flyleaf", { a, b }, function(source: any, target: any): boolean
+			return not shielded[source] and not shielded[target]
+		end)
+		fx.settle()
+		expect(fx.combat.zoneOf(a)).toBe("Flyleaf")
+		expect(fx.combat.canDamage(a, b.Character)).toBe(true)
+		expect(fx.combat.canDamage(outsider, a.Character)).toBe(false)
+		expect(fx.combat.canDamage(a, outsider.Character)).toBe(false)
+		shielded[b] = true
+		expect(fx.combat.canDamage(a, b.Character)).toBe(false)
+		expect(fx.combat.canDamage(b, a.Character)).toBe(false)
+	end)
+
+	it("leave a Flyleaf kill to the page, which hears it, and pay nothing for it themselves", function()
+		local fx = fixture()
+		local a, b = fx.join(1, 0), fx.join(2, 4)
+		owner(fx, "Flyleaf", { a, b })
+		fx.settle()
+		expect(fx.combat.ApplyDamage(a, b.Character, 1000, "Melee", {}).Killed).toBe(true)
+		expect(#fx.xp).toBe(0)
+		expect(#fx.killed).toBe(1)
+		expect(fx.killed[1].Source).toBe(a.UserId)
 	end)
 
 	it("pay a match's kill as they always did, and tell whoever listens", function()

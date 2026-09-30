@@ -20,6 +20,7 @@ local CurrencyService = require(Services.CurrencyService)
 local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
 local EnemyService = require(Services.EnemyService)
+local FlyleafService = require(Services.FlyleafService)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphEffects = require(Effects.GlyphEffects)
 local GlyphService = require(Services.GlyphService)
@@ -88,6 +89,7 @@ local deps = {
 	Monetization = MonetizationService,
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
+	Flyleaf = FlyleafService,
 	Portal = PortalService,
 }
 
@@ -122,7 +124,9 @@ local ordered: { Entry } = {
 	{ Name = "WorldBossService", Service = WorldBossService },
 	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
 	{ Name = "BattlegroundService", Service = BattlegroundService },
-	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
+	-- After Match and WorldBoss for the same reason, and after Combat, whose Flyleaf zone it claims.
+	{ Name = "FlyleafService", Service = FlyleafService },
+	-- After every builder of a gate (Hub, Arena, Battleground, Flyleaf) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },
 	-- Last: it applies pass ownership through Loadout / Cosmetic / Battlepass, which must all be up.

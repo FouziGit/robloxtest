@@ -129,7 +129,7 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 
 **Les portails du hub**
 
-1. **Au démarrage.** Attendu côté serveur : `[PortalService] watching 3 portal circles at 10 Hz`, soit les deux portails du hub et le retour du champ de bataille. Le gabarit de l'arène de l'Effacement, rangé dans ServerStorage, n'ouvre aucun cercle (`addSeal`, `PortalService.luau` ; `PortalConfig.CheckHz`). Et aussi : `[BattlegroundService] page built at x 1500: 170 studs, <n> waypoints, up to 12 members and 10 Forgers` (`BattlegroundService.Start`).
+1. **Au démarrage.** Attendu côté serveur : `[PortalService] watching 5 portal circles at 10 Hz`, soit les trois portails du hub, le retour du champ de bataille et celui de la Page de garde. Le gabarit de l'arène de l'Effacement, rangé dans ServerStorage, n'ouvre aucun cercle (`addSeal`, `PortalService.luau` ; `PortalConfig.CheckHz`). Et aussi : `[BattlegroundService] page built at x 1500: 170 studs, <n> waypoints, up to 12 members and 10 Forgers` (`BattlegroundService.Start`).
 2. **Entrer en restant dans le cercle.** Au nord du hub, entrer dans le cercle du portail « Champ de bataille » et ne plus bouger. Attendu : la bande « Reste dans le cercle : Champ de bataille » se remplit en 1,5 s, puis le joueur arrive dans le camp. Aucune touche n'est à presser : aucun remote client→serveur ne fait voyager (`step`, `PortalService.luau` ; `PortalConfig.Zones`, `DwellSeconds = 1.5` ; la bande : `onPortalChanged`, `TravelController.luau` ; `tests/Portal.spec.luau`). Un joueur mort, en match ou à terre n'est emporté par aucun cercle (`standing` et `step`, `PortalService.luau`).
 3. **Sortir avant la fin.** Ressortir du cercle avant 1,5 s. Attendu : la bande disparaît et rien ne se passe. Revenir dans le cercle relance l'attente à zéro (`moveTo`, `PortalService.luau`).
 4. **Un écran ouvert.** Ouvrir un écran (`M`), puis se tenir dans un cercle. Attendu : l'écran se ferme à l'arrivée, et les commandes ne restent pas suspendues (`MenuController.close` branché sur `TravelController.Travelled`).
@@ -164,6 +164,19 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 **Le streaming**
 
 26. **Le champ de bataille chargé à l'arrivée.** Si `Workspace.StreamingEnabled` est actif dans la place (`docs/PUBLISH.md` §6.8), entrer au champ de bataille. Attendu : le sol, le camp et le portail de retour sont là dès l'arrivée, et le joueur ne tombe pas. La page est à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut. L'entrée attend au plus 2 s que le client charge les alentours du point d'arrivée (`RequestStreamAroundAsync` dans `BattlegroundService.enter` ; `PortalConfig.StreamTimeoutSeconds = 2`). Revenir ensuite au hub : ce retour n'attend aucun chargement (`HubService.teleportToHub`). Noter si le hub apparaît en retard ou si le joueur tombe. Si `StreamingEnabled` est inactif, noter « sans objet ».
+
+## 6 ter. La Page de garde
+
+Ce que Lune ne voit pas de la Page de garde (E16-S2, D-XXX). Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (3 pour la Manicule).
+
+1. **Au démarrage.** Attendu : `[FlyleafService] page built at x -1500: 120 studs, 6 seals, up to 12 members`, et le portail du milieu, au nord du hub, écrit « La Page de garde » (« The Flyleaf » en anglais) sur son enseigne, sans toucher les enseignes voisines (`Hub.spec`).
+2. **Du hub au premier coup en 10 s au plus.** Les deux joueurs prennent le portail du milieu en même temps, chronomètre en main. Attendu : ils arrivent sur deux sceaux opposés, chacun sous un champ de force, et le premier coup qui retire de la vie tombe moins de 10 s après leur entrée dans le cercle (`tests/Flyleaf.spec.luau` en fait le compte sur les chiffres ; ici, on le mesure). Noter le temps.
+3. **Protection de 4 s.** Pendant les 4 s qui suivent une arrivée ou une réapparition, aucun coup ne retire de vie, ni dans un sens ni dans l'autre ; le champ de force disparaît à la fin (`pairAllowed`, `FlyleafService`).
+4. **Réapparition en 3 s.** Se laisser vaincre. Attendu : le joueur revient sur la page, sur le sceau le plus loin de l'autre, 3 s après sa mort, sans repasser par le hub et sans seconde réapparition du moteur à 5 s (`respawn`, `FlyleafService` : c'est la vérification que Lune ne peut pas faire).
+5. **Récompenses.** Une victoire : toast `hud.playerKill` avec +60 XP, et +5 Folios avant VIP. Au-delà de 100 Folios dans la journée, toast `flyleaf.folioCap` une fois. Vaincre le même rival une quatrième fois en moins de 10 min : toast `flyleaf.noPay`, rien de payé (`Rewards.pay`).
+6. **La Manicule.** Avec 3 joueurs, en vaincre deux, dont l'un deux fois, sans mourir. Attendu : à la troisième victoire, une main d'encre cernée de craie pointe vers le bas au-dessus de la tête du vainqueur, pour tous ; elle ne se voit pas à travers un mur, et tous lisent `flyleaf.manicule`. Quand on le vainc, tous lisent `flyleaf.maniculeTaken` et la main disparaît avec son corps. Son dessin n'a pas encore été jugé dans Studio : noter ce qui est vu.
+7. **Sortir.** Le portail du nord de la page (« Retour au hub ») ramène au hub, sans bande ni musique de combat. Un match classé qui se forme pendant qu'on est sur la page emmène le joueur, et la page le lâche.
+8. **Le streaming.** Si `StreamingEnabled` est actif (`docs/PUBLISH.md` §6.8) : la page, ses sceaux et son portail de retour sont chargés à l'arrivée et à chaque réapparition, et le joueur ne tombe pas (`streamAround`, `FlyleafService` ; `PortalConfig.StreamTimeoutSeconds = 2`). Sinon, noter « sans objet ».
 
 ## 7. États qui ne doivent pas déborder d'un match à l'autre
 

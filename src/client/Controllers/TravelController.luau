@@ -7,7 +7,8 @@
 --     trip has just ended: the server does not send one, and a circle then takes nobody;
 --   * the place band, while the player is a member of the Battleground: how many Forgers stand on the page and
 --     how many this player helped defeat, with the match's loop in their ears (BattlegroundChanged). A death
---     inside keeps it up: the camp takes the next body back, and the server says nothing until it lets go;
+--     inside keeps it up: the camp takes the next body back, and the server says nothing until it lets go. The
+--     Flyleaf's members see the same band (FlyleafChanged): how many rivals, how many they took down, their run;
 --   * Travelled, fired once a portal has moved the player: MenuController closes whatever screen was open, so
 --     nobody arrives somewhere new with their input suspended;
 --   * FightChanged, whether the player stands where others fight: the Battleground while the server keeps them
@@ -61,8 +62,9 @@ local FILL_DIRECTION = Enum.EasingDirection.InOut
 -- The loop a member hears (SoundController.wantMusic): the fight's, under the source this controller owns.
 local MUSIC_SOURCE = "Battleground"
 local MUSIC_ID = "Match"
--- The zone (PortalConfig.Zones) the Battleground's membership is the place of.
+-- The zone (PortalConfig.Zones) the Battleground's membership is the place of, and the Flyleaf's.
 local BATTLEGROUND_ZONE = "Battleground"
+local FLYLEAF_ZONE = "Flyleaf"
 -- The portal whose trip puts the player in the Erasure's arena (PortalConfig.Ids).
 local ARENA_PORTAL = "WorldBoss"
 -- The scheduled event's phases (Types.BossPhaseSnapshot) between which it pulls its players in.
@@ -95,6 +97,9 @@ local placeLineScale: UIScale
 -- The Forgers this member had defeated at the last packet: the count punches when it moves.
 local lastDefeated: number? = nil
 local member = false
+-- A member of the Flyleaf, as its last packet said, and the takedowns it counted: the count punches when it moves.
+local flyleafMember = false
+local lastKills: number? = nil
 -- In the Erasure's arena, as far as its gate and its fight say, and the fight's last phase heard.
 local inArena = false
 local bossPhase: string? = nil
@@ -114,7 +119,7 @@ local function finite(value: any): boolean
 end
 
 local function refreshFight()
-	local now = member or inArena
+	local now = member or flyleafMember or inArena
 	if now == fighting then
 		return
 	end
@@ -305,6 +310,55 @@ local function onBattlegroundChanged(payload: any)
 	end
 end
 
+-- The Flyleaf as this member sees it (Types.FlyleafSnapshot), or nil once they are no longer one. It writes the
+-- place band the Battleground writes: nobody is a member of both.
+local function onFlyleafChanged(payload: any)
+	if payload == nil then
+		if flyleafMember then
+			flyleafMember = false
+			placeBand.Visible = false
+			soundController.wantMusic(MUSIC_SOURCE, nil)
+			refreshFight()
+		end
+		local hud = hudController
+		if hud ~= nil then
+			hud.leftPlace(FLYLEAF_ZONE)
+		end
+		return
+	end
+	if
+		type(payload) ~= "table"
+		or not finite(payload.Members)
+		or not finite(payload.Kills)
+		or not finite(payload.Streak)
+	then
+		warnMalformed("FlyleafChanged", payload)
+		return
+	end
+	local snapshot = payload :: Types.FlyleafSnapshot
+	local kills = math.max(0, math.floor(snapshot.Kills))
+	placeTitle.Text = localize.t("portal.flyleaf.name")
+	placeLine.Text = localize.t("flyleaf.status", {
+		-- Everyone else on the page.
+		members = math.max(0, math.floor(snapshot.Members) - 1),
+		kills = kills,
+		streak = math.max(0, math.floor(snapshot.Streak)),
+	})
+	if not placeBand.Visible then
+		lastKills = nil
+	end
+	if lastKills ~= nil and kills ~= lastKills then
+		Motion.punch(placeLineScale)
+	end
+	lastKills = kills
+	grow(placeBand, placeScale)
+	if not flyleafMember then
+		flyleafMember = true
+		soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID)
+		refreshFight()
+	end
+end
+
 local function onTravelled(id: any)
 	if type(id) ~= "string" or PortalConfig.Zones[id] == nil then
 		warnMalformed("Travelled", id)
@@ -378,6 +432,7 @@ function TravelController.Start()
 		return
 	end
 	remoteClient.on("PortalChanged", onPortalChanged)
+	remoteClient.on("FlyleafChanged", onFlyleafChanged)
 	remoteClient.on("BattlegroundChanged", onBattlegroundChanged)
 	log.info("started")
 end

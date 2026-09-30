@@ -1,8 +1,8 @@
 --!strict
 -- HubService: builds the whole hub in code at Start (nothing is authored in Studio). One Workspace
 -- folder holds the platform, the single SpawnLocation (HubSpawn), the training ring marker, the
--- QueueTerminal, one LeaderboardBoard_<boardId> per RankingConfig board, the ShopKiosk, and the two portal
--- gates on the platform's empty north (D-130): the way to the Battleground and the way to the Erasure. The
+-- QueueTerminal, one LeaderboardBoard_<boardId> per RankingConfig board, the ShopKiosk, and the three portal
+-- gates on the platform's empty north (D-130): the way to the Battleground, to the Flyleaf and to the Erasure. The
 -- folder is destroyed and rebuilt at Start so a Rojo re-sync or a re-run never leaves two hubs.
 --
 -- Signage rule: a SurfaceGui parented to a server-built part is byte-identical for every viewer, so
@@ -19,7 +19,7 @@
 --
 -- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
 -- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
--- ShopKiosk, BattlegroundPortal, BossPortal.
+-- ShopKiosk, BattlegroundPortal, BossPortal, FlyleafPortal.
 --
 -- The platform and its kerbs carry MovementGuardConfig.BarrierTag: the geometry no body may pass through,
 -- which is all the movement audit casts its noclip ray against. Nothing else here does.
@@ -58,6 +58,7 @@ type Layout = {
 	ShopCFrame: CFrame,
 	BattlegroundPortalCFrame: CFrame,
 	BossPortalCFrame: CFrame,
+	FlyleafPortalCFrame: CFrame,
 }
 
 local ANCHORS = WorldConfig.HubAnchors
@@ -100,8 +101,8 @@ local PEDESTAL_PANEL_TILT_DEGREES = 18
 -- terminal, an upright cross for the shop kiosk. Shapes only, never text.
 local QUEUE_EMBLEM_BARS = { -28, 28 }
 local SHOP_EMBLEM_BARS = { 0, 90 }
--- The two gates, on a ring either side of the empty north (-pi/2), where nothing else stands: the boards
--- are south and the terminal and the kiosk east and west. tests/Hub.spec.luau recomputes their clearance.
+-- The three gates, on a ring across the empty north (-pi/2), where nothing else stands: the boards are south and
+-- the terminal and the kiosk east and west. tests/Hub.spec.luau recomputes their clearance.
 local PORTALS = PortalConfig.Hub
 -- Returning players land on a small ring around the spawn so a whole team never stacks on one point.
 local RETURN_SLOT_COUNT = 8
@@ -152,6 +153,7 @@ local function computeLayout(): Layout
 		BossPortalCFrame = facingCenter(
 			ringPosition(-math.pi / 2 + PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0)
 		),
+		FlyleafPortalCFrame = facingCenter(ringPosition(-math.pi / 2, PORTALS.RingRadiusStuds, 0)),
 	}
 end
 
@@ -408,6 +410,7 @@ function HubService.Start()
 	buildPedestal(folder, ANCHORS.Shop, layout.ShopCFrame, emblem, SHOP_EMBLEM_BARS)
 	PortalGate.build(folder, ANCHORS.BattlegroundPortal, layout.BattlegroundPortalCFrame, "Battleground")
 	PortalGate.build(folder, ANCHORS.BossPortal, layout.BossPortalCFrame, "WorldBoss")
+	PortalGate.build(folder, ANCHORS.FlyleafPortal, layout.FlyleafPortalCFrame, "Flyleaf")
 	for _, board in ipairs(layout.Boards) do
 		buildBoard(folder, board)
 	end

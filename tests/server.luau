@@ -235,11 +235,13 @@ function Server.world(options: Options?): World
 		Stubs = stubs,
 		Services = {
 			Players = players,
-			-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
+			-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged. A world builder tags
+			-- what it builds (a barrier, a gate's seal); nothing here reads those tags back.
 			CollectionService = {
 				HasTag = function(_self: any, _instance: any, _tag: string): boolean
 					return false
 				end,
+				AddTag = function(_self: any, _instance: any, _tag: string) end,
 			},
 			-- DataService reads the V1 store of a brand new profile: there is none here.
 			DataStoreService = {
@@ -406,6 +408,9 @@ function Server.services(): Services
 		isStunned = movement.isStunned,
 		isChanneling = function(_player: any): boolean
 			return false
+		end,
+		zoneOf = function(_player: any): string
+			return "Hub"
 		end,
 	}
 	local killZone = Engine.instance("BasePart")

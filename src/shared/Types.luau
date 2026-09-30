@@ -102,12 +102,15 @@ export type DailyData = {
 	FirstWinDay: number,
 	PremiumBonusDay: number,
 	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each
-	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), and
-	-- practice fights against the Erasure that paid out (WorldBossConfig.Practice).
+	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), practice
+	-- fights against the Erasure that paid out (WorldBossConfig.Practice), and Folios paid for the Flyleaf's
+	-- kills (FlyleafConfig.Rewards).
 	ForgerDay: number,
 	ForgerFolios: number,
 	PracticeDay: number,
 	PracticePaid: number,
+	FlyleafDay: number,
+	FlyleafFolios: number,
 }
 
 export type PurchasesData = {
@@ -286,6 +289,14 @@ export type BossSnapshot = {
 export type BattlegroundSnapshot = {
 	Standing: number,
 	Defeated: number,
+}
+
+-- The Flyleaf as its member sees it (FlyleafChanged), or nil once they are no longer one: how many members fight
+-- on the page, how many lives this member took since they came in, and how many since they last lost theirs.
+export type FlyleafSnapshot = {
+	Members: number,
+	Kills: number,
+	Streak: number,
 }
 
 -- The portal circle a player stands in (PortalChanged), or nil once they step out or set off: where it leads

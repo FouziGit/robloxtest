@@ -1,5 +1,6 @@
 --!strict
--- Standings: what the leaderboard draws of its players (D-147). The first three on a podium -- second on
+-- Standings: what the leaderboard draws of its ranks and its players (D-147). Over the board, the whole
+-- ladder of ranks, each seal over its word, as the board draws it. The first three on a podium -- second on
 -- the left, first in the centre on the tallest plinth, third on the right; the primary yellow, chalk and
 -- bronze -- each with the player's headshot, their name, their place and their rating, stamped in one after
 -- the other, the seal of their tier at the foot of their headshot. Every other player is a row: their place,
@@ -55,6 +56,14 @@ export type RowProps = {
 	Parent: Instance,
 }
 
+export type LadderProps = {
+	Localize: Localizer,
+	LayoutOrder: number?,
+	Parent: Instance,
+}
+
+export type Ladder = { Instance: Frame, Destroy: (self: Ladder) -> () }
+
 -- A tier's seal, which can be moved to another tier.
 export type TierSeal = {
 	Instance: Frame,
@@ -85,6 +94,14 @@ local ROW_RANK_WIDTH = 48
 local ROW_RANK_SIZE = 22
 -- 52 with the rims of the higher tiers, inside a row of 56.
 local ROW_SEAL = 40
+-- The whole ladder, as the board draws it: each rank's seal over its word, side by side from the first.
+local RUNG_SEAL = 58
+local RUNG_GAP = 22
+local RUNG_WORD_GAP = 8
+local RUNG_WORD_SIZE = 14
+local RUNG_WORD_ROW = RUNG_WORD_SIZE + 6
+-- The rims stand this far outside a seal: the ladder leaves them the room above and below.
+local RIM_ROOM = 6
 
 -- The podium's height, in design units: the tallest plinth, the headshot and the name over it.
 function Standings.podiumHeight(): number
@@ -293,6 +310,67 @@ function Standings.podium(props: PodiumProps): Podium
 	end
 
 	return { Instance = stand, Destroy = destroy }
+end
+
+-- The height of the ladder, in design units: a seal and its rims over its word.
+function Standings.ladderHeight(): number
+	return RIM_ROOM * 2 + RUNG_SEAL + RUNG_WORD_GAP + RUNG_WORD_ROW
+end
+
+-- Every rank of the ladder, first to last: its seal -- gold leaf and all -- over its word.
+function Standings.ladder(props: LadderProps): Ladder
+	local trove = Trove.new()
+
+	local ladder = Instance.new("Frame")
+	ladder.Name = "Ladder"
+	ladder.BackgroundTransparency = 1
+	ladder.Size = UDim2.new(1, 0, 0, Standings.ladderHeight())
+	ladder.LayoutOrder = props.LayoutOrder or 0
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, RUNG_GAP)
+	layout.Parent = ladder
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, RIM_ROOM)
+	padding.PaddingBottom = UDim.new(0, RIM_ROOM)
+	padding.Parent = ladder
+	trove:Add(ladder)
+
+	for index, tier in ipairs(RankingConfig.Tiers) do
+		local rung = Instance.new("Frame")
+		rung.Name = tier.Id
+		rung.BackgroundTransparency = 1
+		rung.AutomaticSize = Enum.AutomaticSize.XY
+		rung.Size = UDim2.new()
+		rung.LayoutOrder = index
+		local stack = Instance.new("UIListLayout")
+		stack.FillDirection = Enum.FillDirection.Vertical
+		stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		stack.SortOrder = Enum.SortOrder.LayoutOrder
+		stack.Padding = UDim.new(0, RUNG_WORD_GAP)
+		stack.Parent = rung
+		local seal = Standings.seal(tier.Id, RUNG_SEAL, rung, 1, props.Localize, true)
+		trove:Add(function()
+			seal:Destroy()
+		end)
+		local word = textLabel("Word", Theme.Fonts.Bold, RUNG_WORD_SIZE, Theme.Colors.Text)
+		word.AutomaticSize = Enum.AutomaticSize.X
+		word.Size = UDim2.fromOffset(0, RUNG_WORD_ROW)
+		word.LayoutOrder = 2
+		word.Text = props.Localize.t(tier.NameKey)
+		word.Parent = rung
+		rung.Parent = ladder
+	end
+	ladder.Parent = props.Parent
+
+	local function destroy(_self: Ladder)
+		trove:Destroy()
+	end
+
+	return { Instance = ladder, Destroy = destroy }
 end
 
 function Standings.row(props: RowProps): ListRow.ListRow

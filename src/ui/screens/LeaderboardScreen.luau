@@ -5,13 +5,14 @@
 -- board so switching tabs is instant. A request in flight shows skeleton rows; one that fails or does not
 -- answer in LOAD_TIMEOUT seconds says so, with a way to try again; a failure never wipes rows already shown.
 --
--- Under the tabs, the player's own standing: the seal of their tier and its word, and where they are -- from
--- the board when they are listed, from the profile's ranked record otherwise -- with a way to find their
--- row. The first three stand on a podium (LeaderboardView), the rest are rows with a seal of their tier:
--- the illuminated rank ladder, read from the rank key the server wrote on each row. The player's own row
--- is ringed, and pinned at the foot of the card while it is scrolled out of sight. Pinned, it says what the
--- standing says, and a tap on it finds the row: the standing then steps aside, which on a phone is the
--- difference between one row of the list in view and more than two (tests/LeaderboardFit.spec.luau).
+-- The whole ladder of ranks heads the board. Under the tabs, the player's own standing: the seal of their
+-- tier and its word, and where they are -- from the board when they are listed, from the profile's ranked
+-- record otherwise -- with a way to find their row. The first three stand on a podium (LeaderboardView), the
+-- rest are rows with a seal of their tier: the illuminated rank ladder, read from the rank key the server
+-- wrote on each row. The player's own row is ringed, and pinned at the foot of the card while it is scrolled
+-- out of sight. Pinned, it says what the standing says, and a tap on it finds the row: the standing then
+-- steps aside, which on a phone is the difference between one row of the list in view and more than two
+-- (tests/LeaderboardFit.spec.luau).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -260,12 +261,17 @@ function LeaderboardScreen.new(deps: Deps): Screen
 			youLabel.Text = t("leaderboard.unranked")
 		end
 		youSeal:SetTier(tierId)
-		tierLabel.Text = t(Theme.rank(tierId).NameKey)
+		-- The player's rank, marked as the ladder's pips mark a rarity.
+		tierLabel.Text = Theme.Glyphs.Pip .. " " .. t(Theme.rank(tierId).NameKey)
 	end
 
 	----------------------------------------------------------------
 	-- The board
 	----------------------------------------------------------------
+
+	-- The whole ladder of ranks heads the board, built once: every board shares it, and it scrolls with the
+	-- rows under it (the podium, the empty state and the waiting rows start at 1).
+	own(trove, Standings.ladder({ Localize = deps.Localize, LayoutOrder = 0, Parent = panel.Content }))
 
 	local fetch: (boardId: string, force: boolean) -> ()
 

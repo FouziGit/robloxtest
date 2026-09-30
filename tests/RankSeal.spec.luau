@@ -203,7 +203,7 @@ describe("the leaderboard's seals, run", function()
 			expect(across).toBeLessThanOrEqual(standing.Size.Y.Offset)
 			-- Its word, between the seal and where the player stands.
 			local word = standing:FindFirstChild("Tier")
-			expect(word.Text).toBe(Strings.t(tier.NameKey, nil, "fr"))
+			expect(word.Text).toBe(Theme.Glyphs.Pip .. " " .. Strings.t(tier.NameKey, nil, "fr"))
 			expect(word.FontFace).toBe(Theme.Fonts.Bold)
 			expect(word.TextSize).toBe(Theme.Sizes.TextBody)
 			local you = standing:FindFirstChild("You")

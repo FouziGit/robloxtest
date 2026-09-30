@@ -63,6 +63,9 @@ type Row = { Key: KeyButton.KeyButton, Ring: Frame }
 local SettingsBindings = {}
 
 local RING_THICKNESS = 4
+-- A row holds its key's lip and the ink around it inside its own outline, as the values' rows do: at the list's
+-- 56 the key's rim crossed the row's foot (seen in Studio).
+local ROW_HEIGHT = Theme.Sizes.RowHeight + Theme.Sizes.PaddingSmall
 local UPDATE_KEYBINDS_RATE = Remotes.Definitions.UpdateKeybinds.Rate
 -- Two sends stay one refilled token apart, so rebinding key after key never outruns the remote's bucket
 -- (a rate-limited call is dropped, and with it the change).
@@ -441,6 +444,7 @@ function SettingsBindings.new(props: Props): Bindings
 			local row = ListRow.new({
 				Left = actionName(action),
 				Right = key.Instance,
+				Height = ROW_HEIGHT,
 				LayoutOrder = index,
 				Name = action,
 				Parent = props.Content,

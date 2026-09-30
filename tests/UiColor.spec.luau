@@ -581,8 +581,14 @@ describe("the sticker", function()
 		-- Through a button: disabled, woken, then given another face.
 		local button = Button.new({ Text = "Go", Variant = "Primary", Disabled = true, Parent = world.playerGui })
 		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.Colors.Chalk)
+		-- The board's disabled sticker is flat chalk: no light caught on it (seen in Studio, a disabled Buy kept
+		-- its gloss). Woken, it shines again.
+		local gloss = button.Instance:FindFirstChild("Gloss")
+		assert(gloss ~= nil, "a Primary button has no gloss: this gate would check nothing")
+		expect(gloss.Visible).toBe(false)
 		button:SetDisabled(false)
 		expect((base(button.Instance)).BackgroundColor3).toBe(lip)
+		expect(gloss.Visible).toBe(true)
 		button:SetDisabled(true)
 		button:SetVariant("Secondary")
 		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.Colors.Chalk)

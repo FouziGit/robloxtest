@@ -176,6 +176,7 @@ function Sticker.new(props: Props): Sticker
 	local riders: { Frame } = { face }
 	local rests: { [Frame]: UDim2 } = { [face] = UDim2.new() }
 	local surface = face
+	local shine: Frame? = nil
 	if props.Gloss == true then
 		local pill = corner == Theme.Pill
 		local side = strokeThickness + (if pill then GLOSS_PILL_SIDE else GLOSS_TILE_SIDE)
@@ -201,6 +202,7 @@ function Sticker.new(props: Props): Sticker
 		top.Parent = root
 		trove:Add(top)
 		riders = { face, gloss, top }
+		shine = gloss
 		rests[gloss] = UDim2.fromOffset(side, drop)
 		rests[top] = UDim2.new()
 		surface = top
@@ -237,7 +239,8 @@ function Sticker.new(props: Props): Sticker
 			y = elevation - 1
 			color = Theme.shade(fill, PRESSED_SHADE)
 		elseif state == "Disabled" then
-			-- It sits on its lip: no depth left to press.
+			-- It sits on its lip: no depth left to press, and no light caught on a chalk that cannot be pressed
+			-- (the board's disabled sticker is flat; seen in Studio, a disabled Buy kept its gloss).
 			y = elevation - 1
 			color = Theme.Colors.Chalk
 			under = Theme.Colors.Chalk
@@ -248,6 +251,10 @@ function Sticker.new(props: Props): Sticker
 		local currentBase = base
 		if currentBase ~= nil then
 			currentBase.BackgroundColor3 = under
+		end
+		local currentShine = shine
+		if currentShine ~= nil then
+			currentShine.Visible = state ~= "Disabled"
 		end
 		local position = UDim2.fromOffset(0, y)
 		for _, rider in ipairs(riders) do

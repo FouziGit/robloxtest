@@ -29,6 +29,9 @@
 --                    AnchorPoint centres it in: the lock's pill, placed at the middle of its 180-wide billboard, cut
 --                    "Training dummy · 150" to "Training…" in 50 (seen in Studio). Laid out by a list, it has the
 --                    list's room.
+--   Rows' pressables A row drawn with its own outline (ListRow's Edge) holds a pressable, centred in it, with the
+--                    lip's ink rim, drawn outside the pressable's box: a key button of 52 in a row of 56 crossed the
+--                    row's foot with its rim (seen in Studio, the Settings' keys).
 local Measure = require("./measure")
 
 local Layout = {}
@@ -298,6 +301,40 @@ function Layout.billboardWords(root: any): { string }
 	return found
 end
 
+function Layout.rowPressables(root: any): { string }
+	local found: { string } = {}
+	for _, edge in ipairs(root:GetDescendants()) do
+		local row = edge.Parent
+		local line = edge:FindFirstChildOfClass("UIStroke")
+		if edge.Name == "Edge" and line ~= nil and row ~= nil and row:IsA("GuiObject") and row.Size.Y.Scale == 0 then
+			for _, base in ipairs(row:GetDescendants()) do
+				local rim = base:FindFirstChildOfClass("UIStroke")
+				if base.Name == "Base" and rim ~= nil and rim.BorderStrokePosition.Name == "Outer" then
+					local host = base.Parent
+					while host ~= nil and host ~= row and host.Size.Y.Scale ~= 0 do
+						host = host.Parent
+					end
+					if host ~= nil and host ~= row then
+						local needed = host.Size.Y.Offset + 2 * rim.Thickness + 2 * line.Thickness
+						if needed > row.Size.Y.Offset then
+							table.insert(
+								found,
+								("%s is %d tall with its rim, in %s of %d inside its outline"):format(
+									host:GetFullName(),
+									host.Size.Y.Offset + 2 * rim.Thickness,
+									row:GetFullName(),
+									row.Size.Y.Offset - 2 * line.Thickness
+								)
+							)
+						end
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- Every rule, on `root`.
 function Layout.check(root: any, screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
@@ -311,6 +348,9 @@ function Layout.check(root: any, screenHeight: number): { string }
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.billboardWords(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.rowPressables(root)) do
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.truncation(root, screenHeight)) do

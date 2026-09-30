@@ -14,7 +14,9 @@ local DataMigration = {}
 
 -- 5: `Cosmetics.Waived`, the cosmetics a developer account bought with Folios the developer list waived, so
 -- they leave with the list (D-208). No upgrade step: every profile before it holds none, which is the
--- template's empty list.
+-- template's empty list. The same release adds `Daily.PracticeLastPaidAt`, when the last practice against the
+-- Erasure paid, so a hop to another server does not reopen its gap (D-222); no upgrade step either, the template's
+-- 0 is "never".
 --
 -- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
 -- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the

@@ -13,6 +13,10 @@
 -- HubService gives that name to the board's Model -- no board ever showed a row). Every
 -- DataStore call goes through a retry with backoff and stays silent on failure, so a server without
 -- DataStore access (Studio) keeps a working hub, RequestLeaderboard handler and match flow.
+--
+-- Only players reach the ladders (LadderGate, D-210): a non-positive id, which is what Studio gives the
+-- players of a multi-client test, is never written and a row holding one is never shown, and a Studio
+-- session writes nothing unless StudioConfig.WriteLadders says so. Each reason is logged once per server.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -24,9 +28,11 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local GameConfig = require(Shared.Config.GameConfig)
+local LadderGate = require(Shared.Pure.LadderGate)
 local Log = require(Shared.Util.Log)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Strings = require(Shared.Strings)
+local StudioConfig = require(script.Parent.Parent.Config.StudioConfig)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -99,6 +105,10 @@ local outstandingWrites = 0
 -- os.clock() until which DataStore calls are skipped: set when a call exhausts its retries, so a
 -- server without DataStore access reports the problem once per cooldown instead of on every call.
 local offlineUntil = 0
+-- Whether this server runs in Studio, read once in Init.
+local studio = false
+-- The reasons a rating was kept off the ladders that this server has already logged.
+local refusalsLogged: { [string]: boolean } = {}
 
 ----------------------------------------------------------------
 -- DataStore access
@@ -180,7 +190,25 @@ local function enqueue(boardId: string, userId: number, value: number)
 	queue[userId] = math.max(0, math.floor(value))
 end
 
+-- Says, the first time each reason turns up on this server, why a rating stays off the ladders.
+local function logRefusal(refusal: string, player: Player)
+	if refusalsLogged[refusal] then
+		return
+	end
+	refusalsLogged[refusal] = true
+	if refusal == "TestId" then
+		log.info("%s has the test id %d: ratings of non-positive ids stay off the ladders", player.Name, player.UserId)
+	else
+		log.info("Studio session: ratings stay off the ladders (StudioConfig.WriteLadders is off)")
+	end
+end
+
 local function onRatingChanged(player: Player, modeId: string, _before: number, after: number)
+	local refusal = LadderGate.refusal(player.UserId, studio, StudioConfig.WriteLadders)
+	if refusal ~= nil then
+		logRefusal(refusal, player)
+		return
+	end
 	names[player.UserId] = player.Name
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		if boardId == modeId then
@@ -324,7 +352,9 @@ end
 
 local renderBoard: (boardId: string) -> ()
 
--- Re-reads every board from its ladder and renders it. Yields; runs on its own thread.
+-- Re-reads every board from its ladder and renders it. A row whose key is no player id (a Studio test
+-- player written before LadderGate existed) is skipped, and the rows below it move up. Yields; runs on its
+-- own thread.
 local function refreshBoards()
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		local store = storeFor(GameConfig.SeasonId, boardId)
@@ -338,7 +368,7 @@ local function refreshBoards()
 				for _, record in ipairs((pages :: DataStorePages):GetCurrentPage()) do
 					local userId = tonumber(record.key)
 					local value = tonumber(record.value)
-					if userId ~= nil and value ~= nil then
+					if userId ~= nil and value ~= nil and LadderGate.isPlayerId(userId) then
 						local rank = #entries + 1
 						table.insert(entries, {
 							Rank = rank,
@@ -505,6 +535,7 @@ function LeaderboardService.Init(deps: Deps)
 	registry = deps.Registry
 	ranking = deps.Ranking
 	hub = deps.Hub
+	studio = RunService:IsStudio()
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		snapshots[boardId] = { BoardId = boardId, UpdatedAt = 0, Entries = {} }
 		pending[boardId] = {}
@@ -536,8 +567,11 @@ function LeaderboardService.Start()
 	task.spawn(function()
 		log.try("initial refresh", refreshBoards)
 	end)
-	if RunService:IsStudio() then
-		log.info("Studio: ladders need API access to read and write")
+	if studio then
+		log.info(
+			"Studio: ladders need API access to be read, and are written only with StudioConfig.WriteLadders (%s)",
+			tostring(StudioConfig.WriteLadders)
+		)
 	end
 	log.info(
 		"started (%d boards, season %s, refresh %ds)",

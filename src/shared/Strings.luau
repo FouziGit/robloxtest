@@ -383,6 +383,8 @@ Strings.Table = {
 		en = "Double XP, +50% Folios, chat tag and an exclusive aura.",
 		fr = "XP ×2, +50 % de Folios, tag dans le chat et une aura exclusive.",
 	},
+	-- Drawn before a VIP's name in the chat, in the reader's language (ChatConfig.VipTag).
+	["chat.vipTag"] = { en = "[VIP]", fr = "[VIP]" },
 	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Slots d'équipement" },
 	["pass.loadoutSlots.desc"] = {
 		en = "+4 loadout slots (10 in total).",
@@ -636,6 +638,11 @@ Strings.Table = {
 	["purchase.tiersPastLast"] = {
 		en = "Past the last tier: +{amount} Folios instead",
 		fr = "Au-delà du dernier palier : +{amount} Folios à la place",
+	},
+	-- Seen only in Studio, where a test purchase grants nothing (StudioConfig.PersistTestPurchases).
+	["purchase.sandboxed"] = {
+		en = "Studio test purchase of {name}: nothing was granted or saved.",
+		fr = "Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.",
 	},
 
 	-- Enemies

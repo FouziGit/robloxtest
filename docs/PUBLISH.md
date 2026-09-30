@@ -32,7 +32,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 | Clé | Type | Prix dans le code (R$) | Ce que le code livre |
 |---|---|---|---|
-| `Vip` | pass | 399 | aura VIP, XP ×2, Folios ×1,5 |
+| `Vip` | pass | 399 | aura VIP, XP ×2, Folios ×1,5, tag `[VIP]` dans le chat (D-209) |
 | `LoadoutSlots` | pass | 199 | 10 emplacements au lieu de 6 |
 | `Orpiment` | pass | 299 | le pigment Orpiment sans attendre le niveau 40 |
 | `SkinPack` | pass | 249 | 4 skins de glyphe |
@@ -44,7 +44,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 3. **Les mêmes prix que le tableau de bord.** Le joueur paie le prix réglé dans le Creator Dashboard. `PriceRobux` ne sert qu'à l'analytique (`Receipts.luau:181`, `Passes.luau:157`) : un écart ne coûte rien au joueur, mais fausse les revenus suivis par `docs/ECONOMY.md` §8. Un prix qui change au tableau de bord change aussi ce que valent `CompensationFolios` de `TierSkip5` et de `PremiumPass` (D-202) : mettre `PriceRobux` à jour, puis `tests/Receipts.spec.luau` dit si la compensation tient encore entre les taux des packs de Folios.
 4. **Des descriptions honnêtes.** Chaque description saisie sur le tableau de bord (`docs/STUDIO_SETUP.md` §3 et §4) doit dire exactement ce que le code livre :
-   - **VIP** : soit construire le tag dans le chat, soit retirer « tag dans le chat » aux quatre endroits où il apparaît : le tableau de bord, `Strings.luau:359-362`, `docs/STUDIO_SETUP.md:54` et `docs/ECONOMY.md:48` (R1). À régler avant la mise en vente.
+   - **VIP** : la description peut promettre le tag dans le chat, le jeu le pose (R1 corrigé, D-209). Vérifier seulement que le chat de l'expérience est bien `TextChatService` (§6.7).
    - **TierSkip5** : dire, comme `product.tierSkip5.desc`, que les paliers au-delà du dernier sont payés en Folios (R14 corrigé, D-202).
    - **Premium** : `docs/ECONOMY.md` §6 et le code disent la même chose, 150 Folios et 30 min d'XP doublée par jour ; rien d'autre ne se promet aux abonnés (R10 corrigé, D-204).
 5. **Acheter une fois chaque article.** Sur la copie de test, avec un compte secondaire, dérouler tout le §3 de `docs/QA.md`. R2 est corrigé (D-202) : `TierSkip5` peut rester en vente, un reçu qui ne peut plus donner de paliers paie en Folios au lieu de boucler.
@@ -52,12 +52,9 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 ## 4. Données, accès API, comptes
 
-1. **Accès API.** *Enable Studio Access to API Services* (`docs/STUDIO_SETUP.md` §2) branche Studio sur les **vraies** données : chaque test multi-clients inscrit des identifiants négatifs dans les classements (R5), et chaque achat de test écrit dans le vrai profil (R9). Décision : faire la QA sur une copie de test et, sur l'expérience publique, n'activer l'accès que le temps d'un test précis.
-2. **Classements propres.** Avant l'ouverture au public, choisir une option :
-   - purger les entrées de test (toute clé négative) des stores `S1_Global`, `S1_Duel1v1` et `S1_Team3v3` ;
-   - ouvrir la saison publique sous un autre `SeasonId` (§2.5) ;
-   - n'écrire que les `UserId > 0` dans `writeDue` (`LeaderboardService.luau:240-244`).
-3. **Profil du développeur.** Les passes obtenus par des achats de test restent en cache (`Passes.luau:2-4`). Les cosmétiques achetés avec les Folios illimités depuis D-208 sont marqués et repris si le compte quitte la liste ; ceux achetés avant restent possédés (R6). Décider si ce profil part tel quel.
+1. **Accès API.** *Enable Studio Access to API Services* (`docs/STUDIO_SETUP.md` §2) branche Studio sur les **vraies** données. Le code les protège de Studio par deux réglages de `src/server/Config/StudioConfig.luau`, éteints par défaut : `WriteLadders` (ni identifiant de test ni valeur venue de Studio dans les classements, R5 corrigé, D-210) et `PersistTestPurchases` (un achat de test n'accorde rien et ne s'enregistre pas, R9 corrigé, D-211). Avant toute publication, vérifier qu'ils sont tous deux à `false`. La QA des achats et des classements se fait toujours sur une copie de test ; sur l'expérience publique, n'activer l'accès que le temps d'un test précis.
+2. **Classements propres.** Fait dans le code (R5 corrigé, D-210) : un identifiant négatif ou nul n'est jamais écrit dans `S1_Global`, `S1_Duel1v1` et `S1_Team3v3`, ni une valeur venue de Studio tant que `StudioConfig.WriteLadders` est à `false` ; les lignes de test écrites avant le correctif restent dans les stores mais ne s'affichent plus. Avant l'ouverture au public, vérifier que `WriteLadders` est bien à `false` dans `src/server/Config/StudioConfig.luau`. Une purge des anciennes clés négatives n'est plus nécessaire ; elle ne ferait que rendre leur place aux 50 lignes que lit chaque tableau (`RankingConfig.Leaderboard.TopCount`).
+3. **Profil du développeur.** Les passes que d'anciens achats de test ont mis en cache en sortent à la première arrivée qui suit la saisie de leurs identifiants, puisque Roblox ne les a jamais vendus (R9 corrigé, D-211) ; ce qu'ils ont remis une fois (l'aura VIP, les skins, le pigment Orpiment) reste possédé. Les cosmétiques achetés avec les Folios illimités depuis D-208 sont marqués et repris si le compte quitte la liste ; ceux achetés avant restent possédés (R6). Décider si ce profil part tel quel.
 4. **Réglages développeur.** Dans `src/server/Config/DeveloperConfig.luau`, trancher `UnlimitedSlots` (`:17`), `UnlimitedFolios` (`:22`) et `FreeCasting` (`:26`) avant l'ouverture au public. Leurs effets s'arrêtent au hub : en classé, au World Boss et au champ de bataille, le compte développeur joue avec ce qu'aurait un joueur au même niveau (R6 corrigé, D-208). Noter la décision dans `docs/DECISIONS.md`.
 5. **World Boss.** `WorldBossConfig.Schedule` doit être à 1200 / 60 / 300 / 15 / 2 (`WorldBossConfig.luau:23-29`). Le raccourci de test fait échouer `tests/Config.spec.luau:615-617`.
 6. **Seuils de qualité.** Les seuils de 40 et 55 images/s de `QualityConfig.Auto` (`QualityConfig.luau:110-116`) n'ont été mesurés sur aucun appareil (`docs/PERFORMANCE.md:183-187`). Soit publier en le sachant, soit faire d'abord le §9.5 de `docs/QA.md`.
@@ -65,8 +62,19 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 ## 5. Assets et modération
 
-1. **Tout approuvé.** Lancer `python3 scripts/upload_assets.py status` (`scripts/upload_assets.py:365-379`). La commande relit la modération de chaque asset, n'affiche que ceux qui ne sont pas `Approved` et termine par un décompte. Attendu : une seule catégorie, `Approved`. La commande réécrit l'état dans `assets/roblox-assets.lock.json` : commiter ce changement. Au commit `c0b6687`, `ink_flame.png` et `ink_spike.png` étaient encore `Reviewing` à l'envoi (R7). Cette commande n'est pas encore décrite au §7 de `docs/STUDIO_SETUP.md`.
-2. **Même propriétaire.** Les assets appartiennent au compte `3721321390` (`assets/roblox-assets.lock.json:2-3`). L'expérience publiée doit appartenir au même compte, sinon les animations et les sons ne se jouent pas. Si l'expérience passe à un groupe, il faut renvoyer les assets au nom du groupe.
+R7 est à faire par le développeur : aucun code ne peut modérer un asset ni en changer le propriétaire. Il reste ouvert dans `docs/QA.md` §12 tant que les étapes 1 et 2 ne sont pas faites.
+
+1. **Tout approuvé.** Lancer `python3 scripts/upload_assets.py status` (la clé Open Cloud de `docs/STUDIO_SETUP.md` §7). La commande relit la modération des 91 assets du fichier de verrou (10 animations, 55 sons, 19 images, 7 modèles), n'affiche que ceux qui ne sont pas `Approved` et termine par un décompte. Attendu : une seule catégorie, `91 Approved`. Elle réécrit l'état dans `assets/roblox-assets.lock.json` : commiter ce changement. Au commit `c0b6687`, `ink_flame.png` et `ink_spike.png` étaient encore `Reviewing`. Selon ce qui s'affiche :
+   - `Reviewing` : attendre, de quelques minutes à quelques heures, puis relancer la commande. Ne pas publier tant qu'il en reste un : en jeu, l'asset est invisible ou muet.
+   - `Rejected` : ne pas renvoyer le même fichier, il serait refusé de nouveau. Corriger son générateur dans `tools/`, régénérer, puis `python3 scripts/upload_assets.py upload --reupload` : seul le fichier changé repart, comme un nouvel asset, et le script réécrit lui-même son identifiant. Relancer ensuite `./scripts/check.sh`, puis `status`.
+2. **Donner l'expérience et ses assets à un groupe, avant l'ouverture.** Aujourd'hui, tout appartient au compte personnel `3721321390` (`creator.userId`, `assets/roblox-assets.lock.json:2-3`). Roblox ne joue une animation que dans une expérience du même propriétaire, et un son reste privé à son propriétaire : une expérience publiée par un autre propriétaire que celui des assets est muette et figée. Un asset ne change jamais de propriétaire ; passer à un groupe veut donc dire tout renvoyer au nom du groupe. Dans l'ordre :
+   1. **Le groupe.** Créer le groupe qui publiera Vellum, ou en choisir un dont le compte `3721321390` est le propriétaire.
+   2. **L'expérience.** Ouvrir le `build/Vellum.rbxl` construit depuis `main` (§1), puis **File → Publish to Roblox As…**, choisir le groupe comme créateur, et créer une nouvelle expérience. Avant l'ouverture, rien n'est perdu : les identifiants d'achat valent encore `0` (§3) et seuls les comptes de test ont un profil. Refaire ensuite pour cette expérience les §2, §3, §4 et §6 de `docs/STUDIO_SETUP.md` : réglages, passes et produits créés dans l'expérience du groupe (leurs identifiants dans `MonetizationConfig`), secrets `UNIVERSE_ID`, `PLACE_ID` et une clé `ROBLOX_API_KEY` créée par le groupe.
+   3. **La clé du groupe.** Creator Dashboard → le groupe → **Open Cloud → API Keys** → une clé avec `assets` en **Read** et **Write**, enregistrée dans `.env.local` comme au §7 de `docs/STUDIO_SETUP.md`.
+   4. **Le script.** `scripts/upload_assets.py` n'envoie aujourd'hui qu'au nom d'un compte : `upload_one` écrit `creationContext.creator.userId`, et `quota` interroge ce compte. Il faut d'abord lui faire écrire `creationContext.creator.groupId` (le numéro du groupe) et repartir d'un fichier de verrou sans assets pour ce nouveau propriétaire ; les identifiants actuels resteraient sinon ceux du compte personnel. Ce changement de code n'est pas fait : c'est la première tâche du jour où l'on passe au groupe.
+   5. **Le renvoi.** `python3 scripts/upload_assets.py quota` d'abord : il y a 55 sons à renvoyer, et le quota mensuel d'envois audio peut ne pas suffire ; `upload --max-audio=<n>` étale l'envoi. Puis `python3 scripts/upload_assets.py upload`, puis les volumes (`resolve-snippet` puis `record-meshes`, §7 bis de `docs/STUDIO_SETUP.md`), puis l'étape 1 jusqu'à `91 Approved`, puis `./scripts/check.sh`, et commiter les identifiants réécrits avec le fichier de verrou.
+
+   Si l'on garde l'expérience sur le compte personnel, il n'y a rien à renvoyer : il suffit que l'expérience publiée appartienne à `3721321390`, jamais à un groupe. Noter le choix dans `docs/DECISIONS.md`.
 3. **Identifiants cohérents.** Vérifier que `tests/UploadedAssets.spec.luau` et `tests/MeshConfig.spec.luau` sont verts (ils font partie de `check.sh`) et que les volumes sont résolus (`docs/STUDIO_SETUP.md` §7 bis).
 4. **Rien ne manque côté client.** Voir `docs/QA.md` §1.4 : aucune liste de sons manquants.
 
@@ -80,7 +88,7 @@ Une partie a déjà été faite une fois (`docs/STUDIO_SETUP.md` §2) : accès A
 4. **Nom et description, en anglais et en français.** L'anglais est la langue source. La traduction française du nom et de la description se saisit dans l'onglet Localization de l'expérience.
 5. **Serveurs privés.** Décider s'ils sont gratuits, payants ou fermés. L'appariement ne se fait qu'entre joueurs d'un même serveur, et le World Boss demande deux joueurs (`WorldBossConfig.luau:28`) : dans un serveur privé à un seul joueur, il n'y a ni match ni boss.
 6. **Joueurs par serveur.** 12 (`docs/STUDIO_SETUP.md` §2) : de quoi tenir deux 3v3 et le hub.
-7. **Chat.** Chat texte activé. Les seuls textes venant des joueurs sont le chat Roblox et leurs noms : aucun filtrage à ajouter.
+7. **Chat.** Chat texte activé, sur `TextChatService` (le réglage par défaut ; le tag du VIP n'existe pas sur le chat hérité, et le client l'écrit alors : `[ChatController] this place runs the legacy chat`). Les seuls textes venant des joueurs sont le chat Roblox et leurs noms : aucun filtrage à ajouter.
 8. **Streaming.** `default.project.json` ne règle aucune propriété de `Workspace`. Ouvrir la place construite et vérifier que `StreamingEnabled` a bien la valeur voulue. Les arènes sont empilées à partir de 900 studs de haut, avec 400 studs de plus par emplacement, sans limite (`altitudeFor`, `ArenaService.luau:299-301,333-338` ; `MatchConfig.luau:71,75`). Le champ de bataille est bâti à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut : si `StreamingEnabled` est actif, faire le §6 bis.26 de `docs/QA.md`.
 
 ## 7. Textes et localisation
@@ -127,7 +135,6 @@ Un joueur ou un développeur lit ces documents comme des promesses : les corrige
 
 | Document | Ce qu'il dit | Ce qui est vrai |
 |---|---|---|
-| `docs/STUDIO_SETUP.md:37,54`, `docs/ECONOMY.md:48` | le VIP a un tag dans le chat | aucun tag (R1) |
 | `docs/ECONOMY.md` §6 | Premium : 150 Folios + 30 min de boost, badge, quêtes bonus | aligné : 150 Folios + 30 min d'XP doublée, badge et quêtes bonus retirés (R10 corrigé, D-204) |
 | `docs/ECONOMY.md` §5 | prompts d'achat contextuels | aligné : il n'y en a pas (R8 corrigé, D-205) |
 | `docs/PERFORMANCE.md:137-139` | pire cas : « 201, `Pounce` », « 30 maillages (`Dash`) » | `Scorch` 358 particules, `Dash` 34 `Part` au pic (`docs/PERFORMANCE.md:98,112`, sortie de `lune run scripts/effect-cost -- --table`). Revérifier la ligne des plafonds de `PoolPolicy`. |
@@ -136,4 +143,3 @@ Un joueur ou un développeur lit ces documents comme des promesses : les corrige
 | `docs/GAME_DESIGN.md:164` | 1v1 : « 3 min, best-of-3 optionnel » | toujours en deux manches gagnantes sur trois, 60 s par manche |
 | `docs/STUDIO_SETUP.md:80` | `[Bootstrap] Vellum v2.0.0 ready` | `… ready: 28 services started` |
 | `docs/STUDIO_SETUP.md:86` | quatre boutons Melee / Dash / Block / Menu | cinq, avec `Cible` / `Lock` (`InputConfig.luau:161`) |
-| `docs/STUDIO_SETUP.md` §7 | pas de relecture de la modération | `python3 scripts/upload_assets.py status` |

@@ -13,6 +13,10 @@
 -- a tier past the last one, which the pass may have reached while the dialog was open; a Premium Pass for a
 -- player who already has the track (both at the product's CompensationFolios). And PurchaseGranted is
 -- only returned once DataService.saveNow confirms the write.
+--
+-- A Studio test receipt is the one exception, and grants nothing: Roblox charged nothing for it, and its
+-- grant would land in the player's real profile (Sandbox, D-211). It is acknowledged, so it is not delivered
+-- again.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +30,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ReceiptProcessor = require(Shared.Pure.ReceiptProcessor)
+local Sandbox = require(script.Parent.Sandbox)
 local ShopConfig = require(Shared.Config.ShopConfig)
 
 local log = Log.new("MonetizationService")
@@ -288,6 +293,14 @@ function Receipts.process(receiptInfo: { [string]: any })
 	if player == nil then
 		-- Bought offline or on another server: Roblox delivers the receipt again on the next join.
 		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	if Sandbox.active() then
+		local productKey, product = MonetizationConfig.productByAssetId(productId)
+		-- A product this game does not sell goes the normal way, which refuses it.
+		if productKey ~= nil and product ~= nil then
+			Sandbox.acknowledge(player, "product " .. productKey, product.NameKey)
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
 	end
 
 	local receipt: ReceiptProcessor.Receipt = { PlayerId = userId, PurchaseId = purchaseId, ProductId = productId }

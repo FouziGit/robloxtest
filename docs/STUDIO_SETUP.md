@@ -29,12 +29,12 @@ La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y t
 
 | Réglage | Valeur | Où |
 |---|---|---|
-| Accès API depuis Studio | activé | Game Settings → Security → *Enable Studio Access to API Services* |
+| Accès API depuis Studio | activé ; Studio n'écrit alors ni achat de test ni classement tant que `src/server/Config/StudioConfig.luau` le refuse (D-210, D-211) | Game Settings → Security → *Enable Studio Access to API Services* |
 | Publication | publiée (au moins en privé) | File → Publish to Roblox |
 | Joueurs max par serveur | 12 (assez pour 2 matchs 3v3 + hub) | Game Settings → Places → Max players |
 | Orientation | Paysage (`LandscapeSensor`, déjà fixé par `default.project.json`) | — |
 | Appareils | ordinateur, téléphone, tablette, console | Game Settings → Basic Info → Devices |
-| Chat | texte activé (le VIP a un tag) | Game Settings → Communication |
+| Chat | texte activé, sur `TextChatService` (le tag du VIP en dépend, D-209) | Game Settings → Communication |
 | Genre / âge | Combat (fantasy), tous publics, violence légère | Game Settings → Basic Info |
 
 ## 2 bis. Type d'avatar : laisse R15 — **ne passe pas en R6**
@@ -94,14 +94,14 @@ Les écrans s'ouvrent par la barre en bas à droite (**Jouer**, **Boutique**, **
 6. `M` → **Quêtes** : trois quêtes du jour. Frapper des mannequins et lancer des glyphes fait avancer celles qui comptent des dégâts, des coups au corps-à-corps, des ruées ou des mannequins. Réclamer une quête terminée crédite XP et Folios.
 7. `M` → **Récompense quotidienne** : réclamer aujourd'hui. Le lendemain (ou en avançant l'horloge de la machine) la série passe à 2.
 8. `M` → **Équipement** : retirer un glyphe, en mettre un autre, sauvegarder, relancer Play : la sélection est conservée.
-9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée.
+9. **Boutique** : six articles du jour. Acheter en Folios si le solde suffit, équiper, vérifier que l'article passe en « possédé ». Le bouton Robux reste grisé tant que l'ID du produit (§4) vaut 0, et l'achat ne fonctionne qu'une fois la place publiée. Dans Studio, un achat en Robux est un achat de test : Roblox ne débite rien, et le jeu n'accorde rien non plus, avec le toast « Achat de test dans Studio » (D-211). Pour qu'il soit accordé et enregistré dans ton vrai profil, passer `PersistTestPurchases` à `true` dans `src/server/Config/StudioConfig.luau` le temps du test, puis le remettre à `false`.
 10. `M` → **Battle pass** : la barre avance avec l'XP ; réclamer un palier gratuit.
 
 ### Le classé, à deux joueurs (Studio le fait tout seul)
 
 11. **Test → Clients and Servers → 2 players → Start**. Deux fenêtres client s'ouvrent.
 12. Dans les deux : `M` → **Jouer** → **1v1 classé**. La file les apparie en quelques secondes, l'arène se construit, compte à rebours de 5 s.
-13. Se battre. Le premier à deux manches gagne. L'écran de résultat montre le score, l'XP, le Folios et le mouvement de classement ; le rang apparaît sur les tableaux du hub au prochain rafraîchissement (60 s), **si l'accès aux API est activé** (Game Settings → Security → *Enable Studio Access to API Services*, place publiée) : sans lui, les tableaux affichent « Aucun joueur classé pour l'instant ». Seul, un 1v1 ne démarre jamais : il faut deux clients (six pour le 3v3).
+13. Se battre. Le premier à deux manches gagne. L'écran de résultat montre le score, l'XP, le Folios et le mouvement de classement. Les tableaux du hub, eux, ne reçoivent rien d'un test dans Studio (D-210) : les joueurs de test ont des identifiants négatifs, qui n'entrent jamais dans un classement, et Studio n'y écrit rien tant que `WriteLadders` est à `false` dans `src/server/Config/StudioConfig.luau`. L'Output serveur le dit une fois : `[LeaderboardService] … has the test id …`. Pour voir son rang sur un tableau, jouer sur une copie publiée de la place ; ou, avec l'accès API (Game Settings → Security → *Enable Studio Access to API Services*, place publiée), passer `WriteLadders` à `true` le temps d'un Play solo avec son propre compte, puis le remettre à `false`. Seul, un 1v1 ne démarre jamais : il faut deux clients (six pour le 3v3).
 14. **Tester l'abandon** : pendant un match, fermer une fenêtre client. Le survivant remporte la série, et le partant est débité comme s'il avait perdu (visible dans l'Output : `[RankingService] … abandoned …`).
 
 ### Le World Boss, sans attendre vingt minutes
@@ -162,7 +162,13 @@ python3 scripts/upload_assets.py upload
 python3 scripts/upload_assets.py upload --reupload
 ```
 
-**La modération.** Chaque envoi passe une modération Roblox, de quelques minutes à quelques heures ; tant qu'il est en revue, il reste invisible ou muet en jeu. Le fichier de verrou note l'état au moment de l'envoi.
+**La modération.** Chaque envoi passe une modération Roblox, de quelques minutes à quelques heures ; tant qu'il est en revue, il reste invisible ou muet en jeu. Le fichier de verrou note l'état au moment de l'envoi ; pour le relire :
+
+```bash
+python3 scripts/upload_assets.py status
+```
+
+La commande n'affiche que les assets qui ne sont pas `Approved`, termine par un décompte et réécrit l'état dans le fichier de verrou, à commiter. Que faire d'un `Reviewing` ou d'un `Rejected`, et des assets d'un compte personnel quand l'expérience passe à un groupe : `docs/PUBLISH.md` §5.
 
 **Sans le script** (dernier recours) : Creator Dashboard → *Creations* → *Development Items* → *Images* ou *Audio* → upload, puis ajouter à la main dans le bloc `-- BEGIN UPLOADED` du module concerné une ligne `["<chemin du fichier>"] = "rbxassetid://<id>",` — et la même entrée dans le fichier de verrou, faute de quoi la porte refuse le bloc.
 

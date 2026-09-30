@@ -6,7 +6,8 @@
 -- carries the five-pigment stripe along its foot, and three drips of its colour hang under it.
 --
 -- The drop cap and the rest of its word share a row of their own, the cap flush with the word as an
--- illuminated initial sits in a manuscript: at the band's gap between its parts, "Menu" read "M enu".
+-- illuminated initial sits in a manuscript: at the band's gap between its parts, "Menu" read "M enu". They
+-- stand on one baseline, and the row tilts as one, so the cap leans with its word (D-177).
 --
 -- At an entrance it drops into place just after the card starts to arrive, and its drop cap stamps in.
 
@@ -65,6 +66,14 @@ local TITLE_TILT = -2
 -- Between the drop cap and the rest of its word: next to nothing, set by eye in Studio so that "Menu" reads
 -- as one word.
 local CAP_GAP = 2
+-- The title's line, as tall as the drop cap's, both set to its foot. The roman descends 0.273 of its size and
+-- the poster face 0.236 (their fonts' own metrics): on one foot the cap's baseline would stand higher than the
+-- title's, so the cap's box reaches lower by the difference.
+local ROMAN_LINE = 1.257
+local ROMAN_DESCENT = 0.273
+local POSTER_DESCENT = 0.236
+local HEADING_HEIGHT = math.ceil(DropCap.Size * ROMAN_LINE)
+local CAP_DROP = math.round(DropCap.Size * ROMAN_DESCENT - Theme.Sizes.TextTitle * POSTER_DESCENT)
 local CLOSE_SIZE = 44
 local CLOSE_ELEVATION = 4
 local CLOSE_HOVER_SHADE = -0.06
@@ -198,13 +207,14 @@ local function makeStripe(parent: Instance): Frame
 	return stripe
 end
 
-local function rowLayout(parent: Instance, gap: number)
+local function rowLayout(parent: Instance, gap: number): UIListLayout
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, gap)
 	layout.Parent = parent
+	return layout
 end
 
 -- What fills whatever of its row the other parts leave.
@@ -279,10 +289,12 @@ function ChapterBand.new(props: Props): ChapterBand
 	local heading = Instance.new("Frame")
 	heading.Name = "Heading"
 	heading.BackgroundTransparency = 1
-	heading.Size = UDim2.fromScale(0, 1)
+	heading.Size = UDim2.fromOffset(0, HEADING_HEIGHT)
 	heading.LayoutOrder = 2
+	heading.Rotation = TITLE_TILT
 	fill(heading)
-	rowLayout(heading, CAP_GAP)
+	-- Both hang from the row's top: the title's box is the row, the cap's reaches CAP_DROP below it.
+	rowLayout(heading, CAP_GAP).VerticalAlignment = Enum.VerticalAlignment.Top
 	heading.Parent = row
 
 	local title = Instance.new("TextLabel")
@@ -290,10 +302,10 @@ function ChapterBand.new(props: Props): ChapterBand
 	title.BackgroundTransparency = 1
 	title.Size = UDim2.fromScale(0, 1)
 	title.LayoutOrder = 2
-	title.Rotation = TITLE_TILT
 	title.FontFace = Theme.Fonts.Title
 	title.TextSize = Theme.Sizes.TextTitle
 	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextYAlignment = Enum.TextYAlignment.Bottom
 	title.TextTruncate = Enum.TextTruncate.AtEnd
 	fill(title)
 	title.Parent = heading
@@ -332,6 +344,7 @@ function ChapterBand.new(props: Props): ChapterBand
 		if letter ~= nil then
 			local created = DropCap.new(letter, chapter)
 			created.Instance.LayoutOrder = 1
+			created.Instance.Size = UDim2.new(0, 0, 1, CAP_DROP)
 			created.Instance.Parent = heading
 			cap = created
 		end

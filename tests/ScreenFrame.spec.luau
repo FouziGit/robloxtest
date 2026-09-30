@@ -104,6 +104,49 @@ describe("the drop cap", function()
 	end)
 end)
 
+describe("the drop cap, drawn", function()
+	it("is the title's own first letter: the roman at its heaviest, a fifth larger, in the band's title ink", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local DropCap = world.require("src/ui/components/DropCap")
+		local Theme = world.require("src/ui/Theme")
+		for screen in pairs(ThemeConfig.Chapters) do
+			local cap = DropCap.new("Q", screen, world.playerGui)
+			local label = cap.Instance
+			-- A bare letter, as the board's `.cap`: no square of sheet under it, no ring or outline around it.
+			expect(label.ClassName).toBe("TextLabel")
+			expect(label.Text).toBe("Q")
+			expect(label.BackgroundTransparency).toBe(1)
+			for _, part in ipairs(label:GetDescendants()) do
+				if part:IsA("GuiObject") or part:IsA("UIStroke") then
+					error(("%s's drop cap draws %s"):format(screen, part.Name))
+				end
+			end
+			expect(label.FontFace.Family).toBe(Theme.Fonts.Initial.Family)
+			expect(label.FontFace.Weight).toBe(Theme.Fonts.Initial.Weight)
+			expect(label.TextSize / Theme.Sizes.TextTitle).toBeCloseTo(1.2, 1)
+			expect(label.TextSize).toBe(36)
+			expect(label.TextColor3).toBe(Theme.chapter(screen).Title)
+			expect(label.AutomaticSize.Name).toBe("X")
+			cap:Destroy()
+		end
+		-- The Menu's is the vellum of its ink band's title, the pass's the sheet of its purple one.
+		expect(DropCap.new("M", "Menu").Instance.TextColor3).toBe(Theme.Colors.TextInverse)
+		expect(DropCap.new("B", "Battlepass").Instance.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(DropCap.new("Q", "Quests").Instance.TextColor3).toBe(Theme.Colors.Text)
+	end)
+
+	it("still lands after its band at an entrance", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local DropCap = world.require("src/ui/components/DropCap")
+		local cap = DropCap.new("Q", "Quests", world.playerGui)
+		cap:Stamp()
+		expect(cap.Instance.Visible).toBe(false)
+		world:advance(1)
+		expect(cap.Instance.Visible).toBe(true)
+		expect(cap.Instance:FindFirstChildOfClass("UIScale").Scale).toBeCloseTo(1, 2)
+	end)
+end)
+
 describe("the backdrop", function()
 	it("dims by the player's own background-transparency setting, and takes the clicks", function()
 		local root = code(ROOT)

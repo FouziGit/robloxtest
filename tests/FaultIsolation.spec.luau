@@ -327,6 +327,8 @@ type MatchWorld = {
 	results: { number },
 	-- Set by a spec: what Registry.fire does besides nothing.
 	fire: (name: string, player: any, payload: any) -> (),
+	-- `source` lands `amount` on `target`'s body, as CombatService.Damaged reports a hit.
+	hit: (source: any, target: any, amount: number) -> (),
 }
 
 -- MatchService on the pretend engine, with every service it talks to faked and recorded.
@@ -335,6 +337,7 @@ local function matchWorld(): MatchWorld
 	local world = Engine.world({ Services = { Players = players } })
 	local slots = 0
 	local context: MatchWorld
+	local damaged = Engine.signal()
 	local deps = {
 		Registry = {
 			fire = function(name: string, player: any, payload: any)
@@ -358,7 +361,9 @@ local function matchWorld(): MatchWorld
 			end,
 		},
 		Combat = {
-			Damaged = Engine.signal(),
+			Damaged = damaged,
+			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
+			Killed = Engine.signal(),
 			setPolicy = function() end,
 			resyncPosition = function() end,
 		},
@@ -438,6 +443,9 @@ local function matchWorld(): MatchWorld
 		resets = {},
 		results = {},
 		fire = function() end,
+		hit = function(source: any, target: any, amount: number)
+			damaged:Fire(source.UserId, target.Character, amount, "Glyph")
+		end,
 	}
 	MatchService.Init(deps :: any)
 	MatchService.Start()
@@ -522,8 +530,12 @@ describe("a match whose end throws halfway", function()
 				error("the result screen could not be closed")
 			end
 		end
-		-- One side walks out: a forfeit, then the result screen, then the end.
-		m.world:advance(1)
+		-- The duel is fought, a hit each way past MatchConfig.MinPlayedSeconds: a forfeit before that is void
+		-- (D-255) and would pay no result. Then one side walks out: a forfeit, the result screen, the end.
+		m.world:advance(MatchConfig.Modes.Duel1v1.CountdownSeconds + 1)
+		m.hit(stays, leaves, 10)
+		m.hit(leaves, stays, 10)
+		m.world:advance(MatchConfig.MinPlayedSeconds)
 		leaves.Parent = nil
 		m.players.PlayerRemoving:Fire(leaves)
 		m.world:advance(GameConfig.Server.LeaveGraceSeconds + 1 + MatchConfig.Modes.Duel1v1.ResultSeconds + 1)

@@ -5,7 +5,7 @@
 -- RankingService and MatchService run for real in a pretend server (tests/server.luau); the rules are
 -- MatchConfig.MinPlayedSeconds, MatchConfig.DailyFolioCap and RankingConfig.Opponents.
 local DailyStreak = require("../src/shared/Pure/DailyStreak")
-local Elo = require("../src/shared/Pure/Elo")
+local Elo = require("../src/server/Pure/Elo")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local MatchConfig = require("../src/shared/Config/MatchConfig")

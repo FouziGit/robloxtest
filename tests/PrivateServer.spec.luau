@@ -4,8 +4,8 @@
 -- share of their rewards, and the queue says so. A reserved server, which the game fills itself, stays ranked.
 --
 -- The three kinds of server run for real: RankingService, LeaderboardService (on OrderedDataStores that keep every
--- write) and MatchService in the pretend engine (tests/engine), a duel started and walked out of, as the engine
--- would have it on each kind.
+-- write) and MatchService in the pretend engine (tests/engine), a duel started, fought and walked out of, as the
+-- engine would have it on each kind.
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -69,11 +69,27 @@ local function play(kind: Kind): Played
 		player.Name = "P" .. userId
 		player.DisplayName = "P" .. userId
 		player.UserId = userId
-		player.LoadCharacterAsync = function() end
+		-- Each round's body, so the hits of the fight below land on somebody.
+		player.LoadCharacterAsync = function(self: any)
+			local character = Engine.instance("Model")
+			local humanoid = Engine.instance("Humanoid", character)
+			humanoid.Health = 100
+			humanoid.MaxHealth = 100
+			local root = Engine.instance("Part", character)
+			root.Name = "HumanoidRootPart"
+			root.Position = roblox.Vector3.new(0, 500, 0)
+			character.PrimaryPart = root
+			character.PivotTo = function(_model: any, frame: any)
+				root.Position = frame.Position
+			end
+			self.Character = character
+		end
 		byId[userId] = player
+		-- The sections of DataService's template the match and the ladder read and write.
 		profiles[userId] = {
-			Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
+			Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "", Opponents = { Day = 0, Counts = {} } },
 			Stats = { MatchesPlayed = 0 },
+			Daily = { MatchDay = 0, MatchFolios = 0 },
 		}
 		return player
 	end
@@ -82,7 +98,12 @@ local function play(kind: Kind): Played
 		local player = byId[userId]
 		return if player ~= nil and player.Parent == players then player else nil
 	end
-	players.GetPlayerFromCharacter = function(): any
+	players.GetPlayerFromCharacter = function(_self: any, character: any): any
+		for _, player in pairs(byId) do
+			if player.Character == character and player.Parent == players then
+				return player
+			end
+		end
 		return nil
 	end
 	local winner = join(1)
@@ -161,6 +182,7 @@ local function play(kind: Kind): Played
 		KillZone = killZone,
 	}
 
+	local damaged = Engine.signal()
 	local Match = world.require("src/server/Services/MatchService")
 	Match.Init({
 		Registry = {
@@ -172,7 +194,13 @@ local function play(kind: Kind): Played
 		},
 		DataService = data,
 		Notify = { send = function() end },
-		Combat = { Damaged = Engine.signal(), setPolicy = function() end, resyncPosition = function() end },
+		Combat = {
+			Damaged = damaged,
+			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
+			Killed = Engine.signal(),
+			setPolicy = function() end,
+			resyncPosition = function() end,
+		},
 		Movement = {
 			applyStun = function() end,
 			applyFreeze = function() end,
@@ -219,9 +247,14 @@ local function play(kind: Kind): Played
 	Match.Start()
 
 	assert(Match.start("Duel1v1", { { 1 }, { 2 } }) ~= nil, "the duel did not start: this gate would check nothing")
-	world:advance(0.5)
-	-- Player 2 walks out during the countdown: Players says they left, the match waits out the grace in which a
-	-- server closing would take everybody (D-206), and their profile's session ends with its last save.
+	-- The duel is fought, a hit each way past MatchConfig.MinPlayedSeconds: a walk-out before that is void (D-255)
+	-- and would leave the winner no result to read.
+	world:advance(MatchConfig.Modes.Duel1v1.CountdownSeconds + 1)
+	damaged:Fire(1, leaver.Character, 10, "Glyph")
+	damaged:Fire(2, winner.Character, 10, "Glyph")
+	world:advance(MatchConfig.MinPlayedSeconds)
+	-- Then player 2 walks out: Players says they left, the match waits out the grace in which a server closing would
+	-- take everybody (D-206), and their profile's session ends with its last save.
 	players.PlayerRemoving:Fire(leaver)
 	leaver.Parent = nil
 	world:advance(GameConfig.Server.LeaveGraceSeconds + 1)

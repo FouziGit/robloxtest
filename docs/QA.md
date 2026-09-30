@@ -118,6 +118,7 @@ L'événement revient toutes les 1200 s. Pour le déclencher tout de suite, suiv
 8. **Tout le monde mort ou parti.** Attendu : l'événement se termine comme expiré (issue `Empty`, `init.luau:362`).
 9. **Départ en plein combat.** Attendu : le joueur parti ne reçoit rien et l'événement continue pour les autres (`Context.livePlayers`).
 10. **Remettre les valeurs.** Remettre `WorldBossConfig.Schedule` à 1200 / 60 / 300 / 15 / 2 (`WorldBossConfig.luau:23-29`), puis vérifier que `./scripts/check.sh` est vert.
+11. **Chute de l'arène (K2).** Lancer un duel, puis ouvrir un entraînement contre l'Effacement par le portail du hub (son arène prend l'emplacement au-dessus de celle du duel), et sauter par-dessus un mur de l'arène ou s'y faire projeter. Attendu : le joueur réapparaît au hub vivant, `[WorldBossService] <Kind>: <nom> fell off the arena, back to the hub`, n'atterrit jamais dans le duel, et peut revenir par le portail (D-XXXc).
 
 ## 6 bis. Portails, Champ de bataille et entraînement contre l'Effacement
 

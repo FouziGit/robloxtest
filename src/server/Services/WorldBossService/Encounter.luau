@@ -49,13 +49,15 @@ local deps: Deps
 -- Building the arena side of the event
 ----------------------------------------------------------------
 
--- Top of the arena floor: the boss stands on it whatever altitude the arena slot sits at.
-local function groundY(arena: Arena, fallback: number): number
+-- Top and underside of the arena floor: the boss stands on the top whatever altitude the arena slot sits at, and a
+-- participant whose root is under the underside has fallen off it (K2, D-XXXc). Both the fallback height without a
+-- floor.
+local function floorOf(arena: Arena, fallback: number): (number, number)
 	local floor = arena.Instance:FindFirstChild(Context.FloorName, true)
 	if floor ~= nil and floor:IsA("BasePart") then
-		return floor.Position.Y + floor.Size.Y / 2
+		return floor.Position.Y + floor.Size.Y / 2, floor.Position.Y - floor.Size.Y / 2
 	end
-	return fallback
+	return fallback, fallback
 end
 
 -- Centre of the arena: the BossSpawn marker, or the average of the player pads when it is missing.
@@ -162,7 +164,7 @@ end
 function Encounter.build(arena: Arena, health: number): Boss
 	local center = centerOf(arena)
 	local size = WorldBossMode.bodySize()
-	local floorY = groundY(arena, center.Y)
+	local floorY, fallY = floorOf(arena, center.Y)
 	local position = Vector3.new(center.X, floorY + size.Y / 2, center.Z)
 	local facing = Vector3.new(0, 0, -1)
 	local model, humanoid, body, band = buildBody(position, facing, health)
@@ -175,23 +177,25 @@ function Encounter.build(arena: Arena, health: number): Boss
 		Band = band,
 		Center = position,
 		GroundY = floorY,
+		FallY = fallY,
 		Facing = facing,
 		LastHealth = humanoid.Health,
 		ContactNextAt = {},
 	}
 end
 
--- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss. The
--- opening of a fight places everybody through here, and so does the hub's gate for whoever joins it later.
-function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: Vector3)
+-- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss, and returns
+-- the body it placed (nil when it placed none): the one its fall rule judges. The opening of a fight places
+-- everybody through here, and so does the hub's gate for whoever joins it later.
+function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: Vector3): Model?
 	local pads = arena.Spawns[1]
 	if pads == nil or #pads == 0 then
 		log.warn("arena %s has no player pad: %s stays where they are", arena.Id, player.Name)
-		return
+		return nil
 	end
 	local character = player.Character
 	if character == nil then
-		return
+		return nil
 	end
 	local pad = pads[((slot - 1) % #pads) + 1]
 	local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
@@ -204,21 +208,28 @@ function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: 
 	-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on the pad
 	-- the server chose, or the first hit this player lands on the boss is built back where they stood.
 	deps.Combat.resyncPosition(player, position)
+	return character
 end
 
--- Drops every participant on its own pad of the arena ring, facing the boss.
-function Encounter.place(arena: Arena, userIds: { number }, center: Vector3)
+-- Drops every participant on its own pad of the arena ring, facing the boss, and returns the body placed for each
+-- user id.
+function Encounter.place(arena: Arena, userIds: { number }, center: Vector3): { [number]: Model }
+	local placed: { [number]: Model } = {}
 	local pads = arena.Spawns[1]
 	if pads == nil or #pads == 0 then
 		log.warn("arena %s has no player pad: participants stay where they are", arena.Id)
-		return
+		return placed
 	end
 	for index, userId in ipairs(userIds) do
 		local player = Players:GetPlayerByUserId(userId)
 		if player ~= nil then
-			Encounter.placeOne(arena, player, index, center)
+			local character = Encounter.placeOne(arena, player, index, center)
+			if character ~= nil then
+				placed[userId] = character
+			end
 		end
 	end
+	return placed
 end
 
 ----------------------------------------------------------------

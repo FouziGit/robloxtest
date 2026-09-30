@@ -880,3 +880,93 @@ describe("the kill zone, judged by the server", function()
 		expect(found).toBe(true)
 	end)
 end)
+
+-- K2 (D-XXXc): the Erasure's arena stands in the stack the duels stand in, and a body that fell off it fell into the
+-- match below. The server looks for itself, every fight tick, and takes the body home instead of killing it.
+describe("a fall from the Erasure's arena", function()
+	local BOSS_DIR = "src/server/Services/WorldBossService/"
+	local INIT = BOSS_DIR .. "init.luau"
+
+	it("takes a participant under the arena's floor back to the hub, and never kills them", function()
+		local judge = functionIn(INIT, "local function judgeFalls(")
+		expect(judge).toContain("local plane = live.Arena.KillZone local half = plane.Size / 2")
+		expect(judge).toContain(
+			"for userId, placed in pairs(slot.Placed) do local player = Players:GetPlayerByUserId(userId) local root = if player ~= nil then Context.liveRoot(player) else nil"
+		)
+		expect(judge).toContain(
+			"player ~= nil and root ~= nil and not slot.Departed[userId] and player.Character == placed.Character and now - placed.At >= MovementGuardConfig.SettleMaxSeconds and root.Position.Y < live.FallY then"
+		)
+		expect(judge).toContain(
+			'local offset = plane.CFrame:PointToObjectSpace(root.Position) if math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then slot.Placed[userId] = nil log.info("%s: %s fell off the arena, back to the hub", slot.Kind, player.Name) log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player) end'
+		)
+		-- Every fight tick, before the fight looks at who is left in the arena.
+		expect(functionIn(INIT, "local function tickFight(")).toContain(
+			"if now >= slot.PhaseEndsAt then expire(current, now) return end judgeFalls(live, now) Audience.releaseMatched()"
+		)
+		-- Nobody in the folder kills a player: the Erasure's blows go through ApplyDamage, a fall goes home.
+		for _, entry in ipairs(fs.readDir(BOSS_DIR)) do
+			local source = strip(fs.readFile(BOSS_DIR .. entry))
+			expect(source).never.toContain("Health = 0")
+			expect(source).never.toContain(":BreakJoints(")
+		end
+		expect(strip(fs.readFile(INIT))).never.toContain("KillZone.Touched")
+	end)
+
+	it("judges only the body the fight placed, from the underside of the arena's floor", function()
+		-- Each placement is the body placed, when: the opening's and the hub gate's, forgotten with the fight.
+		expect(functionIn(INIT, "local function openFight(")).toContain(
+			"for userId, character in pairs(Encounter.place(arena, participants, live.Center)) do slot.Placed[userId] = { Character = character, At = now } end"
+		)
+		expect(functionIn(BOSS_DIR .. "Admission.luau", "local function admit(")).toContain(
+			"local character = Encounter.placeOne(live.Arena, player, pad, live.Center) if character ~= nil then slot.Placed[userId] = { Character = character, At = now } end"
+		)
+		expect(functionIn(INIT, "local function reset(")).toContain("slot.Placed = {}")
+		local placeOne = functionIn(BOSS_DIR .. "Encounter.luau", "function Encounter.placeOne(")
+		expect(placeOne).toContain("deps.Combat.resyncPosition(player, position) return character end")
+		expect(functionIn(BOSS_DIR .. "Encounter.luau", "local function floorOf(")).toContain(
+			"return floor.Position.Y + floor.Size.Y / 2, floor.Position.Y - floor.Size.Y / 2 end return fallback, fallback end"
+		)
+		expect(functionIn(BOSS_DIR .. "Encounter.luau", "function Encounter.build(")).toContain(
+			"local floorY, fallY = floorOf(arena, center.Y)"
+		)
+	end)
+
+	it("brings a body home before it can reach any pad, wall or match plane of an arena below", function()
+		-- Relative to the centre of the Erasure's floor, which ArenaService puts on its slot's altitude; the slot below
+		-- is MatchConfig.ArenaSpacingStuds lower. The body is thrown as high as the audit grants lift, plus a jump and a
+		-- double jump, off the edge of the page; it crosses the underside of the floor, the server sees it a way
+		-- later, judges it on its tick, and the hub's pivot reaches the client a way after that -- at the longest
+		-- round trip a server pivot is waited out for.
+		local function localNumber(path: string, pattern: string): number
+			local found = tonumber(strip(fs.readFile(path)):match(pattern))
+			assert(found ~= nil, path .. " has no " .. pattern .. ": this gate would check nothing")
+			return found :: number
+		end
+		local GRAVITY = 196.2
+		local TICK = 1 / GameConfig.Server.TickRate
+		local thickness = localNumber(ARENA, "\nlocal FLOOR_THICKNESS_STUDS = ([%d%.]+)\n")
+		local marker = localNumber(ARENA, "\nlocal CHARACTER_PIVOT_STUDS = ([%d%.]+)\n")
+		local floorTop = thickness / 2
+		local fallY = -thickness / 2
+		local jumps = (GameConfig.Movement.JumpPower ^ 2 + GameConfig.Movement.DoubleJumpVelocity ^ 2) / (2 * GRAVITY)
+		local peak = floorTop + MovementGuardConfig.MaxLiftStuds + jumps
+		local speed = math.sqrt(2 * GRAVITY * (peak - fallY))
+		local late = MovementGuardConfig.SettleMaxSeconds + TICK
+		local feet = fallY - (speed * late + GRAVITY * late * late / 2) - MovementGuardConfig.DefaultStandHeightStuds
+		-- The highest thing any arena below holds: its wall rule, over its pads and its kill zone.
+		local below = -MatchConfig.ArenaSpacingStuds + floorTop
+		local highest = -math.huge
+		for _, def in pairs(MatchConfig.Arenas :: { [string]: { WallHeight: number, KillZoneDepth: number } }) do
+			highest = math.max(highest, below + def.WallHeight + WorldConfig.Arena.WallRuleProudStuds)
+			expect(below + marker).toBeLessThan(below + def.WallHeight)
+			expect(def.KillZoneDepth).toBeLessThan(0)
+		end
+		expect(feet).toBeGreaterThan(highest)
+		-- Judged at the kill zone, as a match judges its own, the same body would already stand in the duel below.
+		local zone = floorTop + (MatchConfig.Arenas :: any).Boss.KillZoneDepth
+		local fromZone = math.sqrt(2 * GRAVITY * (peak - zone))
+		expect(zone - (fromZone * late + GRAVITY * late * late / 2) - MovementGuardConfig.DefaultStandHeightStuds).toBeLessThan(
+			highest
+		)
+	end)
+end)

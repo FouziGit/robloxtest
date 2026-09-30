@@ -116,8 +116,8 @@ function DataService.template(): { [string]: any }
 			PlayTimeSeconds = 0,
 		},
 		Quests = {
-			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
-			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
 		},
 		Daily = {
 			LastClaimDay = 0,

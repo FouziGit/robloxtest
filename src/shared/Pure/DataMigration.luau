@@ -12,6 +12,10 @@
 
 local DataMigration = {}
 
+-- 5: each quest set's `Swaps` (E10-S10). No upgrade step: every profile before it rerolled nothing, which is the
+-- template's empty map. The version moves so a build that has never heard of it keeps it rather than dropping it
+-- (see `newer` in migrate).
+--
 -- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
 -- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the
 -- money). The template no longer declares the old key, so the generic overlay cannot carry it and a
@@ -22,7 +26,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 4
+DataMigration.CurrentVersion = 5
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

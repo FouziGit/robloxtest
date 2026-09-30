@@ -87,6 +87,8 @@ export type QuestSetData = {
 	PeriodKey: string, -- day or week key the set belongs to, with the pool revision it was drawn at (QuestLogic.setKey)
 	Progress: QuestProgress,
 	Claimed: { [string]: boolean },
+	-- The quests of the draw a free reroll replaced, each by the quest that took its place (QuestLogic.reroll).
+	Swaps: { [string]: string },
 }
 export type QuestsData = {
 	Daily: QuestSetData,

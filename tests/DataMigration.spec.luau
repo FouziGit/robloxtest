@@ -52,8 +52,8 @@ local function template(): { [string]: any }
 			PlayTimeSeconds = 0,
 		},
 		Quests = {
-			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
-			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
 		},
 		Daily = {
 			LastClaimDay = 0,
@@ -264,6 +264,50 @@ describe("DataMigration daily caps", function()
 		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
 			expect(data.Daily[key]).toBe(0)
 		end
+	end)
+
+	-- Version 5 (E10-S10): each quest set's swaps, with no upgrade step. A version 4 profile comes out with
+	-- them empty, its quests and its caps as they were, and is stamped current, so a build that has never heard
+	-- of them keeps them instead of dropping them.
+	it("brings a version 4 profile to version 5 with no swap spent", function()
+		local raw = {
+			DataVersion = 4,
+			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
+			Quests = {
+				Daily = { PeriodKey = "D20400@2", Progress = { DailyDash = 7 }, Claimed = { DailyWin = true } },
+				Weekly = { PeriodKey = "W2914@2", Progress = { WeeklyCasts = 120 }, Claimed = {} },
+			},
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(DataMigration.CurrentVersion).toBe(5)
+		expect(info).toEqual({ From = 4, Migrated = true })
+		expect(data.DataVersion).toBe(5)
+		expect(data.Daily.ForgerFolios).toBe(90)
+		expect(data.Quests.Daily).toEqual({
+			PeriodKey = "D20400@2",
+			Progress = { DailyDash = 7 },
+			Claimed = { DailyWin = true },
+			Swaps = {},
+		})
+		expect(data.Quests.Weekly.Swaps).toEqual({})
+		expect(data.Quests.Weekly.Progress).toEqual({ WeeklyCasts = 120 })
+	end)
+
+	it("gives each quest set of the service's template the fields of the profile's type", function()
+		local service = fs.readFile("src/server/Services/DataService.luau")
+		for _, period in ipairs({ "Daily", "Weekly" }) do
+			expect(service:find(period .. ' = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },', 1, true)).never.toBeNil()
+		end
+		-- The type's own fields, one per line up to its closing brace (a field's map type has braces of its own).
+		local types = (fs.readFile("src/shared/Types.luau"):gsub("%-%-[^\n]*", ""))
+		local start = types:find("export type QuestSetData = {", 1, true) :: number
+		local block = types:sub(start, types:find("\n}", start, true) :: number)
+		local fields: { string } = {}
+		for field in block:gmatch("\n\t([%w_]+):") do
+			table.insert(fields, field)
+		end
+		table.sort(fields)
+		expect(fields).toEqual({ "Claimed", "PeriodKey", "Progress", "Swaps" })
 	end)
 
 	it("loads over the service's own template, whose Daily section is the profile's type", function()

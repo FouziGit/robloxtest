@@ -370,6 +370,9 @@ quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target}
 quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
 quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
+quest.reroll,Swap,Vellum,,Swap,Changer
+quest.rerollRefused,This quest can't be swapped.,Vellum,,This quest can't be swapped.,Cette quête ne peut pas être changée.
+quest.rerolled,New quest: {name},Vellum,,New quest: {name},Nouvelle quête : {name}
 quest.resetsIn,Resets in {time},Vellum,,Resets in {time},Réinitialisation dans {time}
 quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
 quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois

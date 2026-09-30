@@ -327,6 +327,9 @@ Strings.Table = {
 	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
 	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
+	["quest.reroll"] = { en = "Swap", fr = "Changer" },
+	["quest.rerolled"] = { en = "New quest: {name}", fr = "Nouvelle quête : {name}" },
+	["quest.rerollRefused"] = { en = "This quest can't be swapped.", fr = "Cette quête ne peut pas être changée." },
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
 	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
 	["daily.claimed"] = {

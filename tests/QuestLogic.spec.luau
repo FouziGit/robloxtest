@@ -147,7 +147,12 @@ describe("QuestLogic pool revisions", function()
 	}
 	local FORGERS = table.clone(LAUNCH)
 	table.insert(FORGERS, 11, "DailyForgers")
-	local PINNED = { LAUNCH, FORGERS }
+	local SOLO_WEEK = table.clone(FORGERS)
+	table.insert(SOLO_WEEK, "WeeklyForgers")
+	table.insert(SOLO_WEEK, "WeeklyChains")
+	table.insert(SOLO_WEEK, "WeeklyMelee")
+	local PINNED = { LAUNCH, FORGERS, SOLO_WEEK }
+	local FLOOR = QuestConfig.SoloFloor
 
 	local function idsOf(quests: { QuestConfig.QuestDef }): { string }
 		local ids = {}
@@ -173,11 +178,14 @@ describe("QuestLogic pool revisions", function()
 		return pool
 	end
 
-	-- The first day from D20000 whose draw differs between `revision` - 1 and `revision`.
+	-- The first day from D20000 whose draw differs between `revision` - 1 and `revision`, drawn as the server
+	-- draws (with the Solo floor).
 	local function dayRedrawnBy(revision: number): number
 		for day = 20000, 20400 do
-			local before = QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision - 1))
-			local after = QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision))
+			local before =
+				QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision - 1), FLOOR)
+			local after =
+				QuestLogic.select(QuestConfig.Pool, "Daily", 3, QuestLogic.setKey("D" .. day, revision), FLOOR)
 			if table.concat(idsOf(before), ",") ~= table.concat(idsOf(after), ",") then
 				return day
 			end
@@ -211,28 +219,67 @@ describe("QuestLogic pool revisions", function()
 		expect(QuestLogic.setKey("W2960", 3)).toBe("W2960@3")
 	end)
 
+	-- Before the floor's revision a key draws what a plain pool drew before revisions (and the floor) existed;
+	-- from it on, what that revision's pool alone draws under the same key and floor.
 	it("draws every key of a revision from that revision's pool alone", function()
 		for revision = 1, QuestConfig.PoolRevision do
 			local pool = poolAt(revision)
 			for day = 20000, 20400 do
 				local key = QuestLogic.setKey("D" .. day, revision)
-				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key))).toEqual(
-					idsOf(QuestLogic.select(pool, "Daily", 3, "D" .. day))
-				)
+				local expected = if revision < FLOOR.Since
+					then QuestLogic.select(pool, "Daily", 3, "D" .. day)
+					else QuestLogic.select(pool, "Daily", 3, key, FLOOR)
+				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR))).toEqual(idsOf(expected))
 			end
 			for week = 2900, 2960 do
 				local key = QuestLogic.setKey("W" .. week, revision)
-				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key))).toEqual(
-					idsOf(QuestLogic.select(pool, "Weekly", 3, "W" .. week))
+				local expected = if revision < FLOOR.Since
+					then QuestLogic.select(pool, "Weekly", 3, "W" .. week)
+					else QuestLogic.select(pool, "Weekly", 3, key, FLOOR)
+				expect(idsOf(QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key, FLOOR))).toEqual(idsOf(expected))
+			end
+		end
+	end)
+
+	-- The draws of the first two revisions over a year of days and weeks, fingerprinted before the Solo floor
+	-- existed: a floor that reached back into them would redraw quests already played, and claimed.
+	it("keeps every draw of revisions 1 and 2 exactly as it was", function()
+		local function fingerprint(text: string): number
+			local value = 2166136261
+			for index = 1, #text do
+				value = (bit32.bxor(value, string.byte(text, index)) * 16777619) % 4294967296
+			end
+			return value
+		end
+		local PRINTS = {
+			{ Daily = 2889474368, Weekly = 563148400 },
+			{ Daily = 515310871, Weekly = 563148400 },
+		}
+		for revision, prints in ipairs(PRINTS) do
+			local days, weeks = {}, {}
+			for day = 20000, 20364 do
+				local key = QuestLogic.setKey("D" .. day, revision)
+				table.insert(
+					days,
+					table.concat(idsOf(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)), ",")
 				)
 			end
+			for week = 2860, 2911 do
+				local key = QuestLogic.setKey("W" .. week, revision)
+				table.insert(
+					weeks,
+					table.concat(idsOf(QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key, FLOOR)), ",")
+				)
+			end
+			expect(fingerprint(table.concat(days, ","))).toBe(prints.Daily)
+			expect(fingerprint(table.concat(weeks, ","))).toBe(prints.Weekly)
 		end
 	end)
 
 	it("keeps a set drawn before the pool grew until its period ends", function()
 		local day = dayRedrawnBy(QuestConfig.PoolRevision)
 		local stored = "D" .. day
-		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, stored)
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, stored, FLOOR)
 		local set = newSet(stored)
 		for _, def in ipairs(drawn) do
 			set.Progress[def.Id] = def.Target
@@ -243,12 +290,12 @@ describe("QuestLogic pool revisions", function()
 		local live = QuestLogic.setKey(stored, QuestConfig.PoolRevision)
 		expect(QuestLogic.ensurePeriod(set, live)).toBe(false)
 		expect(set.PeriodKey).toBe(stored)
-		local kept = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey)
+		local kept = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey, FLOOR)
 		expect(idsOf(kept)).toEqual(idsOf(drawn))
 		-- The quests the grown pool would have drawn today are not in the set, so none can be claimed.
 		local keptIds = idsOf(kept)
 		local newcomers = 0
-		for _, def in ipairs(QuestLogic.select(QuestConfig.Pool, "Daily", 3, live)) do
+		for _, def in ipairs(QuestLogic.select(QuestConfig.Pool, "Daily", 3, live, FLOOR)) do
 			if not table.find(keptIds, def.Id) then
 				newcomers += 1
 			end
@@ -281,9 +328,11 @@ describe("QuestLogic pool revisions", function()
 		local ensure = body("local function ensureSet(")
 		expect(ensure).toContain("QuestLogic.setKey(QuestLogic.periodKey(period, now), QuestConfig.PoolRevision)")
 		expect(ensure).toContain("if QuestLogic.ensurePeriod(set, setKey) then")
-		expect(ensure).toContain("return set, questsFor(period, set.PeriodKey)")
+		expect(ensure).toContain(
+			"return set, QuestLogic.swapped(QuestConfig.Pool, questsFor(period, set.PeriodKey), set.Swaps)"
+		)
 		expect(body("local function questsFor(")).toContain(
-			"QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, setKey)"
+			"QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, setKey, QuestConfig.SoloFloor)"
 		)
 		-- One draw, one caller of it: no other path reaches the quests by the live key.
 		local _, draws = source:gsub("QuestLogic%.select%(", "")
@@ -303,5 +352,283 @@ describe("QuestLogic pool revisions", function()
 		expect(active).toContain("QuestLogic.setKey(QuestLogic.periodKey(typed, os.time()), QuestConfig.PoolRevision)")
 		local _, bare = active:gsub("else QuestLogic%.periodKey%(", "")
 		expect(bare).toBe(0)
+		expect(active).toContain(
+			"local drawn = QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key, QuestConfig.SoloFloor)"
+		)
+		expect(active).toContain("return QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)")
+	end)
+end)
+
+-- A player alone on a server could draw two quests that need others (a match, a player to defeat, the Erasure's
+-- event) and finish one of three. From revision 3 each quest says what it needs, every draw holds at least two
+-- a player alone can finish, and one free reroll a day swaps a daily quest for another of those (E10-S10).
+describe("QuestLogic Solo quests and the free reroll", function()
+	local FLOOR = QuestConfig.SoloFloor
+	-- The quest events that cannot happen with nobody else on the server.
+	local NEEDS_OTHERS =
+		{ MatchWin = true, MatchPlayed = true, PlayerKill = true, BossParticipation = true, BossKill = true }
+
+	local function soloCount(quests: { QuestConfig.QuestDef }): number
+		local count = 0
+		for _, def in ipairs(quests) do
+			if def.Needs == "Solo" then
+				count += 1
+			end
+		end
+		return count
+	end
+
+	local function ids(quests: { QuestConfig.QuestDef }): { string }
+		local list = {}
+		for _, def in ipairs(quests) do
+			table.insert(list, def.Id)
+		end
+		return list
+	end
+
+	local function rules(period: QuestConfig.Period): QuestLogic.RerollRules
+		return {
+			Pool = QuestConfig.Pool,
+			Count = QuestConfig.Periods[period].Count,
+			Floor = FLOOR,
+			Allowance = QuestConfig.Rerolls[period],
+		}
+	end
+
+	local function freshSet(key: string): QuestLogic.SetData
+		return { PeriodKey = key, Progress = {}, Claimed = {}, Swaps = {} }
+	end
+
+	it("tags every quest Solo or Players, Players exactly where the event needs others", function()
+		for _, def in ipairs(QuestConfig.Pool) do
+			expect(def.Needs == "Solo" or def.Needs == "Players").toBe(true)
+			expect(def.Needs == "Players").toBe(NEEDS_OTHERS[def.Event] == true)
+		end
+		expect(QuestConfig.PoolRevision).toBe(3)
+		expect(FLOOR).toEqual({ Since = 3, Count = 2 })
+		expect(QuestConfig.Rerolls).toEqual({ Daily = 1, Weekly = 0 })
+	end)
+
+	it("holds at least two Solo quests in every draw of revision 3, over 365 days and 52 weeks", function()
+		local floored = 0
+		for day = 20000, 20364 do
+			local key = QuestLogic.setKey("D" .. day, 3)
+			local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+			expect(#drawn).toBe(3)
+			expect(soloCount(drawn)).toBeGreaterThanOrEqual(2)
+			if soloCount(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key)) < 2 then
+				floored += 1
+			end
+		end
+		for week = 2860, 2911 do
+			local key = QuestLogic.setKey("W" .. week, 3)
+			local drawn = QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key, FLOOR)
+			expect(#drawn).toBe(3)
+			expect(soloCount(drawn)).toBeGreaterThanOrEqual(2)
+			if soloCount(QuestLogic.select(QuestConfig.Pool, "Weekly", 3, key)) < 2 then
+				floored += 1
+			end
+		end
+		-- Without the floor some of these draws held fewer: the floor is what holds them.
+		expect(floored).toBeGreaterThan(0)
+	end)
+
+	-- A short draw gives up its last Players quests and nothing else: the quests drawn first keep their slots.
+	it("gives a short draw its Solo quests in the place of its last Players quests", function()
+		local shortDraws = 0
+		for _, period in ipairs({ "Daily", "Weekly" } :: { QuestConfig.Period }) do
+			local first, last, letter = 20000, 20364, "D"
+			if period == "Weekly" then
+				first, last, letter = 2860, 2911, "W"
+			end
+			for index = first, last do
+				local key = QuestLogic.setKey(letter .. index, 3)
+				local plain = QuestLogic.select(QuestConfig.Pool, period, 3, key)
+				local floored = QuestLogic.select(QuestConfig.Pool, period, 3, key, FLOOR)
+				local missing = math.max(FLOOR.Count - soloCount(plain), 0)
+				if missing > 0 then
+					shortDraws += 1
+				end
+				for slot = #plain, 1, -1 do
+					if missing > 0 and plain[slot].Needs == "Players" then
+						missing -= 1
+						expect(floored[slot].Needs).toBe("Solo")
+					else
+						expect(floored[slot].Id).toBe(plain[slot].Id)
+					end
+				end
+			end
+		end
+		expect(shortDraws).toBeGreaterThan(10)
+	end)
+
+	it("leaves a draw that already holds its Solo quests as it would have been", function()
+		local kept = 0
+		for day = 20000, 20364 do
+			local key = QuestLogic.setKey("D" .. day, 3)
+			local plain = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key)
+			if soloCount(plain) >= 2 then
+				kept += 1
+				expect(ids(QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR))).toEqual(ids(plain))
+			end
+		end
+		expect(kept).toBeGreaterThan(300)
+	end)
+
+	it("swaps a daily quest for a Solo one not drawn today, in its place, and forgets its progress", function()
+		for day = 20000, 20364 do
+			local key = QuestLogic.setKey("D" .. day, 3)
+			local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+			for slot, sent in ipairs(drawn) do
+				local set = freshSet(key)
+				set.Progress[sent.Id] = sent.Target - 1
+				local verdict, taken = QuestLogic.reroll(rules("Daily"), "Daily", set, sent.Id)
+				expect(verdict).toBe("Rerolled")
+				assert(taken ~= nil, "a reroll that says Rerolled drew nothing")
+				expect(taken.Needs).toBe("Solo")
+				expect(taken.Period).toBe("Daily")
+				expect(table.find(ids(drawn), taken.Id)).toBeNil()
+				expect(set.Swaps).toEqual({ [sent.Id] = taken.Id })
+				expect(set.Progress[sent.Id]).toBeNil()
+				local live = QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)
+				expect(live[slot].Id).toBe(taken.Id)
+				for other = 1, #drawn do
+					if other ~= slot then
+						expect(live[other].Id).toBe(drawn[other].Id)
+					end
+				end
+				-- Another player sending the same quest away today draws the same one.
+				local again = freshSet(key)
+				local _, same = QuestLogic.reroll(rules("Daily"), "Daily", again, sent.Id)
+				expect((same :: QuestConfig.QuestDef).Id).toBe(taken.Id)
+			end
+		end
+	end)
+
+	it("draws the replacement by the quest sent away, not by the day alone", function()
+		local differ = 0
+		for day = 20000, 20364 do
+			local key = QuestLogic.setKey("D" .. day, 3)
+			local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+			local taken: { [string]: boolean } = {}
+			local kinds = 0
+			for _, sent in ipairs(drawn) do
+				local _, def = QuestLogic.reroll(rules("Daily"), "Daily", freshSet(key), sent.Id)
+				local id = (def :: QuestConfig.QuestDef).Id
+				if not taken[id] then
+					taken[id] = true
+					kinds += 1
+				end
+			end
+			if kinds > 1 then
+				differ += 1
+			end
+		end
+		expect(differ).toBeGreaterThan(100)
+	end)
+
+	it("refuses a claimed, a completed, an absent quest, and a second reroll the same day", function()
+		local key = QuestLogic.setKey("D20100", 3)
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+
+		local claimed = freshSet(key)
+		claimed.Progress[drawn[1].Id] = drawn[1].Target
+		claimed.Claimed[drawn[1].Id] = true
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", claimed, drawn[1].Id))).toBe("Claimed")
+		expect(claimed.Swaps).toEqual({})
+
+		local completed = freshSet(key)
+		completed.Progress[drawn[2].Id] = drawn[2].Target
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", completed, drawn[2].Id))).toBe("Completed")
+		expect(completed.Progress[drawn[2].Id]).toBe(drawn[2].Target)
+
+		local absent = freshSet(key)
+		local outsider = nil
+		for _, def in ipairs(QuestConfig.Pool) do
+			if def.Period == "Daily" and table.find(ids(drawn), def.Id) == nil then
+				outsider = def
+			end
+		end
+		assert(outsider ~= nil, "every daily quest is drawn: this case would check nothing")
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", absent, outsider.Id))).toBe("NotLive")
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", absent, "NoSuchQuest"))).toBe("NotLive")
+
+		local spent = freshSet(key)
+		local _, taken = QuestLogic.reroll(rules("Daily"), "Daily", spent, drawn[1].Id)
+		expect(QuestLogic.rerollsLeft(spent, rules("Daily").Allowance)).toBe(0)
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", spent, drawn[2].Id))).toBe("Spent")
+		-- Nor the quest the reroll brought in, which would swap the day's quests round and round.
+		expect((QuestLogic.reroll(rules("Daily"), "Daily", spent, (taken :: QuestConfig.QuestDef).Id))).toBe("Spent")
+		expect(spent.Swaps).toEqual({ [drawn[1].Id] = (taken :: QuestConfig.QuestDef).Id })
+
+		-- With a reroll still left, the quest a reroll brought in stays: a slot is swapped once.
+		local roomy: QuestLogic.RerollRules = table.clone(rules("Daily"))
+		roomy.Allowance = 2
+		local once = freshSet(key)
+		local _, brought = QuestLogic.reroll(roomy, "Daily", once, drawn[3].Id)
+		expect(QuestLogic.rerollsLeft(once, roomy.Allowance)).toBe(1)
+		expect((QuestLogic.reroll(roomy, "Daily", once, (brought :: QuestConfig.QuestDef).Id))).toBe("Spent")
+		expect((QuestLogic.reroll(roomy, "Daily", once, drawn[1].Id))).toBe("Rerolled")
+
+		-- A weekly quest has no free reroll: QuestConfig.Rerolls.Weekly is none.
+		local weekKey = QuestLogic.setKey("W2900", 3)
+		local week = QuestLogic.select(QuestConfig.Pool, "Weekly", 3, weekKey, FLOOR)
+		expect((QuestLogic.reroll(rules("Weekly"), "Weekly", freshSet(weekKey), week[1].Id))).toBe("Spent")
+	end)
+
+	it("never draws a quest this period already drew or sent away, and says so when none is left", function()
+		local pool: { QuestConfig.QuestDef } = {
+			{ Id = "A", Period = "Daily", Event = "Dash", Target = 1, NameKey = "quest.useDash", Needs = "Solo" },
+			{ Id = "B", Period = "Daily", Event = "Chain", Target = 1, NameKey = "quest.chainCasts", Needs = "Solo" },
+			{
+				Id = "C",
+				Period = "Daily",
+				Event = "MatchWin",
+				Target = 1,
+				NameKey = "quest.winMatch",
+				Needs = "Players",
+			},
+			{ Id = "D", Period = "Daily", Event = "MeleeHit", Target = 1, NameKey = "quest.landMelee", Needs = "Solo" },
+			{
+				Id = "E",
+				Period = "Daily",
+				Event = "MatchPlayed",
+				Target = 1,
+				NameKey = "quest.playMatches",
+				Needs = "Players",
+			},
+		}
+		local twice: QuestLogic.RerollRules = { Pool = pool, Count = 3, Floor = FLOOR, Allowance = 2 }
+		for day = 20000, 20100 do
+			local key = QuestLogic.setKey("D" .. day, 3)
+			local drawn = QuestLogic.select(pool, "Daily", 3, key, FLOOR)
+			local set = freshSet(key)
+			local seen = {}
+			for _, def in ipairs(drawn) do
+				seen[def.Id] = true
+			end
+			-- The two Solo quests left out of a draw of three are at most one: the first reroll takes it, if any.
+			local verdict, taken = QuestLogic.reroll(twice, "Daily", set, drawn[1].Id)
+			if verdict == "Rerolled" then
+				local id = (taken :: QuestConfig.QuestDef).Id
+				expect(seen[id]).toBeNil()
+				seen[id] = true
+				local second = QuestLogic.reroll(twice, "Daily", set, drawn[2].Id)
+				expect(second).toBe("NoCandidate")
+			else
+				expect(verdict).toBe("NoCandidate")
+			end
+			expect(QuestLogic.rerollsLeft(set, 2)).toBeGreaterThanOrEqual(1)
+		end
+	end)
+
+	it("clears the swaps with the rest of the set when the period turns", function()
+		local set = freshSet("D20100@3")
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey, FLOOR)
+		QuestLogic.reroll(rules("Daily"), "Daily", set, drawn[1].Id)
+		expect(next(set.Swaps)).never.toBeNil()
+		expect(QuestLogic.ensurePeriod(set, "D20101@3")).toBe(true)
+		expect(set.Swaps).toEqual({})
+		expect(QuestLogic.rerollsLeft(set, QuestConfig.Rerolls.Daily)).toBe(1)
 	end)
 end)

@@ -32,7 +32,7 @@ local ME = 42
 
 -- A player part-way into everything: a daily reward to claim, a pass tier to claim, three glyphs equipped.
 local function profile(today: number): any
-	local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+	local quests = { PeriodKey = "", Claimed = {}, Progress = {}, Swaps = {} }
 	return {
 		Settings = {
 			Keyboard = table.clone(InputConfig.DefaultKeyboard),

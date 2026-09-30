@@ -5,7 +5,13 @@
 -- in the hub, the Menu's total and the daily reward that opens by itself all count here, so they agree with
 -- each other and with what the server would grant (QuestService, BattlepassService, DailyRewardService).
 
-export type QuestSet = { PeriodKey: string, Progress: { [string]: number }, Claimed: { [string]: boolean } }
+-- `Swaps` are the set's rerolls (QuestLogic.reroll); a set that never rerolled may carry none.
+export type QuestSet = {
+	PeriodKey: string,
+	Progress: { [string]: number },
+	Claimed: { [string]: boolean },
+	Swaps: { [string]: string }?,
+}
 -- The profile's season record exactly (Types.BattlepassSeasonData), so the profile's own is accepted.
 export type Season = {
 	XP: number,
@@ -20,9 +26,10 @@ export type Tier = { Free: any?, Premium: any? }
 export type Period = {
 	-- The key of the period running now, without a pool revision (QuestLogic.periodKey).
 	Live: string,
-	-- The quests drawn for a set's key: QuestLogic.select over QuestConfig.Pool at the period's count, as it
-	-- returns them (each with an Id and a Target; an array of a narrower record would not accept them).
-	Select: (setKey: string) -> { any },
+	-- The quests a set plays, from its key and its swaps: QuestLogic.select over QuestConfig.Pool at the
+	-- period's count and floor, each rerolled quest in its replacement's place (QuestLogic.swapped), as they
+	-- come (each with an Id and a Target; an array of a narrower record would not accept them).
+	Select: (setKey: string, swaps: { [string]: string }?) -> { any },
 }
 export type Context = {
 	-- Today, in days since the epoch (DailyStreak.dayIndex).
@@ -58,7 +65,7 @@ function Claimables.quests(set: QuestSet, period: Period): number
 		return 0
 	end
 	local count = 0
-	for _, quest in ipairs(period.Select(set.PeriodKey)) do
+	for _, quest in ipairs(period.Select(set.PeriodKey, set.Swaps)) do
 		if not set.Claimed[quest.Id] and (set.Progress[quest.Id] or 0) >= quest.Target then
 			count += 1
 		end

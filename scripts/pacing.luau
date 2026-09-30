@@ -112,6 +112,7 @@ local DUEL = MatchConfig.Modes.Duel1v1
 local DUEL_REWARDS = MatchConfig.Rewards.Duel1v1
 local ENEMY = GameConfig.Enemy
 local SECONDS_PER_DAY = 86400
+local PERIODS: { QuestConfig.Period } = { "Daily", "Weekly" }
 -- The events each activity produces, for the quests a profile can play and the ones it rerolls.
 local PRODUCES: { [Activity]: { string } } = {
 	Duel = {
@@ -458,7 +459,9 @@ end
 -- first daily quest this profile's play can never advance.
 local function drawQuests(player: Player, profile: Profile, today: number)
 	local unix = today * SECONDS_PER_DAY
-	for _, period in ipairs({ "Daily", "Weekly" } :: { QuestConfig.Period }) do
+	-- Indexed and annotated, as QuestService does: an `in` iteration widens the period literals to strings.
+	for index = 1, #PERIODS do
+		local period: QuestConfig.Period = PERIODS[index]
 		local key = QuestLogic.setKey(QuestLogic.periodKey(period, unix), QuestConfig.PoolRevision)
 		local set = player.Sets[period]
 		if QuestLogic.ensurePeriod(set, key) then
@@ -481,7 +484,8 @@ local function drawQuests(player: Player, profile: Profile, today: number)
 			break
 		end
 	end
-	for _, period in ipairs({ "Daily", "Weekly" } :: { QuestConfig.Period }) do
+	for index = 1, #PERIODS do
+		local period: QuestConfig.Period = PERIODS[index]
 		local periodSet = player.Sets[period]
 		local count = QuestConfig.Periods[period].Count
 		local base = QuestLogic.select(QuestConfig.Pool, period, count, periodSet.PeriodKey, QuestConfig.SoloFloor)
@@ -663,7 +667,7 @@ function Pacing.csv(results: { Result }): string
 	return table.concat(lines, "\n") .. "\n"
 end
 
-local function report(results: { Result })
+local function summarize(results: { Result })
 	local total = 0
 	for _ in pairs(EARNABLE) do
 		total += 1
@@ -698,7 +702,7 @@ end
 
 for _, argument in ipairs(process.args) do
 	if argument == "--table" then
-		report(Pacing.all())
+		summarize(Pacing.all())
 	elseif argument == "--csv" then
 		fs.writeFile(CSV_PATH, Pacing.csv(Pacing.all()))
 		print("wrote " .. CSV_PATH)

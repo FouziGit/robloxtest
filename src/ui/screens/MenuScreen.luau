@@ -218,6 +218,7 @@ function MenuScreen.new(deps: Deps): Screen
 
 	-- The Folios, and the way to buy more at the pill's end: the whole pill takes it.
 	local pill = FoliosPill.new({
+		Localize = deps.Localize,
 		Height = PILL_HEIGHT,
 		LayoutOrder = 3,
 		Parent = strip,

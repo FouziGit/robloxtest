@@ -138,6 +138,7 @@ daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
+folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
 glyph.Bleed.desc,A scalding cloud that burns and slows enemies inside.,Vellum,,A scalding cloud that burns and slows enemies inside.,Un nuage brûlant qui blesse et ralentit les ennemis à l'intérieur.

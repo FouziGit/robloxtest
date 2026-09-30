@@ -96,9 +96,9 @@ describe("the hub's meta cluster", function()
 			true
 		)
 		local show = body(source, "showFolios")
-		local first = string.find(show, "if from == nil then count.Text = tostring(target) return end", 1, true)
+		local first = string.find(show, "if from == nil then count.Text = balance(target) return end", 1, true)
 		local counted =
-			string.find(show, "if target ~= from then Motion.countTo(count, from, target, tostring) end", 1, true)
+			string.find(show, "if target ~= from then Motion.countTo(count, from, target, balance) end", 1, true)
 		assert(first ~= nil and counted ~= nil, "the Folios no longer count to what the profile holds")
 		expect(first :: number).toBeLessThan(counted :: number)
 		-- Hidden in a fight, nothing counts; back in the hub, what was won counts up.
@@ -280,6 +280,32 @@ describe("the hub's meta cluster over the thumbstick, run", function()
 				)
 			end
 		end
+	end)
+
+	it("groups the Folios by thousands in the player's language, first written and then counted", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local MetaCluster = world.require(string.gsub(CLUSTER, "%.luau$", ""))
+		local holder = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+		local cluster = MetaCluster.new({
+			Parent = holder,
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "fr")
+				end,
+			},
+			Corner = "Top",
+			OnOpen = function() end,
+			OnLeaveQueue = function() end,
+		})
+		local count = cluster.Instance:FindFirstChild("Tray"):FindFirstChild("Folios"):FindFirstChild("Count", true)
+		local thin = "\u{202F}"
+		cluster:SetCurrency({ Folios = 2480 })
+		expect(count.Text).toBe("2" .. thin .. "480")
+		cluster:SetCurrency({ Folios = 12480 })
+		world:advance(0.1)
+		expect(string.match(count.Text, "^%d+" .. thin .. "%d%d%d$")).never.toBeNil()
+		world:advance(3)
+		expect(count.Text).toBe("12" .. thin .. "480")
 	end)
 
 	it("lets a thumb on the first steps walk, where a pointer still clicks them", function()

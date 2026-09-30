@@ -1048,6 +1048,11 @@ describe("the restyled controls", function()
 		local Theme = world.require("src/ui/Theme")
 		local asked = 0
 		local pill = FoliosPill.new({
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "fr")
+				end,
+			},
 			Height = 44,
 			Parent = world.playerGui,
 			OnMore = function()
@@ -1059,7 +1064,7 @@ describe("the restyled controls", function()
 		-- The board's `.pill`: ink, its count the sheet in the number face.
 		expect(root.BackgroundColor3).toBe(Theme.Colors.Plate)
 		local count = root:FindFirstChild("Count")
-		expect(count.Text).toBe("2480")
+		expect(count.Text).toBe("2\u{202F}480")
 		expect(count.TextColor3).toBe(Theme.Colors.PanelRaised)
 		expect(count.FontFace.Family).toBe(Theme.Fonts.Numeric.Family)
 		expect(Theme.contrast(count.TextColor3, root.BackgroundColor3)).toBeGreaterThanOrEqual(BODY_CONTRAST)
@@ -1088,7 +1093,14 @@ describe("the restyled controls", function()
 		expect(asked).toBe(1)
 		expect(clicks).toEqual({ "UiClick" })
 		-- With nowhere to go, it is only read: a frame, no "+".
-		local plain = FoliosPill.new({ Parent = world.playerGui })
+		local plain = FoliosPill.new({
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "en")
+				end,
+			},
+			Parent = world.playerGui,
+		})
 		expect(plain.Instance.ClassName).toBe("Frame")
 		expect(plain.Instance:FindFirstChild("More")).toBeNil()
 		-- The Menu's pill takes the player to the Shop's Folios; no second "+" stands beside it.
@@ -1097,6 +1109,40 @@ describe("the restyled controls", function()
 		assert(call ~= nil, "the Menu shows no Folios pill")
 		expect(string.find(call :: string, 'OnMore = function%(%)%s+navigate%("Shop", { Tab = "Folios" }%)%s+end')).never.toBeNil()
 		expect(select(2, string.gsub(menu, 'Tab = "Folios"', ""))).toBe(1)
+	end)
+
+	it("group the Folios on their pill by thousands in the player's language, written or counted", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local FoliosPill = world.require("src/ui/components/FoliosPill")
+		local thin = "\u{202F}"
+		local function localizer(locale: string)
+			return {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, locale)
+				end,
+			}
+		end
+		local french = FoliosPill.new({ Localize = localizer("fr"), Parent = world.playerGui })
+		local count = french.Instance:FindFirstChild("Count")
+		french:Set(2480, false)
+		expect(count.Text).toBe("2" .. thin .. "480")
+		-- Counted to a new balance: every figure on the way is grouped.
+		french:Set(12480, true)
+		expect(count.Text).toBe("2" .. thin .. "480")
+		world:advance(0.1)
+		expect(count:FindFirstChildOfClass("NumberValue")).never.toBeNil()
+		expect(string.match(count.Text, "^%d+" .. thin .. "%d%d%d$")).never.toBeNil()
+		-- A count still on its way lands, grouped, on the balance that replaced it.
+		french:Set(4000, false)
+		world:advance(3)
+		expect(count:FindFirstChildOfClass("NumberValue")).toBeNil()
+		expect(count.Text).toBe("4" .. thin .. "000")
+		local english = FoliosPill.new({ Localize = localizer("en"), Parent = world.playerGui })
+		local words = english.Instance:FindFirstChild("Count")
+		english:Set(12345, false)
+		expect(words.Text).toBe("12,345")
+		english:Set(999, false)
+		expect(words.Text).toBe("999")
 	end)
 
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()

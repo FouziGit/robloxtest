@@ -722,6 +722,9 @@ Strings.Table = {
 	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
 	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
 	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
+	-- The player's balance where a screen shows it (FoliosPill, the hub's MetaCluster): the amount alone, grouped
+	-- by thousands as every amount of Folios is.
+	["folios.balance"] = { en = "{folios}", fr = "{folios}" },
 	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
 	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
 	["daily.claim"] = { en = "Claim", fr = "Réclamer" },

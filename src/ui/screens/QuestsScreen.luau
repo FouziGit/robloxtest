@@ -136,7 +136,7 @@ function QuestsScreen.new(deps: Deps): Screen
 	own(trove, panel)
 	root:SetCard(panel)
 
-	local foliosPill = FoliosPill.new({ Height = PILL_HEIGHT, Parent = panel.Right })
+	local foliosPill = FoliosPill.new({ Localize = deps.Localize, Height = PILL_HEIGHT, Parent = panel.Right })
 	own(trove, foliosPill)
 
 	-- The count follows the profile: it counts while the screen is up (a claim paid out), and is simply

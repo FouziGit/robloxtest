@@ -201,7 +201,7 @@ function DailyScreen.new(deps: Deps): Screen
 	own(trove, panel)
 	root:SetCard(panel)
 
-	local pill = FoliosPill.new({ Parent = panel.Right })
+	local pill = FoliosPill.new({ Localize = deps.Localize, Parent = panel.Right })
 	own(trove, pill)
 
 	panel:SetHeaderHeight(Theme.Sizes.PaddingSmall * 2 + STREAK_SIZE + 6)

@@ -77,6 +77,8 @@ describe("Strings", function()
 		expect(Strings.t("level.xp", { xp = 3120, needed = 4000 }, "en")).toBe("3,120 / 4,000 XP")
 		expect(Strings.t("quest.reward", { xp = 1500, folios = 2000 }, "en")).toBe("+1,500 XP, +2,000 Folios")
 		expect(Strings.t("reward.folios", { amount = 2480 }, "fr")).toBe("+2" .. thin .. "480")
+		expect(Strings.t("folios.balance", { folios = 2480 }, "fr")).toBe("2" .. thin .. "480")
+		expect(Strings.t("folios.balance", { folios = 2480 }, "en")).toBe("2,480")
 		expect(Strings.t("shop.confirm.balance", { before = 2480, after = 1680 }, "en")).toBe("2,480 → 1,680 Folios")
 		-- A rating, a level, a count or health is no amount: it stays as the server sent it.
 		expect(Strings.t("leaderboard.rating", { rating = 1500 }, "en")).toBe("1500")
@@ -118,6 +120,7 @@ describe("Strings", function()
 			["shop.confirm.balance"] = true,
 			["reward.folios"] = true,
 			["reward.xp"] = true,
+			["folios.balance"] = true,
 		}
 		local named: { [string]: boolean } = {}
 		for key, entry in pairs(Strings.Table) do

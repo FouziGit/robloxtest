@@ -83,6 +83,8 @@ local PILL_HEIGHT = 40
 local COIN = 26
 local CIRCLE = 32
 local FOLIOS_TAB = "Folios"
+-- The count's words: the amount alone, grouped by thousands.
+local BALANCE_KEY = "folios.balance"
 -- The claims: a seal per kind, in its chapter's colour, with its screen's icon.
 local CLAIM_SEAL = 36
 local CLAIM_ICON = 20
@@ -519,6 +521,11 @@ function MetaCluster.new(props: Props): MetaCluster
 		xpText.Text = localize.t("level.xp", { xp = xp, needed = needed })
 	end
 
+	-- The balance in the player's language, grouped by thousands as the Folios pill writes it.
+	local function balance(value: number): string
+		return localize.t(BALANCE_KEY, { folios = value })
+	end
+
 	-- The count moves to what the profile holds: written at once the first time, counted after that, up or down
 	-- -- through the one count a label has, so a count still running is carried to the new amount rather than
 	-- left to finish on the old one.
@@ -530,11 +537,11 @@ function MetaCluster.new(props: Props): MetaCluster
 		local from = shownFolios
 		shownFolios = target
 		if from == nil then
-			count.Text = tostring(target)
+			count.Text = balance(target)
 			return
 		end
 		if target ~= from then
-			Motion.countTo(count, from, target, tostring)
+			Motion.countTo(count, from, target, balance)
 		end
 	end
 

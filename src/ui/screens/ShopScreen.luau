@@ -289,7 +289,7 @@ function ShopScreen.new(deps: Deps): Screen
 	-- The band's Folios, the tabs, and the countdown to the next rotation
 	----------------------------------------------------------------
 
-	local pill = FoliosPill.new({ Height = PILL_HEIGHT, Parent = panel.Right })
+	local pill = FoliosPill.new({ Localize = deps.Localize, Height = PILL_HEIGHT, Parent = panel.Right })
 	own(trove, pill)
 
 	-- The tabs, and under Today's the countdown; the tabs carry the touch minimum, which follows the viewport.

@@ -1,9 +1,11 @@
 --!strict
 -- FoliosPill: the player's Folios as a pill of ink (D-147, the board's summary strip) -- a gold coin drawn in
--- the pill, and the count in the number face, in the sheet. A balance that changes while the pill is on screen
--- counts to its new value with a tick at every tenth of the way (Motion.countTo), so a purchase or a reward is
--- seen leaving or arriving; one that changes out of sight is simply written. Given the way to more of them
--- (OnMore), the pill ends on a "+" disc of the sheet and the whole pill is the button that takes it.
+-- the pill, and the count in the number face, in the sheet, grouped by thousands in the player's language
+-- (folios.balance: "2 480" in French, "2,480" in English, as the board writes it). A balance that changes
+-- while the pill is on screen counts to its new value with a tick at every tenth of the way (Motion.countTo),
+-- so a purchase or a reward is seen leaving or arriving; one that changes out of sight is simply written.
+-- Given the way to more of them (OnMore), the pill ends on a "+" disc of the sheet and the whole pill is the
+-- button that takes it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -15,6 +17,8 @@ local Trove = require(Packages.Trove)
 local UiSound = require(script.Parent.Parent.UiSound)
 
 export type Props = {
+	-- Writes the count in the player's language.
+	Localize: { t: (key: string, params: { [string]: any }?) -> string },
 	Height: number?,
 	LayoutOrder: number?,
 	Parent: Instance?,
@@ -32,6 +36,8 @@ export type FoliosPill = {
 local FoliosPill = {}
 
 local HEIGHT = 44
+-- The count's words: the amount alone, grouped by thousands.
+local BALANCE_KEY = "folios.balance"
 -- Inside the pill: off its left end, off its right end (closer when the "+" disc ends it), and between parts.
 local PADDING = 12
 local PADDING_MORE = 6
@@ -70,6 +76,10 @@ function FoliosPill.new(props: Props): FoliosPill
 	local height = props.Height or HEIGHT
 	local shown: number? = nil
 	local onMore = props.OnMore
+	local localize = props.Localize
+	local function written(value: number): string
+		return localize.t(BALANCE_KEY, { folios = value })
+	end
 
 	local pill: GuiObject
 	if onMore ~= nil then
@@ -144,12 +154,12 @@ function FoliosPill.new(props: Props): FoliosPill
 		local previous = shown
 		shown = whole
 		if animate and previous ~= nil and previous ~= whole then
-			Motion.countTo(count, previous, whole, tostring)
+			Motion.countTo(count, previous, whole, written)
 		elseif count:FindFirstChildOfClass("NumberValue") ~= nil then
 			-- A count still on its way lands on the new balance instead of the old one.
-			Motion.countTo(count, whole, whole, tostring)
+			Motion.countTo(count, whole, whole, written)
 		else
-			count.Text = tostring(whole)
+			count.Text = written(whole)
 		end
 	end
 

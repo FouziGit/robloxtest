@@ -4,6 +4,24 @@ Cette passe couvre ce que les tests Lune ne peuvent pas prouver : tout ce qui de
 
 Un renvoi au code donne le fichier et le nom de la fonction ou de la constante, jamais un numéro de ligne, qui se périme au premier commit (`tests/DocRefs.spec.luau` le refuse). Les écarts `R1` à `R15` sont décrits au §12.
 
+## Ce que Lune ne peut pas voir
+
+Les tests Lune tournent sans moteur : ni rendu, ni physique, ni appareil, ni serveur publié. Ce registre liste ce qu'aucun d'eux n'a jamais vu, l'outil qui peut le voir et qui s'en charge. Une ligne vue passe à « vu », avec le hash du commit observé ; ce qui est vu KO devient un écart du §12. `tests/QaRegister.spec.luau` refuse une ligne sans outil ou sans responsable.
+
+| Élément | Pourquoi Lune ne peut pas le voir | Outil | Responsable | Statut | Dernier commit vu |
+|---|---|---|---|---|---|
+| Les billboards (noms, barres de vie, panneaux au-dessus des corps et du hub) | ni rendu ni caméra : la taille à l'écran, la distance d'affichage et le passage derrière le décor ne se calculent pas | labo d'appareils (`tools/devicelab/`, E6-S3), captures prises depuis la fenêtre ; serveur MCP de Studio (`screen_capture`) | Claude | jamais vu | — |
+| Le ragdoll des finishers | pas de physique : les articulations, la chute et le relèvement ne se simulent pas | serveur MCP de Studio, en Play à deux clients (`start_stop_play`, `screen_capture`) | Claude | jamais vu | — |
+| Les Faussaires : le signal avant le coup, les chemins, les chutes | ni pathfinding, ni physique, ni rendu : `BotBrain` est testé, pas le corps qui bouge ni le rectangle d'encre au sol (D-133) | labo VFX (`tools/vfxlab/`) sur planches en deux tours, puis StudioTestService à deux clients (E7-S2) | Claude | jamais vu | — |
+| Les vérifications de `docs/STUDIO_SETUP.md` §10 (garde de mouvement) | ni réplication, ni propriété réseau, ni gravité du moteur : `MovementGuard` est jugé sur des scénarios écrits, jamais sur un vrai corps | StudioTestService et VirtualInput à deux clients (E7-S6), MicroProfiler pour le coût de `MovementAudit` | Claude et toi | jamais vu | — |
+| `TouchGui` et son `JumpButton` | le moteur ne construit `TouchGui` qu'au premier personnage d'un appareil tactile : Lune n'a ni l'un ni l'autre | test de fumée (`tools/smoke/`, E6-S2, à écrire) sous l'émulateur tactile ; il lit `[InputController] touch layout measured on the engine's JumpButton`, ou `[InputController] touch layout measured on the reserved corner: TouchGui has no JumpButton yet` quand le repli a joué | Claude | jamais vu | — |
+| Les polices sur iOS et Android (Fredoka One, Nunito, Oswald, Merriweather italique) et le repli des symboles (`▲ ■ ● ♦ ► ▼ ϟ × √ ≈ » ‹ ›`) | Lune ne charge aucune police : seul un appareil dit si un glyphe s'affiche ou tombe sur la police de secours | deux vrais téléphones (E6-S5), après le labo d'appareils | toi | jamais vu | — |
+| La sortie d'un écran dans son `CanvasGroup` | un `CanvasGroup` se rend dans une texture dont la taille et la mémoire dépendent du GPU : rien de cela n'existe sous Lune | labo d'appareils à l'échelle 0,68, puis un Android d'entrée de gamme (E6-S5) | Claude et toi | jamais vu | — |
+| L'épaisseur d'un `UIStroke` sous `UIScale` | Lune calcule des tailles, pas le trait que le moteur dessine : seul un rendu dit si un contour de 3 reste de 3 à l'échelle 0,68 | labo d'appareils (`tools/devicelab/`, E6-S3), mesure sur capture | Claude | jamais vu | — |
+| Les événements d'analytique dans le Creator Dashboard (économie, matchs, file, Effacement, glyphes) | Roblox n'accepte un événement que d'un serveur publié, jamais de Studio, et l'agrège jusqu'à 24 h plus tard : Lune ne voit que les appels faits à un faux service | Vellum-Test publié, puis le Creator Dashboard, une capture par vue (E8-S6, `docs/ECONOMY.md` §8) | toi | jamais vu | — |
+| La sauvegarde sur un vrai DataStore | ProfileStore est doublé sous Lune : ni verrou de session, ni écriture réelle, ni limite de débit | Open Cloud Luau Execution sur Vellum-Test (E5-S3) | Claude et toi | jamais vu | — |
+| Les 55 sons, écoutés | Lune compare des octets, pas ce qu'une oreille entend | Studio, au casque, un par un (E20) | toi | jamais vu | — |
+
 ## 0. Avant de commencer
 
 **Les comptes.**

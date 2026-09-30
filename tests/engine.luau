@@ -105,6 +105,18 @@ local ABSTRACT: { [string]: { [string]: boolean } } = {
 	ValueBase = { NumberValue = true, StringValue = true, BoolValue = true, IntValue = true, ObjectValue = true },
 }
 
+-- Whether the pad may select a class unless told otherwise, as the engine answers it (the reflection database Lune
+-- builds its instances from): a button, a text box and a scrolling frame are selectable, a frame or a label is not.
+local selectableByDefault: { [string]: boolean } = {}
+local function selectable(className: string): boolean
+	local known = selectableByDefault[className]
+	if known == nil then
+		known = roblox.Instance.new(className).Selectable == true
+		selectableByDefault[className] = known
+	end
+	return known :: boolean
+end
+
 local function defaults(className: string): { [string]: any }
 	local values: { [string]: any } = {}
 	if GUI_OBJECTS[className] then
@@ -118,7 +130,7 @@ local function defaults(className: string): { [string]: any }
 		values.BackgroundTransparency = 0
 		values.AbsoluteSize = roblox.Vector2.zero
 		values.AbsolutePosition = roblox.Vector2.zero
-		values.Selectable = false
+		values.Selectable = selectable(className)
 		values.Active = false
 	end
 	if className == "TextLabel" or className == "TextButton" or className == "TextBox" then

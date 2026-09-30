@@ -324,7 +324,11 @@ function QuestsScreen.new(deps: Deps): Screen
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Quests" then
-			refresh()
+			-- A new draw rebuilds the cards under the pad: it goes on to the first claim, or the way out, rather
+			-- than onto nothing (E12-S4).
+			panel:KeepGamepadFocus(refresh, function(): GuiObject?
+				return firstButton
+			end)
 		elseif section == "Currency" then
 			refreshFolios()
 		end

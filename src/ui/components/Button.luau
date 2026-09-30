@@ -80,6 +80,7 @@ type Look = { Face: Color3, Ink: Color3, Lip: Color3, Gloss: boolean, Elevation:
 local Button = {}
 
 local MIN_WIDTH = 140
+local DISABLED_ATTRIBUTE = "Disabled"
 local WIDE_WIDTH = 220
 local PADDING_X = 18
 -- The compact pill's word and its margins (the board's `.q`: 1.4cqw heavy, padded 1.3cqw).
@@ -183,6 +184,9 @@ function Button.new(props: Props): Button
 	button.Size = props.Size or UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight)
 	button.LayoutOrder = props.LayoutOrder or 0
 	button.Selectable = not disabled
+	-- Said on the instance too, for what reads a screen from outside it: a disabled button is out of the pad's way
+	-- on purpose, its reason written on it (tests/GamepadGraph.spec.luau, and Studio).
+	button:SetAttribute(DISABLED_ATTRIBUTE, disabled)
 	local stretched = props.Size ~= nil and props.Size.X.Scale ~= 0
 	if not isTile and not stretched then
 		-- As wide as its word: a French label is never cut. A button its caller stretches by scale keeps that
@@ -581,6 +585,7 @@ function Button.new(props: Props): Button
 		reason = if value then why else nil
 		reasonText = if value then whyText else nil
 		button.Selectable = not value
+		button:SetAttribute(DISABLED_ATTRIBUTE, value)
 		drawIcon()
 		render()
 	end

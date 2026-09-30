@@ -108,6 +108,10 @@ type Fixture = {
 	paid: { { Reason: string, Amount: number } },
 	granted: { string },
 	told: { string },
+	-- The profile's sections replicated, in order, and whether each payment found its plate written and replicated
+	-- before it.
+	pushed: { string },
+	marked: { boolean },
 	loaded: Engine.Signal,
 }
 
@@ -132,6 +136,8 @@ local function honours(): Fixture
 		paid = {},
 		granted = {},
 		told = {},
+		pushed = {},
+		marked = {},
 		loaded = Engine.signal(),
 	}
 	local service = world.require("src/server/Services/HonoursService")
@@ -140,7 +146,9 @@ local function honours(): Fixture
 			get = function(): any
 				return fixture.data
 			end,
-			push = function() end,
+			push = function(_player: any, section: string)
+				table.insert(fixture.pushed, section)
+			end,
 			ProfileLoaded = fixture.loaded,
 		},
 		Notify = {
@@ -151,6 +159,11 @@ local function honours(): Fixture
 		Currency = {
 			add = function(_player: any, amount: number, reason: string): number
 				table.insert(fixture.paid, { Reason = reason, Amount = amount })
+				local id = string.match(reason, "^ExLibris(.+)$")
+				table.insert(
+					fixture.marked,
+					id ~= nil and fixture.data.ExLibris[id] ~= nil and fixture.pushed[#fixture.pushed] == "ExLibris"
+				)
 				return amount
 			end,
 		},
@@ -179,6 +192,9 @@ describe("a plate of the Ex-libris", function()
 		wait(fixture)
 		expect(fixture.paid).toEqual({ { Reason = "ExLibrisBreath4", Amount = 150 } })
 		expect(type(fixture.data.ExLibris.Breath4)).toBe("number")
+		-- Written and told to the client before a Folio of it is paid: the mark is what stops a second grant.
+		expect(fixture.marked).toEqual({ true })
+		expect(fixture.pushed).toEqual({ "ExLibris" })
 		expect(fixture.told).toEqual({ "exlibris.granted" })
 		for _ = 1, 3 do
 			wait(fixture)

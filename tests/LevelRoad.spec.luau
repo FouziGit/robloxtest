@@ -10,6 +10,7 @@ local LevelRoad = require("../src/shared/Pure/LevelRoad")
 local Measure = require("./measure")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Strings = require("../src/shared/Strings")
+local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -268,6 +269,10 @@ type Harnessed = {
 	paid: { { Reason: string, Amount: number } },
 	granted: { string },
 	told: { string },
+	-- The profile's sections replicated, in order, and whether each payment found its milestone written and
+	-- replicated before it.
+	pushed: { string },
+	marked: { boolean },
 	loaded: Engine.Signal,
 	levelUp: Engine.Signal,
 }
@@ -291,6 +296,8 @@ local function honours(level: number, milestones: { [string]: boolean }?): Harne
 		paid = {},
 		granted = {},
 		told = {},
+		pushed = {},
+		marked = {},
 		loaded = loaded,
 		levelUp = levelUp,
 	}
@@ -300,7 +307,9 @@ local function honours(level: number, milestones: { [string]: boolean }?): Harne
 			get = function(): any
 				return data
 			end,
-			push = function() end,
+			push = function(_player: any, section: string)
+				table.insert(fixture.pushed, section)
+			end,
 			ProfileLoaded = loaded,
 		},
 		Notify = {
@@ -311,6 +320,11 @@ local function honours(level: number, milestones: { [string]: boolean }?): Harne
 		Currency = {
 			add = function(_player: any, amount: number, reason: string): number
 				table.insert(fixture.paid, { Reason = reason, Amount = amount })
+				local key = string.match(reason, "^Milestone(%d+)$")
+				table.insert(
+					fixture.marked,
+					key ~= nil and data.Milestones[key] == true and fixture.pushed[#fixture.pushed] == "Milestones"
+				)
 				return amount
 			end,
 		},
@@ -334,6 +348,9 @@ describe("a milestone", function()
 		fixture.levelUp:Fire(fixture.player, 45)
 		expect(fixture.paid).toEqual({ { Reason = "Milestone45", Amount = 450 } })
 		expect(fixture.data.Milestones["45"]).toBe(true)
+		-- Written and told to the client before a Folio of it is paid: the mark is what stops a second payment.
+		expect(fixture.marked).toEqual({ true })
+		expect(fixture.pushed).toEqual({ "Milestones" })
 		expect(fixture.told).toEqual({ "milestone.reached" })
 		-- A level with no milestone pays nothing.
 		fixture.levelUp:Fire(fixture.player, 46)
@@ -363,6 +380,29 @@ describe("a milestone", function()
 		expect(#fixture.paid).toBe(3)
 		expect(#fixture.granted).toBe(0)
 		expect(#fixture.told).toBe(1)
+	end)
+
+	-- Every spec above stands the service in for itself: left out of the server's list, no milestone and no plate
+	-- would ever be paid, and each of them would still pass.
+	it("is paid by a HonoursService the server starts, after the services it pays through", function()
+		local bootstrap = ((fs.readFile("src/server/Bootstrap.server.luau")):gsub("%-%-[^\n]*", ""))
+		expect(bootstrap:find("Honours = HonoursService,", 1, true)).never.toBeNil()
+		local at = bootstrap:find('{ Name = "HonoursService", Service = HonoursService }', 1, true)
+		if at == nil then
+			error("the server never starts HonoursService")
+		end
+		for _, before in ipairs({
+			"DataService",
+			"NotifyService",
+			"CurrencyService",
+			"ProgressionService",
+			"CosmeticService",
+		}) do
+			local earlier = bootstrap:find(('{ Name = "%s", Service = %s }'):format(before, before), 1, true)
+			if earlier == nil or earlier > at then
+				error(("HonoursService starts before %s"):format(before))
+			end
+		end
 	end)
 end)
 

@@ -445,7 +445,8 @@ Strings.Table = {
 	["queue.alreadyQueued"] = { en = "You are already in a queue.", fr = "Tu es déjà dans une file." },
 	["queue.inMatch"] = { en = "You are already in a match.", fr = "Tu es déjà en match." },
 	["match.countdown"] = { en = "{seconds}", fr = "{seconds}" },
-	["match.round"] = { en = "Round {round} / {total}", fr = "Manche {round} / {total}" },
+	-- The match's band (ScoreBand): the round, and the mode in the leaderboard's word for it ("1v1").
+	["match.band"] = { en = "Round {round} · {mode}", fr = "Manche {round} · {mode}" },
 	["match.timeLeft"] = { en = "{seconds}s", fr = "{seconds}s" },
 	["match.roundWon"] = { en = "Round won!", fr = "Manche gagnée !" },
 	["match.roundLost"] = { en = "Round lost", fr = "Manche perdue" },

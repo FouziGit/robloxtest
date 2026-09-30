@@ -3,14 +3,17 @@
 -- code Lune cannot run, so what can regress silently is held by reading them -- a low health that stops
 -- burning, a dock that grows over the discs, a colour that loses its meaning -- and the numbers they are
 -- built from are checked here.
+local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local PigmentConfig = require("../src/shared/Config/PigmentConfig")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -410,27 +413,26 @@ describe("the combo row", function()
 end)
 
 describe("the top bands", function()
-	it("score the match cyan for us and ink for them, never red", function()
+	it("score the match cyan for us and the sheet for them, straight on an ink pill, never red", function()
 		local band = code(SCORE_BAND)
-		expect(has(band, "Fill = Theme.Colors.Ally,")).toBe(true)
+		expect(has(band, 'local oursScore = line("Ours", Theme.Fonts.Numeric, SCORE_TEXT, Theme.Colors.Ally, 1, top)')).toBe(
+			true
+		)
 		expect(
 			has(
 				band,
-				'local oursScore = textLabel("Value", Theme.Fonts.Numeric, Theme.Sizes.NumLarge, Theme.Colors.Text)'
+				'local theirsScore = line("Theirs", Theme.Fonts.Numeric, SCORE_TEXT, Theme.Colors.PanelRaised, 3, top)'
 			)
 		).toBe(true)
-		expect(has(band, "theirs.BackgroundColor3 = Theme.Colors.Plate")).toBe(true)
-		expect(has(band, 'Theme.stroke(theirsRing, "PanelRaised", Theme.Sizes.StrokeThin)')).toBe(true)
-		expect(
-			has(
-				band,
-				'local theirsScore = textLabel("Value", Theme.Fonts.Numeric, Theme.Sizes.NumLarge, Theme.Colors.TextInverse)'
-			)
-		).toBe(true)
+		expect(has(band, "local SCORE_TEXT = Theme.Sizes.Num\n")).toBe(true)
+		-- On the ink itself: no pill of their own, ringed or lipped.
+		expect(has(band, "Sticker")).toBe(false)
+		expect(has(band, "Corner = Theme.Pill,")).toBe(true)
 		-- Red is what is about to hit you, and the other team is not that (D-89).
 		expect(string.find(band, "Danger")).toBeNil()
-		expect(ThemeConfig.contrast(COLORS.Text, COLORS.Ally)).toBeGreaterThanOrEqual(BODY_CONTRAST)
-		expect(ThemeConfig.contrast(COLORS.TextInverse, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		expect(ThemeConfig.contrast(COLORS.Ally, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		expect(ThemeConfig.contrast(COLORS.Chalk, COLORS.Plate)).toBeGreaterThanOrEqual(BODY_CONTRAST)
 	end)
 
 	it("ring each fighter with their health, ours cyan, and rewrite a ring only when it moved", function()
@@ -453,7 +455,7 @@ describe("the top bands", function()
 		expect(number(band, "FALLEN")).toBe(0.6)
 	end)
 
-	it("tick the last ten seconds of a round without turning the clock red, and pip the series", function()
+	it("tick the last ten seconds of a round without turning the clock red, and name the round and the mode", function()
 		local band = code(SCORE_BAND)
 		expect(number(band, "LAST_SECONDS")).toBe(10)
 		expect(number(band, "LAST_PUNCH")).toBe(1.08)
@@ -469,9 +471,128 @@ describe("the top bands", function()
 		expect(has(set, "Motion.punch(timerScale, LAST_PUNCH) UiSound.play(TICK_SOUND)")).toBe(true)
 		-- The clock keeps the one colour it was built with.
 		expect(has(set, "TextColor3")).toBe(false)
-		local pips = body(band, "refreshPips")
-		expect(has(pips, "if index <= won then Theme.Colors.PanelRaised else Theme.Colors.Chalk")).toBe(true)
-		expect(has(pips, "frame.BackgroundTransparency = if played then 0 else 1")).toBe(true)
+		-- The board's words, in every phase: the round, and the mode as the leaderboard names it.
+		expect(
+			has(
+				set,
+				'roundLabel.Text = localize.t("match.band", { round = snapshot.Round, mode = localize.t(MODE_KEY .. snapshot.ModeId), })'
+			)
+		).toBe(true)
+		expect(has(band, 'local MODE_KEY = "leaderboard.board."\n')).toBe(true)
+		expect(has(set, "roundLabel.Visible")).toBe(false)
+		expect(Strings.Table["match.band"].en).toBe("Round {round} · {mode}")
+		expect(Strings.Table["match.band"].fr).toBe("Manche {round} · {mode}")
+		for _, mode in ipairs({ "Duel1v1", "Team3v3" }) do
+			expect(Strings.has("leaderboard.board." .. mode)).toBe(true)
+		end
+		-- The series' pips are gone with the round's total.
+		expect(Strings.has("match.round")).toBe(false)
+		expect(has(band, "Pip")).toBe(false)
+	end)
+
+	it("draw the board's band, run: the words, a duel with no discs, a team with them", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ScoreBand = world.require("src/ui/components/ScoreBand")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local function make(locale: string): any
+			return ScoreBand.new({
+				Parent = gui,
+				Localize = {
+					t = function(key: string, params: { [string]: any }?): string
+						return Strings.t(key, params, locale)
+					end,
+				},
+				LayoutOrder = 1,
+			})
+		end
+		local function snapshot(mode: string, perTeam: number): any
+			local teams = {}
+			for side = 1, 2 do
+				local team = {}
+				for index = 1, perTeam do
+					table.insert(team, { Name = "P" .. side .. index, Health = 80, MaxHealth = 100, Alive = true })
+				end
+				table.insert(teams, team)
+			end
+			return {
+				ModeId = mode,
+				Phase = "Playing",
+				SecondsLeft = 42,
+				Round = 3,
+				RoundsToWin = 2,
+				Scores = { 2, 1 },
+				Teams = teams,
+				LocalTeam = 1,
+			}
+		end
+		local duel = make("fr")
+		duel:Set(snapshot("Duel1v1", 1))
+		local plate = duel.Instance
+		expect(plate.Visible).toBe(true)
+		-- As wide as what it says.
+		expect(plate.Size.X.Offset).toBe(0)
+		expect(plate.AutomaticSize).toBe(roblox.Enum.AutomaticSize.XY)
+		local ours = plate:FindFirstChild("Ours", true)
+		local theirs = plate:FindFirstChild("Theirs", true)
+		local words = plate:FindFirstChild("Round", true)
+		local clock = plate:FindFirstChild("Timer", true)
+		expect(ours.Text).toBe("2")
+		expect(ours.TextColor3).toBe(Theme.Colors.Ally)
+		expect(ours.TextSize).toBe(Theme.Sizes.Num)
+		expect(theirs.Text).toBe("1")
+		expect(theirs.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(theirs.TextSize).toBe(Theme.Sizes.Num)
+		expect(theirs:FindFirstChildOfClass("UIStroke")).toBeNil()
+		expect(words.Text).toBe("Manche 3 · 1v1")
+		expect(words.TextColor3).toBe(Theme.Colors.Chalk)
+		expect(words.TextSize).toBe(Theme.Sizes.TextSmall)
+		expect(clock.Visible).toBe(true)
+		expect(clock.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(plate:FindFirstChild("Roster", true).Visible).toBe(false)
+		-- Before a round, the words only.
+		local counting = snapshot("Duel1v1", 1)
+		counting.Phase = "Countdown"
+		duel:Set(counting)
+		expect(clock.Visible).toBe(false)
+		expect(words.Text).toBe("Manche 3 · 1v1")
+		local team = make("en")
+		team:Set(snapshot("Team3v3", 3))
+		expect(team.Instance:FindFirstChild("Round", true).Text).toBe("Round 3 · 3v3")
+		local roster = team.Instance:FindFirstChild("Roster", true)
+		expect(roster.Visible).toBe(true)
+		expect(roster:FindFirstChild("Ours3", true)).never.toBeNil()
+		expect(roster:FindFirstChild("Theirs3", true)).never.toBeNil()
+		-- Nothing in it takes its width from what sizes itself on its content (Sticker's Host, D-170).
+		local content = plate:FindFirstChild("Content")
+		expect(content.AutomaticSize).toBe(roblox.Enum.AutomaticSize.XY)
+		for _, part in ipairs({ content, table.unpack(content:GetDescendants()) }) do
+			local parent = part.Parent
+			local sized = if parent ~= nil and parent:IsA("GuiObject") then parent.AutomaticSize else nil
+			local automatic = if sized ~= nil then sized.Name else "None"
+			if part:IsA("GuiObject") and (automatic == "X" or automatic == "XY") and part.Size.X.Scale ~= 0 then
+				error(part:GetFullName() .. " takes its width from a frame that sizes itself on it")
+			end
+		end
+		-- The pill's inset is the board's, 6 over and under and 16 at the ends.
+		local inset = content:FindFirstChildOfClass("UIPadding")
+		expect(inset.PaddingTop.Offset).toBe(6)
+		expect(inset.PaddingBottom.Offset).toBe(6)
+		expect(inset.PaddingLeft.Offset).toBe(16)
+		expect(inset.PaddingRight.Offset).toBe(16)
+		expect(plate:FindFirstChild("Face"):FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+		-- A plate given its width keeps it, and stands as tall as it holds: the boss's, the portal's, the place's.
+		local HudPlate = world.require("src/ui/components/HudPlate")
+		local fixed = HudPlate.new({ Name = "Fixed", Width = 360, Parent = gui })
+		expect(fixed.Instance.Size.X.Offset).toBe(360)
+		expect(fixed.Instance.AutomaticSize).toBe(roblox.Enum.AutomaticSize.Y)
+		expect(fixed.Content.Size.X.Scale).toBe(1)
+		expect(fixed.Content.AutomaticSize).toBe(roblox.Enum.AutomaticSize.Y)
+		local sides = fixed.Content:FindFirstChildOfClass("UIPadding")
+		expect(sides.PaddingLeft.Offset).toBe(sides.PaddingTop.Offset)
+		local held = HudPlate.new({ Name = "Held", Width = 300, Height = 40, Parent = gui })
+		expect(held.Instance.AutomaticSize).toBe(roblox.Enum.AutomaticSize.None)
+		expect(held.Content.Size).toBe(roblox.UDim2.fromScale(1, 1))
 	end)
 
 	it("draw the boss as the danger, our hits in cyan behind it, and a mark at each phase", function()

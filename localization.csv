@@ -275,6 +275,7 @@ loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
 loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
 match.again,Play again,Vellum,,Play again,Rejouer
+match.band,Round {round} · {mode},Vellum,,Round {round} · {mode},Manche {round} · {mode}
 match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure chaîne : ×{count}
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
@@ -290,7 +291,6 @@ match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
-match.round,Round {round} / {total},Vellum,,Round {round} / {total},Manche {round} / {total}
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s

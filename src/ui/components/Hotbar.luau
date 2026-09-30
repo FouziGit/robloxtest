@@ -9,10 +9,10 @@
 -- Cinnabar, "K" on Indigo. That strip is what teaches the keyboard. On touch, where the discs already say it,
 -- a row of pips across the top of the dock.
 --
--- Cooling down, an ink veil drains off the whole slot from the top, with the seconds left standing on its edge,
--- in tenths under ten; ready again, the slot pops and a seal flashes behind it. A glyph the ink cannot pay for turns chalk and shows a drop. It is a fight
--- surface: no value colour (rule 11). Slots are pooled by index, so a push at 5 Hz rebuilds nothing, and a
--- drain only springs when its value changed.
+-- Cooling down, an ink veil drains off the whole slot from the top, its edge straight, with the seconds left
+-- standing on it, in tenths under ten; ready again, the slot pops and a seal flashes behind it. A glyph the ink
+-- cannot pay for turns chalk and shows a drop. It is a fight surface: no value colour (rule 11). Slots are
+-- pooled by index, so a push at 5 Hz rebuilds nothing, and a drain only springs when its value changed.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -116,19 +116,29 @@ local function fill(slot: Slot, color: Color3, animate: boolean)
 	end
 end
 
--- The veil over what cools: ink, draining off from the top. A slot's covers the whole slot, its chip and its
--- ring, rounded as the slot is; a pip's stays inside the pip, which clips it.
+-- The veil over what cools: ink, draining off from the top. A pip's is the ink itself, inside the pip, which
+-- clips it. A slot's covers the whole slot, its chip and its ring, and is cut straight where it ends, as the
+-- board's face cuts it: a window as deep as the cooldown left, clipping an ink of the slot's own size and
+-- corner. Rounded itself, its edge would curve up at both ends.
 local function drain(parent: Frame, corner: number?): Frame
 	local veil = Instance.new("Frame")
 	veil.Name = "Drain"
 	veil.BorderSizePixel = 0
-	veil.BackgroundColor3 = Theme.Colors.Plate
-	veil.BackgroundTransparency = DRAIN_TRANSPARENCY
 	veil.Size = UDim2.fromScale(1, 0)
 	veil.ZIndex = 4
+	local ink = veil
 	if corner ~= nil then
-		Theme.corner(veil, corner)
+		veil.BackgroundTransparency = 1
+		veil.ClipsDescendants = true
+		ink = Instance.new("Frame")
+		ink.Name = "Ink"
+		ink.BorderSizePixel = 0
+		ink.Size = UDim2.new(1, 0, 0, HUD.HotbarSlot)
+		Theme.corner(ink, corner)
+		ink.Parent = veil
 	end
+	ink.BackgroundColor3 = Theme.Colors.Plate
+	ink.BackgroundTransparency = DRAIN_TRANSPARENCY
 	veil.Parent = parent
 	return veil
 end

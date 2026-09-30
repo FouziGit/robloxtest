@@ -15,7 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Elo = require(Shared.Pure.Elo)
+local Elo = require(script.Parent.Parent.Pure.Elo)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)

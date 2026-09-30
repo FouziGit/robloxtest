@@ -13,7 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local MatchConfig = require(Shared.Config.MatchConfig)
-local SeriesOutcome = require(Shared.Pure.SeriesOutcome)
+local SeriesOutcome = require(script.Parent.Pure.SeriesOutcome)
 local Types = require(Shared.Types)
 
 local GameModes = {}

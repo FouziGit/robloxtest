@@ -6,7 +6,7 @@
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
-local MovementGuard = require("../src/shared/Pure/MovementGuard")
+local MovementGuard = require("../src/server/Pure/MovementGuard")
 local Sim = require("./movementsim")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect

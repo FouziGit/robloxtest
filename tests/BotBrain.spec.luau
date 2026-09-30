@@ -5,7 +5,7 @@
 -- pays a kill it could not have answered. Each case below is one of those promises, broken on purpose once
 -- to watch it fail.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BotBrain = require("../src/shared/Pure/BotBrain")
+local BotBrain = require("../src/server/Pure/BotBrain")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local CombatConfig = require("../src/shared/Config/CombatConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")

@@ -181,7 +181,7 @@ export type MigrationInfo = { From: number, Migrated: boolean }
 
 -- `template` must be a complete V2 profile (see DataService). `template.Battlepass._template` holds
 -- the per-season default that new seasons are cloned from; it is removed from the result.
--- `legacy` carries the old-to-new identifier maps (src/shared/Pure/LegacyNames.luau). It is a parameter
+-- `legacy` carries the old-to-new identifier maps (src/server/Pure/LegacyNames.luau). It is a parameter
 -- rather than a require because this module may not require anything: passing it in keeps the rule and
 -- lets a test drive the rename with its own fixtures.
 export type LegacyMaps = {

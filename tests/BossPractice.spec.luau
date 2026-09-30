@@ -2,7 +2,7 @@
 -- Practice against the Erasure, and joining any fight through the hub's gate (D-132). A practice shares the
 -- event's one encounter slot, so each rule here is one way a single player could otherwise take the event
 -- away from a whole server, or farm it.
-local BossPractice = require("../src/shared/Pure/BossPractice")
+local BossPractice = require("../src/server/Pure/BossPractice")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")

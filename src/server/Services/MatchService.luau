@@ -17,7 +17,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Elo = require(Shared.Pure.Elo)
+local Elo = require(script.Parent.Parent.Pure.Elo)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)

@@ -1,5 +1,5 @@
 --!strict
-local DataMigration = require("../src/shared/Pure/DataMigration")
+local DataMigration = require("../src/server/Pure/DataMigration")
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 

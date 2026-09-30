@@ -10,7 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Audience = require(script.Parent.Audience)
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Parent.Context)
 local Encounter = require(script.Parent.Encounter)
 local Log = require(Shared.Util.Log)

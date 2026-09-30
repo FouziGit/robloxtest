@@ -4,7 +4,7 @@
 -- whole and whose paths are clear and shortest, and a page that every packet fired on it reaches while the
 -- hub is out of sight and out of reach.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
+local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Gate = require("./gate")

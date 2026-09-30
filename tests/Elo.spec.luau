@@ -1,5 +1,5 @@
 --!strict
-local Elo = require("../src/shared/Pure/Elo")
+local Elo = require("../src/server/Pure/Elo")
 local Harness = require("./harness")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect

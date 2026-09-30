@@ -12,7 +12,7 @@
 local FeelConfig = require("../src/shared/Config/FeelConfig")
 local FeelMath = require("../src/shared/Pure/FeelMath")
 local GameConfig = require("../src/shared/Config/GameConfig")
-local MovementGuard = require("../src/shared/Pure/MovementGuard")
+local MovementGuard = require("../src/server/Pure/MovementGuard")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
 
 -- Roblox's default gravity, which the game never changes. CombatService passes the live Workspace.Gravity.

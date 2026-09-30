@@ -3,7 +3,7 @@
 -- be pushed past its cap by a single large grant, is a farm: the Forgers' Folios and the Erasure's practice
 -- pay would have no ceiling at all.
 local BotConfig = require("../src/shared/Config/BotConfig")
-local DailyCap = require("../src/shared/Pure/DailyCap")
+local DailyCap = require("../src/server/Pure/DailyCap")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local WorldBossConfig = require("../src/shared/Config/WorldBossConfig")

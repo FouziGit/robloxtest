@@ -40,7 +40,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Admission = require(script.Admission)
 local Audience = require(script.Audience)
-local BossPractice = require(Shared.Pure.BossPractice)
+local BossPractice = require(script.Parent.Parent.Pure.BossPractice)
 local Context = require(script.Context)
 local Encounter = require(script.Encounter)
 local GameConfig = require(Shared.Config.GameConfig)

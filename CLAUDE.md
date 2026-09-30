@@ -10,7 +10,7 @@ Battleground PvP Roblox (Luau, Rojo). Mécanique signature : glyphes lancés par
 
 ```
 src/shared/   → ReplicatedStorage/Shared   (config, modules purs, types, Strings, VfxLibrary data)
-src/server/   → ServerScriptService        (services + Bootstrap.server.luau)
+src/server/   → ServerScriptService        (services + Bootstrap.server.luau ; Pure/ : modules purs que seul le serveur requiert, jamais répliqués)
 src/client/   → StarterPlayerScripts       (controllers + Bootstrap.client.luau)
 src/ui/       → ReplicatedStorage/UI       (composants UI générés en code, thème)
 tests/        → tests Lune (*.spec.luau) + tests/run.luau
@@ -38,7 +38,7 @@ Ces cinq commandes sont les quality gates : toutes vertes avant chaque commit. `
 - Extension `.luau`. Identifiants et commentaires en **anglais**. Tout texte visible par le joueur passe par `Strings.t(key, params)` (EN par défaut, FR). Zéro chaîne joueur en dur.
 - `--!strict` sur tout `src/shared` et tous les modules purs. `--!nonstrict` ailleurs uniquement si justifié dans un commentaire d'en-tête.
 - Un service = un ModuleScript `{ Init(deps), Start() }`. Dépendances injectées par le Bootstrap ; aucun `require` circulaire ; un seul point d'entrée serveur (`Bootstrap.server.luau`) et client (`Bootstrap.client.luau`).
-- Modules purs (`ComboResolver`, `Elo`, `MatchmakingCore`, `QuestLogic`, `DataMigration`, `ReceiptProcessor`, `Strings`) : **aucun** `require`, aucun global Roblox. Ils sont testés sous Lune et requis par chemin relatif dans `tests/`.
+- Modules purs (`ComboResolver`, `Elo`, `MatchmakingCore`, `QuestLogic`, `DataMigration`, `ReceiptProcessor`, `Strings`) : **aucun** `require`, aucun global Roblox. Ils sont testés sous Lune et requis par chemin relatif dans `tests/`. Un module pur que ni `src/client` ni `src/ui` ne requiert vit dans `src/server/Pure` (`MovementGuard`, `OriginGuard`, `BotBrain`, `Elo`…), jamais dans `src/shared/Pure`, que chaque client télécharge (`tests/ServerPure.spec.luau`, et `tests/place.luau` sur la place construite).
 - `task.*` uniquement (jamais `wait`, `spawn`, `delay`). Cleanup via Trove ; connexions déconnectées à la mort / au départ. Aucune boucle `while true do task.wait() end` par joueur : les tick serveur passent par un `Heartbeat` centralisé avec accumulateurs.
 - Config uniquement dans `src/shared/Config/*`. Aucune constante magique dans les services. Les IDs Roblox (game passes, products, place) uniquement dans `MonetizationConfig`, validés au démarrage avec un `warn` explicite par ID manquant.
 - UI 100 % générée en code via `src/ui/components` + thème centralisé. Aucune UI construite dans Studio.

@@ -4,7 +4,7 @@
 -- (tests/MovementScenarios.spec.luau); these gates are about what the services around it must keep doing
 -- for its verdicts to mean anything.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
-local BattlegroundLayout = require("../src/shared/Pure/BattlegroundLayout")
+local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -23,7 +23,7 @@ local BATTLEGROUND_MAP = "src/server/Services/BattlegroundService/Map.luau"
 local TAG_BARRIER = "CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)"
 local REGISTRY = "src/server/RemoteRegistry.luau"
 local AUDIT_MODULE = "src/server/Security/MovementAudit.luau"
-local GUARD = "src/shared/Pure/MovementGuard.luau"
+local GUARD = "src/server/Pure/MovementGuard.luau"
 
 local function strip(source: string): string
 	return (source:gsub("%-%-[^\n]*", ""))

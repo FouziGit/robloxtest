@@ -1,6 +1,6 @@
 --!strict
 local Harness = require("./harness")
-local ReceiptItem = require("../src/shared/Pure/ReceiptItem")
+local ReceiptItem = require("../src/server/Pure/ReceiptItem")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 

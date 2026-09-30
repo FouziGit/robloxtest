@@ -188,6 +188,48 @@ describe("the trusted anchor", function()
 			expect(entry).never.toContain("state.ToleranceSpent =")
 		end
 	end)
+
+	it(
+		"counts a violation only for what the player chose: the cast and the swing, never a loop of the server's",
+		function()
+			-- The same anchor either way; only an action may count a violation or spend the tolerance
+			-- (tests/OriginGuard.spec.luau, "a server loop's origin through a network freeze").
+			expect(functionIn(COMBAT, "function CombatService.trustedOrigin(")).toContain(
+				"return trustedCFrame(state, root, os.clock(), true)"
+			)
+			expect(functionIn(COMBAT, "function CombatService.currentOrigin(")).toContain(
+				"if state == nil or root == nil then return nil end return trustedCFrame(state, root, os.clock(), false)"
+			)
+			expect(functionIn(COMBAT, "local function onMelee(")).toContain(
+				"local rootCFrame = trustedCFrame(state, root, now, true)"
+			)
+			local source = strip(fs.readFile(COMBAT))
+			expect(count(source, "trustedCFrame(state, root, now, true)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, root, os.clock(), true)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, root, os.clock(), false)")).toBe(1)
+			expect(count(source, "trustedCFrame(state, sampleRoot, now, false)")).toBe(1)
+			expect(count(source, "trustedCFrame(")).toBe(5)
+			-- The cast is the player's action.
+			expect(functionIn("src/server/Services/GlyphService.luau", "local function onCastGlyph(")).toContain(
+				"local origin = combat.trustedOrigin(player) if origin == nil then return end"
+			)
+			-- Every loop an effect runs after it asks for the current origin: the charge's release, the Scorch's ticks,
+			-- the Stitch's pull and the Hatching's strokes, and nothing in the effects judges an action.
+			local EFFECTS = "src/server/Effects/GlyphEffects.luau"
+			local loops = {
+				["local function charge("] = "local frame = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Scorch("] = "local centre = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Stitch("] = "local anchor = ctx.Combat.currentOrigin(ctx.Caster)",
+				["function GlyphEffects.Hatching("] = "local frame = ctx.Combat.currentOrigin(ctx.Caster)",
+			}
+			for header, ask in pairs(loops) do
+				expect(functionIn(EFFECTS, header)).toContain(ask)
+			end
+			local effects = strip(fs.readFile(EFFECTS))
+			expect(count(effects, "ctx.Combat.currentOrigin(")).toBe(4)
+			expect(effects).never.toContain("trustedOrigin")
+		end
+	)
 end)
 
 -- CombatService around the audit: every server-authored move reaches it, and nothing it is told comes from the

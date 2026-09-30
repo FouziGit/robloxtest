@@ -179,11 +179,20 @@ describe("today's cards on a phone, run", function()
 						continue
 					end
 					cards += 1
+					-- The card's face: its rarity band across the top, then a column of the preview and the body.
 					local body = actions.Parent
+					local column = body.Parent
+					local face = column.Parent
+					local band = face:FindFirstChild("RarityBand")
+					assert(band ~= nil, "the card has no rarity band: this gate would check nothing")
 					local padding = body:FindFirstChildOfClass("UIPadding")
 					local gap = body:FindFirstChildOfClass("UIListLayout").Padding.Offset
-					-- Across: the two prices side by side, the longest of them, in either language.
-					local across = holder.Size.X.Offset - padding.PaddingLeft.Offset - padding.PaddingRight.Offset
+					-- Across: the two prices side by side, the longest of them, in either language, inside the
+					-- card's outline.
+					local across = holder.Size.X.Offset
+						+ column.Size.X.Offset
+						- padding.PaddingLeft.Offset
+						- padding.PaddingRight.Offset
 					local row = actions:FindFirstChildOfClass("UIListLayout").Padding.Offset
 					for _, locale in ipairs(Strings.Locales) do
 						local folios, robux = longestPrices(locale)
@@ -196,15 +205,23 @@ describe("today's cards on a phone, run", function()
 							)
 						end
 					end
-					-- Down: the preview's floor, the name and one row of buttons at the touch floor fit the face.
-					local inside = Measure.heightOf(body, screenHeight)
-						- padding.PaddingTop.Offset
-						- padding.PaddingBottom.Offset
-					local well = body:FindFirstChild("Preview")
+					-- Down: the band and its rule, the preview's floor, the name and one row of buttons at the touch
+					-- floor fit the face. The column starts under the band and ends at the face's foot.
+					expect(column.Position.Y.Offset).toBe(band.Position.Y.Offset + band.Size.Y.Offset)
+					expect(column.Size.Y.Scale).toBe(1)
+					expect(column.Size.Y.Offset).toBe(-column.Position.Y.Offset)
+					local well = column:FindFirstChild("Preview")
 					local floor = well:FindFirstChildOfClass("UISizeConstraint").MinSize.Y
 					local name = body:FindFirstChild("Name").Size.Y.Offset
 					local buttons = Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-					local fixed = floor + name + buttons + gap * 2
+					local fixed = column.Position.Y.Offset
+						+ floor
+						+ padding.PaddingTop.Offset
+						+ name
+						+ gap
+						+ buttons
+						+ padding.PaddingBottom.Offset
+					local inside = Measure.heightOf(face, screenHeight)
 					if fixed > inside then
 						error(("the card needs %.1f down and its face has %.1f"):format(fixed, inside))
 					end
@@ -217,7 +234,7 @@ describe("today's cards on a phone, run", function()
 end)
 
 -- The Shop built with `on` for a RemoteClient's listening, a Localize that keeps what each key was given.
-local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (any, { [string]: any })
+local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (any, { [string]: any }, any)
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	local Screen = world.require("src/ui/screens/ShopScreen")
 	local given: { [string]: any } = {}
@@ -251,7 +268,7 @@ local function builtWith(on: (name: string, handler: (...any) -> ()) -> any): (a
 			return false
 		end,
 	})
-	return screen, given
+	return screen, given, world
 end
 
 -- The TextButton whose visible word is `word`, under `root`.
@@ -300,6 +317,76 @@ describe("a price on the primary yellow, run", function()
 		expect(disc.AnchorPoint.X).toBe(0.5)
 		expect(disc.Position.X.Scale).toBe(0.5)
 		expect(disc.Position.Y.Scale).toBe(0.5)
+	end)
+end)
+
+-- The Shop, open on Today with a pointer, its rotation the Legendary `LEGENDARY` and the Common `ITEM`.
+local LEGENDARY = "GoldenInkAura"
+
+local function todayCards(): (any, { [string]: any }, any)
+	local ShopRotation = require("../src/shared/Pure/ShopRotation")
+	local screen, _given, world = builtWith(function(name: string, handler: (...any) -> ()): any
+		if name == "ShopChanged" then
+			handler({
+				DayKey = ShopRotation.dayKey(os.time()),
+				Entries = { { CosmeticId = LEGENDARY }, { CosmeticId = ITEM } },
+			})
+		end
+		return Engine.signal():Connect(handler)
+	end)
+	screen:Open({ Tab = "Today" })
+	world:advance(0.5)
+	local faces: { [string]: any } = {}
+	for _, id in ipairs({ LEGENDARY, ITEM }) do
+		local holder = screen.Instance:FindFirstChild(id, true)
+		assert(holder ~= nil, id .. " has no card: this gate would check nothing")
+		local actions = holder:FindFirstChild("Actions", true)
+		faces[id] = actions.Parent.Parent.Parent
+	end
+	return screen, faces, world
+end
+
+describe("a Today card, run", function()
+	it("is its rarity band over the item on vellum, then its name and its prices", function()
+		local _screen, faces, world = todayCards()
+		local Theme = world.require("src/ui/Theme")
+		local stroke = Theme.Sizes.Stroke
+		for id, face in pairs(faces) do
+			local band = face:FindFirstChild("RarityBand")
+			assert(band ~= nil, id .. "'s card has no rarity band")
+			-- The full band with a pointer, in the card's words.
+			expect(band:FindFirstChild("Fill").Size.Y.Offset).toBe(37)
+			expect(band:FindFirstChild("Word", true).Text).toBe(
+				"shop.rarity." .. (if id == ITEM then "Common" else "Legendary")
+			)
+			-- The ribbon it replaces is gone, and so is the Legendary's gold rim.
+			expect(face:FindFirstChild("Rarity", true)).toBeNil()
+			expect(face:FindFirstChild("Rim", true)).toBeNil()
+			-- Right under the rule, inside the outline on both sides: the preview, on the page's own vellum, square.
+			local column = face:FindFirstChild("Column")
+			expect(column.Position.X.Offset).toBe(stroke)
+			expect(column.Position.Y.Offset).toBe(band.Position.Y.Offset + band.Size.Y.Offset)
+			expect(column.Size.X.Scale).toBe(1)
+			expect(column.Size.X.Offset).toBe(-stroke * 2)
+			local preview = column:FindFirstChild("Preview")
+			local body = column:FindFirstChild("Body")
+			expect(preview.LayoutOrder).toBeLessThan(body.LayoutOrder)
+			expect(preview.BackgroundColor3).toBe(Theme.Colors.Panel)
+			expect(preview.BackgroundTransparency).toBe(0)
+			expect(preview:FindFirstChildOfClass("UICorner")).toBeNil()
+			expect(preview.Size.X.Scale).toBe(1)
+			expect(preview:FindFirstChildOfClass("UIFlexItem").FlexMode.Name).toBe("Fill")
+			expect(preview:FindFirstChildOfClass("UISizeConstraint").MinSize.Y).toBeGreaterThan(0)
+			expect(#preview:GetChildren()).toBeGreaterThan(2)
+			-- The name and the prices, 10 under the preview and 12 in from the sides and the foot.
+			local padding = body:FindFirstChildOfClass("UIPadding")
+			expect(padding.PaddingTop.Offset).toBe(10)
+			expect(padding.PaddingLeft.Offset).toBe(12)
+			expect(padding.PaddingRight.Offset).toBe(12)
+			expect(padding.PaddingBottom.Offset).toBe(12)
+			expect(body:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(Theme.Sizes.PaddingSmall)
+			expect(body:FindFirstChild("Name").Size.Y.Offset).toBe(26)
+		end
 	end)
 end)
 

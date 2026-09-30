@@ -161,9 +161,9 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 
 26. **Le champ de bataille chargé à l'arrivée.** Si `Workspace.StreamingEnabled` est actif dans la place (`docs/PUBLISH.md` §6.8), entrer au champ de bataille. Attendu : le sol, le camp et le portail de retour sont là dès l'arrivée, et le joueur ne tombe pas. La page est à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut. L'entrée attend au plus 2 s que le client charge les alentours du point d'arrivée (`RequestStreamAroundAsync` dans `BattlegroundService.enter` ; `PortalConfig.StreamTimeoutSeconds = 2`). Revenir ensuite au hub : ce retour n'attend aucun chargement (`HubService.teleportToHub`). Noter si le hub apparaît en retard ou si le joueur tombe. Si `StreamingEnabled` est inactif, noter « sans objet ».
 
-## 6 ter. Épreuves plafonnées, quêtes Solo et relance
+## 6 ter. Épreuves plafonnées, quêtes Solo, relance et pass d'un Volume
 
-Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S10). Les règles sont tenues sous Lune (`tests/TrialPay.spec.luau`, `tests/QuestLogic.spec.luau`, `tests/QuestReroll.spec.luau`, `tests/Pacing.spec.luau`) ; ce qui suit est ce que Lune ne peut pas voir.
+Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S5, E10-S10). Les règles sont tenues sous Lune (`tests/TrialPay.spec.luau`, `tests/QuestLogic.spec.luau`, `tests/QuestReroll.spec.luau`, `tests/Pacing.spec.luau`) ; ce qui suit est ce que Lune ne peut pas voir.
 
 **Les Épreuves du hub**
 
@@ -177,6 +177,10 @@ Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S10). Les règles
 5. **Le bouton Changer.** Ouvrir les Quêtes. Attendu : chaque quête du jour en cours porte une pastille « Changer » à droite de ce qu'elle rapporte ; aucune sur une quête hebdomadaire, terminée ou réclamée. Vérifier sur 844 × 390 et 667 × 375 que le nom et la barre de la quête ne sont pas écrasés.
 6. **Changer une quête.** Presser « Changer » sur une quête que l'on ne peut pas finir seul (« Gagne un match »). Attendu : le bouton attend (trois points), puis la carte est remplacée par une quête Solo du jour, le toast `quest.rerolled` la nomme, et plus aucune carte ne propose « Changer » avant le lendemain (`QuestService.reroll`).
 7. **Le badge suit.** Terminer la quête reçue. Attendu : le sceau des quêtes de l'amas méta et la tuile du Menu comptent la quête reçue, pas celle renvoyée (`Claims.luau`).
+
+**Le pass**
+
+8. **Des paliers plus longs.** Ouvrir le Battle Pass. Attendu : le premier palier demande 1 200 XP et le 49ᵉ 5 040 ; la barre et son compte (« 350 / 1 200 ») tiennent dans la case, au pointeur et sur téléphone (`BattlepassConfig.xpForTier`).
 
 ## 7. États qui ne doivent pas déborder d'un match à l'autre
 

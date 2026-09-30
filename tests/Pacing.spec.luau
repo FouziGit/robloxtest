@@ -1,11 +1,14 @@
 --!strict
--- The pacing of the game held to its ceilings (E10-S4): scripts/pacing.luau plays four players for
+-- The pacing of the game held to its ceilings (E10-S4, E10-S5): scripts/pacing.luau plays four players for
 -- sixty days through the real configs and the very rules the server runs (TrialPay, DailyCap, QuestLogic,
 -- ShopRotation), and this gate fails the day a change to a reward, a cap or a cost breaks what the game promises.
 --
 -- - The safest thing in the game is not the best paid: an hour of Trials pays under 30 % of the XP of an hour of
---   duels, a day of them no more Folios than their cap, and nothing to the pass.
+--   duels, a day of them no more Folios than their cap, and no pass at all.
+-- - A pass lasts a Volume: a player at 20 minutes a day finishes it between day 28 and day 42, one at an hour a
+--   day not before day 15.
 -- - The numbers docs/ECONOMY.md, docs/GAME_DESIGN.md and docs/economy/ quote are the ones the simulator gives.
+local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local Pacing = require("../scripts/pacing")
@@ -56,14 +59,29 @@ describe("the pacing of sixty days", function()
 		expect(math.abs(BY_ID.Pvp20.XpPerHour.Duel - duels) / duels).toBeLessThan(0.05)
 	end)
 
-	it("pays a day of Trials no more Folios than their cap, and nothing to the pass", function()
+	it("pays a day of Trials no more Folios than their cap, and no pass", function()
 		local farmer = BY_ID.Farmer
 		expect(farmer.ActivityFolios.Trials).toBe(60 * GameConfig.Enemy.Pay.DailyFolioCap)
-		-- A proof brings the pass nothing, a duel and a Forger do.
+		-- The farmer's pass moves on its streak and its quests alone, and never ends inside sixty days; a proof
+		-- brings the pass nothing, a duel and a Forger do.
+		expect(farmer.PassDay).toBeNil()
 		expect(farmer.ActivityPassXp.Trials).toBeNil()
 		expect(BY_ID.Solo20.ActivityPassXp.Trials).toBeNil()
 		expect(BY_ID.Solo20.ActivityPassXp.Forgers).toBeGreaterThan(0)
 		expect(BY_ID.Pvp20.ActivityPassXp.Duel).toBeGreaterThan(0)
+		expect(farmer.Days[60].Tier).toBeLessThan(BattlepassConfig.MaxTier)
+	end)
+
+	it("finishes the pass between day 28 and day 42 at 20 minutes a day, and after day 14 at an hour", function()
+		for _, id in ipairs({ "Solo20", "Pvp20" }) do
+			local day = BY_ID[id].PassDay
+			assert(day ~= nil, id .. " never finishes the pass")
+			expect(day).toBeGreaterThanOrEqual(28)
+			expect(day).toBeLessThanOrEqual(42)
+		end
+		local hour = BY_ID.Pvp60.PassDay
+		assert(hour ~= nil, "an hour a day never finishes the pass")
+		expect(hour).toBeGreaterThan(14)
 	end)
 
 	it("says every figure E10-S4 asks for", function()

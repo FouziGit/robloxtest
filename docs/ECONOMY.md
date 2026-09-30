@@ -42,12 +42,12 @@ Les Épreuves du hub le sont aussi depuis E10-S3 (`TrialPay`, compteurs `Daily.T
 
 | Profil | Niv. 5 | Niv. 10 | Niv. 20 | Niv. 40 | Pass fini | Folios gagnés J7 | Folios gagnés J30 | Catalogue complet |
 |---|---|---|---|---|---|---|---|---|
-| 20 min/j seul (5 min d'Épreuves, 15 min de Faussaires) | 1 min | 9 min | 43 min | 253 min | J8 | 16 380 | 27 875 | après J60 |
-| 20 min/j en PvP (duels) | 3 min | 11 min | 52 min | 277 min | J7 | 19 970 | 37 975 | J40 |
-| 60 min/j en PvP (duels) | 3 min | 11 min | 65 min | 364 min | J3 | 25 105 | 60 375 | J22 |
-| Fermier d'Épreuves (60 min/j) | 1 min | 19 min | 237 min | 1 144 min | J24 | 5 480 | 25 475 | après J60 |
+| 20 min/j seul (5 min d'Épreuves, 15 min de Faussaires) | 1 min | 9 min | 43 min | 253 min | J41 | 4 460 | 21 825 | après J60 |
+| 20 min/j en PvP (duels) | 3 min | 11 min | 52 min | 277 min | J34 | 7 170 | 34 825 | J41 |
+| 60 min/j en PvP (duels) | 3 min | 11 min | 65 min | 364 min | J15 | 15 205 | 60 375 | J32 |
+| Fermier d'Épreuves (60 min/j) | 1 min | 19 min | 237 min | 1 144 min | jamais | 2 830 | 12 875 | après J60 |
 
-XP par heure de chaque activité seule (sans quêtes, série ni première victoire) : duels 8 237, Faussaires 9 716, Épreuves du fermier 1 858 (22,6 % des duels ; le gate exige moins de 30 %). Le pass coûte 28 420 XP : une semaine suffit à le finir (à régler, E10-S5) ; 24 objets s'obtiennent sans Robux (les 14 de la boutique et les 10 de la piste gratuite). « Catalogue complet » : le jour où le profil possède ces 24 objets en achetant, chaque jour, le moins cher de la rotation qu'il peut payer.
+XP par heure de chaque activité seule (sans quêtes, série ni première victoire) : duels 8 237, Faussaires 9 716, Épreuves du fermier 1 858 (22,6 % des duels ; le gate exige moins de 30 %). Le pass coûte 152 880 XP (D-XXX) ; 24 objets s'obtiennent sans Robux (les 14 de la boutique et les 10 de la piste gratuite). « Catalogue complet » : le jour où le profil possède ces 24 objets en achetant, chaque jour, le moins cher de la rotation qu'il peut payer.
 
 Ce que les configs ne disent pas est dans `Pacing.Assumptions`, une fois chacun, à remplacer par des mesures (E8) : file de 45 s et 10 s de portail par duel, manche de 50 s, matchs par quatre (deux gagnés, deux perdus, un net et un serré de chaque), un glyphe sur deux qui touche en duel (7 sur 10 sur un Faussaire, tous sur une Épreuve), un tiers du combat au corps à corps en duel, 6 ruées et 1 annulation par minute, un glyphe sur cinq enchaîné, un Faussaire qui encaisse 60 % des dégâts et demande 3 s d'approche. Les lancers de glyphes suivent l'encre en combat (`CombatConfig.Ink.RegenInCombat` sur le coût moyen de l'équipement de départ), les coups de poing la cadence du combo (`CombatConfig.Melee`).
 

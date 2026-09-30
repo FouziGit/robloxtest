@@ -383,8 +383,14 @@ describe("BattlepassConfig", function()
 		expect(BattlepassConfig.getTier("S1", 1)).never.toBeNil()
 		expect(BattlepassConfig.getTier("S1", 51)).toBeNil()
 		expect(BattlepassConfig.getTier("S9", 1)).toBeNil()
-		expect(BattlepassConfig.xpForTier(1)).toBe(100)
-		expect(BattlepassConfig.xpForTier(50)).toBe(1080)
+		-- The Volume-long pass the simulator set (E10-S5, tests/Pacing.spec.luau): 152,880 XP from tier 1 to 50.
+		expect(BattlepassConfig.xpForTier(1)).toBe(1200)
+		expect(BattlepassConfig.xpForTier(50)).toBe(5120)
+		local whole = 0
+		for tier = 1, BattlepassConfig.MaxTier - 1 do
+			whole += BattlepassConfig.xpForTier(tier)
+		end
+		expect(whole).toBe(152880)
 	end)
 end)
 

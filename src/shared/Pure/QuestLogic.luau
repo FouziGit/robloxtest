@@ -162,6 +162,11 @@ end
 
 -- The quests a set plays: its draw, each quest a reroll replaced standing where it was drawn, in its
 -- replacement's place (`swaps`, from the set). A set without swaps plays its draw as it is.
+--
+-- A swap never brings in a quest the draw already holds. QuestLogic.reroll never writes one, but a build from
+-- before the swaps turns a set's period without clearing them (it keeps the keys it does not know: `newer` in
+-- DataMigration.migrate), and yesterday's swap could then play one of today's quests twice, its progress counted
+-- double.
 function QuestLogic.swapped(pool: { QuestDef }, drawn: { QuestDef }, swaps: { [string]: string }?): { QuestDef }
 	if swaps == nil or next(swaps) == nil then
 		return drawn
@@ -170,10 +175,15 @@ function QuestLogic.swapped(pool: { QuestDef }, drawn: { QuestDef }, swaps: { [s
 	for _, def in ipairs(pool) do
 		byId[def.Id] = def
 	end
+	local inDraw: { [string]: boolean } = {}
+	for _, def in ipairs(drawn) do
+		inDraw[def.Id] = true
+	end
 	local live = {}
 	for _, def in ipairs(drawn) do
 		local swappedIn = swaps[def.Id]
-		table.insert(live, if swappedIn ~= nil and byId[swappedIn] ~= nil then byId[swappedIn] else def)
+		local replacement = if swappedIn ~= nil and not inDraw[swappedIn] then byId[swappedIn] else nil
+		table.insert(live, replacement or def)
 	end
 	return live
 end

@@ -632,6 +632,21 @@ describe("QuestLogic Solo quests and the free reroll", function()
 		expect(ids(live)).toEqual(ids(drawn))
 	end)
 
+	-- A build from before the swaps turns the period without clearing them: yesterday's swap, read against today's
+	-- draw, may name a quest today already holds, and would play it twice (its progress counted double).
+	it("never plays a quest twice when a swap brings in one the draw already holds", function()
+		local key = QuestLogic.setKey("D20100", 3)
+		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, key, FLOOR)
+		local live = QuestLogic.swapped(QuestConfig.Pool, drawn, { [drawn[1].Id] = drawn[3].Id })
+		expect(ids(live)).toEqual(ids(drawn))
+		-- A swap to a quest outside the draw is still played, whatever else the swaps hold.
+		local set = freshSet(key)
+		local _, taken = QuestLogic.reroll(rules("Daily"), "Daily", set, drawn[2].Id)
+		set.Swaps[drawn[1].Id] = drawn[3].Id
+		local mixed = QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)
+		expect(ids(mixed)).toEqual({ drawn[1].Id, (taken :: QuestConfig.QuestDef).Id, drawn[3].Id })
+	end)
+
 	it("clears the swaps with the rest of the set when the period turns", function()
 		local set = freshSet("D20100@3")
 		local drawn = QuestLogic.select(QuestConfig.Pool, "Daily", 3, set.PeriodKey, FLOOR)

@@ -167,6 +167,21 @@ describe("the Cartouche's numbers", function()
 		expect(string.find(Strings.t(CARTOUCHE.DescriptionKey, nil, "fr"), "deux fois plus vite", 1, true)).never.toBeNil()
 	end)
 
+	it("says it where its card shows it: no longer than any other glyph's lore", function()
+		-- The glyph card draws two lines of lore and cuts the rest (GlyphCard, LORE_LINES): a sentence past the
+		-- roster's longest is a sentence nobody reads, and the recharge was the one past it.
+		for _, locale in ipairs({ "en", "fr" }) do
+			local longest = 0
+			for _, def in ipairs(GlyphConfig.Glyphs) do
+				if def.Id ~= "Cartouche" then
+					longest = math.max(longest, utf8.len(Strings.t(def.DescriptionKey, nil, locale)) or 0)
+				end
+			end
+			local own = utf8.len(Strings.t(CARTOUCHE.DescriptionKey, nil, locale)) or math.huge
+			expect(own <= longest).toBe(true)
+		end
+	end)
+
 	it("is the only glyph that hastens", function()
 		for _, def in ipairs(GlyphConfig.Glyphs) do
 			if def.Id ~= "Cartouche" then

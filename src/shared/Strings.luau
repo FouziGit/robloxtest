@@ -240,8 +240,8 @@ Strings.Table = {
 	},
 	["glyph.Cartouche.name"] = { en = "Cartouche", fr = "Cartouche" },
 	["glyph.Cartouche.desc"] = {
-		en = "Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay. Your other glyphs recharge twice as fast while you stand in it.",
-		fr = "Encadre d'encre le sol autour de toi : les ennemis pris dedans sont étourdis malgré leur garde, puis ralentis et blessés tant qu'ils y restent. Tes autres glyphes s'y rechargent deux fois plus vite tant que tu t'y tiens.",
+		en = "An ink frame that stuns and slows enemies; your other glyphs recharge twice as fast inside it.",
+		fr = "Un cadre d'encre étourdit et ralentit l'ennemi ; tes autres glyphes s'y rechargent deux fois plus vite.",
 	},
 	["glyph.Emboss.name"] = { en = "Emboss", fr = "Gaufrage" },
 	["glyph.Emboss.desc"] = {

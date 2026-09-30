@@ -12,6 +12,12 @@
 
 local DataMigration = {}
 
+-- 8: the ranked opponents of the day (`Rank.Opponents`) and the Folios matches paid today (`Daily.MatchDay`,
+-- `MatchFolios`), D-255. No upgrade step: every profile before it met nobody today and was paid nothing under
+-- a cap, which is the template's zeros and empty map. The version moves so a build that has never heard of them
+-- keeps them rather than dropping them (see `newer` in migrate), or a hop to an old server would start the day's
+-- counts over.
+--
 -- 7: the day's Trials counts (`Daily.TrialDay`, `TrialKills`, `TrialFolios`, E10-S3) and each quest set's
 -- `Swaps` (E10-S10). No upgrade step: every profile before it paid no Trials under a cap and rerolled nothing,
 -- which is the template's zeros and empty maps. The version moves so a build that has never heard of them
@@ -38,7 +44,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 7
+DataMigration.CurrentVersion = 8
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

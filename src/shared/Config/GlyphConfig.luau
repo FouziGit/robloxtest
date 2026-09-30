@@ -533,6 +533,8 @@ GlyphConfig.Glyphs = {
 		-- Ultimate frame fixed at the cast point: a seal of Damage on everything within Radius (it breaks guards,
 		-- and its StunSeconds is the only stun), then Ticks ticks every TickInterval of TickDamage that never
 		-- break a guard and slow whoever they hurt (D-140). Stops ticking when its caster is stunned, guards or dies.
+		-- For as long (Ticks x TickInterval), its caster's other cooldowns run Hasten times as fast while they
+		-- stand inside it (GlyphService, D-256): at most (Hasten - 1) x 4 s saved on each.
 		Id = "Cartouche",
 		Pigment = "Indigo",
 		Combo = { "Indigo", "Indigo", "Indigo", "Indigo" },
@@ -554,6 +556,7 @@ GlyphConfig.Glyphs = {
 			TickDamage = 4,
 			SlowFactor = 0.5,
 			SlowDuration = 1,
+			Hasten = 2,
 		},
 	},
 	{

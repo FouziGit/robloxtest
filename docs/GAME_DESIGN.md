@@ -70,7 +70,7 @@ Légende combos : C Cinabre · I Indigo · U Terre d'Ombre · V Vert-de-gris · 
 | Indigo | I V | Reliure | Contre | 30 | 12 | 10 | racine la cible devant soi 1,5 s |
 | Indigo | I I U | Marge | Mur | 30 | 10 | 0 | bloque projectiles et M1 pendant 6 s ; **pigment Terre d'Ombre** (le mur est la moitié Ombre du §6), combo Indigo |
 | Indigo | I U | Volute | AoE | 25 | 6 | 24 | chargée 0,4 s dans la main (canalisation), puis plaquée sur le corps le plus proche devant soi : projeté, étourdi 0,4 s |
-| Indigo | I I I I | Cartouche | Ultime | 50 | 20 | 28 + 4 ×5 | cadre de rayon 16 autour de soi : un sceau qui brise la garde et étourdit 0,4 s, puis 5 ticks qui ralentissent 50 % |
+| Indigo | I I I I | Cartouche | Ultime | 50 | 20 | 28 + 4 ×5 | cadre de rayon 16 autour de soi : un sceau qui brise la garde et étourdit 0,4 s, puis 5 ticks qui ralentissent 50 % ; tant que le lanceur s'y tient, ses autres glyphes se rechargent deux fois plus vite (4 s gagnées au plus, D-256) |
 | Terre d'Ombre | U U | Empattement | AoE | 22 | 5 | 22 | ligne, stun 0,4 s |
 | Terre d'Ombre | U I | Pointillé | Projectile | 18 | 4 | 16 | ralentit 40 % 2 s |
 | Terre d'Ombre | U V | Dorure | Buff | 25 | 14 | 0 | -40 % dégâts reçus 4 s, immunité au knockback |
@@ -149,7 +149,7 @@ ou en position.
 | Rubrique (ligne chargée) | quitter la ligne tracée au sol | Marge l'arrête ; étourdir le lanceur rompt la charge, le repousser de plus de 6 studs la lui fait perdre | 0,7 s de charge, lanceur immobile |
 | Paraphe (vague au sol) | Marge l'arrête | sauter au bon moment (5 de haut), ruée latérale (12 de large) | environ 0,55 s pour traverser 41 studs |
 | Obèle (dans le dos) | ruée : ses i-frames font qu'il ne vous choisit pas | dos au mur (pas de place derrière) ; garde | recharge 10 s, aucun étourdissement |
-| Cartouche (ultime, sceau puis ticks) | Dorure préventive | sortir du cadre après le sceau ; étourdir le lanceur arrête les ticks | combo à 4 touches, 50 encre, 20 s |
+| Cartouche (ultime, sceau puis ticks) | Dorure préventive | sortir du cadre après le sceau ; étourdir le lanceur arrête les ticks et sa recharge accélérée ; le pousser hors de son cadre lui retire la seconde | combo à 4 touches, 50 encre, 20 s |
 | Gaufrage (souffle) | Dorure (immunité au knockback) | rester à plus de 13 studs | instantané, recharge 12 s |
 | Chaînette (ramène, enracine) | Marge l'arrête | ruée latérale ; Dorure (pas de traction) | projectile visible sur 32 studs |
 | Hachures (rafale canalisée) | ruée hors de la boîte (7 studs devant le lanceur) | garde | 1,36 s de rafale, seul le dernier trait projette |
@@ -200,6 +200,8 @@ Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D
 Dans un serveur privé acheté par un joueur (`game.PrivateServerOwnerId ~= 0`), 1v1 et 3v3 se jouent en non classé : ni Elo ni classement, la moitié de l'XP et des Folios d'un match, ni première victoire du jour ni quête de victoire, et la file l'annonce (« Non classé en serveur privé »). Un serveur réservé par le jeu reste classé (D-251).
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
+
+Le classé ne se farme pas à deux comptes (D-255) : un forfait avant 30 s de jeu, ou sans un seul point de dégâts échangé, est **nul** (celui qui part est débité, celui qui reste n'a rien : ni Elo, ni récompense, ni quête) ; au-delà de 6 matchs classés d'une même paire dans la journée UTC (un duel et cinq revanches), l'Elo de la paire ne bouge plus et le match ne rapporte qu'un quart de son XP et de ses Folios ; une journée de matchs rapporte au plus 1 400 Folios (avant le VIP), kills compris. Chiffres : `MatchConfig.MinPlayedSeconds`, `MatchConfig.DailyFolioCap`, `RankingConfig.Opponents`.
 
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 

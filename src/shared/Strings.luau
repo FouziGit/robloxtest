@@ -244,8 +244,8 @@ Strings.Table = {
 	},
 	["glyph.Cartouche.name"] = { en = "Cartouche", fr = "Cartouche" },
 	["glyph.Cartouche.desc"] = {
-		en = "Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.",
-		fr = "Encadre d'encre le sol autour de toi : les ennemis pris dedans sont étourdis malgré leur garde, puis ralentis et blessés tant qu'ils y restent.",
+		en = "An ink frame that stuns and slows enemies; your other glyphs recharge twice as fast inside it.",
+		fr = "Un cadre d'encre étourdit et ralentit l'ennemi ; tes autres glyphes s'y rechargent deux fois plus vite.",
 	},
 	["glyph.Emboss.name"] = { en = "Emboss", fr = "Gaufrage" },
 	["glyph.Emboss.desc"] = {
@@ -598,6 +598,20 @@ Strings.Table = {
 	["match.cancelled"] = {
 		en = "Match cancelled after a server error: nothing won, nothing lost.",
 		fr = "Match annulé après une erreur du serveur : rien de gagné, rien de perdu.",
+	},
+	-- Two accounts farming each other (D-255): a forfeit before the match was fought, a pair met too often today,
+	-- and a day of matches that has paid all its Folios.
+	["match.voided"] = {
+		en = "The other side left before the match was really played: no result, your rank stays as it was.",
+		fr = "L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas.",
+	},
+	["match.repeatOpponent"] = {
+		en = "Same opponent too many times today: this match leaves your rank as it was and pays a quarter.",
+		fr = "Même adversaire trop de fois aujourd'hui : ce match laisse ton rang tel quel et rapporte un quart.",
+	},
+	["match.folioCap"] = {
+		en = "Matches pay no more Folios today. XP still counts.",
+		fr = "Les matchs ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
 	},
 	["leaderboard.title"] = { en = "Leaderboard", fr = "Classement" },
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
@@ -955,6 +969,19 @@ Strings.Table = {
 	["purchase.sandboxed"] = {
 		en = "Studio test purchase of {name}: nothing was granted or saved.",
 		fr = "Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.",
+	},
+	-- A DataStore outage (DataService, ProfileStore's critical state): once to each player, and when it ends.
+	["purchase.savesDelayed"] = {
+		en = "Robux purchases are paused while saving is delayed.",
+		fr = "Les achats en Robux sont suspendus tant que la sauvegarde est retardée.",
+	},
+	["save.delayed"] = {
+		en = "Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.",
+		fr = "La sauvegarde est retardée. Ta progression est gardée ici, et les achats en Robux attendent son retour.",
+	},
+	["save.restored"] = {
+		en = "Saving is back. Robux purchases are open again.",
+		fr = "La sauvegarde est revenue. Les achats en Robux sont rouverts.",
 	},
 
 	-- Enemies

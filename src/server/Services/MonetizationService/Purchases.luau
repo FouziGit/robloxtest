@@ -113,8 +113,14 @@ local function promptProduct(player: Player, key: string)
 	deps.Notify.send(player, "purchase.prompt", nil, "Info")
 end
 
--- Opens the Roblox purchase dialog for a catalog entry.
+-- Opens the Roblox purchase dialog for a catalog entry. None opens while saves are delayed (DataService.isCritical,
+-- D-254): Roblox takes the Robux when the dialog is confirmed, and what the purchase grants lives in a profile
+-- that cannot be written. A purchase in Folios stays open (ShopService): it risks nothing the player paid for.
 function Purchases.prompt(player: Player, kind: Context.PurchaseKind, key: string)
+	if deps.DataService.isCritical() then
+		refuse(player, "purchase.savesDelayed", "saves are delayed, " .. kind .. " " .. key .. " waits for them")
+		return
+	end
 	if kind == "Pass" then
 		promptPass(player, key)
 	elseif kind == "Cosmetic" then

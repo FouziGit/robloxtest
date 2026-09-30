@@ -4,9 +4,13 @@
 -- the caster's HumanoidRootPart as origin. Hits feed XP and stats. The single owner of glyph cooldowns.
 -- A hit on a Trial proof counts for the stats and the quests but pays no XP: the Trials pay by the kill
 -- (EnemyService, TrialPay).
+--
+-- It also runs the frame a glyph with a Hasten leaves at its cast point (the Cartouche, D-256): while its
+-- caster stands inside, their other cooldowns run Hasten times as fast, stepped on this service's one Heartbeat.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -55,6 +59,8 @@ type CombatApi = {
 	isStunned: (player: Player) -> boolean,
 	-- A charged glyph or a rush holding its caster (D-142): no other glyph until it ends or a dash breaks it.
 	isChanneling: (player: Player) -> boolean,
+	-- Where the server last believed the player stood, read without judging it: what a frame asks every step.
+	trustedPosition: (player: Player) -> Vector3?,
 	grantIFrames: (player: Player, seconds: number) -> (),
 	applyStoneSkin: (player: Player) -> boolean,
 }
@@ -121,6 +127,18 @@ type Deps = {
 -- XP is granted per target hit, capped so multi-hit zones do not out-earn kills.
 local MAX_REWARDED_HITS = 3
 local ROOT_PART_NAME = "HumanoidRootPart"
+local TICK_SECONDS = 1 / GameConfig.Server.TickRate
+
+-- A frame that hastens its caster's cooldowns (openFrame): the glyph that laid it, whose own cooldown it leaves
+-- alone, where and how wide it is, how fast the rest run inside it, when it ends and when it was last stepped.
+type Frame = {
+	GlyphId: string,
+	Center: Vector3,
+	Radius: number,
+	Rate: number,
+	EndsAt: number,
+	SteppedAt: number,
+}
 
 local GlyphService = {}
 
@@ -155,6 +173,9 @@ local cooldowns: { [Player]: { [string]: number } } = {}
 -- server can trust -- and therefore the only count the HUD may show and the profile may keep.
 local lastCastAt: { [Player]: number } = {}
 local chainLength: { [Player]: number } = {}
+-- The frame each player stands to gain from, one at a time: a new one replaces the last.
+local frames: { [Player]: Frame } = {}
+local accumulator = 0
 
 -- A developer account in the hub, where its perks reach (DeveloperConfig): free casting, the whole roster and
 -- every slot.
@@ -218,6 +239,73 @@ local function liveRoot(player: Player): BasePart?
 		return nil
 	end
 	return root
+end
+
+-- A glyph whose Params carry a Hasten frames the ground at `center` for Ticks x TickInterval, the life of its ticks
+-- (D-256). Laid when the cast is accepted, from the origin the server validated, as the effect's zone is.
+local function openFrame(player: Player, def: GlyphDef, center: Vector3, now: number)
+	local params = def.Params
+	local rate = params.Hasten
+	if rate == nil then
+		return
+	end
+	frames[player] = {
+		GlyphId = def.Id,
+		Center = center,
+		Radius = params.Radius,
+		Rate = rate,
+		EndsAt = now + params.Ticks * params.TickInterval,
+		SteppedAt = now,
+	}
+end
+
+-- Takes `seconds x (Rate - 1)` off every cooldown of `player` still counting, but the frame's own glyph's: they run
+-- Rate times as fast for those seconds.
+local function hasten(player: Player, frame: Frame, seconds: number, now: number)
+	local map = cooldowns[player]
+	if map == nil then
+		return
+	end
+	local saved = seconds * (frame.Rate - 1)
+	for glyphId, readyAt in pairs(map) do
+		if glyphId ~= frame.GlyphId and readyAt > now then
+			map[glyphId] = readyAt - saved
+		end
+	end
+end
+
+-- Steps every frame to `now`. The time since the last step counts only while its caster stands inside it, by the
+-- position the server believes; and a frame ends for good, before it hastens anything more, on the first step its
+-- caster is dead, stunned or guarding -- what stops its ticks (GlyphEffects.casterAlive), which read it only once a
+-- tick: the hastening never outlives the zone. Bounded by construction: no frame outlasts its EndsAt, so none
+-- saves more than (Rate - 1) x Ticks x TickInterval on a cooldown.
+local function stepFrames(now: number)
+	for player, frame in pairs(frames) do
+		local span = math.min(now, frame.EndsAt) - frame.SteppedAt
+		frame.SteppedAt = now
+		if liveRoot(player) == nil or combat.isStunned(player) or combat.isBlocking(player) then
+			frames[player] = nil
+			continue
+		end
+		local position = combat.trustedPosition(player)
+		if position ~= nil and (position - frame.Center).Magnitude <= frame.Radius then
+			hasten(player, frame, span, now)
+		end
+		if now >= frame.EndsAt then
+			frames[player] = nil
+		end
+	end
+end
+
+local function onHeartbeat(deltaTime: number)
+	accumulator += deltaTime
+	if accumulator < TICK_SECONDS then
+		return
+	end
+	accumulator = math.min(accumulator - TICK_SECONDS, TICK_SECONDS)
+	if next(frames) ~= nil then
+		stepFrames(os.clock())
+	end
 end
 
 -- Validates the request and returns the definition to cast, or nil after notifying the player.
@@ -372,6 +460,10 @@ local function onCastGlyph(player: Player, sequence: { string })
 	-- its successor starts.
 	local cooldown = if freeCasting(player) then DeveloperConfig.MinRecastSeconds else def.Cooldown
 	cooldownsOf(player)[def.Id] = now + cooldown
+	-- Never under free casting: its cooldowns are already that floor, and a frame would halve it.
+	if not freeCasting(player) then
+		openFrame(player, def, origin.Position, now)
+	end
 	local previous = lastCastAt[player]
 	local chain = 1
 	if previous ~= nil and now - previous <= GameConfig.Combo.ChainWindowSeconds then
@@ -413,11 +505,13 @@ local function onCastGlyph(player: Player, sequence: { string })
 	recordCast(player, def.Id, hits, paying, chain)
 end
 
--- Forgets every cooldown of `player`. MatchService calls it on every round's fresh character and when a match
--- lets them go, so nothing a round cost carries into the next one or out of the match (D-20). Only the
+-- Forgets every cooldown of `player`, and the frame hastening them. MatchService calls it on every round's fresh
+-- character and when a match lets them go, so nothing a round cost carries into the next one or out of the match
+-- (D-20). Only the
 -- server's match flow calls it: never a respawn or a portal, which a player can trigger as often as they like.
 function GlyphService.resetCooldowns(player: Player)
 	cooldowns[player] = nil
+	frames[player] = nil
 end
 
 -- Remaining cooldown per glyph id, only entries still counting down. Expired entries are dropped.
@@ -469,8 +563,10 @@ function GlyphService.Start()
 		cooldowns[player] = nil
 		lastCastAt[player] = nil
 		chainLength[player] = nil
+		frames[player] = nil
 	end)
 	registry.on("CastGlyph", onCastGlyph)
+	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (%d glyphs)", #GlyphConfig.Glyphs)
 end
 

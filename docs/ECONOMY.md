@@ -15,7 +15,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 
 | Source | Folios | Fréquence / h | Total / h |
 |---|---|---|---|
-| Victoire 1v1 / 3v3 | 60 | ×3 | 180 |
+| Victoire 1v1 / 3v3 (plafond de 1 400 / jour avec les défaites et les kills, D-255) | 60 | ×3 | 180 |
 | Défaite | 20 | ×3 | 60 |
 | Kill joueur | 15 | ×8 | 120 |
 | Épreuve du hub (mannequin, E10-S3) | 2 | ×20, plafond **40 / jour** (profil) | 40 |
@@ -29,6 +29,8 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
+
+Les matchs classés sont bornés eux aussi (D-255) : **1 400 Folios par jour** au plus, résultats et kills ensemble (`MatchConfig.DailyFolioCap`, montant de base avant le VIP, compté dans le profil : `Daily.MatchDay` / `MatchFolios` ; `MatchService` paie les Folios d'un kill), soit environ quatre heures de matchs au rythme du tableau ci-dessus (360 / h) ; au-delà, un match ne paie plus que de l'XP, et un toast le dit. Au-delà de 6 matchs d'une même paire de joueurs dans la journée UTC (un duel et cinq revanches) (`RankingConfig.Opponents`, compté dans les deux profils : `Rank.Opponents`), le match ne rapporte qu'un quart de son XP et de ses Folios, et l'Elo de la paire ne bouge plus. Un forfait avant 30 s de jeu ou sans dégâts échangés est nul : le survivant ne touche rien. Ce que rapporte au mieux un farm à deux comptes : six victoires pleines par compte secondaire et par jour, sous le même plafond qu'une journée honnête. Aucun âge de compte minimum n'est exigé.
 
 Serveur privé acheté (D-251) : le classé n'y compte pas. Un match y paie la moitié de son XP et de ses Folios (`MatchConfig.PrivateServer.RewardShare`), ni la première victoire du jour ni la quête d'une victoire, et aucun Elo ne bouge. Un serveur réservé par le jeu reste classé.
 
@@ -142,6 +144,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 - Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries) pour chaque pass qui a un identifiant, cache dans `Passes` qui suit les réponses nettes de Roblox dans les deux sens (un pass remboursé ou retiré de l'inventaire en sort ; une vérification qui échoue ne change rien), mise à jour sur `PromptGamePassPurchaseFinished` (une vente entre dans le cache, une fenêtre fermée sans vente fait redemander le pass). Achats hors connexion couverts par la vérification à la connexion (D-211).
 - Un achat en Folios débite puis accorde ; si l'attribution échoue sans que l'article soit écrit, `CurrencyService.refund` rend exactement le débit, sans le ×1,5 du VIP et sans rien écrire pour le compte développeur qui n'a rien payé ; un article écrit est un achat réglé, jamais remboursé (D-203).
 - Studio : un achat de test n'accorde rien et ne s'enregistre pas tant que `StudioConfig.PersistTestPurchases` est éteint (D-211).
+- Panne de DataStore : tant que ProfileStore est dans son état critique (`DataService.isCritical`), aucune fenêtre d'achat en Robux ne s'ouvre (`purchase.savesDelayed`) et chaque joueur est prévenu une fois, au début puis à la fin (`save.delayed`, `save.restored`) ; l'achat en Folios reste ouvert (D-254).
 - Aucune valeur de prix n'est lue depuis le client ; les IDs vivent uniquement dans `MonetizationConfig`, validés au démarrage (`warn` explicite par ID manquant).
 
 ## 8. KPIs à suivre (Analytics + Creator Dashboard)

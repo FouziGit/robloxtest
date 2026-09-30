@@ -32,6 +32,14 @@ local function duel(): (Server.Services, any, any)
 	return setup, a, b
 end
 
+-- The duel is fought: a hit each way, and the rounds played past MatchConfig.MinPlayedSeconds. A forfeit before
+-- that is void (D-255, tests/RankedFarm.spec.luau): whoever stays gets no result.
+local function fought(setup: Server.Services, a: any, b: any)
+	setup.hit(a, b, 10)
+	setup.hit(b, a, 10)
+	setup.world:advance(MatchConfig.MinPlayedSeconds)
+end
+
 -- The duel record a key last wrote to the DataStore, or nil when none was ever written.
 local function writtenDuel(world: Server.World, player: any): any
 	local saved = world.store.written[key(player)]
@@ -120,6 +128,7 @@ describe("a shutdown during a ranked duel (R3)", function()
 
 	it("still debits a player who walks out on an opponent who stays", function()
 		local setup, a, b = duel()
+		fought(setup, a, b)
 		setup.world:leave(a)
 		-- The forfeit waits for the grace, like the debit: nothing is decided before it runs out.
 		setup.world:advance(GRACE / 2)
@@ -162,6 +171,7 @@ end)
 describe("another server takes the profile mid-duel (R4)", function()
 	it("writes the forfeit into the final save of the session, before the player is removed", function()
 		local setup, a, b = duel()
+		fought(setup, a, b)
 		setup.world.store:external(key(a))
 		local lost = writtenDuel(setup.world, a)
 		expect(lost).never.toBeNil()

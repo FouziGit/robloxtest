@@ -60,6 +60,15 @@ export type Store = {
 	steal: (self: Store, key: string) -> (),
 	-- ProfileStore's own game:BindToClose, with DataStore access: a final write for "Shutdown" per session.
 	shutdown: (self: Store) -> (),
+	-- A DataStore call on `key` failed with `message` (ProfileStore.OnError, with the store's name).
+	fail: (self: Store, message: string, key: string) -> (),
+	-- `key` held no readable profile and was overwritten (ProfileStore.OnOverwrite).
+	overwrite: (self: Store, key: string) -> (),
+	-- Too many failures in a row, or the calls answer again (ProfileStore.OnCriticalToggle).
+	critical: (self: Store, isCritical: boolean) -> (),
+	-- Every session started from now on waits, as StartSessionAsync waits on the DataStore, until resume().
+	stall: (self: Store) -> (),
+	resume: (self: Store) -> (),
 }
 
 local function deepCopy(value: any): any
@@ -85,13 +94,27 @@ local function finalWrite(store: Store, profile: Profile, reason: string)
 end
 
 function Server.profileStore(): Store
-	local store: any = { written = {}, sessions = {} }
-	local module: { [string]: any } = { IsClosing = false, DataStoreState = "Access" }
+	local store: any = { written = {}, sessions = {}, name = "", stalled = false, waiting = {} }
+	-- The vendored module's own signals, fired with the arguments its RegisterError, RegisterOverwrite and
+	-- critical-state check pass them.
+	local module: { [string]: any } = {
+		IsClosing = false,
+		DataStoreState = "Access",
+		IsCriticalState = false,
+		OnError = Engine.signal(),
+		OnOverwrite = Engine.signal(),
+		OnCriticalToggle = Engine.signal(),
+	}
 	store.module = module
 
-	function module.New(_name: string, template: { [string]: any }): any
+	function module.New(name: string, template: { [string]: any }): any
+		store.name = name
 		return {
 			StartSessionAsync = function(_self: any, key: string, _params: any): Profile
+				if store.stalled then
+					table.insert(store.waiting, coroutine.running())
+					coroutine.yield()
+				end
 				local existing = store.sessions[key]
 				if existing ~= nil and existing.Active then
 					-- The vendored StartSessionAsync errors on a key this server still holds.
@@ -145,6 +168,35 @@ function Server.profileStore(): Store
 		end
 	end
 
+	function store.fail(self: Store, message: string, key: string)
+		module.OnError:Fire(message, (self :: any).name, key)
+	end
+
+	function store.overwrite(self: Store, key: string)
+		module.OnOverwrite:Fire((self :: any).name, key)
+	end
+
+	function store.critical(_self: Store, isCritical: boolean)
+		module.IsCriticalState = isCritical
+		module.OnCriticalToggle:Fire(isCritical)
+	end
+
+	function store.stall(_self: Store)
+		store.stalled = true
+	end
+
+	function store.resume(_self: Store)
+		store.stalled = false
+		local waiting = store.waiting
+		store.waiting = {}
+		for _, thread in ipairs(waiting) do
+			local ok, err = coroutine.resume(thread)
+			if not ok then
+				error(err, 0)
+			end
+		end
+	end
+
 	return store :: Store
 end
 
@@ -183,6 +235,9 @@ end
 export type Options = {
 	-- Modules replaced by a table, by their path without extension.
 	Stubs: { [string]: any }?,
+	-- Services beyond the ones every pretend server has (Players, CollectionService, LocalizationService,
+	-- DataStoreService), by name.
+	Services: { [string]: any }?,
 }
 
 function Server.world(options: Options?): World
@@ -231,34 +286,37 @@ function Server.world(options: Options?): World
 			stubs[path] = stub
 		end
 	end
-	local engine = Engine.world({
-		Stubs = stubs,
-		Services = {
-			Players = players,
-			-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
-			CollectionService = {
-				HasTag = function(_self: any, _instance: any, _tag: string): boolean
-					return false
-				end,
-			},
-			-- LocaleService asks for each player's Translator: it reads the language of their app.
-			LocalizationService = {
-				GetTranslatorForPlayerAsync = function(_self: any, player: any): any
-					return { LocaleId = player.LocaleId }
-				end,
-			},
-			-- DataService reads the V1 store of a brand new profile: there is none here.
-			DataStoreService = {
-				GetDataStore = function(_self: any, _name: string): any
-					return {
-						GetAsync = function(_store: any, _key: string): any
-							return nil
-						end,
-					}
-				end,
-			},
+	local services: { [string]: any } = {
+		Players = players,
+		-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
+		CollectionService = {
+			HasTag = function(_self: any, _instance: any, _tag: string): boolean
+				return false
+			end,
 		},
-	})
+		-- LocaleService asks for each player's Translator: it reads the language of their app.
+		LocalizationService = {
+			GetTranslatorForPlayerAsync = function(_self: any, player: any): any
+				return { LocaleId = player.LocaleId }
+			end,
+		},
+		-- DataService reads the V1 store of a brand new profile: there is none here.
+		DataStoreService = {
+			GetDataStore = function(_self: any, _name: string): any
+				return {
+					GetAsync = function(_store: any, _key: string): any
+						return nil
+					end,
+				}
+			end,
+		},
+	}
+	if options ~= nil and options.Services ~= nil then
+		for name, service in pairs(options.Services) do
+			services[name] = service
+		end
+	end
+	local engine = Engine.world({ Stubs = stubs, Services = services })
 	engine.game.BindToClose = function(_self: any, fn: () -> ())
 		table.insert(closers, fn)
 	end
@@ -325,6 +383,10 @@ end
 -- Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
 export type Services = {
 	world: World,
+	-- The remote registry the services were given: `on` fills `handlers`.
+	registry: any,
+	-- What every service was given as Notify: it records into `notices`.
+	notify: any,
 	data: any,
 	ranking: any,
 	match: any,
@@ -340,6 +402,18 @@ export type Services = {
 	places: { BossLive: boolean, Engaged: { [any]: boolean }, Inside: { [any]: boolean } },
 	-- Every Notify sent, as the player and the Strings key.
 	notices: { { Player: any, Key: string } },
+	-- Every quest event reported, as the player, the event and the amount.
+	reports: { { Player: any, Event: string, Amount: number } },
+	-- Every XP grant, as the player, the amount and the reason.
+	gains: { { Player: any, Amount: number, Reason: string } },
+	-- `source` lands `amount` of damage on `target`'s body, as CombatService.Damaged reports a hit.
+	hit: (source: any, target: any, amount: number) -> (),
+	-- `source` is credited with `target`'s death, as CombatService.Killed reports a kill.
+	kill: (source: any, target: any) -> (),
+	-- The movement every service was given: applyFreeze holds a player as a stun does.
+	movement: any,
+	-- The players who hold their guard up, as CombatService.isBlocking answers.
+	guarding: { [any]: boolean },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
 	cast: (player: any, glyphId: string) -> boolean,
 }
@@ -352,8 +426,8 @@ local function pad(x: number): any
 	return part
 end
 
-function Server.services(): Services
-	local world = Server.world()
+function Server.services(options: Options?): Services
+	local world = Server.world(options)
 	local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
 	local locale = world.require("src/server/Services/LocaleService")
 	local data = world.require("src/server/Services/DataService")
@@ -394,6 +468,7 @@ function Server.services(): Services
 		applySlow = function(_player: any, _key: string, _factor: number, _seconds: number) end,
 		command = function(_player: any, _payload: any) end,
 	}
+	local guarding: { [any]: boolean } = {}
 	local combat = {
 		Damaged = Engine.signal(),
 		Killed = Engine.signal(),
@@ -403,12 +478,16 @@ function Server.services(): Services
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			return if root ~= nil then roblox.CFrame.new(root.Position) else nil
 		end,
+		trustedPosition = function(player: any): any
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			return if root ~= nil then root.Position else nil
+		end,
 		trySpendInk = function(_player: any, _cost: number): boolean
 			return true
 		end,
 		addInk = function(_player: any, _amount: number) end,
-		isBlocking = function(_player: any): boolean
-			return false
+		isBlocking = function(player: any): boolean
+			return guarding[player] == true
 		end,
 		isStunned = movement.isStunned,
 		isChanneling = function(_player: any): boolean
@@ -418,15 +497,23 @@ function Server.services(): Services
 	local killZone = Engine.instance("BasePart")
 	killZone.Position = roblox.Vector3.new(0, 460, 0)
 	killZone.Touched = Engine.signal()
+	local gains: { { Player: any, Amount: number, Reason: string } } = {}
 	local progression = {
 		LevelUp = Engine.signal(),
-		addXp = function(_player: any, _amount: number, _reason: string) end,
+		addXp = function(player: any, amount: number, reason: string)
+			table.insert(gains, { Player = player, Amount = amount, Reason = reason })
+		end,
 	}
-	local quest = { report = function(_player: any, _event: string, _amount: number) end }
+	local reports: { { Player: any, Event: string, Amount: number } } = {}
+	local quest = {
+		report = function(player: any, event: string, amount: number)
+			table.insert(reports, { Player = player, Event = event, Amount = amount })
+		end,
+	}
 	local vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end }
 
 	locale.Init({})
-	data.Init({ Registry = registry, Locale = locale })
+	data.Init({ Registry = registry, Locale = locale, Notify = notify })
 	currency.Init({ DataService = data })
 	cosmetic.Init({ Registry = registry, Vfx = vfx, Combat = combat, DataService = data, Notify = notify })
 	loadout.Init({
@@ -548,6 +635,8 @@ function Server.services(): Services
 
 	return {
 		world = world,
+		registry = registry,
+		notify = notify,
 		data = data,
 		ranking = ranking,
 		match = match,
@@ -559,6 +648,16 @@ function Server.services(): Services
 		handlers = handlers,
 		places = places,
 		notices = notices,
+		reports = reports,
+		gains = gains,
+		movement = movement,
+		guarding = guarding,
+		hit = function(source: any, target: any, amount: number)
+			combat.Damaged:Fire(source.UserId, target.Character, amount, "Glyph")
+		end,
+		kill = function(source: any, target: any)
+			combat.Killed:Fire(source.UserId, target.Character)
+		end,
 		cast = cast,
 	}
 end

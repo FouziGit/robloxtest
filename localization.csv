@@ -236,7 +236,7 @@ glyph.Brand.desc,Hurls a sphere of flames that explodes on impact.,Vellum,,Hurls
 glyph.Brand.name,Brand,Vellum,,Brand,Marque
 glyph.Caret.desc,"Cross yourself out here and write yourself in further on, untouchable between the two.",Vellum,,"Cross yourself out here and write yourself in further on, untouchable between the two.","Rature-toi ici et réécris-toi plus loin, intouchable entre les deux."
 glyph.Caret.name,Caret,Vellum,,Caret,Insertion
-glyph.Cartouche.desc,"Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.",Vellum,,"Frames the ground around you in ink: enemies inside are stunned through their guard, then slowed and hurt while they stay.","Encadre d'encre le sol autour de toi : les ennemis pris dedans sont étourdis malgré leur garde, puis ralentis et blessés tant qu'ils y restent."
+glyph.Cartouche.desc,An ink frame that stuns and slows enemies; your other glyphs recharge twice as fast inside it.,Vellum,,An ink frame that stuns and slows enemies; your other glyphs recharge twice as fast inside it.,Un cadre d'encre étourdit et ralentit l'ennemi ; tes autres glyphes s'y rechargent deux fois plus vite.
 glyph.Cartouche.name,Cartouche,Vellum,,Cartouche,Cartouche
 glyph.Colophon.desc,"Your signature leaps from body to body, and everyone it touches is signed.",Vellum,,"Your signature leaps from body to body, and everyone it touches is signed.","Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé."
 glyph.Colophon.name,Colophon,Vellum,,Colophon,Colophon
@@ -411,6 +411,7 @@ match.execution.damage.other,{damage} damage,Vellum,,{damage} damage,{damage} d�
 match.execution.glyphs.one,{hits} / {casts} glyph landed,Vellum,,{hits} / {casts} glyph landed,{hits} / {casts} glyphe placé
 match.execution.glyphs.other,{hits} / {casts} glyphs landed,Vellum,,{hits} / {casts} glyphs landed,{hits} / {casts} glyphes placés
 match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
+match.folioCap,Matches pay no more Folios today. XP still counts.,Vellum,,Matches pay no more Folios today. XP still counts.,Les matchs ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
 match.grade,Execution: {grade},Vellum,,Execution: {grade},Exécution : {grade}
 match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / {needed} XP,Niveau {level} · {xp} / {needed} XP
 match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
@@ -419,11 +420,13 @@ match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversair
 match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
+match.repeatOpponent,Same opponent too many times today: this match leaves your rank as it was and pays a quarter.,Vellum,,Same opponent too many times today: this match leaves your rank as it was and pays a quarter.,Même adversaire trop de fois aujourd'hui : ce match laisse ton rang tel quel et rapporte un quart.
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.victory,Victory!,Vellum,,Victory!,Victoire !
+match.voided,"The other side left before the match was really played: no result, your rank stays as it was.",Vellum,,"The other side left before the match was really played: no result, your rank stays as it was.","L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas."
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
 menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
 menu.inviteUnavailable,Invites are not available here.,Vellum,,Invites are not available here.,Les invitations ne sont pas disponibles ici.
@@ -484,6 +487,7 @@ purchase.premiumOwnedFolios.one,You already have the Premium Battle Pass: +{amou
 purchase.premiumOwnedFolios.other,You already have the Premium Battle Pass: +{amount} Folios instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folios instead,Tu as déjà le Battle Pass Premium : +{amount} Folios à la place
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.sandboxed,Studio test purchase of {name}: nothing was granted or saved.,Vellum,,Studio test purchase of {name}: nothing was granted or saved.,Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.
+purchase.savesDelayed,Robux purchases are paused while saving is delayed.,Vellum,,Robux purchases are paused while saving is delayed.,Les achats en Robux sont suspendus tant que la sauvegarde est retardée.
 purchase.tiersGranted.one,+{tiers} battle pass tier,Vellum,,+{tiers} battle pass tier,+{tiers} palier de battle pass
 purchase.tiersGranted.other,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.tiersPastLast.one,Past the last tier: +{amount} Folio instead,Vellum,,Past the last tier: +{amount} Folio instead,Au-delà du dernier palier : +{amount} Folio à la place
@@ -558,6 +562,8 @@ rank.sketch,Sketch,Vellum,,Sketch,Esquisse
 result.details,Details,Vellum,,Details,Détails
 reward.folios,+{amount},Vellum,,+{amount},+{amount}
 reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
+save.delayed,"Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.",Vellum,,"Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.","La sauvegarde est retardée. Ta progression est gardée ici, et les achats en Robux attendent son retour."
+save.restored,Saving is back. Robux purchases are open again.,Vellum,,Saving is back. Robux purchases are open again.,La sauvegarde est revenue. Les achats en Robux sont rouverts.
 season.rewardGranted.one,Volume reward ({rank}): +{amount} Folio,Vellum,,Volume reward ({rank}): +{amount} Folio,Récompense du volume ({rank}) : +{amount} Folio
 season.rewardGranted.other,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !

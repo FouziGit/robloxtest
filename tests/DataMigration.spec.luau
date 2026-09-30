@@ -41,7 +41,7 @@ local function template(): { [string]: any }
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = { "Brand", "Wash" }, ExtraSlots = 0, SlotLimit = 6 },
 		Unlocks = { Glyphs = { "Brand" }, Pigments = { "Cinnabar", "Indigo", "Umber", "Verdigris" } },
-		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
+		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "", Opponents = { Day = 0, Counts = {} } },
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -68,6 +68,8 @@ local function template(): { [string]: any }
 			TrialDay = 0,
 			TrialKills = 0,
 			TrialFolios = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
 		},
 		Milestones = {},
 		Drills = {},
@@ -275,6 +277,8 @@ describe("DataMigration daily caps", function()
 			"TrialDay",
 			"TrialKills",
 			"TrialFolios",
+			"MatchDay",
+			"MatchFolios",
 		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
@@ -283,8 +287,8 @@ describe("DataMigration daily caps", function()
 	-- Version 7 (E10-S3, E10-S10, D-243; 5 and 6 were taken by the QA pass and wave 1): the Trials' counts and each
 	-- quest set's swaps, with no upgrade step. A version 4 profile comes out with them at zero and empty, its quests
 	-- and its caps as they were, and is stamped current, so a build that has never heard of them keeps them instead
-	-- of dropping them.
-	it("brings a version 4 profile to version 7 with no Trials paid and no swap spent", function()
+	-- of dropping them. Since the wave 3 merge the current version is 8 (the day's ranked opponents, D-255).
+	it("brings a version 4 profile to version 8 with no Trials paid and no swap spent", function()
 		local raw = {
 			DataVersion = 4,
 			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
@@ -294,9 +298,9 @@ describe("DataMigration daily caps", function()
 			},
 		}
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(7)
+		expect(DataMigration.CurrentVersion).toBe(8)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(7)
+		expect(data.DataVersion).toBe(8)
 		expect(data.Daily.ForgerFolios).toBe(90)
 		expect(data.Daily.TrialDay).toBe(0)
 		expect(data.Daily.TrialKills).toBe(0)
@@ -336,7 +340,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(12)
+		expect(#service).toBe(14)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)
@@ -346,13 +350,14 @@ end)
 -- holds the developer's waived cosmetics and the practice gap). A record of what was paid once, so losing it would
 -- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
 describe("DataMigration to version 6", function()
-	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243).
-	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 7", function()
+	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243), and since the wave 3
+	-- merge 8, the day's ranked opponents and match Folios (D-255).
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 8", function()
 		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(7)
+		expect(DataMigration.CurrentVersion).toBe(8)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(7)
+		expect(data.DataVersion).toBe(8)
 		expect(data.Milestones).toEqual({})
 		expect(data.Drills).toEqual({})
 		expect(data.ExLibris).toEqual({})
@@ -382,6 +387,38 @@ describe("DataMigration to version 6", function()
 		expect(types:find("\n\tMilestones: MilestonesData,\n", 1, true)).never.toBeNil()
 		expect(types:find("\n\tDrills: DrillsData,\n", 1, true)).never.toBeNil()
 		expect(types:find("\n\tExLibris: ExLibrisData,\n", 1, true)).never.toBeNil()
+	end)
+end)
+
+-- The day's ranked opponents (Rank.Opponents, D-255): a free-form map under a fixed record.
+describe("DataMigration ranked opponents", function()
+	it("gives a profile saved before them an empty day, and keeps its ratings", function()
+		local raw = {
+			DataVersion = 5,
+			Rank = { SeasonId = "S1", Modes = { Duel1v1 = { Rating = 1240 } }, LastRewardedSeason = "" },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info.Migrated).toBe(true)
+		expect(data.Rank.Opponents).toEqual({ Day = 0, Counts = {} })
+		expect(data.Rank.Modes.Duel1v1.Rating).toBe(1240)
+		expect(data.Daily.MatchFolios).toBe(0)
+	end)
+
+	it("carries today's counts across a reload, every opponent of them", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Rank = {
+				SeasonId = "S1",
+				Modes = {},
+				LastRewardedSeason = "",
+				Opponents = { Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } },
+			},
+			Daily = { MatchDay = 20500, MatchFolios = 640 },
+		}
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Rank.Opponents).toEqual({ Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } })
+		expect(data.Daily.MatchDay).toBe(20500)
+		expect(data.Daily.MatchFolios).toBe(640)
 	end)
 end)
 

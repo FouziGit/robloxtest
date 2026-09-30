@@ -66,10 +66,15 @@ export type RankModeData = {
 	PeakRating: number,
 }
 
+-- Ranked matches played today against each opponent (Pure/OpponentLedger): the UTC day the counts belong to, and
+-- the count by opponent user id, as a string. RankingService writes it with every ranked result.
+export type RankOpponentsData = { Day: number, Counts: { [string]: number } }
+
 export type RankData = {
 	SeasonId: string,
 	Modes: { [string]: RankModeData }, -- "Duel1v1" / "Team3v3"
 	LastRewardedSeason: string,
+	Opponents: RankOpponentsData,
 }
 
 export type StatsData = {
@@ -118,6 +123,9 @@ export type DailyData = {
 	TrialDay: number,
 	TrialKills: number,
 	TrialFolios: number,
+	-- The Folios ranked matches paid (MatchConfig.DailyFolioCap).
+	MatchDay: number,
+	MatchFolios: number,
 }
 
 -- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level

@@ -9,6 +9,11 @@
 -- a match owns (arena, kill-zone connection) hangs from its Trove, so a normal end, an abandon and a
 -- disconnect all release it the same way. The rules themselves live in GameModes: this service never
 -- decides who won.
+--
+-- Two rules keep two accounts from farming each other (D-255): a forfeit before the match was really fought
+-- is void (MatchConfig.MinPlayedSeconds, or no damage exchanged), and a pair past its day's full matches is paid a
+-- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios, its
+-- kills' included: this service pays those too (onKilled).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +22,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local DailyCap = require(script.Parent.Parent.Pure.DailyCap)
+local DailyStreak = require(Shared.Pure.DailyStreak)
 local Elo = require(script.Parent.Parent.Pure.Elo)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
@@ -48,7 +55,14 @@ export type Arena = {
 	Spawns: { { BasePart } }, -- team index -> spawn pads of that team
 	KillZone: BasePart,
 }
-export type RatingChange = { Before: number, After: number, RankKeyBefore: string, RankKeyAfter: string }
+-- Repeat: RankingService held the rating of a pair past its day's full matches, and the match pays a quarter.
+export type RatingChange = {
+	Before: number,
+	After: number,
+	RankKeyBefore: string,
+	RankKeyAfter: string,
+	Repeat: boolean?,
+}
 
 type ProfileData = Types.ProfileData
 type BeforeReleaseSignal = {
@@ -69,6 +83,7 @@ type NotifyApi = {
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type CombatApi = {
 	Damaged: DamagedSignal,
+	Killed: KilledSignal,
 	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
@@ -98,6 +113,9 @@ type DamagedSignal = {
 		self: DamagedSignal,
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
+}
+type KilledSignal = {
+	Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any,
 }
 type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
@@ -139,6 +157,7 @@ type Active = {
 	Placed: { [Player]: Placement }, -- the body each participant was last placed with, which falls are judged on
 	LeftAt: number, -- os.clock of the latest departure; 0 while nobody left
 	Emptied: boolean, -- ended because every participant was gone, or the server was closing
+	FirstPlayedAt: number, -- os.clock the first round started being played; 0 until then
 }
 
 -- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
@@ -161,6 +180,7 @@ local FOLIOS = ProgressionConfig.Folios
 -- Per-mode reward multipliers; MatchConfig.Rewards is keyed by mode id.
 local REWARD_SCALES = (MatchConfig.Rewards :: any) :: { [string]: { Xp: number, Folios: number } }
 local DEFAULT_SCALE = { Xp = 1, Folios = 1 }
+local REPEAT_SCALE = RankingConfig.Opponents.RepeatRewardScale
 
 local MatchService = {}
 
@@ -324,6 +344,25 @@ local function grantFirstWin(player: Player): boolean
 	return daily.markFirstWin(player)
 end
 
+-- Takes up to `want` Folios from the player's day of matches (MatchConfig.DailyFolioCap, counted in the profile
+-- like the Forgers' cap) and writes the count back. Returns what may be paid, before VIP; all of it with no
+-- profile loaded, which award and onKilled never meet (they pay only players still here).
+local function takeFolios(player: Player, want: number): number
+	local data = dataService.get(player)
+	if data == nil then
+		return want
+	end
+	local counts = data.Daily
+	local today = DailyStreak.dayIndex(os.time())
+	local granted, used = DailyCap.take(counts.MatchDay, counts.MatchFolios, today, MatchConfig.DailyFolioCap, want)
+	if counts.MatchDay ~= today or counts.MatchFolios ~= used then
+		counts.MatchDay = today
+		counts.MatchFolios = used
+		dataService.push(player, "Daily")
+	end
+	return granted
+end
+
 local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
 	if not active.Def.Ranked then
 		return {}
@@ -355,18 +394,29 @@ local function award(active: Active, result: Types.MatchResult)
 		local baseXp = if draw then XP.MatchDraw elseif won then XP.MatchWin else XP.MatchLoss
 		local baseFolios = if draw then FOLIOS.MatchDraw elseif won then FOLIOS.MatchWin else FOLIOS.MatchLoss
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
-		local xp = math.floor(baseXp * scale.Xp * share + 0.5)
-		local folios = math.floor(baseFolios * scale.Folios * share + 0.5)
+		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, rankedServer)
+		-- A pair past its day's full matches is paid a quarter, and told why its rating held.
+		local repeatScale = if change.Repeat then REPEAT_SCALE else 1
+		local xp = math.floor(baseXp * scale.Xp * share * repeatScale + 0.5)
+		local wanted = math.floor(baseFolios * scale.Folios * share * repeatScale + 0.5)
+		local folios = takeFolios(player, wanted)
 		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
 		local firstWin = won and rankedServer and grantFirstWin(player)
 		progression.addXp(player, xp, reason)
-		currency.add(player, folios, reason)
+		if folios >= 1 then
+			currency.add(player, folios, reason)
+		end
+		if folios < wanted then
+			notify.send(player, "match.folioCap", nil, "Info")
+		end
+		if change.Repeat then
+			notify.send(player, "match.repeatOpponent", nil, "Info")
+		end
 		bumpMatchesPlayed(player)
 		quest.report(player, "MatchPlayed", 1)
 		if won and rankedServer then
 			quest.report(player, "MatchWin", 1)
 		end
-		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, rankedServer)
 		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
@@ -564,6 +614,52 @@ local function beginRound(active: Active)
 	end)
 end
 
+-- Damage the two sides dealt each other over the match: allowDamage lets nothing else land (onDamaged).
+local function damageExchanged(active: Active): number
+	local total = 0
+	for _, stats in pairs(active.Stats) do
+		total += stats.DamageDealt
+	end
+	return total
+end
+
+-- How long the rounds had been played when the departure that emptied a side came.
+local function playedSeconds(active: Active): number
+	if active.FirstPlayedAt == 0 then
+		return 0
+	end
+	return math.max(active.LeftAt - active.FirstPlayedAt, 0)
+end
+
+-- A forfeit of a match nobody really fought (D-255): too short (MatchConfig.MinPlayedSeconds), or not a single
+-- point of damage exchanged. Never a series already won on the field, which stays its winner's (D-34).
+local function isVoid(active: Active): boolean
+	if GameModes.decidedWinner(active.Match) ~= nil then
+		return false
+	end
+	return playedSeconds(active) < MatchConfig.MinPlayedSeconds or damageExchanged(active) <= 0
+end
+
+-- Ends a void match with no result. Whoever walked out has paid the forfeit all the same: their session ended with
+-- the same grace this verdict waited for, in this frame at the latest, and settle debited it then. Whoever stayed is
+-- let go at once, told why, and gets no rating, reward, quest or stat. An alt that leaves on the countdown earns its
+-- main nothing.
+local function voidMatch(active: Active)
+	log.info(
+		"match %s void: a side left after %.1f s of play and %.0f damage exchanged",
+		active.Match.Id,
+		playedSeconds(active),
+		damageExchanged(active)
+	)
+	for _, participant in ipairs(active.Match.Participants) do
+		if isLive(participant) then
+			movement.clearStun(participant.Player)
+			notify.send(participant.Player, "match.voided", nil, "Info")
+		end
+	end
+	finish(active)
+end
+
 local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: number)
 	local match = active.Match
 	if verdict.Reason == "Forfeit" then
@@ -584,6 +680,10 @@ local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: num
 		if now - active.LeftAt < LEAVE_GRACE_SECONDS then
 			-- Not a forfeit yet: the rest of the match may be about to go the same way, with the server. The
 			-- verdict is asked again on the next tick.
+			return
+		end
+		if isVoid(active) then
+			voidMatch(active)
 			return
 		end
 		local winner = verdict.WinnerTeam
@@ -644,6 +744,9 @@ local function advance(active: Active, now: number)
 			match.Phase = "Playing"
 			match.RoundEndsAt = now + match.RoundSeconds
 			active.PhaseEndsAt = match.RoundEndsAt
+			if active.FirstPlayedAt == 0 then
+				active.FirstPlayedAt = now
+			end
 		end
 		return
 	end
@@ -993,6 +1096,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Placed = {},
 		LeftAt = 0,
 		Emptied = false,
+		FirstPlayedAt = 0,
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -1078,6 +1182,25 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	statsOf(active, target.UserId).DamageTaken += applied
 end
 
+-- The Folios of a player kill in a match, paid here rather than by CombatService (D-255): they are the match's,
+-- under the day's cap like its result. Paid past every cap and every repeat, an alt knocked out twice a duel paid
+-- its main two kills a match however many matches the pair played that day. The kill's XP stays CombatService's.
+local function onKilled(sourceUserId: number, victimModel: Model)
+	local active = activeByUserId[sourceUserId]
+	if active == nil then
+		return
+	end
+	local killer = Players:GetPlayerByUserId(sourceUserId)
+	local victim = Players:GetPlayerFromCharacter(victimModel)
+	if killer == nil or victim == nil or activeByUserId[victim.UserId] ~= active then
+		return
+	end
+	local folios = takeFolios(killer, FOLIOS.PlayerKill)
+	if folios >= 1 then
+		currency.add(killer, folios, "PlayerKill")
+	end
+end
+
 -- Lets one participant go while the match is still winding down on its result screen, which is what makes
 -- the rematch of docs/JUICE_PLAN.md phase 8 a click rather than a wait: the plan asks for under ten seconds
 -- between two duels and the result phase alone is eight. The match stays alive for everybody else.
@@ -1135,6 +1258,7 @@ function MatchService.Start()
 	glyph.Cast:Connect(onCast)
 	glyph.CastLanded:Connect(onCastLanded)
 	combat.Damaged:Connect(onDamaged)
+	combat.Killed:Connect(onKilled)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (tick %d Hz, snapshots %d Hz)", GameConfig.Server.TickRate, SNAPSHOT_HZ)

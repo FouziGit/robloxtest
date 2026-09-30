@@ -1,6 +1,12 @@
 --!strict
 -- DataService: the single owner of player profiles (ProfileStore). Loads, migrates, replicates and
 -- releases profiles. Other services mutate `DataService.get(player)` in place and call `push`.
+--
+-- It also listens to what ProfileStore says of the DataStore itself: a failed call and an overwritten key are
+-- logged with their store and key, and an outage (ProfileStore's critical state) is told to every player once,
+-- as it is told when it ends. While it lasts `isCritical` is true, and MonetizationService opens no Robux
+-- purchase (D-254): a purchase whose grant cannot be saved is Robux taken for something the next server may
+-- not know about.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -25,6 +31,10 @@ local Strings = require(Shared.Strings)
 local Types = require(Shared.Types)
 
 type ProfileData = Types.ProfileData
+type NotifyKind = "Info" | "Success" | "Error"
+type NotifyApi = {
+	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
+}
 
 local log = Log.new("DataService")
 
@@ -73,7 +83,12 @@ local LEAVE_GRACE_SECONDS = GameConfig.Server.LeaveGraceSeconds
 local registry -- RemoteRegistry
 -- The language each player reads a kick's reason in (LocaleService).
 local locale: { of: (player: Player) -> string }
+local notify: NotifyApi
 local store
+-- True while ProfileStore reports the DataStore failing call after call (OnCriticalToggle): saves are delayed.
+local critical = false
+-- The players told of the outage under way: each hears of it once, and hears it end.
+local toldOutage: { [Player]: boolean } = {}
 local profiles: { [Player]: any } = {} -- ProfileStore Profile objects
 local loadedSignals: { [Player]: { any } } = {}
 -- Set by game:BindToClose: from then on no session end is a player leaving (DataService.isClosing).
@@ -121,7 +136,12 @@ function DataService.template(): { [string]: any }
 		Cosmetics = { Owned = {}, Equipped = {}, Waived = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
 		Unlocks = { Glyphs = GlyphConfig.defaultUnlocks(), Pigments = table.clone(PigmentConfig.Base) },
-		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
+		Rank = {
+			SeasonId = GameConfig.SeasonId,
+			Modes = {},
+			LastRewardedSeason = "",
+			Opponents = { Day = 0, Counts = {} },
+		},
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -149,6 +169,8 @@ function DataService.template(): { [string]: any }
 			TrialDay = 0,
 			TrialKills = 0,
 			TrialFolios = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
 		},
 		Milestones = {},
 		Drills = {},
@@ -397,6 +419,7 @@ end
 -- walking out (docs/QA.md R3). Held, it is ended by the shutdown itself if one follows, and otherwise by the
 -- grace; either way its final write carries what BeforeRelease settled.
 local function onPlayerRemoving(player: Player)
+	toldOutage[player] = nil
 	local waiters = loadedSignals[player]
 	loadedSignals[player] = nil
 	if waiters ~= nil then
@@ -419,12 +442,58 @@ local function onPlayerRemoving(player: Player)
 end
 
 ----------------------------------------------------------------
+-- DataStore health
+----------------------------------------------------------------
+
+-- A DataStore call ProfileStore caught. It warns too, in its own words; this line is the service's, with the
+-- store and the key, where the server's logs are read.
+local function onStoreError(message: string, storeName: string, key: string)
+	log.warn("DataStore call failed on store %s, key %s: %s", storeName, key, message)
+end
+
+-- A key that held something ProfileStore could not read as a profile, and wrote a fresh one over: whatever the
+-- player had there is gone, which no retry brings back.
+local function onOverwrite(storeName: string, key: string)
+	log.error("store %s, key %s held no readable profile and was overwritten with a new one", storeName, key)
+end
+
+local function tellOutage(player: Player)
+	if toldOutage[player] then
+		return
+	end
+	toldOutage[player] = true
+	notify.send(player, "save.delayed", nil, "Error")
+end
+
+-- ProfileStore's critical state: its DataStore calls have been failing in a row. Saves wait for them to answer
+-- again, so a player is told once that progress is kept here meanwhile, and told again when saves are back.
+-- Everyone in the server, including a player whose profile is still loading: its load finishing tells nobody
+-- twice (tellOutage).
+local function onCriticalToggle(isCritical: boolean)
+	critical = isCritical
+	if isCritical then
+		log.warn("DataStore critical: saves are delayed and Robux purchases are paused until it answers again")
+		for _, player in ipairs(Players:GetPlayers()) do
+			tellOutage(player)
+		end
+		return
+	end
+	log.info("DataStore answers again: saves resume and Robux purchases reopen")
+	for player in pairs(toldOutage) do
+		notify.send(player, "save.restored", nil, "Success")
+	end
+	table.clear(toldOutage)
+end
+
+----------------------------------------------------------------
 -- Public API
 ----------------------------------------------------------------
 
-function DataService.Init(deps: { Registry: any, Locale: any })
+-- Notify tells players of an outage (onCriticalToggle), from Start on: every service is initialised by then.
+function DataService.Init(deps: { Registry: any, Locale: any, Notify: NotifyApi })
 	registry = deps.Registry
 	locale = deps.Locale
+	notify = deps.Notify
 	store = ProfileStore.New(STORE_NAME, storeTemplate())
 	if RunService:IsStudio() and ProfileStore.DataStoreState ~= "Access" then
 		log.info("DataStore state: %s (Studio without API access saves nothing)", ProfileStore.DataStoreState)
@@ -436,6 +505,15 @@ function DataService.Start()
 	-- once its DataStore check has answered, which is a web call after the server started.
 	game:BindToClose(function()
 		closing = true
+	end)
+	ProfileStore.OnError:Connect(onStoreError)
+	ProfileStore.OnOverwrite:Connect(onOverwrite)
+	ProfileStore.OnCriticalToggle:Connect(onCriticalToggle)
+	-- A player who joins during an outage hears of it once their profile is there, like everybody else.
+	DataService.ProfileLoaded:Connect(function(player: Player)
+		if critical then
+			tellOutage(player)
+		end
 	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -592,6 +670,11 @@ end
 function DataService.isActive(player: Player): boolean
 	local profile = profiles[player]
 	return profile ~= nil and profile:IsActive()
+end
+
+-- True while ProfileStore is in its critical state: saves are delayed until the DataStore answers again.
+function DataService.isCritical(): boolean
+	return critical
 end
 
 return DataService

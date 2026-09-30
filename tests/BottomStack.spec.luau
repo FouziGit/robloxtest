@@ -9,6 +9,7 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
+local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local roblox = require("@lune/roblox") :: any
 
@@ -189,6 +190,62 @@ local function pipsAt(width: number, glyphs: number): (number, number, number)
 	local side = math.min(share, dock.PipRow.Size.Y.Offset)
 	return side, gap, inner
 end
+
+describe("a cooling slot, run", function()
+	it("veils the whole slot and counts down in tenths on the veil's edge, in the language's mark", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local Theme = world.require("src/ui/Theme")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local hotbar = Hotbar.new({
+			Parent = gui,
+			Mode = "Slots",
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "fr")
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		hotbar:SetLoadout({ "Brand" })
+		local def = GlyphConfig.byId("Brand")
+		local square = hotbar.Instance:FindFirstChild("Slot1"):FindFirstChild("Square")
+		local chip = square:FindFirstChild("Chip")
+		-- The veil is the slot's, its full width and its corner, over the chip and the ring.
+		local veil = square:FindFirstChild("Drain")
+		assert(veil ~= nil, "the slot has no veil of its own: this gate would check nothing")
+		expect(chip:FindFirstChild("Drain")).toBeNil()
+		expect(veil.Size.X.Scale).toBe(1)
+		expect(veil.Size.X.Offset).toBe(0)
+		expect(veil:FindFirstChildOfClass("UICorner").CornerRadius).toBe(roblox.UDim.new(0, Theme.Sizes.CornerChip))
+		expect(veil.BackgroundColor3).toBe(Theme.Colors.Plate)
+		expect(veil.BackgroundTransparency).toBe(0.31)
+		expect(veil.ZIndex).toBeGreaterThan(chip.ZIndex)
+		-- Half cooled: the seconds stand on the veil's edge, four over it.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = def.Cooldown / 2 } })
+		world:advance(1)
+		local seconds = square:FindFirstChild("Seconds")
+		expect(seconds.Visible).toBe(true)
+		expect(seconds.Text).toBe(Strings.t("hud.hotbar.seconds", { whole = def.Cooldown // 2, tenth = 0 }, "fr"))
+		expect(seconds.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(seconds.AnchorPoint).toBe(roblox.Vector2.new(0.5, 1))
+		expect(veil.Size.Y.Scale).toBeCloseTo(0.5, 2)
+		expect(seconds.Position.Y.Offset).toBeCloseTo(0.5 * ThemeConfig.Hud.HotbarSlot - 4, 1)
+		-- Nearly ready: the veil is thin, and the seconds stay whole at the top, on their ink stroke.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = 0.2 } })
+		world:advance(1)
+		expect(seconds.Text).toBe("0,2")
+		expect(seconds.Position.Y.Offset).toBeCloseTo(16, 1)
+		expect(seconds:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.Outline)
+		-- Ten and more: whole seconds.
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = 12 } })
+		expect(seconds.Text).toBe("12")
+		-- Ready: gone.
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		expect(seconds.Visible).toBe(false)
+	end)
+end)
 
 describe("the touch dock's pips, run", function()
 	it("fit every slot a pass opens in the narrowest dock", function()

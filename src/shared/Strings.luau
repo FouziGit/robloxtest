@@ -792,6 +792,8 @@ Strings.Table = {
 	-- health it has left, and the pill's name for what is not a player.
 	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
 	["hud.lock.target"] = { en = "{name} · {health}", fr = "{name} · {health}" },
+	-- A cooling glyph's seconds on its hotbar slot, in tenths under ten (CooldownText): the language's own mark.
+	["hud.hotbar.seconds"] = { en = "{whole}.{tenth}", fr = "{whole},{tenth}" },
 	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
 	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
 	-- A new player's first steps (MetaCluster), until all three are done.

@@ -213,6 +213,7 @@ hud.checklist.match,Play a match,Vellum,,Play a match,Joue un match
 hud.checklist.title,First steps,Vellum,,First steps,Premiers pas
 hud.combo.dissipated,The sequence dissipated…,Vellum,,The sequence dissipated…,La séquence s'est dissipée…
 hud.combo.noMatch,No glyph matches…,Vellum,,No glyph matches…,Aucun glyphe ne correspond…
+hud.hotbar.seconds,{whole}.{tenth},Vellum,,{whole}.{tenth},"{whole},{tenth}"
 hud.killReward,Enemy defeated! +{xp} XP,Vellum,,Enemy defeated! +{xp} XP,Ennemi vaincu ! +{xp} XP
 hud.levelUp,Level {level} reached!,Vellum,,Level {level} reached!,Niveau {level} atteint !
 hud.lock.dummy,Training dummy,Vellum,,Training dummy,Mannequin

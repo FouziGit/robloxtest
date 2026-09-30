@@ -48,7 +48,7 @@ local function paintsOver(a: any, b: any): boolean
 end
 
 -- The HUD's root and its bottom stack, for a phone (`touch`) or a pointer, as HudController builds them.
-local function build(touch: boolean): (any, any, any, any)
+local function build(touch: boolean): (any, any, any, any, any)
 	local world = Engine.world({ Stubs = Engine.interfaceStubs() })
 	local ScreenRoot = world.require("src/ui/components/ScreenRoot")
 	local ComboRow = world.require("src/ui/components/ComboRow")
@@ -72,7 +72,7 @@ local function build(touch: boolean): (any, any, any, any)
 		LayoutOrder = 3,
 	})
 	hotbar:SetLoadout({ "Brand", "Wash", "Serif" })
-	return root, combo, dock, hotbar
+	return root, combo, dock, hotbar, world.require("src/ui/Theme")
 end
 
 local function refusalPill(combo: any): any
@@ -111,6 +111,45 @@ describe("the HUD's bottom stack, run", function()
 		end
 		expect(checked).toBeGreaterThan(0)
 		expect(paintsOver(pill, dock.Instance)).toBe(true)
+	end)
+end)
+
+describe("the slots' and the dock's rings, run", function()
+	-- The sheet's ring on a plate: a frame the plate's own size and corner, its line inside the plate's edge.
+	local function flush(ring: any, plate: any, Theme: any)
+		assert(ring ~= nil and plate ~= nil, "no ring or no plate: this gate would check nothing")
+		expect(ring.Size).toBe(roblox.UDim2.fromScale(1, 1))
+		expect(ring.Position).toBe(roblox.UDim2.new())
+		expect(ring:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+			plate:FindFirstChildOfClass("UICorner").CornerRadius
+		)
+		local line = ring:FindFirstChildOfClass("UIStroke")
+		expect(line.Color).toBe(Theme.Colors.PanelRaised)
+		expect(line.BorderStrokePosition).toBe(roblox.Enum.BorderStrokePosition.Inner)
+	end
+
+	it("sit on the plate's own edge, the board's inset line, with the plate's corner, round a heavy sigil", function()
+		local _root, _combo, dock, hotbar, Theme = build(false)
+		local slots = 0
+		for _, slot in ipairs(hotbar.Instance:GetChildren()) do
+			if string.sub(slot.Name, 1, 4) == "Slot" then
+				slots += 1
+				local face = slot:FindFirstChild("Plate", true):FindFirstChild("Face")
+				flush(face:FindFirstChild("Ring"), face, Theme)
+				expect(face:FindFirstChildOfClass("UICorner").CornerRadius).toBe(
+					roblox.UDim.new(0, Theme.Sizes.CornerChip)
+				)
+				-- The chip's sigil in the heavy face, the board's 21.
+				local sigil = slot:FindFirstChild("Sigil", true)
+				expect(sigil.FontFace.Family).toBe(Theme.Fonts.Label.Family)
+				expect(sigil.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+				expect(sigil.TextSize).toBe(21)
+			end
+		end
+		expect(slots).toBe(3)
+		local face = dock.Instance:FindFirstChild("Plate"):FindFirstChild("Face")
+		flush(face:FindFirstChild("Ring"), face, Theme)
+		expect(face:FindFirstChildOfClass("UICorner").CornerRadius).toBe(roblox.UDim.new(0, Theme.Sizes.CornerTile))
 	end)
 end)
 

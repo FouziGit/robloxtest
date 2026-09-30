@@ -80,8 +80,10 @@ local Hotbar = {}
 
 local HUD = ThemeConfig.Hud
 local CHIP = 40
-local SIGIL_SCALE = 0.6
-local RING_INSET = 3
+-- The sigil on a chip, in the heavy face (the board's 21 at 900).
+local SIGIL_TEXT = 21
+-- The short-ink drop, off the slot's bottom-right corner by this much.
+local DROP_INSET = 3
 -- The veil a cooling glyph wears, drained from the top as the cooldown runs out.
 local DRAIN_TRANSPARENCY = 0.35
 local SECONDS_TEXT = 16
@@ -173,12 +175,13 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	trove:Add(function()
 		plate:Destroy()
 	end)
+	-- The sheet's ring on the plate's own edge, inside it (the board's inset line): what shapes the slot on a dark
+	-- floor, and the frame the chip sits in.
 	local ring = Instance.new("Frame")
 	ring.Name = "Ring"
 	ring.BackgroundTransparency = 1
-	ring.Position = UDim2.fromOffset(RING_INSET, RING_INSET)
-	ring.Size = UDim2.new(1, -RING_INSET * 2, 1, -RING_INSET * 2)
-	Theme.corner(ring, Theme.Sizes.CornerChip - RING_INSET)
+	ring.Size = UDim2.fromScale(1, 1)
+	Theme.corner(ring, Theme.Sizes.CornerChip)
 	Theme.stroke(ring, "PanelRaised", Theme.Sizes.StrokeThin)
 	ring.Parent = plate.Face
 
@@ -197,8 +200,8 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 	sigil.Name = "Sigil"
 	sigil.BackgroundTransparency = 1
 	sigil.Size = UDim2.fromScale(1, 1)
-	sigil.FontFace = Theme.Fonts.Bold
-	sigil.TextSize = CHIP * SIGIL_SCALE
+	sigil.FontFace = Theme.Fonts.Label
+	sigil.TextSize = SIGIL_TEXT
 	sigil.ZIndex = 3
 	sigil.Parent = chip
 
@@ -264,7 +267,7 @@ local function dropOf(slot: Slot): Frame?
 	if slot.Drop == nil and square ~= nil then
 		local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
 		drop.AnchorPoint = Vector2.new(1, 1)
-		drop.Position = UDim2.new(1, -RING_INSET, 1, -RING_INSET)
+		drop.Position = UDim2.new(1, -DROP_INSET, 1, -DROP_INSET)
 		drop.ZIndex = 5
 		drop.Visible = false
 		drop.Parent = square

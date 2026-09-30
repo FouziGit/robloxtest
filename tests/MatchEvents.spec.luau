@@ -134,6 +134,8 @@ local function erasure(): Fight
 				Band = body,
 				Center = roblox.Vector3.new(0, 900, 0),
 				GroundY = 890,
+				-- Under the floor, where WorldBossService judges a fall off the page (K2, D-214).
+				FallY = 870,
 				Facing = roblox.Vector3.new(0, 0, -1),
 				LastHealth = health,
 				ContactNextAt = {},
@@ -192,12 +194,16 @@ local function erasure(): Fight
 			acquire = function(arenaId: string): any
 				local pad = Engine.instance("BasePart", workspace)
 				pad.Position = roblox.Vector3.new(0, 890, 20)
+				-- The plane a fall off the arena is judged over (WorldBossService.judgeFalls).
+				local killZone = Engine.instance("BasePart", workspace)
+				killZone.Size = roblox.Vector3.new(200, 1, 200)
+				killZone.CFrame = roblox.CFrame.new(0, 850, 0)
 				return {
 					Instance = Engine.instance("Model", workspace),
 					Id = arenaId,
 					SlotIndex = 1,
 					Spawns = { { pad } },
-					KillZone = Engine.instance("BasePart", workspace),
+					KillZone = killZone,
 				}
 			end,
 			release = function() end,
@@ -337,6 +343,73 @@ describe("a match that ends with no result (E8-S4)", function()
 		expect(voided[1][1]).toBe(a)
 		expect(voided[1][3]).toEqual({ CustomField01 = DUEL.Id, CustomField02 = "Error" })
 		expect(sent(setup.world, "MatchEnded")).toEqual({})
+	end)
+
+	-- The void forfeit (D-255): a side walks out before the match was really played, and whoever stayed is let go
+	-- with no result.
+	it("is told once, by whoever stayed, when a side walks out of a match nobody really played", function()
+		local setup, a, b = duel()
+		setup.world:leave(b)
+		setup.world:advance(3)
+		expect(setup.match.isInMatch(a)).toBe(false)
+		local voided = sent(setup.world, "MatchVoided")
+		expect(#voided).toBe(1)
+		expect(voided[1][1]).toBe(a)
+		expect(voided[1][3]).toEqual({ CustomField01 = DUEL.Id, CustomField02 = "Unplayed" })
+		expect(sent(setup.world, "MatchEnded")).toEqual({})
+	end)
+
+	-- MatchService.cancel (D-220): a match whose tick keeps failing is ended with no result.
+	it("is told once, by whoever is still there, when the server cancels a match whose tick keeps failing", function()
+		local setup, a, _b = duel()
+		local mode = setup.world.require("src/server/GameModes").get(DUEL.Id)
+		local verdict = mode.RoundVerdict
+		mode.RoundVerdict = function()
+			error("a verdict nobody can give")
+		end
+		setup.world:advance(2)
+		mode.RoundVerdict = verdict
+		expect(setup.match.isInMatch(a)).toBe(false)
+		local voided = sent(setup.world, "MatchVoided")
+		expect(#voided).toBe(1)
+		expect(voided[1][1]).toBe(a)
+		expect(voided[1][3]).toEqual({ CustomField01 = DUEL.Id, CustomField02 = "Cancelled" })
+		expect(sent(setup.world, "MatchEnded")).toEqual({})
+	end)
+
+	it("is not told again when a match that has its result is cancelled because its end throws", function()
+		local setup, a, b = duel()
+		sweep(setup, a, b)
+		local fire = setup.registry.fire
+		setup.registry.fire = function(name: string, player: any, payload: any)
+			if name == "MatchChanged" and payload == nil then
+				error("the result screen could not be closed")
+			end
+			fire(name, player, payload)
+		end
+		setup.world:advance(DUEL.ResultSeconds + 2)
+		setup.registry.fire = fire
+		expect(setup.match.isInMatch(a)).toBe(false)
+		expect(#sent(setup.world, "MatchEnded")).toBe(2)
+		expect(sent(setup.world, "MatchVoided")).toEqual({})
+	end)
+
+	it("is not told again when a match is cancelled on its result screen, before its end", function()
+		local setup, a, b = duel()
+		sweep(setup, a, b)
+		-- The winner's body can no longer be read: every tick of the result screen throws, until the server
+		-- cancels the match.
+		local body = a.Character
+		a.Character = {
+			FindFirstChildOfClass = function()
+				error("a body nobody can read")
+			end,
+		}
+		setup.world:advance(2)
+		a.Character = body
+		expect(setup.match.isInMatch(a)).toBe(false)
+		expect(#sent(setup.world, "MatchEnded")).toBe(2)
+		expect(sent(setup.world, "MatchVoided")).toEqual({})
 	end)
 end)
 

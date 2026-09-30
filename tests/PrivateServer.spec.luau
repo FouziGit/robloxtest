@@ -243,6 +243,13 @@ local function play(kind: Kind): Played
 			end,
 		},
 		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal(), resetCooldowns = function() end },
+		-- How the match ended, for the dashboards (D-259): nothing here reads it.
+		Analytics = {
+			fields = function(): { [string]: string }
+				return {}
+			end,
+			custom = function() end,
+		},
 	})
 	Match.Start()
 

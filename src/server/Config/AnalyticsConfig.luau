@@ -72,6 +72,17 @@ AnalyticsConfig.Transactions = {
 	PremiumBonus = "TimedReward",
 } :: { [string]: string }
 
+-- A reason "<Family><id>" pays one of many rewards the game's config lists: a milestone of the level road
+-- ("Milestone45", HonoursService), a plate of the Ex-libris ("ExLibrisBreath4", HonoursService), a grade of a
+-- Lectern drill ("DrillBrandFairCopy", DrillService). The family says the transaction type and the whole reason is
+-- the item, so each milestone, plate and grade is read apart. The drills teach the kit, the first minutes' lesson:
+-- Onboarding.
+AnalyticsConfig.FamilyTransactions = {
+	Milestone = "Gameplay",
+	ExLibris = "Gameplay",
+	Drill = "Onboarding",
+} :: { [string]: string }
+
 -- A reason "<Kind>:<item>" (and anything after) names what was bought, and its item is that key: a Robux product
 -- ("Product:FolioSmall", or the Folios paid for what one could no longer deliver, "Product:TierSkip5:Compensation")
 -- or an article of the shop ("Shop:<cosmetic id>", bought, or paid back when it could not be granted).
@@ -97,6 +108,11 @@ function AnalyticsConfig.economyOf(reason: string): (string, string, boolean)
 	if transaction ~= nil then
 		return transaction, reason, true
 	end
+	for family, filed in pairs(AnalyticsConfig.FamilyTransactions) do
+		if #reason > #family and string.sub(reason, 1, #family) == family then
+			return filed, reason, true
+		end
+	end
 	return AnalyticsConfig.FallbackTransaction, reason, false
 end
 
@@ -113,8 +129,10 @@ AnalyticsConfig.Vocabulary = {
 	MatchOutcome = { "Win", "Loss", "Draw" },
 	-- A glyph's side of a match: it won, or it did not (a draw is not a win).
 	GlyphOutcome = { "Win", "Loss" },
-	-- Why a match ended with no result: every participant left, the server closed, or its mode could not say.
-	VoidCause = { "Empty", "Closing", "Error" },
+	-- Why a match ended with no result: every participant left, the server closed, its mode could not say, the
+	-- server cancelled it when its tick kept failing (MatchService.cancel, D-220), or a side walked out before it
+	-- was really played (the void forfeit, D-255).
+	VoidCause = { "Empty", "Closing", "Error", "Cancelled", "Unplayed" },
 	BossKind = { "Event", "Practice" },
 	BossOutcome = { "Defeated", "Expired" },
 } :: { [string]: { string } }

@@ -428,6 +428,13 @@ local function matchWorld(): MatchWorld
 				context.resets[player] = (context.resets[player] or 0) + 1
 			end,
 		},
+		-- How each match ended, for the dashboards (D-259): nothing here reads it.
+		Analytics = {
+			fields = function(): { [string]: string }
+				return {}
+			end,
+			custom = function() end,
+		},
 	}
 	local MatchService = world.require("src/server/Services/MatchService")
 	context = {

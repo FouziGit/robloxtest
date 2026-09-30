@@ -547,6 +547,11 @@ local function cancel(active: Active)
 	local ended = active.Finished
 	local key = if ended then "match.returning" else "match.cancelled"
 	local kind: NotifyKind = if ended then "Info" else "Error"
+	-- A match that reached its result told the dashboards how it ended (MatchEnded, or MatchVoided when its mode
+	-- could not say): only one cancelled before it is told here, while its players are still in it.
+	if not ended and active.Match.Phase ~= "Result" then
+		log.try("MatchVoided " .. active.Match.Id, voided, active, "Cancelled")
+	end
 	log.try("finish " .. active.Match.Id, finish, active, true)
 	active.Finished = true
 	for _, participant in ipairs(active.Match.Participants) do
@@ -690,7 +695,7 @@ end
 -- Ends a void match with no result. Whoever walked out has paid the forfeit all the same: their session ended with
 -- the same grace this verdict waited for, in this frame at the latest, and settle debited it then. Whoever stayed is
 -- let go at once, told why, and gets no rating, reward, quest or stat. An alt that leaves on the countdown earns its
--- main nothing.
+-- main nothing. The dashboards hear of it as a match voided Unplayed.
 local function voidMatch(active: Active)
 	log.info(
 		"match %s void: a side left after %.1f s of play and %.0f damage exchanged",
@@ -698,6 +703,7 @@ local function voidMatch(active: Active)
 		playedSeconds(active),
 		damageExchanged(active)
 	)
+	voided(active, "Unplayed")
 	for _, participant in ipairs(active.Match.Participants) do
 		if isLive(participant) then
 			movement.clearStun(participant.Player)

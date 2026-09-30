@@ -12,8 +12,11 @@ local AnalyticsConfig = require("../src/server/Config/AnalyticsConfig")
 local BotConfig = require("../src/shared/Config/BotConfig")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
 local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
+local DrillConfig = require("../src/shared/Config/DrillConfig")
+local ExLibrisConfig = require("../src/shared/Config/ExLibrisConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local LevelRoad = require("../src/shared/Pure/LevelRoad")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Server = require("./server")
@@ -59,6 +62,35 @@ local function botReasons(): { string }
 	return reasons
 end
 
+-- The reasons of a family (AnalyticsConfig.FamilyTransactions): one per milestone of the level road, per plate of the
+-- Ex-libris, per grade of each Lectern drill, as HonoursService and DrillService build them.
+local function milestoneReasons(): { string }
+	local reasons: { string } = {}
+	for _, milestone in ipairs(ProgressionConfig.Milestones) do
+		table.insert(reasons, "Milestone" .. LevelRoad.milestoneKey(milestone.Level))
+	end
+	return reasons
+end
+
+local function plateReasons(): { string }
+	local reasons: { string } = {}
+	for _, plate in ipairs(ExLibrisConfig.Plates) do
+		table.insert(reasons, "ExLibris" .. plate.Id)
+	end
+	return reasons
+end
+
+local function drillReasons(): { string }
+	local catalog = Server.world().require("src/shared/DrillCatalog")
+	local reasons: { string } = {}
+	for _, drill in ipairs(catalog.List) do
+		for _, grade in ipairs(DrillConfig.Grades) do
+			table.insert(reasons, "Drill" .. drill.Id .. grade.Id)
+		end
+	end
+	return reasons
+end
+
 local SERVICES = "src/server/Services/"
 
 -- Written as each call is written: a new call that moves Folios fails the count below until it is listed here,
@@ -89,14 +121,8 @@ local SITES: { Site } = {
 		Reasons = { "Battlepass" },
 	},
 	{
-		File = "CombatService",
-		Call = '(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")',
-		Flow = "Source",
-		Reasons = { "PlayerKill" },
-	},
-	{
 		File = "EnemyService",
-		Call = '(killer, ProgressionConfig.Folios.DummyKill, "DummyKill")',
+		Call = '(killer, pay.Folios, "DummyKill")',
 		Flow = "Source",
 		Reasons = { "DummyKill" },
 	},
@@ -117,6 +143,31 @@ local SITES: { Site } = {
 		Call = "(player, folios, reason)",
 		Flow = "Source",
 		Reasons = { "MatchWin", "MatchLoss", "MatchDraw" },
+	},
+	-- A match kill's Folios, under the day's cap like the result (D-255).
+	{
+		File = "MatchService",
+		Call = '(killer, folios, "PlayerKill")',
+		Flow = "Source",
+		Reasons = { "PlayerKill" },
+	},
+	{
+		File = "HonoursService",
+		Call = '(player, step.Folios, "Milestone" .. step.Id)',
+		Flow = "Source",
+		Reasons = milestoneReasons(),
+	},
+	{
+		File = "HonoursService",
+		Call = '(player, plate.Folios, "ExLibris" .. plate.Id)',
+		Flow = "Source",
+		Reasons = plateReasons(),
+	},
+	{
+		File = "DrillService",
+		Call = "(player, def.Folios, reason)",
+		Flow = "Source",
+		Reasons = drillReasons(),
 	},
 	{
 		File = "WorldBossService/Rewards",
@@ -332,6 +383,29 @@ describe("every call that moves Folios (E8-S1)", function()
 				error(reason .. " is filed in AnalyticsConfig.Transactions and no call hands it over")
 			end
 		end
+		for family in pairs(AnalyticsConfig.FamilyTransactions) do
+			local used = false
+			for reason in pairs(handed) do
+				if reason:sub(1, #family) == family and AnalyticsConfig.Transactions[reason] == nil then
+					used = true
+				end
+			end
+			if not used then
+				error(family .. " is a family of AnalyticsConfig.FamilyTransactions and no call hands one over")
+			end
+		end
+	end)
+
+	it("files a reason of a family under its family, with the whole reason as its item", function()
+		expect({ AnalyticsConfig.economyOf("Milestone45") }).toEqual({ "Gameplay", "Milestone45", true })
+		expect({ AnalyticsConfig.economyOf("ExLibrisBreath4") }).toEqual({ "Gameplay", "ExLibrisBreath4", true })
+		expect({ AnalyticsConfig.economyOf("DrillKitStringDraft") }).toEqual({
+			"Onboarding",
+			"DrillKitStringDraft",
+			true,
+		})
+		-- The family's name alone is no reward of it.
+		expect(select(3, AnalyticsConfig.economyOf("Drill"))).toBe(false)
 	end)
 end)
 

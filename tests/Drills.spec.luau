@@ -679,9 +679,10 @@ describe("the events a drill reads", function()
 	end)
 
 	it("Damaged, Dashed, Cast and CastLanded carry what the drills count", function()
+		-- The glyph id after the four the drills read is the glyph balance's (GlyphMatch, D-260).
 		expect(
 			functionIn(COMBAT, "function CombatService.ApplyDamage("):find(
-				"CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)",
+				'CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind, if kind == "Glyph" then tags[1] else nil)',
 				1,
 				true
 			)

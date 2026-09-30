@@ -342,8 +342,8 @@ Strings.Table = {
 		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folios",
 	},
 	["daily.premium"] = {
-		en = "Premium bonus: +{xp} XP, +{folios} Folios",
-		fr = "Bonus Premium : +{xp} XP, +{folios} Folios",
+		en = "Premium bonus: +{folios} Folios and double XP for {minutes} min",
+		fr = "Bonus Premium : +{folios} Folios et XP doublée pendant {minutes} min",
 	},
 
 	["cosmetic.SkinWashJade"] = { en = "Deep Wash Skin", fr = "Skin Lavis Profond" },

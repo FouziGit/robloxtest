@@ -28,7 +28,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
 
-VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios / jour via le bonus dédié.
+VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
@@ -99,7 +99,7 @@ Le Casier (onglet de la Boutique) ne vend rien : il montre ce que le joueur poss
 
 ## 6. Premium Payouts
 
-Les abonnés Roblox Premium génèrent des payouts proportionnels au temps passé. Leviers : bonus quotidien Premium (150 Folios + 30 min de boost d'XP), file prioritaire visuelle (badge), quêtes hebdomadaires bonus. Aucune exclusivité de gameplay.
+Les abonnés Roblox Premium génèrent des payouts proportionnels au temps passé. Levier : le bonus quotidien Premium, 150 Folios et 30 min d'XP doublée (`DailyConfig.PremiumBonus`), une fois par jour UTC, versé au chargement du profil et dès qu'un joueur devient Premium en cours de session (`PlayerMembershipChanged`). Ni badge de file ni quêtes hebdomadaires bonus (D-204). Aucune exclusivité de gameplay.
 
 ## 7. Idempotence et sécurité des achats
 

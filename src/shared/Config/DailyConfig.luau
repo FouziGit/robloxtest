@@ -2,6 +2,7 @@
 -- Daily login streak, first win of the day, Premium bonus. Pure data.
 
 export type StreakReward = { Folios: number, Xp: number }
+export type PremiumBonus = { Folios: number, BoostMinutes: number }
 
 local DailyConfig = {}
 
@@ -16,7 +17,7 @@ DailyConfig.Streak = {
 	{ Folios = 300, Xp = 600 },
 } :: { StreakReward }
 
--- Bonus for Roblox Premium members, once per day.
-DailyConfig.PremiumBonus = { Folios = 150, Xp = 300 }
+-- Bonus for Roblox Premium members, once per UTC day: Folios and a timed double-XP boost (docs/ECONOMY.md §6).
+DailyConfig.PremiumBonus = { Folios = 150, BoostMinutes = 30 } :: PremiumBonus
 
 return DailyConfig

@@ -4,8 +4,10 @@
 --
 -- Nothing is auto-claimed: the streak is evaluated when the profile loads and the section is
 -- replicated so the client can offer the claim; only ClaimDaily pays it. The Premium bonus is the one
--- exception, because the player does nothing to earn it.
+-- exception, because the player does nothing to earn it: it is paid when the profile loads, and when a
+-- player becomes Premium during the session (PlayerMembershipChanged), once per UTC day either way.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -31,6 +33,8 @@ type NotifyApi = {
 }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> number }
 type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> number }
+-- The single writer of ProfileData.Boosts (D-30): it extends a live boost instead of shortening it.
+type BattlepassApi = { grantXpBoost: (player: Player, minutes: number) -> boolean }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type Deps = {
 	Registry: Registry,
@@ -38,6 +42,7 @@ type Deps = {
 	Notify: NotifyApi,
 	Progression: ProgressionApi,
 	Currency: CurrencyApi,
+	Battlepass: BattlepassApi,
 }
 
 local STREAK_LENGTH = #DailyConfig.Streak
@@ -52,6 +57,7 @@ local dataService: DataApi
 local notify: NotifyApi
 local progression: ProgressionApi
 local currency: CurrencyApi
+local battlepass: BattlepassApi
 
 -- Claims today's streak reward. The section is replicated on every path, including a refusal, so the
 -- client never stays pending. Returns true when a reward was granted.
@@ -110,10 +116,15 @@ function DailyRewardService.grantPremiumBonus(player: Player): boolean
 	end
 	dataService.push(player, "Daily")
 	local folios = currency.add(player, PREMIUM_BONUS.Folios, "PremiumBonus")
-	local xp = progression.addXp(player, PREMIUM_BONUS.Xp, "PremiumBonus")
-	notify.send(player, "daily.premium", { xp = xp, folios = folios }, "Success", "Claim")
-	log.info("%s took the Premium bonus (+%d XP, +%d Folios)", player.Name, xp, folios)
+	local minutes = PREMIUM_BONUS.BoostMinutes
+	log.succeeded("grantXpBoost", battlepass.grantXpBoost, player, minutes)
+	notify.send(player, "daily.premium", { folios = folios, minutes = minutes }, "Success", "Claim")
+	log.info("%s took the Premium bonus (+%d Folios, %d min XP boost)", player.Name, folios, minutes)
 	return true
+end
+
+local function isPremium(player: Player): boolean
+	return player.MembershipType == Enum.MembershipType.Premium
 end
 
 local function onProfileLoaded(player: Player, data: ProfileData)
@@ -123,7 +134,15 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	if evaluation.Broken then
 		notify.send(player, "daily.broken", nil, "Info")
 	end
-	if player.MembershipType == Enum.MembershipType.Premium then
+	if isPremium(player) then
+		DailyRewardService.grantPremiumBonus(player)
+	end
+end
+
+-- A player who subscribes during the session gets today's bonus at once, not at the next join. Before the
+-- profile has loaded there is nothing to pay into, and onProfileLoaded pays it then.
+local function onMembershipChanged(player: Player)
+	if isPremium(player) and dataService.get(player) ~= nil then
 		DailyRewardService.grantPremiumBonus(player)
 	end
 end
@@ -134,10 +153,12 @@ function DailyRewardService.Init(deps: Deps)
 	notify = deps.Notify
 	progression = deps.Progression
 	currency = deps.Currency
+	battlepass = deps.Battlepass
 end
 
 function DailyRewardService.Start()
 	dataService.ProfileLoaded:Connect(onProfileLoaded)
+	Players.PlayerMembershipChanged:Connect(onMembershipChanged)
 	registry.on("ClaimDaily", function(player: Player)
 		DailyRewardService.claim(player)
 	end)

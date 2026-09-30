@@ -134,7 +134,7 @@ daily.claim,Claim,Vellum,,Claim,Réclamer
 daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
 daily.day,Day {day},Vellum,,Day {day},Jour {day}
 daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
-daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
+daily.premium,Premium bonus: +{folios} Folios and double XP for {minutes} min,Vellum,,Premium bonus: +{folios} Folios and double XP for {minutes} min,Bonus Premium : +{folios} Folios et XP doublée pendant {minutes} min
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}

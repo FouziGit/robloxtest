@@ -4,8 +4,9 @@
 -- `MatchService.luau:616-636` in the middle of a release landed on whatever sits there now. A reference gives the
 -- file and the function or the constant; a name survives the commits that move it.
 --
--- The rules: no line number on a reference to a code file, bare (`File.luau:42`) or trailing (`:42`); and every code
--- file a reference names exists, once, in the repository, so a rename shows up here instead of in a release.
+-- The rules: no line number on a reference to a code file, bare (`File.luau:42`) or trailing (`:42`), in backticks
+-- or not, or as a link's anchor (`File.luau#L42`); and every code file a reference names exists, once, in the
+-- repository, so a rename shows up here instead of in a release.
 local Harness = require("./harness")
 local fs = require("@lune/fs")
 
@@ -43,13 +44,19 @@ local function repositoryFiles(): { string }
 	return files
 end
 
--- Every backticked span of `text` that refers to a line: a code file with a line number, or a lone `:42`.
+-- Every reference of `text` to a line of a code file, backticked or not, alone or followed by words, or as the anchor
+-- of a link (`File.luau#L42`); and every lone backticked `:42`.
 local function lineReferences(text: string): { string }
 	local found: { string } = {}
-	for span in text:gmatch("`([^`\n]+)`") do
+	for reference in text:gmatch("[%w_%.%-/]+[:#]L?%d[%d,%-]*") do
 		-- A document with a line number (`docs/PERFORMANCE.md:98`) is not code: its sections are its names.
-		local path = span:match("^([^%s]+):%d[%d,%-]*$")
-		if (path ~= nil and isCode(path)) or span:match("^:%d[%d,%-]*$") ~= nil then
+		local path = reference:match("^(.-)[:#]L?%d")
+		if path ~= nil and isCode(path) then
+			table.insert(found, reference)
+		end
+	end
+	for span in text:gmatch("`([^`\n]+)`") do
+		if span:match("^:%d[%d,%-]*$") ~= nil then
 			table.insert(found, span)
 		end
 	end
@@ -119,6 +126,15 @@ describe("the references of the release documents (E2-S5)", function()
 			":73",
 		})
 		expect(lineReferences("(`allowDamage`, `MatchService.luau`) and `docs/PERFORMANCE.md:98`")).toEqual({})
+		-- Out of backticks, followed by the name it should have been, or as a link: still a line.
+		expect(lineReferences("voir MatchService.luau:616 et `GameConfig.luau:6 (Version)`")).toEqual({
+			"MatchService.luau:616",
+			"GameConfig.luau:6",
+		})
+		expect(lineReferences("[allowDamage](../src/server/Services/MatchService.luau#L616)")).toEqual({
+			"../src/server/Services/MatchService.luau#L616",
+		})
+		expect(lineReferences("http://localhost:8080 à 12:30, `luau-lsp@1.69.0`, `docs/QA.md#L3`")).toEqual({})
 		expect(codeFiles("(`./scripts/check.sh`, `GameConfig.Version`, `build/Vellum.rbxl`)")).toEqual({
 			"scripts/check.sh",
 		})

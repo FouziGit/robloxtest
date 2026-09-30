@@ -52,6 +52,10 @@ local STROKED_COMPONENTS = {
 	"LockMarker",
 	"SpectatePlate",
 	"CircleButton",
+	"RarityBand",
+	"Shimmer",
+	"Standings",
+	"ItemPreview",
 }
 local BODY_CONTRAST = 4.5
 

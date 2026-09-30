@@ -7,12 +7,12 @@
 -- impossible. It is NOT free: the Robux are debited when the player confirms the dialog, and
 -- NotProcessedYet only leaves the transaction pending, with Roblox re-delivering the receipt. A path
 -- that can never succeed therefore loops for ever on a purchase the player already paid for, so every
--- refusal here must be a transient failure and never a permanent one. Three consequences enforced below:
--- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Folios
--- compensation); a tier skip pays every tier past the last one in Folios (CompensationFolios, D-202), so
--- a pass that reached the last tier while the dialog was open still settles its receipt, and a Premium
--- Pass that lands on a player who already has the track is paid the same way; and
--- PurchaseGranted is only returned once DataService.saveNow confirms the write.
+-- refusal here must be a transient failure and never a permanent one. Two consequences enforced below.
+-- What a receipt can no longer deliver is paid in Folios instead of refused (D-202): a cosmetic of a
+-- rarity the player owns entirely, at its shop price (after ShopService.resolveReceiptItem found nothing);
+-- a tier past the last one, which the pass may have reached while the dialog was open; a Premium Pass for a
+-- player who already has the track (both at the product's CompensationFolios). And PurchaseGranted is
+-- only returned once DataService.saveNow confirms the write.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -77,9 +77,8 @@ end
 
 -- Pays `units` units of `productKey` that its receipt can no longer deliver, at the product's
 -- CompensationFolios each (D-202). Returns the Folios credited, 0 when nothing could be paid.
-local function compensate(player: Player, productKey: string, units: number): number
-	local def = MonetizationConfig.Products[productKey]
-	local rate = if def ~= nil then def.CompensationFolios else nil
+local function compensate(player: Player, productKey: string, def: MonetizationConfig.ProductDef, units: number): number
+	local rate = def.CompensationFolios
 	if rate == nil or rate <= 0 then
 		log.error("product %s has no CompensationFolios for %d undeliverable unit(s)", productKey, units)
 		return 0
@@ -163,7 +162,7 @@ local function grantProduct(
 			-- Purchases refuses the dialog to a Premium player, but a receipt can still land on one: a second
 			-- dialog confirmed before the first receipt arrived, or a receipt delivered late. The track cannot
 			-- be given twice, so the pass is paid in Folios (D-202).
-			local credited = compensate(player, productKey, 1)
+			local credited = compensate(player, productKey, def, 1)
 			if credited <= 0 then
 				return false
 			end
@@ -193,7 +192,7 @@ local function grantProduct(
 		local owed = tiers - tiersGranted
 		local credited = 0
 		if owed > 0 then
-			credited = compensate(player, productKey, owed)
+			credited = compensate(player, productKey, def, owed)
 			if credited <= 0 then
 				return false
 			end

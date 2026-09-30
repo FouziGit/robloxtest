@@ -15,7 +15,8 @@ export type ProductDef = {
 	-- Folios paid for each unit a receipt can no longer deliver when it lands (a tier past the last one, for a
 	-- TierSkip; the pass itself, for a PremiumPass the player already has): the Robux are already taken, so
 	-- the receipt is settled in Folios rather than refused (D-202).
-	-- At least what the same Robux buy in FolioSmall, the dearest rate (tests/Receipts.spec.luau).
+	-- Worth at least what the same Robux buy in FolioSmall, the pack with the fewest Folios per Robux
+	-- (tests/Receipts.spec.luau).
 	CompensationFolios: number?,
 	NameKey: string,
 	DescKey: string,

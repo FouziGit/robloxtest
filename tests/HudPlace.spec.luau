@@ -198,6 +198,28 @@ describe("the HUD in the scheduled Erasure, run", function()
 		fixture.world.player.CharacterAdded:Fire(Engine.instance("Model"))
 		expect(inHub(fixture)).toBe(true)
 	end)
+
+	-- The event pulls in the Battleground's members too (D-131), and the Battleground lets them go on its next
+	-- tick, after the pull: TravelController fought throughout, so no FightChanged came, and the Battleground's
+	-- way out took the HUD home in the middle of the Erasure's fight.
+	it("keeps fighting when the event pulls in a Battleground member and the Battleground lets go after", function()
+		local fixture = setup()
+		fixture.remote("Travelled", "Battleground")
+		fixture.remote("BattlegroundChanged", { Standing = 3, Defeated = 0 })
+		fixture.remote("BossChanged", erasure("Announced", false))
+		fixture.remote("BossChanged", erasure("Fighting", false))
+		fixture.remote("BattlegroundChanged", nil)
+		expect(fixture.travel.inFight()).toBe(true)
+		expect(inHub(fixture)).toBe(false)
+		-- In the Erasure's arena now: its end is the way home.
+		fixture.remote("BossChanged", nil)
+		expect(inHub(fixture)).toBe(true)
+		-- A member let go by the Battleground with no Erasure fighting is home at once.
+		fixture.remote("Travelled", "Battleground")
+		fixture.remote("BattlegroundChanged", { Standing = 3, Defeated = 0 })
+		fixture.remote("BattlegroundChanged", nil)
+		expect(inHub(fixture)).toBe(true)
+	end)
 end)
 
 describe("a success in a fight, run", function()

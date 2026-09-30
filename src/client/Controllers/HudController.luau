@@ -968,10 +968,14 @@ end
 -- Battleground's membership ended (BattlegroundChanged nil), the Erasure's fight ended and sent everyone in it
 -- home (BossChanged nil), or a body that died in the Erasure's arena came back at the hub's spawn. The hub
 -- again -- unless a portal has since put them in the other arena. Without it the hub stayed in fight mode
--- until the next portal: no level, no Folios, no shortcuts, and every reward held.
+-- until the next portal: no level, no Folios, no shortcuts, and every reward held. And unless the scheduled
+-- Erasure pulled a Battleground member in (D-131): the Battleground lets them go on its next tick, after the
+-- pull, and TravelController, which fought throughout, says no FightChanged. Only the Battleground's way out
+-- asks it: TravelController has heard its own letting go before it calls here, while the Erasure's end and a
+-- new body may reach this before they reach it.
 function HudController.leftPlace(zoneId: string)
 	if arenaZone == zoneId then
-		place(nil)
+		place(if zoneId ~= ERASURE_ZONE and travelController.inFight() then ERASURE_ZONE else nil)
 	end
 end
 

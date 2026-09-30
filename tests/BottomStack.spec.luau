@@ -8,6 +8,7 @@
 -- included: the dock's plate hid its words on a phone, the hotbar's slots with a pointer.
 local Engine = require("./engine")
 local Harness = require("./harness")
+local Layout = require("./layout")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
@@ -333,6 +334,46 @@ describe("a cooling slot, run", function()
 		-- Ready: gone.
 		hotbar:SetState({ Ink = 100, Cooldowns = {} })
 		expect(seconds.Visible).toBe(false)
+	end)
+end)
+
+describe("a slot ready again, run", function()
+	it("flashes from the slot's centre, and leaves the bar its widths once the flash has faded", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Hotbar = world.require("src/ui/components/Hotbar")
+		local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+		local gui = Engine.instance("ScreenGui", world.playerGui)
+		local hotbar = Hotbar.new({
+			Parent = gui,
+			Mode = "Slots",
+			Localize = {
+				t = function(key: string, params: { [string]: any }?): string
+					return Strings.t(key, params, "en")
+				end,
+			},
+			LayoutOrder = 1,
+		})
+		hotbar:SetLoadout({ "Brand", "Wash" })
+		local def = GlyphConfig.byId("Brand")
+		local column = hotbar.Instance:FindFirstChild("Slot1")
+		local flash = column:FindFirstChild("Square"):FindFirstChild("Ready")
+		assert(flash ~= nil, "the slot has no ready flash: this gate would check nothing")
+		-- The slot sizes itself to its keys: whatever it holds grows it, unless it is centred.
+		expect(column.AutomaticSize.Name).toBe("X")
+		hotbar:SetState({ Ink = 100, Cooldowns = { Brand = def.Cooldown / 2 } })
+		world:advance(1)
+		hotbar:SetState({ Ink = 100, Cooldowns = {} })
+		world:advance(2)
+		-- The flash has run: faded, grown past the slot, and grown about the slot's centre.
+		expect(flash.ImageTransparency).toBeCloseTo(1, 2)
+		expect(flash:FindFirstChildOfClass("UIScale").Scale).toBeGreaterThan(1)
+		expect(flash.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+		expect(flash.Position).toBe(roblox.UDim2.fromScale(0.5, 0.5))
+		-- Seen in Studio: grown from its corner, it kept the slot 78.4 wide, and the bar's gaps uneven.
+		local found = Layout.scaledContents(gui)
+		if #found > 0 then
+			error(table.concat(found, "\n"))
+		end
 	end)
 end)
 

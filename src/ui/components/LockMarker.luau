@@ -115,9 +115,19 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	plateBoard.ResetOnSpawn = false
 	plateBoard.Enabled = false
 	plateBoard.Parent = parent
-	local plate = blank("Plate", plateBoard)
-	plate.AnchorPoint = Vector2.new(0.5, 1)
-	plate.Position = UDim2.new(0.5, 0, 0.5, -(size / 2 + PLATE_GAP))
+	-- The pill is laid out centred on a line the billboard's width, not placed at its middle: a billboard sizes
+	-- a pill around words it may cut against the room right of where the pill is placed, and placed at the middle
+	-- of its 180 it cut "Training dummy · 150" to "Training…" (seen in Studio).
+	local line = blank("Line", plateBoard)
+	line.AnchorPoint = Vector2.new(0.5, 1)
+	line.Position = UDim2.new(0.5, 0, 0.5, -(size / 2 + PLATE_GAP))
+	line.Size = UDim2.new(1, 0, 0, PLATE_HEIGHT)
+	local centre = Instance.new("UIListLayout")
+	centre.FillDirection = Enum.FillDirection.Horizontal
+	centre.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	centre.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	centre.Parent = line
+	local plate = blank("Plate", line)
 	plate.Size = UDim2.fromOffset(0, PLATE_HEIGHT)
 	plate.AutomaticSize = Enum.AutomaticSize.X
 	plate.BackgroundColor3 = Theme.Colors.Plate

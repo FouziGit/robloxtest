@@ -19,6 +19,16 @@
 --                    then adds its own padding on that axis outside it: a badge's disc of least 32, padded 8 either
 --                    side, drew a lone figure as a pill of 48 (seen in Studio, Encre vive pass). A touch floor
 --                    (Theme.minPixelSize, "TouchFloor") is exempt: padding outside it only makes a larger target.
+--   Scaled contents  A frame that sizes itself on an axis grows to hold a descendant a UIScale draws larger from
+--                    its top-left corner (AnchorPoint 0, 0): a hotbar slot 56 wide stayed 78.4 wide after
+--                    its ready flash, scaled to 1.4 from its corner, had faded (seen in Studio). Measured there too:
+--                    the same flash anchored at its centre, or a badge anchored at its host's right edge or astride
+--                    its corner, leaves the frame its size. Checked on the scales at rest.
+--   Billboard words  In a BillboardGui, a label that sizes itself and may truncate measures its words against the
+--                    room right of where the outermost frame sizing itself around it is placed, not the room its
+--                    AnchorPoint centres it in: the lock's pill, placed at the middle of its 180-wide billboard, cut
+--                    "Training dummy · 150" to "Training…" in 50 (seen in Studio). Laid out by a list, it has the
+--                    list's room.
 local Measure = require("./measure")
 
 local Layout = {}
@@ -220,6 +230,74 @@ function Layout.leastSizes(root: any): { string }
 	return found
 end
 
+-- A scale resting above 1 under a frame that sizes itself, on something drawn from its top-left corner.
+function Layout.scaledContents(root: any): { string }
+	local found: { string } = {}
+	for _, scale in ipairs(root:GetDescendants()) do
+		local object = scale.Parent
+		if scale.ClassName == "UIScale" and scale.Scale > 1.001 and object ~= nil and object:IsA("GuiObject") then
+			for _, axis in ipairs(AXES) do
+				local ancestor = object.Parent
+				local sizing = nil
+				while ancestor ~= nil and ancestor:IsA("GuiObject") do
+					if autoOn(ancestor, axis) then
+						sizing = ancestor
+						break
+					end
+					ancestor = ancestor.Parent
+				end
+				if sizing ~= nil and object.AnchorPoint.X == 0 and object.AnchorPoint.Y == 0 then
+					table.insert(
+						found,
+						("%s rests at a scale of %.2f from its corner, and %s grows on %s to hold it"):format(
+							object:GetFullName(),
+							scale.Scale,
+							sizing:GetFullName(),
+							axis
+						)
+					)
+				end
+			end
+		end
+	end
+	return found
+end
+
+local function laidOut(parent: any): boolean
+	return parent ~= nil
+		and (parent:FindFirstChildOfClass("UIListLayout") ~= nil or parent:FindFirstChildOfClass("UIGridLayout") ~= nil)
+end
+
+function Layout.billboardWords(root: any): { string }
+	local found: { string } = {}
+	for _, label in ipairs(root:GetDescendants()) do
+		local truncate = label.TextTruncate
+		if
+			(label:IsA("TextLabel") or label:IsA("TextButton"))
+			and truncate ~= nil
+			and truncate.Name ~= "None"
+			and autoOn(label, "X")
+			and label:FindFirstAncestorWhichIsA("BillboardGui") ~= nil
+		then
+			local top = label
+			while top.Parent ~= nil and top.Parent:IsA("GuiObject") and autoOn(top.Parent, "X") do
+				top = top.Parent
+			end
+			local positioned = top.AnchorPoint.X ~= 0 or top.Position.X.Scale ~= 0 or top.Position.X.Offset ~= 0
+			if not laidOut(top.Parent) and positioned then
+				table.insert(
+					found,
+					("%s may cut its words against the room right of where %s is placed in its billboard"):format(
+						label:GetFullName(),
+						top:GetFullName()
+					)
+				)
+			end
+		end
+	end
+	return found
+end
+
 -- Every rule, on `root`.
 function Layout.check(root: any, screenHeight: number): { string }
 	local found = Layout.automaticSizes(root)
@@ -227,6 +305,12 @@ function Layout.check(root: any, screenHeight: number): { string }
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.leastSizes(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.scaledContents(root)) do
+		table.insert(found, line)
+	end
+	for _, line in ipairs(Layout.billboardWords(root)) do
 		table.insert(found, line)
 	end
 	for _, line in ipairs(Layout.truncation(root, screenHeight)) do

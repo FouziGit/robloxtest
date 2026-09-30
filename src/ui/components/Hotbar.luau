@@ -191,6 +191,10 @@ local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.ne
 		image.Image = id
 		image.ImageColor3 = Theme.Colors.PanelRaised
 		image.ImageTransparency = 1
+		-- Grown from the slot's centre, not its corner: scaled from its corner, it rose off-centre and the slot,
+		-- which sizes itself, grew to hold it and stayed 1.4 wide after it had faded (seen in Studio).
+		image.AnchorPoint = Vector2.new(0.5, 0.5)
+		image.Position = UDim2.fromScale(0.5, 0.5)
 		image.Size = UDim2.fromScale(1, 1)
 		image.ZIndex = 0
 		local imageScale = Instance.new("UIScale")

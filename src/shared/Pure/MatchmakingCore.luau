@@ -1,10 +1,21 @@
 --!strict
 -- In-server matchmaking queue with a rating window that widens while waiting.
 -- Pure module: no requires, no Roblox globals. Deterministic given the same inputs.
+--
+-- A newcomer (E10-S7, Pure/RankedGate) is held to NewcomerMaxWindow for the first NewcomerSeconds of their wait:
+-- their own window stops there, and nobody's wider window pairs them further -- every member of a match stands
+-- within the cap of every newcomer in it. Past those seconds they are paired like anybody.
 
-export type Entry = { UserId: number, Rating: number, JoinedAt: number }
+export type Entry = { UserId: number, Rating: number, JoinedAt: number, Newcomer: boolean? }
 export type Queue = { Mode: string, Entries: { Entry }, ById: { [number]: Entry } }
-export type Config = { BaseWindow: number, WindowGrowthPerSecond: number, MaxWindow: number, MaxQueueSeconds: number }
+export type Config = {
+	BaseWindow: number,
+	WindowGrowthPerSecond: number,
+	MaxWindow: number,
+	MaxQueueSeconds: number,
+	NewcomerMaxWindow: number?,
+	NewcomerSeconds: number?,
+}
 export type Match = { Teams: { { number } }, AverageRating: number }
 
 local MatchmakingCore = {}
@@ -26,7 +37,8 @@ function MatchmakingCore.enqueue(queue: Queue, entry: Entry): boolean
 	if queue.ById[entry.UserId] ~= nil then
 		return false
 	end
-	local copy: Entry = { UserId = entry.UserId, Rating = entry.Rating, JoinedAt = entry.JoinedAt }
+	local copy: Entry =
+		{ UserId = entry.UserId, Rating = entry.Rating, JoinedAt = entry.JoinedAt, Newcomer = entry.Newcomer }
 	table.insert(queue.Entries, copy)
 	queue.ById[entry.UserId] = copy
 	return true
@@ -45,10 +57,21 @@ function MatchmakingCore.dequeue(queue: Queue, userId: number): boolean
 	return true
 end
 
+-- The widest rating difference anybody may be paired with `entry` at: NewcomerMaxWindow while a newcomer is in
+-- their first NewcomerSeconds, and no limit otherwise.
+function MatchmakingCore.cap(entry: Entry, now: number, config: Config): number
+	local limit, seconds = config.NewcomerMaxWindow, config.NewcomerSeconds
+	if entry.Newcomer ~= true or limit == nil or seconds == nil or now - entry.JoinedAt >= seconds then
+		return math.huge
+	end
+	return limit
+end
+
 -- Accepted rating difference for an entry that has waited since JoinedAt.
 function MatchmakingCore.window(entry: Entry, now: number, config: Config): number
 	local waited = math.max(0, now - entry.JoinedAt)
-	return math.min(config.MaxWindow, config.BaseWindow + waited * config.WindowGrowthPerSecond)
+	local widened = math.min(config.MaxWindow, config.BaseWindow + waited * config.WindowGrowthPerSecond)
+	return math.min(widened, MatchmakingCore.cap(entry, now, config))
 end
 
 -- Removes and returns the user ids that waited longer than MaxQueueSeconds.
@@ -104,8 +127,21 @@ local function byWaitThenId(a: Entry, b: Entry): boolean
 	return a.UserId < b.UserId
 end
 
+-- Whether `entry` may join `members`: every pair it would make stays within the cap of either side (a newcomer's).
+local function fits(entry: Entry, members: { Entry }, now: number, config: Config): boolean
+	local own = MatchmakingCore.cap(entry, now, config)
+	for _, member in ipairs(members) do
+		local limit = math.min(own, MatchmakingCore.cap(member, now, config))
+		if math.abs(entry.Rating - member.Rating) > limit then
+			return false
+		end
+	end
+	return true
+end
+
 -- Forms as many matches as possible. The longest-waiting player anchors each match; candidates are
--- the entries within the wider of the two windows, closest ratings first. Matched entries are removed.
+-- the entries within the wider of the two windows, closest ratings first, each taken only if it stands within
+-- every newcomer's cap among those already taken. Matched entries are removed.
 function MatchmakingCore.findMatches(
 	queue: Queue,
 	teamSize: number,
@@ -149,8 +185,16 @@ function MatchmakingCore.findMatches(
 			return byWaitThenId(a, b)
 		end)
 		local members: { Entry } = { anchor }
-		for index = 1, needed - 1 do
-			table.insert(members, candidates[index])
+		for _, candidate in ipairs(candidates) do
+			if #members == needed then
+				break
+			end
+			if fits(candidate, members, now, config) then
+				table.insert(members, candidate)
+			end
+		end
+		if #members < needed then
+			continue
 		end
 		local total = 0
 		for _, member in ipairs(members) do

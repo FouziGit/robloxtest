@@ -189,7 +189,7 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 | Mode | Joueurs | Durée | Victoire | Récompenses |
 |---|---|---|---|---|
 | Hub | tous | libre | — | XP des mannequins, quêtes |
-| 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass |
+| 1v1 classé | 2 | 3 min, best-of-3 optionnel | KO adverse | XP, Folios, Elo, pass ; duel rapide non classé pour les nouveaux venus (E10-S7) |
 | 3v3 | 6 | 5 min | équipe adverse éliminée ou plus de KO | XP, Folios, Elo équipe, pass |
 | World Boss | serveur entier | événement toutes les 20 min | boss vaincu avant le timer | contribution aux dégâts → XP/Folios/pass |
 | Champ de bataille (D-131) | tous (12 max) | libre | — | XP/Folios par Faussaire vaincu (Folios plafonnés à 150/jour), quête `BotKill` |
@@ -199,6 +199,8 @@ Chaque interaction est un bonus plat et visible (VFX + texte flottant), jamais u
 Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D-130) : on se tient dans le cercle de craie sous le portique (1,5 s ; 2 s pour revenir), sans touche ni remote, et le serveur déplace. Au champ de bataille, PvE seulement : les Faussaires (Barbouilleur au corps à corps, Plume à distance, Surchargeur lourd — le joueur ne lit que « Faussaires ») annoncent chaque coup à l'encre au sol pendant toute sa préparation (D-133) ; trois pour un joueur, un de plus par joueur actif, dix au plus ; un camp à l'ouest où ils n'entrent pas, où l'on régénère et où l'on réapparaît, et d'où un coup ne compte pour rien (D-134). L'événement de l'Effacement y appelle les joueurs comme ailleurs.
 
 La **Page de garde** (E16-S2) est la mêlée libre du troisième portail, au centre des trois : chaque membre contre chaque autre, sans file ni rang. On arrive, et l'on revient 3 s après une mort, sur celui des six sceaux le plus loin des autres membres, protégé 4 s (un champ de force le montre ; ni coup reçu ni coup donné). Une victoire paie 60 XP et 5 Folios, plafonnés à 100 Folios par jour dans le profil ; plus rien n'est payé pour un rival qu'on a déjà vaincu trois fois dans les dix dernières minutes. Trois victoires sans mourir posent la **Manicule** au-dessus de la tête : la main qui pointe des marges, que tout le monde voit, jusqu'à la mort de celui qui la porte ; chacun apprend qui la porte et qui la fait tomber.
+
+Le **duel rapide** (E10-S7) : tant qu'un joueur n'a pas atteint le niveau 10 et joué 5 matchs, ses matchs sont non classés. Un match où joue un nouveau venu ne bouge le classement de personne et un abandon n'y coûte rien ; il est joué, compté et payé en entier. En file, un nouveau venu n'est apparié qu'à 300 de classement au plus de lui pendant ses 120 premières secondes d'attente. L'écran Jouer lui dit pourquoi et ce qui lui manque ; l'annonce du match donne le niveau et le rang de chaque adversaire.
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 

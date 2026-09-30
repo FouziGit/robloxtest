@@ -336,6 +336,8 @@ export type Services = {
 	places: { BossLive: boolean, Engaged: { [any]: boolean }, Inside: { [any]: boolean } },
 	-- Every Notify sent, as the player and the Strings key.
 	notices: { { Player: any, Key: string } },
+	-- Every remote the services fired at a player, in order: its name, the player and the payload.
+	fired: { { Name: string, Player: any, Payload: any } },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
 	cast: (player: any, glyphId: string) -> boolean,
 }
@@ -361,8 +363,11 @@ function Server.services(): Services
 	local shop = world.require("src/server/Services/ShopService")
 
 	local handlers: { [string]: (...any) -> () } = {}
+	local fired: { { Name: string, Player: any, Payload: any } } = {}
 	local registry = {
-		fire = function(_name: string, _player: any, _payload: any) end,
+		fire = function(name: string, player: any, payload: any)
+			table.insert(fired, { Name = name, Player = player, Payload = payload })
+		end,
 		on = function(name: string, handler: (...any) -> ())
 			handlers[name] = handler
 		end,
@@ -555,6 +560,7 @@ function Server.services(): Services
 		handlers = handlers,
 		places = places,
 		notices = notices,
+		fired = fired,
 		cast = cast,
 	}
 end

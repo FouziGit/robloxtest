@@ -13,6 +13,9 @@
 -- Nothing pauses the queues: a match formed while the Erasure's event runs keeps its participant PvP, because
 -- every place owns its own damage rule now (CombatService.claimZone, E16-S1), and a participant the event had
 -- engaged is let go the moment the match takes them (WorldBossService's Audience).
+--
+-- A newcomer (RankingService.isNewcomer, MatchConfig.Newcomer) queues flagged as one: MatchmakingCore holds them to
+-- the newcomer's window for their first seconds, and MatchService plays their match unranked (E10-S7).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,7 +39,10 @@ type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
 	fire: (name: string, player: Player, ...any) -> (),
 }
-type RankingApi = { getRating: (player: Player, modeId: string) -> number }
+type RankingApi = {
+	getRating: (player: Player, modeId: string) -> number,
+	isNewcomer: (player: Player) -> boolean,
+}
 type MatchApi = {
 	isInMatch: (player: Player) -> boolean,
 	isFinishing: (player: Player) -> boolean,
@@ -50,8 +56,15 @@ type Deps = {
 	Match: MatchApi,
 }
 
--- MatchmakingCore.Config: the widening window and the maximum wait.
-local WINDOW = MatchConfig.Matchmaking
+-- MatchmakingCore.Config: the widening window, the maximum wait, and a newcomer's cap and how long it holds.
+local WINDOW: MatchmakingCore.Config = {
+	BaseWindow = MatchConfig.Matchmaking.BaseWindow,
+	WindowGrowthPerSecond = MatchConfig.Matchmaking.WindowGrowthPerSecond,
+	MaxWindow = MatchConfig.Matchmaking.MaxWindow,
+	MaxQueueSeconds = MatchConfig.Matchmaking.MaxQueueSeconds,
+	NewcomerMaxWindow = MatchConfig.Newcomer.MaxWindow,
+	NewcomerSeconds = MatchConfig.Newcomer.WindowSeconds,
+}
 local TICK_SECONDS = MatchConfig.Matchmaking.TickSeconds
 
 local MatchmakingService = {}
@@ -92,6 +105,16 @@ local function ratingOf(player: Player, modeId: string): number
 	end
 	log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
 	return RankingConfig.InitialRating
+end
+
+-- Whether `player` still plays the quick duel, as RankingService says: a newcomer while it cannot tell.
+local function isNewcomer(player: Player): boolean
+	local ok, newcomer = pcall(ranking.isNewcomer, player)
+	if ok and type(newcomer) == "boolean" then
+		return newcomer
+	end
+	log.warn("isNewcomer failed for %s: %s", player.Name, tostring(newcomer))
+	return true
 end
 
 local function snapshotFor(userId: number, now: number): Types.QueueSnapshot
@@ -168,7 +191,8 @@ local function onJoinQueue(player: Player, modeId: string)
 		return
 	end
 	local rating = ratingOf(player, modeId)
-	if not MatchmakingCore.enqueue(queue, { UserId = player.UserId, Rating = rating, JoinedAt = now }) then
+	local entry = { UserId = player.UserId, Rating = rating, JoinedAt = now, Newcomer = isNewcomer(player) }
+	if not MatchmakingCore.enqueue(queue, entry) then
 		notify.send(player, "queue.alreadyQueued", nil, "Error")
 		push(player, now)
 		return
@@ -210,6 +234,7 @@ local function requeue(modeId: string, teams: { { number } }, joinedAt: { [numbe
 					UserId = userId,
 					Rating = ratingOf(player, modeId),
 					JoinedAt = joinedAt[userId] or now,
+					Newcomer = isNewcomer(player),
 				}
 				if MatchmakingCore.enqueue(queue, entry) then
 					restored += 1

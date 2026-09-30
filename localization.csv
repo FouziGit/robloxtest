@@ -298,6 +298,7 @@ match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / 
 match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
 match.nextUnlock,Next: {name} at level {level},Vellum,,Next: {name} at level {level},Prochain : {name} au niveau {level}
 match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversaire est parti.
+match.quickDuel,Quick duel · unranked,Vellum,,Quick duel · unranked,Duel rapide · non classé
 match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
@@ -305,6 +306,8 @@ match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour a
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
+match.versus,{name} · level {level} · {rank},Vellum,,{name} · level {level} · {rank},{name} · niveau {level} · {rank}
+match.versus.unranked,unranked,Vellum,,unranked,non classé
 match.victory,Victory!,Vellum,,Victory!,Victoire !
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
 menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
@@ -389,6 +392,9 @@ quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
 quest.winMatch,Win a match,Vellum,,Win a match,Gagne un match
 quest.winMatches,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
 queue.alreadyQueued,You are already in a queue.,Vellum,,You are already in a queue.,Tu es déjà dans une file.
+queue.gate.both,"Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",Vellum,,"Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).","Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played})."
+queue.gate.level,"Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",Vellum,,"Quick duel for now, unranked. Ranked at level {level} (you: level {current}).","Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current})."
+queue.gate.matches,"Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",Vellum,,"Quick duel for now, unranked. Ranked after {count} matches (played: {played}).","Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played})."
 queue.inMatch,You are already in a match.,Vellum,,You are already in a match.,Tu es déjà en match.
 queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
 queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.

@@ -20,4 +20,10 @@ StudioConfig.PersistTestPurchases = false
 -- players of Test → Clients and Servers have non-positive ids and are never written, whatever this says.
 StudioConfig.WriteLadders = false
 
+-- The players of Test → Clients and Servers start on fresh profiles, below level 10 and with no match played: every
+-- duel between them is a newcomer's quick duel, unranked (E10-S7). On, a Studio session takes every player for one
+-- ranked asks nothing more of, so docs/QA.md §5 can play the ranked rules (the rating, the forfeit) there. Never read
+-- outside Studio.
+StudioConfig.RankedFromTheStart = false
+
 return StudioConfig

@@ -88,7 +88,7 @@ L'idempotence des reçus et le cas du profil non chargé sont déjà prouvés pa
 
 ## 5. Matchs 1v1 / 3v3 et abandons
 
-Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). Pour tout ce qui touche au classement, lire l'Output serveur.
+Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). Pour tout ce qui touche au classement, lire l'Output serveur. Les joueurs de test sont des nouveaux venus (niveau 1, aucun match) : pour les étapes qui parlent de classement, passer d'abord `StudioConfig.RankedFromTheStart` à `true` (`src/server/Config/StudioConfig.luau`, jamais lu hors de Studio), puis le remettre à `false` ; l'étape 18 se joue réglage éteint.
 
 1. **Appariement.** Sur les deux clients : **Jouer** → **1v1 classé**. Attendu : appariement en quelques secondes, puis un compte à rebours de 5 s (`MatchConfig.luau:19-31`).
 2. **Durée des manches.** Attendu : trois manches au plus, de 60 s chacune (180 s / 3, `Duel1v1.Start`, `Duel1v1.luau:23-26` ; `GameModes.maxRounds`, `GameModes/init.luau:107-109`). Le premier à deux manches gagne. Il y a 3 s de pause entre deux manches (`MatchConfig.luau:49`) et 8 s d'écran de résultat.
@@ -107,6 +107,8 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 15. **Arrêt du serveur pendant un classé.** Arrêter le serveur pendant un duel, puis le refaire avec **Restart servers for updates** sur la copie de test. Attendu : aucune ligne `abandoned`, des classements inchangés pour les deux joueurs, et côté serveur `[MatchService] match <id> ends with the server: no result` ou `… abandoned: no participant left` (R3, corrigé : D-206).
 16. **Changement de serveur pendant un classé.** Voir §2.4 (R4, corrigé).
 17. **Rien dans les classements.** Après un match classé joué dans Studio. Attendu : dans l'Output serveur, une seule ligne `[LeaderboardService] <nom> has the test id <id>: ratings of non-positive ids stay off the ladders` pour tout le serveur, quel que soit le nombre de matchs (`LadderGate`, `onRatingChanged`, D-210). En Play solo avec son propre compte, la ligne est `Studio session: ratings stay off the ladders (StudioConfig.WriteLadders is off)`. Au prochain rafraîchissement (60 s), aucun tableau du hub ne montre un identifiant brut, négatif ou nul, même dans un classement qu'un test avait sali avant le correctif.
+
+18. **Le duel rapide des nouveaux venus** (E10-S7, réglage `RankedFromTheStart` éteint). Deux joueurs de test en file 1v1. Attendu : sur l'écran Jouer, sous la règle de chaque carte classée, « Duel rapide pour l'instant, non classé. Classé au niveau 10, après 5 matchs (toi : niveau 1, matchs joués : 0). » ; à l'annonce du match, sous le compte à rebours, une plaque d'encre « Duel rapide · non classé » puis l'adversaire avec son niveau et « non classé », qui part quand le combat commence ; l'Output dit `[MatchService] match … (2 players, unranked)` ; l'écran de résultat n'a pas de ligne de classement, et aucune ligne `abandoned` quand l'un part. Au sixième match, la ligne de la carte ne parle plus que du niveau (`queue.gate.level`).
 
 ## 6. World Boss
 

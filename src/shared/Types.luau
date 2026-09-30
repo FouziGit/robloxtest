@@ -214,6 +214,10 @@ export type MatchPlayerSnapshot = {
 	Alive: boolean,
 	Health: number,
 	MaxHealth: number,
+	-- Shown on the match's announcement (E10-S7): their level, and the Strings key of their rank tier, "" for a
+	-- player still in the quick duel.
+	Level: number,
+	RankKey: string,
 }
 
 -- Replicated to every participant a few times per second (MatchChanged).
@@ -227,6 +231,8 @@ export type MatchSnapshot = {
 	Scores: { number }, -- team index -> rounds won
 	Teams: { { MatchPlayerSnapshot } },
 	LocalTeam: number,
+	-- Whether the match moves ratings: false for the quick duel of a newcomer (E10-S7).
+	Ranked: boolean,
 }
 
 -- Sent once when a match ends (MatchEnded), then the player returns to the hub.

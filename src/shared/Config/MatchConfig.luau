@@ -58,6 +58,16 @@ MatchConfig.Matchmaking = {
 	MaxQueueSeconds = 240, -- after this the player is dequeued and notified
 }
 
+-- A newcomer plays the quick duel (E10-S7, Pure/RankedGate): below MinLevel, or with fewer than MinMatches matches
+-- played, a player's matches are unranked -- a match with one newcomer in it moves nobody's rating -- and for the
+-- first WindowSeconds of their wait they are paired only within MaxWindow of their own rating, whoever else waits.
+MatchConfig.Newcomer = {
+	MinMatches = 5,
+	MinLevel = 10,
+	MaxWindow = 300,
+	WindowSeconds = 120,
+}
+
 MatchConfig.Rewards = {
 	-- Multipliers applied to ProgressionConfig.XP / Folios match values per mode.
 	Duel1v1 = { Xp = 1, Folios = 1 },

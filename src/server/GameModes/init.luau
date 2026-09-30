@@ -36,6 +36,10 @@ export type Participant = {
 	Alive: boolean,
 	Health: number,
 	MaxHealth: number,
+	-- What the match's announcement shows of them (E10-S7), read once at match start: their level, and the Strings
+	-- key of their rank tier -- "" for a player still in the quick duel, who has no rank yet.
+	Level: number,
+	RankKey: string,
 }
 
 export type TeamStats = { Present: number, Alive: number, Health: number }
@@ -59,6 +63,8 @@ export type Match = {
 	StartedAt: number, -- os.clock stamps
 	RoundEndsAt: number,
 	EndedAt: number, -- 0 until MatchService enters the Result phase
+	-- Whether this match moves ratings: its mode is ranked and nobody in it still plays the quick duel (E10-S7).
+	Ranked: boolean,
 	-- Set by MatchService when a team wins because the other one walked out. It decides the outcome on
 	-- its own: the rounds already played do not, because a forfeit can arrive on a series the LEAVER was
 	-- winning and comparing scores would then read as a tie.
@@ -276,6 +282,8 @@ function GameModes.snapshot(match: Match, secondsLeft: number): Types.MatchSnaps
 				Alive = participant.Alive,
 				Health = participant.Health,
 				MaxHealth = participant.MaxHealth,
+				Level = participant.Level,
+				RankKey = participant.RankKey,
 			})
 		end
 	end
@@ -289,6 +297,7 @@ function GameModes.snapshot(match: Match, secondsLeft: number): Types.MatchSnaps
 		Scores = table.clone(match.Scores),
 		Teams = teams,
 		LocalTeam = 0,
+		Ranked = match.Ranked,
 	}
 end
 

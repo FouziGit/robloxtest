@@ -11,6 +11,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -20,8 +21,10 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
+local RankedGate = require(Shared.Pure.RankedGate)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Signal = require(Packages.Signal)
+local StudioConfig = require(script.Parent.Parent.Config.StudioConfig)
 local Types = require(Shared.Types)
 
 local log = Log.new("RankingService")
@@ -147,6 +150,21 @@ end
 -- disconnects.
 function RankingService.lastKnownRating(modeId: string, userId: number): number
 	return knownRating(modeId, userId)
+end
+
+-- Whether `player` still plays the newcomer's quick duel (E10-S7, Pure/RankedGate): below MatchConfig.Newcomer's
+-- level, or short of its matches. One answer for the queue (MatchmakingService, the newcomer's window) and the match
+-- (MatchService, unranked). A player whose profile is not loaded is one, so the cap protects whoever the server cannot
+-- tell about; in Studio, StudioConfig.RankedFromTheStart lets the test players play ranked.
+function RankingService.isNewcomer(player: Player): boolean
+	if RunService:IsStudio() and StudioConfig.RankedFromTheStart then
+		return false
+	end
+	local data = dataService.get(player)
+	if data == nil then
+		return true
+	end
+	return not RankedGate.status(data.Stats.MatchesPlayed, data.Progression.Level, MatchConfig.Newcomer).Ranked
 end
 
 -- Strings key of the tier a rating sits in (single source of tier naming for every service).

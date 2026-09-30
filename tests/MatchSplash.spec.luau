@@ -68,3 +68,18 @@ describe("the match's splashes", function()
 		expect(kinds(MatchSplash.between(three, over))).toEqual({ "RoundLost" })
 	end)
 end)
+
+describe("MatchSplash.opponents", function()
+	it("names the other teams' fighters in order, and nobody before the local team is known (E10-S7)", function()
+		local function fighter(name: string, level: number, rankKey: string)
+			return { Name = name, Level = level, RankKey = rankKey }
+		end
+		local teams = {
+			{ fighter("Ada", 3, ""), fighter("Bea", 12, "rank.ink") },
+			{ fighter("Cy", 14, "rank.gold"), fighter("Dee", 2, "") },
+		}
+		expect(MatchSplash.opponents({ Teams = teams, LocalTeam = 1 })).toEqual(teams[2])
+		expect(MatchSplash.opponents({ Teams = teams, LocalTeam = 2 })).toEqual(teams[1])
+		expect(MatchSplash.opponents({ Teams = teams, LocalTeam = 0 })).toEqual({})
+	end)
+end)

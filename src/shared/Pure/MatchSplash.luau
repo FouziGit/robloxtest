@@ -22,6 +22,11 @@ export type Snapshot = {
 	LocalTeam: number,
 }
 
+-- One fighter as the announcement names them (E10-S7): their name, their level, and their rank's Strings key, ""
+-- for a player still in the quick duel.
+export type Fighter = { Name: string, Level: number, RankKey: string }
+export type Roster = { Teams: { { Fighter } }, LocalTeam: number }
+
 export type Kind = "MatchFound" | "Countdown" | "Fight" | "RoundWon" | "RoundLost"
 export type Splash = { Kind: Kind, Digit: number? }
 
@@ -75,6 +80,23 @@ function MatchSplash.between(previous: Snapshot?, current: Snapshot?): { Splash 
 		end
 	end
 	return splashes
+end
+
+-- The fighters the local player faces, team by team, in the order the snapshot lists them: who the match's
+-- announcement names, with their level and their rank. None before the snapshot says which team is ours.
+function MatchSplash.opponents(roster: Roster): { Fighter }
+	local found: { Fighter } = {}
+	if roster.LocalTeam < 1 then
+		return found
+	end
+	for team, fighters in ipairs(roster.Teams) do
+		if team ~= roster.LocalTeam then
+			for _, fighter in ipairs(fighters) do
+				table.insert(found, fighter)
+			end
+		end
+	end
+	return found
 end
 
 return MatchSplash

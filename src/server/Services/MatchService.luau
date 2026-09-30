@@ -1,7 +1,9 @@
 --!strict
 -- MatchService: the match lifecycle. Acquires an arena, teleports the roster to its team spawns,
 -- restricts PvP to the participants of the same live match, runs Countdown → Playing → RoundOver → …
--- → Result, pays the rewards, applies the ranking and brings everybody back to the hub.
+-- → Result, pays the rewards, applies the ranking and brings everybody back to the hub. A match with a newcomer in
+-- it is the quick duel (E10-S7, RankingService.isNewcomer): played and paid in full, it moves nobody's rating, and
+-- walking out of it costs none.
 --
 -- One Heartbeat accumulator drives every live match (no per-match thread, no per-player loop): it
 -- kills whoever fell under the arena's kill zone, refreshes the participants from their Humanoid, asks
@@ -86,6 +88,7 @@ type RankingApi = {
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
+	isNewcomer: (player: Player) -> boolean,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, count: number) -> ()) -> any }
@@ -285,13 +288,15 @@ end
 -- Rewards
 ----------------------------------------------------------------
 
-local function ratingFallback(player: Player, modeId: string): RatingChange
+-- The rating unchanged. With no rank at all for a match that is not ranked: the Result then says nothing of a
+-- rating that could not move (ResultCard reads an empty key as unranked).
+local function ratingFallback(player: Player, modeId: string, ranked: boolean): RatingChange
 	local ok, rating = pcall(ranking.getRating, player, modeId)
 	local value = if ok and type(rating) == "number" then rating else RankingConfig.InitialRating
 	if not ok then
 		log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
 	end
-	local key = RankTiers.tierFor(value, RankingConfig.Tiers).NameKey
+	local key = if ranked then RankTiers.tierFor(value, RankingConfig.Tiers).NameKey else ""
 	return { Before = value, After = value, RankKeyBefore = key, RankKeyAfter = key }
 end
 
@@ -311,7 +316,7 @@ local function grantFirstWin(player: Player): boolean
 end
 
 local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
-	if not active.Def.Ranked then
+	if not active.Match.Ranked then
 		return {}
 	end
 	local ok, applied = pcall(ranking.applyResult, result)
@@ -348,7 +353,7 @@ local function award(active: Active, result: Types.MatchResult)
 		if won then
 			quest.report(player, "MatchWin", 1)
 		end
-		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id)
+		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, active.Match.Ranked)
 		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
@@ -720,14 +725,15 @@ local function opposingRating(active: Active, player: Player): number
 	return Elo.teamRating(ratings)
 end
 
--- What walking out of `active` costs `player`: the forfeit of a live ranked match, or nil. Nothing when the
--- result is already being applied (applyResult owns their rating move), and nothing when their team has
--- ALREADY won the series on rounds, which stays theirs whoever then walks out (D-34): debiting a loss would
--- contradict that and, by marking them settled, make applyResult skip the win it is about to declare. That
--- window is real: a won series sits in RoundOver for MatchConfig.RoundOverSeconds before the result is
--- entered, which is exactly when a player who just saw "round won" closes the client.
+-- What walking out of `active` costs `player`: the forfeit of a live ranked match, or nil -- never for the quick
+-- duel, which moves no rating to begin with. Nothing when the result is already being applied (applyResult owns
+-- their rating move), and nothing when their team has ALREADY won the series on rounds, which stays theirs whoever
+-- then walks out (D-34): debiting a loss would contradict that and, by marking them settled, make applyResult skip
+-- the win it is about to declare. That window is real: a won series sits in RoundOver for
+-- MatchConfig.RoundOverSeconds before the result is entered, which is exactly when a player who just saw "round won"
+-- closes the client.
 local function forfeitOf(active: Active, player: Player): Forfeit?
-	if active.Finished or not active.Def.Ranked or active.Match.Phase == "Result" then
+	if active.Finished or not active.Match.Ranked or active.Match.Phase == "Result" then
 		return nil
 	end
 	local decided = GameModes.decidedWinner(active.Match)
@@ -811,6 +817,26 @@ end
 -- Public API
 ----------------------------------------------------------------
 
+-- Whether `player` still plays the quick duel, as RankingService says: a newcomer while it cannot tell.
+local function newcomer(player: Player): boolean
+	local ok, answer = pcall(ranking.isNewcomer, player)
+	if ok and type(answer) == "boolean" then
+		return answer
+	end
+	log.warn("isNewcomer failed for %s: %s", player.Name, tostring(answer))
+	return true
+end
+
+-- The Strings key of the tier `player` stands in for `modeId`, which the announcement shows.
+local function rankKeyOf(player: Player, modeId: string): string
+	local ok, rating = pcall(ranking.getRating, player, modeId)
+	if not ok or type(rating) ~= "number" then
+		log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
+		return RankTiers.tierFor(RankingConfig.InitialRating, RankingConfig.Tiers).NameKey
+	end
+	return RankTiers.tierFor(rating, RankingConfig.Tiers).NameKey
+end
+
 -- Starts `modeId` for the given teams (team index -> user ids). Returns the match id, or nil when the
 -- roster, the mode or the arena pool refuses it — MatchmakingService then puts the players back in
 -- the queue.
@@ -828,6 +854,8 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	local participants: { GameModes.Participant } = {}
 	local rosterTeams: { { number } } = {}
 	local userIds: { number } = {}
+	-- Ranked only when the mode is and nobody in it still plays the quick duel.
+	local ranked = def.Ranked
 	for team, members in ipairs(teams) do
 		rosterTeams[team] = {}
 		for slot, userId in ipairs(members) do
@@ -836,6 +864,9 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				log.warn("start rejected: user %d is unavailable for %s", userId, modeId)
 				return nil
 			end
+			local data = dataService.get(player)
+			local eligible = not newcomer(player)
+			ranked = ranked and eligible
 			table.insert(participants, {
 				UserId = userId,
 				Player = player,
@@ -847,6 +878,8 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				Alive = false,
 				Health = 0,
 				MaxHealth = 0,
+				Level = if data ~= nil then data.Progression.Level else 1,
+				RankKey = if eligible and def.Ranked then rankKeyOf(player, modeId) else "",
 			})
 			table.insert(rosterTeams[team], userId)
 			table.insert(userIds, userId)
@@ -878,6 +911,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Scores = scores,
 		Teams = rosterTeams,
 		Participants = participants,
+		Ranked = ranked,
 		StartedAt = os.clock(),
 		RoundEndsAt = 0,
 		EndedAt = 0,
@@ -911,7 +945,14 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	table.insert(actives, active)
 	log.try("mode " .. def.Id .. " Start", mode.Start, match)
 	beginRound(active)
-	log.info("match %s started on arena %s slot %d (%d players)", match.Id, arena.Id, arena.SlotIndex, #userIds)
+	log.info(
+		"match %s started on arena %s slot %d (%d players, %s)",
+		match.Id,
+		arena.Id,
+		arena.SlotIndex,
+		#userIds,
+		if ranked then "ranked" else "unranked"
+	)
 	return match.Id
 end
 

@@ -536,6 +536,23 @@ Strings.Table = {
 		fr = "Les coups portés depuis le camp ne comptent pas. Sors pour te battre.",
 	},
 
+	-- The quick duel for newcomers (E10-S7): the match's announcement, and the Play screen's word on why and how far.
+	["match.quickDuel"] = { en = "Quick duel · unranked", fr = "Duel rapide · non classé" },
+	["match.versus"] = { en = "{name} · level {level} · {rank}", fr = "{name} · niveau {level} · {rank}" },
+	["match.versus.unranked"] = { en = "unranked", fr = "non classé" },
+	["queue.gate.level"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current}).",
+	},
+	["queue.gate.matches"] = {
+		en = "Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played}).",
+	},
+	["queue.gate.both"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played}).",
+	},
+
 	-- The Flyleaf (E16-S2): every member against every other, no rank at stake.
 	["flyleaf.entered"] = {
 		en = "Everyone here is a rival. No rank at stake.",

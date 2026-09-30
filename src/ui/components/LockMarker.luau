@@ -52,6 +52,7 @@ local PLATE_CORNER = 6
 local PLATE_PADDING_Y = 2
 local PLATE_PADDING_X = 8
 local PLATE_TRANSPARENCY = 0.1
+-- The name and health in the heavy face, the board's 900.
 local NAME_TEXT = 14
 local TARGET_KEY = "hud.lock.target"
 -- A lock about to break: the diamond turns chalk and breathes between these transparencies.
@@ -140,7 +141,7 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.AutomaticSize = Enum.AutomaticSize.X
 	nameLabel.Size = UDim2.fromScale(0, 1)
-	nameLabel.FontFace = Theme.Fonts.Bold
+	nameLabel.FontFace = Theme.Fonts.Label
 	nameLabel.TextSize = NAME_TEXT
 	nameLabel.TextColor3 = Theme.Colors.PanelRaised
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd

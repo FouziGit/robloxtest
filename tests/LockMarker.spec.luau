@@ -106,7 +106,9 @@ describe("the lock's mark", function()
 		expect(number(marker, "PLATE_TRANSPARENCY")).toBe(0.1)
 		expect(has(marker, "nameLabel.TextColor3 = Theme.Colors.PanelRaised")).toBe(true)
 		expect(has(marker, "nameLabel.TextTruncate = Enum.TextTruncate.AtEnd")).toBe(true)
-		expect(has(marker, "nameLabel.FontFace = Theme.Fonts.Bold")).toBe(true)
+		-- In the heavy face, the board's 900 (the Bold face is its 800).
+		expect(has(marker, "nameLabel.FontFace = Theme.Fonts.Label")).toBe(true)
+		expect(ThemeConfig.Fonts.Label.Weight).toBe("Heavy")
 		expect(number(marker, "NAME_TEXT")).toBe(14)
 		expect(has(marker, 'local TARGET_KEY = "hud.lock.target"\n')).toBe(true)
 		expect(Strings.Table["hud.lock.target"].en).toBe("{name} · {health}")
@@ -278,7 +280,7 @@ describe("the lock's mark, run", function()
 	end)
 
 	it("writes the target's name and health, follows its health, and lets go when hidden", function()
-		local world, marker = build()
+		local world, marker, Theme = build()
 		local humanoid = Engine.instance("Humanoid", world.workspace)
 		humanoid.MaxHealth = 100
 		humanoid.Health = 64
@@ -287,6 +289,10 @@ describe("the lock's mark, run", function()
 		marker:SetTarget("Rival_07", humanoid)
 		local name = world.playerGui:FindFirstChild("LockPlate"):FindFirstChild("Name", true)
 		expect(name.Text).toBe("Rival_07 · 64")
+		-- The sheet, in the heavy face, as the board writes it.
+		expect(name.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(name.FontFace.Family).toBe(Theme.Fonts.Label.Family)
+		expect(name.FontFace.Weight).toBe(roblox.Enum.FontWeight.Heavy)
 		humanoid.Health = 50.2
 		expect(name.Text).toBe("Rival_07 · 51")
 		humanoid.Health = 0

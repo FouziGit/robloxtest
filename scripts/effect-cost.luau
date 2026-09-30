@@ -374,6 +374,10 @@ function CostReport.scene(options: SceneOptions): SceneResult
 		end
 		local rate = layer.Rate * density
 		local engine = layer.Driven ~= true
+		if not engine then
+			-- The renderer's flow owes its tier's share of its rate (VfxTimeline.buildEmitter, D-229).
+			rate *= QualityConfig.drivenShare(tier)
+		end
 		if engine then
 			local allowed = if unbraked == "Rate"
 				then rate

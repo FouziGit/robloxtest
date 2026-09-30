@@ -192,11 +192,12 @@ describe("a Driven flow against the engine's thinning", function()
 	end)
 
 	it("is what the renderer emits: the flow owes its rate times the tier's share", function()
-		local source = fs.readFile(RENDERER)
+		-- Whitespace folded: the flow also carries its particles' life for the screen's budget (D-240).
+		local source = string.gsub(fs.readFile(RENDERER), "%s+", " ")
 		expect(
 			string.find(
 				source,
-				"{ Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt }",
+				"entry.Owed = { Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt, Life = life, }",
 				1,
 				true
 			)

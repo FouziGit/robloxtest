@@ -202,6 +202,7 @@ describe("the screen's particle budget", function()
 			expect(id).toBe("Scorch")
 		end
 		local saturated = 0
+		local braked = 0
 		for _, name in ipairs(QualityConfig.Order) do
 			for _, fighting in ipairs({ true, false }) do
 				local result =
@@ -230,14 +231,22 @@ describe("the screen's particle budget", function()
 					-- Thinned, never emptied: the budget is spent to its last particle, not refused whole.
 					expect(result.Peak).toBeGreaterThanOrEqual(result.Budget * 0.9)
 				else
-					-- Under its budget, the scene is drawn exactly as it is written.
+					-- Under its budget, the scene peaks where it is written. The ledger counts each batch to the top
+					-- of its life and a flow the engine runs for all of it, never under what is alive: near its
+					-- budget, a scene that still fits may lose a little, never more.
 					expect(result.Peak).toBe(free.Peak)
-					expect(result.Drawn).toBe(result.Asked)
+					expect(result.Drawn).toBeGreaterThanOrEqual(result.Asked * 0.95)
+				end
+				if result.Drawn < result.Asked then
+					braked += 1
 				end
 			end
 		end
-		-- The brake is exercised: at some tier the scene asks for more than its budget.
-		expect(saturated).toBeGreaterThanOrEqual(2)
+		-- The brake is exercised: at some tier the scene asks for more than its budget, and at more than one the
+		-- budget takes something. Since a Driven flow owes only its tier's share (D-229), the lowest tiers ask for
+		-- less than their budget in this scene.
+		expect(saturated).toBeGreaterThanOrEqual(1)
+		expect(braked).toBeGreaterThanOrEqual(2)
 	end)
 
 	it("draws the scene whole at the best tier", function()

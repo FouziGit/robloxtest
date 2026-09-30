@@ -211,12 +211,15 @@ quand un seul genre d'émetteur saute le frein.
 |---|---|---|---|
 | Élevée | 1200 | 882 → 882 | 1086 → 1086 |
 | Moyenne | 600 | 540 → 540 | 654 → 600 (92 % tirées) |
-| Basse | 300 | 312 → 300 (92 % tirées) | 390 → 300 (83 % tirées) |
-| Performance | 150 | 165 → 150 (90 % tirées) | 171 → 150 (88 % tirées) |
+| Basse | 300 | 210 → 210 | 282 → 282 (98 % tirées) |
+| Performance | 150 | 52 → 52 | 59 → 59 |
 
 Les quatre budgets sont **choisis**, comme le plafond d'un effet : aucun appareil n'a fait tourner ce jeu. Le
 niveau Élevé dessine la scène entière, telle qu'elle a été écrite ; les plus bas l'éclaircissent là où elle
-dépasse leur budget (la part « tirées »). Ce sont des nombres à remplacer par une mesure (E6-S5, E11-S2).
+dépasse leur budget (la part « tirées »). Un flux `Driven` ne doit que la part de son niveau (« Le niveau de
+départ », D-229) : aux niveaux Bas et Performance, la scène demande moins que son budget ; au niveau Bas hors
+combat, le compte, jamais sous ce qui vit, touche le plafond avant les particules et en retient 2 %. Ce sont des
+nombres à remplacer par une mesure (E6-S5, E11-S2).
 
 ## Ce que coûte ce qu'un corps porte
 

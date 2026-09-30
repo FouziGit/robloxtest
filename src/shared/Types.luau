@@ -113,6 +113,18 @@ export type DailyData = {
 	PracticeLastPaidAt: number,
 }
 
+-- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level
+-- as a string (JSON-safe) -> true. HonoursService is its one writer, and a milestone in it is never paid again.
+export type MilestonesData = { [string]: boolean }
+
+-- The best grade each drill of the Lectern reached (DrillConfig, Pure/DrillLogic): drill id -> 1 Draft, 2 Fair
+-- Copy, 3 Calligraphy. DrillService is its one writer, and every grade at or under it has been paid.
+export type DrillsData = { [string]: number }
+
+-- The plates of the Ex-libris earned (ExLibrisConfig, Pure/ExLibris): plate id -> the os.time() it was granted.
+-- HonoursService is its one writer, and a plate in it is never granted again.
+export type ExLibrisData = { [string]: number }
+
 export type PurchasesData = {
 	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
 	ProductCounts: { [string]: number }, -- productKey -> times purchased
@@ -155,6 +167,9 @@ export type ProfileData = {
 	Stats: StatsData,
 	Quests: QuestsData,
 	Daily: DailyData,
+	Milestones: MilestonesData,
+	Drills: DrillsData,
+	ExLibris: ExLibrisData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
 	Boosts: BoostsData,

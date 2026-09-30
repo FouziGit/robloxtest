@@ -66,6 +66,9 @@ local function template(): { [string]: any }
 			PracticePaid = 0,
 			PracticeLastPaidAt = 0,
 		},
+		Milestones = {},
+		Drills = {},
+		ExLibris = {},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
@@ -277,6 +280,49 @@ describe("DataMigration daily caps", function()
 		expect(#service).toBe(9)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
+	end)
+end)
+
+-- Version 5: the level road's milestones, the Lectern's drills and the Ex-libris (E17-S2, E14-S2). A record of what
+-- was paid once,
+-- so losing it would pay it all a second time: an older profile arrives with empty ones, and a current profile
+-- keeps every entry.
+describe("DataMigration to version 5", function()
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 5", function()
+		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(DataMigration.CurrentVersion).toBe(5)
+		expect(info).toEqual({ From = 4, Migrated = true })
+		expect(data.DataVersion).toBe(5)
+		expect(data.Milestones).toEqual({})
+		expect(data.Drills).toEqual({})
+		expect(data.ExLibris).toEqual({})
+		expect(data.Progression.Level).toBe(60)
+	end)
+
+	it("keeps every milestone paid, every drill's best grade and every plate earned", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Milestones = { ["45"] = true, ["50"] = true },
+			Drills = { Brand = 3, KitCancel = 1 },
+			ExLibris = { Breath4 = 1790000000 },
+		}
+		local once = DataMigration.migrate(raw, template(), "S1")
+		local twice = DataMigration.migrate(once, template(), "S1")
+		expect(twice.Milestones).toEqual({ ["45"] = true, ["50"] = true })
+		expect(twice.Drills).toEqual({ Brand = 3, KitCancel = 1 })
+		expect(twice.ExLibris).toEqual({ Breath4 = 1790000000 })
+	end)
+
+	it("is the shape the service ships", function()
+		local service = fs.readFile("src/server/Services/DataService.luau")
+		expect(service:find("\n\t\tMilestones = {},\n", 1, true)).never.toBeNil()
+		expect(service:find("\n\t\tDrills = {},\n", 1, true)).never.toBeNil()
+		expect(service:find("\n\t\tExLibris = {},\n", 1, true)).never.toBeNil()
+		local types = fs.readFile("src/shared/Types.luau")
+		expect(types:find("\n\tMilestones: MilestonesData,\n", 1, true)).never.toBeNil()
+		expect(types:find("\n\tDrills: DrillsData,\n", 1, true)).never.toBeNil()
+		expect(types:find("\n\tExLibris: ExLibrisData,\n", 1, true)).never.toBeNil()
 	end)
 end)
 

@@ -32,6 +32,16 @@ VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Fol
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
+**Récompenses uniques (E14-S2, E17-S2 ; D-223 à D-225).** Trois sources ne paient qu'une fois par profil, écrites dans le profil avant d'être payées ; elles sont hors du total à l'heure ci-dessus. Montants de base, avant le VIP (Folios ×1,5, XP ×2) et le boost d'XP.
+
+| Source | Par unité | Plafond par jour | Total à vie | Rythme attendu |
+|---|---|---|---|---|
+| Exercices du Pupitre (`DrillConfig`) | 15 / 30 / 60 Folios et 50 / 100 / 200 XP par grade (Brouillon, Mise au net, Calligraphie) : **105 Folios et 350 XP** par exercice mené jusqu'à la Calligraphie | ce que le profil a débloqué et pas encore noté : **1 155 Folios et 3 850 XP** le premier jour au plus (les 3 exercices du kit et les 8 glyphes de départ), puis **105 Folios et 350 XP** par glyphe nouvellement débloqué | **3 255 Folios, 10 850 XP** (3 + 28 exercices) | une série dure moins d'une minute ; les 10 850 XP valent 1,2 à 1,5 h de match (7 200 à 9 000 XP/h), et mèneraient un profil neuf qui ferait tout d'un coup du niveau 1 au niveau 19 (les glyphes débloqués en chemin ouvrent leurs exercices) |
+| Jalons de niveau 45 → 100 (`ProgressionConfig.Milestones`) | 10 Folios par niveau du jalon (450 à 1 000), et un titre à 50, 75 et 100 | un jalon tous les cinq niveaux : 22 463 XP séparent 45 de 50 (2,5 à 3,1 h), 59 789 séparent 95 de 100 (6,6 à 8,3 h) ; **au plus ≈ 500 Folios par jour** pour 3 h de jeu vers 45-50, moins ensuite | **8 700 Folios**, 0 XP | 444 653 XP de 45 à 100, soit 49 à 62 h : **≈ 140 à 180 Folios/h** en moyenne, +14 à 18 % sur les ≈ 980 Folios/h ci-dessus, pour un vétéran seulement |
+| Ex-libris (`ExLibrisConfig`) | 150 à 600 Folios par plaque, un titre pour quatre d'entre elles | borné par les mesures : les plaques faciles (100 adversaires, 25 matchs, 1 000 glyphes, une chaîne de 4, l'Effacement une fois, le kit en Calligraphie) valent **≈ 950 Folios** sur les premières semaines ; aucune ne se répète | **4 200 Folios**, 0 XP | le reste (mille adversaires, 250 matchs, 10 000 glyphes, une chaîne de 6, l'Effacement dix fois, vingt exercices en Calligraphie) sur des dizaines d'heures |
+
+Aucune de ces sources ne se renouvelle : un changement de serveur ou une reconnexion ne rouvre rien (`Drills`, `Milestones`, `ExLibris` dans le profil, D-226). Les titres sont des cosmétiques réservés (`Sellable = false`), jamais en boutique.
+
 **XP à l'heure, estimation de conception (non mesurée).** L'XP des Faussaires n'est pas plafonnée (30 / 35 / 100 par figure). Limitée par l'offre, 300 à 450 Faussaires à l'heure donneraient **10 000 à 15 000 XP/h**, au-dessus des 7 200 à 9 000 XP/h que suppose la courbe de niveaux (`ProgressionConfig` : 2 à 2,5 XP/s en match) ; les mannequins du hub en donnent déjà environ 19 000, écart plus grand encore, qui demande sa propre revue. À mesurer en jeu avant d'ajuster.
 
 ## 3. Puits de Folios (boutique cosmétique)

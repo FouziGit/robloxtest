@@ -7,6 +7,7 @@ local Gate = require("./gate")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
 local PortalConfig = require("../src/shared/Config/PortalConfig")
+local RankingConfig = require("../src/shared/Config/RankingConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 
@@ -70,6 +71,7 @@ describe("a hub board", function()
 			'"BattlegroundPortal"',
 			'"BossPortal"',
 			'"PortalSeal"',
+			'"DrillLectern"',
 		}
 		for _, path in ipairs({ HUB, LADDER, SIGNS }) do
 			local source = code(path)
@@ -89,6 +91,7 @@ describe("a hub board", function()
 			"entries.Name = ANCHORS.Entries",
 			"buildPedestal(folder, ANCHORS.Queue,",
 			"buildPedestal(folder, ANCHORS.Shop,",
+			"buildPedestal(folder, ANCHORS.Lectern,",
 		}) do
 			expect(hub:find(use, 1, true)).never.toBe(nil)
 		end
@@ -265,6 +268,84 @@ describe("the hub's portal gates", function()
 	end)
 end)
 
+-- The Lectern (E14-S2): a pedestal like the terminal and the kiosk, where the drills are picked. It stands on the
+-- furniture ring by the training ground its drills are done on, and must never stand in the way of anything else
+-- on the page, least of all the walk from the spawn to a gate.
+describe("the hub's Lectern", function()
+	local function hubNumber(pattern: string): number
+		local value = string.match(code(HUB), pattern)
+		if value == nil then
+			error(("%s does not match %s: this gate would check nothing"):format(HUB, pattern))
+		end
+		return tonumber(value) :: number
+	end
+
+	it("stands on the furniture ring, clear of the pedestals, the boards, the gates and the ways to them", function()
+		local folded = tight(body(HUB, "local function computeLayout("))
+		expect(
+			folded:find(
+				"LecternCFrame = facingCenter(ringPosition(LECTERN_ANGLE_RADIANS, PROP_RING_RADIUS_STUDS, 0))",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		expect(
+			tight(code(HUB)):find(
+				"buildPedestal(folder, ANCHORS.Lectern, layout.LecternCFrame, emblem, LECTERN_EMBLEM_BARS)",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		local angle = -math.pi / hubNumber("\nlocal LECTERN_ANGLE_RADIANS = %-math%.pi / (%d+)\n")
+		local training = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
+		local props = training + hubNumber("\nlocal PROP_RING_RADIUS_STUDS = TRAINING_RADIUS_STUDS %+ (%d+)\n")
+		local base = hubNumber("\nlocal PEDESTAL_BASE_SIZE_STUDS = Vector3%.new%((%d+), %d+, %d+%)\n")
+		local half = base * math.sqrt(2) / 2
+		local x, z = math.cos(angle) * props, math.sin(angle) * props
+		local function apart(px: number, pz: number): number
+			return math.sqrt((x - px) ^ 2 + (z - pz) ^ 2)
+		end
+		-- Out of the training ground, inside the ruling.
+		expect(props - half).toBeGreaterThan(training)
+		local ruling = hubNumber("\nlocal PLATFORM_SIZE_STUDS = (%d+)\n") / 2 - WorldConfig.Hub.RuleInsetStuds
+		expect(props + half).toBeLessThan(ruling)
+		-- Clear of the terminal (east) and the kiosk (west).
+		expect(apart(props, 0)).toBeGreaterThanOrEqual(base + 12)
+		expect(apart(-props, 0)).toBeGreaterThanOrEqual(base + 12)
+		-- Clear of every board's panel, on its own ring south of the spawn.
+		local boards = RankingConfig.Leaderboard.Boards
+		local boardRing = training + hubNumber("\nlocal BOARD_RING_RADIUS_STUDS = TRAINING_RADIUS_STUDS %+ (%d+)\n")
+		local step = (BOARD.PanelStuds[1] + hubNumber("\nlocal BOARD_PANEL_GAP_STUDS = (%d+)\n")) / boardRing
+		for index = 1, #boards do
+			local boardAngle = math.pi / 2 + (index - (#boards + 1) / 2) * step
+			local bx, bz = math.cos(boardAngle) * boardRing, math.sin(boardAngle) * boardRing
+			expect(apart(bx, bz)).toBeGreaterThanOrEqual(BOARD.PanelStuds[1] / 2 + half + 6)
+		end
+		-- Clear of each gate, and of the straight walk from the spawn to it.
+		local footprint = Gate.footprint()
+		local reach = math.max(footprint.HalfWidth, footprint.SignHalfWidth, footprint.RimRadius, footprint.Back)
+		for _, side in ipairs({ -1, 1 }) do
+			local gateAngle = -math.pi / 2 + side * PortalConfig.Hub.AngleOffsetRadians
+			local gx = math.cos(gateAngle) * PortalConfig.Hub.RingRadiusStuds
+			local gz = math.sin(gateAngle) * PortalConfig.Hub.RingRadiusStuds
+			expect(apart(gx, gz)).toBeGreaterThanOrEqual(reach + half + PortalConfig.ZoneRadiusStuds)
+			-- The nearest point of the walk: the lectern's projection onto the segment from the spawn to the gate.
+			local along = math.clamp((x * gx + z * gz) / (gx * gx + gz * gz), 0, 1)
+			expect(apart(gx * along, gz * along)).toBeGreaterThanOrEqual(half + 4)
+		end
+		-- And the north stays the gates' own (D-130): nothing stands in the arc between them, however narrow a
+		-- gap it would leave either side.
+		local fromNorth = math.abs(math.atan2(math.sin(angle + math.pi / 2), math.cos(angle + math.pi / 2)))
+		expect(fromNorth).toBeGreaterThan(PortalConfig.Hub.AngleOffsetRadians + (reach + half) / props)
+	end)
+
+	it("is worded as a pedestal, in the client's language, with the prompt that opens its screen", function()
+		expect(ANCHORS.Lectern).toBe("DrillLectern")
+		local menu = code("src/client/Controllers/MenuController.luau")
+		expect(menu:find('Lectern = "LecternScreen",', 1, true)).never.toBe(nil)
+	end)
+end)
+
 describe("the hub's words", function()
 	it("titles every board and says when it is empty", function()
 		local board = body(SIGNS, "local function wordBoard(")
@@ -280,8 +361,15 @@ describe("the hub's words", function()
 		expect(board:find("surface.PixelsPerStud = BOARD.PixelsPerStud", 1, true)).never.toBe(nil)
 	end)
 
-	it("opens the Play screen at the terminal and the Shop at the kiosk", function()
+	it("opens the Play screen at the terminal, the Shop at the kiosk and the Lectern at the lectern", function()
 		local hub = body(SIGNS, "local function wordHub(")
+		expect(
+			hub:find(
+				'wordPedestal, folder, ANCHORS.Lectern, "lectern.title", "lectern.prompt", "Lectern", trove',
+				1,
+				true
+			)
+		).never.toBe(nil)
 		expect(hub:find('wordPedestal, folder, ANCHORS.Queue, "hub.queue.name", "queue.title", "Play", trove', 1, true)).never.toBe(
 			nil
 		)

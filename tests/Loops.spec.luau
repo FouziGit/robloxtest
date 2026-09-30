@@ -32,7 +32,8 @@ local PATTERNS = {
 
 -- path -> how many loops that file is allowed, and why it has one at all.
 local ALLOWED: { [string]: { Count: number, Why: string } } = {
-	-- Server: eleven, each on an accumulator at GameConfig.Server.TickRate, or slower (the portals' CheckHz).
+	-- Server: thirteen, each on an accumulator at GameConfig.Server.TickRate, or slower (the portals' CheckHz, the
+	-- drills' and the Ex-libris's CheckSeconds).
 	["src/server/Services/CombatService.luau"] = {
 		Count = 1,
 		Why = "ink, cooldowns, the travel audit and the movement guard",
@@ -46,6 +47,8 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/server/Services/WorldBossService/init.luau"] = { Count = 1, Why = "the event schedule and the fight" },
 	["src/server/Services/BattlegroundService/init.luau"] = { Count = 1, Why = "the Forgers and the roster" },
 	["src/server/Services/PortalService.luau"] = { Count = 1, Why = "portal zones" },
+	["src/server/Services/DrillService.luau"] = { Count = 1, Why = "drills left idle or taken out of the hub" },
+	["src/server/Services/HonoursService.luau"] = { Count = 1, Why = "the Ex-libris plates every profile has met" },
 	["src/server/Services/VfxBroadcaster.luau"] = {
 		Count = 1,
 		Why = "invalidating the recipient snapshot once a frame",

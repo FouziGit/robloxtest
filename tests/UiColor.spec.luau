@@ -248,6 +248,7 @@ describe("the chapters", function()
 			"Loadout",
 			"Leaderboard",
 			"Settings",
+			"Lectern",
 		}) do
 			local role = ThemeConfig.Chapters[screen]
 			if role == nil or ThemeConfig.LipFor[role] == nil then

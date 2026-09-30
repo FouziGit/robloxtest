@@ -14,6 +14,7 @@ local Gate = require("./gate")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
+local LevelRoad = require("../src/shared/Pure/LevelRoad")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
 local MovementGuardConfig = require("../src/server/Config/MovementGuardConfig")
@@ -1147,9 +1148,14 @@ describe("the loop", function()
 	end)
 
 	it("names the next unlock, and stops naming one when there is nothing left", function()
-		local first = GlyphConfig.nextUnlock(1, ProgressionConfig.OrpimentUnlockLevel)
+		local road = LevelRoad.build(
+			GlyphConfig.levelUnlocks(),
+			ProgressionConfig.OrpimentUnlockLevel,
+			ProgressionConfig.Milestones
+		)
+		local first = LevelRoad.nextReward(road, 1)
 		expect(first).toBeTruthy()
-		local unlock = first :: { Id: string, NameKey: string, Level: number }
+		local unlock = first :: LevelRoad.Step
 		expect(unlock.Level).toBeGreaterThan(1)
 		expect(Strings.has(unlock.NameKey)).toBe(true)
 		-- It is always the NEAREST one: no glyph unlocks between the player and what they are promised.
@@ -1159,11 +1165,10 @@ describe("the loop", function()
 				expect(value).toBeGreaterThanOrEqual(unlock.Level)
 			end
 		end
-		-- Past every level unlock, the pigment is what is left; past that, nothing is promised.
-		local last =
-			GlyphConfig.nextUnlock(ProgressionConfig.OrpimentUnlockLevel - 1, ProgressionConfig.OrpimentUnlockLevel)
+		-- Past every level unlock, the pigment is what is left; past the last level, nothing is promised.
+		local last = LevelRoad.nextReward(road, ProgressionConfig.OrpimentUnlockLevel - 1)
 		expect((last :: any).Id).toBe("Orpiment")
-		expect(GlyphConfig.nextUnlock(ProgressionConfig.MaxLevel, ProgressionConfig.OrpimentUnlockLevel)).toBeNil()
+		expect(LevelRoad.nextReward(road, ProgressionConfig.MaxLevel)).toBeNil()
 	end)
 end)
 

@@ -1,6 +1,6 @@
 --!strict
 -- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass, Play, Result,
--- Leaderboard, Quests, Daily, Loadout, Shop) built by the UI/screens modules. Screens are created
+-- Leaderboard, Quests, Daily, Loadout, Shop, Lectern) built by the UI/screens modules. Screens are created
 -- lazily with the controller dependencies they need, gameplay input is suspended while one is open,
 -- and the Roblox menu (Escape) closes whatever is open.
 --
@@ -41,6 +41,7 @@ export type ScreenId =
 	| "Daily"
 	| "Loadout"
 	| "Shop"
+	| "Lectern"
 
 type Screen = {
 	Instance: Instance,
@@ -73,6 +74,7 @@ local MODULE_NAMES: { [string]: string } = {
 	Daily = "DailyScreen",
 	Loadout = "LoadoutScreen",
 	Shop = "ShopScreen",
+	Lectern = "LecternScreen",
 }
 local DEFAULT_SCREEN: ScreenId = "Menu"
 local RESULT_SCREEN: ScreenId = "Result"

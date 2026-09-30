@@ -41,6 +41,8 @@ local OUTCOME = {
 local PROFILE = {
 	Progression = { Level = 1, XP = 20, TotalXP = 20 },
 	Stats = { GlyphsCast = 24, GlyphsHit = 17, Kills = 1, Deaths = 0, MatchesPlayed = 1, BestChain = 4 },
+	Unlocks = { Glyphs = {}, Pigments = {} },
+	Milestones = {},
 }
 
 -- The card seen scrolling in Studio: a ranked win that kept its rank, the first of the day, no chain of two.
@@ -52,6 +54,8 @@ SEEN.RankKeyAfter = RankingConfig.Tiers[1].NameKey
 local SEEN_PROFILE = {
 	Progression = { Level = 1, XP = 0, TotalXP = 0 },
 	Stats = { GlyphsCast = 0, GlyphsHit = 0, Kills = 0, Deaths = 0, MatchesPlayed = 0, BestChain = 0 },
+	Unlocks = { Glyphs = {}, Pigments = {} },
+	Milestones = {},
 }
 
 -- The Result, open on `outcome` and `profile` in a window `width` x `height` points with a top bar of `topBar`,

@@ -16,9 +16,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 
 local Button = require(script.Parent.Button)
-local GlyphConfig = require(Config:WaitForChild("GlyphConfig"))
 local Icon = require(script.Parent.Icon)
 local LeaderboardView = require(Shared:WaitForChild("Pure"):WaitForChild("LeaderboardView"))
+local LevelRoadWords = require(script.Parent.Parent.LevelRoadWords)
 local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
 local ProgressionConfig = require(Config:WaitForChild("ProgressionConfig"))
@@ -310,11 +310,12 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		bestChainLine.Visible = best >= 2
 		bestChainLine.Text = t("match.bestChain", { count = best })
 
-		local unlock = GlyphConfig.nextUnlock(levelAfter, ProgressionConfig.OrpimentUnlockLevel)
-		nextLine.Visible = unlock ~= nil
-		if unlock ~= nil then
-			nextLine.Text = t("match.nextUnlock", { name = t(unlock.NameKey), level = unlock.Level })
-		end
+		-- The next reward on the level road, always: the milestones run to the last level, so a line is promised
+		-- until the road is walked, and then the line says so.
+		local step = LevelRoadWords.next(data, levelAfter)
+		nextLine.Text = if step ~= nil
+			then t("match.nextUnlock", { name = LevelRoadWords.reward(step, t), level = step.Level })
+			else t("levelroad.complete")
 	end
 
 	local function render(_self: ResultCard, outcome: Types.MatchOutcome)

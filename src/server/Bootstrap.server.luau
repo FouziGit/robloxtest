@@ -21,10 +21,12 @@ local CosmeticService = require(Services.CosmeticService)
 local CurrencyService = require(Services.CurrencyService)
 local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
+local DrillService = require(Services.DrillService)
 local EnemyService = require(Services.EnemyService)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphEffects = require(Effects.GlyphEffects)
 local GlyphService = require(Services.GlyphService)
+local HonoursService = require(Services.HonoursService)
 local HubService = require(Services.HubService)
 local LeaderboardService = require(Services.LeaderboardService)
 local LoadoutService = require(Services.LoadoutService)
@@ -82,12 +84,14 @@ local deps = {
 	Quest = QuestService,
 	Daily = DailyRewardService,
 	Loadout = LoadoutService,
+	Honours = HonoursService,
 	Cosmetic = CosmeticService,
 	Shop = ShopService,
 	Monetization = MonetizationService,
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
 	Portal = PortalService,
+	Drill = DrillService,
 }
 
 -- Dependency order: each service only reads services listed before it. Critical: the game cannot run without it
@@ -106,6 +110,8 @@ local ordered: { Boot.Entry } = {
 	{ Name = "CosmeticService", Service = CosmeticService },
 	{ Name = "BattlepassService", Service = BattlepassService },
 	{ Name = "LoadoutService", Service = LoadoutService },
+	-- After Progression, Currency and Cosmetic: a level's milestone pays its Folios and its title through them.
+	{ Name = "HonoursService", Service = HonoursService },
 	{ Name = "QuestService", Service = QuestService },
 	{ Name = "DailyRewardService", Service = DailyRewardService },
 	{ Name = "ShopService", Service = ShopService },
@@ -122,6 +128,9 @@ local ordered: { Boot.Entry } = {
 	{ Name = "WorldBossService", Service = WorldBossService },
 	-- After WorldBoss: its roster lets go of whoever the Erasure's event takes (WorldBoss.isEngaged).
 	{ Name = "BattlegroundService", Service = BattlegroundService },
+	-- After every service whose events a drill counts (Glyph, Combat) and every place that takes a player out of the
+	-- hub (Match, WorldBoss, Battleground).
+	{ Name = "DrillService", Service = DrillService },
 	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },

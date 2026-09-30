@@ -12,6 +12,11 @@
 
 local DataMigration = {}
 
+-- 6: the level road's milestones (`Milestones`, the levels already paid), the Lectern's drills (`Drills`, the
+-- best grade of each) and the Ex-libris (`ExLibris`, the plates earned). New keys with the template's empty
+-- defaults and no upgrade step: the version moves so a server still on 5 keeps what a newer build wrote (see
+-- `newer` in migrate), rather than dropping the records and paying every milestone, grade and plate a second time.
+--
 -- 5: `Cosmetics.Waived`, the cosmetics a developer account bought with Folios the developer list waived, so
 -- they leave with the list (D-208). No upgrade step: every profile before it holds none, which is the
 -- template's empty list. The same release adds `Daily.PracticeLastPaidAt`, when the last practice against the
@@ -28,7 +33,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 5
+DataMigration.CurrentVersion = 6
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

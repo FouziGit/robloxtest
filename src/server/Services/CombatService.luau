@@ -220,6 +220,10 @@ CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Mode
 -- Fired once per dash the server actually granted (ink spent, cooldown armed). `cancelled` is true when
 -- the dash cut a finisher's recovery short (CombatConfig.Dash.CancelCost).
 CombatService.Dashed = Signal.new() -- (player: Player, cancelled: boolean)
+-- Fired once per melee swing the server accepted, after it struck: each body it struck has fired Damaged (kind
+-- Melee) before this. `index` is the swing's place in its string, the finisher's being #CombatConfig.Melee.Damage.
+-- The Lectern's drills read the four strokes from it (DrillService).
+CombatService.Swung = Signal.new() -- (player: Player, index: number)
 -- A knockback approved for a body no player owns (knockback). A player's character is moved by its own
 -- client through a MovementCommand; nothing moves a server-owned body unless its owner listens here --
 -- the Battleground's Forgers do (D-131). Anchored bodies (the training proofs, the Erasure) have no
@@ -1461,6 +1465,7 @@ local function onMelee(player: Player, state: State, now: number)
 		state.MeleeCooldownUntil = now + melee.FinisherCooldownSeconds
 	end
 	markInCombat(state, now)
+	CombatService.Swung:Fire(player, index)
 	vfx.emit({
 		Id = "Melee",
 		-- The validated position, not the raw root: emitting the raw one drew the swing where the client

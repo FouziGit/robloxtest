@@ -56,6 +56,9 @@ local function profile(today: number): any
 		Passes = {},
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
+		Drills = { KitString = 3, Brand = 1 },
+		Milestones = {},
+		ExLibris = { Pages25 = 0 },
 	}
 end
 
@@ -174,6 +177,7 @@ local SCREENS: { { Name: string, Tabs: { string }? } } = {
 	{ Name = "QuestsScreen" },
 	{ Name = "LeaderboardScreen" },
 	{ Name = "SettingsScreen" },
+	{ Name = "LecternScreen", Tabs = { "Drills", "Road", "ExLibris" } },
 }
 
 describe("the interface, held to the engine's layouts", function()

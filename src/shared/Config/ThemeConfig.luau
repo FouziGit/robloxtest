@@ -169,6 +169,7 @@ ThemeConfig.Chapters = {
 	Loadout = "Plate",
 	Leaderboard = "Plate",
 	Settings = "Plate",
+	Lectern = "Plate",
 	Victory = "Primary",
 	Defeat = "Info",
 	Draw = "Chalk",

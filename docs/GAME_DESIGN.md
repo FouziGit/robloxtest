@@ -201,7 +201,7 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 
-- **Hub** : plateforme 200×200 en vélin bordée d'encre, spawn au centre (un sceau de craie sur un rebord d'encre), anneau d'épreuves (rayon 22), terminal de file et boutique (un emblème d'encre ; chaque client y écrit le nom dans sa langue et y place une invite qui ouvre l'écran Jouer ou Boutique), tableaux de classement (SurfaceGui : les lignes par le serveur, le titre et l'état vide par chaque client), D-128 ; deux portails au nord, sur un anneau de 68 studs à ±0,25 rad de −π/2, face au spawn (D-130). Couleurs et matériau : `WorldConfig` (D-86). Le remplacement par des assets doit conserver les noms de `WorldConfig.HubAnchors` : `HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>` (son `Panel`), `ShopKiosk`, `BattlegroundPortal`, `BossPortal`.
+- **Hub** : plateforme 200×200 en vélin bordée d'encre, spawn au centre (un sceau de craie sur un rebord d'encre), anneau d'épreuves (rayon 22), terminal de file et boutique (un emblème d'encre ; chaque client y écrit le nom dans sa langue et y place une invite qui ouvre l'écran Jouer ou Boutique), tableaux de classement (SurfaceGui : les lignes par le serveur, le titre et l'état vide par chaque client), D-128 ; deux portails au nord, sur un anneau de 68 studs à ±0,25 rad de −π/2, face au spawn (D-130). Couleurs et matériau : `WorldConfig` (D-86). Le **Pupitre** (`DrillLectern`, D-223) est un pédestal comme le terminal et la boutique, sur leur anneau à −π/4, entre le terminal et le portail de l'Effacement : son emblème est un trait de plume penché, chaque client écrit son nom au-dessus et y place l'invite qui ouvre l'écran du Pupitre (§9 bis). Le remplacement par des assets doit conserver les noms de `WorldConfig.HubAnchors` : `HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>` (son `Panel`), `ShopKiosk`, `BattlegroundPortal`, `BossPortal`, `DrillLectern`.
 - **Portail** (`World/PortalGate`, D-130) : deux poteaux et un linteau d'encre, un `Panel` à emblème (formes seulement, jamais de texte), un sceau de craie de 10 studs sur un rebord d'encre ; la zone est la pièce invisible `Seal` à son pied, étiquetée `PortalConfig.SealTag` et nommant sa destination dans l'attribut `PortalConfig.SealAttribute` (`Battleground`, `WorldBoss`, `Return`). Chaque client écrit au-dessus où il mène et ce qu'il demande.
 - **Arène 1v1** : plateforme 80×80 en vélin, murs os à filet d'encre et kill zone sous le sol, `Spawn_Team1` / `Spawn_Team2` à 30 studs l'un de l'autre.
 - **Arène 3v3** : 120×120, trois spawns par équipe espacés de 8 studs, deux murs bas centraux pour casser les lignes.
@@ -212,6 +212,10 @@ Cycle d'un match : file → arène instanciée → téléport → compte à rebo
 
 Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion (bonus croissant J1→J7), bonus de première victoire du jour, pass saisonnier 50 paliers (gratuit / premium), rang saisonnier (Vierge → Esquisse → Écriture → Enluminure → Codex) avec récompense de fin de saison, cosmétiques (skins de glyphes = une nuance du pigment du glyphe, jamais une autre teinte ; auras, traînées, effets de kill et titres dessinés dans les encres de la page — D-109).
 
+**Objectifs longs (E17-S2, D-224, D-225).**
+- **Les jalons de 45 à 100.** Passé le dernier glyphe (36) et l'Orpiment (40), un jalon tous les cinq niveaux jusqu'à 100 paie une fois dix Folios par niveau du jalon, et un titre réservé à 50 (Rubricateur), 75 (Maître copiste) et 100 (Cent feuillets). Glyphes, pigment et jalons sont une seule **route des niveaux** (`Pure/LevelRoad`) : la carte Résultat nomme toujours sa prochaine étape (« Prochain : 450 Folios au niveau 45 »), sans promettre ce que le joueur tient déjà, et dit au niveau 100 que la route est parcourue. Un profil qui charge avec des jalons dépassés et jamais payés les reçoit en une ligne.
+- **L'Ex-libris.** Treize plaques à vie, chacune accordée une fois par le serveur quand une mesure qu'il compte déjà atteint sa cible : adversaires vaincus (100, 1 000), matchs joués (25, 250), glyphes tracés (1 000, 10 000), la plus longue chaîne (4, 6), l'Effacement vaincu pendant son événement (1, 10), et les grades du Pupitre (le kit en Calligraphie, 10 exercices en Mise au net, 20 en Calligraphie). Des Folios, et quatre titres réservés (Mille ratures, Écorné, D'un seul souffle, Calligraphe). Montants : `docs/ECONOMY.md` §2.
+
 **Ce que l'interface en montre (D-147).**
 - **Les badges.** Ce qui attend d'être récupéré (récompense du jour, quêtes terminées, paliers du pass) est compté par `Claimables` et badgé : sur le bouton Menu, et dans l'amas méta du hub, un sceau par sorte, dans la couleur de l'écran qu'il ouvre, visible seulement quand il y a quelque chose. Jamais en combat.
 - **La récompense du jour s'ouvre seule**, une fois par session, trois secondes après l'arrivée du profil, si elle attend et que rien d'autre ne retient le joueur (ni combat, ni file, ni écran ouvert).
@@ -219,3 +223,16 @@ Quêtes journalières (3) et hebdomadaires (3) data-driven, streak de connexion 
 - **Les puces fantômes** de la première recette reviennent après une séquence qui n'a pas abouti, jusqu'au premier glyphe compté par le serveur.
 
 Détails économiques : `docs/ECONOMY.md`.
+
+## 9 bis. Les Exercices au Pupitre (E14-S2, D-223)
+
+Au Pupitre du hub, le joueur choisit un exercice ; l'écran se ferme et l'exercice se fait sur les mannequins de l'anneau d'épreuves. Le serveur le compte, répétition par répétition, à partir de ce qu'il a lui-même accepté, et le dit en toasts (« Marque · 2 / 3 », « raté », le grade).
+
+| Exercice | Une répétition | Un raté | Répétitions | Temps de la Calligraphie |
+|---|---|---|---|---|
+| **Les quatre traits** (kit) | les quatre coups d'un enchaînement de M1, chacun porté | un coup de M1 qui ne touche rien | 3 | 12 s |
+| **L'annulation** (kit) | le dernier coup porté, puis la ruée qui coupe sa récupération (§5 bis) | une ruée qui n'annule rien, ou qui suit un dernier coup dans le vide | 3 | 15 s |
+| **La chaîne de trois** (kit) | trois glyphes acceptés, chacun dans la seconde du précédent | une chaîne qui s'arrête avant trois | 2 | 20 s |
+| **Une recette** (un par glyphe) | le glyphe posé sur un corps ; un mur, un buff ou un saut dès qu'il est accepté | le glyphe qui ne touche rien, ou un autre glyphe | 3 | la recharge entre chaque lancer, plus 8 s |
+
+Une série finie est notée **Brouillon** (finie), **Mise au net** (au plus un raté) ou **Calligraphie** (aucun raté, et la dernière répétition dans le temps depuis le premier événement compté). Chaque grade de chaque exercice paie une fois (`DrillConfig.Grades`) ; refaire un exercice n'a de prix que pour un meilleur grade. Une recette demande son glyphe débloqué et équipé : l'écran propose sinon d'aller à l'Équipement, ou dit le niveau qui le débloque. Un exercice ne compte qu'au hub : partir en match, au champ de bataille ou devant l'Effacement le pose, une minute sans rien de compté aussi. L'écran du Pupitre a trois onglets : les exercices (la série en cours en tête, avec « Poser »), la route des niveaux, l'Ex-libris.

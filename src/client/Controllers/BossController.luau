@@ -475,6 +475,8 @@ function BossController.Start()
 		return
 	end
 	remoteClient.on("BossChanged", onBossChanged)
+	-- The band's words, again in the player's language when it changes: drawn from the last snapshot.
+	localize.Changed:Connect(refresh)
 	log.info("started")
 end
 

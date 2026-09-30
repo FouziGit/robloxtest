@@ -60,6 +60,8 @@ end
 -- go with it are each client's (HubSignsController, D-128).
 function Draw.emblem(panel: BasePart, accent: Color3, bars: { number })
 	local gui = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	gui.AutoLocalize = false
 	gui.Name = "Emblem"
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud

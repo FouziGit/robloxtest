@@ -487,8 +487,13 @@ function SettingsBindings.new(props: Props): Bindings
 		sync(kind)
 	end
 
+	-- A capture still waiting is given back: InputController would otherwise keep the next key, and the controls
+	-- it set aside, for a page that is gone (a change of language builds the screen again, MenuController).
 	local function destroy(_self: Bindings)
-		capturing = nil
+		if capturing ~= nil then
+			capturing = nil
+			props.InputController.cancelCapture()
+		end
 		trove:Destroy()
 	end
 

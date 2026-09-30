@@ -140,6 +140,8 @@ export type Options = {
 	Entries: number?,
 	-- Where the player stands on it: twelfth unless told.
 	Rank: number?,
+	-- A private server a player bought, where nothing is ranked (MatchController.rankedHere).
+	Unranked: boolean?,
 }
 
 -- The Localize the screens are given: the keys themselves, or the player's words in `locale`.
@@ -237,6 +239,9 @@ function Screens.open(name: string, options: Options?): (any, number, any, any, 
 			MatchEnded = signal(),
 			getQueue = function(): any
 				return { Queued = false, WaitedSeconds = 0, QueuedCount = 0, NeededCount = 2 }
+			end,
+			rankedHere = function(): boolean
+				return given.Unranked ~= true
 			end,
 			getMatch = function(): any
 				return nil

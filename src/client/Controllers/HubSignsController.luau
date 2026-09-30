@@ -13,7 +13,8 @@
 -- Everything is built into this player's PlayerGui (a SurfaceGui or BillboardGui adorned to the server's
 -- part, and a prompt that only this client has), and rebuilt when the server rebuilds the hub; a gate's
 -- words come and go with its sign (PortalConfig.SignTag), which is how the arena copies and anything the
--- place streams in or out are worded without a list of them.
+-- place streams in or out are worded without a list of them. When the player's language changes
+-- (Localize.Changed), all of it is worded again in the new one.
 --
 -- A prompt is live only when its key is free: not while a screen is open (the key would swap screens, and
 -- abort a rebind capture waiting for that very key), and not while the player has bound that key to an
@@ -94,6 +95,8 @@ local prompts: { ProximityPrompt } = {}
 local shownPrompts: { [ProximityPrompt]: BillboardGui } = {}
 -- The words on each gate standing in the world, by its sign.
 local gateSigns: { [BasePart]: typeof(Trove.new()) } = {}
+-- The hub folder last worded, to word again in another language.
+local hubFolder: Instance? = nil
 
 -- Whether the player bound one of the prompt's keys to an action.
 local function promptKeyTaken(): boolean
@@ -154,6 +157,8 @@ local function wordBoard(folder: Instance, boardId: string, trove: typeof(Trove.
 		return
 	end
 	local surface = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	surface.AutoLocalize = false
 	surface.Name = "BoardWords_" .. boardId
 	surface.Adornee = panel
 	surface.Face = Enum.NormalId.Front
@@ -206,6 +211,8 @@ end
 -- not shrink with it.
 local function namePlate(adornee: BasePart, name: string, above: number, trove: typeof(Trove.new())): BillboardGui
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = signName(adornee)
 	billboard.Adornee = adornee
 	billboard.Size = PLATE_SIZE
@@ -246,6 +253,8 @@ end
 -- a phone. Only that face is written, so the back of one gate's sign never shows words over the other's.
 local function writeSign(sign: BasePart, name: string, hint: string, trove: typeof(Trove.new())): SurfaceGui
 	local surface = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	surface.AutoLocalize = false
 	surface.Name = signName(sign)
 	surface.Adornee = sign
 	surface.Face = Enum.NormalId.Front
@@ -299,6 +308,8 @@ local function wordPedestal(
 	namePlate(panel, name, PLATE_STUDS_ABOVE, trove)
 
 	local prompt = Instance.new("ProximityPrompt")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	prompt.AutoLocalize = false
 	prompt.Name = "Open_" .. screen
 	prompt.ActionText = localize.t(actionKey)
 	prompt.ObjectText = name
@@ -334,6 +345,8 @@ local function onPromptShown(prompt: ProximityPrompt, inputType: Enum.ProximityP
 		return
 	end
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = "Prompt_" .. prompt.Name
 	billboard.Adornee = prompt.Parent :: Instance
 	billboard.Size = PROMPT_SIZE
@@ -480,6 +493,7 @@ end
 
 -- Words the hub `folder` the server just built, replacing whatever worded the previous one.
 local function wordHub(folder: Instance)
+	hubFolder = folder
 	signs:Clean()
 	local trove = signs:Extend()
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
@@ -488,6 +502,22 @@ local function wordHub(folder: Instance)
 	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Queue, "hub.queue.name", "queue.title", "Play", trove))
 	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Shop, "shop.title", "hub.prompt.open", "Shop", trove))
 	trove:Add(task.spawn(wordPedestal, folder, ANCHORS.Lectern, "lectern.title", "lectern.prompt", "Lectern", trove))
+end
+
+-- The player's language changed: the hub and every gate standing are worded again in it.
+local function reword()
+	local folder = hubFolder
+	if folder ~= nil and folder.Parent ~= nil then
+		wordHub(folder)
+	end
+	local standing: { BasePart } = {}
+	for sign in pairs(gateSigns) do
+		table.insert(standing, sign)
+	end
+	for _, sign in ipairs(standing) do
+		unwordSign(sign)
+		wordSign(sign)
+	end
 end
 
 function HubSignsController.Init(deps: Deps)
@@ -527,6 +557,7 @@ function HubSignsController.Start()
 	for _, sign in ipairs(CollectionService:GetTagged(PortalConfig.SignTag)) do
 		onSignAdded(sign)
 	end
+	localize.Changed:Connect(reword)
 	log.info("started")
 end
 

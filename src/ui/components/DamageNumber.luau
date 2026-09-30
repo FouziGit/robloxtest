@@ -72,6 +72,8 @@ local function build(): Marker
 	anchor.Parent = ensureContainer()
 
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = "Number"
 	billboard.Size = BILLBOARD_SIZE
 	billboard.AlwaysOnTop = true

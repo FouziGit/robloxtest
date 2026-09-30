@@ -37,8 +37,8 @@ export type Deps = {
 	-- The menu is a panel, not a surface for messages: the one line it can need (an invite the platform
 	-- refuses) goes through the HUD's own toast column.
 	HudController: { showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> () },
-	-- The queue, for the Play tile's line while the player waits in one.
-	MatchController: { getQueue: () -> Types.QueueSnapshot, QueueChanged: any },
+	-- The queue, for the Play tile's line while the player waits in one, and whether its matches are ranked here.
+	MatchController: { getQueue: () -> Types.QueueSnapshot, rankedHere: () -> boolean, QueueChanged: any },
 	OnClose: () -> (),
 	OnNavigate: (id: string, args: any?) -> (),
 	OnBack: () -> (),
@@ -429,8 +429,9 @@ function MenuScreen.new(deps: Deps): Screen
 	own(trove, loadoutButton)
 
 	-- The Play tile: a ► on a disc of the sheet, its word at poster size and its line under it, and a "Ranked"
-	-- ribbon over its corner: every mode the queue offers is ranked (MatchConfig). What a tile adds (the disc,
-	-- the ribbon, the stripe) goes on its face, so it rides the face when it is pressed.
+	-- ribbon over its corner: every mode the queue offers is ranked (MatchConfig), except on a private server a
+	-- player bought, where the ribbon says none is (E4-S4). What a tile adds (the disc, the ribbon, the stripe) goes
+	-- on its face, so it rides the face when it is pressed.
 	local playFace = playButton:Face()
 	local playLine: TextLabel? = nil
 	if playFace ~= nil then
@@ -498,7 +499,7 @@ function MenuScreen.new(deps: Deps): Screen
 		ribbon.TextSize = Theme.Sizes.TextLabel
 		ribbon.TextColor3 = Theme.Colors.PanelRaised
 		ribbon.TextTruncate = Enum.TextTruncate.None
-		ribbon.Text = t("queue.ranked")
+		ribbon.Text = if deps.MatchController.rankedHere() then t("queue.ranked") else t("queue.unrankedShort")
 		ribbon.ZIndex = 5
 		Theme.corner(ribbon, RIBBON_CORNER)
 		local ribbonPadding = Instance.new("UIPadding")

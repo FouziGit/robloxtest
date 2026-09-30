@@ -362,6 +362,19 @@ local function step()
 	track(lock)
 end
 
+-- The player's language changed: the mark's words are written again in it, the target's name included.
+local function relabel()
+	local mark = marker
+	if mark == nil then
+		return
+	end
+	mark:Relabel()
+	local lock = current
+	if lock ~= nil then
+		mark:SetTarget(nameOf(lock), lock.Humanoid)
+	end
+end
+
 function LockOnController.isLocked(): boolean
 	return current ~= nil
 end
@@ -389,6 +402,7 @@ function LockOnController.Start()
 	end)
 	matchController.MatchChanged:Connect(onMatchChanged)
 	player.CharacterRemoving:Connect(release)
+	localize.Changed:Connect(relabel)
 	RunService.PreSimulation:Connect(step)
 	log.info("started")
 end

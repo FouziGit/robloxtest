@@ -18,6 +18,10 @@
 -- would make the countdown unplayable) and the result screen is opened when one ends. A portal that has just
 -- moved the player closes it too (TravelController.Travelled): a circle takes whoever stands in it, menu open
 -- or not, and nobody may arrive among the Forgers or before the Erasure with their input suspended.
+--
+-- A screen writes its words when it is built. When the player's language changes (Localize.Changed), every
+-- screen built so far is let go: the one in front is built again at once and opened where it was, with what it
+-- was opened with, and the others are built again in the new language the next time they open.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -81,6 +85,7 @@ local RESULT_SCREEN: ScreenId = "Result"
 
 local MenuController = {}
 
+local localize: any
 local inputController: any
 local matchController: any
 local travelController: any
@@ -146,7 +151,8 @@ local function apply(move: MenuStack.Move)
 	end
 	local arrive = move.Arrive
 	if arrive ~= nil then
-		local screen = screens[arrive.Id]
+		-- Built again if a language change let it go while it waited under another.
+		local screen = getScreen(arrive.Id)
 		if screen ~= nil then
 			screen:Open(arrive.Args)
 		end
@@ -197,6 +203,22 @@ function MenuController.toggle(id: string?)
 	end
 end
 
+-- The player's language changed: every screen is built again in it (see the header).
+local function relabel()
+	local built = screens
+	screens = {}
+	for id, screen in pairs(built) do
+		log.try("Destroy " .. id, screen.Destroy, screen)
+	end
+	local top = MenuStack.top(stack)
+	if top ~= nil then
+		local screen = getScreen(top.Id)
+		if screen ~= nil then
+			screen:Open(top.Args)
+		end
+	end
+end
+
 -- A match starting takes the screen away (only on the nil -> snapshot transition, so the player can
 -- still open the menu mid-match); a match ending brings the result screen in front of it.
 local function onMatchChanged(snapshot: any)
@@ -215,6 +237,7 @@ local function onMatchEnded(outcome: any)
 end
 
 function MenuController.Init(deps: Deps)
+	localize = deps.Localize
 	inputController = deps.InputController
 	matchController = deps.MatchController
 	travelController = deps.TravelController
@@ -240,6 +263,7 @@ function MenuController.Start()
 	matchController.MatchChanged:Connect(onMatchChanged)
 	matchController.MatchEnded:Connect(onMatchEnded)
 	travelController.Travelled:Connect(MenuController.close)
+	localize.Changed:Connect(relabel)
 	log.info("started")
 end
 

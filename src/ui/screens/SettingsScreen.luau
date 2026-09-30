@@ -257,8 +257,9 @@ function SettingsScreen.new(deps: Deps): Screen
 	-- A rebinding page can only be finished with the matching hardware: a capture unbinds every on-screen
 	-- touch control and waits for a key no touch-only device can send, which would leave the player with
 	-- no HUD and a half-finished capture. The page is therefore not offered at all without the hardware,
-	-- which also matches what initialTab already opens on. The screen is built once and kept for the whole
-	-- session, so a pad plugged in later must still get its page: the strip is rebuilt on every change.
+	-- which also matches what initialTab already opens on. The screen is kept once built (only a change of
+	-- language builds it again), so a pad plugged in later must still get its page: the strip is rebuilt on
+	-- every change.
 	local tabsTrove = trove:Extend()
 	local tabs: Tabs.Tabs? = nil
 	local hasKeyboard = false

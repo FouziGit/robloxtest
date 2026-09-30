@@ -783,6 +783,8 @@ function InputController.Start()
 	Players.LocalPlayer.CharacterAdded:Connect(clearDash)
 	touching = inputMode.get() == "Touch"
 	inputMode.Changed:Connect(onInputMode)
+	-- The discs' short words, again in the player's language when it changes.
+	localize.Changed:Connect(relayoutTouch)
 	applyBindings()
 	log.info("started (%d actions, touch %s)", #boundActions, tostring(touching))
 end

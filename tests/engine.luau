@@ -145,6 +145,9 @@ local function defaults(className: string): { [string]: any }
 	end
 	if className == "ScreenGui" then
 		values.Enabled = true
+	elseif className == "CanvasGroup" then
+		-- What a screen's exit fades from.
+		values.GroupTransparency = 0
 	elseif className == "UIScale" then
 		values.Scale = 1
 	elseif className == "UIGradient" then
@@ -588,6 +591,12 @@ PathMeta.__index = function(node: any, key: string): any
 	elseif key == "WaitForChild" or key == "FindFirstChild" then
 		return function(self: any, name: string): any
 			return pathNode(childPath(pathOf[self], name))
+		end
+	elseif key == "IsA" then
+		-- A path is a ModuleScript when a module is on disk there: how MenuController checks a screen it found.
+		return function(self: any, className: string): boolean
+			local at = pathOf[self]
+			return className == "ModuleScript" and (fs.isFile(at .. ".luau") or fs.isFile(at .. "/init.luau"))
 		end
 	end
 	return pathNode(childPath(path, key))

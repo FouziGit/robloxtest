@@ -64,6 +64,14 @@ MatchConfig.Rewards = {
 	Team3v3 = { Xp = 1.2, Folios = 1.2 },
 }
 
+-- A private server a player bought plays unranked (Pure/ServerKind, E4-S4): no Elo and no ladder, its matches
+-- pay this share of their XP and Folios, and neither the first win of the day nor a won match's quest. The
+-- server says so to its clients through this attribute of the Workspace, which the queue shows.
+MatchConfig.PrivateServer = {
+	RewardShare = 0.5,
+	UnrankedAttribute = "UnrankedServer",
+}
+
 -- Geometry of generated arenas (studs). Anchors are documented in docs/GAME_DESIGN.md §8.
 MatchConfig.Arenas = {
 	Duel = { Size = 80, WallHeight = 24, SpawnDistance = 30, KillZoneDepth = -40, Height = 500 },

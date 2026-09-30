@@ -172,7 +172,14 @@ describe("the Play tile's ribbon", function()
 				error(("%s is not ranked: the Play tile's ribbon would say otherwise"):format(mode))
 			end
 		end
-		expect(string.find(code(MENU), 'ribbon.Text = t("queue.ranked")', 1, true)).never.toBeNil()
+		expect(
+			string.find(
+				code(MENU),
+				'ribbon.Text = if deps.MatchController.rankedHere() then t("queue.ranked") else t("queue.unrankedShort")',
+				1,
+				true
+			)
+		).never.toBeNil()
 		-- The play card's tag is the same ribbon lying flat: ink, the sheet's word, corners of 8.
 		local play = code(PLAY)
 		expect(tonumber(string.match(play, "local TAG_CORNER = (%d+)\n"))).toBe(8)

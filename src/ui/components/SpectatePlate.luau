@@ -35,6 +35,8 @@ export type SpectatePlate = {
 	Show: (self: SpectatePlate, name: string, onCycle: (step: number) -> ()) -> (),
 	-- Gone, then `onDone`.
 	Hide: (self: SpectatePlate, onDone: (() -> ())?) -> (),
+	-- The player's language changed: the plate's words are written again in it.
+	Relabel: (self: SpectatePlate) -> (),
 	Destroy: (self: SpectatePlate) -> (),
 }
 
@@ -62,6 +64,8 @@ function SpectatePlate.new(props: Props): SpectatePlate
 	local cycle: ((step: number) -> ())? = nil
 	local shown = false
 	local token = 0
+	-- Who the plate names, kept for a language change.
+	local watching: string? = nil
 
 	local root = Instance.new("Frame")
 	root.Name = "Spectate"
@@ -145,6 +149,7 @@ function SpectatePlate.new(props: Props): SpectatePlate
 		end,
 	}))
 	local caps: { Frame } = {}
+	local shoulderCaps: { Keycap.Keycap } = {}
 	local byKey: { [string]: number } = {}
 	local shoulders: { Enum.KeyCode } = {}
 	for _, shoulder in ipairs(SHOULDERS) do
@@ -159,6 +164,7 @@ function SpectatePlate.new(props: Props): SpectatePlate
 		trove:Add(cap)
 		cap.Instance.Visible = false
 		table.insert(caps, cap.Instance)
+		table.insert(shoulderCaps, cap)
 		byKey[shoulder.Key] = shoulder.Step
 		table.insert(shoulders, (Enum.KeyCode :: any)[shoulder.Key])
 	end
@@ -172,6 +178,7 @@ function SpectatePlate.new(props: Props): SpectatePlate
 
 	local function show(_self: SpectatePlate, name: string, onCycle: (step: number) -> ())
 		cycle = onCycle
+		watching = name
 		label.Text = props.Localize.t(WATCHING_KEY, { name = name })
 		token += 1
 		if shown then
@@ -223,11 +230,21 @@ function SpectatePlate.new(props: Props): SpectatePlate
 		end)
 	end
 
+	local function relabel(_self: SpectatePlate)
+		local name = watching
+		if name ~= nil then
+			label.Text = props.Localize.t(WATCHING_KEY, { name = name })
+		end
+		for index, shoulder in ipairs(SHOULDERS) do
+			shoulderCaps[index]:SetKey(shoulder.Key)
+		end
+	end
+
 	local function destroy(_self: SpectatePlate)
 		trove:Destroy()
 	end
 
-	return { Instance = root, Show = show, Hide = hide, Destroy = destroy }
+	return { Instance = root, Show = show, Hide = hide, Relabel = relabel, Destroy = destroy }
 end
 
 return SpectatePlate

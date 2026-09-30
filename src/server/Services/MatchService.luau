@@ -83,6 +83,7 @@ type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> ()
 type HubApi = { teleportToHub: (player: Player) -> () }
 type ArenaApi = { acquire: (arenaId: string) -> Arena?, release: (arena: Arena) -> () }
 type RankingApi = {
+	rankedHere: () -> boolean,
 	getRating: (player: Player, modeId: string) -> number,
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
@@ -296,13 +297,15 @@ end
 -- Rewards
 ----------------------------------------------------------------
 
-local function ratingFallback(player: Player, modeId: string): RatingChange
+-- The rating unchanged. With no rank at all on a server that is not ranked: the Result then says nothing of a
+-- rating that could not move (ResultCard reads an empty key as unranked).
+local function ratingFallback(player: Player, modeId: string, ranked: boolean): RatingChange
 	local ok, rating = pcall(ranking.getRating, player, modeId)
 	local value = if ok and type(rating) == "number" then rating else RankingConfig.InitialRating
 	if not ok then
 		log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
 	end
-	local key = RankTiers.tierFor(value, RankingConfig.Tiers).NameKey
+	local key = if ranked then RankTiers.tierFor(value, RankingConfig.Tiers).NameKey else ""
 	return { Before = value, After = value, RankKeyBefore = key, RankKeyAfter = key }
 end
 
@@ -333,10 +336,14 @@ local function ratingChanges(active: Active, result: Types.MatchResult): { [numb
 	return (applied :: any) :: { [number]: RatingChange }
 end
 
--- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server.
+-- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server. A private
+-- server a player bought is not ranked (RankingService.rankedHere): its matches pay MatchConfig.PrivateServer's
+-- share of their XP and Folios, and neither the first win of the day nor a won match's quest.
 local function award(active: Active, result: Types.MatchResult)
 	local match = active.Match
 	local scale = REWARD_SCALES[active.Def.Id] or DEFAULT_SCALE
+	local rankedServer = ranking.rankedHere()
+	local share = if rankedServer then 1 else MatchConfig.PrivateServer.RewardShare
 	local changes = ratingChanges(active, result)
 	for _, participant in ipairs(match.Participants) do
 		if not isLive(participant) then
@@ -348,18 +355,18 @@ local function award(active: Active, result: Types.MatchResult)
 		local baseXp = if draw then XP.MatchDraw elseif won then XP.MatchWin else XP.MatchLoss
 		local baseFolios = if draw then FOLIOS.MatchDraw elseif won then FOLIOS.MatchWin else FOLIOS.MatchLoss
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
-		local xp = math.floor(baseXp * scale.Xp + 0.5)
-		local folios = math.floor(baseFolios * scale.Folios + 0.5)
+		local xp = math.floor(baseXp * scale.Xp * share + 0.5)
+		local folios = math.floor(baseFolios * scale.Folios * share + 0.5)
 		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
-		local firstWin = won and grantFirstWin(player)
+		local firstWin = won and rankedServer and grantFirstWin(player)
 		progression.addXp(player, xp, reason)
 		currency.add(player, folios, reason)
 		bumpMatchesPlayed(player)
 		quest.report(player, "MatchPlayed", 1)
-		if won then
+		if won and rankedServer then
 			quest.report(player, "MatchWin", 1)
 		end
-		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id)
+		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, rankedServer)
 		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,

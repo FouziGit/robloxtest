@@ -341,9 +341,8 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		gradeSeal:SetText(string.rep(Theme.Glyphs.Pip, grade.Pips))
 		gradeLine.Text = t("match.grade", { grade = t(outcome.Grade) })
 		executionLine.Text = t("match.execution", {
-			hits = outcome.Hits,
-			casts = outcome.Casts,
-			damage = outcome.DamageDealt,
+			landed = t("match.execution.glyphs", { hits = outcome.Hits, casts = outcome.Casts }),
+			dealt = t("match.execution.damage", { damage = outcome.DamageDealt }),
 		})
 		xpText.Text = t("reward.xp", { xp = 0 })
 		foliosText.Text = t("reward.folios", { amount = 0 })

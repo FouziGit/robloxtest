@@ -64,6 +64,8 @@ export type MetaCluster = {
 	SetQueue: (self: MetaCluster, queue: Types.QueueSnapshot) -> (),
 	SetChecklist: (self: MetaCluster, done: Checklist) -> (),
 	SetVisible: (self: MetaCluster, visible: boolean) -> (),
+	-- The player's language changed: the words the cluster wrote once are written again in it.
+	Relabel: (self: MetaCluster) -> (),
 	Destroy: (self: MetaCluster) -> (),
 }
 
@@ -461,7 +463,7 @@ function MetaCluster.new(props: Props): MetaCluster
 	stepsTitle.TextXAlignment = Enum.TextXAlignment.Left
 	stepsTitle.Text = localize.t("hud.checklist.title")
 	stepsTitle.Parent = list
-	type StepRow = { Box: Frame, Tick: TextLabel }
+	type StepRow = { Box: Frame, Tick: TextLabel, Words: TextLabel }
 	local stepRows: { [string]: StepRow } = {}
 	for index, step in ipairs(STEPS) do
 		-- A row a pointer clicks; on touch a row only read, under the thumbstick's frame.
@@ -508,7 +510,7 @@ function MetaCluster.new(props: Props): MetaCluster
 		words.Text = localize.t(step.Key)
 		words.Parent = row
 		row.Parent = list
-		stepRows[step.Kind] = { Box = box, Tick = tick }
+		stepRows[step.Kind] = { Box = box, Tick = tick, Words = words }
 	end
 
 	column.Parent = props.Parent
@@ -583,13 +585,18 @@ function MetaCluster.new(props: Props): MetaCluster
 		claimsRow.Visible = any
 	end
 
+	-- The wait so far, from the server's last snapshot and the time since it came.
+	local function writeWaited()
+		local waited = waitedBase + math.floor(os.clock() - waitedAt)
+		searching.Text = localize.t("queue.searching", { waited = waited })
+	end
+
 	-- The wait, counted here each second between the server's snapshots.
 	local function tick(token: number)
 		if token ~= queueToken or not queued then
 			return
 		end
-		local waited = waitedBase + math.floor(os.clock() - waitedAt)
-		searching.Text = localize.t("queue.searching", { waited = waited })
+		writeWaited()
 		task.delay(SECOND, tick, token)
 	end
 
@@ -666,6 +673,22 @@ function MetaCluster.new(props: Props): MetaCluster
 		end
 	end
 
+	-- The title and the steps of the first-steps card, the balance, whose thousands each language groups its own
+	-- way, and the wait counted so far. The level's words come with the profile, which the HUD gives again.
+	local function relabel(_self: MetaCluster)
+		stepsTitle.Text = localize.t("hud.checklist.title")
+		for _, step in ipairs(STEPS) do
+			stepRows[step.Kind].Words.Text = localize.t(step.Key)
+		end
+		local shown = shownFolios
+		if shown ~= nil then
+			count.Text = balance(shown)
+		end
+		if queued then
+			writeWaited()
+		end
+	end
+
 	local function destroy(_self: MetaCluster)
 		queueToken += 1
 		local stop = stopWave
@@ -685,6 +708,7 @@ function MetaCluster.new(props: Props): MetaCluster
 		SetQueue = setQueue,
 		SetChecklist = setChecklist,
 		SetVisible = setVisible,
+		Relabel = relabel,
 		Destroy = destroy,
 	}
 	return object

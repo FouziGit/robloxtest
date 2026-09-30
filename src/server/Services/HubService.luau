@@ -311,6 +311,8 @@ end
 -- Empty row container: LeaderboardService adds one row per entry (LayoutOrder = rank).
 local function buildBoardGui(panel: BasePart): Frame
 	local gui = Instance.new("SurfaceGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	gui.AutoLocalize = false
 	gui.Name = ANCHORS.BoardGui
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud

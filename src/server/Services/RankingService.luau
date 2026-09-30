@@ -8,9 +8,13 @@
 -- so the profile itself no longer knows what the player reached last season: the durable record is the
 -- previous season's ladder, read once per player through LeaderboardService. Rank.LastRewardedSeason
 -- is written before any payout and re-checked after the read, so a reward can never be granted twice.
+--
+-- In a private server a player bought, nothing here moves (Pure/ServerKind, E4-S4): its owner chooses who
+-- fights, so no Elo is written and no rating reaches a ladder. RankingService.rankedHere says which it is.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -22,6 +26,7 @@ local MatchConfig = require(Shared.Config.MatchConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local RatingMemory = require(script.Parent.Parent.Pure.RatingMemory)
+local ServerKind = require(Shared.Pure.ServerKind)
 local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 
@@ -86,6 +91,8 @@ local notify: NotifyApi
 local leaderboard: LeaderboardApi?
 -- Players whose end-of-season pass is reading the ladder: one attempt in flight at a time.
 local rewarding: { [Player]: boolean } = {}
+-- Whether ranked play counts on this server, read once at Init: a server never changes kind.
+local rankedHere = true
 
 ----------------------------------------------------------------
 -- Rank data
@@ -93,7 +100,7 @@ local rewarding: { [Player]: boolean } = {}
 
 local function isRankedMode(modeId: string): boolean
 	local mode = MatchConfig.Modes[modeId]
-	return mode ~= nil and mode.Ranked
+	return rankedHere and mode ~= nil and mode.Ranked
 end
 
 -- Of the players of the live ranked matches (MatchService holds them from start to end), the last rating this
@@ -151,6 +158,12 @@ function RankingService.lastKnownRating(modeId: string, userId: number): number
 	return knownRating(modeId, userId)
 end
 
+-- False in a private server a player bought: no match there moves a rating (applyResult and applyAbandon write
+-- nothing), and MatchService pays its matches a share of their rewards.
+function RankingService.rankedHere(): boolean
+	return rankedHere
+end
+
 -- Strings key of the tier a rating sits in (single source of tier naming for every service).
 function RankingService.rankKeyFor(rating: number): string
 	return RankTiers.tierFor(rating, RankingConfig.Tiers).NameKey
@@ -180,7 +193,8 @@ end
 -- rating this server saw for them, so the opposing team is scored against the opponent they actually
 -- faced, and is absent from the result: callers treat a missing entry as "rating unchanged". Their own
 -- loss was already written by applyAbandon at the moment they left.
--- An unranked mode (World Boss) and a match that did not report two teams return an empty map.
+-- An unranked mode (World Boss), any match of a server that is not ranked (rankedHere) and a match that did
+-- not report two teams return an empty map.
 function RankingService.applyResult(result: Types.MatchResult): { [number]: RatingDelta }
 	local deltas: { [number]: RatingDelta } = {}
 	if not isRankedMode(result.ModeId) then
@@ -411,6 +425,7 @@ function RankingService.Init(deps: Deps)
 	cosmeticService = deps.Cosmetic
 	notify = deps.Notify
 	leaderboard = deps.Leaderboard
+	rankedHere = ServerKind.ranked(ServerKind.of(game.PrivateServerId, game.PrivateServerOwnerId))
 end
 
 function RankingService.Start()
@@ -422,6 +437,11 @@ function RankingService.Start()
 		log.warn("Leaderboard dependency missing: end-of-season rewards stay pending")
 	end
 	dataService.ProfileLoaded:Connect(grantSeasonRewards)
+	if not rankedHere then
+		-- What the queue reads to tell the players (MatchController.rankedHere).
+		Workspace:SetAttribute(MatchConfig.PrivateServer.UnrankedAttribute, true)
+		log.info("a private server bought by a player: ranked play is off here")
+	end
 	log.info("started (season %s, rating %d..%d)", GameConfig.SeasonId, BOUNDS.Floor, BOUNDS.Ceiling)
 end
 

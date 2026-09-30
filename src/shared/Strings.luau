@@ -2,6 +2,9 @@
 -- Localization table. Pure module: no requires, no Roblox globals.
 -- Every player-visible string lives here as {en = …, fr = …}. English is the default locale.
 -- Placeholders use {name} and are substituted by Strings.t(key, params, locale).
+-- A sentence that counts something ("Cast 30 glyphs") has two forms, "<key>.one" and "<key>.other", and a line
+-- in Strings.Plurals naming the placeholder that counts; Strings.t and Strings.plural pick the form the count
+-- takes in the player's language, so no sentence ever reads "Win 1 matches".
 
 export type Entry = { en: string, fr: string }
 
@@ -110,7 +113,8 @@ Strings.Table = {
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
 	["battlepass.claim"] = { en = "Claim", fr = "Réclamer" },
-	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
+	["battlepass.reward.folio.one"] = { en = "{amount} Folio", fr = "{amount} Folio" },
+	["battlepass.reward.folio.other"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
@@ -307,23 +311,39 @@ Strings.Table = {
 	["cosmetic.TitleCalligrapher"] = { en = "Title: Calligrapher", fr = "Titre : Calligraphe" },
 
 	-- Quests & daily
-	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
-	["quest.hitGlyphs"] = { en = "Hit enemies with {target} glyphs", fr = "Touche des ennemis avec {target} glyphes" },
-	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
-	["quest.defeatForgers"] = { en = "Defeat {target} Forgers", fr = "Vaincs {target} Faussaires" },
-	["quest.winMatch"] = { en = "Win a match", fr = "Gagne un match" },
-	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
-	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
-	["quest.dealDamage"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
-	["quest.useDash"] = { en = "Dash {target} times", fr = "Utilise le dash {target} fois" },
-	["quest.landMelee"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
-	["quest.defeatPlayers"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
-	["quest.joinBoss"] = {
-		en = "Face the Erasure {target} times",
-		fr = "Affronte l'Effacement {target} fois",
+	["quest.castGlyphs.one"] = { en = "Cast {target} glyph", fr = "Trace {target} glyphe" },
+	["quest.castGlyphs.other"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
+	["quest.hitGlyphs.one"] = { en = "Hit enemies with {target} glyph", fr = "Touche des ennemis avec {target} glyphe" },
+	["quest.hitGlyphs.other"] = {
+		en = "Hit enemies with {target} glyphs",
+		fr = "Touche des ennemis avec {target} glyphes",
 	},
-	["quest.chainCasts"] = { en = "Chain {target} glyphs", fr = "Enchaîne {target} glyphes" },
-	["quest.cancelRecovery"] = {
+	["quest.defeatDummies.one"] = { en = "Defeat {target} training dummy", fr = "Détruis {target} mannequin" },
+	["quest.defeatDummies.other"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
+	["quest.defeatForgers.one"] = { en = "Defeat {target} Forger", fr = "Vaincs {target} Faussaire" },
+	["quest.defeatForgers.other"] = { en = "Defeat {target} Forgers", fr = "Vaincs {target} Faussaires" },
+	["quest.winMatch"] = { en = "Win a match", fr = "Gagne un match" },
+	["quest.winMatches.one"] = { en = "Win {target} match", fr = "Gagne {target} match" },
+	["quest.winMatches.other"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
+	["quest.playMatches.one"] = { en = "Play {target} match", fr = "Joue {target} match" },
+	["quest.playMatches.other"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
+	["quest.dealDamage.one"] = { en = "Deal {target} damage", fr = "Inflige {target} dégât" },
+	["quest.dealDamage.other"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
+	["quest.useDash.one"] = { en = "Dash {target} time", fr = "Utilise le dash {target} fois" },
+	["quest.useDash.other"] = { en = "Dash {target} times", fr = "Utilise le dash {target} fois" },
+	["quest.landMelee.one"] = { en = "Land {target} melee hit", fr = "Place {target} coup au corps à corps" },
+	["quest.landMelee.other"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
+	["quest.defeatPlayers.one"] = { en = "Defeat {target} player", fr = "Vaincs {target} joueur" },
+	["quest.defeatPlayers.other"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
+	["quest.joinBoss.one"] = { en = "Face the Erasure {target} time", fr = "Affronte l'Effacement {target} fois" },
+	["quest.joinBoss.other"] = { en = "Face the Erasure {target} times", fr = "Affronte l'Effacement {target} fois" },
+	["quest.chainCasts.one"] = { en = "Chain {target} glyph", fr = "Enchaîne {target} glyphe" },
+	["quest.chainCasts.other"] = { en = "Chain {target} glyphs", fr = "Enchaîne {target} glyphes" },
+	["quest.cancelRecovery.one"] = {
+		en = "Cancel {target} recovery with a dash",
+		fr = "Annule {target} récupération d'une ruée",
+	},
+	["quest.cancelRecovery.other"] = {
 		en = "Cancel {target} recoveries with a dash",
 		fr = "Annule {target} récupérations d'une ruée",
 	},
@@ -332,7 +352,8 @@ Strings.Table = {
 	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
 	["quest.claim"] = { en = "Claim", fr = "Réclamer" },
 	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
-	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
+	["quest.reward.one"] = { en = "+{xp} XP, +{folios} Folio", fr = "+{xp} XP, +{folios} Folio" },
+	["quest.reward.other"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
 	["quest.reroll"] = { en = "Swap", fr = "Changer" },
 	["quest.rerolled"] = { en = "New quest: {name}", fr = "Nouvelle quête : {name}" },
@@ -347,7 +368,11 @@ Strings.Table = {
 	},
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
 	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
-	["daily.claimed"] = {
+	["daily.claimed.one"] = {
+		en = "Day {day} reward: +{xp} XP, +{folios} Folio",
+		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folio",
+	},
+	["daily.claimed.other"] = {
 		en = "Day {day} reward: +{xp} XP, +{folios} Folios",
 		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folios",
 	},
@@ -355,11 +380,19 @@ Strings.Table = {
 		en = "Your streak was reset. Come back tomorrow to keep it going!",
 		fr = "Ta série est repartie de zéro. Reviens demain pour la garder !",
 	},
-	["daily.firstWin"] = {
+	["daily.firstWin.one"] = {
+		en = "First win of the day! +{xp} XP, +{folios} Folio",
+		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folio",
+	},
+	["daily.firstWin.other"] = {
 		en = "First win of the day! +{xp} XP, +{folios} Folios",
 		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folios",
 	},
-	["daily.premium"] = {
+	["daily.premium.one"] = {
+		en = "Premium bonus: +{folios} Folio and double XP for {minutes} min",
+		fr = "Bonus Premium : +{folios} Folio et XP doublée pendant {minutes} min",
+	},
+	["daily.premium.other"] = {
 		en = "Premium bonus: +{folios} Folios and double XP for {minutes} min",
 		fr = "Bonus Premium : +{folios} Folios et XP doublée pendant {minutes} min",
 	},
@@ -410,10 +443,10 @@ Strings.Table = {
 	},
 	-- Drawn before a VIP's name in the chat, in the reader's language (ChatConfig.VipTag).
 	["chat.vipTag"] = { en = "[VIP]", fr = "[VIP]" },
-	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Slots d'équipement" },
+	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Emplacements d'équipement" },
 	["pass.loadoutSlots.desc"] = {
 		en = "+4 loadout slots (10 in total).",
-		fr = "+4 slots d'équipement (10 au total).",
+		fr = "+4 emplacements d'équipement (10 au total).",
 	},
 	["pass.orpiment"] = { en = "Orpiment Pigment", fr = "Pigment Orpiment" },
 	["pass.orpiment.desc"] = {
@@ -450,7 +483,8 @@ Strings.Table = {
 		fr = "Achète le cosmétique sélectionné avec des Robux.",
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
-	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
+	["shop.buyFolios.one"] = { en = "{price} Folio", fr = "{price} Folio" },
+	["shop.buyFolios.other"] = { en = "{price} Folios", fr = "{price} Folios" },
 	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
@@ -466,7 +500,8 @@ Strings.Table = {
 	["queue.join"] = { en = "Join queue", fr = "Rejoindre la file" },
 	["queue.leave"] = { en = "Leave queue", fr = "Quitter la file" },
 	["queue.searching"] = { en = "Searching… {waited}s", fr = "Recherche… {waited}s" },
-	["queue.waiting"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
+	["queue.waiting.one"] = { en = "{queued} / {needed} player", fr = "{queued} / {needed} joueur" },
+	["queue.waiting.other"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
 	["queue.joined"] = { en = "Queued for {mode}.", fr = "En file pour {mode}." },
 	["queue.left"] = { en = "You left the queue.", fr = "Tu as quitté la file." },
 	["queue.timedOut"] = { en = "No opponent found. Try again!", fr = "Aucun adversaire trouvé. Réessaie !" },
@@ -484,7 +519,11 @@ Strings.Table = {
 	["match.ratingUp"] = { en = "{rank}  {rating} (+{delta})", fr = "{rank}  {rating} (+{delta})" },
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
-	["season.rewardGranted"] = {
+	["season.rewardGranted.one"] = {
+		en = "Volume reward ({rank}): +{amount} Folio",
+		fr = "Récompense du volume ({rank}) : +{amount} Folio",
+	},
+	["season.rewardGranted.other"] = {
 		en = "Volume reward ({rank}): +{amount} Folios",
 		fr = "Récompense du volume ({rank}) : +{amount} Folios",
 	},
@@ -496,10 +535,15 @@ Strings.Table = {
 		fr = "Les invitations ne sont pas disponibles ici.",
 	},
 	["match.grade"] = { en = "Execution: {grade}", fr = "Exécution : {grade}" },
-	["match.execution"] = {
-		en = "{hits} / {casts} glyphs landed · {damage} damage",
-		fr = "{hits} / {casts} glyphes placés · {damage} dégâts",
+	-- The execution line: what landed of what was cast, then the damage dealt, each counted in its own words.
+	["match.execution"] = { en = "{landed} · {dealt}", fr = "{landed} · {dealt}" },
+	["match.execution.glyphs.one"] = { en = "{hits} / {casts} glyph landed", fr = "{hits} / {casts} glyphe placé" },
+	["match.execution.glyphs.other"] = {
+		en = "{hits} / {casts} glyphs landed",
+		fr = "{hits} / {casts} glyphes placés",
 	},
+	["match.execution.damage.one"] = { en = "{damage} damage", fr = "{damage} dégât" },
+	["match.execution.damage.other"] = { en = "{damage} damage", fr = "{damage} dégâts" },
 	["match.level"] = { en = "Level {level} · {xp} / {needed} XP", fr = "Niveau {level} · {xp} / {needed} XP" },
 	["match.levelMax"] = { en = "Level {level} · max", fr = "Niveau {level} · max" },
 	["match.nextUnlock"] = { en = "Next: {name} at level {level}", fr = "Prochain : {name} au niveau {level}" },
@@ -687,11 +731,13 @@ Strings.Table = {
 
 	-- The Battleground and its Forgers (D-131).
 	["battleground.entered"] = { en = "The Forgers have seen you.", fr = "Les Faussaires t'ont vu." },
-	-- The member's band (TravelController): Forgers on the page now, and how many they helped defeat.
-	["battleground.status"] = {
-		en = "{standing} Forgers standing · {defeated} defeated",
-		fr = "{standing} Faussaires debout · {defeated} vaincus",
-	},
+	-- The member's band (TravelController): Forgers on the page now, and how many they helped defeat, each counted
+	-- in its own words.
+	["battleground.status"] = { en = "{standing} · {defeated}", fr = "{standing} · {defeated}" },
+	["battleground.standing.one"] = { en = "{standing} Forger standing", fr = "{standing} Faussaire debout" },
+	["battleground.standing.other"] = { en = "{standing} Forgers standing", fr = "{standing} Faussaires debout" },
+	["battleground.defeated.one"] = { en = "{defeated} defeated", fr = "{defeated} vaincu" },
+	["battleground.defeated.other"] = { en = "{defeated} defeated", fr = "{defeated} vaincus" },
 	["battleground.full"] = {
 		en = "The battleground is full. Try again in a moment.",
 		fr = "Le champ de bataille est plein. Réessaie dans un instant.",
@@ -714,14 +760,19 @@ Strings.Table = {
 	["boss.started"] = { en = "The Erasure is here.", fr = "L'Effacement est là." },
 	["boss.health"] = { en = "{health} / {max}", fr = "{health} / {max}" },
 	["boss.phase"] = { en = "Phase {phase}", fr = "Phase {phase}" },
-	["boss.timeLeft"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
+	["boss.timeLeft.one"] = { en = "{seconds}s left", fr = "{seconds}s restante" },
+	["boss.timeLeft.other"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
 	["boss.share"] = { en = "Your damage: {percent}%", fr = "Tes dégâts : {percent} %" },
 	["boss.defeated"] = {
 		en = "The Erasure is undone. The page keeps.",
 		fr = "L'Effacement est défait. La page reste.",
 	},
 	["boss.expired"] = { en = "The Erasure has left the page…", fr = "L'Effacement a quitté la page…" },
-	["boss.reward"] = {
+	["boss.reward.one"] = {
+		en = "Erasure reward: +{xp} XP, +{folios} Folio",
+		fr = "Récompense de l'Effacement : +{xp} XP, +{folios} Folio",
+	},
+	["boss.reward.other"] = {
 		en = "Erasure reward: +{xp} XP, +{folios} Folios",
 		fr = "Récompense de l'Effacement : +{xp} XP, +{folios} Folios",
 	},
@@ -764,7 +815,8 @@ Strings.Table = {
 
 	-- Loadout
 	["loadout.title"] = { en = "Loadout", fr = "Équipement" },
-	["loadout.slots"] = { en = "{used} / {total} slots", fr = "{used} / {total} slots" },
+	["loadout.slots.one"] = { en = "{used} / {total} slot", fr = "{used} / {total} emplacement" },
+	["loadout.slots.other"] = { en = "{used} / {total} slots", fr = "{used} / {total} emplacements" },
 	["loadout.equip"] = { en = "Equip", fr = "Équiper" },
 	["loadout.unequip"] = { en = "Unequip", fr = "Retirer" },
 	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
@@ -785,7 +837,11 @@ Strings.Table = {
 	-- Purchases
 	["purchase.prompt"] = { en = "Opening the Roblox purchase…", fr = "Ouverture de l'achat Roblox…" },
 	["purchase.granted"] = { en = "Purchase complete: {name}", fr = "Achat terminé : {name}" },
-	["purchase.grantedFoliosInstead"] = {
+	["purchase.grantedFoliosInstead.one"] = {
+		en = "You own every item of that rarity: +{amount} Folio instead",
+		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Folio à la place",
+	},
+	["purchase.grantedFoliosInstead.other"] = {
 		en = "You own every item of that rarity: +{amount} Folios instead",
 		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place",
 	},
@@ -800,7 +856,8 @@ Strings.Table = {
 		en = "XP boost active for {minutes} min",
 		fr = "Boost d'XP actif pendant {minutes} min",
 	},
-	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	["purchase.tiersGranted.one"] = { en = "+{tiers} battle pass tier", fr = "+{tiers} palier de battle pass" },
+	["purchase.tiersGranted.other"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
 	["purchase.premiumOwnedFolios"] = {
 		en = "You already have the Premium Battle Pass: +{amount} Folios instead",
 		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folios à la place",
@@ -864,8 +921,11 @@ Strings.Table = {
 	-- The play cards (PlayScreen): the tag on a ranked mode, its rule, and what the card says when the server
 	-- finds nobody. A mode of one round has its own rule: "first to 1 rounds" reads wrong in both languages.
 	["queue.ranked"] = { en = "Ranked", fr = "Classé" },
-	["queue.rule"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
+	-- On a private server a player bought, no match is ranked (E4-S4): the play cards say so, and the Menu's ribbon.
+	["queue.unranked"] = { en = "Unranked in a private server", fr = "Non classé en serveur privé" },
+	["queue.unrankedShort"] = { en = "Unranked", fr = "Non classé" },
 	["queue.rule.one"] = { en = "A single round decides", fr = "Une seule manche décide" },
+	["queue.rule.other"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
 	["queue.timedOut.title"] = { en = "Nobody in the queue right now", fr = "Personne en file pour l'instant" },
 	["queue.timedOut.hint"] = {
 		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
@@ -885,7 +945,8 @@ Strings.Table = {
 	["shop.nextRotation"] = { en = "New items in {time}", fr = "Nouveautés dans {time}" },
 	["shop.robuxPrice"] = { en = "R$ {price}", fr = "R$ {price}" },
 	["shop.confirm.title"] = { en = "Buy {name}?", fr = "Acheter {name} ?" },
-	["shop.confirm.balance"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
+	["shop.confirm.balance.one"] = { en = "{before} → {after} Folio", fr = "{before} → {after} Folio" },
+	["shop.confirm.balance.other"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
 	["shop.buy"] = { en = "Buy", fr = "Acheter" },
 	["shop.acquired"] = { en = "Acquired!", fr = "Acquis !" },
 	["shop.getFolios"] = { en = "Get Folios", fr = "Obtenir des Folios" },
@@ -920,7 +981,11 @@ Strings.Table = {
 	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
 	["daily.claim"] = { en = "Claim", fr = "Réclamer" },
 	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
-	["daily.atRisk"] = {
+	["daily.atRisk.one"] = {
+		en = "Claim today to keep your {streak}-day streak!",
+		fr = "Réclame aujourd'hui pour garder ta série de {streak} jour !",
+	},
+	["daily.atRisk.other"] = {
 		en = "Claim today to keep your {streak}-day streak!",
 		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
 	},
@@ -935,7 +1000,8 @@ Strings.Table = {
 	["common.seconds"] = { en = "{seconds}s", fr = "{seconds} s" },
 	-- The loadout: a full loadout's Equip, the offer of the pass's slots, and the strip that undoes a change.
 	["loadout.fullShort"] = { en = "Slots full", fr = "Emplacements pleins" },
-	["loadout.moreSlots"] = { en = "+{count} slots", fr = "+{count} slots" },
+	["loadout.moreSlots.one"] = { en = "+{count} slot", fr = "+{count} emplacement" },
+	["loadout.moreSlots.other"] = { en = "+{count} slots", fr = "+{count} emplacements" },
 	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
 	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
 	["common.undo"] = { en = "Undo", fr = "Annuler" },
@@ -1012,6 +1078,58 @@ Strings.Quantities = {
 	price = true,
 } :: { [string]: boolean }
 
+-- The sentences that count something, each with the placeholder that counts it. Every one has a "<key>.one" and a
+-- "<key>.other" in the table and no entry of its own; the key itself is what the code and the server's messages
+-- name. A sentence whose count is not a count of things (a tier, a level, a day of the streak) is not here.
+Strings.Plurals = {
+	["battlepass.reward.folio"] = "amount",
+	["battleground.defeated"] = "defeated",
+	["battleground.standing"] = "standing",
+	["boss.reward"] = "folios",
+	["boss.timeLeft"] = "seconds",
+	["daily.atRisk"] = "streak",
+	["daily.claimed"] = "folios",
+	["daily.firstWin"] = "folios",
+	["daily.premium"] = "folios",
+	["loadout.moreSlots"] = "count",
+	["loadout.slots"] = "total",
+	["match.execution.damage"] = "damage",
+	["match.execution.glyphs"] = "casts",
+	["purchase.grantedFoliosInstead"] = "amount",
+	["purchase.tiersGranted"] = "tiers",
+	["quest.cancelRecovery"] = "target",
+	["quest.castGlyphs"] = "target",
+	["quest.chainCasts"] = "target",
+	["quest.dealDamage"] = "target",
+	["quest.defeatDummies"] = "target",
+	["quest.defeatForgers"] = "target",
+	["quest.defeatPlayers"] = "target",
+	["quest.hitGlyphs"] = "target",
+	["quest.joinBoss"] = "target",
+	["quest.landMelee"] = "target",
+	["quest.playMatches"] = "target",
+	["quest.reward"] = "folios",
+	["quest.useDash"] = "target",
+	["quest.winMatches"] = "target",
+	["queue.rule"] = "rounds",
+	["queue.waiting"] = "needed",
+	["season.rewardGranted"] = "amount",
+	["shop.buyFolios"] = "price",
+	["shop.confirm.balance"] = "after",
+} :: { [string]: string }
+
+export type PluralForm = "one" | "other"
+
+-- The form a count of `n` takes in `locale`, by the cardinal rules of the Unicode CLDR: English says "one" for
+-- exactly 1 ("1 glyph", "0 glyphs"), French for anything under 2 ("0 glyphe", "1,5 glyphe", "2 glyphes"). A
+-- language the table does not hold reads English, and so counts as English does.
+function Strings.pluralForm(n: number, locale: string?): PluralForm
+	if locale == "fr" then
+		return if math.abs(n) < 2 then "one" else "other"
+	end
+	return if math.abs(n) == 1 then "one" else "other"
+end
+
 -- The mark between two groups of three digits: a narrow no-break space in French, a comma in English.
 local GROUP_SEPARATORS: { [string]: string } = { en = ",", fr = "\u{202F}" }
 local GROUP = 3
@@ -1067,13 +1185,8 @@ function Strings.format(template: string, params: { [string]: any }?): string
 	return result
 end
 
--- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
--- amount of Folios or XP is grouped by thousands the way the locale writes it (Strings.Quantities).
-function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
-	local entry = Strings.Table[key]
-	if entry == nil then
-		return "[" .. key .. "]"
-	end
+-- `entry` in `locale` (falling back to English), its placeholders filled from `params`.
+local function render(entry: Entry, params: { [string]: any }?, locale: string?): string
 	local chosen = locale or Strings.DefaultLocale
 	local template = (entry :: any)[chosen]
 	if type(template) ~= "string" then
@@ -1082,8 +1195,47 @@ function Strings.t(key: string, params: { [string]: any }?, locale: string?): st
 	return Strings.format(template, withAmounts(params, chosen))
 end
 
+-- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
+-- amount of Folios or XP is grouped by thousands the way the locale writes it (Strings.Quantities). A sentence
+-- that counts (Strings.Plurals) takes the form its count calls for, read from its own placeholder in `params`;
+-- with no number there it takes its "other" form.
+function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
+	local entry = Strings.Table[key]
+	if entry ~= nil then
+		return render(entry, params, locale)
+	end
+	local counted = Strings.Plurals[key]
+	if counted == nil then
+		return "[" .. key .. "]"
+	end
+	local n = if params ~= nil then tonumber(params[counted]) else nil
+	if n == nil then
+		local other = Strings.Table[key .. ".other"]
+		return if other ~= nil then render(other, params, locale) else "[" .. key .. "]"
+	end
+	return Strings.plural(key, n, params, locale)
+end
+
+-- The sentence `key` counting `n` in `locale`: its "one" or "other" form (Strings.pluralForm), with its counting
+-- placeholder filled with `n` unless `params` already gives it. "[key]" when `key` does not count anything.
+function Strings.plural(key: string, n: number, params: { [string]: any }?, locale: string?): string
+	local counted = Strings.Plurals[key]
+	local entry = if counted ~= nil then Strings.Table[key .. "." .. Strings.pluralForm(n, locale)] else nil
+	if counted == nil or entry == nil then
+		return "[" .. key .. "]"
+	end
+	local filled = params
+	if filled == nil or filled[counted] == nil then
+		local copy = if filled ~= nil then table.clone(filled) else {}
+		copy[counted] = n
+		filled = copy
+	end
+	return render(entry, filled, locale)
+end
+
+-- Whether `key` is a sentence of the table, one that counts included.
 function Strings.has(key: string): boolean
-	return Strings.Table[key] ~= nil
+	return Strings.Table[key] ~= nil or Strings.Plurals[key] ~= nil
 end
 
 -- Maps a Roblox LocaleId ("fr-fr", "en-us", "de-de") to a supported locale, defaulting to English.

@@ -245,13 +245,17 @@ describe("the HUD's toasts", function()
 			if not sent[key] then
 				error(("%s is paid as a reward, and the server never sends it"):format(key))
 			end
-			local words = Strings.Table[key]
-			assert(words ~= nil, key .. " has no words")
-			if
-				string.find(words.en, "{folios}", 1, true) == nil
-				and string.find(words.en, "{amount}", 1, true) == nil
-			then
-				error(("%s is a reward that pays no Folios"):format(key))
+			-- A sentence that counts its Folios says them in each of its forms.
+			local forms = if Strings.Plurals[key] ~= nil then { key .. ".one", key .. ".other" } else { key }
+			for _, form in ipairs(forms) do
+				local words = Strings.Table[form]
+				assert(words ~= nil, form .. " has no words")
+				if
+					string.find(words.en, "{folios}", 1, true) == nil
+					and string.find(words.en, "{amount}", 1, true) == nil
+				then
+					error(("%s is a reward that pays no Folios"):format(form))
+				end
 			end
 		end
 		local routed = body(hud, "local function show(")

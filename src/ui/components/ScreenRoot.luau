@@ -94,6 +94,9 @@ function ScreenRoot.new(props: Props): ScreenRoot
 	local textScalable = props.TextScalable == true
 
 	local gui = Instance.new("ScreenGui")
+	-- The game writes its own words in the player's language: Roblox's automatic translation neither
+	-- captures nor rewrites them, here or in anything under this screen (E12-S3).
+	gui.AutoLocalize = false
 	gui.Name = props.Name
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true

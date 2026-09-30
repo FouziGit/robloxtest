@@ -349,18 +349,16 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, the Dagger, a match pad (twice), the hub, the Erasure's pads and the Battleground's camp.
-		expect(players).toBe(7)
+		-- Caret, the Dagger, and Teleport.place, through which a match pad, the hub, the Erasure's pads and the
+		-- Battleground's camp all put a body down (D-XXX).
+		expect(players).toBe(3)
 		expect(others).toBe(3)
 	end)
 
 	it("sends the destination itself, never a position read back from the body", function()
 		for path, call in pairs({
 			["src/server/Effects/GlyphEffects.luau"] = "ctx.Combat.resyncPosition(ctx.Caster, landing)",
-			["src/server/Services/MatchService.luau"] = "combat.resyncPosition(player, position)",
-			["src/server/Services/HubService.luau"] = "combat.resyncPosition(player, landing)",
-			["src/server/Services/WorldBossService/Encounter.luau"] = "deps.Combat.resyncPosition(player, position)",
-			["src/server/Services/BattlegroundService/Roster.luau"] = "deps.Combat.resyncPosition(player, landing)",
+			["src/server/World/Teleport.luau"] = "combat.resyncPosition(player, target.Position)",
 		}) do
 			expect(strip(fs.readFile(path))).toContain(call)
 		end
@@ -783,7 +781,7 @@ describe("the kill zone, judged by the server", function()
 		-- new body stands on the hub, far under the arena, and the client replicates the hub for a round trip after
 		-- its pad. Judged on those, an honest player was killed at the start of the round.
 		expect(functionIn(MATCH, "local function prepareRound(")).toContain(
-			"placeCharacter(player, character, pad, center) active.Placed[player] = { Character = character, At = os.clock() }"
+			"elseif placeCharacter(player, character, pad, center, current) then active.Placed[player] = { Character = character, At = os.clock() } end"
 		)
 		local source = strip(fs.readFile(MATCH))
 		expect(count(source, "active.Placed[")).toBe(2)

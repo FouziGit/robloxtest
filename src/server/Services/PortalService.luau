@@ -51,7 +51,7 @@ type Deps = {
 	},
 	Movement: { isDown: (player: Player) -> boolean },
 	Match: { isInMatch: (player: Player) -> boolean },
-	Hub: { teleportToHub: (player: Player) -> () },
+	Hub: { travelToHub: (player: Player) -> boolean },
 	-- Each refuses with the Strings key the player is shown, or with none when there is nothing to say. `admits`
 	-- asks without moving anyone.
 	Battleground: {
@@ -155,11 +155,11 @@ local function dispatch(player: Player, id: PortalId): (boolean, string?, { [str
 	elseif id == "WorldBoss" then
 		return deps.WorldBoss.enterFromPortal(player)
 	end
-	-- Back to the hub: out of wherever the gate stood first, so neither place still counts them as its own.
+	-- Back to the hub: out of wherever the gate stood first, so neither place still counts them as its own. The hub
+	-- streams in around the landing before the body is moved (HubService.travelToHub).
 	deps.Battleground.leave(player)
 	deps.WorldBoss.leave(player)
-	deps.Hub.teleportToHub(player)
-	return true, nil, nil
+	return deps.Hub.travelToHub(player), nil, nil
 end
 
 -- A trip, and what follows it: the refusal said, or the arrival's cooldown, protection and news.

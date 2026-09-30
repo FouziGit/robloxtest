@@ -17,6 +17,17 @@
 				"$path": "../../Packages"
 			}
 		},
+		"Workspace": {
+			"$className": "Workspace",
+			"$properties": {
+				"StreamingEnabled": false,
+				"StreamingIntegrityMode": "PauseOutsideLoadedArea",
+				"StreamingMinRadius": 64,
+				"StreamingTargetRadius": 1024,
+				"StreamOutBehavior": "LowMemory",
+				"ModelStreamingBehavior": "Improved"
+			}
+		},
 		"ServerScriptService": {
 			"$className": "ServerScriptService",
 			"$path": "../../src/server"

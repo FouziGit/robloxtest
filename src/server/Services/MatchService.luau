@@ -28,6 +28,7 @@ local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardCon
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
@@ -199,19 +200,26 @@ local function spawnFor(arena: Arena, team: number, slot: number): BasePart?
 	return teamSpawns[((slot - 1) % #teamSpawns) + 1]
 end
 
--- Drops the character on its pad, facing the middle of the arena. `player` is the owner, so the position
--- the server trusts follows the teleport: without it the player's next hitbox would be built at the hub
--- and hit nothing (CombatService.trustedCFrame).
-local function placeCharacter(player: Player, character: Model, spawn: BasePart, center: Vector3)
+-- Where a body stands on `spawn`, facing the middle of the arena.
+local function padFrame(spawn: BasePart, center: Vector3): CFrame
 	local position = spawn.Position + Vector3.new(0, SPAWN_CLEARANCE_STUDS, 0)
 	if position.X == center.X and position.Z == center.Z then
-		character:PivotTo(CFrame.new(position))
-	else
-		character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+		return CFrame.new(position)
 	end
-	-- The destination, passed explicitly: re-reading the character would anchor trust on whatever the
-	-- client replicates next rather than on the pad the server just put them on.
-	combat.resyncPosition(player, position)
+	return CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z))
+end
+
+-- Drops the character on its pad once the arena has streamed in around it (Teleport.travel), if `current` still
+-- says the round wants them there. Trust follows the teleport, anchored on the pad itself: without it the
+-- player's next hitbox would be built at the hub and hit nothing (CombatService.trustedCFrame).
+local function placeCharacter(
+	player: Player,
+	character: Model,
+	spawn: BasePart,
+	center: Vector3,
+	current: () -> boolean
+): boolean
+	return Teleport.travel(combat, player, character, padFrame(spawn, center), current)
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns
@@ -453,6 +461,16 @@ end
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)
+	local function current(): boolean
+		return not active.Finished and active.Generation == generation
+	end
+	-- Every pad asked of its player's client at once, so the streams run while the bodies load one by one.
+	for _, participant in ipairs(active.Match.Participants) do
+		local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
+		if pad ~= nil and isLive(participant) then
+			Teleport.prestream(participant.Player, padFrame(pad, center).Position)
+		end
+	end
 	for _, participant in ipairs(active.Match.Participants) do
 		if active.Finished or active.Generation ~= generation then
 			return
@@ -465,11 +483,13 @@ local function prepareRound(active: Active)
 			local character = player.Character
 			if loaded and character ~= nil and not active.Finished and active.Generation == generation then
 				local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
-				if pad ~= nil then
-					placeCharacter(player, character, pad, center)
-					active.Placed[player] = { Character = character, At = os.clock() }
-				else
+				if pad == nil then
 					log.warn("arena %s has no spawn for team %d", active.Arena.Id, participant.Team)
+				elseif placeCharacter(player, character, pad, center, current) then
+					active.Placed[player] = { Character = character, At = os.clock() }
+				end
+				if not current() then
+					return
 				end
 				participant.Alive = true
 				movement.applyFreeze(player, active.Def.CountdownSeconds)

@@ -8,6 +8,7 @@ local Harness = require("./harness")
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local roblox = require("@lune/roblox") :: any
+local serde = require("@lune/serde")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -61,6 +62,63 @@ describe("the built place keeps the server's judges on the server", function()
 					("%s is under ReplicatedStorage (%s): every client downloads it"):format(
 						each.Name,
 						each:GetFullName()
+					)
+				)
+			end
+		end
+	end)
+end)
+
+-- The Workspace's streaming, pinned in default.project.json (E6-S7, D-XXX). A place with no Workspace, or a Workspace
+-- without these properties, takes whatever defaults the engine has that day: exactly what the pin is there to stop.
+-- A value equal to Lune's own default reads the same whether it is written or not, so the project's declaration is
+-- read too: removing either the Workspace or one of its properties fails here.
+local PINNED: { [string]: any } = {
+	StreamingEnabled = false,
+	StreamingIntegrityMode = roblox.Enum.StreamingIntegrityMode.PauseOutsideLoadedArea,
+	StreamingMinRadius = 64,
+	StreamingTargetRadius = 1024,
+	StreamOutBehavior = roblox.Enum.StreamOutBehavior.LowMemory,
+	ModelStreamingBehavior = roblox.Enum.ModelStreamingBehavior.Improved,
+}
+
+describe("the built place's Workspace", function()
+	local workspace = child(game, "Workspace")
+
+	it("is in the file, not made up by the engine", function()
+		expect(workspace).never.toBeNil()
+	end)
+
+	it("holds every streaming value the decision chose", function()
+		for property, value in pairs(PINNED) do
+			local built = workspace[property]
+			if built ~= value then
+				error(
+					("Workspace.%s is %s in the built place, the decision is %s"):format(
+						property,
+						tostring(built),
+						tostring(value)
+					)
+				)
+			end
+		end
+	end)
+
+	it("is declared with every one of them in default.project.json", function()
+		local project = serde.decode("json", fs.readFile("default.project.json"))
+		local declared = project.tree.Workspace
+		expect(declared).never.toBeNil()
+		expect(declared["$className"]).toBe("Workspace")
+		local properties = declared["$properties"]
+		for property, value in pairs(PINNED) do
+			local written = properties[property]
+			local expected = if typeof(value) == "EnumItem" then value.Name else value
+			if written ~= expected then
+				error(
+					("default.project.json pins Workspace.%s to %s, the decision is %s"):format(
+						property,
+						tostring(written),
+						tostring(expected)
 					)
 				)
 			end

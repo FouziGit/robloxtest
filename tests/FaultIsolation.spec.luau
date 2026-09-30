@@ -225,7 +225,11 @@ describe("a player's state that throws", function()
 					return false
 				end,
 			},
-			Hub = { teleportToHub = function() end },
+			Hub = {
+				travelToHub = function()
+					return true
+				end,
+			},
 			Battleground = {
 				admits = function()
 					return true, nil

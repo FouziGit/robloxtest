@@ -298,7 +298,12 @@ describe("the hub's gate", function()
 		expect(has(module("Admission"), "local STANDING_HEALTH = 1")).toBe(true)
 		-- A joiner is dropped where the server says, and trust follows them there.
 		local place = body(module("Encounter"), "function Encounter.placeOne(", "Encounter")
-		expect(ordered(place, "character:PivotTo(", "deps.Combat.resyncPosition(player, position)")).toBe(true)
+		expect(
+			has(
+				place,
+				"Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))"
+			)
+		).toBe(true)
 		expect(has(body(module("Encounter"), "function Encounter.place(", "Encounter"), "Encounter.placeOne(")).toBe(
 			true
 		)

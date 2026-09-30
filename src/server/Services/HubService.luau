@@ -40,6 +40,7 @@ local Palette = require(Shared.Util.Palette)
 local PortalConfig = require(Shared.Config.PortalConfig)
 local PortalGate = require(World.PortalGate)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Teleport = require(World.Teleport)
 local Theme = require(Ui.Theme)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
@@ -437,37 +438,45 @@ function HubService.getLeaderboardEntries(boardId: string): Frame?
 	return entries
 end
 
--- Places the character back on the hub platform, facing the spawn, with its velocity cleared so a
--- knockback or a fall from an arena never carries over. Players land on consecutive ring slots so a
--- whole team returning at once does not stack on one point.
-function HubService.teleportToHub(player: Player)
+-- Where `player`'s body comes back to on the hub platform, facing the spawn, and that body; nil when there is no
+-- hub or no body. Players land on consecutive ring slots so a whole team returning at once does not stack on one
+-- point.
+local function homecoming(player: Player): (CFrame?, Model?)
 	local spawnPart = hubSpawn
 	if spawnPart == nil or not spawnPart:IsDescendantOf(Workspace) then
-		log.warn("teleportToHub for %s ignored: the hub is not built", player.Name)
-		return
+		log.warn("return of %s to the hub ignored: the hub is not built", player.Name)
+		return nil, nil
 	end
 	local character = player.Character
 	if character == nil or character.Parent == nil then
-		return
+		return nil, nil
 	end
-
 	returnSlot = returnSlot % RETURN_SLOT_COUNT + 1
 	local angle = (returnSlot - 1) * (2 * math.pi / RETURN_SLOT_COUNT)
 	-- Half the pad above its own centre is its top face (it is an upright box, see SPAWN_SIZE_STUDS),
 	-- then half a character: the root of somebody standing on it.
 	local offset = ringPosition(angle, RETURN_RADIUS_STUDS, spawnPart.Size.Y / 2 + CHARACTER_PIVOT_STUDS)
-	local landing = spawnPart.Position + offset
-	character:PivotTo(facingCenter(landing))
+	return facingCenter(spawnPart.Position + offset), character
+end
 
-	local root = character.PrimaryPart
-	if root ~= nil then
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
+-- Places the character back on the hub platform now (Teleport.place): the end of a match or of a fight, whose
+-- arena is released right after, so the body cannot wait there for the hub to stream in. The hub is where every
+-- player joined, and a place that streams keeps what a client has seen (D-XXX).
+function HubService.teleportToHub(player: Player)
+	local landing, character = homecoming(player)
+	if landing ~= nil and character ~= nil then
+		Teleport.place(combat, player, character, landing)
 	end
-	-- The destination, passed explicitly: the position CombatService trusts must follow a server-authored
-	-- teleport, and must anchor on the point the server chose rather than on what the client reports next.
-	-- Otherwise the player's next hitbox is built back in the arena they just left.
-	combat.resyncPosition(player, landing)
+end
+
+-- The same return by a gate, which can wait: the hub streams in around the landing first (Teleport.travel). Yields.
+-- False when there was no hub or no body, or the body changed while it streamed.
+function HubService.travelToHub(player: Player): boolean
+	local landing, character = homecoming(player)
+	if landing == nil or character == nil then
+		return false
+	end
+	return Teleport.travel(combat, player, character, landing)
 end
 
 return HubService

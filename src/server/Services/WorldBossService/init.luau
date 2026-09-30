@@ -48,6 +48,7 @@ local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local Policy = require(script.Policy)
 local Rewards = require(script.Rewards)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.GameModes.WorldBossMode)
@@ -401,6 +402,12 @@ end
 -- open a practice. Returns whether they were taken in, and otherwise the Strings key of the reason and its
 -- params; no key when there is nothing to say (no live character).
 function WorldBossService.enterFromPortal(player: Player): (boolean, string?, { [string]: any }?)
+	-- A fight under way: its arena streams in around the ring before the gate lets anybody in (Teleport), and
+	-- everything below is asked after that wait, which may have changed any of it.
+	local live = slot.Boss
+	if live ~= nil then
+		Teleport.streamAround(player, live.Center)
+	end
 	if deps.Match.isInMatch(player) then
 		return false, "queue.inMatch"
 	end

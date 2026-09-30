@@ -244,8 +244,8 @@ describe("where a trip goes", function()
 		expect(has(dispatch, 'elseif id == "WorldBoss" then return deps.WorldBoss.enterFromPortal(player)')).toBe(true)
 		-- Return, the rest: out of the Battleground and out of the Erasure's fight, then home.
 		local home = dispatch:sub(dispatch:find("deps.WorldBoss.enterFromPortal(player)", 1, true) :: number)
-		expect(ordered(home, "deps.Battleground.leave(player)", "deps.Hub.teleportToHub(player)")).toBe(true)
-		expect(ordered(home, "deps.WorldBoss.leave(player)", "deps.Hub.teleportToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.Battleground.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.WorldBoss.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
 		expect(ordered(dispatch, 'if id == "Battleground" then', 'elseif id == "WorldBoss" then')).toBe(true)
 	end)
 

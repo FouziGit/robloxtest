@@ -20,6 +20,7 @@ local DUEL = MatchConfig.Modes.Duel1v1
 local TEAM = MatchConfig.Modes.Team3v3
 local QUEUE = MatchConfig.Matchmaking
 local SCHEDULE = WorldBossConfig.Schedule
+local PRACTICE = WorldBossConfig.Practice
 
 -- The custom events `name` that reached Roblox, as { player, value, fields }.
 local function sent(world: Server.World, name: string): { { any } }
@@ -106,6 +107,7 @@ end
 
 type Fight = {
 	world: Server.World,
+	worldBoss: any,
 	players: { any },
 	-- What the Erasure's next step reports: nil while the fight goes on, "Defeated" when it falls.
 	outcome: { value: string? },
@@ -218,6 +220,7 @@ local function erasure(): Fight
 	end
 	return {
 		world = world,
+		worldBoss = worldBoss,
 		players = players,
 		outcome = outcome,
 		advance = function(seconds: number)
@@ -404,6 +407,16 @@ describe("a fight against the Erasure (E8-S4)", function()
 			expect(event[3]).toEqual({ CustomField01 = "Event", CustomField02 = "Expired" })
 			expect(event[2]).toBe(SCHEDULE.FightSeconds)
 		end
+	end)
+
+	it("tells a practice as a practice, to the one who fought it", function()
+		local fight = erasure()
+		local starter = fight.players[1]
+		expect(fight.worldBoss.enterFromPortal(starter)).toBe(true)
+		fight.advance(PRACTICE.FightSeconds + PRACTICE.CleanupSeconds + 1)
+		expect(sent(fight.world, "BossEnded")).toEqual({
+			{ starter, PRACTICE.FightSeconds, { CustomField01 = "Practice", CustomField02 = "Expired" } },
+		})
 	end)
 end)
 

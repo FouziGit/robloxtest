@@ -145,6 +145,9 @@ type State = {
 	MeleeCooldownUntil: number,
 	SpawnProtectedUntil: number,
 	KillCredited: boolean, -- this character's death was already credited (ApplyDamage or onDied)
+	-- The zone the last player's blow on this character was dealt in (ZoneConfig): what pays for a death credited to
+	-- that player later (creditDeath), wherever they have gone since. nil until a player hurts this body.
+	LastBlowZone: string?,
 	HitMemory: { [string]: { [Model]: number } }, -- tag -> target model -> i-frame expiry
 	-- Last root position the server was willing to believe, and when. Characters are simulated by the
 	-- owning client, so the replicated CFrame is whatever that client last sent: every hitbox and every
@@ -833,7 +836,7 @@ end
 
 -- Defined in the damage section below; the Died handler reaches the same crediting path for deaths
 -- that never went through ApplyDamage.
-local onKill: (source: Player?, targetPlayer: Player?, targetModel: Model) -> ()
+local onKill: (source: Player?, targetPlayer: Player?, targetModel: Model, zone: string?) -> ()
 
 local function releaseCharacter(state: State, now: number)
 	if state.Blocking then
@@ -867,6 +870,7 @@ local function resetState(state: State, now: number, character: Model?)
 	state.MeleeCooldownUntil = 0
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
 	state.KillCredited = false
+	state.LastBlowZone = nil
 	state.HitMemory = {}
 	if character ~= nil and state.TeleportCharacter == character then
 		return
@@ -900,7 +904,7 @@ local function creditDeath(state: State, character: Model, now: number)
 	end
 	character:SetAttribute(LAST_ATTACKER_ATTRIBUTE, nil)
 	state.KillCredited = true
-	onKill(attacker, state.Player, character)
+	onKill(attacker, state.Player, character, state.LastBlowZone)
 end
 
 local function onDied(state: State)
@@ -992,6 +996,7 @@ local function onPlayerAdded(player: Player)
 		MeleeCooldownUntil = 0,
 		SpawnProtectedUntil = 0,
 		KillCredited = false,
+		LastBlowZone = nil,
 		HitMemory = {},
 		TrustedPosition = nil,
 		TrustedAt = 0,
@@ -1034,7 +1039,8 @@ end
 -- Damage
 ----------------------------------------------------------------
 
-function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
+-- `zone`: where the killing blow was dealt (ZoneConfig), which says whether this service pays the kill itself.
+function onKill(source: Player?, targetPlayer: Player?, targetModel: Model, zone: string?)
 	if targetPlayer ~= nil then
 		local victimData = dataService.get(targetPlayer)
 		if victimData ~= nil then
@@ -1047,8 +1053,10 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 				sourceData.Stats.Kills += 1
 				dataService.push(source, "Stats")
 			end
-			-- A zone that pays its own kills (the Flyleaf, under its daily cap) hears this one through Killed.
-			if DamageZones.combatPays(ZONE_RULES, zoneOf(source)) then
+			-- A zone that pays its own kills (the Flyleaf, under its daily cap) hears this one through Killed. The zone
+			-- is the blow's, never where the killer stands at the death: a Flyleaf member who hit a rival and stepped
+			-- home before the rival pressed Reset would otherwise be paid by the hub, past the page's cap.
+			if zone ~= nil and DamageZones.combatPays(ZONE_RULES, zone) then
 				local xp = ProgressionConfig.XP.PlayerKill
 				progression.addXp(source, xp, "PlayerKill")
 				currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
@@ -1213,8 +1221,12 @@ function CombatService.ApplyDamage(
 	-- every consumer of this attribute reads it from one of those events. Written late, EnemyService
 	-- credited a dummy kill to the previous attacker (or to nobody on a one-shot) and CombatService's
 	-- own last-attacker fallback named the wrong player.
+	local blowZone: string? = if source ~= nil then zoneOf(source) else nil
 	if source ~= nil then
 		targetModel:SetAttribute(LAST_ATTACKER_ATTRIBUTE, source.UserId)
+		if targetState ~= nil then
+			targetState.LastBlowZone = blowZone
+		end
 	end
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
@@ -1287,7 +1299,7 @@ function CombatService.ApplyDamage(
 		if targetState ~= nil then
 			targetState.KillCredited = true
 		end
-		onKill(source, targetPlayer, targetModel)
+		onKill(source, targetPlayer, targetModel, blowZone)
 	end
 	return result
 end

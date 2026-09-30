@@ -307,6 +307,57 @@ describe("CombatService's zones", function()
 		expect(fx.killed[1].Source).toBe(red.UserId)
 	end)
 
+	-- Found by review: a death CombatService credits to the last attacker (a reset, a fall) was paid by the zone
+	-- the attacker stood in at the death, not the one the blow was dealt in. A Flyleaf member hit a rival, stepped
+	-- through the gate home, and the rival pressed Reset: the hub paid the match's 120 XP and 15 Folios, past the
+	-- page's daily cap and its farm rule, every fifteen seconds for as long as two friends cared to.
+	it("pay a credited death by the zone its blow was dealt in, wherever the attacker went since", function()
+		local fx = fixture()
+		local a, b = fx.join(1, 0), fx.join(2, 4)
+		local page = owner(fx, "Flyleaf", { a, b })
+		fx.settle()
+		expect(fx.combat.ApplyDamage(a, b.Character, 20, "Melee", {}).Applied).toBe(20)
+		-- The attacker goes home through the gate: the hub holds them, whose kills CombatService pays.
+		page[a] = nil
+		expect(fx.combat.zoneOf(a)).toBe("Hub")
+		local humanoid = b.Character:FindFirstChildOfClass("Humanoid")
+		humanoid.Health = 0
+		humanoid.Died:Fire()
+		-- Still the attacker's kill for whoever listens (the page pays only its own members), and never the hub's pay.
+		expect(#fx.killed).toBe(1)
+		expect(fx.killed[1].Source).toBe(a.UserId)
+		expect(#fx.xp).toBe(0)
+
+		-- Both gone home before the reset: the blow was still the page's.
+		local c, d = fx.join(3, 8), fx.join(4, 12)
+		local second = owner(fx, "Flyleaf", { c, d })
+		fx.settle()
+		expect(fx.combat.ApplyDamage(c, d.Character, 20, "Melee", {}).Applied).toBe(20)
+		second[c], second[d] = nil, nil
+		local other = d.Character:FindFirstChildOfClass("Humanoid")
+		other.Health = 0
+		other.Died:Fire()
+		expect(#fx.killed).toBe(2)
+		expect(#fx.xp).toBe(0)
+	end)
+
+	it("pay a match's credited death as they always did, the match over or not", function()
+		local fx = fixture()
+		local red, blue = fx.join(1, 0), fx.join(2, 4)
+		local duel = owner(fx, "Match", { red, blue })
+		fx.settle()
+		expect(fx.combat.ApplyDamage(red, blue.Character, 20, "Melee", {}).Applied).toBe(20)
+		-- The round is over and both stand in the hub again, the fight still fresh (D-109).
+		duel[red], duel[blue] = nil, nil
+		local humanoid = blue.Character:FindFirstChildOfClass("Humanoid")
+		humanoid.Health = 0
+		humanoid.Died:Fire()
+		expect(#fx.killed).toBe(1)
+		expect(fx.killed[1].Source).toBe(red.UserId)
+		expect(#fx.xp).toBe(1)
+		expect(fx.xp[1].Reason).toBe("PlayerKill")
+	end)
+
 	it("take one claim per zone, never the hub's, and say so", function()
 		local fx = fixture()
 		fx.combat.claimZone("Hub", {

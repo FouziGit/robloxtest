@@ -201,6 +201,43 @@ describe("the interface, held to the engine's layouts", function()
 				end)
 			end
 		end
+
+		it("sets a menu tile's icon at its top and its word at its foot, wrapped, " .. where, function()
+			local built = screen("MenuScreen", phone)
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			local playTile = built.Instance:FindFirstChild("PlayTile", true)
+			assert(
+				grid ~= nil and playTile ~= nil,
+				"the menu has no grid or no Play tile: this gate would check nothing"
+			)
+			local tiles = {}
+			for _, child in ipairs(grid:GetChildren()) do
+				if child:IsA("TextButton") then
+					table.insert(tiles, child)
+				end
+			end
+			expect(#tiles).toBe(6)
+			for _, tile in ipairs(tiles) do
+				local content = tile:FindFirstChild("Content", true)
+				local layout = content:FindFirstChildOfClass("UIListLayout")
+				-- The board's `align-content: space-between`: the icon up top, the word down at the foot.
+				expect(layout.VerticalFlex.Name).toBe("SpaceBetween")
+				local word = content:FindFirstChild("Label", true)
+				local cap = word:FindFirstChildOfClass("UITextSizeConstraint")
+				-- Wrapped at full size onto two lines 1.05 apart, shrunk only where two are not enough.
+				expect(word.TextWrapped).toBe(true)
+				expect(word.TextScaled).toBe(true)
+				expect(cap.MaxTextSize).toBe(24)
+				expect(cap.MinTextSize).toBeGreaterThanOrEqual(14)
+				expect(word.LineHeight).toBe(1.05)
+				expect(word.Size.Y.Offset).toBeGreaterThanOrEqual(2 * cap.MaxTextSize * word.LineHeight)
+				expect(word.TextYAlignment.Name).toBe("Bottom")
+			end
+			-- The Play tile keeps its words together at its foot, under its disc.
+			local playLayout = playTile:FindFirstChild("Content", true):FindFirstChildOfClass("UIListLayout")
+			expect(playLayout.VerticalFlex.Name).toBe("None")
+			expect(playLayout.VerticalAlignment.Name).toBe("Bottom")
+		end)
 	end
 
 	it("keeps every kind of toast its own height", function()

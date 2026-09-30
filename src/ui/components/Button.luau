@@ -81,7 +81,12 @@ local GAP = 8
 local ELEVATION = 5
 local TILE_ELEVATION = 6
 local TILE_ICON_SIZE = 48
+-- A tile's content stands this far inside its ink (the board's `padding: 1.2cqw` inside its border).
+local TILE_PADDING = 12
+-- Its word, at this size, wraps onto as many as this many lines this far apart before it shrinks.
 local TILE_TEXT_SIZE = 24
+local TILE_LINES = 2
+local TILE_LINE_HEIGHT = 1.05
 local GHOST_TEXT_SIZE = 18
 local SUBLABEL_SIZE = 18
 local MIN_SCALED_TEXT = 14
@@ -240,23 +245,30 @@ function Button.new(props: Props): Button
 	sublabel.Parent = words
 
 	if isTile then
-		-- A tile is sized by its grid: its icon sits top-left and its word fills the bottom, scaled.
+		-- A tile is sized by its grid: its icon at its top and its word at its foot (the board's `align-content:
+		-- space-between`), the word wrapped at full size onto two lines, and only shrunk, never below the floor,
+		-- where two lines are not enough (a small phone).
+		local inset = Theme.Sizes.Stroke + TILE_PADDING
 		content.AutomaticSize = Enum.AutomaticSize.None
 		content.AnchorPoint = Vector2.zero
-		content.Size = UDim2.new(1, -Theme.Sizes.Padding * 2, 1, -Theme.Sizes.Padding * 2)
-		content.Position = UDim2.fromOffset(Theme.Sizes.Padding, Theme.Sizes.Padding)
+		content.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
+		content.Position = UDim2.fromOffset(inset, inset)
 		contentLayout.FillDirection = Enum.FillDirection.Vertical
 		contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		contentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+		contentLayout.VerticalFlex = Enum.UIFlexAlignment.SpaceBetween
 		iconSlot.Size = UDim2.fromOffset(TILE_ICON_SIZE, TILE_ICON_SIZE)
 		words.AutomaticSize = Enum.AutomaticSize.Y
 		words.Size = UDim2.fromScale(1, 0)
 		wordsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		label.FontFace = Theme.Fonts.Title
 		label.AutomaticSize = Enum.AutomaticSize.None
-		label.Size = UDim2.new(1, 0, 0, TILE_TEXT_SIZE + 6)
+		label.Size = UDim2.new(1, 0, 0, math.ceil(TILE_LINES * TILE_TEXT_SIZE * TILE_LINE_HEIGHT))
+		label.LineHeight = TILE_LINE_HEIGHT
+		label.TextWrapped = true
 		label.TextScaled = true
 		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextYAlignment = Enum.TextYAlignment.Bottom
 		local cap = Instance.new("UITextSizeConstraint")
 		cap.MinTextSize = MIN_SCALED_TEXT
 		cap.MaxTextSize = TILE_TEXT_SIZE

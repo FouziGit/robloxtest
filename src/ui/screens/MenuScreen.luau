@@ -429,6 +429,7 @@ function MenuScreen.new(deps: Deps): Screen
 			words.ZIndex = 4
 			local layout = words:FindFirstChildOfClass("UIListLayout")
 			if layout ~= nil then
+				layout.VerticalFlex = Enum.UIFlexAlignment.None
 				layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 			end
 			local label = words:FindFirstChild("Label", true)

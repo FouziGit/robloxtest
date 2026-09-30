@@ -3,9 +3,11 @@
 -- two accounts of one player could trade wins there forever. No Elo and no ladder move there, its matches pay a
 -- share of their rewards, and the queue says so. A reserved server, which the game fills itself, stays ranked.
 --
--- The three kinds of server run for real: RankingService and MatchService in the pretend engine (tests/engine),
--- a duel started and walked out of, as the engine would have it on each kind.
+-- The three kinds of server run for real: RankingService, LeaderboardService (on OrderedDataStores that keep every
+-- write) and MatchService in the pretend engine (tests/engine), a duel started and walked out of, as the engine
+-- would have it on each kind.
 local Engine = require("./engine")
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
@@ -27,6 +29,8 @@ type Played = {
 	world: any,
 	profiles: { [number]: any },
 	moved: { string },
+	-- Every write the ladders took: "<store> <user id> = <value>".
+	ladders: { string },
 	outcome: any,
 	xp: number,
 	folios: number,
@@ -35,9 +39,28 @@ type Played = {
 }
 
 local function play(kind: Kind): Played
-	local world = Engine.world()
+	-- The ladders' OrderedDataStores, as LeaderboardService opens them: every write kept, every board read empty.
+	local ladders: { string } = {}
+	local dataStores = {
+		GetOrderedDataStore = function(_self: any, name: string): any
+			return {
+				SetAsync = function(_store: any, key: string, value: number)
+					table.insert(ladders, ("%s %s = %d"):format(name, key, value))
+				end,
+				GetSortedAsync = function(): any
+					return {
+						GetCurrentPage = function(): { any }
+							return {}
+						end,
+					}
+				end,
+			}
+		end,
+	}
+	local world = Engine.world({ Services = { DataStoreService = dataStores } })
 	world.game.PrivateServerId = kind.Id
 	world.game.PrivateServerOwnerId = kind.Owner
+	world.game.BindToClose = function() end
 	local players = world.game:GetService("Players")
 	local byId: { [number]: any } = {}
 	local profiles: { [number]: any } = {}
@@ -60,8 +83,11 @@ local function play(kind: Kind): Played
 	players.GetPlayerFromCharacter = function(): any
 		return nil
 	end
-	join(1)
+	local winner = join(1)
 	local leaver = join(2)
+	players.GetPlayers = function(): { any }
+		return if leaver.Parent == players then { winner, leaver } else { winner }
+	end
 
 	local data = {
 		get = function(player: any): any
@@ -75,6 +101,7 @@ local function play(kind: Kind): Played
 		world = world,
 		profiles = profiles,
 		moved = {},
+		ladders = ladders,
 		outcome = nil,
 		xp = 0,
 		folios = 0,
@@ -94,10 +121,23 @@ local function play(kind: Kind): Played
 		Notify = { send = function() end },
 	})
 	Ranking.Start()
-	-- Every rating move, which is also every write the ladder would make (LeaderboardService hears only this).
+	-- Every rating move.
 	Ranking.RatingChanged:Connect(function(player: any, modeId: string, before: number, after: number)
 		table.insert(played.moved, ("%s %s %d -> %d"):format(player.Name, modeId, before, after))
 	end)
+	-- And the ladders' writer itself, on the stores above: whatever it would write to a S1_* ladder, and however
+	-- it came to write it, the spec sees.
+	local Leaderboard = world.require("src/server/Services/LeaderboardService")
+	Leaderboard.Init({
+		Registry = { setCallback = function() end },
+		Ranking = Ranking,
+		Hub = {
+			getLeaderboardEntries = function(): any
+				return nil
+			end,
+		},
+	})
+	Leaderboard.Start()
 
 	local function pad(x: number): any
 		local part = Engine.instance("Part")
@@ -180,6 +220,8 @@ local function play(kind: Kind): Played
 	players.PlayerRemoving:Fire(leaver)
 	world:advance(1)
 	assert(played.outcome ~= nil, "the duel never ended for its winner: this gate would check nothing")
+	-- Long enough for the ladders' periodic pass to take the winner's rating as well as the leaver's flush.
+	world:advance(RankingConfig.Leaderboard.MinWriteIntervalSeconds)
 	return played
 end
 
@@ -203,6 +245,10 @@ describe("ranked play on each kind of server", function()
 			expect(leaver.Rating).toBeLessThan(RankingConfig.InitialRating)
 			-- The leaver's forfeit and the winner's result, each on its way to the ladder.
 			expect(#played.moved).toBe(2)
+			-- Both reached the duel's ladder, the winner above where they started and the leaver below it.
+			local duel = GameConfig.SeasonId .. "_Duel1v1"
+			expect(played.ladders).toContain(("%s 1 = %d"):format(duel, winner.Rating))
+			expect(played.ladders).toContain(("%s 2 = %d"):format(duel, leaver.Rating))
 			expect(played.outcome.RatingAfter).toBeGreaterThan(played.outcome.RatingBefore)
 			expect(played.outcome.RankKeyAfter).never.toBe("")
 			local scale = MatchConfig.Rewards.Duel1v1
@@ -221,6 +267,8 @@ describe("ranked play on each kind of server", function()
 		expect(played.profiles[1].Rank.Modes.Duel1v1).toBeNil()
 		expect(played.profiles[2].Rank.Modes.Duel1v1).toBeNil()
 		expect(#played.moved).toBe(0)
+		-- Nothing reached a ladder, the leaver's forced flush as they left included.
+		expect(played.ladders).toEqual({})
 		-- The Result says nothing of a rating that could not move.
 		expect(played.outcome.RatingAfter).toBe(played.outcome.RatingBefore)
 		expect(played.outcome.RankKeyBefore).toBe("")

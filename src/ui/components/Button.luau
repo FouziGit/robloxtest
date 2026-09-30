@@ -7,7 +7,7 @@
 --   Primary    the primary yellow: go, claim, buy          Secondary  the sheet: everything else
 --   Owner      the colour of the screen's chapter          Danger     red: only a destructive confirm
 --   Premium    the yellow, a second line for the price     Tile       a menu tile, sized by its grid
---   Ghost      no face: an underlined word
+--   Ghost      no face: an underlined word                 Ally       the cyan of us: bring a friend
 --
 -- A button is as wide as its word, never less than a thumb's worth, and never truncates it. A disabled
 -- button says why (a lock and a level, a claimed seal, "slots full"), a pending one bounces three dots
@@ -27,7 +27,7 @@ local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local UiSound = require(script.Parent.Parent.UiSound)
 
-export type Variant = "Primary" | "Secondary" | "Danger" | "Owner" | "Premium" | "Tile" | "Ghost"
+export type Variant = "Primary" | "Secondary" | "Danger" | "Owner" | "Premium" | "Tile" | "Ghost" | "Ally"
 export type DisabledReason = "Locked" | "Claimed" | "Owned" | "Premium" | "Full" | "Pending"
 export type FlashKind = "Success" | "Error"
 
@@ -120,6 +120,9 @@ local function lookFor(variant: Variant, chapter: string?): Look
 	elseif variant == "Danger" then
 		look.Face = Theme.Colors.DangerFill
 		look.Lip = Theme.lip("Danger")
+	elseif variant == "Ally" then
+		-- The only cyan a menu shows, on the paper edge of a Secondary: the invite (D-176).
+		look.Face = Theme.Colors.Ally
 	elseif variant == "Owner" or variant == "Tile" then
 		local owner = Theme.chapter(chapter or "Menu")
 		look.Face = owner.Band

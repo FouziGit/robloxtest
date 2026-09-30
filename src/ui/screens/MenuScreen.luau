@@ -200,12 +200,19 @@ function MenuScreen.new(deps: Deps): Screen
 	own(trove, pill)
 
 	-- An icon on its own: as wide as it is tall, never the width of a word.
-	local function iconButton(name: string, text: string, icon: Icon.Name?, order: number, onClick: () -> ())
+	local function iconButton(
+		name: string,
+		text: string,
+		icon: Icon.Name?,
+		variant: Button.Variant,
+		order: number,
+		onClick: () -> ()
+	)
 		local button = Button.new({
 			Name = name,
 			Text = text,
 			Icon = icon,
-			Variant = "Secondary",
+			Variant = variant,
 			Size = UDim2.fromOffset(ICON_BUTTON, ICON_BUTTON),
 			LayoutOrder = order,
 			Parent = strip,
@@ -216,7 +223,7 @@ function MenuScreen.new(deps: Deps): Screen
 		return button
 	end
 
-	iconButton("MoreFolios", Theme.Glyphs.Plus, nil, 4, function()
+	iconButton("MoreFolios", Theme.Glyphs.Plus, nil, "Secondary", 4, function()
 		navigate("Shop", { Tab = "Folios" })
 	end)
 
@@ -230,15 +237,16 @@ function MenuScreen.new(deps: Deps): Screen
 	spacerFlex.FlexMode = Enum.UIFlexMode.Fill
 	spacerFlex.Parent = spacer
 
-	iconButton("Settings", "", "Sliders", 6, function()
+	iconButton("Settings", "", "Burger", "Secondary", 6, function()
 		navigate("Settings")
 	end)
 
 	-- Sharing, which on Roblox is the platform's own invite prompt: the player picks who from their own
-	-- friends list, inside the client's UI, and nothing about them ever reaches this game.
+	-- friends list, inside the client's UI, and nothing about them ever reaches this game. A "+" on the cyan
+	-- that means us: bring an ally (D-176).
 	-- CanSendGameInviteAsync yields and can throw (an unsupported device, a policy that forbids it), so it
 	-- runs in its own thread behind a pcall and says so rather than doing nothing.
-	iconButton("Invite", "", "Invite", 7, function()
+	iconButton("Invite", Theme.Glyphs.Plus, nil, "Ally", 7, function()
 		task.spawn(function()
 			local ok, allowed = pcall(function()
 				return SocialService:CanSendGameInviteAsync(Players.LocalPlayer)

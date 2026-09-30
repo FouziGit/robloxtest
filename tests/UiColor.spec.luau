@@ -846,6 +846,48 @@ describe("the restyled controls", function()
 		expect(checked).toBeGreaterThanOrEqual(10)
 	end)
 
+	it("paint the invite, and only the invite, in the cyan of us, and mark the settings with three lines", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local button = Button.new({ Text = Theme.Glyphs.Plus, Variant = "Ally", Parent = world.playerGui })
+		local face = button.Instance:FindFirstChild("Face")
+		local base = button.Instance:FindFirstChild("Base")
+		expect(face.BackgroundColor3).toBe(Theme.Colors.Ally)
+		expect(base.BackgroundColor3).toBe(Theme.lip("Secondary"))
+		expect(button.Instance:FindFirstChild("Gloss")).toBeNil()
+		local word = button.Instance:FindFirstChild("Label", true)
+		expect(word.TextColor3).toBe(Theme.Colors.Text)
+		expect(Theme.contrast(word.TextColor3, Theme.Colors.Ally)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		-- The Menu's invite, a "+" on it: bring an ally (D-176).
+		local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+		expect(string.find(menu, 'iconButton("Invite", Theme.Glyphs.Plus, nil, "Ally", 7, function()', 1, true)).never.toBeNil()
+		-- And no other button: the cyan stays the fight's "us". No screen names it but the Menu's invite, and
+		-- nothing asks a Button for it by its Variant.
+		local files: { string } = {}
+		collect("src", files)
+		local users: { string } = {}
+		for _, path in ipairs(files) do
+			local code = stripComments(fs.readFile(path))
+			local screen = string.sub(path, 1, #"src/ui/screens/") == "src/ui/screens/"
+			if
+				string.find(code, 'Variant = "Ally"', 1, true) ~= nil
+				or (screen and string.find(code, '"Ally"', 1, true) ~= nil)
+			then
+				table.insert(users, path)
+			end
+		end
+		expect(users).toEqual({ "src/ui/screens/MenuScreen.luau" })
+		expect(select(2, string.gsub(menu, '"Ally"', ""))).toBe(1)
+		-- The board's settings are its ≡, the Burger, on the sheet beside it.
+		expect(string.find(menu, 'iconButton("Settings", "", "Burger", "Secondary", 6, function()', 1, true)).never.toBeNil()
+		for screen, role in pairs(ThemeConfig.Chapters) do
+			if role == "Ally" or role == "Health" then
+				error(screen .. "'s chapter is the cyan of us")
+			end
+		end
+	end)
+
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()
 		local tabs = source("Tabs")
 		expect(string.find(tabs, "return if band == Theme.Colors.Plate then Theme.Colors.Primary else band", 1, true)).never.toBeNil()

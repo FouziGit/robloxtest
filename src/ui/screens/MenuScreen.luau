@@ -24,7 +24,6 @@ local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Seal = require(script.Parent.Parent.components.Seal)
-local Splat = require(script.Parent.Parent.components.Splat)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -66,12 +65,23 @@ local XP_BAR_WIDTH = 200
 local XP_BAR_HEIGHT = 12
 local XP_TEXT_SIZE = 16
 local PILL_HEIGHT = 44
--- The Play tile: its share of the deck's width, its word, its line, and the ► on a blot of the sheet.
+-- The Play tile: its share of the deck's width, its word and its line (the board's 4.4cqw and 1.6cqw).
 local PLAY_SHARE = 1.35 / 4.35
-local PLAY_TEXT_SIZE = 40
+local PLAY_TEXT_SIZE = Theme.Sizes.TextHero
 local PLAY_LINE_SIZE = 18
-local PLAY_GLYPH_SIZE = 64
-local PLAY_SPLAT_TRANSPARENCY = 0.2
+-- Its ► on a disc of the sheet in its top-left corner, as wide as this share of the tile (the board's 9cqw of
+-- 25), the ► this share of the disc and this far right of its centre (the board's `padding-left: .8cqw`).
+local PLAY_DISC_SHARE = 0.35
+local PLAY_GLYPH_SHARE = 0.47
+local PLAY_GLYPH_NUDGE = 0.045
+-- Its ribbon across the top-right corner (the board's hero tile): this far down, past the tile's edge by less
+-- than the gap to the Shop beside it, turned, rounded and padded as the board draws it.
+local RIBBON_DROP = 16
+local RIBBON_OVERHANG = 12
+local RIBBON_TILT = 8
+local RIBBON_CORNER = 8
+local RIBBON_PADDING_Y = 6
+local RIBBON_PADDING_X = 12
 -- The grid's three columns by two rows, the gap between any two tiles (the board's 1.5cqw), and how tall two
 -- rows stand with a pointer: on a phone the tiles share whatever the card has, so the whole menu stays above
 -- its fold.
@@ -408,42 +418,42 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, loadoutButton)
 
-	-- The Play tile: a ► on a blot of the sheet, its word at poster size, and its line under it.
-	-- What a tile adds (the Play art, the stripe) goes on its face, so it rides the face when it is pressed.
+	-- The Play tile: a ► on a disc of the sheet, its word at poster size and its line under it, and a "Ranked"
+	-- ribbon over its corner: every mode the queue offers is ranked (MatchConfig). What a tile adds (the disc,
+	-- the ribbon, the stripe) goes on its face, so it rides the face when it is pressed.
 	local playFace = playButton:Face()
 	local playLine: TextLabel? = nil
 	if playFace ~= nil then
-		local art = Instance.new("Frame")
-		art.Name = "Art"
-		art.BackgroundTransparency = 1
-		art.AnchorPoint = Vector2.new(0.5, 0.5)
-		art.Position = UDim2.fromScale(0.5, 0.42)
-		art.Size = UDim2.fromOffset(PLAY_GLYPH_SIZE * 1.6, PLAY_GLYPH_SIZE * 1.6)
-		art.ZIndex = 2
-		art.Parent = playFace
-		Splat.new({
-			Size = UDim2.fromScale(1, 1),
-			Tint = Theme.Colors.PanelRaised,
-			Rotation = Splat.rotation(1),
-			Transparency = PLAY_SPLAT_TRANSPARENCY,
-			ZIndex = 2,
-			Parent = art,
-		})
-		local glyph = Instance.new("TextLabel")
-		glyph.Name = "Glyph"
-		glyph.BackgroundTransparency = 1
-		glyph.AnchorPoint = Vector2.new(0.5, 0.5)
-		glyph.Position = UDim2.fromScale(0.5, 0.5)
-		glyph.Size = UDim2.fromOffset(PLAY_GLYPH_SIZE, PLAY_GLYPH_SIZE)
-		glyph.FontFace = Theme.Fonts.Bold
-		glyph.TextSize = PLAY_GLYPH_SIZE
-		glyph.TextColor3 = Theme.Colors.Text
-		glyph.Text = Theme.Glyphs.Play
-		glyph.ZIndex = 3
-		glyph.Parent = art
-
 		local words = playFace:FindFirstChild("Content")
 		if words ~= nil and words:IsA("Frame") then
+			local disc = Instance.new("Frame")
+			disc.Name = "Disc"
+			disc.BorderSizePixel = 0
+			disc.BackgroundColor3 = Theme.Colors.PanelRaised
+			-- In the tile's padding, where its content starts.
+			disc.Position = words.Position
+			disc.Size = UDim2.fromScale(PLAY_DISC_SHARE, PLAY_DISC_SHARE)
+			disc.ZIndex = 3
+			local round = Instance.new("UIAspectRatioConstraint")
+			round.AspectRatio = 1
+			round.DominantAxis = Enum.DominantAxis.Width
+			round.Parent = disc
+			Theme.corner(disc, Theme.Pill)
+			Theme.stroke(disc, "Accent", Theme.Sizes.Stroke)
+			disc.Parent = playFace
+			local glyph = Instance.new("TextLabel")
+			glyph.Name = "Glyph"
+			glyph.BackgroundTransparency = 1
+			glyph.AnchorPoint = Vector2.new(0.5, 0.5)
+			glyph.Position = UDim2.fromScale(0.5 + PLAY_GLYPH_NUDGE, 0.5)
+			glyph.Size = UDim2.fromScale(PLAY_GLYPH_SHARE, PLAY_GLYPH_SHARE)
+			glyph.FontFace = Theme.Fonts.Bold
+			glyph.TextScaled = true
+			glyph.TextColor3 = Theme.Colors.Text
+			glyph.Text = Theme.Glyphs.Play
+			glyph.ZIndex = 3
+			glyph.Parent = disc
+
 			-- The word and its line at the foot of the tile, the word as large as the tile allows.
 			words.ZIndex = 4
 			local layout = words:FindFirstChildOfClass("UIListLayout")
@@ -459,10 +469,33 @@ function MenuScreen.new(deps: Deps): Screen
 			end
 			local line = words:FindFirstChild("Sublabel", true)
 			if line ~= nil and line:IsA("TextLabel") then
+				line.FontFace = Theme.Fonts.Bold
 				line.TextSize = PLAY_LINE_SIZE
 				playLine = line
 			end
 		end
+
+		local ribbon = Instance.new("TextLabel")
+		ribbon.Name = "Ribbon"
+		ribbon.BorderSizePixel = 0
+		ribbon.BackgroundColor3 = Theme.Colors.Plate
+		ribbon.AutomaticSize = Enum.AutomaticSize.X
+		ribbon.Size = UDim2.fromOffset(0, Theme.Sizes.TextLabel + RIBBON_PADDING_Y * 2)
+		ribbon.AnchorPoint = Vector2.new(1, 0)
+		ribbon.Position = UDim2.new(1, RIBBON_OVERHANG, 0, RIBBON_DROP)
+		ribbon.Rotation = RIBBON_TILT
+		ribbon.FontFace = Theme.Fonts.Label
+		ribbon.TextSize = Theme.Sizes.TextLabel
+		ribbon.TextColor3 = Theme.Colors.PanelRaised
+		ribbon.TextTruncate = Enum.TextTruncate.None
+		ribbon.Text = t("queue.ranked")
+		ribbon.ZIndex = 5
+		Theme.corner(ribbon, RIBBON_CORNER)
+		local ribbonPadding = Instance.new("UIPadding")
+		ribbonPadding.PaddingLeft = UDim.new(0, RIBBON_PADDING_X)
+		ribbonPadding.PaddingRight = UDim.new(0, RIBBON_PADDING_X)
+		ribbonPadding.Parent = ribbon
+		ribbon.Parent = playFace
 	end
 
 	-- The Loadout tile holds the five pigments: their stripe along its foot, edge to edge inside its ink, as on

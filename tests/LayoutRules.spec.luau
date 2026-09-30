@@ -337,6 +337,82 @@ describe("the interface, held to the engine's layouts", function()
 			end
 		end)
 
+		it(
+			"sets Play's ► on a disc of the sheet and its ribbon over its corner, riding its face, " .. where,
+			function()
+				local built, _, world = screen("MenuScreen", phone)
+				local Theme = world.require("src/ui/Theme")
+				local screenWidth = world.workspace.CurrentCamera.ViewportSize.X / Theme.activeScale()
+				local playTile = built.Instance:FindFirstChild("PlayTile", true)
+				assert(playTile ~= nil, "the menu has no Play tile: this gate would check nothing")
+				local disc = playTile:FindFirstChild("Disc", true)
+				local ribbon = playTile:FindFirstChild("Ribbon", true)
+				assert(disc ~= nil and ribbon ~= nil, "the Play tile has no disc or no ribbon")
+				local content = playTile:FindFirstChild("Content", true)
+				-- On the tile's face, beside its words: they ride a press together.
+				expect(disc.Parent).toBe(content.Parent)
+				expect(ribbon.Parent).toBe(content.Parent)
+				expect(playTile:FindFirstChild("Splat", true)).toBeNil()
+				-- The disc: the sheet in its ink, round, a third of the tile across, in the tile's top-left padding.
+				expect(disc.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+				expect(disc:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+				local line = disc:FindFirstChildOfClass("UIStroke")
+				expect(line.Color).toBe(Theme.Colors.Accent)
+				expect(line.Thickness).toBe(Theme.Sizes.Stroke)
+				expect(disc.Position).toBe(content.Position)
+				expect(disc.Size).toBe(roblox.UDim2.fromScale(0.35, 0.35))
+				local round = disc:FindFirstChildOfClass("UIAspectRatioConstraint")
+				expect(round.AspectRatio).toBe(1)
+				expect(round.DominantAxis.Name).toBe("Width")
+				local across = Measure.widthOf(disc, screenWidth)
+				if phone == nil then
+					-- About 96 on the pointer card, as the board's 9cqw on a tile of 25.
+					expect(across).toBeGreaterThan(90)
+					expect(across).toBeLessThan(100)
+				end
+				local glyph = disc:FindFirstChild("Glyph")
+				expect(glyph.Text).toBe("►")
+				expect(glyph.TextColor3).toBe(Theme.Colors.Text)
+				expect(glyph.AnchorPoint).toBe(roblox.Vector2.new(0.5, 0.5))
+				expect(glyph.Position.X.Scale).toBeCloseTo(0.545, 4)
+				expect(glyph.Position.Y.Scale).toBe(0.5)
+				-- Its word at the board's 4.4cqw, its line in the bold.
+				local word = content:FindFirstChild("Label", true)
+				expect(word:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize).toBe(Theme.Sizes.TextHero)
+				local sub = content:FindFirstChild("Sublabel", true)
+				expect(sub.FontFace.Weight).toBe(Theme.Fonts.Bold.Weight)
+				expect(sub.FontFace.Family).toBe(Theme.Fonts.Bold.Family)
+				-- The ribbon: ink, the sheet's heavy word, corners of 8, padded 6 and 12, turned 8 degrees.
+				expect(ribbon.Text).toBe("queue.ranked")
+				expect(ribbon.BackgroundColor3).toBe(Theme.Colors.Plate)
+				expect(ribbon.TextColor3).toBe(Theme.Colors.PanelRaised)
+				expect(ribbon.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+				expect(ribbon.TextSize).toBe(Theme.Sizes.TextLabel)
+				expect(ribbon.Rotation).toBe(8)
+				expect(ribbon:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(8)
+				local padding = ribbon:FindFirstChildOfClass("UIPadding")
+				expect(padding.PaddingLeft.Offset).toBe(12)
+				expect(padding.PaddingRight.Offset).toBe(12)
+				expect(ribbon.Size.Y.Offset).toBe(Theme.Sizes.TextLabel + 2 * 6)
+				expect(ribbon.AutomaticSize.Name).toBe("X")
+				expect(ribbon.AnchorPoint).toBe(roblox.Vector2.new(1, 0))
+				expect(ribbon.Position.X.Scale).toBe(1)
+				expect(ribbon.Position.Y.Offset).toBe(16)
+				-- Past the tile's edge, turned, by less than the gap to the Shop: it never covers it. Its width is the
+				-- widest its word is drawn in either language.
+				local gap =
+					built.Instance:FindFirstChild("Deck", true):FindFirstChildOfClass("UIListLayout").Padding.Offset
+				local tilt = math.rad(ribbon.Rotation)
+				for _, locale in ipairs(Strings.Locales) do
+					local wide = Measure.textWidth(Strings.t("queue.ranked", nil, locale), ribbon.TextSize) + 2 * 12
+					local tall = ribbon.Size.Y.Offset
+					local swing = (wide * math.cos(tilt) + tall * math.sin(tilt) - wide) / 2
+					expect(ribbon.Position.X.Offset + swing).toBeLessThan(gap)
+				end
+				expect(ribbon.Position.X.Offset).toBe(12)
+			end
+		)
+
 		it("wears the board's chip on every menu tile, in the tile's own ink, " .. where, function()
 			local built, _, world = screen("MenuScreen", phone)
 			local Theme = world.require("src/ui/Theme")

@@ -4,6 +4,7 @@
 -- can regress without a sound is held by reading them: two tiles of one colour side by side, a purchase made
 -- on one tap, a burst of claims the server would refuse, a red button where nothing is dangerous.
 local Harness = require("./harness")
+local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local TokenBucket = require("../src/shared/Util/TokenBucket")
 local fs = require("@lune/fs")
@@ -157,6 +158,27 @@ describe("these screens", function()
 				end
 			end
 		end
+	end)
+end)
+
+describe("the Play tile's ribbon", function()
+	it("says Ranked because every mode the queue offers is ranked, as the ranked tag it matches does", function()
+		-- The tile's ribbon names no mode: it is true only while each one is ranked.
+		expect(#MatchConfig.ModeOrder).toBeGreaterThan(0)
+		for _, mode in ipairs(MatchConfig.ModeOrder) do
+			local def = MatchConfig.Modes[mode]
+			assert(def ~= nil, ("the queue offers %s, which is no mode"):format(mode))
+			if def.Ranked ~= true then
+				error(("%s is not ranked: the Play tile's ribbon would say otherwise"):format(mode))
+			end
+		end
+		expect(string.find(code(MENU), 'ribbon.Text = t("queue.ranked")', 1, true)).never.toBeNil()
+		-- The play card's tag is the same ribbon lying flat: ink, the sheet's word, corners of 8.
+		local play = code(PLAY)
+		expect(tonumber(string.match(play, "local TAG_CORNER = (%d+)\n"))).toBe(8)
+		expect(string.find(play, "tag.BackgroundColor3 = Theme.Colors.Plate", 1, true)).never.toBeNil()
+		expect(string.find(play, "tag.TextColor3 = Theme.Colors.PanelRaised", 1, true)).never.toBeNil()
+		expect(string.find(play, "Theme.corner(tag, TAG_CORNER)", 1, true)).never.toBeNil()
 	end)
 end)
 

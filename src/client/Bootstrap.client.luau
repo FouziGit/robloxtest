@@ -31,6 +31,8 @@ local log = Log.new("ClientBootstrap")
 local ORDER = {
 	"ClientData",
 	"Localize",
+	-- The VIP tag in the chat: its words are the reader's, which Localize's Init resolved.
+	"ChatController",
 	"SoundController",
 	-- Before every system that asks it what it may draw: WorldLighting, VfxTimeline and the footprints
 	-- all read the tier at Start (Config/QualityConfig).

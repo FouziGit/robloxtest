@@ -32,7 +32,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 | Clé | Type | Prix dans le code (R$) | Ce que le code livre |
 |---|---|---|---|
-| `Vip` | pass | 399 | aura VIP, XP ×2, Folios ×1,5 |
+| `Vip` | pass | 399 | aura VIP, XP ×2, Folios ×1,5, tag `[VIP]` dans le chat (D-202) |
 | `LoadoutSlots` | pass | 199 | 10 emplacements au lieu de 6 |
 | `Orpiment` | pass | 299 | le pigment Orpiment sans attendre le niveau 40 |
 | `SkinPack` | pass | 249 | 4 skins de glyphe |
@@ -44,7 +44,7 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 
 3. **Les mêmes prix que le tableau de bord.** Le joueur paie le prix réglé dans le Creator Dashboard. `PriceRobux` ne sert qu'à l'analytique (`Receipts.luau:181`, `Passes.luau:157`) : un écart ne coûte rien au joueur, mais fausse les revenus suivis par `docs/ECONOMY.md` §8.
 4. **Des descriptions honnêtes.** Chaque description saisie sur le tableau de bord (`docs/STUDIO_SETUP.md` §3 et §4) doit dire exactement ce que le code livre :
-   - **VIP** : soit construire le tag dans le chat, soit retirer « tag dans le chat » aux quatre endroits où il apparaît : le tableau de bord, `Strings.luau:359-362`, `docs/STUDIO_SETUP.md:54` et `docs/ECONOMY.md:48` (R1). À régler avant la mise en vente.
+   - **VIP** : la description peut promettre le tag dans le chat, le jeu le pose (R1 corrigé, D-202). Vérifier seulement que le chat de l'expérience est bien `TextChatService` (§6.7).
    - **TierSkip5** : soit écrire « jusqu'à cinq paliers », soit refuser l'achat à partir du palier 46 (R14).
    - **Premium** : aligner `docs/ECONOMY.md` §6 sur ce que le code donne (R10).
 5. **Acheter une fois chaque article.** Sur la copie de test, avec un compte secondaire, dérouler tout le §3 de `docs/QA.md`. Tant que R2 n'est pas corrigé, retirer `TierSkip5` de la vente : un reçu payé qui boucle, c'est un joueur débité sans rien recevoir.
@@ -80,7 +80,7 @@ Une partie a déjà été faite une fois (`docs/STUDIO_SETUP.md` §2) : accès A
 4. **Nom et description, en anglais et en français.** L'anglais est la langue source. La traduction française du nom et de la description se saisit dans l'onglet Localization de l'expérience.
 5. **Serveurs privés.** Décider s'ils sont gratuits, payants ou fermés. L'appariement ne se fait qu'entre joueurs d'un même serveur, et le World Boss demande deux joueurs (`WorldBossConfig.luau:28`) : dans un serveur privé à un seul joueur, il n'y a ni match ni boss.
 6. **Joueurs par serveur.** 12 (`docs/STUDIO_SETUP.md` §2) : de quoi tenir deux 3v3 et le hub.
-7. **Chat.** Chat texte activé. Les seuls textes venant des joueurs sont le chat Roblox et leurs noms : aucun filtrage à ajouter.
+7. **Chat.** Chat texte activé, sur `TextChatService` (le réglage par défaut ; le tag du VIP n'existe pas sur le chat hérité, et le client l'écrit alors : `[ChatController] this place runs the legacy chat`). Les seuls textes venant des joueurs sont le chat Roblox et leurs noms : aucun filtrage à ajouter.
 8. **Streaming.** `default.project.json` ne règle aucune propriété de `Workspace`. Ouvrir la place construite et vérifier que `StreamingEnabled` a bien la valeur voulue. Les arènes sont empilées à partir de 900 studs de haut, avec 400 studs de plus par emplacement, sans limite (`altitudeFor`, `ArenaService.luau:299-301,333-338` ; `MatchConfig.luau:71,75`). Le champ de bataille est bâti à X = 1500 (`BattlegroundConfig.Map.Origin`), au-delà du rayon de streaming par défaut : si `StreamingEnabled` est actif, faire le §6 bis.26 de `docs/QA.md`.
 
 ## 7. Textes et localisation
@@ -127,7 +127,6 @@ Un joueur ou un développeur lit ces documents comme des promesses : les corrige
 
 | Document | Ce qu'il dit | Ce qui est vrai |
 |---|---|---|
-| `docs/STUDIO_SETUP.md:37,54`, `docs/ECONOMY.md:48` | le VIP a un tag dans le chat | aucun tag (R1) |
 | `docs/ECONOMY.md:80` | Premium : 150 Folios + 30 min de boost, badge, quêtes bonus | 150 Folios + 300 XP (R10) |
 | `docs/ECONOMY.md` §5 | prompts d'achat contextuels | jamais affichés (R8) |
 | `docs/PERFORMANCE.md:137-139` | pire cas : « 201, `Pounce` », « 30 maillages (`Dash`) » | `Scorch` 358 particules, `Dash` 34 `Part` au pic (`docs/PERFORMANCE.md:98,112`, sortie de `lune run scripts/effect-cost -- --table`). Revérifier la ligne des plafonds de `PoolPolicy`. |

@@ -55,6 +55,7 @@ boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
 boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+chat.vipTag,[VIP],Vellum,,[VIP],[VIP]
 common.cancel,Cancel,Vellum,,Cancel,Annuler
 common.loadFailed,Couldn't load.,Vellum,,Couldn't load.,Impossible de charger.
 common.locked,Locked,Vellum,,Locked,Verrouillé

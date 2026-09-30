@@ -4,12 +4,17 @@
 -- so a failed check leaves the previous answer untouched instead of taking a pass away.
 --
 -- Effects are idempotent: they run on every profile load of a cached pass and right after a purchase.
+--
+-- The chat tag the VIP pass sells (D-202) is decided here: the cache's Vip entry is mirrored onto the Player
+-- as ChatConfig.VipAttribute, which only the server can set for every client to see, and each client draws
+-- the tag from it (ChatController).
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local ChatConfig = require(Shared.Config.ChatConfig)
 local Context = require(script.Parent.Context)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local Log = require(Shared.Util.Log)
@@ -63,6 +68,11 @@ local function ownsPass(player: Player, passId: number): boolean?
 	return nil
 end
 
+-- The VIP chat tag follows the cache: set while it holds Vip, cleared otherwise.
+local function mirrorVip(player: Player, data: Context.ProfileData)
+	player:SetAttribute(ChatConfig.VipAttribute, if data.Passes[PASS_VIP] == true then true else nil)
+end
+
 -- Applies what an owned pass grants.
 function Passes.apply(player: Player, passKey: string)
 	-- Every effect below writes through the service that owns the section, and each of those warns on a
@@ -99,6 +109,7 @@ function Passes.cache(player: Player, passKey: string): boolean
 		data.Passes[passKey] = true
 		deps.DataService.push(player, "Passes")
 	end
+	mirrorVip(player, data)
 	Passes.apply(player, passKey)
 	return changed
 end
@@ -106,6 +117,14 @@ end
 -- Checks every pass that has an id, then applies the ones the player owns. Yields (web calls), so the
 -- profile is re-read after each check and the sync stops as soon as the player is gone.
 function Passes.sync(player: Player)
+	-- The tag from what the cache already holds, before any web call: an owner is tagged from their first
+	-- message.
+	local cached = deps.DataService.get(player)
+	if cached == nil then
+		return
+	end
+	mirrorVip(player, cached)
+
 	local owned: { string } = {}
 	for _, passKey in ipairs(Passes.Keys) do
 		local pass = MonetizationConfig.Passes[passKey]
@@ -136,6 +155,7 @@ function Passes.sync(player: Player)
 	if changed then
 		deps.DataService.push(player, "Passes")
 	end
+	mirrorVip(player, data)
 	for _, passKey in ipairs(owned) do
 		Passes.apply(player, passKey)
 	end

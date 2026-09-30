@@ -34,7 +34,7 @@ La place d'origine de la V1 n'est plus utilisée. Ne pas l'ouvrir en croyant y t
 | Joueurs max par serveur | 12 (assez pour 2 matchs 3v3 + hub) | Game Settings → Places → Max players |
 | Orientation | Paysage (`LandscapeSensor`, déjà fixé par `default.project.json`) | — |
 | Appareils | ordinateur, téléphone, tablette, console | Game Settings → Basic Info → Devices |
-| Chat | texte activé (le VIP a un tag) | Game Settings → Communication |
+| Chat | texte activé, sur `TextChatService` (le tag du VIP en dépend, D-202) | Game Settings → Communication |
 | Genre / âge | Combat (fantasy), tous publics, violence légère | Game Settings → Basic Info |
 
 ## 2 bis. Type d'avatar : laisse R15 — **ne passe pas en R6**

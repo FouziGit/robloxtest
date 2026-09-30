@@ -194,7 +194,7 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 
 	-- 2. The new rank, stamped; or the rating and how it moved.
 	local rankRow = row("RankUp", RANK_ROW, 3, content)
-	-- The rank's own seal, its initial and its gold leaf: the Result spends no other gradient.
+	-- The rank's own seal, its initial and its gold leaf: the Result sweeps no other shimmer.
 	local rankSeal = Standings.seal(RankingConfig.Tiers[1].Id, RANK_SEAL, rankRow, 1, localize, true)
 	trove:Add(function()
 		rankSeal:Destroy()

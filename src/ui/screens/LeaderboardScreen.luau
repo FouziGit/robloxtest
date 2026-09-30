@@ -261,7 +261,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 			youLabel.Text = t("leaderboard.unranked")
 		end
 		youSeal:SetTier(tierId)
-		-- The player's rank, marked as the ladder's pips mark a rarity.
+		-- Their rank's word, marked with a pip: the ladder over the board shows every rank, this one is theirs.
 		tierLabel.Text = Theme.Glyphs.Pip .. " " .. t(Theme.rank(tierId).NameKey)
 	end
 

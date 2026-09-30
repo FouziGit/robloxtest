@@ -3,8 +3,9 @@
 -- packs, the passes and packs, and the locker of what the player owns (the last three are shop/Shelves).
 -- Today is a track of item cards, the Legendary first and twice as wide: each is headed by its rarity band
 -- (colour, pips and word, since colour is never the only cue), then what the item looks like on the page's
--- vellum, its name, a Folios price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase): nothing is bought on one
--- tap. The band holds the live Folios count; under Today's tab a line counts down to the next rotation.
+-- vellum, its name, a Folios price and a Robux one. The Folios price asks first, in a sheet (shop/Purchase):
+-- nothing is bought on one tap. The band holds the live Folios count; under Today's tab a line counts down to
+-- the next rotation.
 -- Opened with { Tab = "Folios" } (the Menu's "+", the sheet of a player short of Folios), it opens there.
 --
 -- The rotation comes from the server's ShopChanged snapshot; until one arrives (screens are built on

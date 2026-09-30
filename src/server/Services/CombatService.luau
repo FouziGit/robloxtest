@@ -214,7 +214,11 @@ CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model
 -- Consumers must attribute from this payload and not by reading an attribute back from a Humanoid
 -- event: several players hit the boss in one resumption cycle, so a shared "last attacker" slot
 -- credits them all to whoever wrote it last.
-CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind)
+--
+-- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind, glyphId: string?). Glyph damage
+-- names its glyph (the tags[1] GlyphEffects' tracker puts first), for the balance each glyph is measured by
+-- (MatchService's GlyphMatch); any other damage names none.
+CombatService.Damaged = Signal.new()
 -- Fired once per dash the server actually granted (ink spent, cooldown armed). `cancelled` is true when
 -- the dash cut a finisher's recovery short (CombatConfig.Dash.CancelCost).
 CombatService.Dashed = Signal.new() -- (player: Player, cancelled: boolean)
@@ -1211,7 +1215,7 @@ function CombatService.ApplyDamage(
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
 	if source ~= nil then
-		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)
+		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind, if kind == "Glyph" then tags[1] else nil)
 	end
 	markTarget(humanoid, pigment, now)
 	if sourceState ~= nil then

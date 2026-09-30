@@ -21,7 +21,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
-local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local ReceiptItem = require(script.Parent.Parent.Pure.ReceiptItem)
 local ShopConfig = require(Shared.Config.ShopConfig)
@@ -45,7 +44,6 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type CurrencyApi = {
-	get: (player: Player) -> number,
 	trySpend: (player: Player, amount: number, reason: string) -> boolean,
 	refund: (player: Player, amount: number, reason: string) -> number,
 	waives: (player: Player) -> boolean,
@@ -54,17 +52,6 @@ type GrantedSignal = { Connect: (self: GrantedSignal, fn: (player: Player, cosme
 type CosmeticApi = {
 	grant: (player: Player, cosmeticId: string, waived: boolean?) -> boolean,
 	Granted: GrantedSignal?,
-}
-type AnalyticsApi = {
-	economy: (
-		player: Player,
-		flowType: string,
-		currency: string,
-		amount: number,
-		endingBalance: number,
-		category: string,
-		itemSku: string?
-	) -> (),
 }
 type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
@@ -76,7 +63,6 @@ type Deps = {
 	Notify: NotifyApi,
 	Currency: CurrencyApi,
 	Cosmetic: CosmeticApi,
-	Analytics: AnalyticsApi,
 }
 
 -- One recorded Robux choice: which item, and when it was picked (os.clock).
@@ -85,7 +71,8 @@ type Intent = { CosmeticId: string, At: number }
 -- The day key changes once a day; scanning it every few seconds makes the switch invisible to players
 -- without a per-player loop.
 local ROTATION_SCAN_SECONDS = 5
--- Roblox transaction type name reported to analytics for a soft-currency shop purchase.
+-- The reason a Folios purchase is debited and paid back under, before its article: CurrencyService reports it,
+-- and AnalyticsConfig files it under the Shop transaction type with the article as its item.
 local TRANSACTION_SHOP = "Shop"
 local SFX_SUCCESS = "Claim"
 local SFX_ERROR = "Error"
@@ -97,7 +84,6 @@ local dataService: DataApi
 local notify: NotifyApi
 local currency: CurrencyApi
 local cosmetic: CosmeticApi
-local analytics: AnalyticsApi
 
 local trove = Trove.new()
 local dayKey = ""
@@ -324,7 +310,6 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 	end
 	intents[player] = nil
 	notify.send(player, "shop.purchased", { name = item.NameKey }, "Success", SFX_SUCCESS)
-	analytics.economy(player, "Sink", GameConfig.Currency.Id, price, currency.get(player), TRANSACTION_SHOP, cosmeticId)
 	log.info("%s bought %s for %d Folios", player.Name, cosmeticId, price)
 	ShopService.refresh(player)
 end
@@ -354,7 +339,6 @@ function ShopService.Init(deps: Deps)
 	notify = deps.Notify
 	currency = deps.Currency
 	cosmetic = deps.Cosmetic
-	analytics = deps.Analytics
 	refreshRotation(os.time())
 end
 

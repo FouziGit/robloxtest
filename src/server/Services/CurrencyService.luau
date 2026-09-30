@@ -2,12 +2,17 @@
 -- CurrencyService: the only writer of Currency.Folios. Amounts are positive integers and the balance
 -- never goes negative. Mirrors the balance into the leaderstats "Folios" value when it exists. A developer
 -- account spends without paying when DeveloperConfig.UnlimitedFolios is on (D-129).
+--
+-- Every Folio it credits or debits is reported here, once, to AnalyticsService, with the reason it was handed
+-- (which AnalyticsConfig files under a transaction type and an item): no caller reports a movement of its own.
+-- A movement that did not happen -- a refusal, a developer's waived spend -- reports nothing.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local DeveloperConfig = require(script.Parent.Parent.Config.DeveloperConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Types = require(Shared.Types)
@@ -22,17 +27,35 @@ type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	push: (player: Player, section: string) -> (),
 }
-type Deps = { DataService: DataApi }
+type AnalyticsApi = {
+	economy: (
+		player: Player,
+		flowType: "Source" | "Sink",
+		currency: string,
+		amount: number,
+		endingBalance: number,
+		reason: string
+	) -> (),
+}
+type Deps = { DataService: DataApi, Analytics: AnalyticsApi }
 
 local LEADERSTATS_FOLDER = "leaderstats"
 local LEADERSTAT_FOLIOS = "Folios"
+local CURRENCY_ID = GameConfig.Currency.Id
 
 local CurrencyService = {}
 
 local dataService: DataApi
+local analytics: AnalyticsApi
 
 local function isPositiveInteger(value: number): boolean
 	return value == value and value ~= math.huge and value == math.floor(value) and value > 0
+end
+
+-- The movement just written, to the Economy dashboards. Telemetry never undoes a movement: a report that
+-- throws is warned about, and the balance stands.
+local function report(player: Player, flowType: "Source" | "Sink", amount: number, balance: number, reason: string)
+	log.try("economy event " .. reason, analytics.economy, player, flowType, CURRENCY_ID, amount, balance, reason)
 end
 
 local function syncLeaderstat(player: Player, value: number)
@@ -44,15 +67,6 @@ local function syncLeaderstat(player: Player, value: number)
 	if stat ~= nil and stat:IsA("IntValue") then
 		stat.Value = value
 	end
-end
-
--- Current balance, 0 while the profile is not loaded.
-function CurrencyService.get(player: Player): number
-	local data = dataService.get(player)
-	if data == nil then
-		return 0
-	end
-	return data.Currency.Folios
 end
 
 -- Returns the Folios actually credited (base amount times the VIP multiplier), or 0 when nothing was
@@ -74,6 +88,7 @@ function CurrencyService.add(player: Player, amount: number, reason: string): nu
 	syncLeaderstat(player, data.Currency.Folios)
 	dataService.push(player, "Currency")
 	log.info("%s +%d Folios (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
+	report(player, "Source", amount, data.Currency.Folios, reason)
 	return amount
 end
 
@@ -106,6 +121,7 @@ function CurrencyService.trySpend(player: Player, amount: number, reason: string
 	syncLeaderstat(player, data.Currency.Folios)
 	dataService.push(player, "Currency")
 	log.info("%s -%d Folios (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
+	report(player, "Sink", amount, data.Currency.Folios, reason)
 	return true
 end
 
@@ -130,11 +146,13 @@ function CurrencyService.refund(player: Player, amount: number, reason: string):
 	syncLeaderstat(player, data.Currency.Folios)
 	dataService.push(player, "Currency")
 	log.info("%s +%d Folios refunded (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
+	report(player, "Source", amount, data.Currency.Folios, reason)
 	return amount
 end
 
 function CurrencyService.Init(deps: Deps)
 	dataService = deps.DataService
+	analytics = deps.Analytics
 end
 
 function CurrencyService.Start()

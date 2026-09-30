@@ -1,9 +1,11 @@
 --!strict
--- A Folios purchase settled by the server, run (tests/engine.luau): the real ShopService and CurrencyService,
--- with the profile, the cosmetic grant and the player's toasts as the only fakes.
+-- A Folios purchase settled by the server, run (tests/engine.luau): the real ShopService, CurrencyService and
+-- AnalyticsService, with the profile, the cosmetic grant, the player's toasts and Roblox's analytics
+-- (tests/analytics.luau) as the only fakes.
 --
 -- The shop debits first and grants second. A grant that failed after the debit kept the Folios and gave
 -- nothing (R12): the purchase must pay the debit back, exactly, and never more than it took.
+local Analytics = require("./analytics")
 local DeveloperConfig = require("../src/server/Config/DeveloperConfig")
 local Engine = require("./engine")
 local Harness = require("./harness")
@@ -21,19 +23,26 @@ type Fixture = {
 	item: string,
 	price: number,
 	buy: (outcome: Outcome) -> (),
+	-- What reached Roblox's analytics.
+	analytics: Analytics.Recorder,
 }
 
 local function setup(userId: number): Fixture
-	local world = Engine.world()
+	local analytics = Analytics.recorder()
+	local world = Engine.world({ Services = analytics.services })
 	local player = world.player
 	player.UserId = userId
+	-- The head count AnalyticsService sizes the server's budget by.
+	world.game:GetService("Players").GetPlayers = function(_self: any): { any }
+		return { player }
+	end
 
 	local data = {
 		Currency = { Folios = BALANCE },
 		Cosmetics = { Owned = {} :: { string }, Equipped = {} },
 		Passes = {} :: { [string]: boolean },
 	}
-	local fixture = { data = data, toasts = {} :: { string } } :: any
+	local fixture = { data = data, toasts = {} :: { string }, analytics = analytics } :: any
 	local handlers: { [string]: (...any) -> () } = {}
 	local dataService = {
 		get = function(): any
@@ -43,7 +52,7 @@ local function setup(userId: number): Fixture
 		ProfileLoaded = Engine.signal(),
 	}
 	local currency = world.require("src/server/Services/CurrencyService")
-	currency.Init({ DataService = dataService })
+	currency.Init({ DataService = dataService, Analytics = world.require("src/server/Services/AnalyticsService") })
 	local outcome: Outcome = "Grant"
 	local shop = world.require("src/server/Services/ShopService")
 	shop.Init({
@@ -75,7 +84,6 @@ local function setup(userId: number): Fixture
 				return true
 			end,
 		},
-		Analytics = { economy = function() end },
 	})
 	shop.Start()
 
@@ -137,6 +145,43 @@ describe("a Folios purchase in the shop", function()
 		fixture.buy("Grant")
 		expect(fixture.data.Currency.Folios).toBe(BALANCE)
 		expect(fixture.data.Cosmetics.Owned).toEqual({ fixture.item })
+	end)
+end)
+
+-- The shop reported its own sink as well as CurrencyService's: every purchase counted twice (E8-S1).
+describe("what the Economy dashboards learn of a Folios purchase (E8-S1)", function()
+	-- The economy events that reached Roblox, as { flow, amount, balance, transaction, item }.
+	local function economy(fixture: Fixture): { { any } }
+		local found = {}
+		for _, call in ipairs(fixture.analytics:of("LogEconomyEvent")) do
+			local args = call.Args
+			table.insert(found, { args[1].Name, args[3], args[4], args[5], args[6] })
+		end
+		return found
+	end
+
+	it("is one sink, under Shop, with the article as its item", function()
+		local fixture = setup(PLAYER_ID)
+		fixture.buy("Grant")
+		expect(economy(fixture)).toEqual({
+			{ "Sink", fixture.price, BALANCE - fixture.price, "Shop", fixture.item },
+		})
+	end)
+
+	it("is a sink and the source that pays it back when the grant fails", function()
+		local fixture = setup(PLAYER_ID)
+		fixture.buy("Refuse")
+		expect(economy(fixture)).toEqual({
+			{ "Sink", fixture.price, BALANCE - fixture.price, "Shop", fixture.item },
+			{ "Source", fixture.price, BALANCE, "Shop", fixture.item },
+		})
+	end)
+
+	it("is nothing for a developer, whose purchase moved no Folio (D-129)", function()
+		local fixture = setup(DeveloperConfig.UserIds[1])
+		fixture.buy("Refuse")
+		fixture.buy("Grant")
+		expect(economy(fixture)).toEqual({})
 	end)
 end)
 

@@ -6,6 +6,7 @@
 -- Most server gates read the services' source, because Lune has no engine. That cannot see an order of
 -- events: a session another server takes before this one sees the player go, a shutdown that removes the
 -- players a moment before it says so. Those are what this runs.
+local Analytics = require("./analytics")
 local Engine = require("./engine")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
@@ -24,6 +25,8 @@ export type World = {
 	-- What game:BindToClose was handed, run by close().
 	closers: { () -> () },
 	store: Store,
+	-- Everything the services told Roblox's analytics (tests/analytics.luau).
+	analytics: Analytics.Recorder,
 	require: (path: string) -> any,
 	join: (self: World, userId: number, name: string) -> any,
 	leave: (self: World, player: any) -> (),
@@ -235,8 +238,8 @@ end
 export type Options = {
 	-- Modules replaced by a table, by their path without extension.
 	Stubs: { [string]: any }?,
-	-- Services beyond the ones every pretend server has (Players, CollectionService, LocalizationService,
-	-- DataStoreService), by name.
+	-- Services beyond the ones every pretend server has (AnalyticsService, HttpService, Players, CollectionService,
+	-- LocalizationService, DataStoreService), by name, or in their place.
 	Services: { [string]: any }?,
 }
 
@@ -245,6 +248,7 @@ function Server.world(options: Options?): World
 	local kicks: { { Player: any, Message: string } } = {}
 	local closers: { () -> () } = {}
 	local store = Server.profileStore()
+	local analytics = Analytics.recorder()
 
 	local players = Engine.instance("Players")
 	players.Name = "Players"
@@ -287,6 +291,9 @@ function Server.world(options: Options?): World
 		end
 	end
 	local services: { [string]: any } = {
+		-- Roblox's analytics, and the GUIDs AnalyticsService numbers its funnel sessions with.
+		AnalyticsService = analytics.services.AnalyticsService,
+		HttpService = analytics.services.HttpService,
 		Players = players,
 		-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
 		CollectionService = {
@@ -328,6 +335,7 @@ function Server.world(options: Options?): World
 		kicks = kicks,
 		closers = closers,
 		store = store,
+		analytics = analytics,
 		require = engine.require,
 	}
 
@@ -379,7 +387,8 @@ end
 
 -- The services of a profile, a ranked match and the shop, wired as Bootstrap.server.luau wires them:
 -- LocaleService, DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService,
--- CurrencyService and ShopService are the real modules; everything they reach beyond is a stub that answers what they ask.
+-- CurrencyService, ShopService and AnalyticsService are the real modules; everything they reach beyond is a stub that
+-- answers what they ask, and Roblox's analytics is the recorder of the world (World.analytics).
 -- Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
 export type Services = {
 	world: World,
@@ -395,6 +404,9 @@ export type Services = {
 	cosmetic: any,
 	currency: any,
 	shop: any,
+	analytics: any,
+	-- The stand-in for CombatService: fire its Damaged to land a hit the way CombatService reports one.
+	combat: any,
 	-- The handler each client remote was given, by remote name.
 	handlers: { [string]: (...any) -> () },
 	-- Where the players stand beyond the hub and the match, as WorldBossService and BattlegroundService would
@@ -438,6 +450,7 @@ function Server.services(options: Options?): Services
 	local cosmetic = world.require("src/server/Services/CosmeticService")
 	local currency = world.require("src/server/Services/CurrencyService")
 	local shop = world.require("src/server/Services/ShopService")
+	local analytics = world.require("src/server/Services/AnalyticsService")
 
 	local handlers: { [string]: (...any) -> () } = {}
 	local registry = {
@@ -514,7 +527,8 @@ function Server.services(options: Options?): Services
 
 	locale.Init({})
 	data.Init({ Registry = registry, Locale = locale, Notify = notify })
-	currency.Init({ DataService = data })
+	analytics.Init({})
+	currency.Init({ DataService = data, Analytics = analytics })
 	cosmetic.Init({ Registry = registry, Vfx = vfx, Combat = combat, DataService = data, Notify = notify })
 	loadout.Init({
 		Registry = registry,
@@ -529,18 +543,6 @@ function Server.services(options: Options?): Services
 		Notify = notify,
 		Currency = currency,
 		Cosmetic = cosmetic,
-		Analytics = {
-			economy = function(
-				_player: any,
-				_flow: string,
-				_currency: string,
-				_amount: number,
-				_balance: number,
-				_category: string,
-				_sku: string?
-			)
-			end,
-		},
 	})
 	ranking.Init({
 		DataService = data,
@@ -577,6 +579,7 @@ function Server.services(options: Options?): Services
 			end,
 		},
 		Glyph = glyph,
+		Analytics = analytics,
 	})
 	glyph.Init({
 		Registry = registry,
@@ -615,6 +618,7 @@ function Server.services(options: Options?): Services
 	-- In the bootstrap's order.
 	locale.Start()
 	data.Start()
+	analytics.Start()
 	currency.Start()
 	cosmetic.Start()
 	loadout.Start()
@@ -645,6 +649,8 @@ function Server.services(options: Options?): Services
 		cosmetic = cosmetic,
 		currency = currency,
 		shop = shop,
+		analytics = analytics,
+		combat = combat,
 		handlers = handlers,
 		places = places,
 		notices = notices,

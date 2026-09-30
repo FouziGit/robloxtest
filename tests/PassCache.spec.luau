@@ -142,7 +142,12 @@ local function shop(options: Options): Shop
 				called("notify", key)
 			end,
 		},
-		Analytics = { custom = function() end, economy = function() end },
+		Analytics = {
+			custom = function() end,
+			fields = function(): { [string]: string }
+				return {}
+			end,
+		},
 		Battlepass = {},
 		Progression = {},
 		Shop = {},

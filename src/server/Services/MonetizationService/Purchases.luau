@@ -147,8 +147,11 @@ function Purchases.onPurchaseFinished(userId: number, productId: number, wasPurc
 	if productKey == nil then
 		return
 	end
-	local event = if wasPurchased then Context.EventPromptAccepted else Context.EventPromptDeclined
-	deps.Analytics.custom(player, event, nil, { product = productKey })
+	if wasPurchased then
+		deps.Analytics.custom(player, "PromptAccepted", nil, deps.Analytics.fields("Product", productKey))
+	else
+		deps.Analytics.custom(player, "PromptDeclined", nil, deps.Analytics.fields("Product", productKey))
+	end
 end
 
 function Purchases.Init(injected: Deps)

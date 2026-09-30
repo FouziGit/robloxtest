@@ -70,6 +70,9 @@ for _, name in ipairs(InputConfig.CaptureCancelKeys) do
 end
 local TOUCH_GUI_NAME = "TouchGui"
 local JUMP_BUTTON_NAME = "JumpButton"
+-- What the touch layout was last measured on: the engine's jump button, or the corner kept for it while TouchGui
+-- has not built it. Said once per change, for the smoke test to read (docs/QA.md, what Lune cannot see).
+type JumpSource = "JumpButton" | "Reserve"
 -- Frames waited for the engine to lay its button frame out (AbsolutePosition is the layout origin).
 local LAYOUT_WAIT_FRAMES = 4
 local FALLBACK_VIEWPORT = Vector2.new(1280, 720)
@@ -120,6 +123,7 @@ local hapticSupport: { [Enum.UserInputType]: boolean } = {}
 -- they come back in the same places.
 local touchRectsByAction: { [string]: Rect } = {}
 local relayoutTouch: () -> ()
+local jumpMeasuredOn: JumpSource? = nil
 -- The pigments each source of hints says continue the sequence (setHints), and those the ink can pay for.
 local hintsBySource: { [string]: { [string]: boolean } } = {}
 local affordable: { [string]: boolean }? = nil
@@ -285,14 +289,28 @@ local function screenRect(): Rect
 	return { Min = Vector2.new(0, topInset.Y), Max = viewportSize() }
 end
 
+local function measuredOn(source: JumpSource)
+	if jumpMeasuredOn == source then
+		return
+	end
+	jumpMeasuredOn = source
+	if source == "JumpButton" then
+		log.info("touch layout measured on the engine's JumpButton")
+	else
+		log.info("touch layout measured on the reserved corner: TouchGui has no JumpButton yet")
+	end
+end
+
 -- The engine jump button once TouchGui exists, else the corner InputConfig reserves for it.
 local function jumpRect(screen: Rect): Rect
 	local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
 	local touchGui = if playerGui ~= nil then playerGui:FindFirstChild(TOUCH_GUI_NAME) else nil
 	local jump = if touchGui ~= nil then touchGui:FindFirstChild(JUMP_BUTTON_NAME, true) else nil
 	if jump ~= nil and jump:IsA("GuiObject") and jump.Visible and jump.AbsoluteSize.X > 0 then
+		measuredOn("JumpButton")
 		return { Min = jump.AbsolutePosition, Max = jump.AbsolutePosition + jump.AbsoluteSize }
 	end
+	measuredOn("Reserve")
 	local reserve = InputConfig.Touch.JumpReserve
 	return { Min = screen.Max - Vector2.new(reserve.Width, reserve.Height), Max = screen.Max }
 end

@@ -14,6 +14,10 @@
 -- is void (MatchConfig.MinPlayedSeconds, or no damage exchanged), and a pair past its day's full matches is paid a
 -- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios, its
 -- kills' included: this service pays those too (onKilled).
+--
+-- It tells the dashboards how each match went (AnalyticsConfig.Events): MatchEnded for each player at the result,
+-- with a GlyphMatch for every glyph they cast in it and the damage it dealt, and MatchVoided once for a match that
+-- ends with none.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -111,7 +115,7 @@ type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: st
 type DamagedSignal = {
 	Connect: (
 		self: DamagedSignal,
-		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string, glyphId: string?) -> ()
 	) -> any,
 }
 type KilledSignal = {
@@ -119,6 +123,10 @@ type KilledSignal = {
 }
 type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
+type AnalyticsApi = {
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
+}
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -133,6 +141,7 @@ type Deps = {
 	Quest: QuestApi,
 	Daily: DailyApi,
 	Glyph: GlyphApi,
+	Analytics: AnalyticsApi,
 }
 type TroveType = typeof(Trove.new())
 
@@ -158,6 +167,7 @@ type Active = {
 	LeftAt: number, -- os.clock of the latest departure; 0 while nobody left
 	Emptied: boolean, -- ended because every participant was gone, or the server was closing
 	FirstPlayedAt: number, -- os.clock the first round started being played; 0 until then
+	Glyphs: { [number]: { [string]: number } }, -- user id -> each glyph cast in the match -> the damage it dealt
 }
 
 -- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
@@ -197,6 +207,7 @@ local ranking: RankingApi
 local quest: QuestApi
 local daily: DailyApi
 local glyph: GlyphApi
+local analytics: AnalyticsApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
@@ -375,6 +386,32 @@ local function ratingChanges(active: Active, result: Types.MatchResult): { [numb
 	return (applied :: any) :: { [number]: RatingChange }
 end
 
+-- How long `active` has been under way, in whole seconds, for the dashboards.
+local function secondsOf(active: Active, now: number): number
+	return math.floor(now - active.Match.StartedAt + 0.5)
+end
+
+-- A match ending with no result, told to the dashboards as `cause`: by `player` when given (the last to leave,
+-- while they are still in the server), otherwise by the first participant still there. Once per match: the last
+-- one out tells it and the empty match that follows has nobody left to tell it again; a closing server or a mode
+-- that cannot say who won ends it with someone still there, and nobody last out.
+local function voided(active: Active, cause: string, player: Player?)
+	local teller = player
+	if teller == nil then
+		for _, participant in ipairs(active.Match.Participants) do
+			if isLive(participant) then
+				teller = participant.Player
+				break
+			end
+		end
+	end
+	if teller == nil then
+		return
+	end
+	local seconds = secondsOf(active, os.clock())
+	analytics.custom(teller, "MatchVoided", seconds, analytics.fields(active.Match.ModeId, cause))
+end
+
 -- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server. A private
 -- server a player bought is not ranked (RankingService.rankedHere): its matches pay MatchConfig.PrivateServer's
 -- share of their XP and Folios, and neither the first win of the day nor a won match's quest.
@@ -384,6 +421,7 @@ local function award(active: Active, result: Types.MatchResult)
 	local rankedServer = ranking.rankedHere()
 	local share = if rankedServer then 1 else MatchConfig.PrivateServer.RewardShare
 	local changes = ratingChanges(active, result)
+	local seconds = secondsOf(active, match.EndedAt)
 	for _, participant in ipairs(match.Participants) do
 		if not isLive(participant) then
 			continue
@@ -437,6 +475,14 @@ local function award(active: Active, result: Types.MatchResult)
 			Grade = Execution.grade(stats.Casts, stats.Hits, stats.DamageDealt, stats.DamageTaken, won),
 		}
 		registry.fire("MatchEnded", player, outcome)
+		local issue = if draw then "Draw" elseif won then "Win" else "Loss"
+		analytics.custom(player, "MatchEnded", seconds, analytics.fields(match.ModeId, issue))
+		local glyphIssue = if won then "Win" else "Loss"
+		local cast: { [string]: number } = active.Glyphs[participant.UserId] or {}
+		for glyphId, damage in pairs(cast) do
+			local dealt = math.floor(damage + 0.5)
+			analytics.custom(player, "GlyphMatch", dealt, analytics.fields(glyphId, match.ModeId, glyphIssue))
+		end
 	end
 end
 
@@ -539,6 +585,7 @@ local function enterResult(active: Active, now: number)
 	local ok, result = pcall(active.Mode.End, match)
 	if not ok then
 		log.warn("mode %s End failed for match %s: %s", active.Def.Id, match.Id, tostring(result))
+		voided(active, "Error")
 		return
 	end
 	local outcome = (result :: any) :: Types.MatchResult
@@ -674,6 +721,7 @@ local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: num
 				log.warn("match %s abandoned: no participant left", match.Id)
 			end
 			active.Emptied = true
+			voided(active, if closing then "Closing" else "Empty")
 			finish(active)
 			return
 		end
@@ -1002,6 +1050,11 @@ local function onPlayerRemoving(player: Player)
 		-- A hook that blew up must not leave a phantom teammate holding a team against a forfeit.
 		GameModes.markLeft(active.Match, player)
 	end
+	-- The last one out of a match with no result yet: the next verdict ends it with none, and by then nobody is
+	-- left in the server to tell the dashboards. They are, until this returns.
+	if active.Match.Phase ~= "Result" and GameModes.presentCount(active.Match) == 0 then
+		voided(active, if dataService.isClosing() then "Closing" else "Empty", player)
+	end
 	log.info("%s left match %s", player.Name, active.Match.Id)
 end
 
@@ -1097,6 +1150,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		LeftAt = 0,
 		Emptied = false,
 		FirstPlayedAt = 0,
+		Glyphs = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -1149,12 +1203,27 @@ local function counts(glyphId: string): boolean
 	return not GlyphConfig.isUtility(glyphId)
 end
 
+-- The glyphs `userId` fields in `active`, with the damage each dealt: every glyph cast, a wall or a buff too, so
+-- the balance of the whole roster can be read (GlyphMatch).
+local function glyphsOf(active: Active, userId: number): { [string]: number }
+	local glyphs = active.Glyphs[userId]
+	if glyphs == nil then
+		glyphs = {}
+		active.Glyphs[userId] = glyphs
+	end
+	return glyphs
+end
+
 local function onCast(player: Player, glyphId: string, _chain: number)
 	local active = activeByUserId[player.UserId]
-	if active == nil or active.Match.Phase == "Result" or not counts(glyphId) then
+	if active == nil or active.Match.Phase == "Result" or GlyphConfig.ById[glyphId] == nil then
 		return
 	end
-	statsOf(active, player.UserId).Casts += 1
+	local glyphs = glyphsOf(active, player.UserId)
+	glyphs[glyphId] = glyphs[glyphId] or 0
+	if counts(glyphId) then
+		statsOf(active, player.UserId).Casts += 1
+	end
 end
 
 -- No phase guard: a zone that resolves after the last round ended belongs to the cast that was counted
@@ -1167,7 +1236,7 @@ local function onCastLanded(player: Player, glyphId: string, hits: number)
 	statsOf(active, player.UserId).Hits += 1
 end
 
-local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
+local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string, glyphId: string?)
 	local active = activeByUserId[sourceUserId]
 	if active == nil or active.Match.Phase == "Result" then
 		return
@@ -1180,6 +1249,10 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	end
 	statsOf(active, sourceUserId).DamageDealt += applied
 	statsOf(active, target.UserId).DamageTaken += applied
+	if glyphId ~= nil and GlyphConfig.ById[glyphId] ~= nil then
+		local glyphs = glyphsOf(active, sourceUserId)
+		glyphs[glyphId] = (glyphs[glyphId] or 0) + applied
+	end
 end
 
 -- The Folios of a player kill in a match, paid here rather than by CombatService (D-255): they are the match's,
@@ -1246,6 +1319,7 @@ function MatchService.Init(deps: Deps)
 	quest = deps.Quest
 	daily = deps.Daily
 	glyph = deps.Glyph
+	analytics = deps.Analytics
 end
 
 function MatchService.Start()

@@ -19,8 +19,9 @@ export type Server = {
 	sent: { { any } },
 	-- { source, reason, kind } per strike.
 	strikes: { { any } },
-	-- One entry per LoadCharacter the service asked for.
+	-- When the service asked the engine for a new body, and when it said a body was lost (BodyLost).
 	loads: { number },
+	lost: { number },
 	-- The collision groups registered, and { a, b, collidable } per pair set.
 	groups: { string },
 	pairs: { { any } },
@@ -115,6 +116,7 @@ function ServerWorld.start(): Server
 		sent = {},
 		strikes = {},
 		loads = {},
+		lost = {},
 		groups = groups,
 		pairs = pairsSet,
 		lines = lines,
@@ -131,10 +133,9 @@ function ServerWorld.start(): Server
 		player.CharacterAdded:Fire(character)
 		return character
 	end
-	-- The engine builds the new body and fires CharacterAdded for it.
-	player.LoadCharacter = function()
+	-- Asked for a new body; the engine brings it later, when the spec calls `spawn`.
+	player.LoadCharacterAsync = function()
 		table.insert(server.loads, world.now)
-		server:spawn()
 	end
 	local service = world.require("src/server/Services/MovementService")
 	service.Init({
@@ -150,6 +151,10 @@ function ServerWorld.start(): Server
 		},
 	})
 	service.Start()
+	service.BodyLost:Connect(function(lostPlayer: any)
+		assert(lostPlayer == player, "BodyLost for somebody else")
+		table.insert(server.lost, world.now)
+	end)
 	server.service = service
 	server:spawn()
 	return server :: Server

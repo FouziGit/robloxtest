@@ -138,6 +138,15 @@ local function onDied(member: Member)
 	member.Trove:Destroy()
 end
 
+-- A member whose body MovementService is replacing because its client took the Humanoid away (BodyLost, D-XXXe):
+-- a death inside, so the camp takes the new body back. Nothing for a player who is not a member.
+function Roster.lost(player: Player)
+	local member = members[player]
+	if member ~= nil then
+		onDied(member)
+	end
+end
+
 -- Makes `player` a member standing on `landing`, bound to this `character` (replacing any membership they
 -- had), and returns the member. The caller has placed the character and pushes the snapshot.
 function Roster.admit(player: Player, character: Model, landing: Vector3, now: number, defeated: number): Member

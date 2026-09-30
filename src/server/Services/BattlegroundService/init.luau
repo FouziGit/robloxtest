@@ -527,6 +527,7 @@ function BattlegroundService.Start()
 	trove:Add(deps.Combat.Killed:Connect(onKilled))
 	trove:Add(deps.Combat.Shoved:Connect(onShoved))
 	trove:Add(deps.Combat.Controlled:Connect(onControlled))
+	trove:Add(deps.Movement.BodyLost:Connect(Roster.lost))
 	trove:Connect(Players.PlayerAdded, Roster.track)
 	trove:Connect(Players.PlayerRemoving, onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

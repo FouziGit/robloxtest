@@ -2,7 +2,8 @@
 -- MovementService: owns Humanoid movement stats. Applies GameConfig.Movement on spawn, runs the
 -- slow / stun status timers on one Heartbeat accumulator (no per-player loops) and relays
 -- server-approved movement commands to the owning client. Every part of a player's body joins the
--- players' collision group, which does not collide with itself.
+-- players' collision group, which does not collide with itself, and a body whose client took its
+-- Humanoid away is replaced.
 
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
@@ -15,6 +16,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local CombatConfig = require(Shared.Config.CombatConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
+local Signal = require(Packages.Signal)
 local StunClock = require(Shared.Pure.StunClock)
 local Trove = require(Packages.Trove)
 
@@ -29,7 +31,15 @@ export type Command =
 	| { Kind: "StunEnd" }
 
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
-type Deps = { Registry: Registry }
+type AntiCheatApi = {
+	strike: (
+		player: Player,
+		source: string,
+		reason: string,
+		kind: ("Schema" | "RateLimit" | "Origin" | "Movement")?
+	) -> (),
+}
+type Deps = { Registry: Registry, AntiCheat: AntiCheatApi }
 type TroveType = typeof(Trove.new())
 
 -- One live slow source (guard, a glyph id). Sources never merge: see recomputeSlow.
@@ -40,6 +50,8 @@ type Joint = { Joint: AnimationConstraint, Kinematic: boolean, MaxTorque: number
 -- A body that is down (MovementService.ragdoll): Until ends the limp phase, then the rise. RiseFrom is
 -- when the rise began, for the joints' strength coming back over it.
 type Fall = { Character: Model, Joints: { Joint }, Rising: boolean, Until: number, RiseFrom: number }
+-- A body whose live Humanoid its client took out of it, and when.
+type Lost = { Character: Model, At: number }
 
 type State = {
 	Trove: TroveType, -- player lifetime
@@ -50,6 +62,7 @@ type State = {
 	SlowUntil: number, -- latest os.clock expiry over the live entries, 0 when none
 	Stun: StunClock.Clock, -- the stun, dated on os.clock: when it began, when it ends, when the last one ended
 	Fall: Fall?, -- nil unless the body is down
+	Lost: Lost?, -- nil unless the live Humanoid left the body and has not come back
 }
 
 local SLOW_ATTRIBUTE = CombatConfig.Status.SlowAttribute
@@ -64,7 +77,12 @@ local CHARACTER_GROUP = GameConfig.Movement.CharacterCollisionGroup
 
 local MovementService = {}
 
+-- A body whose Humanoid never came back is about to be replaced (player: Player): the places that keep a player take
+-- it as a death there, before the new body arrives (the Battleground's camp takes it back, D-XXXe).
+MovementService.BodyLost = Signal.new()
+
 local registry: Registry
+local antiCheat: AntiCheatApi
 local states: { [Player]: State } = {}
 local accumulator = 0
 
@@ -210,6 +228,7 @@ local function releaseCharacter(state: State)
 	end
 	clearStatuses(state)
 	state.Humanoid = nil
+	state.Lost = nil
 end
 
 -- A part of a player's body joins the players' collision group (D-XXXd). Two bodies no longer push each other, so
@@ -273,16 +292,27 @@ local function onCharacterAdded(player: Player, character: Model)
 		state.Humanoid = nil
 	end)
 	-- Same guard as CombatService: a Humanoid the owning client detached from its character must not
-	-- keep receiving WalkSpeed / JumpPower and status writes through the cached reference.
+	-- keep receiving WalkSpeed / JumpPower and status writes through the cached reference. A live one that
+	-- leaves is watched for its return (respawnLost); given back, the body is held as before.
 	local function onHumanoidDetached()
 		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
 			return
 		end
 		if humanoid.Parent == character then
+			local lost = state.Lost
+			if lost ~= nil and lost.Character == character then
+				state.Lost = nil
+				state.Humanoid = humanoid
+				applyStats(state, os.clock())
+			end
 			return
 		end
+		local alive = state.Humanoid == humanoid
 		clearStatuses(state)
 		state.Humanoid = nil
+		if alive and state.Lost == nil then
+			state.Lost = { Character = character, At = os.clock() }
+		end
 	end
 	characterTrove:Connect(humanoid.AncestryChanged, onHumanoidDetached)
 	characterTrove:Connect(humanoid.Destroying, onHumanoidDetached)
@@ -302,6 +332,7 @@ local function onPlayerAdded(player: Player)
 		SlowUntil = 0,
 		Stun = StunClock.new(),
 		Fall = nil,
+		Lost = nil,
 	}
 	states[player] = state
 	trove:Connect(player.CharacterAdded, function(character: Model)
@@ -326,8 +357,29 @@ local function onPlayerRemoving(player: Player)
 	state.Trove:Destroy()
 end
 
+-- A body whose Humanoid its client took away and did not give back within GameConfig.Spawn.HumanoidReturnSeconds
+-- (D-XXXe): with no Humanoid nothing can hurt it, and it stood invulnerable in the hub or the Erasure's arena. One
+-- Schema strike, the places that keep a player told (BodyLost), and a new body from the engine: at the hub, which is
+-- where a participant of the Erasure's fight goes back to, or in the Battleground's camp, which takes a member's new
+-- body back as it does after a death there. A body already replaced, or a player gone, is left alone.
+local function respawnLost(player: Player, character: Model)
+	if player.Parent ~= Players or player.Character ~= character then
+		return
+	end
+	antiCheat.strike(player, "Humanoid", "the Humanoid left the character and did not come back", "Schema")
+	if player.Parent ~= Players then
+		return
+	end
+	MovementService.BodyLost:Fire(player)
+	task.spawn(function()
+		log.try("LoadCharacterAsync " .. player.Name, function()
+			player:LoadCharacterAsync()
+		end)
+	end)
+end
+
 -- Expires slows, stuns and falls for every tracked character, `GameConfig.Server.TickRate` times per
--- second.
+-- second, and replaces a body whose Humanoid did not come back.
 local function onHeartbeat(deltaTime: number)
 	accumulator += deltaTime
 	if accumulator < TICK_SECONDS then
@@ -336,6 +388,11 @@ local function onHeartbeat(deltaTime: number)
 	accumulator = math.min(accumulator - TICK_SECONDS, TICK_SECONDS)
 	local now = os.clock()
 	for player, state in pairs(states) do
+		local lost = state.Lost
+		if lost ~= nil and now - lost.At >= GameConfig.Spawn.HumanoidReturnSeconds then
+			state.Lost = nil
+			respawnLost(player, lost.Character)
+		end
 		local humanoid = state.Humanoid
 		if humanoid == nil then
 			continue
@@ -585,6 +642,7 @@ end
 
 function MovementService.Init(deps: Deps)
 	registry = deps.Registry
+	antiCheat = deps.AntiCheat
 end
 
 -- The players' group, which does not collide with itself and collides with everything else. Before any body joins

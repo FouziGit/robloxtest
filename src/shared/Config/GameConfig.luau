@@ -100,6 +100,9 @@ GameConfig.Movement = {
 GameConfig.Spawn = {
 	ProtectionSeconds = 4, -- no damage taken/dealt right after (re)spawn
 	SafeZoneMarginStuds = 10, -- PvP disabled within DummyRingRadius + this margin of the hub spawn
+	-- A Humanoid its client took out of the body and did not give back within this is replaced with a new body and a
+	-- Schema strike (MovementService, D-XXXe): without one, nothing can hurt the body.
+	HumanoidReturnSeconds = 0.5,
 }
 
 GameConfig.Enemy = {

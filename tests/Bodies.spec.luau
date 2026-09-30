@@ -95,3 +95,101 @@ describe("the players' collision group", function()
 		)
 	end)
 end)
+
+-- A client can take the Humanoid out of its own body, and the deletion replicates: with no Humanoid nothing can hurt
+-- the body. MovementService replaces it once GameConfig.Spawn.HumanoidReturnSeconds pass without it (D-XXXe).
+describe("a body whose Humanoid was taken away", function()
+	local RETURN = GameConfig.Spawn.HumanoidReturnSeconds
+	local TICK = 1 / GameConfig.Server.TickRate
+
+	it("is replaced once, with one Schema strike, when its Humanoid does not come back", function()
+		-- The half second decided with the respawn (D-XXXe).
+		expect(RETURN).toBe(0.5)
+		for _, how in ipairs({ "unparented", "destroyed" }) do
+			local s = ServerWorld.start()
+			local old = s.character
+			s.world:advance(1)
+			if how == "destroyed" then
+				s.humanoid:Destroy()
+			else
+				s.humanoid.Parent = nil
+			end
+			local at = s.world.now
+			s.world:advance(RETURN - 2 * TICK)
+			expect(#s.loads).toBe(0)
+			expect(#s.strikes).toBe(0)
+			s.world:advance(3 * TICK)
+			expect(#s.loads).toBe(1)
+			expect(s.loads[1] - at).toBeLessThanOrEqual(RETURN + TICK + 1e-9)
+			expect(#s.strikes).toBe(1)
+			expect(s.strikes[1][1]).toBe("Humanoid")
+			expect(s.strikes[1][3]).toBe("Schema")
+			-- The places that keep a player heard of it first, once.
+			expect(s.lost).toEqual({ s.loads[1] })
+			-- Asked for once, however long the engine takes to bring the new body.
+			s.world:advance(2)
+			expect(#s.loads).toBe(1)
+			s:spawn()
+			expect(s.character).never.toBe(old)
+			s.world:advance(5)
+			expect(#s.loads).toBe(1)
+			expect(#s.strikes).toBe(1)
+			expect(#s.lost).toBe(1)
+			-- And the new body is held as any other.
+			s.service.applyStun(s.player, 0.5)
+			expect(s.humanoid.WalkSpeed).toBe(0)
+		end
+	end)
+
+	it("is left alone, and held again, when its Humanoid comes back in time", function()
+		local s = ServerWorld.start()
+		local humanoid = s.humanoid
+		humanoid.Parent = nil
+		s.world:advance(RETURN / 2)
+		humanoid.Parent = s.character
+		s.world:advance(2)
+		expect(#s.loads).toBe(0)
+		expect(#s.strikes).toBe(0)
+		s.service.applyStun(s.player, 0.5)
+		expect(humanoid.WalkSpeed).toBe(0)
+	end)
+
+	it("leaves a normal death, and a body the server replaces, to the engine", function()
+		local s = ServerWorld.start()
+		s.humanoid.Health = 0
+		s.humanoid.Died:Fire()
+		s.world:advance(2)
+		-- A dead body's Humanoid taken away changes nothing: the engine brings the next body at its time.
+		s.humanoid.Parent = nil
+		s.world:advance(2)
+		s:spawn()
+		s.world:advance(2)
+		expect(#s.loads).toBe(0)
+		expect(#s.strikes).toBe(0)
+		expect(#s.lost).toBe(0)
+		s.service.applyStun(s.player, 0.5)
+		expect(s.humanoid.WalkSpeed).toBe(0)
+	end)
+
+	it("comes back at the hub, or in the Battleground's camp for a member", function()
+		-- A member's lost body is a death inside: the camp takes the new one back, as after any death there.
+		local roster = code("src/server/Services/BattlegroundService/Roster.luau")
+		expect(roster).toContain(
+			"function Roster.lost(player: Player) local member = members[player] if member ~= nil then onDied(member) end end"
+		)
+		expect(code("src/server/Services/BattlegroundService/init.luau")).toContain(
+			"trove:Add(deps.Movement.BodyLost:Connect(Roster.lost))"
+		)
+		-- Told before the new body is asked for, so the camp is waiting for it.
+		local movement = code("src/server/Services/MovementService.luau")
+		expect(movement).toContain(
+			'antiCheat.strike(player, "Humanoid", "the Humanoid left the character and did not come back", "Schema") if player.Parent ~= Players then return end MovementService.BodyLost:Fire(player) task.spawn(function() log.try("LoadCharacterAsync " .. player.Name, function() player:LoadCharacterAsync() end) end)'
+		)
+		-- Nothing in the Erasure's fight places a new body: a participant's comes back at the hub's SpawnLocation.
+		local files: { string } = {}
+		collect("src/server/Services/WorldBossService", files)
+		for _, path in ipairs(files) do
+			expect(code(path)).never.toContain("CharacterAdded")
+		end
+	end)
+end)

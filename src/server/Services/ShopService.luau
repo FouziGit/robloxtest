@@ -47,6 +47,7 @@ type NotifyApi = {
 type CurrencyApi = {
 	get: (player: Player) -> number,
 	trySpend: (player: Player, amount: number, reason: string) -> boolean,
+	refund: (player: Player, amount: number, reason: string) -> number,
 }
 type GrantedSignal = { Connect: (self: GrantedSignal, fn: (player: Player, cosmeticId: string) -> ()) -> any }
 type CosmeticApi = {
@@ -305,9 +306,12 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 		return
 	end
 
-	-- Debit first, then deliver: the balance is authoritative and a failed grant is a bug in
-	-- CosmeticService, reported here with its context rather than paid back at the VIP rate.
+	-- Debit first, then deliver: the balance is authoritative. A grant that fails (a bug in CosmeticService,
+	-- reported with its context by log.succeeded) pays the debit back through CurrencyService.refund, which
+	-- returns exactly what trySpend took, so a refused grant never costs the player their Folios.
 	if not log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId) then
+		local refunded = currency.refund(player, price, TRANSACTION_SHOP .. ":" .. cosmeticId)
+		log.warn("%s was not granted %s: %d of %d Folios paid back", player.Name, cosmeticId, refunded, price)
 		notify.send(player, "purchase.failed", nil, "Error", SFX_ERROR)
 		ShopService.refresh(player)
 		return

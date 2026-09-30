@@ -155,6 +155,8 @@ L'ordre exprime donc la disponibilité du comportement installé par `Start`, pa
 
 `Motion` (`src/ui/Motion.luau`) : tout mouvement d'interface. `to(instance, buts, preset?, onSettled?)`, `set`, `cancel(instance)`. Un ressort scalaire par propriété, interpolé entre départ et cible (nombre, `Color3`, `UDim2`, `UDim`, `Vector2/3`) ; presets `Ui`, `UiSnappy`, `UiGhost` de `FeelConfig.Springs` ; **un seul** `Heartbeat` pour toute l'interface, déconnecté quand plus rien ne bouge. Aucun `TweenService` dans `src/ui` (D-84).
 
+`Progressive` (`src/ui/Progressive.luau`) : une longue liste construite par tranches (D-XXX) — la première à l'ouverture, la suivante quand la vue arrive à une fenêtre du pied du canevas, `UpTo(index)` pour une ligne qui doit exister ; le Casier, le classement et l'Équipement s'en servent, sous le plafond d'objets par écran (`tests/ScreenBudget.spec.luau`). `Sway` (`src/ui/Sway.luau`) : le seul balancement d'un bouton Récupérer, sur la respiration partagée (D-XXX).
+
 Composants dans `src/ui/components`, chacun `new(props) -> {Instance, Destroy(), …}` et nettoyé par Trove :
 
 | Composant | Props principales |

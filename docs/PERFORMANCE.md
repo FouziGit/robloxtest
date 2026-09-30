@@ -291,10 +291,36 @@ dix emplacements du pass : **171** sur un téléphone (92 pour le HUD, 79 pour l
 le bouton Menu porte le sien. Les 180 que la passe visait sont ceux du téléphone ; le pointeur est tenu sous
 340 (D-168).
 
-**Non mesuré.** Les objets du pass à l'ouverture (visé ≤ 700) et des autres écrans (≤ 400), et le coût des
-ressorts à l'entrée d'un écran, demandent Studio : compteurs `DebugSettings` de l'interface et MicroProfiler
-sur l'appareil émulé « iPhone 12 / Galaxy S10 » à 0,68 (`docs/STUDIO_SETUP.md` §11). Les chiffres mesurés
-viendront ici.
+**Non mesuré.** Le coût des ressorts à l'entrée d'un écran demande Studio : MicroProfiler sur l'appareil émulé
+« iPhone 12 / Galaxy S10 » à 0,68 (`docs/STUDIO_SETUP.md` §11). Les objets de chaque écran sont comptés
+ci-dessous, hors de Studio ; le relevé du moteur (compteurs `DebugSettings` de l'interface) reste à faire.
+
+## Objets par écran
+
+Chaque écran et chaque onglet de la Boutique, ouverts sur un téléphone de 844 × 390 à l'échelle 0,68 pour un
+joueur qui possède tout ce qu'ils listent — chaque glyphe, chaque cosmétique, chaque passe, le pass à son dernier
+palier, les cinquante premiers du classement —, comptés par `tests/ScreenBudget.spec.luau` (D-XXX) : les objets
+GUI affichés, comme le HUD. Un écran en dessine **400** au plus (`Budget.MaxScreenObjects`), la route du pass
+**700** (`Budget.MaxPassObjects`) ; le test échoue au-delà, et échoue aussi si ce tableau ne dit pas ce qu'il
+compte. Avant, le Casier de tout ce qui se vend en dessinait 1 282, le classement 684 et l'Équipement de dix
+glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les fait défiler
+(`src/ui/Progressive.luau`).
+
+| Écran | Objets | Plafond |
+|---|---|---|
+| `MenuScreen` | 171 | 400 |
+| `PlayScreen` | 104 | 400 |
+| `ShopScreen (Today)` | 236 | 400 |
+| `ShopScreen (Folios)` | 127 | 400 |
+| `ShopScreen (Passes)` | 165 | 400 |
+| `ShopScreen (Locker)` | 263 | 400 |
+| `BattlepassScreen` | 527 | 700 |
+| `DailyScreen` | 177 | 400 |
+| `LoadoutScreen` | 336 | 400 |
+| `QuestsScreen` | 177 | 400 |
+| `LeaderboardScreen` | 360 | 400 |
+| `SettingsScreen` | 71 | 400 |
+| `ResultScreen` | 78 | 400 |
 
 ## Ce qui n'est pas mesuré
 

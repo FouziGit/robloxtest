@@ -25,6 +25,7 @@ local ItemPreview = require(script.Parent.Parent.Parent.components.ItemPreview)
 local ListRow = require(script.Parent.Parent.Parent.components.ListRow)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local Progressive = require(script.Parent.Parent.Parent.Progressive)
 local RarityBand = require(script.Parent.Parent.Parent.components.RarityBand)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
 local Sticker = require(script.Parent.Parent.Parent.components.Sticker)
@@ -59,6 +60,8 @@ export type Shelf = {
 
 type Offer = { Key: string, Kind: "Pass" | "Product", Button: Button.Button, Owned: Frame }
 type LockerCard = { Id: string, SlotKey: string, Button: Button.Button }
+-- The Locker in order: a slot's heading (no item), then each of its cards.
+type LockerStep = { Slot: string, Item: CosmeticConfig.CosmeticDef?, Index: number }
 
 local Shelves = {}
 
@@ -90,6 +93,8 @@ local OWNED_SEAL = 28
 local LOCKER_CELL = Vector2.new(200, 140)
 local LOCKER_PREVIEW = 48
 local LOCKER_NAME_SIZE = 18
+-- Headings and cards built at a time, as the shelf scrolls down to them (Progressive).
+local LOCKER_CHUNK = 8
 
 local function blank(name: string, parent: Instance?): Frame
 	local frame = Instance.new("Frame")
@@ -453,6 +458,13 @@ function Shelves.locker(context: Context): Shelf
 		return entry
 	end
 
+	-- A card's words and look for what the player wears now.
+	local function paint(data: Types.ProfileData, entry: LockerCard)
+		local wearing = equipped(data, entry)
+		entry.Button:SetVariant(if wearing then "Secondary" else "Owner")
+		entry.Button:SetText(if wearing then t("shop.unequip") else t("shop.equip"))
+	end
+
 	local function build(data: Types.ProfileData?)
 		shelfTrove:Clean()
 		table.clear(cards)
@@ -467,7 +479,9 @@ function Shelves.locker(context: Context): Shelf
 				end
 			end
 		end
-		local order = 0
+		-- Each slot's heading and its grid, then its cards: built a few at a time as the shelf scrolls down to
+		-- them (Progressive), since a locker of everything drew 1 282 objects where a screen is held to 400.
+		local steps: { LockerStep } = {}
 		for _, slot in ipairs(CosmeticConfig.Slots) do
 			local group = owned[slot]
 			if group == nil then
@@ -476,6 +490,14 @@ function Shelves.locker(context: Context): Shelf
 			table.sort(group, function(a, b)
 				return t(a.NameKey) < t(b.NameKey)
 			end)
+			table.insert(steps, { Slot = slot, Index = 0 })
+			for index, item in ipairs(group) do
+				table.insert(steps, { Slot = slot, Item = item, Index = index })
+			end
+		end
+		local grids: { [string]: Frame } = {}
+		local order = 0
+		local function heading(slot: string)
 			order += 1
 			local header = ListRow.new({
 				Left = t("cosmetics.slot." .. slot),
@@ -505,9 +527,31 @@ function Shelves.locker(context: Context): Shelf
 			)
 			gridLayout.CellPadding = UDim2.fromOffset(Theme.Sizes.Gap, Theme.Sizes.Gap)
 			gridLayout.Parent = grid
-			for index, item in ipairs(group) do
-				table.insert(cards, card(item, index, grid))
-			end
+			grids[slot] = grid
+		end
+		if #steps > 0 then
+			local shelf = Progressive.new({
+				Scroller = context.Content,
+				Count = #steps,
+				Chunk = LOCKER_CHUNK,
+				Build = function(index: number)
+					local step = steps[index]
+					local item = step.Item
+					if item == nil then
+						heading(step.Slot)
+						return
+					end
+					local entry = card(item, step.Index, grids[step.Slot])
+					table.insert(cards, entry)
+					local current = context.ClientData.get()
+					if current ~= nil then
+						paint(current, entry)
+					end
+				end,
+			})
+			shelfTrove:Add(function()
+				shelf:Destroy()
+			end)
 		end
 		if order == 0 then
 			local empty = ListRow.new({
@@ -533,9 +577,7 @@ function Shelves.locker(context: Context): Shelf
 			return
 		end
 		for _, entry in ipairs(cards) do
-			local wearing = equipped(data, entry)
-			entry.Button:SetVariant(if wearing then "Secondary" else "Owner")
-			entry.Button:SetText(if wearing then t("shop.unequip") else t("shop.equip"))
+			paint(data, entry)
 		end
 	end
 	refresh()

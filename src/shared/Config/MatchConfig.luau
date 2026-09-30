@@ -70,10 +70,11 @@ MatchConfig.Rewards = {
 -- departure that emptied a side.
 MatchConfig.MinPlayedSeconds = 30
 
--- The Folios a day of matches pays at most, before VIP, counted in the profile (Daily.MatchDay, MatchFolios) like
--- the Forgers' BotConfig.Credit.DailyFolioCap. About four hours of matches (docs/ECONOMY.md §2: some 240 an hour),
--- which an honest day rarely reaches and a farm on many alts never passes. XP is not capped.
-MatchConfig.DailyFolioCap = 1000
+-- The Folios a day of matches pays at most, before VIP, results and kills together, counted in the profile
+-- (Daily.MatchDay, MatchFolios) like the Forgers' BotConfig.Credit.DailyFolioCap. About four hours of matches
+-- (docs/ECONOMY.md §2: some 360 an hour, kills included), which an honest day rarely reaches and a farm on many alts
+-- never passes. XP is not capped.
+MatchConfig.DailyFolioCap = 1400
 
 -- Geometry of generated arenas (studs). Anchors are documented in docs/GAME_DESIGN.md §8.
 MatchConfig.Arenas = {

@@ -199,7 +199,7 @@ Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 
-Le classé ne se farme pas à deux comptes (D-XXXfarm) : un forfait avant 30 s de jeu, ou sans un seul point de dégâts échangé, est **nul** (celui qui part est débité, celui qui reste n'a rien : ni Elo, ni récompense, ni quête) ; au-delà de 6 matchs classés d'une même paire dans la journée UTC (un duel et cinq revanches), l'Elo de la paire ne bouge plus et le match ne rapporte qu'un quart de son XP et de ses Folios ; une journée de matchs rapporte au plus 1 000 Folios (avant le VIP). Chiffres : `MatchConfig.MinPlayedSeconds`, `MatchConfig.DailyFolioCap`, `RankingConfig.Opponents`.
+Le classé ne se farme pas à deux comptes (D-XXXfarm) : un forfait avant 30 s de jeu, ou sans un seul point de dégâts échangé, est **nul** (celui qui part est débité, celui qui reste n'a rien : ni Elo, ni récompense, ni quête) ; au-delà de 6 matchs classés d'une même paire dans la journée UTC (un duel et cinq revanches), l'Elo de la paire ne bouge plus et le match ne rapporte qu'un quart de son XP et de ses Folios ; une journée de matchs rapporte au plus 1 400 Folios (avant le VIP), kills compris. Chiffres : `MatchConfig.MinPlayedSeconds`, `MatchConfig.DailyFolioCap`, `RankingConfig.Opponents`.
 
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 

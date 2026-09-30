@@ -12,7 +12,8 @@
 --
 -- Two rules keep two accounts from farming each other (D-XXXfarm): a forfeit before the match was really fought
 -- is void (MatchConfig.MinPlayedSeconds, or no damage exchanged), and a pair past its day's full matches is paid a
--- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios.
+-- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios, its
+-- kills' included: this service pays those too (onKilled).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -77,6 +78,7 @@ type NotifyApi = {
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
 type CombatApi = {
 	Damaged: DamagedSignal,
+	Killed: KilledSignal,
 	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
@@ -103,6 +105,9 @@ type DamagedSignal = {
 		self: DamagedSignal,
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
+}
+type KilledSignal = {
+	Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any,
 }
 type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
@@ -323,7 +328,7 @@ end
 
 -- Takes up to `want` Folios from the player's day of matches (MatchConfig.DailyFolioCap, counted in the profile
 -- like the Forgers' cap) and writes the count back. Returns what may be paid, before VIP; all of it with no
--- profile loaded, which award never meets (it pays only players still here).
+-- profile loaded, which award and onKilled never meet (they pay only players still here).
 local function takeFolios(player: Player, want: number): number
 	local data = dataService.get(player)
 	if data == nil then
@@ -1076,6 +1081,25 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	statsOf(active, target.UserId).DamageTaken += applied
 end
 
+-- The Folios of a player kill in a match, paid here rather than by CombatService (D-XXXfarm): they are the match's,
+-- under the day's cap like its result. Paid past every cap and every repeat, an alt knocked out twice a duel paid
+-- its main two kills a match however many matches the pair played that day. The kill's XP stays CombatService's.
+local function onKilled(sourceUserId: number, victimModel: Model)
+	local active = activeByUserId[sourceUserId]
+	if active == nil then
+		return
+	end
+	local killer = Players:GetPlayerByUserId(sourceUserId)
+	local victim = Players:GetPlayerFromCharacter(victimModel)
+	if killer == nil or victim == nil or activeByUserId[victim.UserId] ~= active then
+		return
+	end
+	local folios = takeFolios(killer, FOLIOS.PlayerKill)
+	if folios >= 1 then
+		currency.add(killer, folios, "PlayerKill")
+	end
+end
+
 -- Lets one participant go while the match is still winding down on its result screen, which is what makes
 -- the rematch of docs/JUICE_PLAN.md phase 8 a click rather than a wait: the plan asks for under ten seconds
 -- between two duels and the result phase alone is eight. The match stays alive for everybody else.
@@ -1133,6 +1157,7 @@ function MatchService.Start()
 	glyph.Cast:Connect(onCast)
 	glyph.CastLanded:Connect(onCastLanded)
 	combat.Damaged:Connect(onDamaged)
+	combat.Killed:Connect(onKilled)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (tick %d Hz, snapshots %d Hz)", GameConfig.Server.TickRate, SNAPSHOT_HZ)

@@ -401,6 +401,8 @@ export type Services = {
 	gains: { { Player: any, Amount: number, Reason: string } },
 	-- `source` lands `amount` of damage on `target`'s body, as CombatService.Damaged reports a hit.
 	hit: (source: any, target: any, amount: number) -> (),
+	-- `source` is credited with `target`'s death, as CombatService.Killed reports a kill.
+	kill: (source: any, target: any) -> (),
 	-- The movement every service was given: applyFreeze holds a player as a stun does.
 	movement: any,
 	-- The players who hold their guard up, as CombatService.isBlocking answers.
@@ -642,6 +644,9 @@ function Server.services(options: Options?): Services
 		guarding = guarding,
 		hit = function(source: any, target: any, amount: number)
 			combat.Damaged:Fire(source.UserId, target.Character, amount, "Glyph")
+		end,
+		kill = function(source: any, target: any)
+			combat.Killed:Fire(source.UserId, target.Character)
 		end,
 		cast = cast,
 	}

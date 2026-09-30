@@ -12,6 +12,7 @@ local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Server = require("./server")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -24,6 +25,7 @@ local SERIES = 1 + 5
 local SCALE = RankingConfig.Opponents.RepeatRewardScale
 local BOUNDS = { Floor = RankingConfig.RatingFloor, Ceiling = RankingConfig.RatingCeiling }
 local WIN_FOLIOS = ProgressionConfig.Folios.MatchWin
+local KILL_FOLIOS = ProgressionConfig.Folios.PlayerKill
 
 local function today(): number
 	return DailyStreak.dayIndex(os.time())
@@ -350,6 +352,57 @@ describe("a day of matches pays at most its Folio cap", function()
 		expect(folios(setup, a)).toBe(10)
 		expect(told(setup, a, "match.folioCap")).toBe(2)
 		expect(reported(setup, a, "MatchWin")).toBe(2)
+	end)
+end)
+
+describe("a kill in a match pays its Folios under the day's cap (E4-S3)", function()
+	-- The farm the forfeit rules leave open: the alt stays and is knocked out twice a duel. Paid by CombatService,
+	-- past every cap and every repeat, those kills paid its main without end.
+	it("pays them once, and counts them with the match's", function()
+		local setup = Server.services()
+		local a = setup.world:join(483, "Ada")
+		local b = setup.world:join(484, "Bea")
+		begin(setup, a, b)
+		setup.kill(a, b)
+		expect(folios(setup, a)).toBe(KILL_FOLIOS)
+		local daily = setup.data.get(a).Daily
+		expect(daily.MatchDay).toBe(today())
+		expect(daily.MatchFolios).toBe(KILL_FOLIOS)
+	end)
+
+	it("pays what is left under the cap, then nothing", function()
+		local setup = Server.services()
+		local a = setup.world:join(485, "Ada")
+		local b = setup.world:join(486, "Bea")
+		local daily = setup.data.get(a).Daily
+		daily.MatchDay = today()
+		daily.MatchFolios = MatchConfig.DailyFolioCap - 5
+		begin(setup, a, b)
+		setup.kill(a, b)
+		expect(folios(setup, a)).toBe(5)
+		setup.kill(a, b)
+		expect(folios(setup, a)).toBe(5)
+		expect(daily.MatchFolios).toBe(MatchConfig.DailyFolioCap)
+	end)
+
+	it("pays nothing for a player the killer is not in a match with", function()
+		local setup = Server.services()
+		local a = setup.world:join(487, "Ada")
+		local b = setup.world:join(488, "Bea")
+		local c = setup.world:join(489, "Cyd")
+		c:LoadCharacterAsync()
+		begin(setup, a, b)
+		setup.kill(a, c)
+		expect(folios(setup, a)).toBe(0)
+	end)
+
+	it("leaves CombatService the kill's XP only: two payers would pay it twice, one of them past the cap", function()
+		local combat = fs.readFile("src/server/Services/CombatService.luau")
+		local onKill = string.match(combat, "\nfunction onKill%(.-\nend\n")
+		expect(onKill).never.toBeNil()
+		expect(string.find(onKill :: string, "ProgressionConfig.XP.PlayerKill", 1, true)).never.toBeNil()
+		expect(string.find(onKill :: string, "ProgressionConfig.Folios", 1, true)).toBeNil()
+		expect(string.find(onKill :: string, "currency", 1, true)).toBeNil()
 	end)
 end)
 

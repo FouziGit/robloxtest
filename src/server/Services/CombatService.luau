@@ -80,7 +80,6 @@ type VfxPacket = {
 }
 type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
-type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
 type GlyphApi = { getCooldowns: (player: Player) -> { [string]: number } }
 type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
@@ -94,7 +93,6 @@ type Deps = {
 	Movement: MovementApi,
 	Vfx: VfxApi,
 	Progression: ProgressionApi,
-	Currency: CurrencyApi,
 	AntiCheat: AntiCheatApi,
 	Glyph: GlyphApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
 	Cosmetic: CosmeticApi,
@@ -234,7 +232,6 @@ local movement: MovementApi
 local antiCheat: AntiCheatApi
 local vfx: VfxApi
 local progression: ProgressionApi
-local currency: CurrencyApi
 local cosmetic: CosmeticApi
 local glyph: GlyphApi? = nil
 local deps: Deps
@@ -1016,9 +1013,9 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 			dataService.push(targetPlayer, "Stats")
 		end
 		if source ~= nil then
+			-- The kill's XP only: its Folios are the match's, paid by MatchService under the day's cap (D-XXXfarm).
 			local xp = ProgressionConfig.XP.PlayerKill
 			progression.addXp(source, xp, "PlayerKill")
-			currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
 			local sourceData = dataService.get(source)
 			if sourceData ~= nil then
 				sourceData.Stats.Kills += 1
@@ -1742,7 +1739,6 @@ function CombatService.Init(injected: Deps)
 	antiCheat = injected.AntiCheat
 	vfx = injected.Vfx
 	progression = injected.Progression
-	currency = injected.Currency
 	cosmetic = injected.Cosmetic
 	MovementAudit.init({
 		AntiCheat = antiCheat,

@@ -74,7 +74,7 @@ export type Screen = {
 
 type Destroyable = { Destroy: (self: any) -> () }
 type Entry = Types.ShopEntry
-type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Action: Button.Button }
+type Card = { Entry: Entry, SlotKey: string, Buy: Button.Button, Equip: Button.Button, Action: Button.Button }
 type TabId = "Today" | "Folios" | "Passes" | "Locker"
 
 local ShopScreen = {}
@@ -387,14 +387,14 @@ function ShopScreen.new(deps: Deps): Screen
 	-- Waits for the server's answer, which it pushes on every path (a refusal too): a second tap before it
 	-- sent the same equip twice.
 	local function equip(card: Card)
-		card.Buy:SetPending(true)
+		card.Equip:SetPending(true)
 		deps.RemoteClient.fire("EquipCosmetic", card.SlotKey, card.Entry.CosmeticId)
 	end
 
 	-- The Cosmetics push that answers an equip: every button waiting on one is let go.
 	local function settleEquips()
 		for _, card in ipairs(cards) do
-			card.Buy:SetPending(false)
+			card.Equip:SetPending(false)
 		end
 		local current = shelf
 		local settle = if current ~= nil then current.Settle else nil
@@ -502,22 +502,31 @@ function ShopScreen.new(deps: Deps): Screen
 		local buyButton = Button.new({
 			Text = "",
 			Variant = "Primary",
-			Chapter = CHAPTER,
 			Icon = "Dot",
 			LayoutOrder = 1,
 			Parent = actions,
 			OnClick = function()
-				if isOwned(card.Entry) then
-					equip(card)
-				else
-					purchases:Ask(card.Entry)
-				end
+				purchases:Ask(card.Entry)
+			end,
+		})
+		own(pageTrove, buyButton)
+		-- Owned, the price gives way to the way to wear it: the chapter's own sticker, as in the Locker, and no
+		-- price mark (the board's green "Équiper"). Shown by updateCard.
+		local equipButton = Button.new({
+			Text = t("shop.equip"),
+			Variant = "Owner",
+			Chapter = CHAPTER,
+			LayoutOrder = 1,
+			Parent = actions,
+			OnClick = function()
+				equip(card)
 			end,
 			OnTimeout = function()
 				deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
 			end,
 		})
-		own(pageTrove, buyButton)
+		equipButton.Instance.Visible = false
+		own(pageTrove, equipButton)
 
 		local product = MonetizationConfig.Products[entry.ProductKey]
 		local action = Button.new({
@@ -537,24 +546,28 @@ function ShopScreen.new(deps: Deps): Screen
 			own(pageTrove, Shimmer.new(face, UDim.new(0, Theme.Sizes.CornerCard - outline), SHINE_Z, outline))
 		end
 
-		card = { Entry = entry, SlotKey = CosmeticConfig.slotKey(item), Buy = buyButton, Action = action }
+		card = {
+			Entry = entry,
+			SlotKey = CosmeticConfig.slotKey(item),
+			Buy = buyButton,
+			Equip = equipButton,
+			Action = action,
+		}
 		return card
 	end
 
 	local function updateCard(card: Card)
 		local entry = card.Entry
-		if isOwned(entry) then
-			-- Owned: the price becomes the way to wear it, and wearing it is the end of the road.
-			card.Buy:SetVariant("Owner")
-			card.Buy:SetText(t("shop.equip"))
-			card.Buy:SetDisabled(isEquipped(card), "Owned", t("shop.equipped"))
-			card.Action.Instance.Visible = false
+		-- Owned: the price becomes the way to wear it, and wearing it is the end of the road.
+		local owned = isOwned(entry)
+		card.Buy.Instance.Visible = not owned
+		card.Equip.Instance.Visible = owned
+		card.Action.Instance.Visible = not owned
+		if owned then
+			card.Equip:SetDisabled(isEquipped(card), "Owned", t("shop.equipped"))
 			return
 		end
-		card.Buy:SetVariant("Primary")
 		card.Buy:SetText(t("shop.buyFolios", { price = entry.PriceFolios }))
-		card.Buy:SetDisabled(false)
-		card.Action.Instance.Visible = true
 		-- The Robux path is offered only for a product that exists on Roblox (D-128): an id of 0 is one nobody
 		-- has created yet, and buying it can only fail -- which, in Studio, is every one of them.
 		card.Action:SetDisabled(not robuxOffered(entry.ProductKey))
@@ -654,8 +667,9 @@ function ShopScreen.new(deps: Deps): Screen
 			updateCard(card)
 			-- Gamepad focus goes to the first button the player can actually press.
 			if firstButton == nil then
-				if not card.Buy:IsDisabled() then
-					firstButton = card.Buy.Instance
+				local main = if card.Equip.Instance.Visible then card.Equip else card.Buy
+				if not main:IsDisabled() then
+					firstButton = main.Instance
 				elseif card.Action.Instance.Visible and not card.Action:IsDisabled() then
 					firstButton = card.Action.Instance
 				end

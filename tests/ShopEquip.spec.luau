@@ -390,6 +390,43 @@ describe("a Today card, run", function()
 			expect(body:FindFirstChild("Name").Size.Y.Offset).toBe(26)
 		end
 	end)
+
+	it("once owned, offers to equip it on the chapter's own sticker, with no price mark", function()
+		-- The board's Legendary card: a green "Équiper", no dot beside it. The price button turned into it, and
+		-- kept the dot it was built with.
+		local fixture = setup("Today")
+		local Theme = fixture.world.require("src/ui/Theme")
+		local holder = fixture.screen.Instance:FindFirstChild(ITEM, true)
+		local actions = holder:FindFirstChild("Actions", true)
+		local shown = {}
+		for _, child in ipairs(actions:GetChildren()) do
+			if child:IsA("TextButton") and child.Visible then
+				table.insert(shown, child)
+			end
+		end
+		expect(#shown).toBe(1)
+		local equip = shown[1]
+		expect(equip).toBe(buttonSaying(fixture, "shop.equip"))
+		expect(equip:FindFirstChild("Face", true).BackgroundColor3).toBe(Theme.chapter("Shop").Band)
+		-- Its icon slot holds nothing and takes no room (a button's pending dots are also named Dot).
+		local slot = equip:FindFirstChild("Icon", true)
+		expect(#slot:GetChildren()).toBe(0)
+		expect(slot.Visible).toBe(false)
+		-- Not owned, the price shows with its dot, and nothing on the card offers to equip it.
+		local _screen, faces = todayCards()
+		local price = buttonUnder(faces[LEGENDARY], "shop.buyFolios")
+		assert(price ~= nil and price.Visible, "the Legendary card shows no price")
+		expect(price:FindFirstChild("Icon", true):FindFirstChild("Dot")).never.toBeNil()
+		for _, child in ipairs(faces[LEGENDARY]:FindFirstChild("Actions", true):GetChildren()) do
+			if child:IsA("TextButton") and child.Visible then
+				for _, label in ipairs(child:GetDescendants()) do
+					if label:IsA("TextLabel") and label.Text == "shop.equip" then
+						error("a card not owned offers to equip it")
+					end
+				end
+			end
+		end
+	end)
 end)
 
 describe("a Legendary card, run", function()

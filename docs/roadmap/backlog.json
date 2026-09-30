@@ -548,6 +548,7 @@
         {
           "id": "E4-S6",
           "title": "Les corps des joueurs ne se poussent plus : fin du fling",
+          "status": "partial",
           "owner": "both",
           "effort": "S",
           "acceptance": [
@@ -585,6 +586,7 @@
         {
           "id": "E4-S8",
           "title": "Les vérifications d'origine des boucles serveur ne frappent plus les joueurs honnêtes",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -599,6 +601,7 @@
         {
           "id": "E4-S10",
           "title": "Un étourdissement juste : pas d'enchaînement sans fin, respecté par le serveur",
+          "status": "done",
           "owner": "both",
           "effort": "M",
           "acceptance": [
@@ -637,6 +640,7 @@
         {
           "id": "E4-S12",
           "title": "Tomber de l'arène de l'Effacement ramène au hub (K2)",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -843,6 +847,7 @@
         {
           "id": "E6-S7",
           "title": "StreamingEnabled décidé, téléportations pré-streamées",
+          "status": "partial",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1206,6 +1211,7 @@
         {
           "id": "E9-S2",
           "title": "Un joueur ou un match qui plante n'arrête plus tout le tick",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [
@@ -1220,6 +1226,7 @@
         {
           "id": "E9-S3",
           "title": "Un serveur à moitié démarré renvoie ses joueurs ailleurs",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1253,6 +1260,7 @@
         {
           "id": "E9-S5",
           "title": "Les remotes serveur→client comptent les abus",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1267,6 +1275,7 @@
         {
           "id": "E9-S6",
           "title": "Humanoid supprimé : réapparition automatique",
+          "status": "done",
           "owner": "both",
           "effort": "S",
           "acceptance": [
@@ -1283,6 +1292,7 @@
         {
           "id": "E9-S7",
           "title": "Caches élagués et écart d'entraînement qui survit au changement de serveur",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1297,6 +1307,7 @@
         {
           "id": "E9-S8",
           "title": "Le juge de mouvement et l'IA des bots ne partent plus chez les clients",
+          "status": "done",
           "owner": "claude",
           "effort": "S",
           "acceptance": [
@@ -1585,6 +1596,7 @@
         {
           "id": "E14-S2",
           "title": "Les Exercices au Pupitre",
+          "status": "done",
           "owner": "claude",
           "effort": "L",
           "acceptance": [
@@ -2081,6 +2093,7 @@
         {
           "id": "E17-S2",
           "title": "Jalons de 45 à 100 et l'Ex-libris des succès",
+          "status": "done",
           "owner": "claude",
           "effort": "M",
           "acceptance": [

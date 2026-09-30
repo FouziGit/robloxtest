@@ -11,12 +11,9 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Types = require(Shared.Types)
 
 export type PurchaseKind = "Pass" | "Product" | "Cosmetic"
--- Reasons another service may ask for a contextual prompt (docs/ECONOMY.md §5).
-export type PromptReason = "CloseLoss" | "PassTierLocked" | "OrpimentDeath" | "LoadoutFull"
 
 export type ProfileData = Types.ProfileData
 export type ProfileSignal = { Connect: (self: ProfileSignal, fn: (player: Player, data: ProfileData) -> ()) -> any }
-export type ReleaseSignal = { Connect: (self: ReleaseSignal, fn: (player: Player) -> ()) -> any }
 export type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	waitFor: (player: Player, timeout: number?) -> ProfileData?,
@@ -27,7 +24,6 @@ export type DataApi = {
 	saveNow: (player: Player) -> boolean,
 	isActive: (player: Player) -> boolean,
 	ProfileLoaded: ProfileSignal,
-	ProfileReleased: ReleaseSignal,
 }
 export type NotifyKind = "Info" | "Success" | "Error"
 export type NotifyApi = {
@@ -44,7 +40,6 @@ export type BattlepassApi = {
 	-- The single writer of ProfileData.Boosts: it extends a live boost instead of shortening it.
 	grantXpBoost: (player: Player, minutes: number) -> boolean,
 }
-export type ProgressionApi = { getLevel: (player: Player) -> number }
 -- The single writer of ProfileData.Loadout and ProfileData.Unlocks: pass effects go through it.
 export type LoadoutApi = {
 	grantPigment: (player: Player, pigmentId: string) -> boolean,
@@ -58,7 +53,6 @@ export type ShopApi = {
 	clearPurchaseIntent: (player: Player, cosmeticId: string) -> (),
 	refresh: (player: Player) -> (),
 }
-export type MatchApi = { isInMatch: (player: Player) -> boolean }
 export type AnalyticsApi = {
 	economy: (
 		player: Player,
@@ -78,11 +72,9 @@ export type Deps = {
 	Notify: NotifyApi,
 	Currency: CurrencyApi,
 	Battlepass: BattlepassApi,
-	Progression: ProgressionApi,
 	Loadout: LoadoutApi,
 	Cosmetic: CosmeticApi,
 	Shop: ShopApi,
-	Match: MatchApi,
 	Analytics: AnalyticsApi,
 }
 
@@ -95,7 +87,6 @@ Context.SfxTierUp = "TierUp"
 -- Roblox analytics transaction type name for a Robux purchase.
 Context.TransactionIap = "IAP"
 -- Analytics event names: Creator Dashboard dimensions, never shown to a player.
-Context.EventPromptShown = "PromptShown"
 Context.EventPromptAccepted = "PromptAccepted"
 Context.EventPromptDeclined = "PromptDeclined"
 Context.EventProductPurchased = "ProductPurchased"

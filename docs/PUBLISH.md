@@ -37,18 +37,18 @@ Les numéros de ligne renvoient au commit `c0b6687`. `R1` à `R15` renvoient au 
 | `Orpiment` | pass | 299 | le pigment Orpiment sans attendre le niveau 40 |
 | `SkinPack` | pass | 249 | 4 skins de glyphe |
 | `FolioSmall` / `FolioMedium` / `FolioLarge` | produit | 99 / 299 / 599 | 1000 / 3500 / 8000 Folios |
-| `PremiumPass` | produit | 349 | la piste premium de la saison |
-| `TierSkip5` | produit | 149 | 5 paliers, moins à partir du palier 46 (R14) |
+| `PremiumPass` | produit | 349 | la piste premium de la saison ; déjà possédée à l'arrivée du reçu, 3 530 Folios (D-202) |
+| `TierSkip5` | produit | 149 | 5 paliers ; chaque palier au-delà du dernier est payé 310 Folios (D-202) |
 | `XpBoost1h` | produit | 79 | 60 min de boost d'XP |
 | `CosmeticCommon` / `Rare` / `Epic` / `Legendary` | produit | 49 / 149 / 349 / 699 | un cosmétique de la rareté |
 
-3. **Les mêmes prix que le tableau de bord.** Le joueur paie le prix réglé dans le Creator Dashboard. `PriceRobux` ne sert qu'à l'analytique (`Receipts.luau:181`, `Passes.luau:157`) : un écart ne coûte rien au joueur, mais fausse les revenus suivis par `docs/ECONOMY.md` §8.
+3. **Les mêmes prix que le tableau de bord.** Le joueur paie le prix réglé dans le Creator Dashboard. `PriceRobux` ne sert qu'à l'analytique (`Receipts.luau:181`, `Passes.luau:157`) : un écart ne coûte rien au joueur, mais fausse les revenus suivis par `docs/ECONOMY.md` §8. Un prix qui change au tableau de bord change aussi ce que valent `CompensationFolios` de `TierSkip5` et de `PremiumPass` (D-202) : mettre `PriceRobux` à jour, puis `tests/Receipts.spec.luau` dit si la compensation tient encore entre les taux des packs de Folios.
 4. **Des descriptions honnêtes.** Chaque description saisie sur le tableau de bord (`docs/STUDIO_SETUP.md` §3 et §4) doit dire exactement ce que le code livre :
    - **VIP** : soit construire le tag dans le chat, soit retirer « tag dans le chat » aux quatre endroits où il apparaît : le tableau de bord, `Strings.luau:359-362`, `docs/STUDIO_SETUP.md:54` et `docs/ECONOMY.md:48` (R1). À régler avant la mise en vente.
-   - **TierSkip5** : soit écrire « jusqu'à cinq paliers », soit refuser l'achat à partir du palier 46 (R14).
-   - **Premium** : aligner `docs/ECONOMY.md` §6 sur ce que le code donne (R10).
-5. **Acheter une fois chaque article.** Sur la copie de test, avec un compte secondaire, dérouler tout le §3 de `docs/QA.md`. Tant que R2 n'est pas corrigé, retirer `TierSkip5` de la vente : un reçu payé qui boucle, c'est un joueur débité sans rien recevoir.
-6. **Prompts contextuels.** `docs/ECONOMY.md` §5 décrit des prompts qui ne s'affichent jamais (R8). Soit les brancher, soit écrire dans le document qu'ils n'existent pas encore.
+   - **TierSkip5** : dire, comme `product.tierSkip5.desc`, que les paliers au-delà du dernier sont payés en Folios (R14 corrigé, D-202).
+   - **Premium** : `docs/ECONOMY.md` §6 et le code disent la même chose, 150 Folios et 30 min d'XP doublée par jour ; rien d'autre ne se promet aux abonnés (R10 corrigé, D-204).
+5. **Acheter une fois chaque article.** Sur la copie de test, avec un compte secondaire, dérouler tout le §3 de `docs/QA.md`. R2 est corrigé (D-202) : `TierSkip5` peut rester en vente, un reçu qui ne peut plus donner de paliers paie en Folios au lieu de boucler.
+6. **Prompts contextuels.** Il n'y en a pas, et `docs/ECONOMY.md` §5 le dit : chaque offre part d'un geste du joueur (R8 corrigé, D-205).
 
 ## 4. Données, accès API, comptes
 
@@ -128,8 +128,8 @@ Un joueur ou un développeur lit ces documents comme des promesses : les corrige
 | Document | Ce qu'il dit | Ce qui est vrai |
 |---|---|---|
 | `docs/STUDIO_SETUP.md:37,54`, `docs/ECONOMY.md:48` | le VIP a un tag dans le chat | aucun tag (R1) |
-| `docs/ECONOMY.md:80` | Premium : 150 Folios + 30 min de boost, badge, quêtes bonus | 150 Folios + 300 XP (R10) |
-| `docs/ECONOMY.md` §5 | prompts d'achat contextuels | jamais affichés (R8) |
+| `docs/ECONOMY.md` §6 | Premium : 150 Folios + 30 min de boost, badge, quêtes bonus | aligné : 150 Folios + 30 min d'XP doublée, badge et quêtes bonus retirés (R10 corrigé, D-204) |
+| `docs/ECONOMY.md` §5 | prompts d'achat contextuels | aligné : il n'y en a pas (R8 corrigé, D-205) |
 | `docs/PERFORMANCE.md:137-139` | pire cas : « 201, `Pounce` », « 30 maillages (`Dash`) » | `Scorch` 358 particules, `Dash` 34 `Part` au pic (`docs/PERFORMANCE.md:98,112`, sortie de `lune run scripts/effect-cost -- --table`). Revérifier la ligne des plafonds de `PoolPolicy`. |
 | `docs/PROGRESS.md:35` | système de spectateur à faire | `SpectateController.luau` existe |
 | `docs/GAME_DESIGN.md:33` | pas de PvP dans la zone sûre du hub (donc PvP ailleurs au hub) | aucun PvP nulle part au hub (`MatchService.luau:616-636`) |

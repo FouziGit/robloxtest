@@ -7,7 +7,7 @@ Toutes les valeurs sont des points de départ à ajuster avec les données réel
 | Monnaie | Nature | Obtention | Usage |
 |---|---|---|---|
 | **Folios** | douce (gagnée) | matchs, kills, quêtes, boss, streak, pass, achat de packs | boutique cosmétique, rotation quotidienne |
-| **Robux** | dure | achat réel | game passes, developer products, prompts contextuels |
+| **Robux** | dure | achat réel | game passes, developer products, depuis les surfaces d'achat (§5) |
 
 Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade débloquable au niveau 40 (`docs/GAME_DESIGN.md` §5), les slots de loadout apportent de la variété, tout le reste est cosmétique ou du confort (boost d'XP, saut de paliers).
 
@@ -28,7 +28,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
 
-VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios / jour via le bonus dédié.
+VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
@@ -63,27 +63,28 @@ Rotation quotidienne : 6 articles (2 communs, 2 rares, 1 épique, 1 légendaire)
 | Folios ×1 000 | 99 | 1 000 Folios | `FolioSmall` |
 | Folios ×3 500 | 299 | 3 500 Folios (+17 %) | `FolioMedium` |
 | Folios ×8 000 | 599 | 8 000 Folios (+33 %) | `FolioLarge` |
-| Pass premium (saison) | 349 | piste premium de la saison courante | `PremiumPass` |
-| +5 paliers de pass | 149 | avance de 5 paliers | `TierSkip5` |
+| Pass premium (saison) | 349 | piste premium de la saison courante ; déjà possédée à l'arrivée du reçu, 3 530 Folios (D-202) | `PremiumPass` |
+| +5 paliers de pass | 149 | avance de 5 paliers ; chaque palier au-delà du dernier est payé 310 Folios (D-202) | `TierSkip5` |
 | Boost d'XP 1 h | 79 | XP ×2 pendant 60 min | `XpBoost1h` |
 
 Conversion implicite : 1 R$ ≈ 10-13 Folios. Un légendaire (8 000 Folios) vaut ≈ 600 R$ ou ≈ 11 h de jeu : le joueur gratuit peut tout obtenir, le joueur payant gagne du temps.
 
-## 5. Placement des prompts (non agressif)
+## 5. Placement des offres (non agressif)
 
-| Moment | Prompt | Garde-fou |
+**Aucune offre ne s'ouvre d'elle-même** : ni prompt contextuel, ni fenêtre d'achat automatique (D-205). Chaque offre est une surface que le joueur touche, posée là où l'envie naît.
+
+| Moment | Offre | Garde-fou |
 |---|---|---|
-| Défaite de peu (< 15 % de vie d'écart) | Boost d'XP | max 1 / 30 min |
-| Palier de pass bloqué (piste premium) | Pass premium | seulement depuis l'écran du pass |
-| Mort face à un joueur Orpiment | Pass Orpiment | max 1 / session, jamais avant le niveau 10 |
-| Loadout plein | Slots | seulement depuis l'écran de loadout |
+| Palier de pass bloqué (piste premium) | Pass premium | seulement sur l'écran du Pass, sur le geste du joueur : « Obtenir le Premium », au-dessus des récompenses verrouillées (le mot « Premium » et un cadenas) |
+| Loadout plein | Slots | seulement sur l'écran d'équipement, sur le geste du joueur : « +4 emplacements » |
 | Boutique | article en Folios insuffisant | la fiche de confirmation le dit (solde après achat en rouge), grise « Acheter » et propose « Obtenir des Folios », qui ouvre l'onglet Folios ; le prix « R$ » de l'article reste sur sa carte |
+| Défaite de peu, mort face à un joueur Orpiment | aucune | un toast de vente juste après une défaite est le placement le plus agressif ; il n'existe pas (D-205) |
 
-Règles globales : **aucun prompt dans les 3 premières minutes de la première session** (`Meta.FirstSessionPromptGate`), jamais plus d'un prompt toutes les 5 minutes, jamais pendant un match. Chaque prompt affiché / accepté / refusé est journalisé (`Analytics`).
+Chaque fenêtre ouverte est journalisée, acceptée ou refusée (`Analytics`, `PromptAccepted` / `PromptDeclined`). Si une offre contextuelle revient un jour, elle reste un toast et suit ces garde-fous : jamais pendant un combat, rien dans les 3 premières minutes de la première session, au plus une toutes les 5 minutes, et chaque offre affichée journalisée elle aussi.
 
 ### Surfaces d'achat à l'initiative du joueur (D-147)
 
-La passe UI couleur ajoute des endroits où le joueur **choisit** d'acheter ; aucun n'ouvre quoi que ce soit de lui-même. Chacun n'ouvre la fenêtre d'achat de Roblox que sur un geste du joueur, et seulement pour une entrée qui a un id sur Roblox (`MonetizationConfig`, id non nul ; sinon le bouton est grisé). Le serveur reste l'autorité : il résout l'id, refuse ce qui est déjà possédé, un saut de paliers au dernier palier, un article sorti de la rotation, et le dit par un toast. Les garde-fous du tableau ci-dessus (première session, 5 minutes, jamais en match) continuent de régir les prompts contextuels, qui restent des toasts ; **aucun prompt automatique n'a été ajouté**.
+La passe UI couleur ajoute des endroits où le joueur **choisit** d'acheter ; aucun n'ouvre quoi que ce soit de lui-même. Chacun n'ouvre la fenêtre d'achat de Roblox que sur un geste du joueur, et seulement pour une entrée qui a un id sur Roblox (`MonetizationConfig`, id non nul ; sinon le bouton est grisé). Le serveur reste l'autorité : il résout l'id, refuse ce qui est déjà possédé, un saut de paliers au dernier palier, un article sorti de la rotation, et le dit par un toast. **Aucun prompt automatique n'a été ajouté**, et il n'y a pas de prompt contextuel (D-205).
 
 | Écran | Surface | Ce qu'elle déclenche | Garde-fou côté interface |
 |---|---|---|---|
@@ -92,19 +93,21 @@ La passe UI couleur ajoute des endroits où le joueur **choisit** d'acheter ; au
 | Boutique, onglet « Folios » | les trois packs (1 000, 3 500, 8 000) | `PromptPurchase("Product", FolioSmall / FolioMedium / FolioLarge)` | id non nul |
 | Boutique, onglet « Pass et packs » | VIP, Slots d'équipement, Pigment Orpiment, Pack de skins ; Battle Pass Premium, +5 paliers, Boost d'XP | `PromptPurchase("Pass", clé)` ou `PromptPurchase("Product", clé)` | id non nul ; un pass possédé (et le premium de la saison) montre « Possédé » au lieu d'un prix ; +5 paliers grisé au dernier palier |
 | Battle Pass | « Obtenir le Premium », « +5 paliers » | `PromptPurchase("Product", PremiumPass / TierSkip5)` | « Obtenir le Premium » caché une fois le premium possédé ; +5 paliers grisé au dernier palier ; une récompense premium verrouillée montre le mot « Premium » et un cadenas, sans phrase de refus |
-| Équipement (tranche B) | « +4 emplacements », tant que `LoadoutSlots` n'est pas possédé | `PromptPurchase("Pass", LoadoutSlots)` | id non nul ; pas de prix affiché (l'invite de Roblox le montre) ; l'offre contextuelle reste réservée à l'écran d'équipement (la ligne « Loadout plein » ci-dessus) |
+| Équipement (tranche B) | « +4 emplacements », tant que `LoadoutSlots` n'est pas possédé | `PromptPurchase("Pass", LoadoutSlots)` | id non nul ; pas de prix affiché (l'invite de Roblox le montre) ; c'est l'offre de la ligne « Loadout plein » ci-dessus |
 | Menu | le « + » à côté des Folios | ouvre la Boutique sur l'onglet Folios ; n'achète rien | — |
 
 Le Casier (onglet de la Boutique) ne vend rien : il montre ce que le joueur possède, pour l'équiper ou le retirer.
 
 ## 6. Premium Payouts
 
-Les abonnés Roblox Premium génèrent des payouts proportionnels au temps passé. Leviers : bonus quotidien Premium (150 Folios + 30 min de boost d'XP), file prioritaire visuelle (badge), quêtes hebdomadaires bonus. Aucune exclusivité de gameplay.
+Les abonnés Roblox Premium génèrent des payouts proportionnels au temps passé. Levier : le bonus quotidien Premium, 150 Folios et 30 min d'XP doublée (`DailyConfig.PremiumBonus`), une fois par jour UTC, versé au chargement du profil et dès qu'un joueur devient Premium en cours de session (`PlayerMembershipChanged`). Ni badge de file ni quêtes hebdomadaires bonus (D-204). Aucune exclusivité de gameplay.
 
 ## 7. Idempotence et sécurité des achats
 
-- `ProcessReceipt` : lit le profil (`DataService.waitFor`), vérifie `Purchases.Receipts` (anneau de 100 ids), applique le produit, enregistre `PurchaseId`, force une sauvegarde (`saveNow`) puis renvoie `PurchaseGranted`. Toute erreur ou profil absent → `NotProcessedYet` (Roblox réessaiera). Jamais de yield non protégé.
+- `ProcessReceipt` : lit le profil (`DataService.waitFor`), vérifie `Purchases.Receipts` (anneau de 100 ids), applique le produit, enregistre `PurchaseId`, force une sauvegarde (`saveNow`) puis renvoie `PurchaseGranted`. Un reçu déjà enregistré repasse lui aussi par une sauvegarde confirmée avant `PurchaseGranted` : enregistré dans le profil vivant n'est pas écrit, et c'est justement une sauvegarde ratée qui fait redemander Roblox. Toute erreur ou profil absent → `NotProcessedYet` (Roblox réessaiera). Jamais de yield non protégé.
+- Un reçu ne se refuse jamais pour de bon : les Robux sont déjà pris, et `NotProcessedYet` ferait relivrer le reçu sans fin. Ce qu'il ne peut plus livrer se paie en Folios (D-202) : un cosmétique d'une rareté entièrement possédée à son prix en Folios, un palier au-delà du dernier et un Pass Premium déjà possédé à leur `CompensationFolios`.
 - Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries), cache dans `Passes`, mise à jour sur `PromptGamePassPurchaseFinished`. Achats hors connexion couverts par la vérification à la connexion.
+- Un achat en Folios débite puis accorde ; si l'attribution échoue sans que l'article soit écrit, `CurrencyService.refund` rend exactement le débit, sans le ×1,5 du VIP et sans rien écrire pour le compte développeur qui n'a rien payé ; un article écrit est un achat réglé, jamais remboursé (D-203).
 - Aucune valeur de prix n'est lue depuis le client ; les IDs vivent uniquement dans `MonetizationConfig`, validés au démarrage (`warn` explicite par ID manquant).
 
 ## 8. KPIs à suivre (Analytics + Creator Dashboard)
@@ -114,7 +117,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 | D1 / D7 rétention | 40 % / 15 % | quêtes, streak, première victoire du jour |
 | Durée de session | 18 min | matchs courts, file rapide |
 | Matchs par session | 5 | matchmaking intra-serveur |
-| Taux de conversion | 2-4 % | prompts contextuels, pass premium |
+| Taux de conversion | 2-4 % | surfaces d'achat placées là où l'envie naît (§5), pass premium |
 | ARPDAU | 0,02-0,05 $ | packs de Folios, VIP |
 | Funnel onboarding | 90 % première touche → 70 % premier glyphe → 45 % premier match | tutoriel HUD, mannequins |
 

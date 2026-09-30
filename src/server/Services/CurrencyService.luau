@@ -103,6 +103,30 @@ function CurrencyService.trySpend(player: Player, amount: number, reason: string
 	return true
 end
 
+-- Pays back what trySpend(`amount`) took, when what it paid for could not be delivered. Exactly that: never
+-- the VIP multiplier `add` applies, which would turn a failed purchase into a profit, and nothing for a
+-- developer, whose trySpend took nothing. Returns the Folios credited.
+function CurrencyService.refund(player: Player, amount: number, reason: string): number
+	if not isPositiveInteger(amount) then
+		log.warn("refund rejected for %s (%s): invalid amount %s", player.Name, reason, tostring(amount))
+		return 0
+	end
+	local data = dataService.get(player)
+	if data == nil then
+		log.warn("refund skipped for %s (%s): profile not loaded", player.Name, reason)
+		return 0
+	end
+	if DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name) then
+		log.info("%s is refunded nothing for %s (developer: the %d Folios were waived)", player.Name, reason, amount)
+		return 0
+	end
+	data.Currency.Folios += amount
+	syncLeaderstat(player, data.Currency.Folios)
+	dataService.push(player, "Currency")
+	log.info("%s +%d Folios refunded (%s) -> %d", player.Name, amount, reason, data.Currency.Folios)
+	return amount
+end
+
 function CurrencyService.Init(deps: Deps)
 	dataService = deps.DataService
 end

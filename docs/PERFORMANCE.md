@@ -43,6 +43,29 @@ personne ne lit est une promesse faite au joueur que rien ne tient.
   `Lighting` lui-même, pas eux.
 - **Empreintes** — `FootprintController` prend cette part de son propre budget (0 = aucune).
 
+## Le niveau de départ (D-229)
+
+Avant qu'une seule image soit comptée, l'appareil dit où commencer (`QualityConfig.Start`, lu par
+`QualityController` à son `Start`) :
+
+| | |
+|---|---|
+| écran tenu en main (`InputMode.handheld`) de **430 points de haut ou moins** : un téléphone | démarre en **Moyenne** |
+| niveau graphique Roblox réglé à la main (`UserGameSettings.SavedQualityLevel`) de **1 à 3** | démarre en **Basse** |
+| les deux | le plus bas des deux |
+
+Jamais au-dessus du choix du joueur, qui reste le plafond ; la dégradation automatique part de là et peut
+remonter jusqu'au plafond. Le premier choix lu dans le profil est abaissé par le départ ; un choix fait ensuite
+dans les Options est suivi tel quel. Si le moteur refuse `SavedQualityLevel` à un LocalScript, un seul
+avertissement et le départ se fait comme en automatique (à vérifier dans Studio, `STUDIO_SETUP` §11, point 27).
+
+Un flot `Driven` (D-124), que le moteur n'éclaircit pas, n'émet jamais plus de **deux fois** ce que le moteur
+dessinerait du même `Rate` (`QualityConfig.DrivenOverEngine`) : la part que le moteur est censé dessiner à
+chaque niveau (`EngineShare` : 1, 0,5, 0,25, 5/80) est un **modèle**, ancré sur la seule mesure faite (le labo,
+80 flammes par seconde dessinées comme 5 à la qualité automatique la plus basse), à remplacer par les mesures
+des téléphones (E6-S5). Aux niveaux Élevé et Moyen le feu reste entier ; en Basse il émet la moitié de son débit,
+en Performance le huitième (`tests/QualityStart.spec.luau`).
+
 ## La dégradation automatique
 
 `src/client/Controllers/QualityController.luau` compte les images sur une seconde et compare :
@@ -268,10 +291,41 @@ dix emplacements du pass : **171** sur un téléphone (92 pour le HUD, 79 pour l
 le bouton Menu porte le sien. Les 180 que la passe visait sont ceux du téléphone ; le pointeur est tenu sous
 340 (D-168).
 
-**Non mesuré.** Les objets du pass à l'ouverture (visé ≤ 700) et des autres écrans (≤ 400), et le coût des
-ressorts à l'entrée d'un écran, demandent Studio : compteurs `DebugSettings` de l'interface et MicroProfiler
-sur l'appareil émulé « iPhone 12 / Galaxy S10 » à 0,68 (`docs/STUDIO_SETUP.md` §11). Les chiffres mesurés
-viendront ici.
+**Non mesuré.** Le coût des ressorts à l'entrée d'un écran demande Studio : MicroProfiler sur l'appareil émulé
+« iPhone 12 / Galaxy S10 » à 0,68 (`docs/STUDIO_SETUP.md` §11). Les objets de chaque écran sont comptés
+ci-dessous, hors de Studio ; le relevé du moteur (compteurs `DebugSettings` de l'interface) reste à faire.
+
+## Objets par écran
+
+Chaque écran et chaque onglet de la Boutique, ouverts sur un téléphone de 844 × 390 à l'échelle 0,68 pour un
+joueur qui possède tout ce qu'ils listent — chaque glyphe, chaque cosmétique, chaque passe, le pass à son dernier
+palier, les cinquante premiers du classement —, comptés par `tests/ScreenBudget.spec.luau` (D-234) : les objets
+GUI affichés, comme le HUD. Un écran en dessine **400** au plus (`Budget.MaxScreenObjects`), la route du pass
+**700** (`Budget.MaxPassObjects`) ; le test échoue au-delà, et échoue aussi si ce tableau ne dit pas ce qu'il
+compte. Avant, le Casier de tout ce qui se vend en dessinait 1 282, le classement 684 et l'Équipement de dix
+glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les fait défiler
+(`src/ui/Progressive.luau`). Chaque écran est compté disposé comme le moteur le dispose en s'ouvrant : sa
+fenêtre, et un canevas qui n'est jamais plus haut que ce que ses rangées et ses grilles demandent au moins
+(le moteur de Lune ne dispose rien). Sans cela une liste par tranches était comptée à sa première tranche,
+alors que le moteur, qui en voyait le pied à moins d'une fenêtre, construisait la suivante dès l'ouverture : le
+Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qui remplit sa vue. La flèche
+« plus bas » d'une liste plus haute que sa fenêtre est comptée avec.
+
+| Écran | Objets | Plafond |
+|---|---|---|
+| `MenuScreen` | 171 | 400 |
+| `PlayScreen` | 104 | 400 |
+| `ShopScreen (Today)` | 236 | 400 |
+| `ShopScreen (Folios)` | 127 | 400 |
+| `ShopScreen (Passes)` | 167 | 400 |
+| `ShopScreen (Locker)` | 265 | 400 |
+| `BattlepassScreen` | 527 | 700 |
+| `DailyScreen` | 177 | 400 |
+| `LoadoutScreen` | 338 | 400 |
+| `QuestsScreen` | 179 | 400 |
+| `LeaderboardScreen` | 362 | 400 |
+| `SettingsScreen` | 71 | 400 |
+| `ResultScreen` | 78 | 400 |
 
 ## Ce qui n'est pas mesuré
 

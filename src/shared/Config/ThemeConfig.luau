@@ -281,7 +281,9 @@ ThemeConfig.TextScale = { Medium = 1, Large = 1.15, Larger = 1.3, Largest = 1.3 
 -- (Motion.loop) and staggered entrances (Motion.stagger), each held where it is spent. And what the HUD
 -- draws in a fight, in GuiObjects shown, with every slot a pass opens and a full 3v3 in the band: on a phone
 -- with its touch discs, the budget the colour pass set; with a pointer, whose hotbar spells each glyph's
--- keys and whose Menu names its own, the ceiling it is built to (tests/HudBudget.spec.luau, D-168).
+-- keys and whose Menu names its own, the ceiling it is built to (tests/HudBudget.spec.luau, D-168). And what a
+-- screen draws as it opens on a phone, for a player who owns everything it lists: the pass's road, its columns
+-- built around the tier reached, has more (tests/ScreenBudget.spec.luau, D-234).
 ThemeConfig.Budget = {
 	MaxSplats = 12,
 	MaxAnimatedGradients = 3,
@@ -289,6 +291,8 @@ ThemeConfig.Budget = {
 	MaxStaggered = 8,
 	MaxHudObjects = 180,
 	MaxHudObjectsPointer = 340,
+	MaxScreenObjects = 400,
+	MaxPassObjects = 700,
 }
 
 -- The HUD's geometry, in design units (D-147): never scaled by the player's text size, and laid out to fit a

@@ -83,7 +83,7 @@ R7 est à faire par le développeur : aucun code ne peut modérer un asset ni en
 Une partie a déjà été faite une fois (`docs/STUDIO_SETUP.md` §2) : accès API, 12 joueurs, appareils, chat, genre. La relire à chaque version et la compléter :
 
 1. **Questionnaire de maturité.** Le remplir d'après ce que le jeu montre : combat fantastique, violence légère, aucun texte saisi par les joueurs en dehors du chat Roblox. Roblox s'en sert pour l'étiquette de maturité et pour l'audience de l'expérience.
-2. **Appareils autorisés.** Ordinateur, téléphone, tablette et console. Chaque case cochée doit avoir passé `docs/QA.md` §8 ; sur console, on ne joue qu'à la manette.
+2. **Appareils autorisés.** Ordinateur, téléphone et tablette pour la v2.1.0 ; la console reste décochée (D-235) jusqu'à ce que la passe au Controller Emulator (`docs/STUDIO_SETUP.md` §11, point 29) et `docs/QA.md` §8 sur console soient faites, puis se coche dans une mise à jour. Chaque case cochée doit avoir passé `docs/QA.md` §8 ; sur console, on ne joue qu'à la manette.
 3. **Icône et miniatures.** Icône de 512 × 512. Miniatures au format 16:9, qui montrent un glyphe, un duel et le World Boss, sans texte qui promette ce que le jeu ne fait pas.
 4. **Nom et description, en anglais et en français.** L'anglais est la langue source. La traduction française du nom et de la description se saisit dans l'onglet Localization de l'expérience.
 5. **Serveurs privés.** Décider s'ils sont gratuits, payants ou fermés. L'appariement ne se fait qu'entre joueurs d'un même serveur, et le World Boss demande deux joueurs (`WorldBossConfig.luau:28`) : dans un serveur privé à un seul joueur, il n'y a ni match ni boss.

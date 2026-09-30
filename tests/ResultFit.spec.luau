@@ -177,6 +177,29 @@ describe("the Result, run", function()
 		)
 	end
 
+	-- The smallest window a pointer plays in: at their gap the fullest rows still scrolled by 43 there (D-201).
+	it("holds its fullest card without scrolling in a 1280 x 720 window, its rows closer, with a pointer", function()
+		local rows, screenHeight, Theme = build(1280, 720, STUDIO_TOP_BAR, false)
+		expect(rows:FindFirstChild("Details").Visible).toBe(true)
+		expect(rows:FindFirstChild("FirstWin").Visible).toBe(true)
+		expect(Measure.listHeight(rows)).toBeLessThanOrEqual(Measure.heightOf(rows, screenHeight))
+		local banner = takeoverOf(rows):FindFirstChild("Banner")
+		local least = tonumber(string.match(fs.readFile(SCREEN), "\nlocal BANNER_MIN = (%d+)\n"))
+		expect(Measure.heightOf(banner, screenHeight)).toBeGreaterThanOrEqual(least :: number)
+		-- Closer, and only closer: the words keep their sizes.
+		local gap = rows:FindFirstChildOfClass("UIListLayout").Padding.Offset
+		expect(gap).toBeLessThan(Theme.Sizes.Gap)
+		expect(gap).toBeGreaterThan(0)
+		for _, label in ipairs(rows:GetDescendants()) do
+			if label:IsA("TextLabel") and label.Parent == rows then
+				expect(label.TextSize).toBeGreaterThanOrEqual(Theme.Sizes.TextSmall)
+			end
+		end
+		-- Where the rows stand at their gap, they keep it.
+		local roomy = build(1366, 768, STUDIO_TOP_BAR, false)
+		expect(roomy:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBe(Theme.Sizes.Gap)
+	end)
+
 	it("keeps the outcome's third where the card already holds its rows", function()
 		local rows = build(STUDIO_WINDOW[1], STUDIO_WINDOW[2], STUDIO_TOP_BAR, false)
 		local takeover = takeoverOf(rows)

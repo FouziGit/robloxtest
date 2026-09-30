@@ -567,10 +567,11 @@ describe("a fire", function()
 			)
 		).never.toBe(nil)
 		expect(emitter:find("emitter.Rotation = NumberRange.new(-sway, sway)", 1, true)).never.toBe(nil)
-		-- A driven flow never hands its rate to the engine, which would thin it.
+		-- A driven flow never hands its rate to the engine, which would thin it; it owes its tier's share of it,
+		-- never more than twice what the engine would draw (tests/QualityStart.spec.luau).
 		expect(
 			emitter:find(
-				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt } else emitter.Rate = layer.Rate * density",
+				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt } else emitter.Rate = layer.Rate * density",
 				1,
 				true
 			)

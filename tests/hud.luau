@@ -11,6 +11,8 @@ export type Options = {
 	Profile: any?,
 	-- A landscape phone, `{ width, height }` points, rather than a desktop.
 	Phone: { number }?,
+	-- How the player plays there (Engine.plays), when it is not the phone's touch or the desktop's pointer.
+	Plays: Engine.Plays?,
 	-- Seconds before the client hears the servers' clock: until then GetServerTimeNow() is 0, as the engine
 	-- answers a client that has just started.
 	ClockHeardAfter: number?,
@@ -77,6 +79,10 @@ function Hud.build(options: Options?): Fixture
 	if phone ~= nil then
 		Engine.phone(world, phone[1], phone[2])
 	end
+	local plays = if options ~= nil then options.Plays else nil
+	if plays ~= nil then
+		Engine.plays(world, plays)
+	end
 	local profile = if options ~= nil then options.Profile else nil
 	-- Every listener of a remote, in the order it connected: the real RemoteClient connects each one to the
 	-- remote's OnClientEvent, and BossChanged is heard by TravelController and BossController both.
@@ -117,6 +123,8 @@ function Hud.build(options: Options?): Fixture
 		leaveQueue = function() end,
 	}
 	local HudController = world.require("src/client/Controllers/HudController")
+	-- Required before any Init, as the bootstrap's first pass does: the HUD hears whether the player fights from it.
+	local Travel = world.require("src/client/Controllers/TravelController")
 	HudController.Init({
 		Localize = localize,
 		ClientData = {
@@ -157,8 +165,10 @@ function Hud.build(options: Options?): Fixture
 				return "High"
 			end,
 		},
+		TravelController = Travel,
+		-- The same reader Theme was handed as it loaded (tests/engine.luau), as the bootstrap hands it both.
+		InputMode = world.require("src/client/Controllers/InputMode"),
 	})
-	local Travel = world.require("src/client/Controllers/TravelController")
 	Travel.Init({
 		RemoteClient = remoteClient,
 		Localize = localize,

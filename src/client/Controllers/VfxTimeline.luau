@@ -802,8 +802,10 @@ local function buildEmitter(entry: Live, layer: Layer, place: CFrame)
 	if layer.Rate ~= nil then
 		if layer.Driven == true then
 			-- Emitted by stepEmitter on the entry's own clock: the engine thins a Rate by its automatic
-			-- graphics quality, never a call to Emit (D-124).
-			entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt }
+			-- graphics quality, never a call to Emit (D-124). Never more than twice what the engine would have
+			-- drawn on a device held at this tier (D-229).
+			entry.Owed =
+				{ Rate = layer.Rate * density * QualityConfig.drivenShare(tier), Carry = 0, At = entry.StartedAt }
 		else
 			emitter.Rate = layer.Rate * density
 			emitter.Enabled = true

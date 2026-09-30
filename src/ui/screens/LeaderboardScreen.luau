@@ -24,6 +24,7 @@ local Button = require(script.Parent.Parent.components.Button)
 local LeaderboardView = require(Shared.Pure.LeaderboardView)
 local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
+local Progressive = require(script.Parent.Parent.Progressive)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
@@ -71,6 +72,9 @@ local SKELETON_ROWS = 5
 -- 52 with the rims of the higher tiers, the standing's own height.
 local STANDING_SEAL = 40
 local ROWS_BASE = 10
+-- The rows under the podium are built this many at a time, as the page scrolls down to them (Progressive): the
+-- whole top of fifty drew 684 objects where a screen is held to 400.
+local ROWS_CHUNK = 20
 -- Boards named after a ranked mode read that mode's record in the profile; "Global" spans every mode.
 local MODE_BOARDS: { [string]: boolean } = {}
 for _, modeId in ipairs(RankingConfig.Modes) do
@@ -99,6 +103,10 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	-- The player's own row on the board shown, while they are listed below the podium.
 	local ownRow: Frame? = nil
 	local ownEntry: Entry? = nil
+	-- Where the player's own row stands among the rows under the podium (nil on the podium or off the board), and
+	-- the rows, built as the page scrolls down to them.
+	local ownRowIndex: number? = nil
+	local rowsList: Progressive.Progressive? = nil
 	local pinned = false
 
 	local root = ScreenRoot.new({
@@ -192,9 +200,16 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	youFill.Parent = youLabel
 	youLabel.Parent = standing
 
-	-- Scrolls the page to the player's own row: the podium's top when they stand on it.
+	-- Scrolls the page to the player's own row: the podium's top when they stand on it. A row not built yet is
+	-- built first, and the page scrolls to it once it is laid out, on the next frame.
 	local function findMe()
 		local content = panel.Content
+		local list, index = rowsList, ownRowIndex
+		if list ~= nil and index ~= nil and list:Built() < index then
+			list:UpTo(index)
+			task.defer(findMe)
+			return
+		end
 		local row = ownRow
 		if row == nil then
 			content.CanvasPosition = Vector2.zero
@@ -285,7 +300,10 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		local entry = ownEntry
 		local content = panel.Content
 		local hidden = false
-		if row ~= nil and entry ~= nil then
+		if row == nil and entry ~= nil and ownRowIndex ~= nil then
+			-- Listed, below the rows built so far: out of sight.
+			hidden = true
+		elseif row ~= nil and entry ~= nil then
 			local top = content.AbsolutePosition.Y
 			local bottom = top + content.AbsoluteWindowSize.Y
 			local rowTop = row.AbsolutePosition.Y
@@ -363,6 +381,8 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		boardTrove:Clean()
 		ownRow = nil
 		ownEntry = nil
+		ownRowIndex = nil
+		rowsList = nil
 		panel.Content.CanvasPosition = Vector2.zero
 		local entries = entriesByBoard[currentBoard]
 		if entries == nil then
@@ -392,20 +412,34 @@ function LeaderboardScreen.new(deps: Deps): Screen
 				})
 			)
 			for index, entry in ipairs(rows) do
-				local mine = ownIndex ~= nil and entries[ownIndex] == entry
-				local row = Standings.row({
-					Entry = entry,
-					Variant = if mine then "Highlight" else "Item",
-					Rating = rating(entry),
-					Localize = deps.Localize,
-					LayoutOrder = ROWS_BASE + index,
-					Parent = panel.Content,
-				})
-				own(boardTrove, row)
-				if mine then
-					ownRow = row.Instance
+				if ownEntry ~= nil and entry == ownEntry then
+					ownRowIndex = index
 				end
 			end
+			local list = Progressive.new({
+				Scroller = panel.Content,
+				Count = #rows,
+				Chunk = ROWS_CHUNK,
+				Build = function(index: number)
+					local entry = rows[index]
+					local mine = index == ownRowIndex
+					local row = Standings.row({
+						Entry = entry,
+						Variant = if mine then "Highlight" else "Item",
+						Rating = rating(entry),
+						Localize = deps.Localize,
+						LayoutOrder = ROWS_BASE + index,
+						Parent = panel.Content,
+					})
+					own(boardTrove, row)
+					if mine then
+						ownRow = row.Instance
+						refreshPinned()
+					end
+				end,
+			})
+			own(boardTrove, list)
+			rowsList = list
 		end
 		refreshYou()
 		refreshPinned()

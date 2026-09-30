@@ -5,14 +5,16 @@
 -- and only when there is something to do, its Claim button, in the Quests chapter's own blue.
 --
 -- A claim sent from the card waits, pending, for the profile push that marks the quest claimed; then the
--- seal is stamped and a burst of ink goes off behind it. The server decides; the card only shows what it
--- decided. Now and then the board asks every claimable card to wiggle, so a claim is found (Wiggle).
+-- seal is stamped and a burst of ink goes off behind it (Burst, as every claim and purchase bursts). The server
+-- decides; the card only shows what it decided. Its Claim button sways with every other on the board (Sway,
+-- which the board runs).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local Burst = require(script.Parent.Burst)
 local Button = require(script.Parent.Button)
 local Icon = require(script.Parent.Icon)
 local ListRow = require(script.Parent.ListRow)
@@ -20,10 +22,8 @@ local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
 local QuestBoard = require(Shared:WaitForChild("Pure"):WaitForChild("QuestBoard"))
 local Seal = require(script.Parent.Seal)
-local Splat = require(script.Parent.Splat)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
-local UiPrefs = require(script.Parent.Parent.UiPrefs)
 
 export type Props = {
 	-- The quest's name, what it pays, and the two words of its action, all worded by the caller.
@@ -46,8 +46,6 @@ export type QuestCard = {
 	Set: (self: QuestCard, state: QuestBoard.State, fraction: number, count: string, animate: boolean) -> (),
 	GetState: (self: QuestCard) -> QuestBoard.State?,
 	IsPending: (self: QuestCard) -> boolean,
-	-- One tilt of the Claim button, when it is there to be pressed.
-	Wiggle: (self: QuestCard) -> (),
 	Destroy: (self: QuestCard) -> (),
 }
 
@@ -62,16 +60,8 @@ local CHIP_HEIGHT = 36
 local CHIP_ICON = 22
 local CHIP_TEXT = 16
 local SEAL_SIZE = 30
--- How far the Claim button tilts each way when it wiggles.
-local WIGGLE_DEGREES = 2
--- The ink that goes off when the claim lands: its colours, how wide a blot starts and ends, where each one
--- lands around the seal, and how long before the blots go back to the screen's pool.
+-- The ink that goes off behind the seal when the claim lands.
 local BURST_TINTS = { Theme.Colors.Primary, Theme.Colors.SuccessFill, Theme.Colors.Primary }
-local BURST_FROM = 24
-local BURST_TO = 64
-local BURST_OFFSETS = { Vector2.new(-26, -10), Vector2.new(24, -14), Vector2.new(2, 18) }
-local BURST_TRANSPARENCY = 0.2
-local BURST_SECONDS = 0.7
 
 local TINTS: { [QuestBoard.State]: Color3 } = {
 	Claimable = Theme.Colors.Primary,
@@ -111,31 +101,6 @@ local function strip(name: string, order: number, gap: number): Frame
 	frame.LayoutOrder = order
 	row(frame, Enum.FillDirection.Horizontal, gap)
 	return frame
-end
-
--- Ink going off around `anchor`: the blots grow out of it and fade, then go back to the screen's pool.
--- Under reduced motion they only fade.
-local function burst(anchor: GuiObject)
-	for index, tint in ipairs(BURST_TINTS) do
-		local offset = BURST_OFFSETS[index]
-		local splat = Splat.new({
-			Size = UDim2.fromOffset(BURST_FROM, BURST_FROM),
-			Tint = tint,
-			Rotation = Splat.rotation(index),
-			Transparency = BURST_TRANSPARENCY,
-			Position = UDim2.new(0.5, offset.X, 0.5, offset.Y),
-			ZIndex = 1,
-			Name = "Burst",
-			Parent = anchor,
-		})
-		if splat ~= nil then
-			if not UiPrefs.reducedMotion() then
-				Motion.to(splat, { Size = UDim2.fromOffset(BURST_TO, BURST_TO) }, "UiPop")
-			end
-			Splat.fade(splat, 1, "Ui")
-			task.delay(BURST_SECONDS, Splat.release, splat)
-		end
-	end
 end
 
 function QuestCard.new(props: Props): QuestCard
@@ -265,7 +230,7 @@ function QuestCard.new(props: Props): QuestCard
 		-- The claim has landed: the seal is stamped, and the ink goes off behind it.
 		if animate and previous == "Claimable" and next == "Claimed" then
 			seal:Stamp()
-			burst(holder)
+			Burst.play(holder, BURST_TINTS)
 		end
 	end
 
@@ -275,18 +240,6 @@ function QuestCard.new(props: Props): QuestCard
 
 	local function isPending(_self: QuestCard): boolean
 		return pending
-	end
-
-	local function wiggle(_self: QuestCard)
-		if state ~= "Claimable" or pending or UiPrefs.reducedMotion() then
-			return
-		end
-		local target = button.Instance
-		Motion.to(target, { Rotation = WIGGLE_DEGREES }, "UiSnappy", function()
-			Motion.to(target, { Rotation = -WIGGLE_DEGREES }, "UiSnappy", function()
-				Motion.to(target, { Rotation = 0 }, "UiPop")
-			end)
-		end)
 	end
 
 	local function destroy(_self: QuestCard)
@@ -299,7 +252,6 @@ function QuestCard.new(props: Props): QuestCard
 		Set = set,
 		GetState = getState,
 		IsPending = isPending,
-		Wiggle = wiggle,
 		Destroy = destroy,
 	}
 	return object

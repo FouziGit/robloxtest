@@ -291,8 +291,10 @@ function MenuScreen.new(deps: Deps): Screen
 	----------------------------------------------------------------
 
 	-- The content never scrolls: its canvas is its window, and the deck fills it. With a pointer the two
-	-- rows stand at the tile height; on a phone they share what the card has.
+	-- rows stand at the tile height, and the card is as tall as they are: a card of the panel's height left an
+	-- empty band under them (seen in Studio). On a phone they share what the card has.
 	panel:SetContentMode("Fill")
+	panel:SetContentHeight(POINTER_DECK_HEIGHT)
 	local content = panel.Content
 
 	local deck = row("Deck", content, DECK_GAP)

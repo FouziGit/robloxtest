@@ -2,7 +2,7 @@
 -- Motion, run: the real src/ui/Motion.luau and its springs, on a pretend Heartbeat (tests/engine.luau).
 --
 -- A movement that starts where another arrives -- a loop's next leg, a flash that goes out and comes back, a
--- claim that wiggles one way then the other -- is started from inside the loop's own pass. That pass used to
+-- tilt one way then the other -- is started from inside the loop's own pass. That pass used to
 -- drop the instance's whole entry once nothing was left moving in it, the new track included: every
 -- zero-hold loop stopped after its first leg and every chained flash stayed on its first colour.
 local Engine = require("./engine")
@@ -65,7 +65,7 @@ describe("Motion, run on a Heartbeat", function()
 		expect(world.Heartbeat:count()).toBe(0)
 	end)
 
-	it("runs a wiggle's three legs to rest (the quest card's claim)", function()
+	it("runs a tilt's three legs to rest, each started from the arrival of the last", function()
 		local world, Motion, frame = setup()
 		local extremes = {}
 		Motion.to(frame, { Rotation = 2 }, "UiSnappy", function()

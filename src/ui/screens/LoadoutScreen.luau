@@ -13,7 +13,6 @@
 -- the foot of the card for a few seconds, saying what changed, with the way to undo it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -27,6 +26,7 @@ local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local Progressive = require(script.Parent.Parent.Progressive)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local SocketBar = require(script.Parent.Parent.components.SocketBar)
 local Tabs = require(script.Parent.Parent.components.Tabs)
@@ -70,6 +70,9 @@ local CARD_HEIGHT = 250
 local COLUMNS_POINTER = 3
 local COLUMNS_TOUCH = 2
 local SKELETON_CELLS = 3
+-- The cards are built this many at a time, as the grid scrolls down to them (Progressive): ten equipped glyphs
+-- drew 510 objects where a screen is held to 400. Whole rows on a phone and with a pointer.
+local CARDS_CHUNK = 6
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
@@ -318,6 +321,17 @@ function LoadoutScreen.new(deps: Deps): Screen
 		return defs
 	end
 
+	-- A card's state, from the profile and the local mirror: returns it.
+	local function paintCard(card: GlyphCard.GlyphCard, def: GlyphDef, index: number): LoadoutEdit.CardState
+		local data = deps.ClientData.get()
+		local full = #equipped >= totalSlots()
+		local state: LoadoutEdit.CardState =
+			LoadoutEdit.cardState(isUnlocked(data, def), table.find(equipped, def.Id) ~= nil, full)
+		card:SetState(state, if state == "Locked" then lockReason(def) else nil)
+		card.Instance.LayoutOrder = index
+		return state
+	end
+
 	local function buildTab()
 		tabTrove:Clean()
 		cards = {}
@@ -333,42 +347,48 @@ function LoadoutScreen.new(deps: Deps): Screen
 			end
 			return
 		end
-		local bindings = bindingsFor(device)
-		for index, def in ipairs(tabGlyphs()) do
-			local card = GlyphCard.new({
-				Def = def,
-				Localize = deps.Localize,
-				Bindings = bindings,
-				Device = device,
-				OnAction = function()
-					toggle(def)
+		-- A few rows of cards at a time, as the grid scrolls down to them (Progressive).
+		local defs = tabGlyphs()
+		own(
+			tabTrove,
+			Progressive.new({
+				Scroller = panel.Content,
+				Count = #defs,
+				Chunk = CARDS_CHUNK,
+				Build = function(index: number)
+					local def = defs[index]
+					local card = GlyphCard.new({
+						Def = def,
+						Localize = deps.Localize,
+						Bindings = bindingsFor(device),
+						Device = device,
+						OnAction = function()
+							toggle(def)
+						end,
+						OnRefused = refuse,
+						LayoutOrder = index,
+						Parent = panel.Content,
+					})
+					own(tabTrove, card)
+					cards[def.Id] = card
+					paintCard(card, def, index)
 				end,
-				OnRefused = refuse,
-				LayoutOrder = index,
-				Parent = panel.Content,
 			})
-			own(tabTrove, card)
-			cards[def.Id] = card
-		end
+		)
 	end
 
 	local function renderCards()
-		local data = deps.ClientData.get()
-		local full = #equipped >= totalSlots()
 		firstButton = nil
 		for index, def in ipairs(tabGlyphs()) do
 			local card = cards[def.Id]
 			if card == nil then
 				continue
 			end
-			local state: LoadoutEdit.CardState =
-				LoadoutEdit.cardState(isUnlocked(data, def), table.find(equipped, def.Id) ~= nil, full)
-			card:SetState(state, if state == "Locked" then lockReason(def) else nil)
+			local state = paintCard(card, def, index)
 			-- Gamepad focus goes to the first card the player can act on.
 			if firstButton == nil and (state == "Available" or state == "Equipped") then
 				firstButton = card.Button.Instance
 			end
-			card.Instance.LayoutOrder = index
 		end
 	end
 
@@ -436,7 +456,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 	end)
 
 	-- The recipes follow the hand: a player who picks up a pad sees its buttons.
-	trove:Connect(UserInputService.LastInputTypeChanged, function()
+	trove:Add(Theme.bindInput(function()
 		local latest: GlyphCard.Device = GlyphCard.device()
 		if latest == device then
 			return
@@ -446,7 +466,7 @@ function LoadoutScreen.new(deps: Deps): Screen
 		for _, card in pairs(cards) do
 			card:SetRecipe(bindings, device)
 		end
-	end)
+	end))
 
 	syncEquipped()
 	buildTab()

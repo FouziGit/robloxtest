@@ -14,7 +14,8 @@
 --     a member; the Erasure's arena from its gate, or from the moment a scheduled event starts fighting and
 --     pulls in everybody not in a match (WorldBossService, no portal), until they walk back out, die (a body
 --     is reborn in the hub) or the fight closes (BossChanged nil: its end sends whoever stands in the arena
---     home). CosmeticController quiets every aura on this screen while it holds, with a ranked match (D-148).
+--     home). CosmeticController quiets every aura on this screen while it holds, with a ranked match (D-148), and
+--     the HUD takes its fight mode from it when no portal said where the player went.
 -- Both bands are ink plates in the HUD's top-centre column (HudController.topStack, D-147) and grow into place like
 -- the match and boss bands. The fill is one tween, started and cancelled by the packets that say so: no loop.
 

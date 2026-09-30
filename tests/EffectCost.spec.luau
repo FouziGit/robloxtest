@@ -71,6 +71,8 @@ local READERS: { { Field: string, Path: string } } = {
 	{ Field = "Footprints", Path = "src/client/Controllers/FootprintController.luau" },
 	{ Field = "Flourishes", Path = "src/client/Controllers/VfxTimeline.luau" },
 	{ Field = "Afterimages", Path = "src/client/Controllers/VfxTimeline.luau" },
+	-- Read by the config's own drivenShare, which the renderer asks for each Driven flow (QualityStart.spec).
+	{ Field = "EngineShare", Path = "src/shared/Config/QualityConfig.luau" },
 	{ Field = "NameKey", Path = "src/ui/screens/SettingsScreen.luau" },
 }
 

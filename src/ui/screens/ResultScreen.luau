@@ -61,6 +61,7 @@ local CARD_SHARE = Vector2.new(0.94, 0.68)
 -- On a short window the card grows up into the outcome's share, as far as its fullest rows (this tall: a new
 -- rank, a level, the first win, the details) need to stand without scrolling, and the outcome keeps at least
 -- this much for its word: at 771 high, as on a 1366 x 768 screen, the rows scrolled by 53 (seen in Studio).
+-- Shorter still, the rows stand closer (ResultCard:Tighten): at 720 high they still scrolled by 43.
 -- Held by tests/ResultFit.spec.luau.
 local FULLEST_ROWS = 478
 local BANNER_MIN = 130
@@ -224,7 +225,9 @@ function ResultScreen.new(deps: Deps): Screen
 		local scale = Theme.activeScale() * UiPrefs.textScale()
 		local height = if camera ~= nil then (camera.ViewportSize.Y - topLeft.Y - bottomRight.Y) / scale else 0
 		local foot = BANNER_SHARE + CARD_SHARE.Y
-		local tall = math.min(FULLEST_ROWS + CARD_ELEVATION + footerHeight(), foot * height - BANNER_MIN)
+		local chrome = CARD_ELEVATION + footerHeight()
+		local tall = math.min(FULLEST_ROWS + chrome, foot * height - BANNER_MIN)
+		rows:Tighten(not Theme.touchOnly() and height > 0 and tall - chrome < FULLEST_ROWS)
 		if Theme.touchOnly() or height <= 0 or tall <= CARD_SHARE.Y * height then
 			bannerArea.Size = UDim2.fromScale(1, BANNER_SHARE)
 			card.Instance.Position = UDim2.fromScale(0.5, BANNER_SHARE)

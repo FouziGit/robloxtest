@@ -374,8 +374,10 @@ describe("the kit", function()
 			"local outline = if fist then KIT_OUTLINE else color",
 			"Unlit = fist,",
 			"feel.flash(targetModel, if takenByMe then HIT_TAKEN_COLOR else outline)",
-			-- A hit dealt in its own colour; one the player took is Feel's red minus, drifting down (D-147).
-			'feel.damageNumber(packet.Origin, amount, number, { Kind = if takenByMe then "Taken" elseif fist then "Fist" else "Glyph", Amplified = amplified, })',
+			-- A hit dealt in its own colour, a glyph's in its pigment's form on ink; one the player took is Feel's
+			-- red minus, drifting down (D-147); an amplified one names the status that paid off (§4.12, D-230).
+			'local status = stringParam(packet, "StatusKey", "") local amplified = status ~= ""',
+			'feel.damageNumber(packet.Origin, amount, number, { Kind = if takenByMe then "Taken" elseif fist then "Fist" else "Glyph", Amplified = amplified, Pigment = if fist or pigment == "" then nil else pigment, Status = if amplified then { Key = status, Percent = numberParam(packet, "StatusPercent", 0) } else nil, })',
 		}) do
 			if not has(hit, line) then
 				error("the Hit renderer no longer does: " .. line)

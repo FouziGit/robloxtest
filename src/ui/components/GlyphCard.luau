@@ -12,7 +12,6 @@
 --   Locked     a chalk veil and a lock over the card, and the reason in the disabled button
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -84,16 +83,13 @@ local SEAL_SIZE = 24
 local VEIL_TRANSPARENCY = 0.4
 local LOCK_SIZE = 32
 
-local GAMEPAD_PREFIX = "Gamepad"
-
--- How the player plays right now, which is how a recipe is drawn: the keys on a keyboard, the buttons on
--- a pad the last input came from, the discs on a phone.
+-- How the player plays right now (Theme.input), which is how a recipe is drawn: the keys on a keyboard, the
+-- buttons on a pad, the discs on touch.
 function GlyphCard.device(): Device
-	if Theme.touchOnly() then
+	local input = Theme.input()
+	if input == "Touch" then
 		return "Touch"
-	end
-	local inputType = UserInputService:GetLastInputType()
-	if string.sub(inputType.Name, 1, #GAMEPAD_PREFIX) == GAMEPAD_PREFIX then
+	elseif input == "Gamepad" then
 		return "Gamepad"
 	end
 	return "Keyboard"

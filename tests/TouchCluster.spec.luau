@@ -4,6 +4,7 @@
 -- Melee is the bigger one, and the kit row still leaves the combat dock its room between the thumbs. The
 -- discs and the wiring around them are engine code, held by reading it.
 local CombatConfig = require("../src/shared/Config/CombatConfig")
+local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local InputConfig = require("../src/shared/Config/InputConfig")
@@ -375,8 +376,7 @@ describe("the touch discs", function()
 		expect(has(code(COMBAT), "Dash = CombatConfig.Dash.CooldownSeconds,")).toBe(true)
 		local input = code(INPUT)
 		local pressed = body(input, "onDashPressed")
-		local waiting =
-			string.find(pressed, "if not UserInputService.TouchEnabled or now < dashReadyAt then return end", 1, true)
+		local waiting = string.find(pressed, "if not touching or now < dashReadyAt then return end", 1, true)
 		local started = string.find(pressed, "dashReadyAt = now + CombatConfig.Dash.CooldownSeconds", 1, true)
 		assert(waiting ~= nil and started ~= nil, "the dash disc no longer follows the throttle")
 		expect(waiting :: number).toBeLessThan(started :: number)
@@ -405,6 +405,91 @@ describe("the touch discs", function()
 		)
 		expect(has(input, 'if section == "*" or section == "Settings" or unlocked then')).toBe(true)
 		expect(#PigmentConfig.Unlockable).toBeGreaterThan(0)
+	end)
+end)
+
+-- InputController run (tests/engine.luau) on `plays`, every pigment unlocked, as the bootstrap wires it: the
+-- world, whose bindings say whether each action asked the engine for a disc, and the controller.
+local function inputOn(plays: Engine.Plays): (any, any)
+	local world = Engine.world({ Stubs = Engine.interfaceStubs(), Services = { HapticService = {} } })
+	Engine.plays(world, plays)
+	local Input = world.require("src/client/Controllers/InputController")
+	local profile = {
+		Settings = {
+			Keyboard = table.clone(InputConfig.DefaultKeyboard),
+			Gamepad = table.clone(InputConfig.DefaultGamepad),
+		},
+		Unlocks = { Glyphs = {}, Pigments = table.clone(PigmentConfig.Unlockable) },
+	}
+	Input.Init({
+		ClientData = {
+			get = function(): any
+				return profile
+			end,
+			Changed = Engine.signal(),
+		},
+		Localize = {
+			t = function(key: string): string
+				return key
+			end,
+		},
+		MenuController = {},
+		InputMode = world.require("src/client/Controllers/InputMode"),
+	})
+	Input.Start()
+	return world, Input
+end
+
+-- The actions bound with a disc, and all the actions bound.
+local function discsOf(world: any): (number, number)
+	local discs, bound = 0, 0
+	for _, action in ipairs(ACTIONS) do
+		local binding = world.bindings[action]
+		if binding ~= nil then
+			bound += 1
+			if binding.Touch then
+				discs += 1
+			end
+		end
+	end
+	return discs, bound
+end
+
+describe("the touch discs, by how the player plays, run", function()
+	it("are drawn for a phone, and for nothing a keyboard or a pad plays, touch screen or not", function()
+		local world = inputOn("Touch")
+		local discs, bound = discsOf(world)
+		expect(bound).toBe(#ACTIONS)
+		expect(discs).toBe(#ACTIONS)
+		for _, plays in ipairs({ "Pointer", "Gamepad", "TouchKeyboard", "TouchGamepad" }) do
+			local other = inputOn(plays :: Engine.Plays)
+			local drawn, keys = discsOf(other)
+			if drawn ~= 0 then
+				error(("%s is drawn %d touch discs"):format(plays, drawn))
+			end
+			-- Every action keeps its keys and its buttons.
+			expect(keys).toBe(#ACTIONS)
+		end
+	end)
+
+	it("come when a touch laptop is touched, and go when it is typed on again, with their places", function()
+		local world, Input = inputOn("TouchKeyboard")
+		local laidOut = 0
+		Input.TouchLayoutChanged:Connect(function()
+			laidOut += 1
+		end)
+		Engine.plays(world, "TouchLaptop")
+		expect((discsOf(world))).toBe(#ACTIONS)
+		Engine.plays(world, "TouchKeyboard")
+		expect((discsOf(world))).toBe(0)
+		-- Gone, not suspended: what lays itself out around them hears there is nothing left.
+		expect(laidOut).toBe(1)
+		expect(next(Input.touchRects())).toBeNil()
+		-- A pad picked up on a phone puts the discs away too, and they come back when the pad is put down.
+		Engine.plays(world, "Touch")
+		expect((discsOf(world))).toBe(#ACTIONS)
+		Engine.plays(world, "TouchGamepad")
+		expect((discsOf(world))).toBe(0)
 	end)
 end)
 
@@ -517,7 +602,13 @@ describe("the hub's shortcuts", function()
 		expect(has(toasts, "local top = toastRoot:ToContent(Vector2.new(menu.Min.X, menu.Max.Y)).Y")).toBe(true)
 		expect(has(toasts, "AbsolutePosition")).toBe(false)
 		expect(number(hud, "PLAY_STICKER_GAP")).toBe(8)
-		expect(string.find(hud, "if UserInputService%.TouchEnabled then%s+buildPlaySticker%(content%)")).never.toBeNil()
+		-- Built on every device and shown only once the Menu disc is laid out (refreshHub): a touch laptop gets it
+		-- when it is touched, and loses it with the discs.
+		expect(has(body(hud, "build"), "buildPlaySticker(content)")).toBe(true)
 		expect(has(hud, "inputController.TouchLayoutChanged:Connect(placePlaySticker)")).toBe(true)
+		local placed = string.find(place, "if sticker ~= nil and menu ~= nil then", 1, true)
+		local refreshed = string.find(place, "end refreshHub()", 1, true)
+		assert(placed ~= nil and refreshed ~= nil, "the sticker is no longer hidden with the disc")
+		expect(placed :: number).toBeLessThan(refreshed :: number)
 	end)
 end)

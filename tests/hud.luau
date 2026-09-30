@@ -117,6 +117,8 @@ function Hud.build(options: Options?): Fixture
 		leaveQueue = function() end,
 	}
 	local HudController = world.require("src/client/Controllers/HudController")
+	-- Required before any Init, as the bootstrap's first pass does: the HUD hears whether the player fights from it.
+	local Travel = world.require("src/client/Controllers/TravelController")
 	HudController.Init({
 		Localize = localize,
 		ClientData = {
@@ -157,8 +159,8 @@ function Hud.build(options: Options?): Fixture
 				return "High"
 			end,
 		},
+		TravelController = Travel,
 	})
-	local Travel = world.require("src/client/Controllers/TravelController")
 	Travel.Init({
 		RemoteClient = remoteClient,
 		Localize = localize,

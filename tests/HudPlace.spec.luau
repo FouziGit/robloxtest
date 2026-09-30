@@ -154,6 +154,52 @@ local function medallionOf(fixture: Fixture, kind: string): any
 	error("no " .. kind .. " toast is showing")
 end
 
+-- Whether a reward's toast is showing now, as the toast lane draws it.
+local function rewardShowing(fixture: Fixture): boolean
+	local toasts = fixture.world.playerGui:FindFirstChild("Toasts")
+	assert(toasts ~= nil, "the HUD has no toast lane")
+	for _, slot in ipairs(toasts:GetDescendants()) do
+		if slot.Name == "Reward" then
+			return true
+		end
+	end
+	return false
+end
+
+-- The scheduled Erasure puts everybody alive and in no match on its pads as it starts fighting (WorldBossService),
+-- and no Travelled says so. The HUD heard only Travelled, and stayed the hub's through the whole fight: level,
+-- Folios, shortcuts, and every reward shown in the value colours (rule 11).
+describe("the HUD in the scheduled Erasure, run", function()
+	it("fights once the event pulls the player in, holds a reward, and gives it back at its end", function()
+		local fixture = setup()
+		fixture.remote("BossChanged", erasure("Announced", false))
+		expect(inHub(fixture)).toBe(true)
+		fixture.remote("BossChanged", erasure("Fighting", false))
+		expect(fixture.travel.inFight()).toBe(true)
+		expect(inHub(fixture)).toBe(false)
+		fixture.remote("Notify", { Key = "quest.reward", Kind = "Success", Params = { folios = 50 } })
+		fixture.world:advance(0.5)
+		expect(rewardShowing(fixture)).toBe(false)
+		fixture.remote("BossChanged", nil)
+		expect(inHub(fixture)).toBe(true)
+		fixture.world:advance(0.5)
+		expect(rewardShowing(fixture)).toBe(true)
+	end)
+
+	it("is not pulled by a practice, and a pulled player's death brings the hub back", function()
+		local fixture = setup()
+		fixture.remote("BossChanged", erasure("Announced", true))
+		fixture.remote("BossChanged", erasure("Fighting", true))
+		expect(inHub(fixture)).toBe(true)
+		fixture.remote("BossChanged", nil)
+		fixture.remote("BossChanged", erasure("Announced", false))
+		fixture.remote("BossChanged", erasure("Fighting", false))
+		expect(inHub(fixture)).toBe(false)
+		fixture.world.player.CharacterAdded:Fire(Engine.instance("Model"))
+		expect(inHub(fixture)).toBe(true)
+	end)
+end)
+
 describe("a success in a fight, run", function()
 	-- The value colours no fight shows (docs/ART_BIBLE.md rule 11).
 	local function valueColours(fixture: Fixture): { any }

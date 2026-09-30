@@ -70,6 +70,7 @@ type Deps = {
 	VfxController: any,
 	InputController: any,
 	QualityController: any,
+	TravelController: any,
 }
 
 local DISPLAY_ORDER = Theme.Layers.Hud
@@ -227,6 +228,7 @@ local hintSource: string? = nil -- "Keyboard" | "Gamepad" | "Touch", from the la
 local menuController: any
 local inputController: any
 local qualityController: any
+local travelController: any
 local inMatch = false
 -- In the Battleground or the World Boss's arena (setPlace): a fight, like a match. Which of the two: an arena
 -- the server lets the player out of without a portal is left only if it is the one they are in (leftPlace).
@@ -903,6 +905,17 @@ function HudController.setPlace(zoneId: string)
 	place(if arena then zoneId else nil)
 end
 
+-- Whether the player fights, as TravelController hears it (FightChanged). The one way into an arena that no
+-- Travelled says is the scheduled Erasure: as it turns from announced to fighting, WorldBossService puts everybody
+-- alive and in no match on its pads. The HUD stayed the hub's through that whole fight -- level, Folios,
+-- shortcuts, and every reward shown in the value colours. The ways out are the HUD's own already: the fight's end
+-- and a death there (leftPlace), a portal home (setPlace), a match (refreshMatch).
+local function onFightChanged(fighting: boolean)
+	if fighting and arenaZone == nil then
+		place(ERASURE_ZONE)
+	end
+end
+
 -- The server let the player out of the arena `zoneId` without a portal, so no Travelled says so: the
 -- Battleground's membership ended (BattlegroundChanged nil), the Erasure's fight ended and sent everyone in it
 -- home (BossChanged nil), or a body that died in the Erasure's arena came back at the hub's spawn. The hub
@@ -926,6 +939,7 @@ function HudController.Init(deps: Deps)
 	menuController = deps.MenuController
 	inputController = deps.InputController
 	qualityController = deps.QualityController
+	travelController = deps.TravelController
 	build()
 end
 
@@ -952,6 +966,7 @@ function HudController.Start()
 	Players.LocalPlayer.CharacterAdded:Connect(function()
 		HudController.leftPlace(ERASURE_ZONE)
 	end)
+	travelController.FightChanged:Connect(onFightChanged)
 	remoteClient.on("Notify", onNotify)
 	inputController.TouchLayoutChanged:Connect(placeToasts)
 	placeToasts()

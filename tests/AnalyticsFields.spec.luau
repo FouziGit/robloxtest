@@ -172,6 +172,58 @@ describe("AnalyticsService.custom (E8-S2)", function()
 	end)
 end)
 
+-- Each player's share of what Roblox takes from a server (AnalyticsConfig.Budget, D-XXXc): a burst, then a trickle.
+describe("the budget of each player (E8-S4)", function()
+	-- Sends `count` purchase events for `player` at once.
+	local function burst(analytics: any, player: any, count: number)
+		for _ = 1, count do
+			analytics.custom(player, "PassPurchased", 399, analytics.fields("Vip"))
+		end
+	end
+
+	local function sentFor(world: Server.World, player: any): number
+		local count = 0
+		for _, call in ipairs(world.analytics:of("LogCustomEvent")) do
+			if call.Player == player then
+				count += 1
+			end
+		end
+		return count
+	end
+
+	it("lets its burst through at once, then one event every 60 / PerMinute seconds, and drops the rest", function()
+		local world, analytics, player = started()
+		local budget = AnalyticsConfig.Budget
+		expect(budget.PerMinute).toBe(20)
+		burst(analytics, player, budget.Burst + 5)
+		expect(sentFor(world, player)).toBe(budget.Burst)
+		-- Most of one interval later, still nothing; the rest of it, one more.
+		world:advance(0.9 * 60 / budget.PerMinute)
+		burst(analytics, player, 1)
+		expect(sentFor(world, player)).toBe(budget.Burst)
+		world:advance(0.2 * 60 / budget.PerMinute)
+		burst(analytics, player, 3)
+		expect(sentFor(world, player)).toBe(budget.Burst + 1)
+		-- Another player spends their own share.
+		local other = world:join(12, "Bea")
+		burst(analytics, other, 2)
+		expect(sentFor(world, other)).toBe(2)
+	end)
+
+	it("still holds a departing player's budget while the other services hear of the departure", function()
+		local world, analytics, player = started()
+		burst(analytics, player, AnalyticsConfig.Budget.Burst)
+		-- A service that hears of it after AnalyticsService, as MatchService does when the last one out of a match
+		-- tells MatchVoided: the spent budget is still theirs, and no fresh one is opened for a player on the way out.
+		world.players.PlayerRemoving:Connect(function(leaving: any)
+			burst(analytics, leaving, 1)
+		end)
+		world:leave(player)
+		world:advance(1)
+		expect(sentFor(world, player)).toBe(AnalyticsConfig.Budget.Burst)
+	end)
+end)
+
 describe("every custom event of src/server (E8-S2)", function()
 	it("names an event of the catalogue in words, and builds its fields with fields()", function()
 		local sites = customCalls()

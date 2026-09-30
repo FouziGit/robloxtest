@@ -5,7 +5,7 @@
 -- board so switching tabs is instant. A request in flight shows skeleton rows; one that fails or does not
 -- answer in LOAD_TIMEOUT seconds says so, with a way to try again; a failure never wipes rows already shown.
 --
--- Under the tabs, the player's own standing: a seal in the colour of their tier, and where they are -- from
+-- Under the tabs, the player's own standing: the seal of their tier and its word, and where they are -- from
 -- the board when they are listed, from the profile's ranked record otherwise -- with a way to find their
 -- row. The first three stand on a podium (LeaderboardView), the rest are rows with a seal of their tier:
 -- the illuminated rank ladder, read from the rank key the server wrote on each row. The player's own row
@@ -67,7 +67,8 @@ local TOP_COUNT = RankingConfig.Leaderboard.TopCount
 local BOARD_KEY_PREFIX = "leaderboard.board."
 local TABS_HEIGHT = 48
 local SKELETON_ROWS = 5
-local STANDING_SEAL = 36
+-- 52 with the rims of the higher tiers, the standing's own height.
+local STANDING_SEAL = 40
 local ROWS_BASE = 10
 -- Boards named after a ranked mode read that mode's record in the profile; "Global" spans every mode.
 local MODE_BOARDS: { [string]: boolean } = {}
@@ -160,8 +161,20 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		standing.Size = UDim2.new(1, 0, 0, Theme.touchTargetHeight(Theme.Sizes.ButtonHeight))
 	end))
 
-	local youSeal = Standings.seal(RankingConfig.Tiers[1].Id, STANDING_SEAL, standing, 1)
+	-- The player's own tier: its seal, gold leaf and all, and its word.
+	local youSeal = Standings.seal(RankingConfig.Tiers[1].Id, STANDING_SEAL, standing, 1, deps.Localize, true)
 	own(trove, youSeal)
+	local tierLabel = Instance.new("TextLabel")
+	tierLabel.Name = "Tier"
+	tierLabel.BackgroundTransparency = 1
+	tierLabel.AutomaticSize = Enum.AutomaticSize.X
+	tierLabel.Size = UDim2.fromScale(0, 1)
+	tierLabel.FontFace = Theme.Fonts.Bold
+	tierLabel.TextSize = Theme.Sizes.TextBody
+	tierLabel.TextColor3 = Theme.Colors.Text
+	tierLabel.LayoutOrder = 2
+	tierLabel.Text = ""
+	tierLabel.Parent = standing
 	local youLabel = Instance.new("TextLabel")
 	youLabel.Name = "You"
 	youLabel.BackgroundTransparency = 1
@@ -169,7 +182,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 	youLabel.TextSize = Theme.Sizes.TextBody
 	youLabel.TextColor3 = Theme.Colors.Text
 	youLabel.Size = UDim2.fromScale(0, 1)
-	youLabel.LayoutOrder = 2
+	youLabel.LayoutOrder = 3
 	youLabel.TextXAlignment = Enum.TextXAlignment.Left
 	youLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	youLabel.Text = ""
@@ -192,11 +205,12 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		content.CanvasPosition = Vector2.new(0, math.clamp(centred, 0, maximum))
 	end
 
+	-- The Leaderboard's own button, on the sheet as the board draws it.
 	local findButton = Button.new({
 		Name = "FindMe",
 		Text = t("leaderboard.findMe"),
-		Variant = "Ghost",
-		LayoutOrder = 3,
+		Variant = "Secondary",
+		LayoutOrder = 4,
 		Parent = standing,
 		OnClick = findMe,
 	})
@@ -229,6 +243,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		findButton.Instance.Visible = false
 		if entries == nil then
 			youLabel.Text = "" -- nothing requested yet: no claim about the player's standing
+			tierLabel.Text = ""
 			youSeal.Instance.Visible = false
 			return
 		end
@@ -244,8 +259,8 @@ function LeaderboardScreen.new(deps: Deps): Screen
 		else
 			youLabel.Text = t("leaderboard.unranked")
 		end
-		local rank = Theme.rank(tierId)
-		youSeal:SetFill(rank.Fill, rank.Rim)
+		youSeal:SetTier(tierId)
+		tierLabel.Text = t(Theme.rank(tierId).NameKey)
 	end
 
 	----------------------------------------------------------------
@@ -282,6 +297,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 				Entry = entry,
 				Variant = "Highlight",
 				Rating = rating(entry),
+				Localize = deps.Localize,
 				LayoutOrder = 1,
 				Parent = panel.Footer,
 			})
@@ -361,7 +377,13 @@ function LeaderboardScreen.new(deps: Deps): Screen
 			ownEntry = if ownIndex ~= nil then entries[ownIndex] else nil
 			own(
 				boardTrove,
-				Standings.podium({ Entries = podium, Rating = rating, LayoutOrder = 1, Parent = panel.Content })
+				Standings.podium({
+					Entries = podium,
+					Rating = rating,
+					Localize = deps.Localize,
+					LayoutOrder = 1,
+					Parent = panel.Content,
+				})
 			)
 			for index, entry in ipairs(rows) do
 				local mine = ownIndex ~= nil and entries[ownIndex] == entry
@@ -369,6 +391,7 @@ function LeaderboardScreen.new(deps: Deps): Screen
 					Entry = entry,
 					Variant = if mine then "Highlight" else "Item",
 					Rating = rating(entry),
+					Localize = deps.Localize,
 					LayoutOrder = ROWS_BASE + index,
 					Parent = panel.Content,
 				})

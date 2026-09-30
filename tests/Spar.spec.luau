@@ -33,6 +33,8 @@ type Setup = {
 	pit: { Alive: boolean, Health: number, Seated: number, Live: { [any]: boolean }, Open: { [any]: boolean } },
 	-- The matches the queue formed, as the user ids of their teams, and whoever still sparred when one started.
 	matches: { { { number } } },
+	-- While On, the match stand-in refuses every start, as MatchService does with no free arena.
+	refusing: { On: boolean },
 	overlapped: { any },
 	inMatch: { [number]: boolean },
 	xp: { number },
@@ -73,6 +75,7 @@ local function setup(): Setup
 	local overlapped: { any } = {}
 	local inMatch: { [number]: boolean } = {}
 	local matches: { { { number } } } = {}
+	local refusing = { On = false }
 	local ratings: { [number]: number } = {}
 	local match = {
 		isInMatch = function(player: any): boolean
@@ -85,6 +88,9 @@ local function setup(): Setup
 			return false
 		end,
 		start = function(_modeId: string, teams: { { number } }): string?
+			if refusing.On then
+				return nil
+			end
 			-- The spar of a player the match takes has ended before it starts: two fights never hold one body.
 			for _, members in ipairs(teams) do
 				for _, userId in ipairs(members) do
@@ -198,6 +204,7 @@ local function setup(): Setup
 		notices = notices,
 		pit = pit,
 		matches = matches,
+		refusing = refusing,
 		overlapped = overlapped,
 		inMatch = inMatch,
 		xp = xp,
@@ -377,6 +384,24 @@ describe("a practice duel, run", function()
 		expect(#s.teleported).toBe(0)
 		expect(s.data.get(ada).Daily.SparPaid).toBe(0)
 		expect(bea.Parent).never.toBeNil()
+	end)
+
+	it("sends home, still queued, a player handed over to a match that then refuses to start", function()
+		local s = setup()
+		local ada = queued(s, 11, "Ada", 21)
+		fight(s, ada)
+		queued(s, 12, "Bea", MatchConfig.Matchmaking.TickSeconds * 2 + 0.2)
+		-- No arena free: the queue pairs them at the break, the spar ends, and the match refuses.
+		s.refusing.On = true
+		downForger(s)
+		s.world:advance(MatchConfig.Matchmaking.TickSeconds + 0.2)
+		expect(#s.matches).toBe(0)
+		expect(sparring(s, ada)).toBe(false)
+		expect(s.pit.Open[ada]).toBeNil()
+		-- Nothing else would fetch them from an empty pit.
+		expect(s.teleported).toEqual({ ada })
+		expect((s.matchmaking.waiting(ada))).toBe(DUEL)
+		expect(s.data.get(ada).Daily.SparPaid).toBe(0)
 	end)
 
 	it("is walked out of for nothing, back to the hub, still in the queue", function()

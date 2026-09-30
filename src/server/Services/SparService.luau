@@ -6,7 +6,8 @@
 -- match's own HUD and result card: its snapshots and its outcome are a match's, in the Spar1v1 mode (MatchChanged,
 -- MatchEnded). A human who arrives in the queue takes over at the next break: while a round is played the
 -- matchmaker holds the player out of every pairing (MatchmakingService.setSparring), and when it pairs them at a
--- break, Handover ends the spar before the match starts, paying nothing. LeaveSpar walks out of it, paying nothing.
+-- break, Handover ends the spar before the match starts, paying nothing (and a match that then refuses to start
+-- sends them home, still queued). LeaveSpar walks out of it, paying nothing.
 --
 -- It pays PaidPerDay spars a day, counted in the profile (Daily.SparDay / SparPaid, DailyCap, so switching servers
 -- never resets the count), at RewardFactor of what the ranked duel pays for the same result; a spar past the
@@ -505,6 +506,25 @@ function SparService.leave(player: Player)
 	end
 end
 
+-- A match the queue formed takes the player at a break of their spar, which ends before it starts. The match can
+-- still refuse to start -- no free arena, the other player gone -- and the queue then puts them back: once the
+-- start is settled, a player no match took is sent home from the pit, where nothing else would ever fetch them.
+local function onHandover(player: Player)
+	local spar = spars[player]
+	if spar == nil then
+		return
+	end
+	finish(spar, "Handover")
+	task.defer(function()
+		if player.Parent ~= Players or spars[player] ~= nil or deps.Match.isInMatch(player) then
+			return
+		end
+		log.info("%s's match was refused after the handover: sent home, still queued", player.Name)
+		deps.Movement.clearStun(player)
+		log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)
+	end)
+end
+
 ----------------------------------------------------------------
 -- What the player did, for the result's grade
 ----------------------------------------------------------------
@@ -589,12 +609,7 @@ function SparService.Start()
 		SparService.start(player)
 	end)
 	deps.Registry.on("LeaveSpar", SparService.leave)
-	deps.Matchmaking.Handover:Connect(function(player: Player)
-		local spar = spars[player]
-		if spar ~= nil then
-			finish(spar, "Handover")
-		end
-	end)
+	deps.Matchmaking.Handover:Connect(onHandover)
 	deps.Glyph.Cast:Connect(onCast)
 	deps.Glyph.CastLanded:Connect(onCastLanded)
 	deps.Combat.Damaged:Connect(onDamaged)

@@ -20,7 +20,7 @@ local Theme = {}
 
 export type StrokeMode = "Border" | "Contextual"
 export type StrokePosition = "Inner" | "Outer" | "Center"
--- A menu's focus ring shows the primary yellow; a fight's may not (rule 11), so its inner ring is sheet.
+-- A menu's focus ring shows the primary yellow; a fight's may not (rule 11), so its ring is the sheet.
 export type FocusKind = "Menu" | "Fight"
 export type Chapter = { Band: Color3, Title: Color3, Lip: Color3, Stripe: boolean }
 export type Rarity = { Fill: Color3, Ink: Color3, Pips: number, WordKey: string, Seal: boolean, Shimmer: boolean }
@@ -502,29 +502,37 @@ function Theme.rank(tierId: string): Rank
 	}
 end
 
--- The gamepad's focus: a double ring, ink outside and yellow inside, so it reads on every fill -- the ink
--- ring on the yellow face, the yellow ring on an ink tile -- where a single charcoal ring vanished on every
--- charcoal thing it framed. Used as a SelectionImageObject; `corner` follows the target (a pill by default).
+-- The gamepad's focus, as the board draws it (`outline: 3px solid primary; outline-offset: 5px` over a
+-- `0 0 0 9px ink` halo): outward from the target's edge, ink to 5, the yellow ring from 5 to 8, ink again to
+-- 9. It reads on every fill -- the ink on the yellow face, the yellow on an ink tile -- where a single charcoal
+-- ring vanished on every charcoal thing it framed. Used as a SelectionImageObject; `corner` follows the target
+-- (a pill by default), and each ring stays concentric with it.
+local FOCUS_HALO = 9
+local FOCUS_RING_OFFSET = 5
+
 function Theme.focusRing(kind: FocusKind?, corner: UDim?): Frame
 	local root = Instance.new("Frame")
 	root.Name = "Selection"
 	root.BackgroundTransparency = 1
 	root.Size = UDim2.fromScale(1, 1)
+	local shape = corner or Theme.Pill
 
-	local function ring(name: string, grow: number, color: string, position: StrokePosition)
+	local function ring(name: string, grow: number, color: string, thickness: number, order: number)
 		local frame = Instance.new("Frame")
 		frame.Name = name
 		frame.BackgroundTransparency = 1
 		frame.AnchorPoint = Vector2.new(0.5, 0.5)
 		frame.Position = UDim2.fromScale(0.5, 0.5)
 		frame.Size = UDim2.new(1, grow, 1, grow)
-		Theme.corner(frame, corner or Theme.Pill)
-		Theme.stroke(frame, color, Theme.Sizes.Stroke, "Border", position)
+		frame.ZIndex = order
+		-- A pill stays a pill; a fixed corner grows with the frame, so the ring runs parallel to the target.
+		Theme.corner(frame, if shape.Scale > 0 then shape else UDim.new(0, shape.Offset + grow / 2))
+		Theme.stroke(frame, color, thickness, "Border", "Outer")
 		frame.Parent = root
 	end
 
-	ring("Outer", 12, "Accent", "Outer")
-	ring("Inner", 4, if kind == "Fight" then "PanelRaised" else "Primary", "Center")
+	ring("Halo", 0, "Accent", FOCUS_HALO, 1)
+	ring("Ring", FOCUS_RING_OFFSET * 2, if kind == "Fight" then "PanelRaised" else "Primary", Theme.Sizes.Stroke, 2)
 	return root
 end
 

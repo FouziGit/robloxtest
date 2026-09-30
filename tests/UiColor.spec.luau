@@ -11,6 +11,7 @@ local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -767,16 +768,50 @@ describe("the restyled controls", function()
 				error(name .. " draws its own focus instead of Theme.focusRing")
 			end
 		end
+		-- The board's focus: outward from the edge, ink to 5, the yellow from 5 to 8, ink again to 9.
 		local theme = stripComments(fs.readFile(THEME))
-		expect(string.find(theme, 'ring("Outer", 12, "Accent", "Outer")', 1, true)).never.toBeNil()
+		expect(string.find(theme, "local FOCUS_HALO = 9\n", 1, true)).never.toBeNil()
+		expect(string.find(theme, "local FOCUS_RING_OFFSET = 5\n", 1, true)).never.toBeNil()
+		expect(string.find(theme, 'ring("Halo", 0, "Accent", FOCUS_HALO, 1)', 1, true)).never.toBeNil()
 		expect(
 			string.find(
 				theme,
-				'ring("Inner", 4, if kind == "Fight" then "PanelRaised" else "Primary", "Center")',
+				'ring("Ring", FOCUS_RING_OFFSET * 2, if kind == "Fight" then "PanelRaised" else "Primary", Theme.Sizes.Stroke, 2)',
 				1,
 				true
 			)
 		).never.toBeNil()
+		-- Run: each ring's frame, its line, its colour for each kind, and its corner concentric with the target.
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		for _, case in ipairs({
+			{ Kind = nil, Ring = Theme.Colors.Primary },
+			{ Kind = "Menu", Ring = Theme.Colors.Primary },
+			{ Kind = "Fight", Ring = Theme.Colors.PanelRaised },
+		}) do
+			for _, corner in ipairs({ Theme.Pill, roblox.UDim.new(0, Theme.Sizes.CornerTile) }) do
+				local focus = Theme.focusRing(case.Kind :: any, corner)
+				local halo, ring = focus:FindFirstChild("Halo"), focus:FindFirstChild("Ring")
+				assert(halo ~= nil and ring ~= nil, "the focus has no halo or no ring: this gate would check nothing")
+				expect(#focus:GetChildren()).toBe(2)
+				expect(focus.Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(halo.Size).toBe(roblox.UDim2.fromScale(1, 1))
+				expect(ring.Size).toBe(roblox.UDim2.new(1, 10, 1, 10))
+				expect(ring.ZIndex).toBeGreaterThan(halo.ZIndex)
+				local haloLine = halo:FindFirstChildOfClass("UIStroke")
+				local ringLine = ring:FindFirstChildOfClass("UIStroke")
+				expect(haloLine.BorderStrokePosition.Name).toBe("Outer")
+				expect(ringLine.BorderStrokePosition.Name).toBe("Outer")
+				expect(haloLine.Thickness).toBe(9)
+				expect(ringLine.Thickness).toBe(Theme.Sizes.Stroke)
+				expect(haloLine.Color).toBe(Theme.Colors.Accent)
+				expect(ringLine.Color).toBe(case.Ring)
+				local haloCorner = halo:FindFirstChildOfClass("UICorner").CornerRadius
+				local ringCorner = ring:FindFirstChildOfClass("UICorner").CornerRadius
+				expect(haloCorner).toBe(corner)
+				expect(ringCorner).toBe(if corner.Scale > 0 then corner else roblox.UDim.new(0, corner.Offset + 5))
+			end
+		end
 	end)
 
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()

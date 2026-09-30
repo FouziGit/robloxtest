@@ -104,8 +104,12 @@ describe("the hub's meta cluster", function()
 		expect(first :: number).toBeLessThan(counted :: number)
 		-- Hidden in a fight, nothing counts; back in the hub, what was won counts up.
 		expect(has(body(source, "setVisible"), "column.Visible = visible if visible then showFolios() end")).toBe(true)
-		expect(has(source, 'textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, Theme.Colors.Primary)')).toBe(true)
-		expect(ThemeConfig.contrast(COLORS.Primary, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
+		-- The screens' pill's count and coin (FoliosPill), the count in the sheet on the plate.
+		expect(has(source, 'textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, Theme.Colors.PanelRaised)')).toBe(
+			true
+		)
+		expect(has(source, "FoliosPill.coin(foliosRow, 1)")).toBe(true)
+		expect(ThemeConfig.contrast(COLORS.PanelRaised, COLORS.Plate)).toBeGreaterThanOrEqual(4.5)
 		local cluster = folded(CLUSTER)
 		expect(has(cluster, 'props.OnOpen("Shop", { Tab = FOLIOS_TAB })')).toBe(true)
 		expect(has(source, 'local FOLIOS_TAB = "Folios"\n')).toBe(true)

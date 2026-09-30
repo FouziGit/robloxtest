@@ -67,6 +67,10 @@ export type Panel = {
 	SetContentMode: (self: Panel, mode: ContentMode) -> (),
 	SetHeaderHeight: (self: Panel, height: Height) -> (),
 	SetFooterHeight: (self: Panel, height: Height) -> (),
+	-- With a pointer, the card is no taller than its bands and `height` of content in its padding (never above
+	-- its largest size): a screen whose content stands at a fixed height leaves no empty band under it. On a
+	-- phone the card still takes the height it has.
+	SetContentHeight: (self: Panel, height: number) -> (),
 	-- The card's half of a chapter screen's entrance and exit (ScreenRoot). The exit fades the card as one
 	-- piece, puts it back where it was, then calls `onDone`.
 	PlayEnter: (self: Panel) -> (),
@@ -220,6 +224,7 @@ function Panel.new(props: Props): Panel
 
 	local headerHeight: Height = 0
 	local footerHeight: Height = 0
+	local contentHeight: number? = nil
 
 	local function bandHeight(height: Height): number
 		local value: number
@@ -237,15 +242,22 @@ function Panel.new(props: Props): Panel
 	-- The chapter band holds the cross and the way back, so it follows their touch minimum
 	-- (ChapterBand.height): on a phone the unscaled touch row is taller than Theme.Sizes.RowHeight.
 	local function relayout()
-		sizeConstraint.MaxSize = if Theme.touchOnly()
-			then UNCAPPED
-			else props.Size or Vector2.new(Theme.Sizes.PanelWidth, Theme.Sizes.PanelHeight)
 		local chapterHeight = ChapterBand.height()
 		local stripe = band:StripeHeight()
 		local topHeight =
 			math.min(BAND_EDGE + chapterHeight + stripe + Theme.Sizes.PaddingSmall, chapterHeight + TOP_ALLOWANCE)
 		local headerSize = bandHeight(headerHeight)
 		local footerSize = bandHeight(footerHeight)
+		local largest = props.Size or Vector2.new(Theme.Sizes.PanelWidth, Theme.Sizes.PanelHeight)
+		local fitted = contentHeight
+		if fitted ~= nil then
+			local padding = content:FindFirstChildOfClass("UIPadding")
+			local pads = if padding ~= nil then padding.PaddingTop.Offset + padding.PaddingBottom.Offset else 0
+			-- The card stands on its elevation: the face it holds its bands and content in is that much shorter.
+			local tall = CARD_ELEVATION + topHeight + headerSize + footerSize + fitted + pads
+			largest = Vector2.new(largest.X, math.min(largest.Y, tall))
+		end
+		sizeConstraint.MaxSize = if Theme.touchOnly() then UNCAPPED else largest
 		band.Instance.Size = UDim2.new(1, -BAND_EDGE * 2, 0, chapterHeight + stripe)
 		header.Position = UDim2.fromOffset(0, topHeight)
 		header.Size = UDim2.new(1, 0, 0, headerSize)
@@ -429,6 +441,11 @@ function Panel.new(props: Props): Panel
 		relayout()
 	end
 
+	local function setContentHeight(_self: Panel, height: number)
+		contentHeight = height
+		relayout()
+	end
+
 	-- No-op without a gamepad, so screens can call it unconditionally. The ScreenGui must already be
 	-- enabled: the engine drops a selection pointing inside a disabled ScreenGui.
 	local function focusForGamepad(_self: Panel, target: GuiObject?)
@@ -486,6 +503,7 @@ function Panel.new(props: Props): Panel
 		SetContentMode = setContentMode,
 		SetHeaderHeight = setHeaderHeight,
 		SetFooterHeight = setFooterHeight,
+		SetContentHeight = setContentHeight,
 		PlayEnter = playEnter,
 		PlayExit = playExit,
 		FocusForGamepad = focusForGamepad,

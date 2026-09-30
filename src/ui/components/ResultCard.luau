@@ -43,6 +43,8 @@ export type ResultCard = {
 	Celebrate: (self: ResultCard, outcome: Types.MatchOutcome) -> (),
 	-- The card has moved on: a replay or a flight still running is dropped.
 	Stop: (self: ResultCard) -> (),
+	-- The rows stand closer (TIGHT_GAP) on a window too short for them at their gap: its owner decides.
+	Tighten: (self: ResultCard, tight: boolean) -> (),
 	Destroy: (self: ResultCard) -> (),
 }
 
@@ -57,6 +59,9 @@ local GRADE_SEALS: { [string]: { Fill: Color3, Pips: number } } = {
 	["grade.shaky"] = { Fill = Theme.Colors.Chalk, Pips = 1 },
 }
 local ROW_GAP = Theme.Sizes.Gap
+-- Between the rows of a card whose window is too short for them at ROW_GAP: 720 high, the smallest window a
+-- pointer plays in, left the fullest rows 435 units where they need 478 at their gap, and 430 at this one.
+local TIGHT_GAP = 4
 local SCORE_HEIGHT = 72
 local SCORE_PADDING = 18
 local GRADE_SEAL = 56
@@ -422,6 +427,10 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		generation += 1
 	end
 
+	local function tighten(_self: ResultCard, tight: boolean)
+		layout.Padding = UDim.new(0, if tight then TIGHT_GAP else ROW_GAP)
+	end
+
 	content.Parent = parent
 
 	local function destroy(_self: ResultCard)
@@ -435,6 +444,7 @@ function ResultCard.new(localize: Localizer, parent: Instance): ResultCard
 		ShowProgress = showProgress,
 		Celebrate = celebrate,
 		Stop = stop,
+		Tighten = tighten,
 		Destroy = destroy,
 	}
 end

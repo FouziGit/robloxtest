@@ -27,6 +27,7 @@ local Config = Shared:WaitForChild("Config")
 
 local Badge = require(script.Parent.Badge)
 local CircleButton = require(script.Parent.CircleButton)
+local FoliosPill = require(script.Parent.FoliosPill)
 local Icon = require(script.Parent.Icon)
 local Motion = require(script.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.ProgressBar)
@@ -80,7 +81,6 @@ local XP_BAR_HEIGHT = 12
 local XP_TEXT = 14
 -- The pills: the Folios and the queue.
 local PILL_HEIGHT = 40
-local COIN = 26
 local CIRCLE = 32
 local FOLIOS_TAB = "Folios"
 -- The count's words: the amount alone, grouped by thousands.
@@ -270,13 +270,12 @@ function MetaCluster.new(props: Props): MetaCluster
 		tray = row
 	end
 
-	-- The Folios: the coin, the count, and the way to more.
+	-- The Folios: the coin, the count, and the way to more -- the coin and the count of the screens' pill
+	-- (FoliosPill), the count in the sheet: the hub wrote it in gold round a coin struck with an F (seen in Studio).
 	local folios = inkPill("Folios", 2, tray, trove)
 	local foliosRow = folios:FindFirstChild("Row") :: Frame
-	local coin = Icon.new("Coin", COIN)
-	coin.LayoutOrder = 1
-	coin.Parent = foliosRow
-	local count = textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, Theme.Colors.Primary)
+	FoliosPill.coin(foliosRow, 1)
+	local count = textLabel("Count", Theme.Fonts.Numeric, Theme.Sizes.Num, Theme.Colors.PanelRaised)
 	count.AutomaticSize = Enum.AutomaticSize.X
 	count.Size = UDim2.fromScale(0, 1)
 	count.LayoutOrder = 2

@@ -48,14 +48,15 @@ local COIN_RING = Theme.Sizes.Stroke
 -- The "+" disc of the sheet, a little larger than the coin (the board's 2.6cqw to its 2.4).
 local MORE_SIZE = 28
 
--- The coin, drawn here rather than as the Coin icon: a gold disc in a sheet rim, the lip's ring inside it.
-local function coin(parent: Instance): Frame
+-- The coin, drawn here rather than as the Coin icon: a gold disc in a sheet rim, the lip's ring inside it. The
+-- hub's Folios (MetaCluster) draw the same coin, so the balance is one picture wherever it is shown.
+local function coin(parent: Instance, layoutOrder: number?): Frame
 	local disc = Instance.new("Frame")
 	disc.Name = "Coin"
 	disc.BorderSizePixel = 0
 	disc.BackgroundColor3 = Theme.Colors.Primary
 	disc.Size = UDim2.fromOffset(COIN_SIZE, COIN_SIZE)
-	disc.LayoutOrder = 1
+	disc.LayoutOrder = layoutOrder or 1
 	Theme.corner(disc, Theme.Pill)
 	Theme.stroke(disc, "PanelRaised", COIN_RIM)
 	local ring = Instance.new("Frame")
@@ -70,6 +71,8 @@ local function coin(parent: Instance): Frame
 	disc.Parent = parent
 	return disc
 end
+
+FoliosPill.coin = coin
 
 function FoliosPill.new(props: Props): FoliosPill
 	local trove = Trove.new()

@@ -18,7 +18,6 @@ export type Name =
 	| "Drop"
 	| "Lock"
 	| "Clock"
-	| "Check"
 	| "Cross"
 	| "Play"
 	| "Back"
@@ -127,9 +126,6 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 		bar(square, 0.1, 0.34, 0.5, 0.36, color)
 		bar(square, 0.28, 0.1, 0.62, 0.5, color)
 	end,
-	Check = function(square, color)
-		glyph(square, Theme.Glyphs.Check, Theme.Fonts.Bold, color, 1)
-	end,
 	Cross = function(square, color)
 		bar(square, 0.16, 0.9, 0.5, 0.5, color, 45)
 		bar(square, 0.16, 0.9, 0.5, 0.5, color, -45)
@@ -137,8 +133,11 @@ local builders: { [string]: (square: Frame, color: Color3) -> () } = {
 	Play = function(square, color)
 		glyph(square, Theme.Glyphs.Play, Theme.Fonts.Bold, color, 0.9)
 	end,
+	-- The way back: a chevron of two strokes, as heavy as the cross. The "‹" it was drawn with is a guillemet,
+	-- a third of its square in the label face, and read as a speck beside its word (seen in Studio).
 	Back = function(square, color)
-		glyph(square, Theme.Glyphs.Back, Theme.Fonts.Bold, color, 1)
+		bar(square, 0.52, 0.16, 0.48, 0.34, color, -45)
+		bar(square, 0.52, 0.16, 0.48, 0.66, color, 45)
 	end,
 	-- The leaderboard: second, first, third.
 	Podium = function(square, color)

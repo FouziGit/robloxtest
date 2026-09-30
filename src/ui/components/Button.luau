@@ -9,10 +9,11 @@
 --   Premium    the yellow, a second line for the price     Tile       a menu tile, sized by its grid
 --   Ghost      no face: an underlined word                 Ally       the cyan of us: bring a friend
 --
--- A button is as wide as its word, never less than a thumb's worth, and never truncates it. A disabled
--- button says why (a lock and a level, a claimed seal, "slots full"), a pending one bounces three dots
--- until the server answers or gives up, and the button plays its own click (UiSound). Theme.minPixelSize
--- keeps it at Theme.MinTouchTarget real pixels whatever the UIScale.
+-- A button is as wide as its word, never less than a thumb's worth, and never truncates it; a compact one is
+-- the board's small pill, its word in the label face, as snug and as short as a touch target allows. A
+-- disabled button says why (a lock and a level, a claimed seal, "slots full"), a pending one bounces three
+-- dots until the server answers or gives up, and the button plays its own click (UiSound).
+-- Theme.minPixelSize keeps it at Theme.MinTouchTarget real pixels whatever the UIScale.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -52,6 +53,8 @@ export type Props = {
 	-- The screen whose chapter colours an Owner button or a tile (a ThemeConfig.Chapters key).
 	Chapter: string?,
 	Wide: boolean?,
+	-- The board's small pill: the word in the label face, snug, as tall as a touch target and no taller.
+	Compact: boolean?,
 	DisabledReason: DisabledReason?,
 	-- Called when a pending button gives up waiting (ThemeConfig.Timing.PendingTimeoutSeconds).
 	OnTimeout: (() -> ())?,
@@ -79,6 +82,9 @@ local Button = {}
 local MIN_WIDTH = 140
 local WIDE_WIDTH = 220
 local PADDING_X = 18
+-- The compact pill's word and its margins (the board's `.q`: 1.4cqw heavy, padded 1.3cqw).
+local COMPACT_TEXT_SIZE = 14
+local COMPACT_PADDING = 13
 local ICON_SIZE = 28
 local REASON_ICON_SIZE = 20
 local GAP = 8
@@ -165,6 +171,8 @@ function Button.new(props: Props): Button
 	local pendingToken = 0
 	local hovered, pressed = false, false
 	local isTile = variant == "Tile"
+	local compact = props.Compact == true
+	local paddingX = if compact then COMPACT_PADDING else PADDING_X
 
 	local button = Instance.new("TextButton")
 	button.Name = props.Name or "Button"
@@ -172,7 +180,7 @@ function Button.new(props: Props): Button
 	button.BackgroundTransparency = 1
 	button.BorderSizePixel = 0
 	button.Text = ""
-	button.Size = props.Size or UDim2.fromOffset(0, Theme.Sizes.ButtonHeight)
+	button.Size = props.Size or UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight)
 	button.LayoutOrder = props.LayoutOrder or 0
 	button.Selectable = not disabled
 	local stretched = props.Size ~= nil and props.Size.X.Scale ~= 0
@@ -203,10 +211,10 @@ function Button.new(props: Props): Button
 	measure.BackgroundTransparency = 1
 	measure.TextTransparency = 1
 	measure.AutomaticSize = Enum.AutomaticSize.X
-	measure.FontFace = Theme.Fonts.Bold
-	measure.TextSize = Theme.Sizes.TextButton
+	measure.FontFace = if compact then Theme.Fonts.Label else Theme.Fonts.Bold
+	measure.TextSize = if compact then COMPACT_TEXT_SIZE else Theme.Sizes.TextButton
 	local measurePadding = Instance.new("UIPadding")
-	measurePadding.PaddingRight = UDim.new(0, PADDING_X)
+	measurePadding.PaddingRight = UDim.new(0, paddingX)
 	measurePadding.Parent = measure
 	measure.Visible = not isTile
 	measure.Parent = button
@@ -288,6 +296,9 @@ function Button.new(props: Props): Button
 		sublabel.TextSize = Theme.Sizes.TextBody - 2
 	elseif variant == "Ghost" then
 		label.TextSize = GHOST_TEXT_SIZE
+	elseif compact then
+		label.FontFace = Theme.Fonts.Label
+		label.TextSize = COMPACT_TEXT_SIZE
 	end
 
 	-- Three dots that bounce while the server has not answered: a wave on ONE loop goes back and forth across
@@ -445,14 +456,14 @@ function Button.new(props: Props): Button
 		iconSlot.Visible = shown
 		iconSlot.Size = UDim2.fromOffset(size, size)
 		local lead = if shown and not isTile then size + GAP else 0
-		measurePadding.PaddingLeft = UDim.new(0, PADDING_X + lead)
+		measurePadding.PaddingLeft = UDim.new(0, paddingX + lead)
 	end
 
 	local function render()
 		local shown = if disabled and reasonText ~= nil then reasonText :: string else text
 		label.Text = shown
 		measure.Text = shown
-		local minWidth = if props.Wide then WIDE_WIDTH else MIN_WIDTH
+		local minWidth = if props.Wide then WIDE_WIDTH elseif compact then Theme.MinTouchTarget else MIN_WIDTH
 		measure.Size = UDim2.new(0, minWidth, 1, 0)
 		label.TextColor3 = if disabled then Theme.Colors.TextMuted else look.Ink
 		sublabel.TextColor3 = label.TextColor3

@@ -713,6 +713,37 @@ describe("the restyled controls", function()
 		expect(minimum :: number).toBeGreaterThanOrEqual(140)
 		expect(wide :: number).toBeGreaterThanOrEqual(220)
 		expect(string.find(button, "measure.Size = UDim2.new(0, minWidth, 1, 0)", 1, true)).never.toBeNil()
+		-- The fight's compact pill drops the 140 for its snug word, never below a thumb (D-179).
+		expect(
+			string.find(
+				button,
+				"local minWidth = if props.Wide then WIDE_WIDTH elseif compact then Theme.MinTouchTarget else MIN_WIDTH",
+				1,
+				true
+			)
+		).never.toBeNil()
+		expect(string.find(button, "Theme.minPixelSize(button, Theme.MinTouchTarget)", 1, true)).never.toBeNil()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local regular = Button.new({ Text = "Menu", Parent = world.playerGui })
+		local pill = Button.new({ Text = "Menu", Compact = true, Parent = world.playerGui })
+		expect(regular.Instance:FindFirstChild("Measure").Size.X.Offset).toBeGreaterThanOrEqual(140)
+		expect(pill.Instance:FindFirstChild("Measure").Size.X.Offset).toBe(Theme.MinTouchTarget)
+		expect(pill.Instance:FindFirstChildOfClass("UISizeConstraint").MinSize.X).toBeGreaterThanOrEqual(
+			Theme.MinTouchTarget
+		)
+		expect(pill.Instance.Size.Y.Offset).toBe(Theme.MinTouchTarget)
+		expect(regular.Instance.Size.Y.Offset).toBe(Theme.Sizes.ButtonHeight)
+		local measure = pill.Instance:FindFirstChild("Measure")
+		local padding = measure:FindFirstChildOfClass("UIPadding")
+		expect(padding.PaddingLeft.Offset).toBe(13)
+		expect(padding.PaddingRight.Offset).toBe(13)
+		expect(measure.TextSize).toBe(14)
+		expect(measure.FontFace.Weight).toBe(Theme.Fonts.Label.Weight)
+		local word = pill.Instance:FindFirstChild("Label", true)
+		expect(word.TextSize).toBe(measure.TextSize)
+		expect(word.FontFace.Weight).toBe(measure.FontFace.Weight)
 	end)
 
 	it("lift a hovered button and sink a pressed one, and never grow or shrink one", function()

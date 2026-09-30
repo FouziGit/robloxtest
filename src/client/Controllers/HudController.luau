@@ -11,7 +11,8 @@
 --   Banner        the match's centre splashes (found, the count, the fight, a round) and the takedown pop
 --   SpectatePlate who an eliminated player watches, in the dock's place (SpectateController)
 -- and what stays here: the quick bar (bottom-right: Play, Shop and Leaderboard one click away, and the Menu
--- button beside the key that opens it, badged with what waits to be claimed), on touch the Play sticker left of
+-- button beside the key that opens it, badged with what waits to be claimed; in a fight only the Menu, a small
+-- word-only pill beside its key, D-179), on touch the Play sticker left of
 -- the Menu disc, the top-centre column the bands stack in (HudController.topStack), and the toast lane. Every
 -- visible text goes through Localize; server Notify payloads carry Strings keys, never text.
 
@@ -202,6 +203,8 @@ local quickBar: Frame
 local menuRow: Frame
 local quickButtons: { Button.Button } = {}
 local menuButton: Button.Button
+-- The Menu in a fight: the board's small pill, its word alone (the hub's button carries its icon and its badge).
+local menuPill: Button.Button
 -- The key that opens the menu, drawn beside the Menu button for the device in use.
 local menuKey: Keycap.Keycap? = nil
 local menuKeyDevice: Keycap.Device? = nil
@@ -265,20 +268,23 @@ local function buildTopStack(parent: Instance)
 end
 
 -- A button as wide as its label, hugging the right edge whatever the language. The button plays its own click.
+-- Given no icon it is the fight's compact pill: its word alone, as short as a touch target.
 local function quickButton(
 	nameKey: string,
 	variant: Button.Variant,
 	order: number,
-	icon: Icon.Name,
+	icon: Icon.Name?,
 	parent: Instance,
 	onClick: () -> ()
 ): Button.Button
+	local compact = icon == nil
 	local button = Button.new({
 		Name = nameKey,
 		Text = "",
 		Variant = variant,
 		Icon = icon,
-		Size = UDim2.fromOffset(0, Theme.Sizes.ButtonHeight),
+		Compact = compact,
+		Size = UDim2.fromOffset(0, if compact then Theme.MinTouchTarget else Theme.Sizes.ButtonHeight),
 		LayoutOrder = order,
 		Parent = parent,
 		OnClick = onClick,
@@ -329,10 +335,14 @@ local function buildQuickBar(parent: Instance)
 	rowLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	rowLayout.Parent = menuRow
 	menuRow.Parent = quickBar
-	-- The key cap stands before the Menu button (refreshMenuKey).
+	-- The key cap stands before the Menu button (refreshMenuKey): the hub's, or in a fight the pill (refreshHub).
 	menuButton = quickButton(MENU_NAME_KEY, "Secondary", 2, "Burger", menuRow, function()
 		menuController.toggle()
 	end)
+	menuPill = quickButton(MENU_NAME_KEY, "Secondary", 3, nil, menuRow, function()
+		menuController.toggle()
+	end)
+	menuPill.Instance.Visible = false
 end
 
 -- The touch Play sticker, placed once the discs are (placePlaySticker).
@@ -513,6 +523,8 @@ local function refreshHub()
 	for _, button in ipairs(quickButtons) do
 		button.Instance.Visible = hub
 	end
+	menuButton.Instance.Visible = hub
+	menuPill.Instance.Visible = not hub
 	local sticker = playSticker
 	if sticker ~= nil then
 		sticker.Instance.Visible = hub and not queued and inputController.touchRects()[MENU_ACTION] ~= nil
@@ -674,6 +686,7 @@ local function refreshQuickBar(data: Types.ProfileData)
 		button.Instance.Visible = not (inMatch or inArena)
 	end
 	menuButton:SetText(localize.t(MENU_NAME_KEY))
+	menuPill:SetText(localize.t(MENU_NAME_KEY))
 	refreshMenuKey(source, data)
 	quickBar.Visible = true
 end

@@ -76,6 +76,9 @@ local PLAY_SPLAT_TRANSPARENCY = 0.2
 -- share whatever the card has, so the whole menu stays above its fold.
 local GRID_COLUMNS = 3
 local POINTER_DECK_HEIGHT = Theme.Sizes.TileHeight * 2 + Theme.Sizes.Gap
+-- Each tile's chip holds a glyph (the board's): the coin's dot, the podium's peak, the pass's pip, the quest's
+-- tick, the week's seventh day, the loadout's card.
+local DAILY_GLYPH = "7"
 -- The five-pigment stripe along the foot of an ink tile that holds the pigments (the Loadout).
 local STRIPE_HEIGHT = 6
 -- The Play tile's line counts the wait once a second while the screen is up.
@@ -316,7 +319,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Shop",
 		LayoutOrder = 4,
-		Icon = "Coin",
+		Glyph = Theme.Glyphs.Dot,
 		Parent = grid,
 		OnClick = function()
 			navigate("Shop")
@@ -329,7 +332,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Leaderboard",
 		LayoutOrder = 5,
-		Icon = "Podium",
+		Glyph = Theme.Glyphs.Triangle,
 		Parent = grid,
 		OnClick = function()
 			navigate("Leaderboard")
@@ -342,7 +345,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Battlepass",
 		LayoutOrder = 6,
-		Icon = "Pass",
+		Glyph = Theme.Glyphs.Pip,
 		Parent = grid,
 		OnClick = function()
 			navigate("Battlepass")
@@ -355,7 +358,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Quests",
 		LayoutOrder = 7,
-		Icon = "Scroll",
+		Glyph = Theme.Glyphs.Check,
 		Parent = grid,
 		OnClick = function()
 			navigate("Quests")
@@ -368,7 +371,8 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Daily",
 		LayoutOrder = 8,
-		Icon = "Calendar",
+		Glyph = DAILY_GLYPH,
+		GlyphFont = Theme.Fonts.Numeric,
 		Parent = grid,
 		OnClick = function()
 			navigate("Daily")
@@ -381,7 +385,7 @@ function MenuScreen.new(deps: Deps): Screen
 		Variant = "Tile",
 		Chapter = "Loadout",
 		LayoutOrder = 9,
-		Icon = "Deck",
+		Glyph = Theme.Glyphs.Square,
 		Parent = grid,
 		OnClick = function()
 			navigate("Loadout")

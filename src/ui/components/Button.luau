@@ -42,6 +42,10 @@ export type Props = {
 	Name: string?,
 	-- An Icon name, drawn before the word.
 	Icon: Icon.Name?,
+	-- A character on a chip in its place (the board's tile icons): a Theme.Glyphs symbol, or a digit set in
+	-- GlyphFont (the roman that draws the symbols by default).
+	Glyph: string?,
+	GlyphFont: Font?,
 	Badge: Badge.Value?,
 	-- A second line: the price of a Premium button, the subtitle of a tile.
 	Sublabel: string?,
@@ -80,7 +84,11 @@ local REASON_ICON_SIZE = 20
 local GAP = 8
 local ELEVATION = 5
 local TILE_ELEVATION = 6
-local TILE_ICON_SIZE = 48
+-- A tile's icon, or its chip (the board's 4.2cqw).
+local TILE_ICON_SIZE = 42
+-- A chip: a rounded square outlined in the button's ink, its glyph half as tall as it.
+local CHIP_CORNER = 10
+local CHIP_GLYPH_SHARE = 0.5
 -- A tile's content stands this far inside its ink (the board's `padding: 1.2cqw` inside its border).
 local TILE_PADDING = 12
 -- Its word, at this size, wraps onto as many as this many lines this far apart before it shrinks.
@@ -409,6 +417,23 @@ function Button.new(props: Props): Button
 			lock.AnchorPoint = Vector2.new(1, 1)
 			lock.Position = UDim2.fromScale(1, 1)
 			lock.Parent = iconSlot
+		elseif props.Glyph ~= nil then
+			local chip = Instance.new("Frame")
+			chip.Name = "Chip"
+			chip.BackgroundTransparency = 1
+			chip.Size = UDim2.fromScale(1, 1)
+			Theme.corner(chip, CHIP_CORNER)
+			Theme.stroke(chip, ink, Theme.Sizes.Stroke)
+			local glyph = Instance.new("TextLabel")
+			glyph.Name = "Glyph"
+			glyph.BackgroundTransparency = 1
+			glyph.Size = UDim2.fromScale(1, 1)
+			glyph.FontFace = props.GlyphFont or Theme.Fonts.Symbol
+			glyph.TextSize = math.round(size * CHIP_GLYPH_SHARE)
+			glyph.TextColor3 = ink
+			glyph.Text = props.Glyph
+			glyph.Parent = chip
+			chip.Parent = iconSlot
 		elseif props.Icon ~= nil then
 			Icon.new(props.Icon, size, ink).Parent = iconSlot
 		else

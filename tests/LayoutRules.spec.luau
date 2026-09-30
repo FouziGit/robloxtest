@@ -238,6 +238,50 @@ describe("the interface, held to the engine's layouts", function()
 			expect(playLayout.VerticalFlex.Name).toBe("None")
 			expect(playLayout.VerticalAlignment.Name).toBe("Bottom")
 		end)
+
+		it("wears the board's chip on every menu tile, in the tile's own ink, " .. where, function()
+			local built, _, world = screen("MenuScreen", phone)
+			local Theme = world.require("src/ui/Theme")
+			local grid = built.Instance:FindFirstChild("Grid", true)
+			assert(grid ~= nil, "the menu has no grid: this gate would check nothing")
+			-- By the key each tile is titled with (this Localize answers keys): the board's glyphs, its ◆ and ✓
+			-- drawn as the ♦ and the √ the engine has (tests/Sigils.spec.luau).
+			local glyphs = {
+				["menu.shop"] = { "●", Theme.Fonts.Symbol },
+				["leaderboard.title"] = { "▲", Theme.Fonts.Symbol },
+				["menu.battlepass"] = { "♦", Theme.Fonts.Symbol },
+				["menu.quests"] = { "√", Theme.Fonts.Symbol },
+				["daily.title"] = { "7", Theme.Fonts.Numeric },
+				["menu.loadout"] = { "■", Theme.Fonts.Symbol },
+			}
+			local seen = 0
+			for _, tile in ipairs(grid:GetChildren()) do
+				if tile:IsA("TextButton") then
+					local word = tile:FindFirstChild("Label", true)
+					local expected = glyphs[word.Text]
+					assert(expected ~= nil, ("a tile titled %s has no chip to check"):format(word.Text))
+					seen += 1
+					local chip = tile:FindFirstChild("Chip", true)
+					assert(chip ~= nil, ("%s has no chip"):format(word.Text))
+					local glyph = chip:FindFirstChild("Glyph")
+					local line = chip:FindFirstChildOfClass("UIStroke")
+					-- A rounded square outlined 3 in the tile's ink, the glyph in that ink, half its height.
+					expect(chip.Parent.Size.X.Offset).toBe(42)
+					expect(chip:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(10)
+					expect(line.Thickness).toBe(Theme.Sizes.Stroke)
+					expect(line.Color).toBe(word.TextColor3)
+					expect(glyph.TextColor3).toBe(word.TextColor3)
+					expect(glyph.Text).toBe(expected[1])
+					expect(glyph.FontFace.Family).toBe(expected[2].Family)
+					expect(glyph.FontFace.Weight).toBe(expected[2].Weight)
+					expect(glyph.TextSize).toBe(21)
+					-- Alone in the icon's place: the pictogram it replaces is gone.
+					expect(chip.Parent.Name).toBe("Icon")
+					expect(#chip.Parent:GetChildren()).toBe(1)
+				end
+			end
+			expect(seen).toBe(6)
+		end)
 	end
 
 	it("keeps every kind of toast its own height", function()

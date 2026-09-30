@@ -4,7 +4,7 @@
 -- in the profile, so the client shows exactly the set the server tracks) under a header that counts down
 -- to the next draw, on the server's clock. Each quest is a QuestCard, and the board lists first what can be
 -- claimed, then what is being played, then what is done (QuestBoard.order). Every claimable Claim button
--- wiggles now and then, on one timer for the whole board.
+-- sways now and then, on the one breath every claim on screen sways on (Sway).
 --
 -- Claims go through the ClaimQuest remote and wait for the profile push that marks them claimed: then the
 -- card stamps its seal and the Folios in the band count up. The server decides whether a reward is
@@ -25,6 +25,7 @@ local QuestCard = require(script.Parent.Parent.components.QuestCard)
 local QuestConfig = require(Shared.Config.QuestConfig)
 local QuestLogic = require(Shared.Pure.QuestLogic)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
+local Sway = require(script.Parent.Parent.Sway)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -246,6 +247,34 @@ function QuestsScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- The board's Claim buttons, each with whether it sways now: a claim that can be pressed, and not one already
+	-- sent. One breath for the whole board, only while it is up and has a claim to find (ThemeConfig.Budget).
+	local stopSway: (() -> ())? = nil
+	local function claimButtons(): { [GuiObject]: boolean }
+		local named: { [GuiObject]: boolean } = {}
+		for _, period in ipairs(PERIODS) do
+			for _, card in ipairs(sections[period].Cards) do
+				named[card.Button.Instance] = card:GetState() == "Claimable" and not card:IsPending()
+			end
+		end
+		return named
+	end
+	local function setSwaying(on: boolean)
+		if on == (stopSway ~= nil) then
+			return
+		end
+		local stop = stopSway
+		if stop ~= nil then
+			stopSway = nil
+			stop()
+			return
+		end
+		stopSway = Sway.start(claimButtons)
+	end
+	trove:Add(function()
+		setSwaying(false)
+	end)
+
 	local function refresh()
 		local data = deps.ClientData.get()
 		firstButton = nil
@@ -289,6 +318,8 @@ function QuestsScreen.new(deps: Deps): Screen
 			end
 		end
 		refreshFolios()
+		-- A claim to find sways; a board with none left, or put away, holds no breath.
+		setSwaying(visible and firstButton ~= nil)
 	end
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
@@ -300,7 +331,7 @@ function QuestsScreen.new(deps: Deps): Screen
 	end)
 
 	----------------------------------------------------------------
-	-- While the screen is up: the countdown each minute, and the wiggle
+	-- While the screen is up: the countdown each minute
 	----------------------------------------------------------------
 
 	-- The headers are rewritten when the minute turns, never per frame.
@@ -311,19 +342,6 @@ function QuestsScreen.new(deps: Deps): Screen
 		refreshCountdowns()
 		local now = workspace:GetServerTimeNow()
 		task.delay(SECONDS_PER_MINUTE - now % SECONDS_PER_MINUTE, tickCountdown, mine)
-	end
-
-	-- One timer for the whole board, so a board full of claims is still one idle loop (ThemeConfig.Budget).
-	local function wiggle(mine: number)
-		if session ~= mine then
-			return
-		end
-		for _, period in ipairs(PERIODS) do
-			for _, card in ipairs(sections[period].Cards) do
-				card:Wiggle()
-			end
-		end
-		task.delay(Theme.Timing.WiggleEverySeconds, wiggle, mine)
 	end
 
 	refresh()
@@ -341,12 +359,12 @@ function QuestsScreen.new(deps: Deps): Screen
 		-- Written as they are, not animated: what changed while the screen was away is not news.
 		refresh()
 		visible = true
+		setSwaying(firstButton ~= nil)
 		root:PlayEnter()
 		panel:FocusForGamepad(firstButton)
 		deps.SoundController.play("UiOpen")
 		local mine = session
 		tickCountdown(mine)
-		task.delay(Theme.Timing.WiggleEverySeconds, wiggle, mine)
 	end
 
 	local function close(self: Screen)
@@ -356,6 +374,7 @@ function QuestsScreen.new(deps: Deps): Screen
 		self.Visible = false
 		visible = false
 		session += 1
+		setSwaying(false)
 		panel:ReleaseGamepadFocus()
 		root:PlayExit()
 		deps.SoundController.play("UiClose")

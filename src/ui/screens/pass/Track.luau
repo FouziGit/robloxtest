@@ -5,8 +5,8 @@
 -- filled in yellow up to the tier reached. The view comes to rest on the current tier on a spring.
 --
 -- A fifty-tier pass is never built at once: the columns around the current tier are built when the screen
--- opens, and the rest ten at a time as the view nears them. Every reward waiting to be claimed wiggles on ONE
--- shared breath (Breath), however many there are, and only while the screen asks for it.
+-- opens, and the rest ten at a time as the view nears them. Every reward waiting to be claimed sways on ONE
+-- shared breath (Sway), however many there are, and only while the screen asks for it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -14,11 +14,11 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local BattlepassConfig = require(Shared.Config.BattlepassConfig)
-local Breath = require(script.Parent.Parent.Parent.Breath)
 local Cell = require(script.Parent.Cell)
 local Motion = require(script.Parent.Parent.Parent.Motion)
 local ProgressBar = require(script.Parent.Parent.Parent.components.ProgressBar)
 local Seal = require(script.Parent.Parent.Parent.components.Seal)
+local Sway = require(script.Parent.Parent.Parent.Sway)
 local Theme = require(script.Parent.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -62,9 +62,6 @@ local SWASH_WIDTH = 60
 local SWASH_HEIGHT = 12
 local PADDING = 16
 local CHUNK = 10
--- A waiting reward's wiggle: this many degrees each way, once every WiggleEverySeconds.
-local WIGGLE_DEGREES = 2
-
 -- A column's two rewards, above the line and below it.
 local TRACKS: { Cell.Track } = { "Free", "Premium" }
 
@@ -74,8 +71,7 @@ function Track.new(props: Props): Track
 	local count = #tiers
 	local columns: { [number]: Column } = {}
 	local season: Types.BattlepassSeasonData? = nil
-	local wiggle: Breath.Reader? = nil
-	local wiggleConnection: RBXScriptConnection? = nil
+	local stopSway: (() -> ())? = nil
 
 	local frame = Instance.new("ScrollingFrame")
 	frame.Name = "Track"
@@ -272,31 +268,21 @@ function Track.new(props: Props): Track
 	end
 
 	local function setWiggling(_self: Track?, on: boolean)
-		if on == (wiggle ~= nil) then
+		if on == (stopSway ~= nil) then
 			return
 		end
-		local reader = wiggle
-		if reader ~= nil then
-			local connection = wiggleConnection
-			if connection ~= nil then
-				connection:Disconnect()
-			end
-			wiggleConnection = nil
-			wiggle = nil
-			reader.Leave()
-			for _, button in ipairs(claimButtons()) do
-				(button :: TextButton).Rotation = 0
-			end
+		local stop = stopSway
+		if stop ~= nil then
+			stopSway = nil
+			stop()
 			return
 		end
-		-- Still between wiggles, and still under reduced motion (the breath rests at its first value).
-		local joined = Breath.join("Wiggle", 0, 1, Theme.Timing.WiggleEverySeconds)
-		wiggle = joined
-		wiggleConnection = joined.Value.Changed:Connect(function(value: number)
-			local rotation = WIGGLE_DEGREES * math.sin(value * 2 * math.pi)
+		stopSway = Sway.start(function(): { [GuiObject]: boolean }
+			local named: { [GuiObject]: boolean } = {}
 			for _, button in ipairs(claimButtons()) do
-				(button :: TextButton).Rotation = rotation
+				named[button :: GuiObject] = true
 			end
+			return named
 		end)
 	end
 	trove:Add(function()

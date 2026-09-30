@@ -119,10 +119,14 @@ describe("the quests screen", function()
 		end
 	end)
 
-	it("wiggles only a claim that can be pressed, and holds still under reduced motion", function()
-		local wiggle = string.match(card, "local function wiggle%(.-\n\tend\n")
-		assert(wiggle ~= nil, "QuestCard has no wiggle: this gate would check nothing")
-		expect(wiggle).toContain('if state ~= "Claimable" or pending or UiPrefs.reducedMotion() then')
+	it("sways only a claim that can be pressed and is not sent yet, on the shared sway, while a claim waits", function()
+		expect(screen).toContain(
+			'named[card.Button.Instance] = card:GetState() == "Claimable" and not card:IsPending()'
+		)
+		expect(screen).toContain("stopSway = Sway.start(claimButtons)")
+		expect(screen).toContain("setSwaying(visible and firstButton ~= nil)")
+		-- The card has no sway of its own any more (Sway, D-XXX).
+		expect(string.find(card, "Rotation", 1, true)).toBeNil()
 	end)
 
 	it("claims in the Quests chapter's own blue, on its lip, with its gloss", function()
@@ -162,5 +166,103 @@ describe("the quests screen", function()
 		expect(click).toContain("button:SetPending(true)")
 		expect(string.find(click :: string, "Stamp", 1, true)).toBeNil()
 		expect(card).toContain('if animate and previous == "Claimable" and next == "Claimed" then')
+	end)
+end)
+
+-- One way to find a claim and one way to celebrate it (PROGRESS:411, D-XXX), run (tests/engine.luau). The Pass swayed
+-- its Claim buttons on the shared breath and the Quests on a timer of their own; the Shop and the daily reward burst
+-- with Burst and the quest card with a copy of it tuned otherwise. Each gesture has one module now.
+describe("a claim's sway and its burst, one way each", function()
+	local function collect(directory: string, out: { string })
+		for _, entry in ipairs(fs.readDir(directory)) do
+			local path = directory .. "/" .. entry
+			if fs.isDir(path) then
+				collect(path, out)
+			elseif string.match(entry, "%.luau$") then
+				table.insert(out, path)
+			end
+		end
+	end
+
+	it("breathes the sway in Sway alone, and bursts every claim and purchase through Burst", function()
+		local files: { string } = {}
+		collect("src", files)
+		local sways = {}
+		for _, path in ipairs(files) do
+			local source = stripComments(fs.readFile(path))
+			if string.find(source, 'Breath.join("Wiggle"', 1, true) ~= nil then
+				table.insert(sways, path)
+			end
+		end
+		expect(sways).toEqual({ "src/ui/Sway.luau" })
+		expect(stripComments(fs.readFile("src/ui/screens/pass/Track.luau"))).toContain(
+			"stopSway = Sway.start(function()"
+		)
+		-- What a claim or a purchase that lands throws: Burst's blots, never a set of splats of its own.
+		for _, path in ipairs({ CARD, "src/ui/screens/DailyScreen.luau", "src/ui/screens/shop/Purchase.luau" }) do
+			local source = stripComments(fs.readFile(path))
+			expect(string.find(source, "Burst.play(", 1, true)).never.toBeNil()
+			if string.find(source, "Splat.new(", 1, true) ~= nil then
+				error(path .. " throws splats of its own beside Burst")
+			end
+		end
+		expect(stripComments(fs.readFile(CARD))).toContain("Burst.play(holder, BURST_TINTS)")
+	end)
+
+	it("tilts a claim both ways on the breath and keeps one already sent upright, still under less motion", function()
+		for _, reduced in ipairs({ false, true }) do
+			local world = Engine.world({ Stubs = Engine.interfaceStubs({ reducedMotion = reduced }) })
+			local Sway = world.require("src/ui/Sway")
+			local gui = Engine.instance("ScreenGui", world.playerGui)
+			local waiting = Engine.instance("TextButton", gui)
+			local sent = Engine.instance("TextButton", gui)
+			local stop = Sway.start(function(): any
+				return { [waiting] = true, [sent] = false }
+			end)
+			local most, least = 0, 0
+			for _ = 1, 600 do
+				world:advance(1 / 60)
+				most = math.max(most, waiting.Rotation)
+				least = math.min(least, waiting.Rotation)
+				expect(sent.Rotation).toBe(0)
+			end
+			if reduced then
+				expect(most).toBe(0)
+				expect(least).toBe(0)
+			else
+				expect(most).toBeGreaterThan(1)
+				expect(least).toBeLessThan(-1)
+			end
+			stop()
+			expect(waiting.Rotation).toBe(0)
+		end
+	end)
+
+	it("bursts behind a quest's seal when its claim lands, with the blots every claim bursts with", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local QuestCard = world.require("src/ui/components/QuestCard")
+		local ScreenRoot = world.require("src/ui/components/ScreenRoot")
+		local root = ScreenRoot.new({ Name = "Quests", DisplayOrder = 1 })
+		root.Instance.Parent = world.playerGui
+		local quest = QuestCard.new({
+			Title = "quest.castGlyphs",
+			Reward = "quest.reward",
+			ClaimText = "quest.claim",
+			ClaimedText = "quest.claimed",
+			OnClaim = function() end,
+			OnTimeout = function() end,
+			Parent = root.Content,
+		})
+		quest:Set("Claimable", 1, "3 / 3", false)
+		quest:Set("Claimed", 1, "3 / 3", true)
+		local holder = quest.Instance:FindFirstChild("SealHolder", true)
+		local blots = 0
+		for _, child in ipairs(holder:GetChildren()) do
+			if child.Name == "Burst" and child:FindFirstChild("Burst") ~= nil then
+				blots += 1
+			end
+		end
+		-- Burst's own blots: each carries the scale Burst pops it by.
+		expect(blots).toBe(3)
 	end)
 end)

@@ -89,16 +89,21 @@ function RarityBand.new(props: Props): RarityBand
 	band.Position = UDim2.fromOffset(inset, inset)
 	band.Size = UDim2.new(1, -inset * 2, 0, height)
 	band.ZIndex = zIndex
+	-- The band shows what lies inside it and no more, as the board's card clips its band to its outline.
+	band.ClipsDescendants = true
 	trove:Add(band)
 
-	-- The colour, its top corners on the inner curve of the card's, its bottom square on the rule.
+	-- The colour, its top corners on the inner curve of the card's, its bottom square on the rule. It is at
+	-- least as tall as that curve, which the engine would otherwise flatten to half its height: the word-less
+	-- band is shorter than the curve, and its corners stood out of the card's across its outline. The band
+	-- cuts what reaches under its rule.
+	local round = Theme.Sizes.CornerCard - inset
 	local colour = Instance.new("Frame")
 	colour.Name = "Fill"
 	colour.BorderSizePixel = 0
 	colour.BackgroundColor3 = look.Fill
-	colour.Size = UDim2.new(1, 0, 0, fill)
+	colour.Size = UDim2.new(1, 0, 0, math.max(fill, round * 2))
 	colour.ZIndex = zIndex
-	local round = math.min(Theme.Sizes.CornerCard - inset, fill / 2)
 	Theme.corner(colour, round)
 	local square = Instance.new("Frame")
 	square.Name = "Square"
@@ -116,14 +121,15 @@ function RarityBand.new(props: Props): RarityBand
 	rule.BackgroundColor3 = Theme.Colors.Accent
 	rule.Position = UDim2.fromOffset(0, fill)
 	rule.Size = UDim2.new(1, 0, 0, Theme.Sizes.Stroke)
-	rule.ZIndex = zIndex
+	-- Over the colour that reaches under it.
+	rule.ZIndex = zIndex + 1
 	rule.Parent = band
 
 	-- The word on the left, the pips on the right, a spacer taking what they leave.
 	local content = Instance.new("Frame")
 	content.Name = "Content"
 	content.BackgroundTransparency = 1
-	content.Size = UDim2.fromScale(1, 1)
+	content.Size = UDim2.new(1, 0, 0, fill)
 	content.ZIndex = zIndex + 1
 	local padY = if not showWord and compact then 0 elseif compact then PAD_Y_COMPACT else PAD_Y
 	local padding = Instance.new("UIPadding")

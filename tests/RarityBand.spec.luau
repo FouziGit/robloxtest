@@ -100,6 +100,55 @@ describe("a rarity band, run", function()
 		expect(thin.Bottom).toBe(Theme.Sizes.StrokeThin + thin.Height)
 	end)
 
+	it("keeps its corners on that curve however short it is, cut at its rule", function()
+		-- The word-less band is 13 of colour, shorter than the curve is wide: a corner the engine would flatten to
+		-- half the colour's height stood out of the card's curve, over its outline.
+		local _world, RarityBand, Theme, face = bench()
+		local shapes = {
+			{ Compact = false, ShowWord = true },
+			{ Compact = true, ShowWord = true },
+			{ Compact = true, ShowWord = false },
+		}
+		-- The card's outline and the pass's thin one.
+		for _, inset in ipairs({ Theme.Sizes.Stroke, Theme.Sizes.StrokeThin }) do
+			for _, shape in ipairs(shapes) do
+				local band = RarityBand.new({
+					Rarity = "Epic",
+					Word = "Epic",
+					Parent = face,
+					Compact = shape.Compact,
+					ShowWord = shape.ShowWord,
+					Inset = inset,
+				})
+				local label = ("compact %s, word %s, inset %.2f"):format(
+					tostring(shape.Compact),
+					tostring(shape.ShowWord),
+					inset
+				)
+				local fill = band.Instance:FindFirstChild("Fill")
+				local round = fill:FindFirstChildOfClass("UICorner").CornerRadius
+				local curve = Theme.Sizes.CornerCard - inset
+				if round.Scale ~= 0 or math.abs(round.Offset - curve) > 1e-9 then
+					error(("%s: corners of %s on a curve of %.2f"):format(label, tostring(round), curve))
+				end
+				-- Tall enough for the whole curve at both corners, and cut by the band at its foot.
+				if fill.Size.Y.Scale ~= 0 or fill.Size.Y.Offset < curve * 2 - 1e-9 then
+					error(("%s: a colour %.2f tall under corners of %.2f"):format(label, fill.Size.Y.Offset, curve))
+				end
+				expect(band.Instance.ClipsDescendants).toBe(true)
+				expect(band.Instance.Size.Y.Offset).toBe(band.Height)
+				-- The rule over what the colour reaches under it; the word and the pips in the colour above it.
+				local rule = band.Instance:FindFirstChild("Rule")
+				expect(rule.Position.Y.Offset + rule.Size.Y.Offset).toBe(band.Height)
+				expect(rule.ZIndex).toBeGreaterThan(fill.ZIndex)
+				local content = band.Instance:FindFirstChild("Content", true)
+				expect(content.Size.Y.Scale).toBe(0)
+				expect(content.Size.Y.Offset).toBe(rule.Position.Y.Offset)
+				band:Destroy()
+			end
+		end
+	end)
+
 	it("is 37 and 3 with a pointer, 22 and 3 compact, 13 and 3 without its word", function()
 		local _world, RarityBand, Theme, face = bench()
 		local stroke = Theme.Sizes.Stroke
@@ -117,10 +166,12 @@ describe("a rarity band, run", function()
 				ShowWord = case.ShowWord,
 			})
 			local label = ("compact %s, word %s"):format(tostring(case.Compact), tostring(case.ShowWord))
-			local fill = band.Instance:FindFirstChild("Fill")
-			if fill.Size.Y.Offset ~= case.Fill then
-				error(("%s: a fill of %d"):format(label, fill.Size.Y.Offset))
+			-- The colour shows down to its rule, which the band ends on.
+			local rule = band.Instance:FindFirstChild("Rule")
+			if rule.Position.Y.Offset ~= case.Fill then
+				error(("%s: a fill of %d"):format(label, rule.Position.Y.Offset))
 			end
+			expect(band.Instance:FindFirstChild("Fill").Size.Y.Offset).toBeGreaterThanOrEqual(case.Fill)
 			expect(band.Height).toBe(case.Fill + stroke)
 			expect(band.Instance.Size.Y.Offset).toBe(band.Height)
 			expect(RarityBand.height(case.Compact, case.ShowWord)).toBe(band.Height)

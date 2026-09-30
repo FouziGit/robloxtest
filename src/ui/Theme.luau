@@ -114,6 +114,8 @@ Theme.Fonts = {
 	-- four-digit hit has to stay one readable block at arm's length on a phone, and because it has to
 	-- not be the same face as the prose, which is what makes a number read as a number.
 	Numeric = font(ThemeConfig.Fonts.Numeric),
+	-- The same face at rest: a count read beside its bar (the Menu's XP, the board's Oswald 500).
+	NumericMedium = font(ThemeConfig.Fonts.NumericMedium),
 	-- Glyph flavour lines, empty states, the pass subtitle: the page keeps its voice.
 	Lore = font(ThemeConfig.Fonts.Lore),
 	-- DropCap only: one illuminated character, never a word.

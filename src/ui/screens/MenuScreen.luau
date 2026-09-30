@@ -183,9 +183,12 @@ function MenuScreen.new(deps: Deps): Screen
 	local strip = row("Summary", panel.Header, Theme.Sizes.Gap)
 	strip.Size = UDim2.fromScale(1, 1)
 
+	-- The level in gold leaf, rimmed in gold then ink (the board's seal): its rings stand outside the wax, in
+	-- the room the strip leaves around it.
 	local levelSeal = Seal.new({
 		Text = "",
 		Fill = Theme.Colors.Primary,
+		Rim = Theme.Colors.Primary,
 		Size = SEAL_SIZE,
 		Face = "Numeric",
 		LayoutOrder = 1,
@@ -203,7 +206,7 @@ function MenuScreen.new(deps: Deps): Screen
 	xpLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	xpLayout.Padding = UDim.new(0, 4)
 	xpLayout.Parent = xpColumn
-	local xpText = textLabel("Xp", Theme.Fonts.Numeric, XP_TEXT_SIZE, 1, xpColumn)
+	local xpText = textLabel("Xp", Theme.Fonts.NumericMedium, XP_TEXT_SIZE, 1, xpColumn)
 	local xpBar = ProgressBar.new({
 		Color = Theme.Colors.Primary,
 		Size = UDim2.fromOffset(XP_BAR_WIDTH, XP_BAR_HEIGHT),

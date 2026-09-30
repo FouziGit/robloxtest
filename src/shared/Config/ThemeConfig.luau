@@ -344,6 +344,8 @@ ThemeConfig.Fonts = {
 	Bold = { Font = "Nunito", Weight = "ExtraBold" },
 	Label = { Font = "Nunito", Weight = "Heavy" },
 	Numeric = { Font = "Oswald", Weight = "Bold" },
+	-- A count read at rest beside its bar, lighter than a number that flies past: the Menu's XP.
+	NumericMedium = { Font = "Oswald", Weight = "Medium" },
 	Lore = { Font = "Merriweather", Weight = "Regular", Style = "Italic" },
 	Initial = { Font = "Merriweather", Weight = "Heavy" },
 	Symbol = { Font = "Merriweather", Weight = "Bold" },

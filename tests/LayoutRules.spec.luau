@@ -20,6 +20,7 @@ local Layout = require("./layout")
 local Measure = require("./measure")
 local Strings = require("../src/shared/Strings")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
+local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -56,6 +57,15 @@ local function profile(today: number): any
 		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
 	}
+end
+
+local function stripComments(source: string): string
+	local withoutBlocks = string.gsub(source, "%-%-%[%[.-%]%]", " ")
+	local lines = {}
+	for line in string.gmatch(withoutBlocks .. "\n", "(.-)\n") do
+		table.insert(lines, (string.gsub(line, "%-%-.*$", "")))
+	end
+	return table.concat(lines, "\n")
 end
 
 local function expectClean(root: any, screenHeight: number)
@@ -410,6 +420,35 @@ describe("the interface, held to the engine's layouts", function()
 					expect(ribbon.Position.X.Offset + swing).toBeLessThan(gap)
 				end
 				expect(ribbon.Position.X.Offset).toBe(12)
+			end
+		)
+
+		it(
+			"rims the level seal in gold with room for its rings, and counts the XP in Oswald Medium, " .. where,
+			function()
+				local built, height, world = screen("MenuScreen", phone)
+				local Theme = world.require("src/ui/Theme")
+				local strip = built.Instance:FindFirstChild("Summary", true)
+				assert(strip ~= nil, "the menu has no summary strip: this gate would check nothing")
+				local seal = strip:FindFirstChild("Seal")
+				assert(seal ~= nil, "the summary has no level seal: this gate would check nothing")
+				-- The rings stand 6 outside the wax (lane 3's Seal): 6 clear on every side of it, the first in its strip.
+				local clear = 6
+				expect(seal.LayoutOrder).toBe(1)
+				expect((Measure.heightOf(strip, height) - seal.Size.Y.Offset) / 2).toBeGreaterThanOrEqual(clear)
+				expect(strip:FindFirstChildOfClass("UIListLayout").Padding.Offset).toBeGreaterThanOrEqual(clear)
+				expect(strip.Parent:FindFirstChildOfClass("UIPadding").PaddingLeft.Offset).toBeGreaterThanOrEqual(clear)
+				local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+				local props = string.match(menu, "local levelSeal = Seal%.new(%b())")
+				assert(props ~= nil, "the menu builds no level seal")
+				expect(string.find(props :: string, "Fill = Theme.Colors.Primary,", 1, true)).never.toBeNil()
+				expect(string.find(props :: string, "Rim = Theme.Colors.Primary,", 1, true)).never.toBeNil()
+				-- The count beside its bar in the board's Oswald 500, lighter than a number that flies past.
+				local xp = strip:FindFirstChild("Xp", true)
+				expect(xp.FontFace.Family).toBe(Theme.Fonts.Numeric.Family)
+				expect(xp.FontFace.Weight.Name).toBe("Medium")
+				expect(ThemeConfig.Fonts.NumericMedium.Font).toBe("Oswald")
+				expect(ThemeConfig.Fonts.NumericMedium.Weight).toBe("Medium")
 			end
 		)
 

@@ -899,9 +899,13 @@ describe("a fall from the Erasure's arena", function()
 		expect(judge).toContain(
 			'local offset = plane.CFrame:PointToObjectSpace(root.Position) if math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z then slot.Placed[userId] = nil log.info("%s: %s fell off the arena, back to the hub", slot.Kind, player.Name) log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player) end'
 		)
-		-- Every fight tick, before the fight looks at who is left in the arena.
+		-- Every fight tick, before the fight looks at who is left in the arena, and through the victory or timeout
+		-- screen, while the page still stands.
 		expect(functionIn(INIT, "local function tickFight(")).toContain(
 			"if now >= slot.PhaseEndsAt then expire(current, now) return end judgeFalls(live, now) Audience.releaseMatched()"
+		)
+		expect(functionIn(INIT, "local function onHeartbeat(")).toContain(
+			'elseif now >= slot.PhaseEndsAt then log.try("finish", finish, now) return elseif slot.Boss ~= nil then judgeFalls(slot.Boss, now) end'
 		)
 		-- Nobody in the folder kills a player: the Erasure's blows go through ApplyDamage, a fall goes home.
 		for _, entry in ipairs(fs.readDir(BOSS_DIR)) do

@@ -405,6 +405,9 @@ local function onHeartbeat(deltaTime: number)
 	elseif now >= slot.PhaseEndsAt then
 		log.try("finish", finish, now)
 		return
+	elseif slot.Boss ~= nil then
+		-- The victory or timeout screen: the page still stands, and a body can still fall off it.
+		judgeFalls(slot.Boss, now)
 	end
 
 	ticks += 1

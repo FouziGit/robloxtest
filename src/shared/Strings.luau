@@ -873,7 +873,7 @@ function Strings.format(template: string, params: { [string]: any }?): string
 end
 
 -- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
--- amount of Folios, XP or Robux is grouped by thousands the way the locale writes it (Strings.Quantities).
+-- amount of Folios or XP is grouped by thousands the way the locale writes it (Strings.Quantities).
 function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
 	local entry = Strings.Table[key]
 	if entry == nil then

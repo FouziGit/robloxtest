@@ -79,8 +79,15 @@ local HOVER_SHADE = 0.06
 local PRESSED_SHADE = -0.06
 -- How far a hovered face rises off its lip.
 local HOVER_LIFT = 2
--- The face of the gloss covers this much of the face, from its top.
-local GLOSS_HEIGHT = 0.45
+-- The gloss is light caught inside the ink, never over it (the board's `inset: 3px 10px auto; height: 38%`):
+-- this far under the outline, a pill's this far in from its ends and over this share of its face, a tile's
+-- this far in from its sides, over this share, under a corner this much tighter than its own.
+local GLOSS_TOP = 3
+local GLOSS_PILL_SIDE = 10
+local GLOSS_PILL_HEIGHT = 0.38
+local GLOSS_TILE_SIDE = 8
+local GLOSS_TILE_HEIGHT = 0.36
+local GLOSS_TILE_TIGHTEN = 4
 
 local function defaultElevation(kind: Kind): number
 	if kind == "Plate" then
@@ -162,17 +169,22 @@ function Sticker.new(props: Props): Sticker
 		Motion.cancel(face)
 	end)
 
-	-- What rides with the face: the face, and with a gloss the gloss and the clear layer over it.
+	-- What rides with the face: the face, and with a gloss the gloss and the clear layer over it, each from
+	-- where it rests on an idle face.
 	local riders: { Frame } = { face }
+	local rests: { [Frame]: UDim2 } = { [face] = UDim2.new() }
 	local surface = face
 	if props.Gloss == true then
+		local pill = corner == Theme.Pill
+		local side = if pill then GLOSS_PILL_SIDE else GLOSS_TILE_SIDE
+		local share = if pill then GLOSS_PILL_HEIGHT else GLOSS_TILE_HEIGHT
 		local gloss = Instance.new("Frame")
 		gloss.Name = "Gloss"
 		gloss.BorderSizePixel = 0
 		gloss.BackgroundColor3 = Theme.Colors.PanelRaised
 		gloss.ZIndex = 3
-		gloss.Size = UDim2.new(1, 0, GLOSS_HEIGHT, -GLOSS_HEIGHT * elevation)
-		Theme.corner(gloss, corner)
+		gloss.Size = UDim2.new(1, -side * 2, share, -share * elevation)
+		Theme.corner(gloss, if pill then corner else UDim.new(corner.Scale, corner.Offset - GLOSS_TILE_TIGHTEN))
 		Theme.gradient("Gloss").Parent = gloss
 		gloss.Parent = root
 		trove:Add(gloss)
@@ -185,6 +197,8 @@ function Sticker.new(props: Props): Sticker
 		top.Parent = root
 		trove:Add(top)
 		riders = { face, gloss, top }
+		rests[gloss] = UDim2.fromOffset(side, strokeThickness + GLOSS_TOP)
+		rests[top] = UDim2.new()
 		surface = top
 		trove:Add(function()
 			Motion.cancel(gloss)
@@ -233,7 +247,7 @@ function Sticker.new(props: Props): Sticker
 		end
 		local position = UDim2.fromOffset(0, y)
 		for _, rider in ipairs(riders) do
-			local goals: { [string]: any } = { Position = position }
+			local goals: { [string]: any } = { Position = rests[rider] + position }
 			if rider == face then
 				goals.BackgroundColor3 = color
 			end

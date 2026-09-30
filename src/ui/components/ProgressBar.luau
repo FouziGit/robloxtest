@@ -1,7 +1,8 @@
 --!strict
 -- ProgressBar: an inkwell track, a vivid fill that springs to its value, a number, and -- when asked -- a
--- ghost (D-147). On the page the track wears the ink outline every sticker wears; on an HUD plate, a ring of
--- the sheet, since ink on ink is nothing. The number is the sheet in an ink stroke, which reads over the
+-- ghost (D-147). The fill is flat: a bar is read, not pressed, and no light is caught on it (the board's bars
+-- are flat everywhere, D-175). On the page the track wears the ink outline every sticker wears; on an HUD
+-- plate, a ring of the sheet, since ink on ink is nothing. The number is the sheet in an ink stroke, which reads over the
 -- fill and over the empty track alike (16.34 against its stroke).
 --
 -- The ghost is the bar the plan calls "barre de vie avec fantôme qui rattrape". When the value drops, the
@@ -135,16 +136,6 @@ function ProgressBar.new(props: Props): ProgressBar
 	fill.Size = UDim2.fromScale(current, 1)
 	Theme.corner(fill, Theme.Pill)
 	fill.Parent = track
-
-	local gloss = Instance.new("Frame")
-	gloss.Name = "Gloss"
-	gloss.BorderSizePixel = 0
-	gloss.BackgroundColor3 = Theme.Colors.PanelRaised
-	gloss.Size = UDim2.fromScale(1, 0.45)
-	gloss.ZIndex = 3
-	Theme.corner(gloss, Theme.Pill)
-	Theme.gradient("Gloss").Parent = gloss
-	gloss.Parent = fill
 
 	-- Ink hatching through the fill, shown only when low; the fill clips it.
 	local hatch = Instance.new("Frame")

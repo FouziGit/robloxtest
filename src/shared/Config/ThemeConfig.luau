@@ -214,10 +214,11 @@ end
 
 -- Every gradient of the interface (Theme.gradient). Rotation 90 puts keypoint 0 at the top.
 ThemeConfig.Gradients = {
-	-- The light caught by the top of a vivid face.
+	-- The light caught by the top of a vivid face: the sheet at half strength, fading out (the board's
+	-- `linear-gradient(sheet, transparent)` at an opacity of .5).
 	Gloss = {
 		Color = { { Time = 0, Role = "PanelRaised" }, { Time = 1, Role = "PanelRaised" } },
-		Transparency = { { 0, 0.55 }, { 1, 1 } },
+		Transparency = { { 0, 0.5 }, { 1, 1 } },
 		Rotation = 90,
 	},
 	-- A header band, a shade lighter at its top.

@@ -570,6 +570,47 @@ describe("the sticker", function()
 		expect((base(button.Instance)).BackgroundColor3).toBe(Theme.lip("Secondary"))
 	end)
 
+	it("catches its gloss inside the ink, and carries it where the face goes", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Button = world.require("src/ui/components/Button")
+		local Theme = world.require("src/ui/Theme")
+		local stroke = Theme.Sizes.Stroke
+		local function gloss(button: any): any
+			local found = button.Instance:FindFirstChild("Gloss")
+			assert(found ~= nil, "the button has no gloss: this gate would check nothing")
+			return found
+		end
+		-- A pill's: 10 in from its ends, 3 under its outline, over 38 % of its face, a pill itself.
+		local primary = Button.new({ Text = "Go", Variant = "Primary", Parent = world.playerGui })
+		local light = gloss(primary)
+		expect(light.Position.X.Offset).toBe(10)
+		expect(light.Position.Y.Offset).toBe(stroke + 3)
+		expect(light.Size.X.Scale).toBe(1)
+		expect(light.Size.X.Offset).toBe(-20)
+		expect(light.Size.Y.Scale).toBeCloseTo(0.38, 5)
+		expect(light:FindFirstChildOfClass("UICorner").CornerRadius).toBe(Theme.Pill)
+		-- A tile's: 8 in from its sides, over 36 %, under a corner 4 tighter than the tile's.
+		local tile = Button.new({ Text = "Shop", Variant = "Tile", Chapter = "Shop", Parent = world.playerGui })
+		local tileLight = gloss(tile)
+		expect(tileLight.Position.X.Offset).toBe(8)
+		expect(tileLight.Position.Y.Offset).toBe(stroke + 3)
+		expect(tileLight.Size.X.Offset).toBe(-16)
+		expect(tileLight.Size.Y.Scale).toBeCloseTo(0.36, 5)
+		expect(tileLight:FindFirstChildOfClass("UICorner").CornerRadius.Offset).toBe(Theme.Sizes.CornerTile - 4)
+		-- It rides a press and comes back to rest inside the ink.
+		local face = primary.Instance:FindFirstChild("Face")
+		primary.Instance.MouseButton1Down:Fire()
+		world:advance(1)
+		expect(light.Position.Y.Offset - face.Position.Y.Offset).toBe(stroke + 3)
+		expect(face.Position.Y.Offset).toBeGreaterThan(0)
+		primary.Instance.MouseButton1Up:Fire()
+		world:advance(2)
+		expect(light.Position.X.Offset).toBeCloseTo(10, 3)
+		expect(light.Position.Y.Offset).toBeCloseTo(stroke + 3, 3)
+		-- Half the sheet at its top, fading out, as the board's `opacity: .5`.
+		expect(ThemeConfig.Gradients.Gloss.Transparency).toEqual({ { 0, 0.5 }, { 1, 1 } })
+	end)
+
 	it("keeps a badge out of red: nothing is wrong, something is owed", function()
 		local badge = stripComments(fs.readFile("src/ui/components/Badge.luau"))
 		expect(string.find(badge, "Danger")).toBeNil()
@@ -733,6 +774,36 @@ describe("the restyled controls", function()
 		expect(ThemeConfig.contrast(ThemeConfig.Colors.PanelRaised, ThemeConfig.Colors.Outline)).toBeGreaterThanOrEqual(
 			4.5
 		)
+	end)
+
+	it("keep every bar flat, and ring the well of one on a plate in the sheet", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local ProgressBar = world.require("src/ui/components/ProgressBar")
+		local Theme = world.require("src/ui/Theme")
+		local function ring(bar: any): any
+			local track = bar.Instance:FindFirstChild("Track")
+			assert(track ~= nil, "the bar has no track: this gate would check nothing")
+			return track:FindFirstChildOfClass("UIStroke")
+		end
+		-- The board's `.bar i` are flat everywhere: the Menu's XP, the pass, the quests, the dock, the boss.
+		for _, props in ipairs({
+			{ Color = Theme.Colors.Primary, Progress = 0.6 },
+			{ Color = Theme.Colors.Health, Ghost = Theme.Colors.Danger, OnPlate = true, Progress = 0.7 },
+			{ Color = Theme.Colors.Ink, OnPlate = true, Ticks = { 0.25 }, Progress = 0.4 },
+		}) do
+			local bar = ProgressBar.new(props :: any)
+			bar.Instance.Parent = world.playerGui
+			bar:SetLow(true)
+			bar:Gain(5)
+			for _, part in ipairs(bar.Instance:GetDescendants()) do
+				if part.Name == "Gloss" or part.ClassName == "UIGradient" then
+					error("a bar catches light: " .. part:GetFullName())
+				end
+			end
+			-- On a plate the ink border would vanish and the empty well read at 1.23: its ring is the sheet (D-150).
+			local edge = ring(bar)
+			expect(edge.Color).toBe(if props.OnPlate then Theme.Colors.PanelRaised else Theme.Colors.Accent)
+		end
 	end)
 
 	it("run every fill in a track it stands out from", function()

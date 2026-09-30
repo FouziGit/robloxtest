@@ -11,9 +11,10 @@
 -- meaning -- a legendary drawn at a ninth of itself was a few dots nobody saw.
 --
 -- Rule 8 still holds: every flow follows the quality tier and the lowest tier draws only the local player's
--- own. And while the local player fights -- a ranked match, the Battleground, the Erasure's arena -- every
--- aura and trail on this screen steps back (CosmeticConfig.Fight: fewer, fainter, unlit), so the glyphs keep
--- the colour of the fight.
+-- own, and every particle is asked of the screen's budget, within the share of what bodies wear (VfxParticles).
+-- And while the local player fights -- a ranked match, the Battleground, the Erasure's arena -- every aura and
+-- trail on this screen steps back (CosmeticConfig.Fight: fewer, fainter, unlit), so the glyphs keep the colour of
+-- the fight.
 --
 -- Every place is drawn round the standard body and fitted to the wearer's own (CosmeticConfig.Body): a trunk
 -- wider than the standard one hid what was born against it. The body is measured when the character is tracked
@@ -39,6 +40,8 @@ local Palette = require(Shared.Util.Palette)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
+-- A sibling of the effects: every particle a body wears is asked of the screen's budget with them.
+local VfxParticles = require(script.Parent:WaitForChild("VfxParticles"))
 
 local log = Log.new("CosmeticController")
 
@@ -53,6 +56,8 @@ type Flow = {
 	Place: CosmeticConfig.Place,
 	Emit: string,
 	Owed: AuraMath.Flow,
+	-- The longest life of one of its particles: how long the screen's budget counts it.
+	Life: number,
 	-- A trail's particles are laid by walking: they are owed only while the body moves.
 	Moving: boolean,
 	-- The hand the last drop fell from.
@@ -246,6 +251,7 @@ local function buildEmission(
 		Place = spec.Place,
 		Emit = spec.Emit,
 		Owed = { Rate = spec.Rate * density, Carry = 0 },
+		Life = spec.Lifetime[2],
 		Moving = moving,
 		Side = 1,
 	})
@@ -442,11 +448,17 @@ local function wipeRibbons(entry: Tracked)
 	end
 end
 
--- What a flow owes since the last frame, each particle born where its place says: the attachment is moved
--- there, turned toward or away from the body's axis for In and Out, and the emitter asked for one.
+-- What a flow owes since the last frame, as much of it as the screen's particle budget grants what bodies wear
+-- (VfxParticles: their share, and what the effects leave), each particle born where its place says: the
+-- attachment is moved there, turned toward or away from the body's axis for In and Out, and the emitter asked for
+-- one. What is not granted is skipped, never owed again.
 local function emitFlow(entry: Tracked, flow: Flow, dt: number, now: number)
 	local count = AuraMath.owed(flow.Owed, dt, FLOW.MaxStepSeconds)
-	for _ = 1, count do
+	if count <= 0 then
+		return
+	end
+	local tier: QualityConfig.TierDef = quality.def()
+	for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles) do
 		flow.Side = -flow.Side
 		local x, y, z = AuraMath.point(flow.Place, entry.Fit, now, random:NextNumber(), random:NextNumber(), flow.Side)
 		local at = Vector3.new(x, y, z)

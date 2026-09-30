@@ -87,7 +87,6 @@ type PartProps = {
 
 type EmitterProps = {
 	Color: Color3,
-	Rate: number?,
 	Lifetime: NumberRange?,
 	Speed: NumberRange?,
 	Size: NumberSequence?,
@@ -96,7 +95,6 @@ type EmitterProps = {
 	Acceleration: Vector3?,
 }
 
-local MAX_PARTICLE_RATE = 40
 local MAX_PARTICLE_BURST = 40
 local FOLDER_NAME = "ClientVfx"
 local ROOT_PART_NAME = "HumanoidRootPart"
@@ -341,7 +339,8 @@ end
 local function newEmitter(parent: Instance, props: EmitterProps): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Color = ColorSequence.new(props.Color)
-	emitter.Rate = math.min(props.Rate or 0, MAX_PARTICLE_RATE)
+	-- Never on its own: it only bursts, and only what the screen's budget grants (burst below).
+	emitter.Rate = 0
 	emitter.Lifetime = props.Lifetime or NumberRange.new(0.4, 0.8)
 	emitter.Speed = props.Speed or NumberRange.new(4, 10)
 	emitter.Size = props.Size or NumberSequence.new(1, 0)
@@ -354,8 +353,13 @@ local function newEmitter(parent: Instance, props: EmitterProps): ParticleEmitte
 	return emitter
 end
 
-local function burst(emitter: ParticleEmitter, count: number)
-	emitter:Emit(math.min(count, MAX_PARTICLE_BURST))
+-- As many of `count` particles as the screen's particle budget still holds (VfxTimeline.grant), each living up to
+-- the emitter's longest life.
+local function burst(emitter: ParticleEmitter, count: number, api: Api)
+	local granted = api.Timeline.grant(math.min(count, MAX_PARTICLE_BURST), emitter.Lifetime.Max)
+	if granted > 0 then
+		emitter:Emit(granted)
+	end
 end
 
 local function rootOf(character: Model?): BasePart?
@@ -1131,7 +1135,7 @@ VfxLibrary.BlockHit = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Cracking flash when a guard is broken.
-VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
+VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, api: Api)
 	local crack = newPart(trove, "GuardBreak", {
 		Shape = Enum.PartType.Ball,
 		Color = GUARD_BREAK_COLOR,
@@ -1146,7 +1150,7 @@ VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
 		Size = NumberSequence.new(0.6, 0),
 		Acceleration = Vector3.new(0, -30, 0),
 	})
-	burst(shards, 24)
+	burst(shards, 24, api)
 end
 
 -- A killer's KillEffect cosmetic, where the victim fell (CosmeticService). Tinted in the page's inks,

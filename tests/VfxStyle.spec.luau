@@ -575,17 +575,24 @@ describe("a fire", function()
 			)
 		).never.toBe(nil)
 		expect(emitter:find("emitter.Rotation = NumberRange.new(-sway, sway)", 1, true)).never.toBe(nil)
-		-- A driven flow never hands its rate to the engine, which would thin it.
+		-- A driven flow never hands its rate to the engine, which would thin it; the others are given what the
+		-- screen's particle budget holds (VfxParticles).
 		expect(
 			emitter:find(
-				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt } else emitter.Rate = layer.Rate * density",
+				"if layer.Driven == true then entry.Owed = { Rate = layer.Rate * density, Carry = 0, At = entry.StartedAt, Life = life } else local rate = VfxParticles.reserve(clock, layer.Rate * density, life, entry.Seconds, tier.Particles) emitter.Rate = rate emitter.Enabled = rate > 0",
 				1,
 				true
 			)
 		).never.toBe(nil)
 		local step = body(TIMELINE, "local function stepEmitter(")
 		expect(step:find("local upTo = math.min(now, entry.StartedAt + entry.Seconds)", 1, true)).never.toBe(nil)
-		expect(step:find("emitter:Emit(count)", 1, true)).never.toBe(nil)
+		expect(
+			step:find(
+				"local granted = VfxParticles.grant(clock, count, owed.Life, quality.def().Particles) if granted > 0 then emitter:Emit(granted) end",
+				1,
+				true
+			)
+		).never.toBe(nil)
 	end)
 end)
 

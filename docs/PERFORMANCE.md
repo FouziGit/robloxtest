@@ -21,12 +21,12 @@ mesuré est dit tel quel à la fin.
 `src/shared/Config/QualityConfig.luau`. Le joueur choisit le sien dans l'onglet **Graphismes** des
 options ; son choix est un **plafond** que le client peut descendre, jamais dépasser.
 
-| Niveau | Couches vivantes | Particules | Lumières | Post-traitement | Empreintes |
-|---|---|---|---|---|---|
-| Élevée | 90 | ×1 | oui | oui | ×1 |
-| Moyenne | 60 | ×0,6 | oui | oui | ×0,5 |
-| Basse | 36 | ×0,35 | **non** | oui | aucune |
-| Performance | 24 | ×0,2 | non | **non** | aucune |
+| Niveau | Couches vivantes | Particules | Particules vivantes | Lumières | Post-traitement | Empreintes |
+|---|---|---|---|---|---|---|
+| Élevée | 90 | ×1 | 1200 | oui | oui | ×1 |
+| Moyenne | 60 | ×0,6 | 600 | oui | oui | ×0,5 |
+| Basse | 36 | ×0,35 | 300 | **non** | oui | aucune |
+| Performance | 24 | ×0,2 | 150 | non | **non** | aucune |
 
 Chaque champ a exactement un lecteur, et un test le vérifie dans la source du lecteur : un champ que
 personne ne lit est une promesse faite au joueur que rien ne tient.
@@ -35,7 +35,7 @@ personne ne lit est une promesse faite au joueur que rien ne tient.
   **Jamais un avertissement** : une télégraphie est une règle que six joueurs lisent, et c'est la couche
   la plus vieille de l'écran au moment où le budget est plein.
 - **Particules** — `VfxTimeline` multiplie `Rate` et `Burst` de chaque émetteur. Plancher à une particule :
-  un impact sans aucun grain se lit comme un effet manquant, pas comme un effet allégé.
+  un impact sans aucun grain se lit comme un effet manquant, pas comme un effet allégé. **Particules vivantes** — le budget de tout l'écran, effets et ce que portent les corps ensemble (voir « Le budget de particules d'un écran »).
 - **Lumières** — `VfxTimeline` ne dessine pas du tout une couche `Light`. Roblox paie une lumière locale
   qu'elle éclaire une surface ou non ; rien que le joueur doive **lire** n'est une lumière (chaque
   télégraphie est une marque), donc les couper amincit l'image sans toucher à une règle.
@@ -148,12 +148,51 @@ Trois plafonds, dont **deux dérivés** d'un autre nombre du dépôt et un **cho
 |---|---|---|
 | pic de couches d'un effet | moitié du budget du niveau plancher (24) | ≤ 12 (pire : 12, `Serif`) |
 | instances d'un effet par classe, au pic | quatre copies doivent tenir sous chaque plafond de `PoolPolicy` | pire : 30 maillages (`Dash`, ses esquisses) contre 128/4 = 32 |
-| particules d'un effet | **choisi** : environ deux fois ce que le pire effet demande | ≤ 400 (pire : 201, `Pounce`) |
+| particules d'un effet | **choisi** : un cliquet contre la dérive, 1,1 fois le pire effet | ≤ 400 (pire : 358, `Scorch`) |
 
 Le troisième est un cliquet contre la dérive, pas une mesure : **aucun appareil n'a fait tourner ce jeu**,
 et c'est le premier nombre à remplacer par une mesure. Une porte tient aussi le modèle de coût au rendu
 lui-même : si une couche empruntait une classe que le modèle ne connaît pas, chaque comparaison ci-dessus
 serait optimiste, donc le test relit les emprunts dans la source du rendu.
+
+## Le budget de particules d'un écran
+
+Le plafond ci-dessus tient **un** effet ; rien ne tenait l'écran : six Roussis lancés ensemble parmi six corps
+qui portent aura et traînée s'empilaient sans limite, à chaque niveau à la mesure de son seul `ParticleScale`
+(le tableau ci-dessous, « sans frein »). Chaque niveau a
+désormais un **budget de particules vivantes** (`QualityConfig`, champ `Particles`), et chaque émetteur le
+demande avant d'émettre (`VfxParticles`, sur `Pure/ParticleBudget`) :
+
+- une **rafale** (`Burst`) reçoit ce qui tient ;
+- un **flux émis par le rendu** (`Driven`, D-124) reçoit, image par image, ce qui tient, et ce qui ne tient pas
+  est sauté, jamais dû plus tard : un écran libéré ne répond pas par une rafale ;
+- un **émetteur que le moteur fait tourner** (`Rate`) est ralenti à ce qui tient, réservé pour toute sa vie ;
+- ce que **portent les corps** (auras, traînées, `CosmeticController`) reçoit ce qui tient dans sa part,
+  **la moitié du budget** au plus (`QualityConfig.ParticleLedger.WornShare`) : l'autre moitié est aux sorts,
+  qu'une foule du hub ne prive jamais ;
+- l'éclat d'une garde brisée (`VfxLibrary`) demande comme une rafale.
+
+Chaque lot est compté jusqu'au haut de sa durée de vie, arrondi au vingtième de seconde supérieur, sur
+l'horloge où ses particules vieillissent (celle des effets, que l'image d'impact tient, ou l'horloge stable) :
+le compte n'est jamais sous ce qui est vivant. Les particules d'un avertissement comptent et s'éclaircissent
+comme les autres : ce qui dit la règle est une marque.
+
+Sortie de `lune run scripts/effect-cost -- --table` : la scène que chaque budget doit tenir (six Roussis
+ensemble, six corps en mouvement avec l'aura et la traînée les plus lourdes), le pic de particules vivantes
+telle qu'elle est écrite, puis avec chaque émetteur qui demande le budget. `tests/ParticleBudget.spec.luau`
+joue la scène à chaque niveau, compte à part ce qui est vivant, échoue au-delà du budget, et échoue aussi
+quand un seul genre d'émetteur saute le frein.
+
+| Niveau | Budget de particules | En combat : sans frein → avec | Hors combat : sans frein → avec |
+|---|---|---|---|
+| Élevée | 1200 | 882 → 882 | 1086 → 1086 |
+| Moyenne | 600 | 540 → 540 | 654 → 600 (92 % tirées) |
+| Basse | 300 | 312 → 300 (92 % tirées) | 390 → 300 (83 % tirées) |
+| Performance | 150 | 165 → 150 (90 % tirées) | 171 → 150 (88 % tirées) |
+
+Les quatre budgets sont **choisis**, comme le plafond d'un effet : aucun appareil n'a fait tourner ce jeu. Le
+niveau Élevé dessine la scène entière, telle qu'elle a été écrite ; les plus bas l'éclaircissent là où elle
+dépasse leur budget (la part « tirées »). Ce sont des nombres à remplacer par une mesure (E6-S5, E11-S2).
 
 ## Ce que coûte ce qu'un corps porte
 

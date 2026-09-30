@@ -441,6 +441,50 @@ describe("a Legendary card, run", function()
 	end)
 end)
 
+describe("the Locker, run", function()
+	for _, phone in ipairs({ false, true }) do
+		local where = if phone then "on a phone" else "with a pointer"
+		it("names each item's rarity on a band over its card, in the card's ink outline, " .. where, function()
+			local fixture = setup("Locker", if phone then { 667, 375 } else nil)
+			local Theme = fixture.world.require("src/ui/Theme")
+			local RarityBand = fixture.world.require("src/ui/components/RarityBand")
+			local holder = fixture.screen.Instance:FindFirstChild(ITEM, true)
+			assert(holder ~= nil and holder:FindFirstChild("Body", true) ~= nil, "the locker has no card for the item")
+			local body = holder:FindFirstChild("Body", true)
+			local face = body.Parent
+			local band = face:FindFirstChild("RarityBand")
+			assert(band ~= nil, "the locker card has no rarity band")
+			expect(band:FindFirstChild("Word", true).Text).toBe("shop.rarity.Common")
+			expect(band:FindFirstChild("Fill").Size.Y.Offset).toBe(if phone then 22 else 37)
+			-- The board's outline, not the thin one of a row.
+			expect(face:FindFirstChildOfClass("UIStroke").Thickness).toBe(Theme.Sizes.Stroke)
+			-- The body starts under the band and ends at the face's foot.
+			local bottom = band.Position.Y.Offset + band.Size.Y.Offset
+			expect(body.Position.Y.Offset).toBe(bottom)
+			expect(body.Size.Y.Scale).toBe(1)
+			expect(body.Size.Y.Offset).toBe(-bottom)
+			expect(RarityBand.bottom(phone)).toBe(bottom)
+			-- And the cell holds the band, the preview, the button at its touch floor and the card's shadow.
+			local grid = holder.Parent:FindFirstChildOfClass("UIGridLayout")
+			local padding = body:FindFirstChildOfClass("UIPadding")
+			local gap = body:FindFirstChildOfClass("UIListLayout").Padding.Offset
+			local preview = body:FindFirstChild("Item").Size.Y.Offset
+			local sticker = face.Parent
+			local elevation = sticker:FindFirstChild("Base").Position.Y.Offset
+			local needed = bottom
+				+ padding.PaddingTop.Offset
+				+ preview
+				+ gap
+				+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+				+ padding.PaddingBottom.Offset
+				+ elevation
+			if needed > grid.CellSize.Y.Offset then
+				error(("the locker card needs %.1f and its cell is %.1f"):format(needed, grid.CellSize.Y.Offset))
+			end
+		end)
+	end
+end)
+
 describe("the Shop's words and pushes, run", function()
 	it("is built when a rotation the server pushed before it reaches it as it listens", function()
 		local ShopRotation = require("../src/shared/Pure/ShopRotation")

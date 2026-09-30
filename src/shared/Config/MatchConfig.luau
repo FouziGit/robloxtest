@@ -64,6 +64,17 @@ MatchConfig.Rewards = {
 	Team3v3 = { Xp = 1.2, Folios = 1.2 },
 }
 
+-- A forfeit before the rounds have been played this long, or with no damage exchanged at all, is void (E4-S3,
+-- D-XXXfarm): whoever walked out is debited as ever, whoever stayed gets no result -- no rating, reward or quest. An
+-- alt that leaves on the countdown then earns its main nothing. Counted from the first round's start to the
+-- departure that emptied a side.
+MatchConfig.MinPlayedSeconds = 30
+
+-- The Folios a day of matches pays at most, before VIP, counted in the profile (Daily.MatchDay, MatchFolios) like
+-- the Forgers' BotConfig.Credit.DailyFolioCap. About four hours of matches (docs/ECONOMY.md §2: some 240 an hour),
+-- which an honest day rarely reaches and a farm on many alts never passes. XP is not capped.
+MatchConfig.DailyFolioCap = 1000
+
 -- Geometry of generated arenas (studs). Anchors are documented in docs/GAME_DESIGN.md §8.
 MatchConfig.Arenas = {
 	Duel = { Size = 80, WallHeight = 24, SpawnDistance = 30, KillZoneDepth = -40, Height = 500 },

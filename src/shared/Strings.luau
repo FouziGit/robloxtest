@@ -485,6 +485,20 @@ Strings.Table = {
 	["match.bestChain"] = { en = "Best chain: ×{count}", fr = "Meilleure chaîne : ×{count}" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
 	["match.returning"] = { en = "Returning to the hub…", fr = "Retour au hub…" },
+	-- Two accounts farming each other (D-XXXfarm): a forfeit before the match was fought, a pair met too often today,
+	-- and a day of matches that has paid all its Folios.
+	["match.voided"] = {
+		en = "The other side left before the match was really played: no result, your rank stays as it was.",
+		fr = "L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas.",
+	},
+	["match.repeatOpponent"] = {
+		en = "Same opponent too many times today: this match leaves your rank as it was and pays a quarter.",
+		fr = "Même adversaire trop de fois aujourd'hui : ce match laisse ton rang tel quel et rapporte un quart.",
+	},
+	["match.folioCap"] = {
+		en = "Matches pay no more Folios today. XP still counts.",
+		fr = "Les matchs ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
 	["leaderboard.title"] = { en = "Leaderboard", fr = "Classement" },
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },

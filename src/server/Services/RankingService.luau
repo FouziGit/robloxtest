@@ -4,6 +4,10 @@
 -- RankingConfig), keeps Matches / Wins / Losses / PeakRating, pushes "Rank" and announces every move
 -- through RatingChanged so LeaderboardService can persist it on the season ladder.
 --
+-- A pair of players who meet again and again in one UTC day stops moving each other's rating once past
+-- RankingConfig.Opponents.FullMatchesPerDay (D-XXXfarm): every ranked result is written into both profiles'
+-- Rank.Opponents (Pure/OpponentLedger), and a repeat is reported in its delta so MatchService pays it less.
+--
 -- It also runs the end-of-season pass. DataService resets Rank.Modes when GameConfig.SeasonId changes,
 -- so the profile itself no longer knows what the player reached last season: the durable record is the
 -- previous season's ladder, read once per player through LeaderboardService. Rank.LastRewardedSeason
@@ -15,10 +19,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local DailyStreak = require(Shared.Pure.DailyStreak)
 local Elo = require(Shared.Pure.Elo)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local OpponentLedger = require(script.Parent.Parent.Pure.OpponentLedger)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Signal = require(Packages.Signal)
@@ -54,17 +60,19 @@ type Deps = {
 	Leaderboard: LeaderboardApi?,
 }
 
--- Rating move of one participant, keyed by user id in the map applyResult returns.
+-- Rating move of one participant, keyed by user id in the map applyResult returns. Repeat: the match was
+-- past the day's full matches against one of their opponents, so the rating was held (D-XXXfarm).
 export type RatingDelta = {
 	Before: number,
 	After: number,
 	RankKeyBefore: string,
 	RankKeyAfter: string,
+	Repeat: boolean,
 }
 
--- One participant of a finished match: Entry is nil when the player already left (their profile is
+-- One participant of a finished match: Entry and Rank are nil when the player already left (their profile is
 -- released, so nothing can be written for them).
-type Participant = { UserId: number, Player: Player?, Entry: RankModeData? }
+type Participant = { UserId: number, Player: Player?, Entry: RankModeData?, Rank: Types.RankData? }
 
 local RANK_SECTION = "Rank"
 -- Currency reason strings feed logs and telemetry only; they are never shown to a player.
@@ -73,6 +81,7 @@ local SEASON_REWARD_REASON = "SeasonReward"
 local TEAMS_PER_MATCH = 2
 
 local BOUNDS: Elo.Bounds = { Floor = RankingConfig.RatingFloor, Ceiling = RankingConfig.RatingCeiling }
+local OPPONENTS = RankingConfig.Opponents
 
 local RankingService = {}
 
@@ -173,6 +182,39 @@ end
 -- Match results
 ----------------------------------------------------------------
 
+-- The user ids a participant of `teamIndex` faced.
+local function opponentIds(teams: { { Participant } }, teamIndex: number): { number }
+	local ids: { number } = {}
+	for _, opponent in ipairs(teams[TEAMS_PER_MATCH + 1 - teamIndex]) do
+		table.insert(ids, opponent.UserId)
+	end
+	return ids
+end
+
+-- The participants for whom this match is a repeat: past the day's full matches against at least one player
+-- they faced, by the higher of the two ledgers. Judged for everybody before any ledger takes this match, so
+-- both sides of a pair read the same count.
+local function repeatsOf(teams: { { Participant } }, today: number): { [number]: boolean }
+	local repeats: { [number]: boolean } = {}
+	for teamIndex, participants in ipairs(teams) do
+		for _, participant in ipairs(participants) do
+			local own = participant.Rank
+			if own == nil then
+				continue
+			end
+			for _, opponent in ipairs(teams[TEAMS_PER_MATCH + 1 - teamIndex]) do
+				local theirs = if opponent.Rank ~= nil then opponent.Rank.Opponents else nil
+				local meeting =
+					OpponentLedger.meeting(own.Opponents, theirs, today, participant.UserId, opponent.UserId)
+				if OpponentLedger.isRepeat(meeting, OPPONENTS.FullMatchesPerDay) then
+					repeats[participant.UserId] = true
+				end
+			end
+		end
+	end
+	return repeats
+end
+
 -- Applies a finished ranked match and returns the rating move of every participant still on the
 -- server with a loaded profile, keyed by user id. A participant who already left counts at the last
 -- rating this server saw for them, so the opposing team is scored against the opponent they actually
@@ -198,7 +240,8 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 			local player = Players:GetPlayerByUserId(userId)
 			local data = if player ~= nil then dataService.get(player) else nil
 			local entry = if data ~= nil then modeEntry(data, result.ModeId) else nil
-			table.insert(participants, { UserId = userId, Player = player, Entry = entry })
+			local rank = if data ~= nil then data.Rank else nil
+			table.insert(participants, { UserId = userId, Player = player, Entry = entry, Rank = rank })
 			if entry ~= nil then
 				remember(result.ModeId, userId, entry.Rating)
 			end
@@ -208,6 +251,8 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		teamRatings[teamIndex] = Elo.teamRating(ratings)
 	end
 
+	local today = DailyStreak.dayIndex(os.time())
+	local repeats = repeatsOf(teams, today)
 	local draw = result.WinnerTeam == nil
 	for teamIndex, participants in ipairs(teams) do
 		local opponentRating = teamRatings[TEAMS_PER_MATCH + 1 - teamIndex]
@@ -221,12 +266,18 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 				settled[participant.UserId] = nil
 				continue
 			end
-			if entry == nil or player == nil then
+			local rank = participant.Rank
+			if entry == nil or player == nil or rank == nil then
 				continue
 			end
+			rank.Opponents = OpponentLedger.record(rank.Opponents, today, opponentIds(teams, teamIndex))
+			local repeated = repeats[participant.UserId] == true
 			local before = entry.Rating
 			local kFactor = Elo.kFactor(entry.Matches, RankingConfig.KFactorSchedule)
-			local after = Elo.update(before, opponentRating, score, kFactor, kFactor, BOUNDS)
+			-- A repeat is still a match played, won or lost: only the rating holds.
+			local after = if repeated
+				then before
+				else Elo.update(before, opponentRating, score, kFactor, kFactor, BOUNDS)
 			entry.Rating = after
 			entry.Matches += 1
 			if not draw then
@@ -243,17 +294,19 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 				After = after,
 				RankKeyBefore = RankingService.rankKeyFor(before),
 				RankKeyAfter = RankingService.rankKeyFor(after),
+				Repeat = repeated,
 			}
 			remember(result.ModeId, participant.UserId, after)
 			RankingService.RatingChanged:Fire(player, result.ModeId, before, after)
 			log.info(
-				"%s %s %d -> %d (k %d, opponent %.0f)",
+				"%s %s %d -> %d (k %d, opponent %.0f%s)",
 				player.Name,
 				result.ModeId,
 				before,
 				after,
 				kFactor,
-				opponentRating
+				opponentRating,
+				if repeated then ", a repeat of today's pair: rating held" else ""
 			)
 		end
 	end
@@ -314,6 +367,7 @@ function RankingService.applyAbandon(
 		After = after,
 		RankKeyBefore = RankingService.rankKeyFor(before),
 		RankKeyAfter = RankingService.rankKeyFor(after),
+		Repeat = false,
 	}
 end
 

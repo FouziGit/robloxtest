@@ -29,6 +29,16 @@ RankingConfig.Tiers = {
 -- Ranked modes (keys of ProfileData.Rank.Modes).
 RankingConfig.Modes = { "Duel1v1", "Team3v3" } :: { string }
 
+-- The same two players, again and again in one UTC day (E4-S3, D-XXXfarm). Their first FullMatchesPerDay ranked
+-- matches of the day count in full; from the next one on, the pair's ratings no longer move and each of them earns
+-- RepeatRewardScale of a match's XP and Folios. Counted in each profile (Rank.Opponents, Pure/OpponentLedger), so a
+-- new server does not start the count over. In a 3v3, a participant is held to the rule by any opponent they have
+-- met that often today. Five is a long evening of rematches between friends; the sixth is a farm.
+RankingConfig.Opponents = {
+	FullMatchesPerDay = 5,
+	RepeatRewardScale = 0.25,
+}
+
 RankingConfig.Leaderboard = {
 	RefreshSeconds = 60, -- OrderedDataStore refresh cadence (per board)
 	TopCount = 50,

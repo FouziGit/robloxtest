@@ -286,6 +286,7 @@ match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité
 match.execution,{hits} / {casts} glyphs landed · {damage} damage,Vellum,,{hits} / {casts} glyphs landed · {damage} damage,{hits} / {casts} glyphes placés · {damage} dégâts
 match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
+match.folioCap,Matches pay no more Folios today. XP still counts.,Vellum,,Matches pay no more Folios today. XP still counts.,Les matchs ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
 match.grade,Execution: {grade},Vellum,,Execution: {grade},Exécution : {grade}
 match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / {needed} XP,Niveau {level} · {xp} / {needed} XP
 match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
@@ -294,11 +295,13 @@ match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversair
 match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
+match.repeatOpponent,Same opponent too many times today: this match leaves your rank as it was and pays a quarter.,Vellum,,Same opponent too many times today: this match leaves your rank as it was and pays a quarter.,Même adversaire trop de fois aujourd'hui : ce match laisse ton rang tel quel et rapporte un quart.
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.victory,Victory!,Vellum,,Victory!,Victoire !
+match.voided,"The other side left before the match was really played: no result, your rank stays as it was.",Vellum,,"The other side left before the match was really played: no result, your rank stays as it was.","L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas."
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
 menu.battlepass,Battle Pass,Vellum,,Battle Pass,Battle Pass
 menu.inviteUnavailable,Invites are not available here.,Vellum,,Invites are not available here.,Les invitations ne sont pas disponibles ici.

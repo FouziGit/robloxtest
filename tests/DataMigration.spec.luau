@@ -41,7 +41,7 @@ local function template(): { [string]: any }
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = { "Brand", "Wash" }, ExtraSlots = 0, SlotLimit = 6 },
 		Unlocks = { Glyphs = { "Brand" }, Pigments = { "Cinnabar", "Indigo", "Umber", "Verdigris" } },
-		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
+		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "", Opponents = { Day = 0, Counts = {} } },
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -64,6 +64,8 @@ local function template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
@@ -260,7 +262,7 @@ describe("DataMigration daily caps", function()
 		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
 		expect(data.Daily.Streak).toBe(6)
 		expect(data.Daily.PremiumBonusDay).toBe(20099)
-		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid" }) do
+		for _, key in ipairs({ "ForgerDay", "ForgerFolios", "PracticeDay", "PracticePaid", "MatchDay", "MatchFolios" }) do
 			expect(data.Daily[key]).toBe(0)
 		end
 	end)
@@ -273,9 +275,41 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(8)
+		expect(#service).toBe(10)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
+	end)
+end)
+
+-- The day's ranked opponents (Rank.Opponents, D-XXXfarm): a free-form map under a fixed record.
+describe("DataMigration ranked opponents", function()
+	it("gives a profile saved before them an empty day, and keeps its ratings", function()
+		local raw = {
+			DataVersion = 5,
+			Rank = { SeasonId = "S1", Modes = { Duel1v1 = { Rating = 1240 } }, LastRewardedSeason = "" },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info.Migrated).toBe(true)
+		expect(data.Rank.Opponents).toEqual({ Day = 0, Counts = {} })
+		expect(data.Rank.Modes.Duel1v1.Rating).toBe(1240)
+		expect(data.Daily.MatchFolios).toBe(0)
+	end)
+
+	it("carries today's counts across a reload, every opponent of them", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Rank = {
+				SeasonId = "S1",
+				Modes = {},
+				LastRewardedSeason = "",
+				Opponents = { Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } },
+			},
+			Daily = { MatchDay = 20500, MatchFolios = 640 },
+		}
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Rank.Opponents).toEqual({ Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } })
+		expect(data.Daily.MatchDay).toBe(20500)
+		expect(data.Daily.MatchFolios).toBe(640)
 	end)
 end)
 

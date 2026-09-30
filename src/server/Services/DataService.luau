@@ -134,7 +134,12 @@ function DataService.template(): { [string]: any }
 		Cosmetics = { Owned = {}, Equipped = {}, Waived = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
 		Unlocks = { Glyphs = GlyphConfig.defaultUnlocks(), Pigments = table.clone(PigmentConfig.Base) },
-		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
+		Rank = {
+			SeasonId = GameConfig.SeasonId,
+			Modes = {},
+			LastRewardedSeason = "",
+			Opponents = { Day = 0, Counts = {} },
+		},
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -158,6 +163,8 @@ function DataService.template(): { [string]: any }
 			ForgerFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
 		},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},

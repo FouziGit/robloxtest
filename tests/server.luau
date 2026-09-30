@@ -395,6 +395,12 @@ export type Services = {
 	places: { BossLive: boolean, Engaged: { [any]: boolean }, Inside: { [any]: boolean } },
 	-- Every Notify sent, as the player and the Strings key.
 	notices: { { Player: any, Key: string } },
+	-- Every quest event reported, as the player, the event and the amount.
+	reports: { { Player: any, Event: string, Amount: number } },
+	-- Every XP grant, as the player, the amount and the reason.
+	gains: { { Player: any, Amount: number, Reason: string } },
+	-- `source` lands `amount` of damage on `target`'s body, as CombatService.Damaged reports a hit.
+	hit: (source: any, target: any, amount: number) -> (),
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
 	cast: (player: any, glyphId: string) -> boolean,
 }
@@ -472,11 +478,19 @@ function Server.services(options: Options?): Services
 	local killZone = Engine.instance("BasePart")
 	killZone.Position = roblox.Vector3.new(0, 460, 0)
 	killZone.Touched = Engine.signal()
+	local gains: { { Player: any, Amount: number, Reason: string } } = {}
 	local progression = {
 		LevelUp = Engine.signal(),
-		addXp = function(_player: any, _amount: number, _reason: string) end,
+		addXp = function(player: any, amount: number, reason: string)
+			table.insert(gains, { Player = player, Amount = amount, Reason = reason })
+		end,
 	}
-	local quest = { report = function(_player: any, _event: string, _amount: number) end }
+	local reports: { { Player: any, Event: string, Amount: number } } = {}
+	local quest = {
+		report = function(player: any, event: string, amount: number)
+			table.insert(reports, { Player = player, Event = event, Amount = amount })
+		end,
+	}
 	local vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end }
 
 	data.Init({ Registry = registry, Notify = notify })
@@ -613,6 +627,11 @@ function Server.services(options: Options?): Services
 		handlers = handlers,
 		places = places,
 		notices = notices,
+		reports = reports,
+		gains = gains,
+		hit = function(source: any, target: any, amount: number)
+			combat.Damaged:Fire(source.UserId, target.Character, amount, "Glyph")
+		end,
 		cast = cast,
 	}
 end

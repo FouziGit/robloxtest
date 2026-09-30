@@ -199,6 +199,8 @@ Le champ de bataille et l'entraînement s'ouvrent par les **portails** du hub (D
 
 Cycle d'un match : file → arène instanciée → téléport → compte à rebours 5 s → combat (PvP limité aux adversaires — pas de tir ami en 3v3, D-113 —, spawn protection 4 s) → fin (KO, timer : vainqueur = plus de vie restante, égalité possible) → écran de résultat → retour hub → cleanup.
 
+Le classé ne se farme pas à deux comptes (D-XXXfarm) : un forfait avant 30 s de jeu, ou sans un seul point de dégâts échangé, est **nul** (celui qui part est débité, celui qui reste n'a rien : ni Elo, ni récompense, ni quête) ; au-delà de 5 matchs classés d'une même paire dans la journée UTC, l'Elo de la paire ne bouge plus et le match ne rapporte qu'un quart de son XP et de ses Folios ; une journée de matchs rapporte au plus 1 000 Folios (avant le VIP). Chiffres : `MatchConfig.MinPlayedSeconds`, `MatchConfig.DailyFolioCap`, `RankingConfig.Opponents`.
+
 ## 8. Hub et arènes (générés en code — points d'ancrage)
 
 - **Hub** : plateforme 200×200 en vélin bordée d'encre, spawn au centre (un sceau de craie sur un rebord d'encre), anneau d'épreuves (rayon 22), terminal de file et boutique (un emblème d'encre ; chaque client y écrit le nom dans sa langue et y place une invite qui ouvre l'écran Jouer ou Boutique), tableaux de classement (SurfaceGui : les lignes par le serveur, le titre et l'état vide par chaque client), D-128 ; deux portails au nord, sur un anneau de 68 studs à ±0,25 rad de −π/2, face au spawn (D-130). Couleurs et matériau : `WorldConfig` (D-86). Le remplacement par des assets doit conserver les noms de `WorldConfig.HubAnchors` : `HubSpawn`, `QueueTerminal`, `LeaderboardBoard_<mode>` (son `Panel`), `ShopKiosk`, `BattlegroundPortal`, `BossPortal`.

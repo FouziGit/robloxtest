@@ -15,7 +15,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 
 | Source | Folios | Fréquence / h | Total / h |
 |---|---|---|---|
-| Victoire 1v1 / 3v3 | 60 | ×3 | 180 |
+| Victoire 1v1 / 3v3 (plafond de 1 000 / jour avec les défaites, D-XXXfarm) | 60 | ×3 | 180 |
 | Défaite | 20 | ×3 | 60 |
 | Kill joueur | 15 | ×8 | 120 |
 | Mannequin | 2 | ×20 | 40 |
@@ -29,6 +29,8 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | **Total** | | | **≈ 980 Folios / h** (≈ 700 pour un joueur moyen) |
 
 VIP : Folios ×1,5 (≈ 1 400 / h). Premium (abonnés Roblox Premium) : +150 Folios et 30 min d'XP doublée par jour, via le bonus dédié (§6).
+
+Les matchs classés sont bornés eux aussi (D-XXXfarm) : **1 000 Folios par jour** au plus (`MatchConfig.DailyFolioCap`, montant de base avant le VIP, compté dans le profil : `Daily.MatchDay` / `MatchFolios`), soit environ quatre heures de matchs au rythme du tableau ci-dessus ; au-delà, un match ne paie plus que de l'XP, et un toast le dit. Au-delà de 5 matchs d'une même paire de joueurs dans la journée UTC (`RankingConfig.Opponents`, compté dans les deux profils : `Rank.Opponents`), le match ne rapporte qu'un quart de son XP et de ses Folios, et l'Elo de la paire ne bouge plus. Un forfait avant 30 s de jeu ou sans dégâts échangés est nul : le survivant ne touche rien. Ce que rapporte au mieux un farm à deux comptes : cinq victoires pleines par compte secondaire et par jour, sous le même plafond qu'une journée honnête. Aucun âge de compte minimum n'est exigé.
 
 Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 

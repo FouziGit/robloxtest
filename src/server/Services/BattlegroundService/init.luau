@@ -562,12 +562,15 @@ end
 -- The practice duel's pits (SparService)
 ----------------------------------------------------------------
 
--- Lends `player` a pit for a practice duel. False when the Forgers are not built yet or every pit is taken.
+-- Lends `player` a pit for a practice duel. False when the Forgers are not built yet or every pit is taken. The pit
+-- claims them before their round's body loads: the page lets them go, and a death on it still waiting for its body
+-- no longer sends that body to the camp (Roster.release).
 function BattlegroundService.openPit(player: Player): boolean
-	if handle == nil or not Bots.ready() then
+	if handle == nil or not Bots.ready() or Pits.acquire(player) == nil then
 		return false
 	end
-	return Pits.acquire(player) ~= nil
+	Roster.release(player)
+	return true
 end
 
 -- Sets up a round in `player`'s pit: a fresh Forger, and their `character` on their pad (Pits.seat). False with no

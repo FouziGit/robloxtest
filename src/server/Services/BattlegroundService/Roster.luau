@@ -222,10 +222,17 @@ function Roster.track(player: Player)
 	end)
 end
 
--- A player leaving the server: their membership, a death inside still waiting for its body, their connections.
-function Roster.forget(player: Player)
+-- Lets go of a player another fight takes before it loads their next body -- a practice duel's pit
+-- (BattlegroundService.openPit), as MatchService.start marks a participant first: their membership, and a death
+-- inside still waiting for its body, which would otherwise send the fight's new body back to the camp.
+function Roster.release(player: Player)
 	Roster.drop(player)
 	pendingRespawn[player.UserId] = nil
+end
+
+-- A player leaving the server: their membership, a death inside still waiting for its body, their connections.
+function Roster.forget(player: Player)
+	Roster.release(player)
 	local trove = playerTroves[player]
 	playerTroves[player] = nil
 	if trove ~= nil then

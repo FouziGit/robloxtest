@@ -339,6 +339,77 @@ describe("a pit's Forger's blow, run", function()
 	end)
 end)
 
+-- The real Roster, with one member of the page whose body has just died there; `claim` runs before their next body
+-- arrives, as a pit claims them before its round loads one. Returns whether that body was taken back to the camp.
+local function nextBodyToCamp(claim: (roster: any, player: any) -> ()): boolean
+	local world = Engine.world({ Stubs = { ["src/server/Services/BattlegroundService/Map"] = {} } })
+	local Roster = world.require(DIR .. "Roster")
+	local players = world.game:GetService("Players")
+	players.RespawnTime = 5
+	local player = Engine.instance("Player", players)
+	player.UserId = 7
+	local landing =
+		roblox.Vector3.new(MAP.Origin[1], MAP.Origin[2] + BattlegroundConfig.StandingRootStuds, MAP.Origin[3])
+	local placed = 0
+	Roster.Init({
+		Registry = { fire = function() end },
+		Combat = {
+			resyncPosition = function()
+				placed += 1
+			end,
+			trustedPosition = function(): any
+				return nil
+			end,
+		},
+		Match = {
+			isInMatch = function(): boolean
+				return false
+			end,
+		},
+		WorldBoss = {
+			isEngaged = function(): boolean
+				return false
+			end,
+		},
+	}, { Arrivals = { { Position = landing } } }, function(): number
+		return 0
+	end)
+	local function body(): (any, any)
+		local character = Engine.instance("Model", world.workspace)
+		local humanoid = Engine.instance("Humanoid", character)
+		humanoid.Health = 100
+		local root = Engine.instance("BasePart", character)
+		root.Name = "HumanoidRootPart"
+		root.Position = landing
+		character.PivotTo = function() end
+		return character, humanoid
+	end
+	Roster.track(player)
+	local first, humanoid = body()
+	player.Character = first
+	Roster.admit(player, first, landing, 0, 0)
+	humanoid.Health = 0
+	humanoid.Died:Fire()
+	claim(Roster, player)
+	local second = body()
+	player.Character = second
+	player.CharacterAdded:Fire(second)
+	world:advance(0.1)
+	return Roster.get(player) ~= nil and placed > 0
+end
+
+describe("a pit taking its player from the page, run", function()
+	it("leaves the page a body that died there, whose next body comes back to the camp", function()
+		expect(nextBodyToCamp(function() end)).toBe(true)
+	end)
+
+	it("keeps the next body for the pit once the pit has claimed its player", function()
+		expect(nextBodyToCamp(function(roster, player)
+			roster.release(player)
+		end)).toBe(false)
+	end)
+end)
+
 describe("the pits in the Battleground's own source", function()
 	local function code(name: string): string
 		return ((fs.readFile(DIR .. name .. ".luau"):gsub("%-%-[^\n]*", "")):gsub("%s+", " "))
@@ -370,6 +441,15 @@ describe("the pits in the Battleground's own source", function()
 				true
 			)
 		).never.toBeNil()
+	end)
+
+	it("claim their player from the page before the round loads a body, as a match does", function()
+		local open = code("init"):match("function BattlegroundService%.openPit%(.-return true end ")
+		assert(open ~= nil, "init has no openPit: this gate would check nothing")
+		local acquired = open:find("Pits.acquire(player) == nil then return false end", 1, true)
+		local released = open:find("Roster.release(player) return true", 1, true)
+		assert(acquired ~= nil and released ~= nil, "openPit no longer claims its player: " .. open)
+		expect(released).toBeGreaterThan(acquired)
 	end)
 
 	it("pay nothing for a pit's Forger's kill, whose duel pays", function()

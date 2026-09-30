@@ -122,7 +122,7 @@ function CurrencyService.refund(player: Player, amount: number, reason: string):
 		log.warn("refund skipped for %s (%s): profile not loaded", player.Name, reason)
 		return 0
 	end
-	if DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name) then
+	if CurrencyService.waives(player) then
 		log.info("%s is refunded nothing for %s (developer: the %d Folios were waived)", player.Name, reason, amount)
 		return 0
 	end

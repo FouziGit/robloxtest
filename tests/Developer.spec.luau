@@ -43,6 +43,17 @@ describe("a developer's Folios", function()
 		expect(branch:find("Folios -=", 1, true)).toBe(nil)
 		expect(branch:find("Folios +=", 1, true)).toBe(nil)
 		expect(branch:find("Folios =", 1, true)).toBe(nil)
+		-- The refund of a failed purchase asks the same predicate before it credits (D-203): what trySpend
+		-- waived is never paid back, and no second copy of the rule can drift from the one trySpend reads.
+		local refund = body(CURRENCY, "function CurrencyService.refund(")
+		local refundWaived = refund:find(waiver, 1, true)
+		local credit = refund:find("Folios +=", 1, true)
+		expect(refundWaived).never.toBe(nil)
+		expect(credit).never.toBe(nil)
+		expect((refundWaived :: number) < (credit :: number)).toBe(true)
+		local source = (fs.readFile(CURRENCY)):gsub("%-%-[^\n]*", "")
+		local _, copies = source:gsub("DeveloperConfig%.isDeveloper%(", "")
+		expect(copies).toBe(1)
 		-- A player is never waived: the grant is the developer list's, nobody else's.
 		expect(DeveloperConfig.isDeveloper(123456789, "AnotherPlayer")).toBe(false)
 	end)

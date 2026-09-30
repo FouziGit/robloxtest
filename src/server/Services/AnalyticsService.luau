@@ -38,10 +38,9 @@ export type FieldValue = string | number
 
 type Deps = {}
 
--- Per-player budget: a short burst (an action plus the economy event it produces) then a steady
--- trickle. An over-budget event is dropped, never queued: analytics is best-effort telemetry.
-local EVENT_BURST = 8
-local EVENT_REFILL_PER_SECOND = 4
+-- Per-player budget (AnalyticsConfig.Budget).
+local EVENT_BURST = AnalyticsConfig.Budget.Burst
+local EVENT_REFILL_PER_SECOND = AnalyticsConfig.Budget.PerMinute / 60
 -- After this many consecutive rejected calls the wrapper holds every call off for DISABLED_SECONDS,
 -- then tries again. Only the first failure is logged, so a server without API access stays quiet.
 local MAX_CONSECUTIVE_FAILURES = 3
@@ -60,6 +59,8 @@ local disabledUntil = 0
 local warned = false
 -- Custom events already refused, by name: the refusal is logged once, the next ones are dropped quietly.
 local refused: { [string]: boolean } = {}
+-- Currency reasons AnalyticsConfig does not list, already warned about.
+local unlisted: { [string]: boolean } = {}
 
 ----------------------------------------------------------------
 -- Budget and transport
@@ -152,27 +153,40 @@ end
 -- Public API
 ----------------------------------------------------------------
 
--- One currency movement. `category` is a Roblox transaction type name ("Gameplay", "Shop", "IAP",
--- "TimedReward", "ContextualPurchase", "Onboarding"), `itemSku` the thing bought or rewarded.
+-- One currency movement, from CurrencyService only: `reason` is the one it was handed, and says the Roblox
+-- transaction type the Economy dashboards file the movement under and its item (AnalyticsConfig.economyOf). A
+-- reason AnalyticsConfig does not list is still sent, under FallbackTransaction, and warned about once.
 function AnalyticsService.economy(
 	player: Player,
 	flowType: FlowType,
 	currency: string,
 	amount: number,
 	endingBalance: number,
-	category: string,
-	itemSku: string?
+	reason: string
 )
 	if not isPositive(amount) then
-		log.warn("economy %s for %s dropped: invalid amount %s", category, player.Name, tostring(amount))
+		log.warn("economy %s for %s dropped: invalid amount %s", reason, player.Name, tostring(amount))
 		return
+	end
+	local transaction, itemSku, listed = AnalyticsConfig.economyOf(reason)
+	if not listed and not unlisted[reason] then
+		unlisted[reason] = true
+		log.warn("economy reason %s is not in AnalyticsConfig: filed under %s", reason, transaction)
 	end
 	if not allow(player) then
 		return
 	end
 	local flow = if flowType == "Sink" then Enum.AnalyticsEconomyFlowType.Sink else Enum.AnalyticsEconomyFlowType.Source
-	send("LogEconomyEvent " .. category, function()
-		RobloxAnalytics:LogEconomyEvent(player, flow, currency, amount, math.max(0, endingBalance), category, itemSku)
+	send("LogEconomyEvent " .. transaction, function()
+		RobloxAnalytics:LogEconomyEvent(
+			player,
+			flow,
+			currency,
+			amount,
+			math.max(0, endingBalance),
+			transaction,
+			itemSku
+		)
 	end)
 end
 
@@ -252,7 +266,7 @@ function AnalyticsService.Init(_deps: Deps) end
 
 function AnalyticsService.Start()
 	trove:Add(Players.PlayerRemoving:Connect(onPlayerRemoving))
-	log.info("started (%d events per player per second)", EVENT_REFILL_PER_SECOND)
+	log.info("started (%d events per player per minute, %d at once)", AnalyticsConfig.Budget.PerMinute, EVENT_BURST)
 end
 
 return AnalyticsService

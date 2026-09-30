@@ -322,8 +322,9 @@ function Server.world(options: Options?): World
 end
 
 -- The services of a profile, a ranked match and the shop, wired as Bootstrap.server.luau wires them:
--- DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService, CurrencyService and
--- ShopService are the real modules; everything they reach beyond is a stub that answers what they ask.
+-- DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService, CurrencyService,
+-- ShopService and AnalyticsService are the real modules; everything they reach beyond is a stub that answers what
+-- they ask, and Roblox's analytics is the recorder of the world (World.analytics).
 -- Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
 export type Services = {
 	world: World,
@@ -365,6 +366,7 @@ function Server.services(): Services
 	local cosmetic = world.require("src/server/Services/CosmeticService")
 	local currency = world.require("src/server/Services/CurrencyService")
 	local shop = world.require("src/server/Services/ShopService")
+	local analytics = world.require("src/server/Services/AnalyticsService")
 
 	local handlers: { [string]: (...any) -> () } = {}
 	local registry = {
@@ -427,7 +429,8 @@ function Server.services(): Services
 	local vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end }
 
 	data.Init({ Registry = registry })
-	currency.Init({ DataService = data })
+	analytics.Init({})
+	currency.Init({ DataService = data, Analytics = analytics })
 	cosmetic.Init({ Registry = registry, Vfx = vfx, Combat = combat, DataService = data, Notify = notify })
 	loadout.Init({
 		Registry = registry,
@@ -442,18 +445,6 @@ function Server.services(): Services
 		Notify = notify,
 		Currency = currency,
 		Cosmetic = cosmetic,
-		Analytics = {
-			economy = function(
-				_player: any,
-				_flow: string,
-				_currency: string,
-				_amount: number,
-				_balance: number,
-				_category: string,
-				_sku: string?
-			)
-			end,
-		},
 	})
 	ranking.Init({
 		DataService = data,
@@ -527,6 +518,7 @@ function Server.services(): Services
 	})
 	-- In the bootstrap's order.
 	data.Start()
+	analytics.Start()
 	currency.Start()
 	cosmetic.Start()
 	loadout.Start()

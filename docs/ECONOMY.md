@@ -122,6 +122,8 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 | ARPDAU | 0,02-0,05 $ | packs de Folios, VIP |
 | Funnel onboarding | 90 % première touche → 70 % premier glyphe → 45 % premier match | tutoriel HUD, mannequins |
 
+**Ce que reçoit le tableau Économie.** Chaque Folio gagné ou dépensé part une fois, de `CurrencyService`, avec la raison qu'on lui a donnée : `AnalyticsConfig.economyOf` en tire le type de transaction de Roblox et l'article. Les récompenses de jeu (matchs, KO, épreuves, Faussaires, Effacement, quêtes, pass, saison) sont `Gameplay`, la série quotidienne, la première victoire du jour et le bonus Premium `TimedReward`, les packs de Folios et ce qu'un reçu paie à la place de ce qu'il ne peut plus livrer `IAP` (article : le produit), un achat de la boutique `Shop` (article : l'objet, et le remboursement d'une attribution ratée repart en source sous le même article). Un achat du compte développeur ne déplace aucun Folio et n'envoie rien (D-129). `tests/EconomyEvents.spec.luau` liste chaque appel qui déplace des Folios et refuse celui qui n'y est pas.
+
 ## 9. Raisonner en dollars (DevEx)
 
 - Roblox retient 30 % sur les game passes / developer products : le développeur reçoit 70 % des Robux.

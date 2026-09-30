@@ -59,7 +59,7 @@ local function setup(membership: any): Fixture
 		end,
 	}
 	local currency = world.require("src/server/Services/CurrencyService")
-	currency.Init({ DataService = dataService })
+	currency.Init({ DataService = dataService, Analytics = { economy = function() end } })
 	local battlepass = world.require("src/server/Services/BattlepassService")
 	battlepass.Init({
 		Registry = { on = function() end },

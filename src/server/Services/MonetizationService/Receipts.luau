@@ -63,20 +63,10 @@ local function tierSkipXp(data: ProfileData, tiers: number): (number, number)
 end
 
 local function grantFolios(player: Player, productKey: string, amount: number, nameKey: string): boolean
-	local credited = deps.Currency.add(player, amount, "Product:" .. productKey)
-	if credited <= 0 then
+	if deps.Currency.add(player, amount, "Product:" .. productKey) <= 0 then
 		return false
 	end
 	deps.Notify.send(player, "purchase.granted", { name = nameKey }, "Success", Context.SfxSuccess)
-	deps.Analytics.economy(
-		player,
-		"Source",
-		GameConfig.Currency.Id,
-		credited,
-		deps.Currency.get(player),
-		Context.TransactionIap,
-		productKey
-	)
 	return true
 end
 
@@ -93,15 +83,6 @@ local function compensate(player: Player, productKey: string, def: MonetizationC
 		return 0
 	end
 	log.info("%s could not receive %d unit(s) of %s: paid %d Folios instead", player.Name, units, productKey, credited)
-	deps.Analytics.economy(
-		player,
-		"Source",
-		GameConfig.Currency.Id,
-		credited,
-		deps.Currency.get(player),
-		Context.TransactionIap,
-		productKey
-	)
 	return credited
 end
 

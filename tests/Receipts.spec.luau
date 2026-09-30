@@ -13,6 +13,7 @@ local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
 local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
+local ShopConfig = require("../src/shared/Config/ShopConfig")
 local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -114,8 +115,9 @@ local function setup(tier: number, xp: number?): Fixture
 			table.insert(fixture.toasts, { Key = key, Params = params })
 		end,
 	}
+	local analyticsService = world.require("src/server/Services/AnalyticsService")
 	local currency = world.require("src/server/Services/CurrencyService")
-	currency.Init({ DataService = dataService })
+	currency.Init({ DataService = dataService, Analytics = analyticsService })
 	local battlepass = world.require("src/server/Services/BattlepassService")
 	battlepass.Init({
 		Registry = { on = function() end },
@@ -133,7 +135,13 @@ local function setup(tier: number, xp: number?): Fixture
 		Notify = notify,
 		Currency = currency,
 		Battlepass = battlepass,
-		Analytics = world.require("src/server/Services/AnalyticsService"),
+		Analytics = analyticsService,
+		-- The player owns every article of every rarity: a cosmetic receipt is paid in Folios.
+		Shop = {
+			resolveReceiptItem = function(): string?
+				return nil
+			end,
+		},
 	}
 	local receipts = world.require("src/server/Services/MonetizationService/Receipts")
 	receipts.Init(deps)
@@ -321,6 +329,42 @@ describe("what the Creator Dashboard learns of a purchase (E8-S2)", function()
 		expect(#declined).toBe(1)
 		expect(accepted[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "XpBoost1h" })
 		expect(declined[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "TierSkip5" })
+	end)
+end)
+
+-- Receipts reported the Folios they granted as well as CurrencyService: every pack counted twice, and the Folios a
+-- cosmetic receipt paid instead of an article were not counted at all (E8-S1).
+describe("what the Economy dashboards learn of a receipt (E8-S1)", function()
+	-- The economy events that reached Roblox, as { flow, amount, transaction, item }.
+	local function economy(fixture: Fixture): { { any } }
+		local found = {}
+		for _, call in ipairs(fixture.analytics:of("LogEconomyEvent")) do
+			local args = call.Args
+			table.insert(found, { args[1].Name, args[3], args[5], args[6] })
+		end
+		return found
+	end
+
+	it("is one source per pack of Folios, under IAP, with the product as its item", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		local amount = MonetizationConfig.Products.FolioSmall.Amount :: number
+		expect(economy(fixture)).toEqual({ { "Source", amount, "IAP", "FolioSmall" } })
+		-- Delivered again, the receipt pays nothing and reports nothing.
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		expect(#economy(fixture)).toBe(1)
+	end)
+
+	it("is one source for what a skip could no longer deliver", function()
+		local fixture = setup(MAX, 0)
+		expect(fixture.deliver(TIER_SKIP, "at-max")).toBe(GRANTED)
+		expect(economy(fixture)).toEqual({ { "Source", PER_TIER * TIERS, "IAP", TIER_SKIP } })
+	end)
+
+	it("is one source for the Folios a cosmetic receipt pays instead of an article", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("CosmeticRare", "rare")).toBe(GRANTED)
+		expect(economy(fixture)).toEqual({ { "Source", ShopConfig.PriceFolios.Rare, "IAP", "CosmeticRare" } })
 	end)
 end)
 

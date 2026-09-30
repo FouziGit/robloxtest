@@ -144,7 +144,6 @@ local function shop(options: Options): Shop
 		},
 		Analytics = {
 			custom = function() end,
-			economy = function() end,
 			fields = function(): { [string]: string }
 				return {}
 			end,

@@ -11,6 +11,10 @@
 --
 -- Callers parent their content to `Face`, so it rides the face when it moves.
 --
+-- A pressable's whole elevation shows its lip, and the ink rims it from outside (the board's `0 5px 0 0 lip,
+-- 0 5px 0 3px ink`): an inner outline ate three of a button's five units of lip. A disabled one sinks onto a
+-- chalk lip -- there is nothing under it to press -- and gets its colour back when it wakes.
+--
 -- A frame that sizes itself to its content (AutomaticSize) hosts its sticker (`Host`, D-170): the base, the
 -- face and the gloss are then its own children, each sized by scale to it. The engine resolves a scale-sized
 -- child of an automatically sized frame against the size its content gives it, but a scale-sized grandchild
@@ -120,6 +124,7 @@ function Sticker.new(props: Props): Sticker
 		root = frame
 	end
 
+	local lip = props.Lip or Theme.lip("Secondary")
 	local base: Frame? = nil
 	if kind ~= "Plate" then
 		local frame = Instance.new("Frame")
@@ -128,9 +133,13 @@ function Sticker.new(props: Props): Sticker
 		frame.ZIndex = 1
 		frame.Position = UDim2.fromOffset(0, elevation)
 		frame.Size = UDim2.new(1, 0, 1, -elevation)
-		frame.BackgroundColor3 = if kind == "Pressable" then props.Lip or Theme.lip("Secondary") else Theme.Colors.Plate
+		frame.BackgroundColor3 = if kind == "Pressable" then lip else Theme.Colors.Plate
 		Theme.corner(frame, corner)
-		Theme.stroke(frame, "Accent", strokeThickness)
+		if kind == "Pressable" then
+			Theme.stroke(frame, "Accent", strokeThickness, "Border", "Outer")
+		else
+			Theme.stroke(frame, "Accent", strokeThickness)
+		end
 		frame.Parent = root
 		trove:Add(frame)
 		base = frame
@@ -201,6 +210,7 @@ function Sticker.new(props: Props): Sticker
 		end
 		local y = 0
 		local color = fill
+		local under = lip
 		local preset: Motion.Preset = "UiSnappy"
 		if state == "Hover" then
 			y = -HOVER_LIFT
@@ -212,9 +222,14 @@ function Sticker.new(props: Props): Sticker
 			-- It sits on its lip: no depth left to press.
 			y = elevation - 1
 			color = Theme.Colors.Chalk
+			under = Theme.Colors.Chalk
 		else
 			-- Back from anywhere with the overshoot: a released button springs up, and that is the click.
 			preset = "UiPop"
+		end
+		local currentBase = base
+		if currentBase ~= nil then
+			currentBase.BackgroundColor3 = under
 		end
 		local position = UDim2.fromOffset(0, y)
 		for _, rider in ipairs(riders) do

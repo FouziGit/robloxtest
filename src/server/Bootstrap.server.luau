@@ -95,7 +95,7 @@ local deps = {
 -- Dependency order: each service only reads services listed before it. Critical: the game cannot run without it
 -- (profiles, damage, matches, purchases, the referee), so a failure to start it closes the server.
 local ordered: { Boot.Entry } = {
-	-- HubService builds HubSpawn first: CombatService resolves its safe zone and EnemyService its
+	-- HubService builds HubSpawn first: CombatService resolves its spawn point and EnemyService its
 	-- dummy ring from the first SpawnLocation in the Workspace.
 	{ Name = "HubService", Service = HubService },
 	{ Name = "ArenaService", Service = ArenaService },

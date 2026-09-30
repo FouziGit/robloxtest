@@ -13,8 +13,11 @@
 --             profile's lifetime measures are, and what each pays.
 --
 -- Nothing here decides anything: the grades, the milestones, the plates and the running set are the server's (the
--- profile's Drills, Milestones, ExLibris, Stats and Unlocks, and DrillChanged). A tab is built when it is shown, and built again when what it
--- shows moves while the screen is up; a change while the screen is away only marks it for the next opening.
+-- profile's Drills, Milestones, ExLibris, Stats and Unlocks, and DrillChanged). A tab is built when it is shown, and
+-- built again when what it shows moves while the screen is up; a change while the screen is away only marks it for
+-- the next opening. The drills and the road are built a chunk at a time, as the page scrolls down to them
+-- (Progressive, D-234): a drill for every glyph drew 736 objects where a screen is held to 400
+-- (tests/ScreenBudget.spec.luau).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -33,6 +36,7 @@ local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local Pips = require(script.Parent.Parent.components.Pips)
+local Progressive = require(script.Parent.Parent.Progressive)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Seal = require(script.Parent.Parent.components.Seal)
 local Tabs = require(script.Parent.Parent.components.Tabs)
@@ -75,6 +79,9 @@ local TAB_KEYS: { [string]: string } =
 local TABS_HEIGHT = 48
 local PIP_SIZE = 14
 local STEP_SEAL = 40
+-- A tab's rows are built this many at a time, as the page scrolls down to them (Progressive): more than a phone's
+-- window holds, fewer drill rows than the budget has room for.
+local ROWS_CHUNK = 8
 local GRADES = DrillConfig.Grades
 local PIGMENT_NAME_KEYS = (PigmentConfig.NameKeys :: any) :: { [string]: string? }
 local KIT_IDS: { string } = {}
@@ -149,6 +156,12 @@ function LecternScreen.new(deps: Deps): Screen
 	local function nextOrder(): number
 		order += 1
 		return order
+	end
+
+	-- The shown tab's rows, each built when Progressive comes to it: in order, so each takes the next LayoutOrder.
+	local rows: { () -> () } = {}
+	local function later(build: () -> ())
+		table.insert(rows, build)
 	end
 
 	local function header(key: string)
@@ -266,16 +279,24 @@ function LecternScreen.new(deps: Deps): Screen
 				})
 			)
 		end
-		header("lectern.kit")
+		later(function()
+			header("lectern.kit")
+		end)
 		for _, entry in ipairs(DrillCatalog.List) do
 			if entry.Glyph == nil then
-				drillRow(entry, data)
+				later(function()
+					drillRow(entry, data)
+				end)
 			end
 		end
-		header("lectern.recipes")
+		later(function()
+			header("lectern.recipes")
+		end)
 		for _, entry in ipairs(DrillCatalog.List) do
 			if entry.Glyph ~= nil then
-				drillRow(entry, data)
+				later(function()
+					drillRow(entry, data)
+				end)
 			end
 		end
 	end
@@ -295,35 +316,37 @@ function LecternScreen.new(deps: Deps): Screen
 			})
 		)
 		for _, step in ipairs(LevelRoadWords.Road) do
-			local held = LevelRoadWords.holds(data, step)
-			local seal = Seal.new({
-				Text = tostring(step.Level),
-				Fill = if held then Theme.Colors.Primary else Theme.Colors.Chalk,
-				Size = STEP_SEAL,
-				Face = "Numeric",
-			})
-			own(pageTrove, seal)
-			local kind = if step.Kind == "Glyph"
-				then "lectern.road.glyph"
-				elseif step.Kind == "Pigment" then "lectern.road.pigment"
-				elseif step.Title ~= nil then "lectern.road.titled"
-				else "lectern.road.milestone"
-			own(
-				pageTrove,
-				ListRow.new({
-					Variant = if step == upcoming then "Highlight" else "Item",
-					Left = LevelRoadWords.row(step, t),
-					Subtitle = t(kind),
-					Leading = seal.Instance,
-					Right = if held
-						then t("lectern.road.held")
-						elseif step == upcoming then t("lectern.road.next")
-						else nil,
-					LayoutOrder = nextOrder(),
-					Name = "Step" .. step.Level .. step.Id,
-					Parent = panel.Content,
+			later(function()
+				local held = LevelRoadWords.holds(data, step)
+				local seal = Seal.new({
+					Text = tostring(step.Level),
+					Fill = if held then Theme.Colors.Primary else Theme.Colors.Chalk,
+					Size = STEP_SEAL,
+					Face = "Numeric",
 				})
-			)
+				own(pageTrove, seal)
+				local kind = if step.Kind == "Glyph"
+					then "lectern.road.glyph"
+					elseif step.Kind == "Pigment" then "lectern.road.pigment"
+					elseif step.Title ~= nil then "lectern.road.titled"
+					else "lectern.road.milestone"
+				own(
+					pageTrove,
+					ListRow.new({
+						Variant = if step == upcoming then "Highlight" else "Item",
+						Left = LevelRoadWords.row(step, t),
+						Subtitle = t(kind),
+						Leading = seal.Instance,
+						Right = if held
+							then t("lectern.road.held")
+							elseif step == upcoming then t("lectern.road.next")
+							else nil,
+						LayoutOrder = nextOrder(),
+						Name = "Step" .. step.Level .. step.Id,
+						Parent = panel.Content,
+					})
+				)
+			end)
 		end
 	end
 
@@ -390,6 +413,7 @@ function LecternScreen.new(deps: Deps): Screen
 			own(pageTrove, ListRow.new({ Variant = "Skeleton", Left = "", LayoutOrder = 1, Parent = panel.Content }))
 			return
 		end
+		rows = {}
 		if current == "Road" then
 			renderRoad(data)
 		elseif current == "ExLibris" then
@@ -397,6 +421,18 @@ function LecternScreen.new(deps: Deps): Screen
 		else
 			renderDrills(data)
 		end
+		local shown = rows
+		own(
+			pageTrove,
+			Progressive.new({
+				Scroller = panel.Content,
+				Count = #shown,
+				Chunk = ROWS_CHUNK,
+				Build = function(index: number)
+					shown[index]()
+				end,
+			})
+		)
 	end
 
 	-- A tab chosen by an opening, not by the player: no click.
@@ -424,7 +460,11 @@ function LecternScreen.new(deps: Deps): Screen
 
 	local function refresh()
 		if screen.Visible then
-			render()
+			-- A push rebuilds the rows under the pad: it goes on to the tab's first button, or the way out, rather
+			-- than onto nothing (E12-S4).
+			panel:KeepGamepadFocus(render, function(): GuiObject?
+				return firstButton
+			end)
 		else
 			stale = true
 		end

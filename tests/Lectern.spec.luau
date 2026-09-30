@@ -6,6 +6,7 @@
 local Engine = require("./engine")
 local Harness = require("./harness")
 local Strings = require("../src/shared/Strings")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -98,8 +99,28 @@ local function setup(tab: string?): Fixture
 	return fixture
 end
 
+-- The page scrolled down to its foot, as the player would: a tab's rows past the first chunk are built as the page
+-- scrolls down to them (Progressive), and Lune lays nothing out, so the view is given a window and a canvas and
+-- moved a step at a time until nothing more is built.
+local function scrolled(fixture: Fixture)
+	local content = fixture.screen.Instance:FindFirstChild("Content", true)
+	content.AbsoluteCanvasSize = roblox.Vector2.new(300, 300)
+	content.AbsoluteWindowSize = roblox.Vector2.new(300, 300)
+	local before = -1
+	local at = 0
+	while #content:GetDescendants() ~= before do
+		before = #content:GetDescendants()
+		at += 1
+		content.CanvasPosition = roblox.Vector2.new(0, at)
+	end
+end
+
 local function row(fixture: Fixture, name: string): any
 	local found = fixture.screen.Instance:FindFirstChild(name, true)
+	if found == nil then
+		scrolled(fixture)
+		found = fixture.screen.Instance:FindFirstChild(name, true)
+	end
 	assert(found ~= nil, ("the Lectern has no row %s: this gate would check nothing"):format(name))
 	return found
 end

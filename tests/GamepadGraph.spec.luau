@@ -1,5 +1,5 @@
 --!strict
--- The gamepad's way through the ten screens (E12-S4, D-236), run (tests/engine.luau, tests/screens.luau). A pad
+-- The gamepad's way through the eleven screens (E12-S4, D-236), run (tests/engine.luau, tests/screens.luau). A pad
 -- moves GuiService.SelectedObject among the objects the engine lets it select, and presses what it lands on; a
 -- screen that opens with nothing selected leaves the D-pad dead, and a button the pad may not select is an action
 -- a console player cannot take. The engine's own defaults decide what is selectable unless a module says otherwise
@@ -9,6 +9,7 @@
 -- listens to -- is selectable, or is a disabled Button, whose reason is written on it; every explicit edge
 -- (NextSelection*) leads to something selectable and shown. And a list rebuilt under the pad never leaves it on
 -- nothing.
+local DrillConfig = require("../src/shared/Config/DrillConfig")
 local Engine = require("./engine")
 local Harness = require("./harness")
 local QuestConfig = require("../src/shared/Config/QuestConfig")
@@ -111,7 +112,7 @@ describe("the gamepad's way through the screens, run", function()
 				table.insert(lines, label .. ": no action was looked at")
 			end
 		end)
-		expect(screens).toBe(13)
+		expect(screens).toBe(16)
 		if #lines > 0 then
 			error(table.concat(lines, "\n"))
 		end
@@ -152,6 +153,9 @@ describe("the gamepad's way through the screens, run", function()
 		end,
 		SettingsScreen = function(data: any)
 			data.Settings.Keyboard.Menu = "N"
+		end,
+		LecternScreen = function(data: any)
+			data.Drills.KitCancel = #DrillConfig.Grades
 		end,
 	}
 

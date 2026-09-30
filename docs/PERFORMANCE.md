@@ -297,14 +297,16 @@ ci-dessous, hors de Studio ; le relevé du moteur (compteurs `DebugSettings` de 
 
 ## Objets par écran
 
-Chaque écran et chaque onglet de la Boutique, ouverts sur un téléphone de 844 × 390 à l'échelle 0,68 pour un
-joueur qui possède tout ce qu'ils listent — chaque glyphe, chaque cosmétique, chaque passe, le pass à son dernier
-palier, les cinquante premiers du classement —, comptés par `tests/ScreenBudget.spec.luau` (D-234) : les objets
+Chaque écran et chaque onglet de la Boutique et du Pupitre, ouverts sur un téléphone de 844 × 390 à l'échelle
+0,68 pour un joueur qui possède tout ce qu'ils listent — chaque glyphe, chaque cosmétique, chaque passe, le pass à
+son dernier palier, les cinquante premiers du classement, chaque exercice à son meilleur grade, chaque plaque de
+l'Ex-libris —, comptés par `tests/ScreenBudget.spec.luau` (D-234) : les objets
 GUI affichés, comme le HUD. Un écran en dessine **400** au plus (`Budget.MaxScreenObjects`), la route du pass
 **700** (`Budget.MaxPassObjects`) ; le test échoue au-delà, et échoue aussi si ce tableau ne dit pas ce qu'il
 compte. Avant, le Casier de tout ce qui se vend en dessinait 1 282, le classement 684 et l'Équipement de dix
 glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les fait défiler
-(`src/ui/Progressive.luau`). Chaque écran est compté disposé comme le moteur le dispose en s'ouvrant : sa
+(`src/ui/Progressive.luau`). Le Pupitre, arrivé avec la vague 1, dessinait 736 objets pour un exercice par glyphe :
+ses exercices et sa route le sont aussi depuis la fusion de la vague 2. Chaque écran est compté disposé comme le moteur le dispose en s'ouvrant : sa
 fenêtre, et un canevas qui n'est jamais plus haut que ce que ses rangées et ses grilles demandent au moins
 (le moteur de Lune ne dispose rien). Sans cela une liste par tranches était comptée à sa première tranche,
 alors que le moteur, qui en voyait le pied à moins d'une fenêtre, construisait la suivante dès l'ouverture : le
@@ -325,7 +327,10 @@ Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qu
 | `QuestsScreen` | 179 | 400 |
 | `LeaderboardScreen` | 362 | 400 |
 | `SettingsScreen` | 71 | 400 |
-| `ResultScreen` | 78 | 400 |
+| `LecternScreen (Drills)` | 197 | 400 |
+| `LecternScreen (Road)` | 151 | 400 |
+| `LecternScreen (ExLibris)` | 211 | 400 |
+| `ResultScreen` | 79 | 400 |
 
 ## Ce qui n'est pas mesuré
 

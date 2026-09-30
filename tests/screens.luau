@@ -1,12 +1,14 @@
 --!strict
--- The ten screens run whole (tests/engine.luau), each built with the deps MenuController gives it: on a desktop or a
--- phone, played by any device (Engine.plays), its words the keys themselves or the player's own in a locale, for a
+-- The eleven screens run whole (tests/engine.luau), each built with the deps MenuController gives it: on a desktop or
+-- a phone, played by any device (Engine.plays), its words the keys themselves or the player's own in a locale, for a
 -- player part-way into everything -- or one who has everything, for what a screen costs at its fullest. Shared by
 -- the layout rules (tests/LayoutRules.spec.luau), the object budgets (tests/ScreenBudget.spec.luau) and the
 -- gamepad's selection graph (tests/GamepadGraph.spec.luau).
 local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
 local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
+local DrillConfig = require("../src/shared/Config/DrillConfig")
 local Engine = require("./engine")
+local ExLibrisConfig = require("../src/shared/Config/ExLibrisConfig")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local InputConfig = require("../src/shared/Config/InputConfig")
@@ -23,8 +25,8 @@ Screens.DESKTOP_HEIGHT = 1080
 -- The local player's user id, twelfth on the leaderboard.
 Screens.ME = 42
 
--- The nine screens of the menu, and the tabs each is opened on. The tenth, the Result, opens on a match's end
--- (Screens.result).
+-- The nine screens of the menu and the Lectern of the hub, and the tabs each is opened on. The Result opens on a
+-- match's end (Screens.result).
 Screens.LIST = {
 	{ Name = "MenuScreen" },
 	{ Name = "PlayScreen" },
@@ -71,8 +73,8 @@ function Screens.profile(today: number): any
 end
 
 -- A player who has everything a screen can list: every glyph and pigment, every slot a pass opens filled, every
--- cosmetic and every pass owned, the pass at its last tier with every reward waiting, six days of a streak, and
--- a balance of six figures.
+-- cosmetic and every pass owned, the pass at its last tier with every reward waiting, six days of a streak, a
+-- balance of six figures, every drill at its best grade and every plate of the Ex-libris.
 function Screens.fullest(today: number): any
 	local data = Screens.profile(today)
 	local glyphs = {}
@@ -107,6 +109,19 @@ function Screens.fullest(today: number): any
 			ClaimedPremium = {},
 		},
 	}
+	local drills = {}
+	for _, kit in ipairs(DrillConfig.Kit) do
+		drills[kit.Id] = #DrillConfig.Grades
+	end
+	for _, glyph in ipairs(glyphs) do
+		drills[glyph] = #DrillConfig.Grades
+	end
+	data.Drills = drills
+	local plates = {}
+	for _, plate in ipairs(ExLibrisConfig.Plates) do
+		plates[plate.Id] = today * 86400
+	end
+	data.ExLibris = plates
 	return data
 end
 

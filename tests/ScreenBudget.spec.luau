@@ -1,8 +1,8 @@
 --!strict
--- What each screen draws as it opens, counted (E11-S5, D-234), run (tests/engine.luau, tests/screens.luau): the ten
--- screens and each tab of the Shop, on an 844 x 390 phone at the touch floor, for a player who owns everything
--- they list -- every glyph, every cosmetic, every pass, the pass at its last tier, the leaderboard's whole top --
--- against ThemeConfig.Budget: a screen at most MaxScreenObjects, the pass's road at most MaxPassObjects.
+-- What each screen draws as it opens, counted (E11-S5, D-234), run (tests/engine.luau, tests/screens.luau): the
+-- eleven screens and each tab of the Shop and the Lectern, on an 844 x 390 phone at the touch floor, for a player
+-- who owns everything they list -- every glyph, every cosmetic, every pass, the pass at its last tier, the
+-- leaderboard's whole top, every drill graded -- against ThemeConfig.Budget: a screen at most MaxScreenObjects, the pass's road at most MaxPassObjects.
 --
 -- Nothing counted them: a locker of everything drew 1 282 objects, the leaderboard's fifty rows 684 and ten
 -- equipped glyphs 510. Those lists are built a chunk at a time now (src/ui/Progressive.luau). A GuiObject counted
@@ -178,7 +178,7 @@ describe("what a screen draws as it opens, counted", function()
 	local measured = measureAll()
 
 	it("holds every screen and every Shop tab to 400 on a phone, and the pass's road to 700", function()
-		expect(#measured).toBe(13)
+		expect(#measured).toBe(16)
 		expect(BUDGET.MaxScreenObjects).toBe(400)
 		expect(BUDGET.MaxPassObjects).toBe(700)
 		local found = over(measured)

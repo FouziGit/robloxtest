@@ -737,15 +737,26 @@ local function markSupport(bodies: { Body })
 end
 
 -- A body that walked through a stun it had been told of (Pure/StunWatch, D-XXXb): logged, once per stun and in every
--- mode, and never acted on. A push the server granted, a touch or a fall carries the body and is not walking.
+-- mode, and never acted on. A push the server granted, a touch or a fall carries the body and is not walking, nor is
+-- a step past the speed ceiling (a pivot, a correction, a stall's catch-up), which the judge's own rules weigh.
 local function watchStun(body: Body, sample: MovementGuard.Sample, now: number)
 	local record = body.Record
 	local startedAt, endsAt = deps.Movement.stunDates(record.Player)
 	local track = record.Track
 	local carried = sample.Down or body.Contact or MovementGuard.granting(track, now) or now < track.ContactUntil
 	local learned = StunWatch.learnedAt(startedAt, sample.Rtt, AUDIT.SettleOverheadSeconds)
-	local walked =
-		StunWatch.step(record.Stun, now, startedAt, endsAt, learned, body.X, body.Z, carried, AUDIT.StunWalkSlackStuds)
+	local walked = StunWatch.step(
+		record.Stun,
+		now,
+		startedAt,
+		endsAt,
+		learned,
+		body.X,
+		body.Z,
+		carried,
+		AUDIT.StunWalkSlackStuds,
+		config.MaxSpeedStudsPerSecond
+	)
 	if walked ~= nil then
 		log.warn(
 			"%s observe stun walk: %.1f studs through a %.2f s stun it had been told of; logged only",

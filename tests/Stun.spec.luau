@@ -182,8 +182,15 @@ end)
 
 -- A body stunned at 1 s for `stun` s, simulated at 240 Hz and replicated every tick with `latency` one way; the
 -- server audits it every tick. `walks(t)` is how fast the client walks it at t (an honest client stops once the stun
--- reaches it), `grant` an interval the server's push carries it. Returns what the watch reported, or nil.
-local function audit(stun: number, latency: number, walks: (number) -> number, grant: { number }?): number?
+-- reaches it), `grant` an interval the server's push carries it, `pivot` { at, studs } a server pivot that puts it
+-- that far away at once. Returns what the watch reported, or nil.
+local function audit(
+	stun: number,
+	latency: number,
+	walks: (number) -> number,
+	grant: { number }?,
+	pivot: { number }?
+): number?
 	local STEPS = 240
 	local START = 1
 	local watch = StunWatch.new()
@@ -194,6 +201,9 @@ local function audit(stun: number, latency: number, walks: (number) -> number, g
 	for step = 1, 4 * STEPS do
 		local now = step / STEPS
 		x += walks(now) / STEPS
+		if pivot ~= nil and now >= pivot[1] and now - 1 / STEPS < pivot[1] then
+			x += pivot[2]
+		end
 		local onTick = step % (STEPS / GameConfig.Server.TickRate) == 0
 		if onTick then
 			table.insert(packets, { now + latency, x })
@@ -216,7 +226,8 @@ local function audit(stun: number, latency: number, walks: (number) -> number, g
 				seen,
 				0,
 				carried,
-				MovementGuardConfig.StunWalkSlackStuds
+				MovementGuardConfig.StunWalkSlackStuds,
+				GameConfig.Latency.MaxSpeedStudsPerSecond
 			)
 			if found ~= nil then
 				expect(reported).toBe(nil)
@@ -264,12 +275,26 @@ describe("the stun watch", function()
 	end)
 
 	it("counts nothing the server's own push carried", function()
-		-- A Rupture launches as it stuns: the push the server granted is not the victim walking.
+		-- A push the server granted as it stunned is not the victim walking, even one slower than a body can go.
 		local pushed = function(t: number): number
-			return if t >= 1.05 and t < 1.6 then 60 else 0
+			return if t >= 1.05 and t < 1.6 then 30 else 0
 		end
 		expect(audit(0.8, 0.05, pushed, { 1, 1.7 })).toBe(nil)
 		expect(audit(0.8, 0.05, pushed, nil)).never.toBe(nil)
+	end)
+
+	it("counts nothing a server pivot moved, and still sees the walk around it", function()
+		-- K2's return, a portal or a correction in the middle of a stun: one step no body takes on its own.
+		local still = function(): number
+			return 0
+		end
+		local walker = function(): number
+			return WALK
+		end
+		for _, studs in ipairs({ 30, 300, -900 }) do
+			expect(audit(CombatConfig.Hit.StunMaxSeconds, 0.05, still, nil, { 1.8, studs })).toBe(nil)
+			expect(audit(CombatConfig.Hit.StunMaxSeconds, 0.05, walker, nil, { 1.8, studs })).never.toBe(nil)
+		end
 	end)
 
 	it("reads a grant as carrying the body for as long as the judge does", function()
@@ -403,6 +428,7 @@ describe("the stun rule's wiring", function()
 		expect(watch).toContain(
 			"local carried = sample.Down or body.Contact or MovementGuard.granting(track, now) or now < track.ContactUntil"
 		)
+		expect(watch).toContain("body.X, body.Z, carried, AUDIT.StunWalkSlackStuds, config.MaxSpeedStudsPerSecond )")
 		expect(watch).toContain("log.warn(")
 		for _, never in ipairs({ "strike(", "PivotTo(", "MovementGuardConfig.Mode", "Reanchor(" }) do
 			expect(watch).never.toContain(never)

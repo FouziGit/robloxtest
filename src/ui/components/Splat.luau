@@ -91,7 +91,7 @@ local function transparencyProperty(splat: GuiObject): string
 	return if splat:IsA("ImageLabel") then "ImageTransparency" else "BackgroundTransparency"
 end
 
--- Recolours a splat: a header band's drips, a backdrop taking the Result's outcome.
+-- Recolours a splat: a backdrop's blot, for the chapter it is painted in or the Result's outcome.
 function Splat.tint(splat: GuiObject, color: Color3)
 	if splat:IsA("ImageLabel") then
 		splat.ImageColor3 = color

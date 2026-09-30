@@ -465,6 +465,11 @@ InstanceMeta.__newindex = function(self: any, key: string, value: any)
 		setParent(self, value)
 		return
 	end
+	-- A spec that hands an instance its own signal (a kill zone's Touched) reads back the one it handed.
+	if SIGNALS[key] then
+		data.Signals[key] = value
+		return
+	end
 	if key == "Name" then
 		data.Name = value
 		propertySignal(data, key):Fire()

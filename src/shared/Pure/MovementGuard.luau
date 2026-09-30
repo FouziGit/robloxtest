@@ -524,6 +524,12 @@ local function grantLive(track: Track, now: number): boolean
 	return now < track.WindowEnd or (track.Awaiting and now < track.AwaitUntil)
 end
 
+-- Whether a burst the server granted may still be carrying the body: what the stun watch counts as not walked
+-- (Pure/StunWatch).
+function MovementGuard.granting(track: Track, now: number): boolean
+	return grantLive(track, now)
+end
+
 -- The allowance a pending teleport's regions may grow by: only a grant still live carries the body.
 local function liveAllowance(track: Track, now: number): number
 	return if grantLive(track, now) then track.Allowance else 0

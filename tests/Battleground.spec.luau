@@ -425,8 +425,10 @@ describe("what the Battleground asked of the rest of the server", function()
 
 	it("GlyphEffects holds a Forger with every stun and slow it holds a player with", function()
 		local effects = code(EFFECTS)
-		-- Movement is asked once for each, inside the helpers; every other site goes through them.
-		expect(count(effects, "ctx.Movement.applyStun(")).toBe(1)
+		-- Movement is asked once for each, inside the helpers; every other site goes through them. A player's stun is
+		-- a glyph's, which the grace may refuse (D-213), never a combat hold.
+		expect(count(effects, "ctx.Movement.applyGlyphStun(")).toBe(1)
+		expect(count(effects, "ctx.Movement.applyStun(")).toBe(0)
 		expect(count(effects, "ctx.Movement.applySlow(")).toBe(1)
 		local stun = body(effects, "local function stunModel(", "GlyphEffects")
 		expect(stun:find('else ctx.Combat.controlNpc(model, "Stun", seconds, 0, ctx.Def.Id) end', 1, true)).never.toBe(

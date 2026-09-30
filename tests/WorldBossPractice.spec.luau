@@ -161,7 +161,16 @@ describe("a practice leaves the server's event alone", function()
 				'log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)'
 			)
 		).toBe(true)
-		expect(count(module("init"), "deps.Hub.teleportToHub")).toBe(1)
+		-- The one other way home is a fall off the page (K2, D-214), which only a participant under the arena's
+		-- floor takes (tests/MovementGates.spec.luau).
+		expect(count(module("init"), "deps.Hub.teleportToHub")).toBe(2)
+		expect(
+			ordered(
+				body(module("init"), "local function judgeFalls(", "init"),
+				"and root.Position.Y < live.FallY",
+				'log.try("teleportToHub " .. player.Name, deps.Hub.teleportToHub, player)'
+			)
+		).toBe(true)
 		local context = module("Context")
 		local reach = body(context, "local function rootInArena(", "Context")
 		expect(has(reach, "(root.Position - center).Magnitude <= Context.ArenaReachStuds")).toBe(true)

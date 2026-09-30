@@ -55,9 +55,11 @@ export type CombatApi = {
 		player: Player,
 		command: { Kind: "Dash", Direction: Vector3, Distance: number, Duration: number }
 	) -> (),
-	-- The caster origin the server is willing to believe, re-validated at call time. An effect that keeps
-	-- damaging around the caster must follow this, not the raw root.
-	trustedOrigin: (player: Player) -> CFrame?,
+	-- The caster origin the server is willing to believe, re-validated at call time, for the server's own loops (a
+	-- charge's release, a zone's tick, a stroke): judged as trustedOrigin judges the cast, but counting no violation,
+	-- since the player chose the cast and not the tick. An effect that keeps damaging around the caster must follow
+	-- this, never the raw root.
+	currentOrigin: (player: Player) -> CFrame?,
 	-- A stun or a slow on a body no player owns (a Forger): its owner holds it, under the glyph's id as a
 	-- player's slow is (`key`). Players go through Movement.
 	controlNpc: (targetModel: Model, kind: "Stun" | "Slow", seconds: number, factor: number, key: string) -> (),
@@ -87,7 +89,8 @@ export type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
 	-- Lifts the slow a glyph put on its own caster, the moment the charge it held them for breaks.
 	clearSlow: (player: Player, key: string?) -> (),
-	applyStun: (player: Player, seconds: number) -> (),
+	-- A glyph's stun: refused on a body already stunned or within the grace after its last stun (D-213).
+	applyGlyphStun: (player: Player, seconds: number) -> boolean,
 }
 export type Context = {
 	Caster: Player,
@@ -311,13 +314,14 @@ local function damageModel(ctx: Context, tracker: Tracker, model: Model): boolea
 	return true
 end
 
--- Holds a model the glyph just hit for `seconds`. A player is stunned by MovementService; any other body
--- is handed to whoever owns it (CombatService.controlNpc), so a stun glyph stops a Forger too. Every control
--- a glyph applies goes through this or slowModel: a site that asked Movement directly reached players only.
+-- Holds a model the glyph just hit for `seconds`. A player is stunned by MovementService, as a glyph's stun: it
+-- never extends one that runs, nor lands within the grace after one ended (D-213). Any other body is handed to
+-- whoever owns it (CombatService.controlNpc), so a stun glyph stops a Forger too. Every control a glyph applies
+-- goes through this or slowModel: a site that asked Movement directly reached players only.
 local function stunModel(ctx: Context, model: Model, seconds: number)
 	local player = playerOf(model)
 	if player ~= nil then
-		ctx.Movement.applyStun(player, seconds)
+		ctx.Movement.applyGlyphStun(player, seconds)
 	else
 		ctx.Combat.controlNpc(model, "Stun", seconds, 0, ctx.Def.Id)
 	end
@@ -620,7 +624,7 @@ local function charge(ctx: Context, vfxId: string, seconds: number, extra: { [st
 			return nil
 		end
 	end
-	local frame = ctx.Combat.trustedOrigin(ctx.Caster)
+	local frame = ctx.Combat.currentOrigin(ctx.Caster)
 	ctx.Combat.endChannel(ctx.Caster, token)
 	return frame
 end
@@ -925,8 +929,10 @@ function GlyphEffects.Scorch(ctx: Context): number
 			task.wait(params.TickInterval)
 		end
 		-- Re-validated every tick. Reading the raw root here made the validated origin decorative: a
-		-- client could move itself onto a different victim between ticks and the zone followed.
-		local centre = ctx.Combat.trustedOrigin(ctx.Caster)
+		-- client could move itself onto a different victim between ticks and the zone followed. Judged as the
+		-- server's own loop, never as an action: the player chose the cast, not the tick, and three ticks after a
+		-- network freeze were an Origin strike nothing they did had earned.
+		local centre = ctx.Combat.currentOrigin(ctx.Caster)
 		-- And it stops with its caster, like every other timed effect: a caster knocked down would
 		-- otherwise be an untouchable burning ring (found by review, D-113).
 		if centre == nil or not casterAlive(ctx) then
@@ -1807,7 +1813,7 @@ function GlyphEffects.Stitch(ctx: Context): number
 		}, true, origin)
 		return 0
 	end
-	local anchor = ctx.Combat.trustedOrigin(ctx.Caster) -- where the caster is NOW, validated
+	local anchor = ctx.Combat.currentOrigin(ctx.Caster) -- where the caster is NOW, validated
 	local here = if anchor ~= nil then anchor.Position else origin
 	local position = target:GetPivot().Position
 	local flat = Vector3.new(here.X - position.X, 0, here.Z - position.Z)
@@ -1868,7 +1874,7 @@ function GlyphEffects.Hatching(ctx: Context): number
 				break
 			end
 		end
-		local frame = ctx.Combat.trustedOrigin(ctx.Caster) -- re-validated every stroke, as the Scorch's centre
+		local frame = ctx.Combat.currentOrigin(ctx.Caster) -- re-validated every stroke, as the Scorch's centre
 		if frame == nil or not casterAlive(ctx) then
 			break
 		end

@@ -555,8 +555,10 @@ describe("MovementScenarios: honest, slows, walls, shoves and respawns", functio
 			return nil, nil
 		end,
 	}, "clean")
+	-- Players pass through one another (the Characters collision group, D-215): what can still ram a player and throw
+	-- them is a body the server owns and moves -- a Forger, the Erasure's hull -- which is the contact these cases give.
 	case({
-		Name = "fling victim: rammed, thrown 600 studs/s for 0.1 s",
+		Name = "fling victim: rammed by a Forger or the Erasure's hull, thrown 600 studs/s for 0.1 s",
 		Seconds = 6,
 		Latency = 0.1,
 		Contact = { { 2, 2.06 } },
@@ -764,7 +766,7 @@ describe("MovementScenarios: honest, the cases that pin a rule's margin", functi
 		}, "clean")
 	end
 	case({
-		Name = "fling victim thrown 30 studs per tick for 1.5 s",
+		Name = "fling victim thrown 30 studs per tick for 1.5 s by a body the server moves",
 		Seconds = 8,
 		Latency = 0.1,
 		Contact = { { 2, 2.06 } },
@@ -1617,5 +1619,41 @@ describe("MovementScenarios: cheats, the arrival's own rise (in-game review)", f
 				return nil, if t >= 4 then ERASURE_FLOOR + stand + math.min(16, 12 * (t - 4)) else nil
 			end,
 		}, "strike")
+	end
+end)
+
+describe("MovementScenarios: honest, a fall off the Erasure's arena brought home (K2)", function()
+	-- WorldBossService takes a participant whose root passed under the underside of the arena's floor (the slab is 4
+	-- studs thick) back to the hub: it sees the body a way late and acts on its next tick (D-214). The audit follows
+	-- the walk off the edge, the fall and the pivot mid-air, whatever the body's height, its round trip and whether it
+	-- keeps its fall across the pivot.
+	local EDGE = 60
+	local START = 40
+	local GRAVITY = 196.2
+	local TICK = 1 / 20
+	for _, avatar in ipairs(AVATARS) do
+		local name, stand = avatar[1] :: string, avatar[2] :: number
+		for _, L in ipairs({ 0.05, 0.2, 0.45 }) do
+			for _, keeps in ipairs({ false, true }) do
+				local crossing = (EDGE - START) / 16 + math.sqrt(2 * (stand + 4) / GRAVITY)
+				case({
+					Name = ("%s avatar (%.2f): walks off the Erasure's arena, brought home, L=%.2f%s"):format(
+						name,
+						stand,
+						L,
+						if keeps then ", keeps its fall" else ""
+					),
+					Seconds = 6,
+					Latency = L,
+					Stand = stand,
+					Floors = WORLD,
+					StartX = START,
+					StartY = ERASURE_FLOOR + stand,
+					Walk = walk(16),
+					Teleports = { { crossing + L + TICK, 9, LANDING } },
+					KeepsMomentum = keeps,
+				}, "silent")
+			end
+		end
 	end
 end)

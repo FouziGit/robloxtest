@@ -126,6 +126,9 @@ MovementGuardConfig.TunnelMinFallStuds = 60
 MovementGuardConfig.ConfirmCount = 2
 MovementGuardConfig.ConfirmWindowSeconds = 2
 MovementGuardConfig.PersistSeconds = 0.35
+-- A body stunned by the server walks no more than this once it could have been told (Pure/StunWatch): logged
+-- only, in every mode. Above a still body's jitter and the step it finishes as the stun reaches it.
+MovementGuardConfig.StunWalkSlackStuds = 4
 -- Contact exempts for max(1, round trip + 0.5) s; two bodies moving together (unit displacements at least this
 -- aligned) get no exemption from each other.
 MovementGuardConfig.ContactLatchSeconds = 1

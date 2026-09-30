@@ -74,6 +74,8 @@ export type MovementApi = {
 	applyStun: (player: Player, seconds: number) -> (),
 	ragdoll: (player: Player, seconds: number) -> (),
 	isDown: (player: Player) -> boolean,
+	-- A body whose Humanoid its client took away is about to be replaced (D-216): a death, for a member.
+	BodyLost: { Connect: (self: any, fn: (player: Player) -> ()) -> any },
 }
 export type Deps = {
 	Registry: { fire: (name: string, player: Player, ...any) -> () },

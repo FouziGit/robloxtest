@@ -106,7 +106,7 @@ describe("a charged glyph", function()
 		expect(
 			before(
 				charge,
-				"local frame = ctx.Combat.trustedOrigin(ctx.Caster)",
+				"local frame = ctx.Combat.currentOrigin(ctx.Caster)",
 				"ctx.Combat.endChannel(ctx.Caster, token) return frame"
 			)
 		).toBe(true)
@@ -219,7 +219,7 @@ describe("the Hatching", function()
 		-- The same glyph cannot hit the same body twice inside Hit.IFrameSeconds: a stroke closer than that, one
 		-- frame of lateness at 30 Hz included, would be swallowed.
 		expect(GlyphConfig.ById.Hatching.Params.TickInterval).toBeGreaterThan(CombatConfig.Hit.IFrameSeconds + 1 / 30)
-		expect(hatching:find("local frame = ctx.Combat.trustedOrigin(ctx.Caster)", 1, true)).never.toBe(nil)
+		expect(hatching:find("local frame = ctx.Combat.currentOrigin(ctx.Caster)", 1, true)).never.toBe(nil)
 	end)
 end)
 

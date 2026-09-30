@@ -98,11 +98,17 @@ GameConfig.Movement = {
 	JumpPower = 50,
 	DoubleJumpVelocity = 50,
 	MaxJumps = 2,
+	-- The collision group of every part of a player's body, which does not collide with itself: players pass
+	-- through one another and nobody flings anybody (D-215). The Forgers and the Erasure stay Default.
+	CharacterCollisionGroup = "Characters",
 }
 
 GameConfig.Spawn = {
 	ProtectionSeconds = 4, -- no damage taken/dealt right after (re)spawn
 	SafeZoneMarginStuds = 10, -- PvP disabled within DummyRingRadius + this margin of the hub spawn
+	-- A Humanoid its client took out of the body and did not give back within this is replaced with a new body and a
+	-- Schema strike (MovementService, D-216): without one, nothing can hurt the body.
+	HumanoidReturnSeconds = 0.5,
 }
 
 GameConfig.Enemy = {

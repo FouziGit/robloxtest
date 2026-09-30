@@ -68,6 +68,8 @@ type MovementApi = {
 	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	isDown: (player: Player) -> boolean,
+	-- The running stun's dates, for the movement audit (Security/MovementAudit).
+	stunDates: (player: Player) -> (number, number),
 	command: (player: Player, payload: MovementCommand) -> (),
 }
 type VfxPacket = {
@@ -696,6 +698,21 @@ function CombatService.trustedOrigin(player: Player): CFrame?
 		return nil
 	end
 	return trustedCFrame(state, root, os.clock(), true)
+end
+
+-- The same origin, for a loop the SERVER runs on its own clock: a charge's release, the Scorch's ticks, the pull of a
+-- Stitch, the strokes of the Hatching. Judged and chased exactly as trustedOrigin judges it, so the zone and the
+-- strokes follow the same anchor, but as the per-tick sampling is: no violation counted, no tolerance spent. The
+-- player chose the cast, which trustedOrigin judged; they did not choose when the server's loop asks again, and
+-- three ticks after a network freeze were three violations -- a strike -- that no action of theirs had made. nil
+-- when the caster has no live character: the loop then stops, never falls back to the client's word.
+function CombatService.currentOrigin(player: Player): CFrame?
+	local state = states[player]
+	local root = playerRoot(player)
+	if state == nil or root == nil then
+		return nil
+	end
+	return trustedCFrame(state, root, os.clock(), false)
 end
 
 -- Where the server last believed `player` stood: the anchor the per-tick sampling keeps, read as it is. Never

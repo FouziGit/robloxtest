@@ -1,15 +1,16 @@
 --!strict
--- LockMarker: the mark over the opponent a lock is on (LockOnController, D-115, D-147). A diamond of ink edged
--- in the sheet, so it reads over the page and over a dark body alike, floating above the target's head and
--- drawn over everything: a lock that cannot be seen behind a wall is a lock nobody trusts. Under it a small
--- ink plate names the target and draws its health. It stays in ink (docs/ART_BIBLE.md rule 1: it is drawn
--- in the world): a locked target is not a danger to you, so it is never red.
+-- LockMarker: the mark over the opponent a lock is on (LockOnController, D-115, D-147). The board's diamond: the
+-- sheet in a thick ink outline, so it reads over the page and over a dark body alike, floating above the
+-- target's head and drawn over everything: a lock that cannot be seen behind a wall is a lock nobody trusts.
+-- Over it a small ink pill names the target and its health, "Rival_07 · 64". It stays in ink and the sheet
+-- (docs/ART_BIBLE.md rule 1: it is drawn in the world): a locked target is not a danger to you, so it is
+-- never red.
 --
 -- It clamps down onto the target when a lock is taken and lifts off when it is let go, on the interface's
 -- springs (Motion); it never simply appears or vanishes. Near the distance a lock breaks at, the diamond
--- turns chalk and breathes. With the target out of view, a chevron at the edge of the screen points to it;
--- a press that finds nothing to lock says so. One for the session: built once by LockOnController and
--- re-aimed at each new target.
+-- turns chalk and breathes, in its ink outline. With the target out of view, a chevron at the edge of the
+-- screen points to it; a press that finds nothing to lock says so. One for the session: built once by
+-- LockOnController and re-aimed at each new target.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -24,7 +25,7 @@ export type Localizer = { t: (key: string, params: { [string]: any }?) -> string
 
 export type LockMarker = {
 	Show: (self: LockMarker, adornee: BasePart, lift: number) -> (),
-	-- What the plate under the diamond says: the target's name, and its health, followed while it shows.
+	-- What the pill over the diamond says: the target's name, and its health, followed while it shows.
 	SetTarget: (self: LockMarker, name: string, humanoid: Humanoid) -> (),
 	-- Near the distance the lock breaks at: the diamond turns chalk and breathes.
 	SetWarning: (self: LockMarker, warning: boolean) -> (),
@@ -40,21 +41,20 @@ local LockMarker = {}
 -- How much larger the mark starts when a lock is taken, and ends when it is let go.
 local TAKE_FROM_SCALE = 1.8
 local LET_GO_SCALE = 0.5
--- The ink of the diamond, inside its frame, over a sheet edge outside it.
+-- The ink outline of the diamond, inside its frame.
 local INK_THICKNESS = 4
-local EDGE_THICKNESS = 2
-local EDGE_TRANSPARENCY = 0.2
--- The dot at its centre, as a share of the mark.
-local DOT_SHARE = 0.22
--- The plate under the diamond, in pixels (a billboard's own), and how far under it.
-local PLATE_WIDTH = 120
-local PLATE_HEIGHT = 40
+-- The pill over the diamond, in pixels (a billboard's own): as wide as its words up to the widest, this tall,
+-- this far over the diamond, and its inset.
+local PLATE_MAX_WIDTH = 180
+local PLATE_HEIGHT = 22
 local PLATE_GAP = 6
+local PLATE_CORNER = 6
+local PLATE_PADDING_Y = 2
+local PLATE_PADDING_X = 8
 local PLATE_TRANSPARENCY = 0.1
 local NAME_TEXT = 14
-local STRIP_WIDTH = 80
-local STRIP_HEIGHT = 6
--- A lock about to break: its ink turns chalk and breathes between these transparencies.
+local TARGET_KEY = "hud.lock.target"
+-- A lock about to break: the diamond turns chalk and breathes between these transparencies.
 local WARN_FROM, WARN_TO = 0, 0.5
 -- The chevron: an ink disc with the sheet's arrow, this far inside the safe area.
 local CHEVRON = 32
@@ -92,49 +92,41 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	local scale = Instance.new("UIScale")
 	scale.Scale = 1
 
-	-- Turned a quarter of a right angle: a diamond, the one shape no other mark in the game uses.
+	-- Turned a quarter of a right angle: a diamond, the one shape no other mark in the game uses. The sheet,
+	-- in the ink's outline; both fade in with the lock.
 	local diamond = blank("Diamond", billboard)
 	diamond.AnchorPoint = Vector2.new(0.5, 0.5)
 	diamond.Position = UDim2.fromScale(0.5, 0.5)
 	diamond.Size = UDim2.fromOffset(size, size)
 	diamond.Rotation = 45
+	diamond.BackgroundColor3 = Theme.Colors.PanelRaised
 	scale.Parent = diamond
-
-	-- The sheet edge outside the ink, on a frame of the same size behind it.
-	local edgeFrame = blank("Edge", diamond)
-	edgeFrame.Size = UDim2.fromScale(1, 1)
-	edgeFrame.ZIndex = 1
-	local edge = Theme.stroke(edgeFrame, "PanelRaised", EDGE_THICKNESS, "Border", "Outer")
-	edge.Transparency = 1
-
-	local inkFrame = blank("Ink", diamond)
-	inkFrame.Size = UDim2.fromScale(1, 1)
-	inkFrame.ZIndex = 2
-	local ink = Theme.stroke(inkFrame, "Accent", INK_THICKNESS)
+	local ink = Theme.stroke(diamond, "Accent", INK_THICKNESS)
 	ink.Transparency = 1
 
-	local dot = blank("Dot", diamond)
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.Position = UDim2.fromScale(0.5, 0.5)
-	dot.Size = UDim2.fromScale(DOT_SHARE, DOT_SHARE)
-	dot.BackgroundColor3 = Theme.Colors.PanelRaised
-	dot.ZIndex = 3
-
-	-- The plate, on a billboard of its own centred where the diamond is: the plate sits in its lower half.
+	-- The pill, on a billboard of its own centred where the diamond is: the pill stands in its upper half, over
+	-- the diamond, as wide as its words.
 	local plateBoard = Instance.new("BillboardGui")
 	plateBoard.Name = "LockPlate"
-	plateBoard.Size = UDim2.fromOffset(PLATE_WIDTH, (size / 2 + PLATE_GAP + PLATE_HEIGHT) * 2)
+	plateBoard.Size = UDim2.fromOffset(PLATE_MAX_WIDTH, (size / 2 + PLATE_GAP + PLATE_HEIGHT) * 2)
 	plateBoard.AlwaysOnTop = true
 	plateBoard.LightInfluence = 0
 	plateBoard.ResetOnSpawn = false
 	plateBoard.Enabled = false
 	plateBoard.Parent = parent
 	local plate = blank("Plate", plateBoard)
-	plate.AnchorPoint = Vector2.new(0.5, 0)
-	plate.Position = UDim2.new(0.5, 0, 0.5, size / 2 + PLATE_GAP)
-	plate.Size = UDim2.fromOffset(PLATE_WIDTH, PLATE_HEIGHT)
+	plate.AnchorPoint = Vector2.new(0.5, 1)
+	plate.Position = UDim2.new(0.5, 0, 0.5, -(size / 2 + PLATE_GAP))
+	plate.Size = UDim2.fromOffset(0, PLATE_HEIGHT)
+	plate.AutomaticSize = Enum.AutomaticSize.X
 	plate.BackgroundColor3 = Theme.Colors.Plate
-	Theme.corner(plate, Theme.Sizes.CornerCard)
+	Theme.corner(plate, PLATE_CORNER)
+	local inset = Instance.new("UIPadding")
+	inset.PaddingTop = UDim.new(0, PLATE_PADDING_Y)
+	inset.PaddingBottom = UDim.new(0, PLATE_PADDING_Y)
+	inset.PaddingLeft = UDim.new(0, PLATE_PADDING_X)
+	inset.PaddingRight = UDim.new(0, PLATE_PADDING_X)
+	inset.Parent = plate
 	local plateScale = Instance.new("UIScale")
 	plateScale.Parent = plate
 	local function applyTransparency()
@@ -146,30 +138,18 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "Name"
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Position = UDim2.fromOffset(Theme.Sizes.PaddingSmall, 0)
-	nameLabel.Size = UDim2.new(1, -Theme.Sizes.PaddingSmall * 2, 0, PLATE_HEIGHT - STRIP_HEIGHT - PLATE_GAP * 2)
+	nameLabel.AutomaticSize = Enum.AutomaticSize.X
+	nameLabel.Size = UDim2.fromScale(0, 1)
 	nameLabel.FontFace = Theme.Fonts.Bold
 	nameLabel.TextSize = NAME_TEXT
-	nameLabel.TextColor3 = Theme.Colors.TextInverse
+	nameLabel.TextColor3 = Theme.Colors.PanelRaised
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	nameLabel.Text = ""
+	-- A long name is cut at the billboard's edge rather than run past it.
+	local widest = Instance.new("UISizeConstraint")
+	widest.MaxSize = Vector2.new(PLATE_MAX_WIDTH - PLATE_PADDING_X * 2, math.huge)
+	widest.Parent = nameLabel
 	nameLabel.Parent = plate
-
-	local track = blank("Health", plate)
-	track.AnchorPoint = Vector2.new(0.5, 1)
-	track.Position = UDim2.new(0.5, 0, 1, -PLATE_GAP)
-	track.Size = UDim2.fromOffset(STRIP_WIDTH, STRIP_HEIGHT)
-	track.BackgroundColor3 = Theme.Colors.Well
-	track.BackgroundTransparency = 0
-	Theme.corner(track, Theme.Pill)
-	-- The inkwell is 1.23 against the ink plate: without the sheet's ring the empty part of the track is lost,
-	-- and at low health a sliver of fill says nothing of how much is gone (tracks on plates carry a Ring).
-	Theme.stroke(track, "PanelRaised", Theme.Sizes.StrokeThin)
-	local fill = blank("Fill", track)
-	fill.Size = UDim2.fromScale(1, 1)
-	fill.BackgroundColor3 = Theme.Colors.PanelRaised
-	fill.BackgroundTransparency = 0
-	Theme.corner(fill, Theme.Pill)
 
 	-- The screen-space half: the chevron and the miss, on the HUD's layer, inside the safe area.
 	local overlay = ScreenRoot.new({ Name = "LockOverlay", DisplayOrder = Theme.Layers.Hud, Parent = parent })
@@ -241,8 +221,8 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		if stop ~= nil then
 			stop()
 		end
-		Motion.cancel(ink)
-		ink.Color = Theme.Colors.Accent
+		Motion.cancel(diamond)
+		diamond.BackgroundColor3 = Theme.Colors.PanelRaised
 	end
 
 	local function setOffscreen(_self: LockMarker?, direction: Vector2?)
@@ -275,23 +255,20 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		Motion.set(scale, { Scale = TAKE_FROM_SCALE })
 		Motion.to(scale, { Scale = 1 }, "UiSnappy")
 		Motion.to(ink, { Transparency = 0 }, "UiSnappy")
-		Motion.to(edge, { Transparency = EDGE_TRANSPARENCY }, "UiSnappy")
-		Motion.to(dot, { BackgroundTransparency = 0 }, "UiSnappy")
+		Motion.to(diamond, { BackgroundTransparency = 0 }, "UiSnappy")
 		Motion.set(plateScale, { Scale = 0 })
 		Motion.to(plateScale, { Scale = 1 }, "UiPop")
 	end
 
+	-- The name and the health left, rewritten as the target's health moves; a target is never below nothing.
 	local function setTarget(_self: LockMarker, name: string, humanoid: Humanoid)
 		unfollow()
-		nameLabel.Text = name
 		local function refresh()
-			local share = if humanoid.MaxHealth > 0 then math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1) else 0
-			Motion.to(fill, { Size = UDim2.fromScale(share, 1) }, "UiSnappy")
+			local health = math.max(0, math.ceil(humanoid.Health))
+			nameLabel.Text = localize.t(TARGET_KEY, { name = name, health = health })
 		end
-		Motion.set(fill, { Size = UDim2.fromScale(1, 1) })
 		refresh()
 		table.insert(following, humanoid:GetPropertyChangedSignal("Health"):Connect(refresh))
-		table.insert(following, humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(refresh))
 	end
 
 	local function setWarning(_self: LockMarker, warning: boolean)
@@ -300,11 +277,16 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		end
 		if not warning then
 			endWarning()
-			Motion.to(ink, { Transparency = 0 }, "UiSnappy")
+			Motion.to(diamond, { BackgroundTransparency = 0 }, "UiSnappy")
 			return
 		end
-		ink.Color = Theme.Colors.Chalk
-		stopWarning = Motion.loop(ink, { Transparency = WARN_FROM }, { Transparency = WARN_TO }, "Ui")
+		diamond.BackgroundColor3 = Theme.Colors.Chalk
+		stopWarning = Motion.loop(
+			diamond,
+			{ BackgroundTransparency = WARN_FROM },
+			{ BackgroundTransparency = WARN_TO },
+			"Ui"
+		)
 	end
 
 	local function showMiss(_self: LockMarker)
@@ -335,8 +317,7 @@ function LockMarker.new(parent: Instance, size: number, localize: Localizer): Lo
 		generation += 1
 		local mine = generation
 		Motion.to(scale, { Scale = LET_GO_SCALE }, "UiSnappy")
-		Motion.to(edge, { Transparency = 1 }, "UiSnappy")
-		Motion.to(dot, { BackgroundTransparency = 1 }, "UiSnappy")
+		Motion.to(diamond, { BackgroundTransparency = 1 }, "UiSnappy")
 		Motion.to(plateScale, { Scale = 0 }, "UiSnappy")
 		Motion.to(ink, { Transparency = 1 }, "UiSnappy", function()
 			if generation == mine then

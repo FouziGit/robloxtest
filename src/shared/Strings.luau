@@ -788,8 +788,10 @@ Strings.Table = {
 	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
 	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
 	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
-	-- The lock's mark (LockMarker): a press that finds nothing, and the plate's name for what is not a player.
+	-- The lock's mark (LockMarker): a press that finds nothing, the pill over the target with its name and the
+	-- health it has left, and the pill's name for what is not a player.
 	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
+	["hud.lock.target"] = { en = "{name} · {health}", fr = "{name} · {health}" },
 	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
 	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
 	-- A new player's first steps (MetaCluster), until all three are done.

@@ -86,7 +86,7 @@ end
 -- A player a day into the game: a daily reward waiting, three glyphs equipped.
 local function profile(): any
 	local today = math.floor(os.time() / SECONDS_PER_DAY)
-	local quests = { PeriodKey = "", Claimed = {}, Progress = {} }
+	local quests = { PeriodKey = "", Claimed = {}, Progress = {}, Swaps = {} }
 	return {
 		Settings = {
 			Keyboard = table.clone(InputConfig.DefaultKeyboard),
@@ -619,9 +619,15 @@ describe("the language's source", function()
 	end)
 
 	it("has every controller that writes words listen for a change of language", function()
+		-- Words written for one moment and never kept: nothing is left on screen to write again. An exemption that
+		-- no longer matches a controller writing words is an error too.
+		local momentary: { [string]: string } = {
+			["src/client/Controllers/Feel.luau"] = "an amplified hit's status line lives as long as its number, a second",
+		}
 		local controllers: { string } = {}
 		files("src/client/Controllers", controllers)
 		local writers = 0
+		local used: { [string]: boolean } = {}
 		for _, path in ipairs(controllers) do
 			local code = source(path)
 			if
@@ -629,11 +635,22 @@ describe("the language's source", function()
 				and string.find(code, "localize = deps.Localize", 1, true)
 			then
 				writers += 1
-				if string.find(code, "localize.Changed:Connect(", 1, true) == nil then
+				local listens = string.find(code, "localize.Changed:Connect(", 1, true) ~= nil
+				if momentary[path] ~= nil then
+					used[path] = true
+					if listens then
+						error(("%s listens for a change of language: it is no longer momentary"):format(path))
+					end
+				elseif not listens then
 					error(
 						("%s writes words and never hears Localize.Changed: they stay in the old language"):format(path)
 					)
 				end
+			end
+		end
+		for path in pairs(momentary) do
+			if not used[path] then
+				error(("%s is exempt and writes no words any more: drop the exemption"):format(path))
 			end
 		end
 		expect(writers).toBeGreaterThanOrEqual(8)

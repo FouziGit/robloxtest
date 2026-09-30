@@ -47,9 +47,13 @@ describe("the Ex-libris", function()
 				if not Strings.has(key) then
 					error(("%s has no words for %s"):format(entry.Id, key))
 				end
-				local words = (Strings.Table :: any)[key]
-				expect(type(words.en)).toBe("string")
-				expect(type(words.fr)).toBe("string")
+				-- A measure counts its target: its sentence has its two forms (Strings.Plurals, E12-S3).
+				local forms = if Strings.Plurals[key] ~= nil then { key .. ".one", key .. ".other" } else { key }
+				for _, form in ipairs(forms) do
+					local words = (Strings.Table :: any)[form]
+					expect(type(words.en)).toBe("string")
+					expect(type(words.fr)).toBe("string")
+				end
 			end
 			expect(entry.Target).toBeGreaterThan(0)
 			expect(entry.Folios).toBeGreaterThan(0)

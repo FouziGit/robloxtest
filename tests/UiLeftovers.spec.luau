@@ -95,6 +95,10 @@ describe("the interface's leftovers, run", function()
 				getQueue = function(): any
 					return { Queued = false, WaitedSeconds = 0, QueuedCount = 0, NeededCount = 2 }
 				end,
+				-- A public server: the Play ribbon says Ranked (E4-S4).
+				rankedHere = function(): boolean
+					return true
+				end,
 			},
 			OnClose = function() end,
 			OnNavigate = function() end,

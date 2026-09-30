@@ -549,8 +549,13 @@ Strings.Table = {
 	["match.nextUnlock"] = { en = "Next: {name} at level {level}", fr = "Prochain : {name} au niveau {level}" },
 	-- What a milestone of the level road pays (ProgressionConfig.Milestones), where the Result card names it and
 	-- where the Lectern lists the road; and the line that replaces the promise once the road is walked.
-	["levelroad.folios"] = { en = "{amount} Folios", fr = "{amount} Folios" },
-	["levelroad.foliosAndTitle"] = {
+	["levelroad.folios.one"] = { en = "{amount} Folio", fr = "{amount} Folio" },
+	["levelroad.folios.other"] = { en = "{amount} Folios", fr = "{amount} Folios" },
+	["levelroad.foliosAndTitle.one"] = {
+		en = "the title {title} and {amount} Folio",
+		fr = "le titre {title} et {amount} Folio",
+	},
+	["levelroad.foliosAndTitle.other"] = {
 		en = "the title {title} and {amount} Folios",
 		fr = "le titre {title} et {amount} Folios",
 	},
@@ -558,15 +563,27 @@ Strings.Table = {
 		en = "Every level's reward is yours",
 		fr = "Toutes les récompenses de niveau sont à toi",
 	},
-	["milestone.reached"] = {
+	["milestone.reached.one"] = {
+		en = "Milestone of level {level}: +{amount} Folio",
+		fr = "Jalon du niveau {level} : +{amount} Folio",
+	},
+	["milestone.reached.other"] = {
 		en = "Milestone of level {level}: +{amount} Folios",
 		fr = "Jalon du niveau {level} : +{amount} Folios",
 	},
-	["milestone.caughtUp"] = {
+	["milestone.caughtUp.one"] = {
+		en = "Milestones you had passed: {count}, +{amount} Folio",
+		fr = "Jalons déjà passés : {count}, +{amount} Folio",
+	},
+	["milestone.caughtUp.other"] = {
 		en = "Milestones you had passed: {count}, +{amount} Folios",
 		fr = "Jalons déjà passés : {count}, +{amount} Folios",
 	},
-	["milestone.reachedTitle"] = {
+	["milestone.reachedTitle.one"] = {
+		en = "Milestone of level {level}: +{amount} Folio and the title {title}",
+		fr = "Jalon du niveau {level} : +{amount} Folio et le titre {title}",
+	},
+	["milestone.reachedTitle.other"] = {
 		en = "Milestone of level {level}: +{amount} Folios and the title {title}",
 		fr = "Jalon du niveau {level} : +{amount} Folios et le titre {title}",
 	},
@@ -614,34 +631,56 @@ Strings.Table = {
 	["lectern.road.titled"] = { en = "A milestone and its title", fr = "Un jalon et son titre" },
 	["lectern.road.held"] = { en = "Yours", fr = "Acquis" },
 	["lectern.road.next"] = { en = "Next", fr = "Prochain" },
-	["levelroad.titleRow"] = { en = "{title} · {amount} Folios", fr = "{title} · {amount} Folios" },
+	["levelroad.titleRow.one"] = { en = "{title} · {amount} Folio", fr = "{title} · {amount} Folio" },
+	["levelroad.titleRow.other"] = { en = "{title} · {amount} Folios", fr = "{title} · {amount} Folios" },
 	["drills.grade.draft"] = { en = "Draft", fr = "Brouillon" },
 	["drills.grade.fairCopy"] = { en = "Fair copy", fr = "Mise au net" },
 	["drills.grade.calligraphy"] = { en = "Calligraphy", fr = "Calligraphie" },
 	["drills.kit.string"] = { en = "Four strokes", fr = "Les quatre traits" },
-	["drills.kit.string.hint"] = {
+	["drills.kit.string.hint.one"] = {
+		en = "Land all four strokes of a string, {reps} time",
+		fr = "Place les quatre coups d'un enchaînement, {reps} fois",
+	},
+	["drills.kit.string.hint.other"] = {
 		en = "Land all four strokes of a string, {reps} times",
 		fr = "Place les quatre coups d'un enchaînement, {reps} fois",
 	},
 	["drills.kit.cancel"] = { en = "The cancel", fr = "L'annulation" },
-	["drills.kit.cancel.hint"] = {
+	["drills.kit.cancel.hint.one"] = {
+		en = "Land the last stroke, then dash out of its recovery, {reps} time",
+		fr = "Place le dernier coup, puis rue hors de sa récupération, {reps} fois",
+	},
+	["drills.kit.cancel.hint.other"] = {
 		en = "Land the last stroke, then dash out of its recovery, {reps} times",
 		fr = "Place le dernier coup, puis rue hors de sa récupération, {reps} fois",
 	},
 	["drills.kit.chain"] = { en = "Chain of three", fr = "Chaîne de trois" },
-	["drills.kit.chain.hint"] = {
+	["drills.kit.chain.hint.one"] = {
+		en = "Chain three glyphs, each within a second, {reps} time",
+		fr = "Enchaîne trois glyphes, chacun dans la seconde, {reps} fois",
+	},
+	["drills.kit.chain.hint.other"] = {
 		en = "Chain three glyphs, each within a second, {reps} times",
 		fr = "Enchaîne trois glyphes, chacun dans la seconde, {reps} fois",
 	},
-	["drills.recipe.hint"] = {
+	["drills.recipe.hint.one"] = {
+		en = "Land it on a training dummy, {reps} time",
+		fr = "Place-le sur un mannequin, {reps} fois",
+	},
+	["drills.recipe.hint.other"] = {
 		en = "Land it on a training dummy, {reps} times",
 		fr = "Place-le sur un mannequin, {reps} fois",
 	},
-	["drills.recipe.hintUtility"] = { en = "Draw it, {reps} times", fr = "Trace-le, {reps} fois" },
+	["drills.recipe.hintUtility.one"] = { en = "Draw it, {reps} time", fr = "Trace-le, {reps} fois" },
+	["drills.recipe.hintUtility.other"] = { en = "Draw it, {reps} times", fr = "Trace-le, {reps} fois" },
 	["drills.started"] = { en = "Drill: {name}. {hint}", fr = "Exercice : {name}. {hint}" },
 	["drills.rep"] = { en = "{name} · {count} / {reps}", fr = "{name} · {count} / {reps}" },
 	["drills.miss"] = { en = "{name} · missed ({misses})", fr = "{name} · raté ({misses})" },
-	["drills.graded"] = {
+	["drills.graded.one"] = {
+		en = "{name}: {grade}! +{folios} Folio, +{xp} XP",
+		fr = "{name} : {grade} ! +{folios} Folio, +{xp} XP",
+	},
+	["drills.graded.other"] = {
 		en = "{name}: {grade}! +{folios} Folios, +{xp} XP",
 		fr = "{name} : {grade} ! +{folios} Folios, +{xp} XP",
 	},
@@ -676,35 +715,73 @@ Strings.Table = {
 	["exlibris.SteadyKit"] = { en = "A Steady Kit", fr = "Un kit sûr" },
 	["exlibris.Copyist"] = { en = "The Copyist", fr = "Le Copiste" },
 	["exlibris.Calligrapher"] = { en = "The Calligrapher", fr = "Le Calligraphe" },
-	["exlibris.desc.Kills"] = {
+	["exlibris.desc.Kills.one"] = {
+		en = "Defeat {amount} foe, dummies and Forgers included",
+		fr = "Vaincs {amount} adversaire, mannequins et Faussaires compris",
+	},
+	["exlibris.desc.Kills.other"] = {
 		en = "Defeat {amount} foes, dummies and Forgers included",
 		fr = "Vaincs {amount} adversaires, mannequins et Faussaires compris",
 	},
-	["exlibris.desc.MatchesPlayed"] = { en = "Play {amount} matches", fr = "Joue {amount} matchs" },
-	["exlibris.desc.GlyphsCast"] = { en = "Draw {amount} glyphs", fr = "Trace {amount} glyphes" },
-	["exlibris.desc.BestChain"] = { en = "Chain {amount} glyphs", fr = "Enchaîne {amount} glyphes" },
-	["exlibris.desc.BossKills"] = {
+	["exlibris.desc.MatchesPlayed.one"] = { en = "Play {amount} match", fr = "Joue {amount} match" },
+	["exlibris.desc.MatchesPlayed.other"] = { en = "Play {amount} matches", fr = "Joue {amount} matchs" },
+	["exlibris.desc.GlyphsCast.one"] = { en = "Draw {amount} glyph", fr = "Trace {amount} glyphe" },
+	["exlibris.desc.GlyphsCast.other"] = { en = "Draw {amount} glyphs", fr = "Trace {amount} glyphes" },
+	["exlibris.desc.BestChain.one"] = { en = "Chain {amount} glyph", fr = "Enchaîne {amount} glyphe" },
+	["exlibris.desc.BestChain.other"] = { en = "Chain {amount} glyphs", fr = "Enchaîne {amount} glyphes" },
+	["exlibris.desc.BossKills.one"] = {
 		en = "Defeat the Erasure in its event ×{amount}",
 		fr = "Vaincs l'Effacement lors de son événement, {amount} fois",
 	},
-	["exlibris.desc.KitCalligraphy"] = {
+	["exlibris.desc.BossKills.other"] = {
+		en = "Defeat the Erasure in its event ×{amount}",
+		fr = "Vaincs l'Effacement lors de son événement, {amount} fois",
+	},
+	["exlibris.desc.KitCalligraphy.one"] = {
+		en = "Reach Calligraphy on the kit's {amount} drill",
+		fr = "Atteins la Calligraphie à {amount} exercice du kit",
+	},
+	["exlibris.desc.KitCalligraphy.other"] = {
 		en = "Reach Calligraphy on the kit's {amount} drills",
 		fr = "Atteins la Calligraphie aux {amount} exercices du kit",
 	},
-	["exlibris.desc.DrillsFairCopy"] = {
+	["exlibris.desc.DrillsFairCopy.one"] = {
+		en = "Reach Fair copy on {amount} drill",
+		fr = "Atteins la Mise au net sur {amount} exercice",
+	},
+	["exlibris.desc.DrillsFairCopy.other"] = {
 		en = "Reach Fair copy on {amount} drills",
 		fr = "Atteins la Mise au net sur {amount} exercices",
 	},
-	["exlibris.desc.DrillsCalligraphy"] = {
+	["exlibris.desc.DrillsCalligraphy.one"] = {
+		en = "Reach Calligraphy on {amount} drill",
+		fr = "Atteins la Calligraphie sur {amount} exercice",
+	},
+	["exlibris.desc.DrillsCalligraphy.other"] = {
 		en = "Reach Calligraphy on {amount} drills",
 		fr = "Atteins la Calligraphie sur {amount} exercices",
 	},
-	["exlibris.granted"] = { en = "Ex-libris: {name}! +{amount} Folios", fr = "Ex-libris : {name} ! +{amount} Folios" },
-	["exlibris.grantedTitle"] = {
+	["exlibris.granted.one"] = {
+		en = "Ex-libris: {name}! +{amount} Folio",
+		fr = "Ex-libris : {name} ! +{amount} Folio",
+	},
+	["exlibris.granted.other"] = {
+		en = "Ex-libris: {name}! +{amount} Folios",
+		fr = "Ex-libris : {name} ! +{amount} Folios",
+	},
+	["exlibris.grantedTitle.one"] = {
+		en = "Ex-libris: {name}! +{amount} Folio and the title {title}",
+		fr = "Ex-libris : {name} ! +{amount} Folio et le titre {title}",
+	},
+	["exlibris.grantedTitle.other"] = {
 		en = "Ex-libris: {name}! +{amount} Folios and the title {title}",
 		fr = "Ex-libris : {name} ! +{amount} Folios et le titre {title}",
 	},
-	["exlibris.caughtUp"] = {
+	["exlibris.caughtUp.one"] = {
+		en = "Ex-libris plates earned: {count}, +{amount} Folio",
+		fr = "Plaques d'Ex-libris obtenues : {count}, +{amount} Folio",
+	},
+	["exlibris.caughtUp.other"] = {
 		en = "Ex-libris plates earned: {count}, +{amount} Folios",
 		fr = "Plaques d'Ex-libris obtenues : {count}, +{amount} Folios",
 	},
@@ -858,11 +935,19 @@ Strings.Table = {
 	},
 	["purchase.tiersGranted.one"] = { en = "+{tiers} battle pass tier", fr = "+{tiers} palier de battle pass" },
 	["purchase.tiersGranted.other"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
-	["purchase.premiumOwnedFolios"] = {
+	["purchase.premiumOwnedFolios.one"] = {
+		en = "You already have the Premium Battle Pass: +{amount} Folio instead",
+		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folio à la place",
+	},
+	["purchase.premiumOwnedFolios.other"] = {
 		en = "You already have the Premium Battle Pass: +{amount} Folios instead",
 		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folios à la place",
 	},
-	["purchase.tiersPastLast"] = {
+	["purchase.tiersPastLast.one"] = {
+		en = "Past the last tier: +{amount} Folio instead",
+		fr = "Au-delà du dernier palier : +{amount} Folio à la place",
+	},
+	["purchase.tiersPastLast.other"] = {
 		en = "Past the last tier: +{amount} Folios instead",
 		fr = "Au-delà du dernier palier : +{amount} Folios à la place",
 	},
@@ -1082,21 +1167,46 @@ Strings.Quantities = {
 -- "<key>.other" in the table and no entry of its own; the key itself is what the code and the server's messages
 -- name. A sentence whose count is not a count of things (a tier, a level, a day of the streak) is not here.
 Strings.Plurals = {
-	["battlepass.reward.folio"] = "amount",
 	["battleground.defeated"] = "defeated",
 	["battleground.standing"] = "standing",
+	["battlepass.reward.folio"] = "amount",
 	["boss.reward"] = "folios",
 	["boss.timeLeft"] = "seconds",
 	["daily.atRisk"] = "streak",
 	["daily.claimed"] = "folios",
 	["daily.firstWin"] = "folios",
 	["daily.premium"] = "folios",
+	["drills.graded"] = "folios",
+	["drills.kit.cancel.hint"] = "reps",
+	["drills.kit.chain.hint"] = "reps",
+	["drills.kit.string.hint"] = "reps",
+	["drills.recipe.hint"] = "reps",
+	["drills.recipe.hintUtility"] = "reps",
+	["exlibris.caughtUp"] = "amount",
+	["exlibris.desc.BestChain"] = "amount",
+	["exlibris.desc.BossKills"] = "amount",
+	["exlibris.desc.DrillsCalligraphy"] = "amount",
+	["exlibris.desc.DrillsFairCopy"] = "amount",
+	["exlibris.desc.GlyphsCast"] = "amount",
+	["exlibris.desc.Kills"] = "amount",
+	["exlibris.desc.KitCalligraphy"] = "amount",
+	["exlibris.desc.MatchesPlayed"] = "amount",
+	["exlibris.granted"] = "amount",
+	["exlibris.grantedTitle"] = "amount",
+	["levelroad.folios"] = "amount",
+	["levelroad.foliosAndTitle"] = "amount",
+	["levelroad.titleRow"] = "amount",
 	["loadout.moreSlots"] = "count",
 	["loadout.slots"] = "total",
 	["match.execution.damage"] = "damage",
 	["match.execution.glyphs"] = "casts",
+	["milestone.caughtUp"] = "amount",
+	["milestone.reached"] = "amount",
+	["milestone.reachedTitle"] = "amount",
 	["purchase.grantedFoliosInstead"] = "amount",
+	["purchase.premiumOwnedFolios"] = "amount",
 	["purchase.tiersGranted"] = "tiers",
+	["purchase.tiersPastLast"] = "amount",
 	["quest.cancelRecovery"] = "target",
 	["quest.castGlyphs"] = "target",
 	["quest.chainCasts"] = "target",

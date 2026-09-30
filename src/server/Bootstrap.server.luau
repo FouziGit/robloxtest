@@ -144,7 +144,7 @@ local ordered: { Boot.Entry } = {
 
 local failed = Boot.run(ordered, deps)
 if #failed > 0 then
-	Boot.close(failed)
+	Boot.close(failed, LocaleService.of)
 end
 
 registry.setCallback("RequestProfile", function(player: Player): Types.ProfileData?

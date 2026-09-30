@@ -53,7 +53,10 @@ end
 -- The first plural-looking word after each counting placeholder of `text`, up to two words on, stopping at any
 -- punctuation: "{target} glyphs", "{target} training dummies", "{casts} glyphes placés". A single letter is a
 -- unit ("{seconds} s") and says nothing of the count.
-local function countedPlurals(text: string): { string }
+local function countedPlurals(given: string): { string }
+	-- A middle dot parts a line's items ("{count} / {reps} · ratés {misses}"): punctuation, whose two bytes WORD
+	-- would otherwise read as a word.
+	local text = string.gsub(given, "·", ";")
 	local found: { string } = {}
 	local from = 1
 	while true do
@@ -205,6 +208,8 @@ describe("plurals", function()
 		expect(#countedPlurals("{seconds} s")).toBe(0)
 		expect(#countedPlurals("+{xp} XP, +{folios} Folio")).toBe(0)
 		expect(#countedPlurals("Win {target}. Matches")).toBe(0)
+		expect(#countedPlurals("Now: {name} · {count} / {reps} · ratés {misses}")).toBe(0)
+		expect(#countedPlurals("{casts} glyphes · {damage}")).toBe(1)
 	end)
 
 	it("exempts only placeholders the table uses", function()

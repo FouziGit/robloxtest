@@ -167,20 +167,26 @@ daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
 drills.grade.calligraphy,Calligraphy,Vellum,,Calligraphy,Calligraphie
 drills.grade.draft,Draft,Vellum,,Draft,Brouillon
 drills.grade.fairCopy,Fair copy,Vellum,,Fair copy,Mise au net
-drills.graded,"{name}: {grade}! +{folios} Folios, +{xp} XP",Vellum,,"{name}: {grade}! +{folios} Folios, +{xp} XP","{name} : {grade} ! +{folios} Folios, +{xp} XP"
+drills.graded.one,"{name}: {grade}! +{folios} Folio, +{xp} XP",Vellum,,"{name}: {grade}! +{folios} Folio, +{xp} XP","{name} : {grade} ! +{folios} Folio, +{xp} XP"
+drills.graded.other,"{name}: {grade}! +{folios} Folios, +{xp} XP",Vellum,,"{name}: {grade}! +{folios} Folios, +{xp} XP","{name} : {grade} ! +{folios} Folios, +{xp} XP"
 drills.gradedAgain,{name}: {grade}. Only a better grade pays,Vellum,,{name}: {grade}. Only a better grade pays,{name} : {grade}. Seul un meilleur grade paie
 drills.kit.cancel,The cancel,Vellum,,The cancel,L'annulation
-drills.kit.cancel.hint,"Land the last stroke, then dash out of its recovery, {reps} times",Vellum,,"Land the last stroke, then dash out of its recovery, {reps} times","Place le dernier coup, puis rue hors de sa récupération, {reps} fois"
+drills.kit.cancel.hint.one,"Land the last stroke, then dash out of its recovery, {reps} time",Vellum,,"Land the last stroke, then dash out of its recovery, {reps} time","Place le dernier coup, puis rue hors de sa récupération, {reps} fois"
+drills.kit.cancel.hint.other,"Land the last stroke, then dash out of its recovery, {reps} times",Vellum,,"Land the last stroke, then dash out of its recovery, {reps} times","Place le dernier coup, puis rue hors de sa récupération, {reps} fois"
 drills.kit.chain,Chain of three,Vellum,,Chain of three,Chaîne de trois
-drills.kit.chain.hint,"Chain three glyphs, each within a second, {reps} times",Vellum,,"Chain three glyphs, each within a second, {reps} times","Enchaîne trois glyphes, chacun dans la seconde, {reps} fois"
+drills.kit.chain.hint.one,"Chain three glyphs, each within a second, {reps} time",Vellum,,"Chain three glyphs, each within a second, {reps} time","Enchaîne trois glyphes, chacun dans la seconde, {reps} fois"
+drills.kit.chain.hint.other,"Chain three glyphs, each within a second, {reps} times",Vellum,,"Chain three glyphs, each within a second, {reps} times","Enchaîne trois glyphes, chacun dans la seconde, {reps} fois"
 drills.kit.string,Four strokes,Vellum,,Four strokes,Les quatre traits
-drills.kit.string.hint,"Land all four strokes of a string, {reps} times",Vellum,,"Land all four strokes of a string, {reps} times","Place les quatre coups d'un enchaînement, {reps} fois"
+drills.kit.string.hint.one,"Land all four strokes of a string, {reps} time",Vellum,,"Land all four strokes of a string, {reps} time","Place les quatre coups d'un enchaînement, {reps} fois"
+drills.kit.string.hint.other,"Land all four strokes of a string, {reps} times",Vellum,,"Land all four strokes of a string, {reps} times","Place les quatre coups d'un enchaînement, {reps} fois"
 drills.lapsed,Drill put down: nothing counted for a minute,Vellum,,Drill put down: nothing counted for a minute,Exercice posé : rien n'a compté depuis une minute
 drills.left,Drill put down: drills are done in the hub,Vellum,,Drill put down: drills are done in the hub,Exercice posé : on s'exerce au hub
 drills.miss,{name} · missed ({misses}),Vellum,,{name} · missed ({misses}),{name} · raté ({misses})
 drills.notInHub,Drills are done in the hub,Vellum,,Drills are done in the hub,On s'exerce au hub
-drills.recipe.hint,"Land it on a training dummy, {reps} times",Vellum,,"Land it on a training dummy, {reps} times","Place-le sur un mannequin, {reps} fois"
-drills.recipe.hintUtility,"Draw it, {reps} times",Vellum,,"Draw it, {reps} times","Trace-le, {reps} fois"
+drills.recipe.hint.one,"Land it on a training dummy, {reps} time",Vellum,,"Land it on a training dummy, {reps} time","Place-le sur un mannequin, {reps} fois"
+drills.recipe.hint.other,"Land it on a training dummy, {reps} times",Vellum,,"Land it on a training dummy, {reps} times","Place-le sur un mannequin, {reps} fois"
+drills.recipe.hintUtility.one,"Draw it, {reps} time",Vellum,,"Draw it, {reps} time","Trace-le, {reps} fois"
+drills.recipe.hintUtility.other,"Draw it, {reps} times",Vellum,,"Draw it, {reps} times","Trace-le, {reps} fois"
 drills.rep,{name} · {count} / {reps},Vellum,,{name} · {count} / {reps},{name} · {count} / {reps}
 drills.started,Drill: {name}. {hint},Vellum,,Drill: {name}. {hint},Exercice : {name}. {hint}
 drills.stopped,Drill put down,Vellum,,Drill put down,Exercice posé
@@ -197,17 +203,28 @@ exlibris.Pages250,Dog-Eared,Vellum,,Dog-Eared,Écorné
 exlibris.SteadyKit,A Steady Kit,Vellum,,A Steady Kit,Un kit sûr
 exlibris.Strokes1000,A Thousand Strokes,Vellum,,A Thousand Strokes,Mille traits
 exlibris.Strokes10000,Ten Thousand Strokes,Vellum,,Ten Thousand Strokes,Dix mille traits
-exlibris.caughtUp,"Ex-libris plates earned: {count}, +{amount} Folios",Vellum,,"Ex-libris plates earned: {count}, +{amount} Folios","Plaques d'Ex-libris obtenues : {count}, +{amount} Folios"
-exlibris.desc.BestChain,Chain {amount} glyphs,Vellum,,Chain {amount} glyphs,Enchaîne {amount} glyphes
-exlibris.desc.BossKills,Defeat the Erasure in its event ×{amount},Vellum,,Defeat the Erasure in its event ×{amount},"Vaincs l'Effacement lors de son événement, {amount} fois"
-exlibris.desc.DrillsCalligraphy,Reach Calligraphy on {amount} drills,Vellum,,Reach Calligraphy on {amount} drills,Atteins la Calligraphie sur {amount} exercices
-exlibris.desc.DrillsFairCopy,Reach Fair copy on {amount} drills,Vellum,,Reach Fair copy on {amount} drills,Atteins la Mise au net sur {amount} exercices
-exlibris.desc.GlyphsCast,Draw {amount} glyphs,Vellum,,Draw {amount} glyphs,Trace {amount} glyphes
-exlibris.desc.Kills,"Defeat {amount} foes, dummies and Forgers included",Vellum,,"Defeat {amount} foes, dummies and Forgers included","Vaincs {amount} adversaires, mannequins et Faussaires compris"
-exlibris.desc.KitCalligraphy,Reach Calligraphy on the kit's {amount} drills,Vellum,,Reach Calligraphy on the kit's {amount} drills,Atteins la Calligraphie aux {amount} exercices du kit
-exlibris.desc.MatchesPlayed,Play {amount} matches,Vellum,,Play {amount} matches,Joue {amount} matchs
-exlibris.granted,Ex-libris: {name}! +{amount} Folios,Vellum,,Ex-libris: {name}! +{amount} Folios,Ex-libris : {name} ! +{amount} Folios
-exlibris.grantedTitle,Ex-libris: {name}! +{amount} Folios and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folios and the title {title},Ex-libris : {name} ! +{amount} Folios et le titre {title}
+exlibris.caughtUp.one,"Ex-libris plates earned: {count}, +{amount} Folio",Vellum,,"Ex-libris plates earned: {count}, +{amount} Folio","Plaques d'Ex-libris obtenues : {count}, +{amount} Folio"
+exlibris.caughtUp.other,"Ex-libris plates earned: {count}, +{amount} Folios",Vellum,,"Ex-libris plates earned: {count}, +{amount} Folios","Plaques d'Ex-libris obtenues : {count}, +{amount} Folios"
+exlibris.desc.BestChain.one,Chain {amount} glyph,Vellum,,Chain {amount} glyph,Enchaîne {amount} glyphe
+exlibris.desc.BestChain.other,Chain {amount} glyphs,Vellum,,Chain {amount} glyphs,Enchaîne {amount} glyphes
+exlibris.desc.BossKills.one,Defeat the Erasure in its event ×{amount},Vellum,,Defeat the Erasure in its event ×{amount},"Vaincs l'Effacement lors de son événement, {amount} fois"
+exlibris.desc.BossKills.other,Defeat the Erasure in its event ×{amount},Vellum,,Defeat the Erasure in its event ×{amount},"Vaincs l'Effacement lors de son événement, {amount} fois"
+exlibris.desc.DrillsCalligraphy.one,Reach Calligraphy on {amount} drill,Vellum,,Reach Calligraphy on {amount} drill,Atteins la Calligraphie sur {amount} exercice
+exlibris.desc.DrillsCalligraphy.other,Reach Calligraphy on {amount} drills,Vellum,,Reach Calligraphy on {amount} drills,Atteins la Calligraphie sur {amount} exercices
+exlibris.desc.DrillsFairCopy.one,Reach Fair copy on {amount} drill,Vellum,,Reach Fair copy on {amount} drill,Atteins la Mise au net sur {amount} exercice
+exlibris.desc.DrillsFairCopy.other,Reach Fair copy on {amount} drills,Vellum,,Reach Fair copy on {amount} drills,Atteins la Mise au net sur {amount} exercices
+exlibris.desc.GlyphsCast.one,Draw {amount} glyph,Vellum,,Draw {amount} glyph,Trace {amount} glyphe
+exlibris.desc.GlyphsCast.other,Draw {amount} glyphs,Vellum,,Draw {amount} glyphs,Trace {amount} glyphes
+exlibris.desc.Kills.one,"Defeat {amount} foe, dummies and Forgers included",Vellum,,"Defeat {amount} foe, dummies and Forgers included","Vaincs {amount} adversaire, mannequins et Faussaires compris"
+exlibris.desc.Kills.other,"Defeat {amount} foes, dummies and Forgers included",Vellum,,"Defeat {amount} foes, dummies and Forgers included","Vaincs {amount} adversaires, mannequins et Faussaires compris"
+exlibris.desc.KitCalligraphy.one,Reach Calligraphy on the kit's {amount} drill,Vellum,,Reach Calligraphy on the kit's {amount} drill,Atteins la Calligraphie à {amount} exercice du kit
+exlibris.desc.KitCalligraphy.other,Reach Calligraphy on the kit's {amount} drills,Vellum,,Reach Calligraphy on the kit's {amount} drills,Atteins la Calligraphie aux {amount} exercices du kit
+exlibris.desc.MatchesPlayed.one,Play {amount} match,Vellum,,Play {amount} match,Joue {amount} match
+exlibris.desc.MatchesPlayed.other,Play {amount} matches,Vellum,,Play {amount} matches,Joue {amount} matchs
+exlibris.granted.one,Ex-libris: {name}! +{amount} Folio,Vellum,,Ex-libris: {name}! +{amount} Folio,Ex-libris : {name} ! +{amount} Folio
+exlibris.granted.other,Ex-libris: {name}! +{amount} Folios,Vellum,,Ex-libris: {name}! +{amount} Folios,Ex-libris : {name} ! +{amount} Folios
+exlibris.grantedTitle.one,Ex-libris: {name}! +{amount} Folio and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folio and the title {title},Ex-libris : {name} ! +{amount} Folio et le titre {title}
+exlibris.grantedTitle.other,Ex-libris: {name}! +{amount} Folios and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folios and the title {title},Ex-libris : {name} ! +{amount} Folios et le titre {title}
 folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
@@ -359,9 +376,12 @@ lectern.title,The Lectern,Vellum,,The Lectern,Le Pupitre
 level.max,Max level,Vellum,,Max level,Niveau max
 level.xp,{xp} / {needed} XP,Vellum,,{xp} / {needed} XP,{xp} / {needed} XP
 levelroad.complete,Every level's reward is yours,Vellum,,Every level's reward is yours,Toutes les récompenses de niveau sont à toi
-levelroad.folios,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
-levelroad.foliosAndTitle,the title {title} and {amount} Folios,Vellum,,the title {title} and {amount} Folios,le titre {title} et {amount} Folios
-levelroad.titleRow,{title} · {amount} Folios,Vellum,,{title} · {amount} Folios,{title} · {amount} Folios
+levelroad.folios.one,{amount} Folio,Vellum,,{amount} Folio,{amount} Folio
+levelroad.folios.other,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
+levelroad.foliosAndTitle.one,the title {title} and {amount} Folio,Vellum,,the title {title} and {amount} Folio,le titre {title} et {amount} Folio
+levelroad.foliosAndTitle.other,the title {title} and {amount} Folios,Vellum,,the title {title} and {amount} Folios,le titre {title} et {amount} Folios
+levelroad.titleRow.one,{title} · {amount} Folio,Vellum,,{title} · {amount} Folio,{title} · {amount} Folio
+levelroad.titleRow.other,{title} · {amount} Folios,Vellum,,{title} · {amount} Folios,{title} · {amount} Folios
 loadout.caughtUp,New glyphs unlocked: {count}. Add them to your loadout.,Vellum,,New glyphs unlocked: {count}. Add them to your loadout.,Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.
 loadout.equip,Equip,Vellum,,Equip,Équiper
 loadout.equipped,Equipped,Vellum,,Equipped,Équipé
@@ -411,9 +431,12 @@ menu.loadout,Loadout,Vellum,,Loadout,Équipement
 menu.quests,Quests,Vellum,,Quests,Quêtes
 menu.shop,Shop,Vellum,,Shop,Boutique
 menu.title,Menu,Vellum,,Menu,Menu
-milestone.caughtUp,"Milestones you had passed: {count}, +{amount} Folios",Vellum,,"Milestones you had passed: {count}, +{amount} Folios","Jalons déjà passés : {count}, +{amount} Folios"
-milestone.reached,Milestone of level {level}: +{amount} Folios,Vellum,,Milestone of level {level}: +{amount} Folios,Jalon du niveau {level} : +{amount} Folios
-milestone.reachedTitle,Milestone of level {level}: +{amount} Folios and the title {title},Vellum,,Milestone of level {level}: +{amount} Folios and the title {title},Jalon du niveau {level} : +{amount} Folios et le titre {title}
+milestone.caughtUp.one,"Milestones you had passed: {count}, +{amount} Folio",Vellum,,"Milestones you had passed: {count}, +{amount} Folio","Jalons déjà passés : {count}, +{amount} Folio"
+milestone.caughtUp.other,"Milestones you had passed: {count}, +{amount} Folios",Vellum,,"Milestones you had passed: {count}, +{amount} Folios","Jalons déjà passés : {count}, +{amount} Folios"
+milestone.reached.one,Milestone of level {level}: +{amount} Folio,Vellum,,Milestone of level {level}: +{amount} Folio,Jalon du niveau {level} : +{amount} Folio
+milestone.reached.other,Milestone of level {level}: +{amount} Folios,Vellum,,Milestone of level {level}: +{amount} Folios,Jalon du niveau {level} : +{amount} Folios
+milestone.reachedTitle.one,Milestone of level {level}: +{amount} Folio and the title {title},Vellum,,Milestone of level {level}: +{amount} Folio and the title {title},Jalon du niveau {level} : +{amount} Folio et le titre {title}
+milestone.reachedTitle.other,Milestone of level {level}: +{amount} Folios and the title {title},Vellum,,Milestone of level {level}: +{amount} Folios and the title {title},Jalon du niveau {level} : +{amount} Folios et le titre {title}
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
 mode.team3v3,Team 3v3,Vellum,,Team 3v3,3v3 en équipe
 nav.back,Back,Vellum,,Back,Retour
@@ -457,12 +480,14 @@ purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Ach
 purchase.grantedFoliosInstead.one,You own every item of that rarity: +{amount} Folio instead,Vellum,,You own every item of that rarity: +{amount} Folio instead,Tu possèdes tous les articles de cette rareté : +{amount} Folio à la place
 purchase.grantedFoliosInstead.other,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
-purchase.premiumOwnedFolios,You already have the Premium Battle Pass: +{amount} Folios instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folios instead,Tu as déjà le Battle Pass Premium : +{amount} Folios à la place
+purchase.premiumOwnedFolios.one,You already have the Premium Battle Pass: +{amount} Folio instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folio instead,Tu as déjà le Battle Pass Premium : +{amount} Folio à la place
+purchase.premiumOwnedFolios.other,You already have the Premium Battle Pass: +{amount} Folios instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folios instead,Tu as déjà le Battle Pass Premium : +{amount} Folios à la place
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.sandboxed,Studio test purchase of {name}: nothing was granted or saved.,Vellum,,Studio test purchase of {name}: nothing was granted or saved.,Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.
 purchase.tiersGranted.one,+{tiers} battle pass tier,Vellum,,+{tiers} battle pass tier,+{tiers} palier de battle pass
 purchase.tiersGranted.other,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
-purchase.tiersPastLast,Past the last tier: +{amount} Folios instead,Vellum,,Past the last tier: +{amount} Folios instead,Au-delà du dernier palier : +{amount} Folios à la place
+purchase.tiersPastLast.one,Past the last tier: +{amount} Folio instead,Vellum,,Past the last tier: +{amount} Folio instead,Au-delà du dernier palier : +{amount} Folio à la place
+purchase.tiersPastLast.other,Past the last tier: +{amount} Folios instead,Vellum,,Past the last tier: +{amount} Folios instead,Au-delà du dernier palier : +{amount} Folios à la place
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
 quality.high,High,Vellum,,High,Élevée
 quality.low,Low,Vellum,,Low,Basse

@@ -241,6 +241,12 @@ function Server.world(options: Options?): World
 					return false
 				end,
 			},
+			-- LocaleService asks for each player's Translator: it reads the language of their app.
+			LocalizationService = {
+				GetTranslatorForPlayerAsync = function(_self: any, player: any): any
+					return { LocaleId = player.LocaleId }
+				end,
+			},
 			-- DataService reads the V1 store of a brand new profile: there is none here.
 			DataStoreService = {
 				GetDataStore = function(_self: any, _name: string): any
@@ -314,8 +320,8 @@ function Server.world(options: Options?): World
 end
 
 -- The services of a profile, a ranked match and the shop, wired as Bootstrap.server.luau wires them:
--- DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService, CurrencyService and
--- ShopService are the real modules; everything they reach beyond is a stub that answers what they ask.
+-- LocaleService, DataService, RankingService, MatchService, GlyphService, LoadoutService, CosmeticService,
+-- CurrencyService and ShopService are the real modules; everything they reach beyond is a stub that answers what they ask.
 -- Movement keeps a freeze the way MovementService does, so a frozen player cannot cast.
 export type Services = {
 	world: World,
@@ -349,6 +355,7 @@ end
 function Server.services(): Services
 	local world = Server.world()
 	local GlyphConfig = world.require("src/shared/Config/GlyphConfig")
+	local locale = world.require("src/server/Services/LocaleService")
 	local data = world.require("src/server/Services/DataService")
 	local ranking = world.require("src/server/Services/RankingService")
 	local match = world.require("src/server/Services/MatchService")
@@ -418,7 +425,8 @@ function Server.services(): Services
 	local quest = { report = function(_player: any, _event: string, _amount: number) end }
 	local vfx = { emit = function(_packet: any, _reliable: boolean?, _alsoNear: any) end }
 
-	data.Init({ Registry = registry })
+	locale.Init({})
+	data.Init({ Registry = registry, Locale = locale })
 	currency.Init({ DataService = data })
 	cosmetic.Init({ Registry = registry, Vfx = vfx, Combat = combat, DataService = data, Notify = notify })
 	loadout.Init({
@@ -518,6 +526,7 @@ function Server.services(): Services
 		Cosmetic = cosmetic,
 	})
 	-- In the bootstrap's order.
+	locale.Start()
 	data.Start()
 	currency.Start()
 	cosmetic.Start()

@@ -7,7 +7,8 @@
 -- ChatConfig.VipAttribute, and the tag is read from that attribute on the Player the message's TextSource
 -- names: the engine fills TextSource.UserId, not the sender. An attribute a client sets never leaves that
 -- client, so one that marks itself is tagged on its own screen and on nobody else's. The message's text is
--- never read.
+-- never read. The reader's language can come or change after Start (Localize.Changed, E12-S3): the tag is
+-- written again in it, for the messages still to come.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,13 +23,18 @@ local ThemeConfig = require(Shared.Config.ThemeConfig)
 
 local log = Log.new("ChatController")
 
-type Deps = { Localize: { t: (key: string, params: { [string]: any }?) -> string } }
+type LocalizeApi = { t: (key: string, params: { [string]: any }?) -> string, Changed: any }
+type Deps = { Localize: LocalizeApi }
 
 local ChatController = {}
 
-local localize: { t: (key: string, params: { [string]: any }?) -> string }
--- The tag's rich text, built once in Start, when Localize knows the reader's language.
+local localize: LocalizeApi
+-- The tag's rich text, in the reader's language: built in Start, and again when that language changes.
 local tag = ""
+
+local function writeTag()
+	tag = ChatTag.markup(localize.t(ChatConfig.VipTag.Key), ThemeConfig.PigmentOnInk[ChatConfig.VipTag.Pigment])
+end
 
 -- The VIP attribute of the sender of `message`, as this client sees it: nil for a system message, which has
 -- no TextSource, and for a sender no longer in the server.
@@ -60,7 +66,8 @@ function ChatController.Init(deps: Deps)
 end
 
 function ChatController.Start()
-	tag = ChatTag.markup(localize.t(ChatConfig.VipTag.Key), ThemeConfig.PigmentOnInk[ChatConfig.VipTag.Pigment])
+	writeTag()
+	localize.Changed:Connect(writeTag)
 	if TextChatService.ChatVersion ~= Enum.ChatVersion.TextChatService then
 		log.warn("this place runs the legacy chat, which has no OnIncomingMessage: no VIP tag is drawn")
 		return

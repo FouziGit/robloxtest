@@ -12,7 +12,7 @@ local Harness = require("./harness")
 local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
-local ServerKind = require("../src/shared/Pure/ServerKind")
+local ServerKind = require("../src/server/Pure/ServerKind")
 local Strings = require("../src/shared/Strings")
 local roblox = require("@lune/roblox") :: any
 
@@ -77,8 +77,10 @@ local function play(kind: Kind): Played
 		}
 		return player
 	end
+	-- As the engine answers it: a player who left is no longer found.
 	players.GetPlayerByUserId = function(_self: any, userId: number): any
-		return byId[userId]
+		local player = byId[userId]
+		return if player ~= nil and player.Parent == players then player else nil
 	end
 	players.GetPlayerFromCharacter = function(): any
 		return nil
@@ -96,6 +98,10 @@ local function play(kind: Kind): Played
 		push = function() end,
 		ProfileLoaded = Engine.signal(),
 		BeforeRelease = Engine.signal(),
+		ProfileReleased = Engine.signal(),
+		isClosing = function(): boolean
+			return false
+		end,
 	}
 	local played: Played = {
 		world = world,
@@ -208,16 +214,18 @@ local function play(kind: Kind): Played
 				return true
 			end,
 		},
-		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal() },
+		Glyph = { Cast = Engine.signal(), CastLanded = Engine.signal(), resetCooldowns = function() end },
 	})
 	Match.Start()
 
 	assert(Match.start("Duel1v1", { { 1 }, { 2 } }) ~= nil, "the duel did not start: this gate would check nothing")
 	world:advance(0.5)
-	-- Player 2 walks out during the countdown: their profile is released first, then Players says they left.
-	data.BeforeRelease:Fire(leaver, profiles[2])
-	leaver.Parent = nil
+	-- Player 2 walks out during the countdown: Players says they left, the match waits out the grace in which a
+	-- server closing would take everybody (D-206), and their profile's session ends with its last save.
 	players.PlayerRemoving:Fire(leaver)
+	leaver.Parent = nil
+	world:advance(GameConfig.Server.LeaveGraceSeconds + 1)
+	data.BeforeRelease:Fire(leaver, profiles[2])
 	world:advance(1)
 	assert(played.outcome ~= nil, "the duel never ended for its winner: this gate would check nothing")
 	-- Long enough for the ladders' periodic pass to take the winner's rating as well as the leaver's flush.

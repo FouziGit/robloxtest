@@ -432,6 +432,8 @@ local function inputOn(plays: Engine.Plays): (any, any)
 			t = function(key: string): string
 				return key
 			end,
+			-- A change of language relays the discs (E12-S3).
+			Changed = Engine.signal(),
 		},
 		MenuController = {},
 		InputMode = world.require("src/client/Controllers/InputMode"),

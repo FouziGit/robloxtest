@@ -100,25 +100,31 @@ describe("Boot.run", function()
 end)
 
 describe("Boot.close", function()
-	it("kicks every player present, in their own language", function()
+	-- The language each player reads, as LocaleService answers it: their translator's, which the language picked in
+	-- the experience menu moves away from the app's (E12-S3).
+	local function translated(each: any): string
+		return if each.LocaleId == "en-us" then "fr" else "en"
+	end
+
+	it("kicks every player present, in the language LocaleService reads for them", function()
 		local english, french = player("en-us"), player("fr-fr")
 		local Boot, _, kicks = boot({ english, french })
-		Boot.close({ "DataService" })
-		expect(kicks[english]).toBe(Strings.t(KEY, nil, "en"))
-		expect(kicks[french]).toBe(Strings.t(KEY, nil, "fr"))
+		Boot.close({ "DataService" }, translated)
+		expect(kicks[english]).toBe(Strings.t(KEY, nil, "fr"))
+		expect(kicks[french]).toBe(Strings.t(KEY, nil, "en"))
 		expect(kicks[english]).never.toBe(kicks[french])
 	end)
 
 	it("kicks every player who arrives afterwards", function()
 		local Boot, players, _ = boot({})
-		Boot.close({ "MonetizationService" })
+		Boot.close({ "MonetizationService" }, translated)
 		local late = player("fr-fr")
 		local message: string? = nil
 		late.Kick = function(_self: any, text: string)
 			message = text
 		end
 		players.PlayerAdded:Fire(late)
-		expect(message).toBe(Strings.t(KEY, nil, "fr"))
+		expect(message).toBe(Strings.t(KEY, nil, "en"))
 	end)
 
 	it("says server error and rejoin, in every locale", function()
@@ -145,7 +151,9 @@ describe("the Bootstrap", function()
 
 	it("boots through Boot and closes the server on a critical failure, and only then", function()
 		local folded = source:gsub("%s+", " ")
-		expect(folded).toContain("local failed = Boot.run(ordered, deps) if #failed > 0 then Boot.close(failed) end")
+		expect(folded).toContain(
+			"local failed = Boot.run(ordered, deps) if #failed > 0 then Boot.close(failed, LocaleService.of) end"
+		)
 		expect(source:find(".Service.Init", 1, true)).toBeNil()
 		expect(source:find(".Service.Start", 1, true)).toBeNil()
 	end)

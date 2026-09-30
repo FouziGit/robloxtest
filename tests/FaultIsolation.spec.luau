@@ -405,6 +405,10 @@ local function matchWorld(): MatchWorld
 			end,
 			hold = function() end,
 			release = function() end,
+			-- A public server: ranked play counts (E4-S4).
+			rankedHere = function(): boolean
+				return true
+			end,
 		},
 		Quest = { report = function() end },
 		Daily = {

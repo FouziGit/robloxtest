@@ -690,6 +690,9 @@ function Engine.world(options: Options?): World
 
 	local game = Engine.instance("DataModel")
 	game.Name = "Game"
+	-- A public server, as the engine says it: no private server id and no owner (Pure/ServerKind).
+	game.PrivateServerId = ""
+	game.PrivateServerOwnerId = 0
 	world.game = game
 
 	-- The camera a screen measures the viewport from: a 1080p desktop until a spec says otherwise.

@@ -26,7 +26,7 @@ local MatchConfig = require(Shared.Config.MatchConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local RatingMemory = require(script.Parent.Parent.Pure.RatingMemory)
-local ServerKind = require(Shared.Pure.ServerKind)
+local ServerKind = require(script.Parent.Parent.Pure.ServerKind)
 local Signal = require(Packages.Signal)
 local Types = require(Shared.Types)
 

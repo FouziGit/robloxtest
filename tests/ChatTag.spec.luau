@@ -32,7 +32,14 @@ end
 -- The client: the real ChatController over a pretend TextChatService
 ----------------------------------------------------------------
 
-type Chat = { service: any, world: any, lines: { string }, sender: (userId: number, attribute: any) -> any }
+type Chat = {
+	service: any,
+	world: any,
+	lines: { string },
+	sender: (userId: number, attribute: any) -> any,
+	-- Localize.Changed: the reader's language came or changed.
+	changed: any,
+}
 
 -- `translate` stands for Localize.t in the reader's language.
 local function chat(translate: (key: string) -> string, chatVersion: any?): Chat
@@ -46,11 +53,13 @@ local function chat(translate: (key: string) -> string, chatVersion: any?): Chat
 		return byId[userId]
 	end
 	local Controller = world.require("src/client/Controllers/ChatController")
+	local changed = Engine.signal()
 	Controller.Init({
 		Localize = {
 			t = function(key: string, _params: any?): string
 				return translate(key)
 			end,
+			Changed = changed,
 		},
 	})
 	Controller.Start()
@@ -58,6 +67,7 @@ local function chat(translate: (key: string) -> string, chatVersion: any?): Chat
 		service = service,
 		world = world,
 		lines = lines,
+		changed = changed,
 		sender = function(userId: number, attribute: any): any
 			local player = Engine.instance("Player", players)
 			player.UserId = userId
@@ -183,6 +193,19 @@ describe("the VIP chat tag", function()
 		session.sender(7, true)
 		expect(shown(session, 7, "Alice")).toBe(tagIn("<fr:" .. ChatConfig.VipTag.Key .. ">") .. " Alice")
 		expect(shown(session, 7, "Alice")).toContain("&lt;fr:chat.vipTag&gt;")
+	end)
+
+	it("is drawn again in the reader's language when it changes, without a rejoin (E12-S3)", function()
+		-- Both languages write "[VIP]": a translator that tells them apart shows the tag follows the change.
+		local locale = "en"
+		local session = chat(function(key: string): string
+			return "<" .. locale .. ":" .. key .. ">"
+		end)
+		session.sender(7, true)
+		expect(shown(session, 7, "Alice")).toBe(tagIn("<en:" .. ChatConfig.VipTag.Key .. ">") .. " Alice")
+		locale = "fr"
+		session.changed:Fire("fr")
+		expect(shown(session, 7, "Alice")).toBe(tagIn("<fr:" .. ChatConfig.VipTag.Key .. ">") .. " Alice")
 	end)
 
 	it("is never drawn from anything but the server's mark", function()

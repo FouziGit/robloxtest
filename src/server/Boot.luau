@@ -8,7 +8,8 @@
 -- CombatService or an AntiCheatService that never started lets a fight or a cheat run unrefereed. Players stayed
 -- on such a server and lost what they did there. The services the game cannot run without are marked Critical;
 -- if one of them failed, every player present and every player who arrives is kicked with a message in their
--- language telling them to rejoin, and the empty server is left to close. A non-critical failure (a leaderboard,
+-- language (LocaleService, which reads it without having to have started, E12-S3) telling them to rejoin, and the
+-- empty server is left to close. A non-critical failure (a leaderboard,
 -- a quest board) keeps the server open, as it always did.
 
 local Players = game:GetService("Players")
@@ -51,12 +52,12 @@ function Boot.run(ordered: { Entry }, deps: any): { string }
 	return failed
 end
 
-local function turnAway(player: Player)
-	player:Kick(Strings.t(KICK_KEY, nil, Strings.localeFromId(player.LocaleId)))
-end
-
--- Turns away everyone on the server now and everyone who joins it later: `failed` names what did not start.
-function Boot.close(failed: { string })
+-- Turns away everyone on the server now and everyone who joins it later: `failed` names what did not start, and
+-- `localeOf` is the language each player reads (LocaleService.of).
+function Boot.close(failed: { string }, localeOf: (player: Player) -> string)
+	local function turnAway(player: Player)
+		player:Kick(Strings.t(KICK_KEY, nil, localeOf(player)))
+	end
 	log.error("critical service(s) failed to start: %s. Every player is sent away", table.concat(failed, ", "))
 	Players.PlayerAdded:Connect(turnAway)
 	for _, player in ipairs(Players:GetPlayers()) do

@@ -19,14 +19,24 @@ AnalyticsConfig.Limits = {
 	Currencies = 10,
 }
 
--- Each player's share of what the server may send: a burst, then a steady trickle. An event past it is dropped,
--- never queued: analytics is best-effort telemetry. Roblox takes 120 + 20 per player requests a minute from a
--- whole server (the event-types page): each player gets their 20, and the 120 are the headroom a burst draws on.
--- The burst holds the end of a match -- MatchEnded, a GlyphMatch for each of the ten slots at most, the Folios of
--- the result, of the first win and of the tiers they cross -- and the GlyphPick of the queue a rematch joins.
+-- What the server may send, twice bounded. An event past either bound is dropped, never queued: analytics is
+-- best-effort telemetry.
+--
+-- The server: Roblox takes 120 + 20 per player requests a minute from a whole server, every family of event
+-- together (the event-types page). The server never sends past that minute, for the players in it now: past it,
+-- Roblox would throttle the rest, and a throttled call is not a broken transport.
+--
+-- Each player: a burst, then a trickle, so nobody spends the minute of a whole server alone. Three times a
+-- player's own 20, because play pays out faster than one Folio event every three seconds -- the hub's six
+-- dummies at 150 health each come back three seconds after they fall -- and a share cut to exactly 20 dropped
+-- the Folios of the players who play most, and after them their queue, their match and their purchases. The
+-- burst holds the end of a match -- MatchEnded, a GlyphMatch for each of the ten slots at most, the Folios of the
+-- result, of the first win and of the tiers they cross -- and the GlyphPick of the queue a rematch joins.
 AnalyticsConfig.Budget = {
+	ServerPerMinute = 120,
+	ServerPerPlayerPerMinute = 20,
 	Burst = 32,
-	PerMinute = 20,
+	PerMinute = 60,
 }
 
 ----------------------------------------------------------------

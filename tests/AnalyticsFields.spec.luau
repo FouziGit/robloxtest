@@ -172,8 +172,11 @@ describe("AnalyticsService.custom (E8-S2)", function()
 	end)
 end)
 
--- Each player's share of what Roblox takes from a server (AnalyticsConfig.Budget, D-XXXc): a burst, then a trickle.
-describe("the budget of each player (E8-S4)", function()
+-- What the server may send (AnalyticsConfig.Budget, D-XXXc and D-XXXi): the minute Roblox grants the whole server,
+-- and inside it each player's burst and trickle.
+describe("the analytics budget (E8-S4)", function()
+	local BUDGET = AnalyticsConfig.Budget
+
 	-- Sends `count` purchase events for `player` at once.
 	local function burst(analytics: any, player: any, count: number)
 		for _ = 1, count do
@@ -181,38 +184,70 @@ describe("the budget of each player (E8-S4)", function()
 		end
 	end
 
-	local function sentFor(world: Server.World, player: any): number
+	local function sentFor(world: Server.World, player: any?): number
 		local count = 0
 		for _, call in ipairs(world.analytics:of("LogCustomEvent")) do
-			if call.Player == player then
+			if player == nil or call.Player == player then
 				count += 1
 			end
 		end
 		return count
 	end
 
-	it("lets its burst through at once, then one event every 60 / PerMinute seconds, and drops the rest", function()
+	it("lets a player's burst through, then one event every 60 / PerMinute seconds, and drops the rest", function()
 		local world, analytics, player = started()
-		local budget = AnalyticsConfig.Budget
-		expect(budget.PerMinute).toBe(20)
-		burst(analytics, player, budget.Burst + 5)
-		expect(sentFor(world, player)).toBe(budget.Burst)
+		burst(analytics, player, BUDGET.Burst + 5)
+		expect(sentFor(world, player)).toBe(BUDGET.Burst)
 		-- Most of one interval later, still nothing; the rest of it, one more.
-		world:advance(0.9 * 60 / budget.PerMinute)
+		world:advance(0.9 * 60 / BUDGET.PerMinute)
 		burst(analytics, player, 1)
-		expect(sentFor(world, player)).toBe(budget.Burst)
-		world:advance(0.2 * 60 / budget.PerMinute)
+		expect(sentFor(world, player)).toBe(BUDGET.Burst)
+		world:advance(0.2 * 60 / BUDGET.PerMinute)
 		burst(analytics, player, 3)
-		expect(sentFor(world, player)).toBe(budget.Burst + 1)
+		expect(sentFor(world, player)).toBe(BUDGET.Burst + 1)
 		-- Another player spends their own share.
 		local other = world:join(12, "Bea")
 		burst(analytics, other, 2)
 		expect(sentFor(world, other)).toBe(2)
 	end)
 
+	-- Six dummies at 150 health, back three seconds after they fall: a player who fells one every two seconds
+	-- for five minutes, and whose every Folio is reported, has their purchase reported after it.
+	it("reports a player who plays hard, whole", function()
+		local world, analytics, player = started()
+		for _ = 1, 150 do
+			burst(analytics, player, 1)
+			world:advance(2)
+		end
+		expect(sentFor(world, player)).toBe(150)
+		burst(analytics, player, 3)
+		expect(sentFor(world, player)).toBe(153)
+	end)
+
+	it("never sends past the minute Roblox grants the whole server, for the players in it now", function()
+		local world, analytics, first = started()
+		local players = { first }
+		for index = 2, 12 do
+			table.insert(players, world:join(10 + index, "Player" .. index))
+		end
+		local minute = BUDGET.ServerPerMinute + BUDGET.ServerPerPlayerPerMinute * #players
+		expect(#players * BUDGET.Burst).toBeGreaterThan(minute)
+		-- The end of a battleground: everybody at once.
+		for _, player in ipairs(players) do
+			burst(analytics, player, BUDGET.Burst)
+		end
+		expect(sentFor(world)).toBe(minute)
+		-- A second later, the server's pace, whoever asks.
+		world:advance(1)
+		for _, player in ipairs(players) do
+			burst(analytics, player, 1)
+		end
+		expect(sentFor(world)).toBe(minute + math.floor(minute / 60))
+	end)
+
 	it("still holds a departing player's budget while the other services hear of the departure", function()
 		local world, analytics, player = started()
-		burst(analytics, player, AnalyticsConfig.Budget.Burst)
+		burst(analytics, player, BUDGET.Burst)
 		-- A service that hears of it after AnalyticsService, as MatchService does when the last one out of a match
 		-- tells MatchVoided: the spent budget is still theirs, and no fresh one is opened for a player on the way out.
 		world.players.PlayerRemoving:Connect(function(leaving: any)
@@ -220,7 +255,7 @@ describe("the budget of each player (E8-S4)", function()
 		end)
 		world:leave(player)
 		world:advance(1)
-		expect(sentFor(world, player)).toBe(AnalyticsConfig.Budget.Burst)
+		expect(sentFor(world, player)).toBe(BUDGET.Burst)
 	end)
 end)
 

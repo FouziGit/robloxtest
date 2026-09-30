@@ -32,6 +32,10 @@ local function setup(userId: number): Fixture
 	local world = Engine.world({ Services = analytics.services })
 	local player = world.player
 	player.UserId = userId
+	-- The head count AnalyticsService sizes the server's budget by.
+	world.game:GetService("Players").GetPlayers = function(_self: any): { any }
+		return { player }
+	end
 
 	local data = {
 		Currency = { Folios = BALANCE },

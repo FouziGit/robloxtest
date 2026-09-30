@@ -80,6 +80,10 @@ local function setup(tier: number, xp: number?): Fixture
 	world.game:GetService("Players").GetPlayerByUserId = function(_self: any, userId: number): any
 		return if userId == USER_ID then player else nil
 	end
+	-- The head count AnalyticsService sizes the server's budget by.
+	world.game:GetService("Players").GetPlayers = function(_self: any): { any }
+		return { player }
+	end
 
 	local data = profile(tier, xp or 0)
 	local fixture = {

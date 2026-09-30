@@ -1,9 +1,9 @@
 --!strict
 -- AnalyticsService: the only module that talks to the Roblox analytics service. It exposes the four
--- event families the game records (economy, funnel, progression, custom) behind a per-player token
--- bucket, so a noisy caller can never flood the quota, and it drops every event silently when the
--- Roblox service is unavailable (Studio without API access, quota outage): telemetry never breaks
--- gameplay and never blocks a caller.
+-- event families the game records (economy, funnel, progression, custom) behind the quota Roblox grants the
+-- server and a per-player token bucket inside it, so a noisy caller can never flood the quota nor spend everybody
+-- else's share, and it drops every event silently when the Roblox service is unavailable (Studio without API
+-- access, quota outage): telemetry never breaks gameplay and never blocks a caller.
 --
 -- Callers pass plain values (a flow type as "Source" / "Sink", a status as "Start" / "Complete" / …);
 -- the Roblox enums live here so no other service needs to know them.
@@ -38,9 +38,10 @@ export type FieldValue = string | number
 
 type Deps = {}
 
--- Per-player budget (AnalyticsConfig.Budget).
-local EVENT_BURST = AnalyticsConfig.Budget.Burst
-local EVENT_REFILL_PER_SECOND = AnalyticsConfig.Budget.PerMinute / 60
+-- The server's and each player's budget (AnalyticsConfig.Budget).
+local BUDGET = AnalyticsConfig.Budget
+local EVENT_BURST = BUDGET.Burst
+local EVENT_REFILL_PER_SECOND = BUDGET.PerMinute / 60
 -- After this many consecutive rejected calls the wrapper holds every call off for DISABLED_SECONDS,
 -- then tries again. Only the first failure is logged, so a server without API access stays quiet.
 local MAX_CONSECUTIVE_FAILURES = 3
@@ -52,6 +53,8 @@ local PROGRESSION_PATH = "PlayerLevel"
 local AnalyticsService = {}
 
 local trove = Trove.new()
+-- The minute Roblox grants the whole server, opened with its first event.
+local serverBucket: TokenBucket.Bucket? = nil
 local buckets: { [Player]: TokenBucket.Bucket } = {}
 local sessions: { [Player]: string } = {}
 local failures = 0
@@ -66,8 +69,19 @@ local unlisted: { [string]: boolean } = {}
 -- Budget and transport
 ----------------------------------------------------------------
 
--- True when `player` is still in the server, the transport is not held off and the player's bucket
--- has a token left (which this call then consumes).
+-- The server's bucket, sized to the minute Roblox grants it for the players in it now: its size and its pace follow
+-- the head count.
+local function serverBudget(now: number): TokenBucket.Bucket
+	local perMinute = BUDGET.ServerPerMinute + BUDGET.ServerPerPlayerPerMinute * #Players:GetPlayers()
+	local bucket: TokenBucket.Bucket = serverBucket or TokenBucket.new(perMinute, perMinute / 60, now)
+	serverBucket = bucket
+	bucket.capacity = perMinute
+	bucket.refillPerSecond = perMinute / 60
+	return bucket
+end
+
+-- True when `player` is still in the server, the transport is not held off, and both the server's bucket and the
+-- player's have a token left (which this call then takes from each).
 local function allow(player: Player): boolean
 	if player.Parent ~= Players then
 		return false
@@ -81,7 +95,13 @@ local function allow(player: Player): boolean
 		bucket = TokenBucket.new(EVENT_BURST, EVENT_REFILL_PER_SECOND, now)
 		buckets[player] = bucket
 	end
-	return TokenBucket.tryTake(bucket, now)
+	local server = serverBudget(now)
+	if TokenBucket.available(bucket, now) < 1 or TokenBucket.available(server, now) < 1 then
+		return false
+	end
+	TokenBucket.tryTake(bucket, now)
+	TokenBucket.tryTake(server, now)
+	return true
 end
 
 -- Runs one Roblox analytics call. A failure is counted and reported once with context; once the
@@ -270,7 +290,13 @@ function AnalyticsService.Init(_deps: Deps) end
 
 function AnalyticsService.Start()
 	trove:Add(Players.PlayerRemoving:Connect(onPlayerRemoving))
-	log.info("started (%d events per player per minute, %d at once)", AnalyticsConfig.Budget.PerMinute, EVENT_BURST)
+	log.info(
+		"started (%d + %d per player events per minute for the server; %d per minute and %d at once for a player)",
+		BUDGET.ServerPerMinute,
+		BUDGET.ServerPerPlayerPerMinute,
+		BUDGET.PerMinute,
+		EVENT_BURST
+	)
 end
 
 return AnalyticsService

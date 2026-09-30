@@ -633,6 +633,9 @@ export type World = {
 	playerGui: any,
 	guiService: any,
 	userInput: any,
+	-- UserSettings(), and its GetService("UserGameSettings").
+	userSettings: any,
+	gameSettings: any,
 	actions: { [string]: (string, any, any) -> any },
 	bindings: { [string]: Binding },
 	now: number,
@@ -688,6 +691,21 @@ function Engine.world(options: Options?): World
 	userInput.GetFocusedTextBox = function(): any
 		return nil
 	end
+
+	-- The player's Roblox settings (UserSettings()), as a LocalScript reads them: the graphics level left to
+	-- Roblox unless the spec sets one.
+	local gameSettings = Engine.instance("UserGameSettings")
+	gameSettings.SavedQualityLevel = roblox.Enum.SavedQualitySetting.Automatic
+	world.gameSettings = gameSettings
+	local userSettings = {
+		GetService = function(_self: any, name: string): any
+			if name ~= "UserGameSettings" then
+				error(("the spec gives no %s in UserSettings()"):format(name), 2)
+			end
+			return gameSettings
+		end,
+	}
+	world.userSettings = userSettings
 
 	-- The local player and their PlayerGui, where every screen is parented.
 	local players = Engine.instance("Players", game)
@@ -883,6 +901,9 @@ function Engine.world(options: Options?): World
 		Rect = roblox.Rect,
 		Font = roblox.Font,
 		Enum = roblox.Enum,
+		UserSettings = function(): any
+			return userSettings
+		end,
 	}
 
 	local function load(path: string): any

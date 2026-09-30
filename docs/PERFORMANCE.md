@@ -43,6 +43,29 @@ personne ne lit est une promesse faite au joueur que rien ne tient.
   `Lighting` lui-même, pas eux.
 - **Empreintes** — `FootprintController` prend cette part de son propre budget (0 = aucune).
 
+## Le niveau de départ (D-XXX)
+
+Avant qu'une seule image soit comptée, l'appareil dit où commencer (`QualityConfig.Start`, lu par
+`QualityController` à son `Start`) :
+
+| | |
+|---|---|
+| écran tenu en main (`InputMode.handheld`) de **430 points de haut ou moins** : un téléphone | démarre en **Moyenne** |
+| niveau graphique Roblox réglé à la main (`UserGameSettings.SavedQualityLevel`) de **1 à 3** | démarre en **Basse** |
+| les deux | le plus bas des deux |
+
+Jamais au-dessus du choix du joueur, qui reste le plafond ; la dégradation automatique part de là et peut
+remonter jusqu'au plafond. Le premier choix lu dans le profil est abaissé par le départ ; un choix fait ensuite
+dans les Options est suivi tel quel. Si le moteur refuse `SavedQualityLevel` à un LocalScript, un seul
+avertissement et le départ se fait comme en automatique (à vérifier dans Studio, `STUDIO_SETUP` §11, point 27).
+
+Un flot `Driven` (D-124), que le moteur n'éclaircit pas, n'émet jamais plus de **deux fois** ce que le moteur
+dessinerait du même `Rate` (`QualityConfig.DrivenOverEngine`) : la part que le moteur est censé dessiner à
+chaque niveau (`EngineShare` : 1, 0,5, 0,25, 5/80) est un **modèle**, ancré sur la seule mesure faite (le labo,
+80 flammes par seconde dessinées comme 5 à la qualité automatique la plus basse), à remplacer par les mesures
+des téléphones (E6-S5). Aux niveaux Élevé et Moyen le feu reste entier ; en Basse il émet la moitié de son débit,
+en Performance le huitième (`tests/QualityStart.spec.luau`).
+
 ## La dégradation automatique
 
 `src/client/Controllers/QualityController.luau` compte les images sur une seconde et compare :

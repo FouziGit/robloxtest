@@ -2,7 +2,9 @@
 -- QualityController: the one place that knows what this client is allowed to draw right now.
 --
 -- Two inputs. The player's setting, which is a CEILING they own (Settings.Quality), and the frame rate,
--- which can push the effective tier below it and give it back later. Nothing else decides: VfxTimeline,
+-- which can push the effective tier below it and give it back later. Where it starts, before the frame rate
+-- has said anything, the device says (QualityConfig.Start, D-XXX): a phone starts at Medium, a low Roblox
+-- graphics level the player set by hand at Low, never above the ceiling. Nothing else decides: VfxTimeline,
 -- WorldLighting and FootprintController all ask here, so a client that is struggling thins every system at
 -- once instead of one system noticing and the others carrying on.
 --
@@ -16,6 +18,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -26,7 +29,7 @@ local Signal = require(Packages.Signal)
 
 local log = Log.new("QualityController")
 
-type Deps = { ClientData: any }
+type Deps = { ClientData: any, InputMode: any }
 
 local AUTO = QualityConfig.Auto
 
@@ -36,6 +39,7 @@ local QualityController = {}
 QualityController.Changed = Signal.new()
 
 local clientData: any
+local inputMode: any
 -- What the player asked for, and what they are getting. Held as plain strings, always a name
 -- QualityConfig.isTier accepts: the union lives in the config, and every value here has been through it.
 local chosen: string = QualityConfig.Default
@@ -50,6 +54,11 @@ local aboveFor = 0
 -- Never set in a published game: the attribute is only read in Studio.
 local LAB_ATTRIBUTE = "VfxLabQuality"
 local pinned: string? = nil
+-- What the device said at Start (QualityConfig.Start), and whether the player's choice has been heard since: the
+-- first one is lowered to the device's start, a later one is the player changing their mind, followed as it is.
+local phone = false
+local savedLevel: number? = nil
+local heard = false
 
 local function apply(tier: string, why: string)
 	if tier == effective then
@@ -78,6 +87,22 @@ function QualityController.chosen(): string
 	return chosen
 end
 
+-- The Roblox graphics level the player set by hand (1 to 10), or nil when Roblox chooses it. Read once at Start;
+-- an engine that refuses it starts this client as if it were automatic, and says so.
+local function readSavedLevel(): number?
+	local ok, value = pcall(function(): any
+		return UserSettings():GetService("UserGameSettings").SavedQualityLevel
+	end)
+	if not ok then
+		log.warn("could not read UserGameSettings.SavedQualityLevel, starting as if automatic: %s", tostring(value))
+		return nil
+	end
+	if typeof(value) ~= "EnumItem" or value == Enum.SavedQualitySetting.Automatic then
+		return nil
+	end
+	return (value :: EnumItem).Value
+end
+
 local function readProfile()
 	local data = clientData.get()
 	if data == nil then
@@ -87,11 +112,17 @@ local function readProfile()
 	if not QualityConfig.isTier(wanted) then
 		wanted = QualityConfig.Default
 	end
-	if wanted == chosen then
+	if wanted == chosen and heard then
 		return
 	end
+	local first = not heard
+	heard = true
 	chosen = wanted
 	if pinned ~= nil then
+		return
+	end
+	if first then
+		apply(QualityConfig.startTier(chosen, phone, savedLevel), "the start for this device")
 		return
 	end
 	-- A new ceiling resets the automatic part: the player has just told us what they want, and holding a
@@ -143,9 +174,16 @@ end
 
 function QualityController.Init(deps: Deps)
 	clientData = deps.ClientData
+	inputMode = deps.InputMode
 end
 
 function QualityController.Start()
+	-- Before the profile, the device alone decides the start, under the default ceiling.
+	local camera: Camera? = Workspace.CurrentCamera
+	local height = if camera ~= nil then camera.ViewportSize.Y else math.huge
+	phone = inputMode.handheld() and height <= QualityConfig.Start.PhoneMaxHeight
+	savedLevel = readSavedLevel()
+	apply(QualityConfig.startTier(chosen, phone, savedLevel), "the start for this device")
 	readProfile()
 	clientData.Changed:Connect(function(section: string)
 		if section == "*" or section == "Settings" then

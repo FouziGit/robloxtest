@@ -1,7 +1,8 @@
 --!strict
 -- PlayScreen: the queue screen (D-147), in the yellow Play chapter. One mode card per MatchConfig.ModeOrder
 -- entry, side by side: a picture of the fight (the number of fighters on each side IS the picture), the mode's
--- name and its "Ranked" tag, its rule, and one button. While the player waits, their card breathes a yellow
+-- name and its "Ranked" tag, its rule, and one button. On a private server a player bought, where no match is
+-- ranked (D-XXX), a ranked mode's card says so under its name instead of wearing the tag. While the player waits, their card breathes a yellow
 -- ring and counts the wait in big numbers, the other card is veiled, and the way out is a plain Leave --
 -- leaving a queue is no danger. When the server gives up finding a match, the card says so and offers a
 -- retry or the way back to the hub, instead of a lone error line.
@@ -35,6 +36,7 @@ export type Deps = {
 	-- Queue state and intents. The screen reads the snapshot and asks for a join / leave; the server decides.
 	MatchController: {
 		getQueue: () -> Types.QueueSnapshot,
+		rankedHere: () -> boolean,
 		joinQueue: (modeId: string) -> (),
 		leaveQueue: () -> (),
 		QueueChanged: any,
@@ -84,6 +86,8 @@ local TAG_SIZE = 14
 local TAG_HEIGHT = 24
 -- The "Ranked" tag is the Menu's ribbon lying flat: ink, the sheet's word, corners of 8.
 local TAG_CORNER = 8
+-- Above and below the private server's notice, whose words may take two lines.
+local NOTICE_PADDING_Y = 4
 local RULE_SIZE = 16
 local STATE_TITLE_SIZE = 26
 local CROSS_SIZE = 40
@@ -195,6 +199,7 @@ end
 function PlayScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
 	local t = deps.Localize.t
+	local rankedHere = deps.MatchController.rankedHere()
 	local screen: Screen
 	local cards: { Card } = {}
 	-- The mode the player last waited in, and the one the server gave up on.
@@ -339,7 +344,7 @@ function PlayScreen.new(deps: Deps): Screen
 		name.AutomaticSize = Enum.AutomaticSize.X
 		name.Size = UDim2.fromScale(0, 1)
 		name.Text = t(def.NameKey)
-		if def.Ranked then
+		if def.Ranked and rankedHere then
 			local tag = Instance.new("TextLabel")
 			tag.Name = "Ranked"
 			tag.BorderSizePixel = 0
@@ -358,15 +363,39 @@ function PlayScreen.new(deps: Deps): Screen
 			tagPadding.Parent = tag
 			tag.Parent = heading
 		end
+		if def.Ranked and not rankedHere then
+			-- The tag's own ink and word, as wide as the card and wrapped: the sentence is longer than a tag.
+			local notice = Instance.new("TextLabel")
+			notice.Name = "Unranked"
+			notice.BorderSizePixel = 0
+			notice.BackgroundColor3 = Theme.Colors.Plate
+			notice.AutomaticSize = Enum.AutomaticSize.Y
+			notice.Size = UDim2.new(1, 0, 0, TAG_HEIGHT)
+			notice.LayoutOrder = 3
+			notice.FontFace = Theme.Fonts.Label
+			notice.TextSize = TAG_SIZE
+			notice.TextColor3 = Theme.Colors.PanelRaised
+			notice.TextWrapped = true
+			notice.TextXAlignment = Enum.TextXAlignment.Left
+			notice.Text = t("queue.unranked")
+			Theme.corner(notice, TAG_CORNER)
+			local noticePadding = Instance.new("UIPadding")
+			noticePadding.PaddingLeft = UDim.new(0, Theme.Sizes.PaddingSmall)
+			noticePadding.PaddingRight = UDim.new(0, Theme.Sizes.PaddingSmall)
+			noticePadding.PaddingTop = UDim.new(0, NOTICE_PADDING_Y)
+			noticePadding.PaddingBottom = UDim.new(0, NOTICE_PADDING_Y)
+			noticePadding.Parent = notice
+			notice.Parent = normal
+		end
 
-		local rule = label("Rule", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 3, normal)
+		local rule = label("Rule", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 4, normal)
 		-- One round decides, or the first to so many wins: never "first to 1 rounds" (the rule's two forms).
 		rule.Text = t("queue.rule", { rounds = def.RoundsToWin })
 
 		local actions = blank("Actions", normal)
 		actions.AutomaticSize = Enum.AutomaticSize.Y
 		actions.Size = UDim2.fromScale(1, 0)
-		actions.LayoutOrder = 4
+		actions.LayoutOrder = 5
 		list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
 
 		local joinButton = Button.new({

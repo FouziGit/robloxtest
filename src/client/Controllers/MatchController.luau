@@ -6,6 +6,7 @@
 -- truncated push can never error a screen.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
@@ -276,6 +277,12 @@ end
 -- lazily, after the signal has already fired).
 function MatchController.getLastOutcome(): MatchOutcome?
 	return lastOutcome
+end
+
+-- Whether a ranked match counts on this server: not in a private server a player bought, which the server marks
+-- on the Workspace (RankingService). The queue says so before anyone joins.
+function MatchController.rankedHere(): boolean
+	return Workspace:GetAttribute(MatchConfig.PrivateServer.UnrankedAttribute) ~= true
 end
 
 function MatchController.joinQueue(modeId: string)

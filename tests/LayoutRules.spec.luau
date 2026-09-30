@@ -75,8 +75,9 @@ local function expectClean(root: any, screenHeight: number)
 	end
 end
 
--- `name` (a file of src/ui/screens), opened with `args` in a world on `phone` or a desktop.
-local function screen(name: string, phone: { number }?, args: any?): (any, number, any)
+-- `name` (a file of src/ui/screens), opened with `args` in a world on `phone` or a desktop, on a server where
+-- ranked play counts unless `unranked` (a private server a player bought).
+local function screen(name: string, phone: { number }?, args: any?, unranked: boolean?): (any, number, any)
 	local world = Engine.world({
 		Stubs = Engine.interfaceStubs(),
 		-- The menu's Invite asks whether an invite can be sent: it cannot, here.
@@ -143,6 +144,9 @@ local function screen(name: string, phone: { number }?, args: any?): (any, numbe
 			getQueue = function(): any
 				return { Queued = false, WaitedSeconds = 0, QueuedCount = 0, NeededCount = 2 }
 			end,
+			rankedHere = function(): boolean
+				return unranked ~= true
+			end,
 			getMatch = function(): any
 				return nil
 			end,
@@ -201,6 +205,15 @@ describe("the interface, held to the engine's layouts", function()
 			local height = if phone ~= nil then Engine.phone(fixture.world, phone[1], phone[2]) else DESKTOP_HEIGHT
 			expectClean(fixture.screen, height)
 			expect(fixture.screen:FindFirstChild("Match", true).Visible).toBe(true)
+		end)
+
+		it("keeps PlayScreen's own sizes on a private server, its notice under each name, " .. where, function()
+			local built, height = screen("PlayScreen", phone, nil, true)
+			assert(
+				built.Instance:FindFirstChild("Unranked", true) ~= nil,
+				"the play cards say nothing of the private server: this gate would check nothing"
+			)
+			expectClean(built.Instance, height)
 		end)
 
 		for _, entry in ipairs(SCREENS) do

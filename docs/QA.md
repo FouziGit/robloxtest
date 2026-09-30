@@ -103,6 +103,7 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 14. **Récompenses.** Avec le compte secondaire, sans VIP ni boost. Attendu : 350 XP et 60 Folios pour une victoire, 120 XP et 20 Folios pour une défaite, ×1,2 en 3v3. La première victoire du jour ajoute +500 XP et +100 Folios, une seule fois (`ProgressionConfig.luau:43-64`, `MatchConfig.luau:61-65`, `DailyRewardService.markFirstWin`, `:84`).
 15. **Arrêt du serveur pendant un classé.** Arrêter le serveur pendant un duel. Attendu : aucune ligne `abandoned` et des classements inchangés. Voir R3.
 16. **Changement de serveur pendant un classé.** Voir §2.4 et R4.
+17. **Serveur privé acheté (après publication).** Studio n'ouvre pas de serveur privé : sur la place publiée, acheter ou ouvrir un serveur privé, y entrer à deux comptes. Attendu : l'Output serveur écrit `[RankingService] a private server bought by a player: ranked play is off here` ; les cartes de Jouer disent « Non classé en serveur privé » sans l'étiquette Classé, et le ruban de la tuile Jouer « Non classé » ; un duel joué jusqu'au bout ne déplace aucun Elo, le Résultat ne montre aucune note, la victoire paie 175 XP et 30 Folios, sans première victoire du jour (D-XXX, `tests/PrivateServer.spec.luau`). Sur un serveur public, rien ne change.
 
 ## 6. World Boss
 

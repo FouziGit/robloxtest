@@ -423,6 +423,8 @@ queue.timedOut,No opponent found. Try again!,Vellum,,No opponent found. Try agai
 queue.timedOut.hint,Try the Battleground or face the Erasure: their circles are in the hub.,Vellum,,Try the Battleground or face the Erasure: their circles are in the hub.,Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.
 queue.timedOut.title,Nobody in the queue right now,Vellum,,Nobody in the queue right now,Personne en file pour l'instant
 queue.title,Play,Vellum,,Play,Jouer
+queue.unranked,Unranked in a private server,Vellum,,Unranked in a private server,Non classé en serveur privé
+queue.unrankedShort,Unranked,Vellum,,Unranked,Non classé
 queue.waiting.one,{queued} / {needed} player,Vellum,,{queued} / {needed} player,{queued} / {needed} joueur
 queue.waiting.other,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
 rank.blank,Blank,Vellum,,Blank,Vierge

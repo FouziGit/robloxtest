@@ -731,6 +731,9 @@ Strings.Table = {
 	-- The play cards (PlayScreen): the tag on a ranked mode, its rule, and what the card says when the server
 	-- finds nobody. A mode of one round has its own rule: "first to 1 rounds" reads wrong in both languages.
 	["queue.ranked"] = { en = "Ranked", fr = "Classé" },
+	-- On a private server a player bought, no match is ranked (D-XXX): the play cards say so, and the Menu's ribbon.
+	["queue.unranked"] = { en = "Unranked in a private server", fr = "Non classé en serveur privé" },
+	["queue.unrankedShort"] = { en = "Unranked", fr = "Non classé" },
 	["queue.rule.one"] = { en = "A single round decides", fr = "Une seule manche décide" },
 	["queue.rule.other"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
 	["queue.timedOut.title"] = { en = "Nobody in the queue right now", fr = "Personne en file pour l'instant" },

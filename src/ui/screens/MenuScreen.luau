@@ -215,8 +215,15 @@ function MenuScreen.new(deps: Deps): Screen
 	})
 	own(trove, xpBar)
 
-	-- The Folios, and the way to buy more beside them.
-	local pill = FoliosPill.new({ Height = PILL_HEIGHT, LayoutOrder = 3, Parent = strip })
+	-- The Folios, and the way to buy more at the pill's end: the whole pill takes it.
+	local pill = FoliosPill.new({
+		Height = PILL_HEIGHT,
+		LayoutOrder = 3,
+		Parent = strip,
+		OnMore = function()
+			navigate("Shop", { Tab = "Folios" })
+		end,
+	})
 	own(trove, pill)
 
 	-- An icon on its own: as wide as it is tall, never the width of a word.
@@ -242,10 +249,6 @@ function MenuScreen.new(deps: Deps): Screen
 		own(trove, button)
 		return button
 	end
-
-	iconButton("MoreFolios", Theme.Glyphs.Plus, nil, "Secondary", 4, function()
-		navigate("Shop", { Tab = "Folios" })
-	end)
 
 	local spacer = Instance.new("Frame")
 	spacer.Name = "Spacer"

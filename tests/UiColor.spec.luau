@@ -888,6 +888,70 @@ describe("the restyled controls", function()
 		end
 	end)
 
+	it("put the Folios on an ink pill, its gold coin drawn in it, and the way to more at its end", function()
+		local clicks: { string } = {}
+		local stubs = Engine.interfaceStubs()
+		stubs["src/ui/UiSound"] = {
+			play = function(id: string)
+				table.insert(clicks, id)
+			end,
+		}
+		local world = Engine.world({ Stubs = stubs })
+		local FoliosPill = world.require("src/ui/components/FoliosPill")
+		local Theme = world.require("src/ui/Theme")
+		local asked = 0
+		local pill = FoliosPill.new({
+			Height = 44,
+			Parent = world.playerGui,
+			OnMore = function()
+				asked += 1
+			end,
+		})
+		pill:Set(2480, false)
+		local root = pill.Instance
+		-- The board's `.pill`: ink, its count the sheet in the number face.
+		expect(root.BackgroundColor3).toBe(Theme.Colors.Plate)
+		local count = root:FindFirstChild("Count")
+		expect(count.Text).toBe("2480")
+		expect(count.TextColor3).toBe(Theme.Colors.PanelRaised)
+		expect(count.FontFace.Family).toBe(Theme.Fonts.Numeric.Family)
+		expect(Theme.contrast(count.TextColor3, root.BackgroundColor3)).toBeGreaterThanOrEqual(BODY_CONTRAST)
+		-- Its `.coin`: gold in a sheet rim, a ring of the gold's lip inside the rim, and no letter on it.
+		local coin = root:FindFirstChild("Coin")
+		expect(coin.BackgroundColor3).toBe(Theme.Colors.Primary)
+		expect(coin:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.Colors.PanelRaised)
+		local ring = coin:FindFirstChild("Ring")
+		expect(ring:FindFirstChildOfClass("UIStroke").Color).toBe(Theme.lip("Primary"))
+		for _, part in ipairs(coin:GetDescendants()) do
+			if part:IsA("TextLabel") or part:IsA("ImageLabel") then
+				error("the coin carries " .. part.Name)
+			end
+		end
+		-- Its `.plus`: a disc of the sheet at the pill's end, a "+" of ink, and the whole pill a button taking it.
+		local more = root:FindFirstChild("More")
+		expect(more.BackgroundColor3).toBe(Theme.Colors.PanelRaised)
+		expect(more.Text).toBe(Theme.Glyphs.Plus)
+		expect(more.TextColor3).toBe(Theme.Colors.Text)
+		expect(more.LayoutOrder).toBeGreaterThan(count.LayoutOrder)
+		expect(root.ClassName).toBe("TextButton")
+		expect(root.Selectable).toBe(true)
+		expect(root.SelectionImageObject).never.toBeNil()
+		expect(root:FindFirstChildOfClass("UISizeConstraint").MinSize.Y).toBeGreaterThanOrEqual(Theme.MinTouchTarget)
+		root.Activated:Fire()
+		expect(asked).toBe(1)
+		expect(clicks).toEqual({ "UiClick" })
+		-- With nowhere to go, it is only read: a frame, no "+".
+		local plain = FoliosPill.new({ Parent = world.playerGui })
+		expect(plain.Instance.ClassName).toBe("Frame")
+		expect(plain.Instance:FindFirstChild("More")).toBeNil()
+		-- The Menu's pill takes the player to the Shop's Folios; no second "+" stands beside it.
+		local menu = stripComments(fs.readFile("src/ui/screens/MenuScreen.luau"))
+		local call = string.match(menu, "local pill = FoliosPill%.new(%b())")
+		assert(call ~= nil, "the Menu shows no Folios pill")
+		expect(string.find(call :: string, 'OnMore = function%(%)%s+navigate%("Shop", { Tab = "Folios" }%)%s+end')).never.toBeNil()
+		expect(select(2, string.gsub(menu, 'Tab = "Folios"', ""))).toBe(1)
+	end)
+
 	it("write the selected tab in an ink that reads on its thumb, whatever the chapter or the pigment", function()
 		local tabs = source("Tabs")
 		expect(string.find(tabs, "return if band == Theme.Colors.Plate then Theme.Colors.Primary else band", 1, true)).never.toBeNil()

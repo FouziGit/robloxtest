@@ -7,8 +7,10 @@ local Engine = require("./engine")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
 local LevelRoad = require("../src/shared/Pure/LevelRoad")
+local Measure = require("./measure")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local Strings = require("../src/shared/Strings")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -194,6 +196,58 @@ describe("the Result card", function()
 	it("never promises the pigment to a player who already holds it", function()
 		local _, text = promise(ORPIMENT - 2, { "Orpiment" })
 		expect(text).toBe("Next: 450 Folios at level 45")
+	end)
+
+	it("names every reward of the road whole, in both languages, on the narrowest screens", function()
+		for _, window in ipairs({ { 667, 375, true }, { 1366, 768, false } }) do
+			local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+			if window[3] then
+				Engine.phone(world, window[1], window[2])
+			else
+				world.workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(window[1], window[2])
+			end
+			local Theme = world.require("src/ui/Theme")
+			local screenWidth = window[1] / Theme.activeScale()
+			local Screen = world.require("src/ui/screens/ResultScreen")
+			local screen = Screen.new({
+				Localize = {
+					t = function(key: string): string
+						return key
+					end,
+				},
+				ClientData = {
+					get = function(): any
+						return nil
+					end,
+					Changed = Engine.signal(),
+				},
+				SoundController = { play = function() end },
+				MatchController = {
+					getLastOutcome = function(): any
+						return OUTCOME
+					end,
+					joinQueue = function() end,
+				},
+				OnClose = function() end,
+			})
+			screen:Open()
+			world:advance(1)
+			local line = screen.Instance:FindFirstChild("NextUnlock", true)
+			local width = Measure.widthOf(line, screenWidth)
+			local Words = world.require("src/ui/LevelRoadWords")
+			for _, locale in ipairs({ "en", "fr" }) do
+				local function t(key: string, params: any?): string
+					return Strings.t(key, params, locale)
+				end
+				for _, step in ipairs(Words.Road) do
+					local text = t("match.nextUnlock", { name = Words.reward(step, t), level = step.Level })
+					if Measure.textWidth(text, line.TextSize) > width then
+						error(("%q is cut on a %d x %d window (%d wide)"):format(text, window[1], window[2], width))
+					end
+				end
+				expect(Measure.textWidth(t("levelroad.complete"), line.TextSize)).toBeLessThanOrEqual(width)
+			end
+		end
 	end)
 
 	it("says the road is walked at the last level", function()

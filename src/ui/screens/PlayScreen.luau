@@ -360,8 +360,8 @@ function PlayScreen.new(deps: Deps): Screen
 		end
 
 		local rule = label("Rule", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 3, normal)
-		-- One round decides, or the first to so many wins: never "first to 1 rounds".
-		rule.Text = if def.RoundsToWin > 1 then t("queue.rule", { rounds = def.RoundsToWin }) else t("queue.rule.one")
+		-- One round decides, or the first to so many wins: never "first to 1 rounds" (the rule's two forms).
+		rule.Text = t("queue.rule", { rounds = def.RoundsToWin })
 
 		local actions = blank("Actions", normal)
 		actions.AutomaticSize = Enum.AutomaticSize.Y

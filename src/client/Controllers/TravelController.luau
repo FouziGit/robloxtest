@@ -283,13 +283,15 @@ local function onBattlegroundChanged(payload: any)
 		return
 	end
 	local snapshot = payload :: Types.BattlegroundSnapshot
+	local standing = math.max(0, math.floor(snapshot.Standing))
+	local defeated = math.max(0, math.floor(snapshot.Defeated))
 	placeTitle.Text = localize.t("portal.battleground.name")
+	-- Each count in its own words: "1 Forger standing", "2 vaincus".
 	placeLine.Text = localize.t("battleground.status", {
-		standing = math.max(0, math.floor(snapshot.Standing)),
-		defeated = math.max(0, math.floor(snapshot.Defeated)),
+		standing = localize.t("battleground.standing", { standing = standing }),
+		defeated = localize.t("battleground.defeated", { defeated = defeated }),
 	})
 	-- A Forger this member helped take down: the count punches. Not on the band's first packet.
-	local defeated = math.max(0, math.floor(snapshot.Defeated))
 	if not placeBand.Visible then
 		lastDefeated = nil
 	end

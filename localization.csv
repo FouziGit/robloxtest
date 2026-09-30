@@ -10,10 +10,14 @@ action.melee.short,Melee,Vellum,,Melee,CAC
 action.menu,Menu,Vellum,,Menu,Menu
 action.menu.short,Menu,Vellum,,Menu,Menu
 battleground.campHit,Hits from the camp don't count. Step out to fight.,Vellum,,Hits from the camp don't count. Step out to fight.,Les coups portés depuis le camp ne comptent pas. Sors pour te battre.
+battleground.defeated.one,{defeated} defeated,Vellum,,{defeated} defeated,{defeated} vaincu
+battleground.defeated.other,{defeated} defeated,Vellum,,{defeated} defeated,{defeated} vaincus
 battleground.entered,The Forgers have seen you.,Vellum,,The Forgers have seen you.,Les Faussaires t'ont vu.
 battleground.folioCap,Forgers pay no more Folios today. XP still counts.,Vellum,,Forgers pay no more Folios today. XP still counts.,Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
 battleground.full,The battleground is full. Try again in a moment.,Vellum,,The battleground is full. Try again in a moment.,Le champ de bataille est plein. Réessaie dans un instant.
-battleground.status,{standing} Forgers standing · {defeated} defeated,Vellum,,{standing} Forgers standing · {defeated} defeated,{standing} Faussaires debout · {defeated} vaincus
+battleground.standing.one,{standing} Forger standing,Vellum,,{standing} Forger standing,{standing} Faussaire debout
+battleground.standing.other,{standing} Forgers standing,Vellum,,{standing} Forgers standing,{standing} Faussaires debout
+battleground.status,{standing} · {defeated},Vellum,,{standing} · {defeated},{standing} · {defeated}
 battlepass.alreadyClaimed,Already claimed.,Vellum,,Already claimed.,Déjà réclamé.
 battlepass.claim,Claim,Vellum,,Claim,Réclamer
 battlepass.claimAll,Claim all ({count}),Vellum,,Claim all ({count}),Tout réclamer ({count})
@@ -24,7 +28,8 @@ battlepass.notReached,Tier {tier} not reached yet.,Vellum,,Tier {tier} not reach
 battlepass.premium,Premium,Vellum,,Premium,Premium
 battlepass.premiumRequired,Premium pass required.,Vellum,,Premium pass required.,Pass premium requis.
 battlepass.reward.cosmetic,Cosmetic: {name},Vellum,,Cosmetic: {name},Cosmétique : {name}
-battlepass.reward.folio,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
+battlepass.reward.folio.one,{amount} Folio,Vellum,,{amount} Folio,{amount} Folio
+battlepass.reward.folio.other,{amount} Folios,Vellum,,{amount} Folios,{amount} Folios
 battlepass.reward.minutes,{minutes} min,Vellum,,{minutes} min,{minutes} min
 battlepass.reward.xpBoost,XP boost ({minutes} min),Vellum,,XP boost ({minutes} min),Boost d'XP ({minutes} min)
 battlepass.tier,Tier {tier} / {max},Vellum,,Tier {tier} / {max},Palier {tier} / {max}
@@ -51,10 +56,12 @@ boss.portal.noReentry,You have used your returns for this fight.,Vellum,,You hav
 boss.practice.dailyDone,Practice rewards are done for today.,Vellum,,Practice rewards are done for today.,Les récompenses d'entraînement sont épuisées pour aujourd'hui.
 boss.practice.noReward,Practice rewards come back in {minutes} min.,Vellum,,Practice rewards come back in {minutes} min.,Les récompenses d'entraînement reviennent dans {minutes} min.
 boss.practice.title,The Erasure · practice,Vellum,,The Erasure · practice,L'Effacement · entraînement
-boss.reward,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward: +{xp} XP, +{folios} Folios","Récompense de l'Effacement : +{xp} XP, +{folios} Folios"
+boss.reward.one,"Erasure reward: +{xp} XP, +{folios} Folio",Vellum,,"Erasure reward: +{xp} XP, +{folios} Folio","Récompense de l'Effacement : +{xp} XP, +{folios} Folio"
+boss.reward.other,"Erasure reward: +{xp} XP, +{folios} Folios",Vellum,,"Erasure reward: +{xp} XP, +{folios} Folios","Récompense de l'Effacement : +{xp} XP, +{folios} Folios"
 boss.share,Your damage: {percent}%,Vellum,,Your damage: {percent}%,Tes dégâts : {percent} %
 boss.started,The Erasure is here.,Vellum,,The Erasure is here.,L'Effacement est là.
-boss.timeLeft,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
+boss.timeLeft.one,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restante
+boss.timeLeft.other,{seconds}s left,Vellum,,{seconds}s left,{seconds}s restantes
 common.cancel,Cancel,Vellum,,Cancel,Annuler
 common.loadFailed,Couldn't load.,Vellum,,Couldn't load.,Impossible de charger.
 common.locked,Locked,Vellum,,Locked,Verrouillé
@@ -128,13 +135,17 @@ cosmetics.slot.Skin,Glyph skins,Vellum,,Glyph skins,Apparences de glyphe
 cosmetics.slot.Title,Titles,Vellum,,Titles,Titres
 cosmetics.slot.Trail,Trails,Vellum,,Trails,Traînées
 currency.folio,Folios,Vellum,,Folios,Folios
-daily.atRisk,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Réclame aujourd'hui pour garder ta série de {streak} jours !
+daily.atRisk.one,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Réclame aujourd'hui pour garder ta série de {streak} jour !
+daily.atRisk.other,Claim today to keep your {streak}-day streak!,Vellum,,Claim today to keep your {streak}-day streak!,Réclame aujourd'hui pour garder ta série de {streak} jours !
 daily.broken,Your streak was reset. Come back tomorrow to keep it going!,Vellum,,Your streak was reset. Come back tomorrow to keep it going!,Ta série est repartie de zéro. Reviens demain pour la garder !
 daily.claim,Claim,Vellum,,Claim,Réclamer
-daily.claimed,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
+daily.claimed.one,"Day {day} reward: +{xp} XP, +{folios} Folio",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folio","Récompense du jour {day} : +{xp} XP, +{folios} Folio"
+daily.claimed.other,"Day {day} reward: +{xp} XP, +{folios} Folios",Vellum,,"Day {day} reward: +{xp} XP, +{folios} Folios","Récompense du jour {day} : +{xp} XP, +{folios} Folios"
 daily.day,Day {day},Vellum,,Day {day},Jour {day}
-daily.firstWin,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
-daily.premium,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
+daily.firstWin.one,"First win of the day! +{xp} XP, +{folios} Folio",Vellum,,"First win of the day! +{xp} XP, +{folios} Folio","Première victoire du jour ! +{xp} XP, +{folios} Folio"
+daily.firstWin.other,"First win of the day! +{xp} XP, +{folios} Folios",Vellum,,"First win of the day! +{xp} XP, +{folios} Folios","Première victoire du jour ! +{xp} XP, +{folios} Folios"
+daily.premium.one,"Premium bonus: +{xp} XP, +{folios} Folio",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folio","Bonus Premium : +{xp} XP, +{folios} Folio"
+daily.premium.other,"Premium bonus: +{xp} XP, +{folios} Folios",Vellum,,"Premium bonus: +{xp} XP, +{folios} Folios","Bonus Premium : +{xp} XP, +{folios} Folios"
 daily.streak,Login streak: day {day},Vellum,,Login streak: day {day},Série de connexion : jour {day}
 daily.title,Daily reward,Vellum,,Daily reward,Récompense du jour
 daily.tomorrow,Tomorrow: {reward},Vellum,,Tomorrow: {reward},Demain : {reward}
@@ -271,9 +282,11 @@ loadout.fullShort,Slots full,Vellum,,Slots full,Emplacements pleins
 loadout.invalid,Invalid loadout.,Vellum,,Invalid loadout.,Équipement invalide.
 loadout.locked,Unlocks at level {level},Vellum,,Unlocks at level {level},Se débloque au niveau {level}
 loadout.lockedPigment,Requires the {pigment} pigment,Vellum,,Requires the {pigment} pigment,Nécessite le pigment {pigment}
-loadout.moreSlots,+{count} slots,Vellum,,+{count} slots,+{count} slots
+loadout.moreSlots.one,+{count} slot,Vellum,,+{count} slot,+{count} emplacement
+loadout.moreSlots.other,+{count} slots,Vellum,,+{count} slots,+{count} emplacements
 loadout.saved,Loadout saved!,Vellum,,Loadout saved!,Équipement sauvegardé !
-loadout.slots,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} slots
+loadout.slots.one,{used} / {total} slot,Vellum,,{used} / {total} slot,{used} / {total} emplacement
+loadout.slots.other,{used} / {total} slots,Vellum,,{used} / {total} slots,{used} / {total} emplacements
 loadout.title,Loadout,Vellum,,Loadout,Équipement
 loadout.unequip,Unequip,Vellum,,Unequip,Retirer
 loadout.unequippedToast,{name} removed,Vellum,,{name} removed,{name} retiré
@@ -283,7 +296,11 @@ match.bestChain,Best chain: ×{count},Vellum,,Best chain: ×{count},Meilleure ch
 match.countdown,{seconds},Vellum,,{seconds},{seconds}
 match.defeat,Defeat,Vellum,,Defeat,Défaite
 match.draw,Draw,Vellum,,Draw,Égalité
-match.execution,{hits} / {casts} glyphs landed · {damage} damage,Vellum,,{hits} / {casts} glyphs landed · {damage} damage,{hits} / {casts} glyphes placés · {damage} dégâts
+match.execution,{landed} · {dealt},Vellum,,{landed} · {dealt},{landed} · {dealt}
+match.execution.damage.one,{damage} damage,Vellum,,{damage} damage,{damage} dégât
+match.execution.damage.other,{damage} damage,Vellum,,{damage} damage,{damage} dégâts
+match.execution.glyphs.one,{hits} / {casts} glyph landed,Vellum,,{hits} / {casts} glyph landed,{hits} / {casts} glyphe placé
+match.execution.glyphs.other,{hits} / {casts} glyphs landed,Vellum,,{hits} / {casts} glyphs landed,{hits} / {casts} glyphes placés
 match.firstWin,First win of the day!,Vellum,,First win of the day!,Première victoire du jour !
 match.grade,Execution: {grade},Vellum,,Execution: {grade},Exécution : {grade}
 match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / {needed} XP,Niveau {level} · {xp} / {needed} XP
@@ -308,8 +325,8 @@ menu.title,Menu,Vellum,,Menu,Menu
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé
 mode.team3v3,Team 3v3,Vellum,,Team 3v3,3v3 en équipe
 nav.back,Back,Vellum,,Back,Retour
-pass.loadoutSlots,Loadout Slots,Vellum,,Loadout Slots,Slots d'équipement
-pass.loadoutSlots.desc,+4 loadout slots (10 in total).,Vellum,,+4 loadout slots (10 in total).,+4 slots d'équipement (10 au total).
+pass.loadoutSlots,Loadout Slots,Vellum,,Loadout Slots,Emplacements d'équipement
+pass.loadoutSlots.desc,+4 loadout slots (10 in total).,Vellum,,+4 loadout slots (10 in total).,+4 emplacements d'équipement (10 au total).
 pass.orpiment,Orpiment Pigment,Vellum,,Orpiment Pigment,Pigment Orpiment
 pass.orpiment.desc,Unlock Orpiment right away (or reach level {level} for free).,Vellum,,Unlock Orpiment right away (or reach level {level} for free).,Débloque l'Orpiment tout de suite (ou atteins le niveau {level} gratuitement).
 pass.skinPack,Skin Pack,Vellum,,Skin Pack,Pack de skins
@@ -345,37 +362,53 @@ purchase.alreadyOwned,You already own this.,Vellum,,You already own this.,Tu pos
 purchase.boostActive,XP boost active for {minutes} min,Vellum,,XP boost active for {minutes} min,Boost d'XP actif pendant {minutes} min
 purchase.failed,The purchase could not be completed.,Vellum,,The purchase could not be completed.,L'achat n'a pas pu aboutir.
 purchase.granted,Purchase complete: {name},Vellum,,Purchase complete: {name},Achat terminé : {name}
-purchase.grantedFoliosInstead,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
+purchase.grantedFoliosInstead.one,You own every item of that rarity: +{amount} Folio instead,Vellum,,You own every item of that rarity: +{amount} Folio instead,Tu possèdes tous les articles de cette rareté : +{amount} Folio à la place
+purchase.grantedFoliosInstead.other,You own every item of that rarity: +{amount} Folios instead,Vellum,,You own every item of that rarity: +{amount} Folios instead,Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place
 purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué !
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
-purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
+purchase.tiersGranted.one,+{tiers} battle pass tier,Vellum,,+{tiers} battle pass tier,+{tiers} palier de battle pass
+purchase.tiersGranted.other,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
 quality.high,High,Vellum,,High,Élevée
 quality.low,Low,Vellum,,Low,Basse
 quality.medium,Medium,Vellum,,Medium,Moyenne
 quality.performance,Performance,Vellum,,Performance,Performance
-quest.cancelRecovery,Cancel {target} recoveries with a dash,Vellum,,Cancel {target} recoveries with a dash,Annule {target} récupérations d'une ruée
-quest.castGlyphs,Cast {target} glyphs,Vellum,,Cast {target} glyphs,Trace {target} glyphes
-quest.chainCasts,Chain {target} glyphs,Vellum,,Chain {target} glyphs,Enchaîne {target} glyphes
+quest.cancelRecovery.one,Cancel {target} recovery with a dash,Vellum,,Cancel {target} recovery with a dash,Annule {target} récupération d'une ruée
+quest.cancelRecovery.other,Cancel {target} recoveries with a dash,Vellum,,Cancel {target} recoveries with a dash,Annule {target} récupérations d'une ruée
+quest.castGlyphs.one,Cast {target} glyph,Vellum,,Cast {target} glyph,Trace {target} glyphe
+quest.castGlyphs.other,Cast {target} glyphs,Vellum,,Cast {target} glyphs,Trace {target} glyphes
+quest.chainCasts.one,Chain {target} glyph,Vellum,,Chain {target} glyph,Enchaîne {target} glyphe
+quest.chainCasts.other,Chain {target} glyphs,Vellum,,Chain {target} glyphs,Enchaîne {target} glyphes
 quest.claim,Claim,Vellum,,Claim,Réclamer
 quest.claimed,Claimed,Vellum,,Claimed,Réclamée
 quest.completed,Quest completed: {name},Vellum,,Quest completed: {name},Quête terminée : {name}
 quest.daily,Daily quests,Vellum,,Daily quests,Quêtes journalières
-quest.dealDamage,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégâts
-quest.defeatDummies,Defeat {target} training dummies,Vellum,,Defeat {target} training dummies,Détruis {target} mannequins
-quest.defeatForgers,Defeat {target} Forgers,Vellum,,Defeat {target} Forgers,Vaincs {target} Faussaires
-quest.defeatPlayers,Defeat {target} players,Vellum,,Defeat {target} players,Vaincs {target} joueurs
-quest.hitGlyphs,Hit enemies with {target} glyphs,Vellum,,Hit enemies with {target} glyphs,Touche des ennemis avec {target} glyphes
-quest.joinBoss,Face the Erasure {target} times,Vellum,,Face the Erasure {target} times,Affronte l'Effacement {target} fois
-quest.landMelee,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
-quest.playMatches,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
+quest.dealDamage.one,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégât
+quest.dealDamage.other,Deal {target} damage,Vellum,,Deal {target} damage,Inflige {target} dégâts
+quest.defeatDummies.one,Defeat {target} training dummy,Vellum,,Defeat {target} training dummy,Détruis {target} mannequin
+quest.defeatDummies.other,Defeat {target} training dummies,Vellum,,Defeat {target} training dummies,Détruis {target} mannequins
+quest.defeatForgers.one,Defeat {target} Forger,Vellum,,Defeat {target} Forger,Vaincs {target} Faussaire
+quest.defeatForgers.other,Defeat {target} Forgers,Vellum,,Defeat {target} Forgers,Vaincs {target} Faussaires
+quest.defeatPlayers.one,Defeat {target} player,Vellum,,Defeat {target} player,Vaincs {target} joueur
+quest.defeatPlayers.other,Defeat {target} players,Vellum,,Defeat {target} players,Vaincs {target} joueurs
+quest.hitGlyphs.one,Hit enemies with {target} glyph,Vellum,,Hit enemies with {target} glyph,Touche des ennemis avec {target} glyphe
+quest.hitGlyphs.other,Hit enemies with {target} glyphs,Vellum,,Hit enemies with {target} glyphs,Touche des ennemis avec {target} glyphes
+quest.joinBoss.one,Face the Erasure {target} time,Vellum,,Face the Erasure {target} time,Affronte l'Effacement {target} fois
+quest.joinBoss.other,Face the Erasure {target} times,Vellum,,Face the Erasure {target} times,Affronte l'Effacement {target} fois
+quest.landMelee.one,Land {target} melee hit,Vellum,,Land {target} melee hit,Place {target} coup au corps à corps
+quest.landMelee.other,Land {target} melee hits,Vellum,,Land {target} melee hits,Place {target} coups au corps à corps
+quest.playMatches.one,Play {target} match,Vellum,,Play {target} match,Joue {target} match
+quest.playMatches.other,Play {target} matches,Vellum,,Play {target} matches,Joue {target} matchs
 quest.progress,{progress} / {target},Vellum,,{progress} / {target},{progress} / {target}
 quest.resetsIn,Resets in {time},Vellum,,Resets in {time},Réinitialisation dans {time}
-quest.reward,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
-quest.useDash,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
+quest.reward.one,"+{xp} XP, +{folios} Folio",Vellum,,"+{xp} XP, +{folios} Folio","+{xp} XP, +{folios} Folio"
+quest.reward.other,"+{xp} XP, +{folios} Folios",Vellum,,"+{xp} XP, +{folios} Folios","+{xp} XP, +{folios} Folios"
+quest.useDash.one,Dash {target} time,Vellum,,Dash {target} time,Utilise le dash {target} fois
+quest.useDash.other,Dash {target} times,Vellum,,Dash {target} times,Utilise le dash {target} fois
 quest.weekly,Weekly quests,Vellum,,Weekly quests,Quêtes hebdomadaires
 quest.winMatch,Win a match,Vellum,,Win a match,Gagne un match
-quest.winMatches,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
+quest.winMatches.one,Win {target} match,Vellum,,Win {target} match,Gagne {target} match
+quest.winMatches.other,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
 queue.alreadyQueued,You are already in a queue.,Vellum,,You are already in a queue.,Tu es déjà dans une file.
 queue.inMatch,You are already in a match.,Vellum,,You are already in a match.,Tu es déjà en match.
 queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
@@ -383,14 +416,15 @@ queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.
 queue.leave,Leave queue,Vellum,,Leave queue,Quitter la file
 queue.left,You left the queue.,Vellum,,You left the queue.,Tu as quitté la file.
 queue.ranked,Ranked,Vellum,,Ranked,Classé
-queue.rule,First to {rounds} rounds wins,Vellum,,First to {rounds} rounds wins,Le premier à {rounds} manches gagne
 queue.rule.one,A single round decides,Vellum,,A single round decides,Une seule manche décide
+queue.rule.other,First to {rounds} rounds wins,Vellum,,First to {rounds} rounds wins,Le premier à {rounds} manches gagne
 queue.searching,Searching… {waited}s,Vellum,,Searching… {waited}s,Recherche… {waited}s
 queue.timedOut,No opponent found. Try again!,Vellum,,No opponent found. Try again!,Aucun adversaire trouvé. Réessaie !
 queue.timedOut.hint,Try the Battleground or face the Erasure: their circles are in the hub.,Vellum,,Try the Battleground or face the Erasure: their circles are in the hub.,Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.
 queue.timedOut.title,Nobody in the queue right now,Vellum,,Nobody in the queue right now,Personne en file pour l'instant
 queue.title,Play,Vellum,,Play,Jouer
-queue.waiting,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
+queue.waiting.one,{queued} / {needed} player,Vellum,,{queued} / {needed} player,{queued} / {needed} joueur
+queue.waiting.other,{queued} / {needed} players,Vellum,,{queued} / {needed} players,{queued} / {needed} joueurs
 rank.blank,Blank,Vellum,,Blank,Vierge
 rank.codex,Codex,Vellum,,Codex,Codex
 rank.illumination,Illumination,Vellum,,Illumination,Enluminure
@@ -399,7 +433,8 @@ rank.sketch,Sketch,Vellum,,Sketch,Esquisse
 result.details,Details,Vellum,,Details,Détails
 reward.folios,+{amount},Vellum,,+{amount},+{amount}
 reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
-season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
+season.rewardGranted.one,Volume reward ({rank}): +{amount} Folio,Vellum,,Volume reward ({rank}): +{amount} Folio,Récompense du volume ({rank}) : +{amount} Folio
+season.rewardGranted.other,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs
 settings.captureCancelled,Cancelled.,Vellum,,Cancelled.,Capture annulée.
@@ -434,8 +469,10 @@ settings.title,Settings,Vellum,,Settings,Options
 settings.transparency,Background transparency,Vellum,,Background transparency,Transparence des fonds
 shop.acquired,Acquired!,Vellum,,Acquired!,Acquis !
 shop.buy,Buy,Vellum,,Buy,Acheter
-shop.buyFolios,{price} Folios,Vellum,,{price} Folios,{price} Folios
-shop.confirm.balance,{before} → {after} Folios,Vellum,,{before} → {after} Folios,{before} → {after} Folios
+shop.buyFolios.one,{price} Folio,Vellum,,{price} Folio,{price} Folio
+shop.buyFolios.other,{price} Folios,Vellum,,{price} Folios,{price} Folios
+shop.confirm.balance.one,{before} → {after} Folio,Vellum,,{before} → {after} Folio,{before} → {after} Folio
+shop.confirm.balance.other,{before} → {after} Folios,Vellum,,{before} → {after} Folios,{before} → {after} Folios
 shop.confirm.title,Buy {name}?,Vellum,,Buy {name}?,Acheter {name} ?
 shop.equip,Equip,Vellum,,Equip,Équiper
 shop.equipped,Equipped,Vellum,,Equipped,Équipé

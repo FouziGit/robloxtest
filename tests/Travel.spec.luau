@@ -133,9 +133,11 @@ describe("the Battleground band", function()
 			requireAll(changed, {
 				"if payload == nil then placeBand.Visible = false if member then member = false soundController.wantMusic(MUSIC_SOURCE, nil) refreshFight() end local hud = hudController if hud ~= nil then hud.leftPlace(BATTLEGROUND_ZONE) end return end",
 				'placeTitle.Text = localize.t("portal.battleground.name")',
+				"local standing = math.max(0, math.floor(snapshot.Standing))",
+				"local defeated = math.max(0, math.floor(snapshot.Defeated))",
 				'placeLine.Text = localize.t("battleground.status", {',
-				"standing = math.max(0, math.floor(snapshot.Standing)),",
-				"defeated = math.max(0, math.floor(snapshot.Defeated)),",
+				'standing = localize.t("battleground.standing", { standing = standing }),',
+				'defeated = localize.t("battleground.defeated", { defeated = defeated }),',
 				"if not member then member = true soundController.wantMusic(MUSIC_SOURCE, MUSIC_ID) refreshFight() end",
 			}, "onBattlegroundChanged")
 			local travel = code(TRAVEL)

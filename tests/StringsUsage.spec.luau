@@ -66,6 +66,11 @@ describe("strings usage", function()
 				return true
 			end
 		end
+		-- A form of a sentence that counts is read through that sentence (Strings.plural), and only through it.
+		local counted = string.match(key, "^(.+)%.one$") or string.match(key, "^(.+)%.other$")
+		if counted ~= nil and Strings.Plurals[counted] ~= nil then
+			return reachable(counted)
+		end
 		return false
 	end
 

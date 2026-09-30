@@ -228,6 +228,37 @@ describe("the Hatching", function()
 		expect(GlyphConfig.ById.Hatching.Params.TickInterval).toBeGreaterThan(CombatConfig.Hit.IFrameSeconds + 1 / 30)
 		expect(hatching:find("local frame = ctx.Combat.trustedOrigin(ctx.Caster)", 1, true)).never.toBe(nil)
 	end)
+
+	it(
+		"names its last stroke a finisher in its hit, for the impact frame five damage would not earn (E19-S3)",
+		function()
+			-- The client prints both bodies in ink on a heavy hit or on a finisher the server names (D-112): the last
+			-- stroke is five damage, far under a heavy hit, and launched its body with no frame at all.
+			local tag = CombatConfig.Hit.GlyphFinisherTag
+			expect(type(tag)).toBe("string")
+			expect(#tag).toBeGreaterThan(0)
+			expect(tag).never.toBe("MeleeFinisher")
+			expect(GlyphConfig.ById[tag]).toBeNil()
+			expect((CombatConfig.Block.BrokenBy :: any)[tag]).toBeNil()
+			expect(GlyphConfig.ById.Hatching.Damage).toBeLessThan(25)
+			local hatching = functionIn(EFFECTS, "function GlyphEffects.Hatching(")
+			local named =
+				"local finisher = stroke == params.Ticks if finisher then table.insert(tracker.Tags, CombatConfig.Hit.GlyphFinisherTag) end"
+			expect(hatching:find(named, 1, true)).never.toBe(nil)
+			-- Before the stroke's hits, which carry it; after the glyph's own tags, so the hit memory keys on the glyph.
+			expect(before(hatching, named, "for _, model in ipairs(damageBox(ctx, tracker,")).toBe(true)
+			expect(count(hatching, "GlyphFinisherTag")).toBe(1)
+			expect(functionIn(EFFECTS, "local function newTracker("):find("Tags = { def.Id, def.Archetype }", 1, true)).never.toBe(
+				nil
+			)
+			-- And the hit it is dealt in says so.
+			local apply = functionIn("src/server/Services/CombatService.luau", "function CombatService.ApplyDamage(")
+			local says =
+				'if kind == "Glyph" and table.find(tags, CombatConfig.Hit.GlyphFinisherTag) ~= nil then hitParams.Finisher = true end'
+			expect(apply:find(says, 1, true)).never.toBe(nil)
+			expect(before(apply, says, 'vfx.emit({ Id = "Hit",')).toBe(true)
+		end
+	)
 end)
 
 describe("the Cartouche", function()

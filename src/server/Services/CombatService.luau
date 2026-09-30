@@ -1209,6 +1209,10 @@ function CombatService.ApplyDamage(
 	if kind == "Melee" and tags[1] == "MeleeFinisher" then
 		hitParams.Finisher = true
 	end
+	-- And a glyph's last stroke, which says so after its id (GlyphEffects.Hatching: five damage, the rush's end).
+	if kind == "Glyph" and table.find(tags, CombatConfig.Hit.GlyphFinisherTag) ~= nil then
+		hitParams.Finisher = true
+	end
 	-- A skinned glyph lands in its skin: the ring, the burn and the number of its hit are part of the
 	-- cast. Glyph damage carries its glyph id as tags[1] (GlyphEffects' tracker).
 	if kind == "Glyph" and source ~= nil and tags[1] ~= nil then

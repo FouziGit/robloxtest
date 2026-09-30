@@ -103,8 +103,9 @@ export type Effect = (ctx: Context) -> number
 -- Tracks the models damaged across the steps of one cast. `MaxHits` = how often one model may be
 -- damaged by this cast: 1 for a wave or a spike line, `math.huge` for a zone that ticks every
 -- interval, a small cap for the Ligature trail. `Tags` is built once: tags[1] is the i-frame key
--- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate. `Amount`
--- is what each of its hits deals, so one cast can strike with two weights under two trackers.
+-- CombatService keys its hit memory on, tags[2] lets CombatConfig.Block.BrokenBy see an ultimate; a rush adds
+-- CombatConfig.Hit.GlyphFinisherTag after them for its last stroke. `Amount` is what each of its hits deals, so
+-- one cast can strike with two weights under two trackers.
 type Tracker = { MaxHits: number, Hits: { [Model]: number }, Count: number, Tags: { string }, Amount: number }
 -- One candidate of a distance ranking (hitscan beam, chain arc, projectile proximity scan).
 type Ranked = { Model: Model, Distance: number }
@@ -1881,6 +1882,11 @@ function GlyphEffects.Hatching(ctx: Context): number
 			break
 		end
 		local finisher = stroke == params.Ticks
+		if finisher then
+			-- Named in its hit after the glyph's own tags, so it earns a finisher's impact frame at five damage
+			-- (D-112); the hit memory still keys on the glyph id.
+			table.insert(tracker.Tags, CombatConfig.Hit.GlyphFinisherTag)
+		end
 		for _, model in ipairs(damageBox(ctx, tracker, frame * CFrame.new(0, 0, -ctx.Def.Range / 2), size)) do
 			if finisher then
 				ctx.Combat.knockback(

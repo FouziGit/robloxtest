@@ -18,8 +18,10 @@ local DataMigration = {}
 --
 -- 6: the login calendar (E15-S1). `Daily.CalendarDay`, the last of the calendar's 28 days claimed, and
 -- `Daily.Signets`, the Signets held. The seven-day streak before it paid the day of its week the streak fell on,
--- so upgradeToV6 puts a profile on the calendar at that same day of its first week: nobody jumps past the week's
--- cosmetic, and the streak itself keeps its count. Signets start at none, as a new profile's do.
+-- so upgradeToV6 puts a profile on the calendar at that same day of its first week: a streak short of its week's
+-- end still reaches the week's cosmetic, one that stood on that end -- paid it already, in Folios -- takes the next
+-- week and meets the first cosmetic on the calendar's next turn, and the streak itself keeps its count. Signets
+-- start at none, as a new profile's do.
 --
 -- 5: `Cosmetics.Waived`, the cosmetics a developer account bought with Folios the developer list waived, so
 -- they leave with the list (D-208). No upgrade step: every profile before it holds none, which is the

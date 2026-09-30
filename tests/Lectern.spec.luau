@@ -249,7 +249,7 @@ describe("the Lectern, run", function()
 					data.ExLibris.Breath4 = 1
 				end,
 				Shown = function(fixture: Fixture): boolean
-					return label(fixture, "Count", "Left"):sub(1, 5) == "1 of "
+					return label(fixture, "Count", "Left"):sub(1, 10) == "Plates: 1 "
 				end,
 			},
 			{

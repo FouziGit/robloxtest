@@ -77,6 +77,33 @@ describe("the Ex-libris", function()
 		expect(Strings.t("exlibris.desc.GlyphsCast", { amount = 10000 }, "fr")).toBe("Trace 10\u{202F}000 glyphes")
 	end)
 
+	-- A count of one is the likeliest: the first plate of every profile, and the one milestone a profile between 45
+	-- and 49 is owed at its first load. The words say it the way the game says any count ("New glyphs unlocked: 1"),
+	-- never "1 plates" nor, in French, where 0 and 1 are both singular, "1 plaques" or "0 plaques".
+	it("never puts a count of none or one before a plural, in either language", function()
+		-- Each line with the placeholder its count is given in; the Folios they pay are hundreds.
+		local lines: { { Key: string, Count: string, Locales: { string } } } = {
+			{ Key = "milestone.caughtUp", Count = "count", Locales = { "en", "fr" } },
+			{ Key = "exlibris.caughtUp", Count = "count", Locales = { "en", "fr" } },
+			{ Key = "lectern.exlibris.count", Count = "count", Locales = { "en", "fr" } },
+			-- "fois" is the same in the singular: the French reads right at one.
+			{ Key = "exlibris.desc.BossKills", Count = "amount", Locales = { "en" } },
+		}
+		for _, line in ipairs(lines) do
+			for _, locale in ipairs(line.Locales) do
+				for _, count in ipairs({ 0, 1 }) do
+					local params: { [string]: any } = { count = 450, amount = 450, total = 13 }
+					params[line.Count] = count
+					local text = Strings.t(line.Key, params, locale)
+					local plural = string.match(text, "%f[%w]" .. count .. " ([^%s%p]+s)%f[%s%p%z]")
+					if plural ~= nil and not (locale == "en" and count == 0) then
+						error(("%s says %q in %s"):format(line.Key, text, locale))
+					end
+				end
+			end
+		end
+	end)
+
 	it("reads the lifetime stats, and the Lectern's grades by their grade", function()
 		local drills = { KitString = 3, KitCancel = 3, KitChain = 2, Brand = 3, Wash = 2, Serif = 1 }
 		local facts = ExLibris.facts(stats({ Kills = 120, BestChain = 5 }), drills, KIT_IDS)
@@ -286,7 +313,7 @@ describe("the Lectern's Ex-libris", function()
 			return row:FindFirstChild("Subtitle", true).Text
 		end
 		expect(screen.Instance:FindFirstChild("Count", true):FindFirstChild("Label", true).Text).toBe(
-			("1 of %d plates"):format(#ExLibrisConfig.Plates)
+			("Plates: 1 / %d"):format(#ExLibrisConfig.Plates)
 		)
 		expect(line("Erasures100")).toBe("Defeat 100 foes, dummies and Forgers included · earned")
 		expect(line("Erasures1000")).toBe("Defeat 1,000 foes, dummies and Forgers included · 140 / 1000")

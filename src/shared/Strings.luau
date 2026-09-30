@@ -506,8 +506,8 @@ Strings.Table = {
 		fr = "Jalon du niveau {level} : +{amount} Folios",
 	},
 	["milestone.caughtUp"] = {
-		en = "{count} milestones you had passed: +{amount} Folios",
-		fr = "{count} jalons déjà passés : +{amount} Folios",
+		en = "Milestones you had passed: {count}, +{amount} Folios",
+		fr = "Jalons déjà passés : {count}, +{amount} Folios",
 	},
 	["milestone.reachedTitle"] = {
 		en = "Milestone of level {level}: +{amount} Folios and the title {title}",
@@ -597,7 +597,7 @@ Strings.Table = {
 	-- The Ex-libris (ExLibrisConfig, HonoursService, the Lectern's third tab). A plate's target is an {amount}: a
 	-- thousand glyphs are grouped as a thousand Folios are.
 	["lectern.tab.exlibris"] = { en = "Ex-libris", fr = "Ex-libris" },
-	["lectern.exlibris.count"] = { en = "{count} of {total} plates", fr = "{count} plaques sur {total}" },
+	["lectern.exlibris.count"] = { en = "Plates: {count} / {total}", fr = "Plaques : {count} / {total}" },
 	["lectern.exlibris.progress"] = { en = "{desc} · {count} / {target}", fr = "{desc} · {count} / {target}" },
 	["lectern.exlibris.earned"] = { en = "{desc} · earned", fr = "{desc} · obtenue" },
 	["lectern.exlibris.rewardTitled"] = { en = "+{amount} · a title", fr = "+{amount} · un titre" },
@@ -622,7 +622,7 @@ Strings.Table = {
 	["exlibris.desc.GlyphsCast"] = { en = "Draw {amount} glyphs", fr = "Trace {amount} glyphes" },
 	["exlibris.desc.BestChain"] = { en = "Chain {amount} glyphs", fr = "Enchaîne {amount} glyphes" },
 	["exlibris.desc.BossKills"] = {
-		en = "Defeat the Erasure in its event, {amount} times",
+		en = "Defeat the Erasure in its event ×{amount}",
 		fr = "Vaincs l'Effacement lors de son événement, {amount} fois",
 	},
 	["exlibris.desc.KitCalligraphy"] = {
@@ -643,8 +643,8 @@ Strings.Table = {
 		fr = "Ex-libris : {name} ! +{amount} Folios et le titre {title}",
 	},
 	["exlibris.caughtUp"] = {
-		en = "{count} plates of your Ex-libris: +{amount} Folios",
-		fr = "{count} plaques de ton Ex-libris : +{amount} Folios",
+		en = "Ex-libris plates earned: {count}, +{amount} Folios",
+		fr = "Plaques d'Ex-libris obtenues : {count}, +{amount} Folios",
 	},
 	["leaderboard.row"] = { en = "#{rank}  {name}", fr = "#{rank}  {name}" },
 	["leaderboard.rating"] = { en = "{rating}", fr = "{rating}" },

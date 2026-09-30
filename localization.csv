@@ -185,9 +185,9 @@ exlibris.Pages250,Dog-Eared,Vellum,,Dog-Eared,Écorné
 exlibris.SteadyKit,A Steady Kit,Vellum,,A Steady Kit,Un kit sûr
 exlibris.Strokes1000,A Thousand Strokes,Vellum,,A Thousand Strokes,Mille traits
 exlibris.Strokes10000,Ten Thousand Strokes,Vellum,,Ten Thousand Strokes,Dix mille traits
-exlibris.caughtUp,{count} plates of your Ex-libris: +{amount} Folios,Vellum,,{count} plates of your Ex-libris: +{amount} Folios,{count} plaques de ton Ex-libris : +{amount} Folios
+exlibris.caughtUp,"Ex-libris plates earned: {count}, +{amount} Folios",Vellum,,"Ex-libris plates earned: {count}, +{amount} Folios","Plaques d'Ex-libris obtenues : {count}, +{amount} Folios"
 exlibris.desc.BestChain,Chain {amount} glyphs,Vellum,,Chain {amount} glyphs,Enchaîne {amount} glyphes
-exlibris.desc.BossKills,"Defeat the Erasure in its event, {amount} times",Vellum,,"Defeat the Erasure in its event, {amount} times","Vaincs l'Effacement lors de son événement, {amount} fois"
+exlibris.desc.BossKills,Defeat the Erasure in its event ×{amount},Vellum,,Defeat the Erasure in its event ×{amount},"Vaincs l'Effacement lors de son événement, {amount} fois"
 exlibris.desc.DrillsCalligraphy,Reach Calligraphy on {amount} drills,Vellum,,Reach Calligraphy on {amount} drills,Atteins la Calligraphie sur {amount} exercices
 exlibris.desc.DrillsFairCopy,Reach Fair copy on {amount} drills,Vellum,,Reach Fair copy on {amount} drills,Atteins la Mise au net sur {amount} exercices
 exlibris.desc.GlyphsCast,Draw {amount} glyphs,Vellum,,Draw {amount} glyphs,Trace {amount} glyphes
@@ -322,7 +322,7 @@ leaderboard.youUnlisted,You: outside the top {count},Vellum,,You: outside the to
 lectern.again,Again,Vellum,,Again,Refaire
 lectern.blank,not drawn yet,Vellum,,not drawn yet,pas encore tracé
 lectern.drillLine,{hint} · {grade},Vellum,,{hint} · {grade},{hint} · {grade}
-lectern.exlibris.count,{count} of {total} plates,Vellum,,{count} of {total} plates,{count} plaques sur {total}
+lectern.exlibris.count,Plates: {count} / {total},Vellum,,Plates: {count} / {total},Plaques : {count} / {total}
 lectern.exlibris.earned,{desc} · earned,Vellum,,{desc} · earned,{desc} · obtenue
 lectern.exlibris.progress,{desc} · {count} / {target},Vellum,,{desc} · {count} / {target},{desc} · {count} / {target}
 lectern.exlibris.rewardTitled,+{amount} · a title,Vellum,,+{amount} · a title,+{amount} · un titre
@@ -391,7 +391,7 @@ menu.loadout,Loadout,Vellum,,Loadout,Équipement
 menu.quests,Quests,Vellum,,Quests,Quêtes
 menu.shop,Shop,Vellum,,Shop,Boutique
 menu.title,Menu,Vellum,,Menu,Menu
-milestone.caughtUp,{count} milestones you had passed: +{amount} Folios,Vellum,,{count} milestones you had passed: +{amount} Folios,{count} jalons déjà passés : +{amount} Folios
+milestone.caughtUp,"Milestones you had passed: {count}, +{amount} Folios",Vellum,,"Milestones you had passed: {count}, +{amount} Folios","Jalons déjà passés : {count}, +{amount} Folios"
 milestone.reached,Milestone of level {level}: +{amount} Folios,Vellum,,Milestone of level {level}: +{amount} Folios,Jalon du niveau {level} : +{amount} Folios
 milestone.reachedTitle,Milestone of level {level}: +{amount} Folios and the title {title},Vellum,,Milestone of level {level}: +{amount} Folios and the title {title},Jalon du niveau {level} : +{amount} Folios et le titre {title}
 mode.duel1v1,Ranked 1v1,Vellum,,Ranked 1v1,1v1 classé

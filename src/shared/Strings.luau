@@ -644,6 +644,19 @@ Strings.Table = {
 		en = "Studio test purchase of {name}: nothing was granted or saved.",
 		fr = "Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.",
 	},
+	-- A DataStore outage (DataService, ProfileStore's critical state): once to each player, and when it ends.
+	["purchase.savesDelayed"] = {
+		en = "Robux purchases are paused while saving is delayed.",
+		fr = "Les achats en Robux sont suspendus tant que la sauvegarde est retardée.",
+	},
+	["save.delayed"] = {
+		en = "Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.",
+		fr = "La sauvegarde est retardée. Ta progression est gardée ici, et les achats en Robux attendent son retour.",
+	},
+	["save.restored"] = {
+		en = "Saving is back. Robux purchases are open again.",
+		fr = "La sauvegarde est revenue. Les achats en Robux sont rouverts.",
+	},
 
 	-- Enemies
 

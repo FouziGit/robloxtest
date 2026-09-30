@@ -109,6 +109,7 @@ Les abonnés Roblox Premium génèrent des payouts proportionnels au temps pass�
 - Game passes : `UserOwnsGamePassAsync` à la connexion (pcall + retries) pour chaque pass qui a un identifiant, cache dans `Passes` qui suit les réponses nettes de Roblox dans les deux sens (un pass remboursé ou retiré de l'inventaire en sort ; une vérification qui échoue ne change rien), mise à jour sur `PromptGamePassPurchaseFinished` (une vente entre dans le cache, une fenêtre fermée sans vente fait redemander le pass). Achats hors connexion couverts par la vérification à la connexion (D-211).
 - Un achat en Folios débite puis accorde ; si l'attribution échoue sans que l'article soit écrit, `CurrencyService.refund` rend exactement le débit, sans le ×1,5 du VIP et sans rien écrire pour le compte développeur qui n'a rien payé ; un article écrit est un achat réglé, jamais remboursé (D-203).
 - Studio : un achat de test n'accorde rien et ne s'enregistre pas tant que `StudioConfig.PersistTestPurchases` est éteint (D-211).
+- Panne de DataStore : tant que ProfileStore est dans son état critique (`DataService.isCritical`), aucune fenêtre d'achat en Robux ne s'ouvre (`purchase.savesDelayed`) et chaque joueur est prévenu une fois, au début puis à la fin (`save.delayed`, `save.restored`) ; l'achat en Folios reste ouvert (D-XXXsave).
 - Aucune valeur de prix n'est lue depuis le client ; les IDs vivent uniquement dans `MonetizationConfig`, validés au démarrage (`warn` explicite par ID manquant).
 
 ## 8. KPIs à suivre (Analytics + Creator Dashboard)

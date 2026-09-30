@@ -23,6 +23,8 @@ export type DataApi = {
 	-- a false: the Robux are already taken and the receipt would never be delivered again.
 	saveNow: (player: Player) -> boolean,
 	isActive: (player: Player) -> boolean,
+	-- True while saves are delayed (ProfileStore's critical state): no Robux purchase opens meanwhile.
+	isCritical: () -> boolean,
 	ProfileLoaded: ProfileSignal,
 }
 export type NotifyKind = "Info" | "Success" | "Error"

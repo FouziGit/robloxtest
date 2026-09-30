@@ -351,6 +351,7 @@ purchase.passGranted,{name} unlocked!,Vellum,,{name} unlocked!,{name} débloqué
 purchase.premiumOwnedFolios,You already have the Premium Battle Pass: +{amount} Folios instead,Vellum,,You already have the Premium Battle Pass: +{amount} Folios instead,Tu as déjà le Battle Pass Premium : +{amount} Folios à la place
 purchase.prompt,Opening the Roblox purchase…,Vellum,,Opening the Roblox purchase…,Ouverture de l'achat Roblox…
 purchase.sandboxed,Studio test purchase of {name}: nothing was granted or saved.,Vellum,,Studio test purchase of {name}: nothing was granted or saved.,Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.
+purchase.savesDelayed,Robux purchases are paused while saving is delayed.,Vellum,,Robux purchases are paused while saving is delayed.,Les achats en Robux sont suspendus tant que la sauvegarde est retardée.
 purchase.tiersGranted,+{tiers} battle pass tiers,Vellum,,+{tiers} battle pass tiers,+{tiers} paliers de battle pass
 purchase.tiersPastLast,Past the last tier: +{amount} Folios instead,Vellum,,Past the last tier: +{amount} Folios instead,Au-delà du dernier palier : +{amount} Folios à la place
 purchase.unavailable,This item is not available yet.,Vellum,,This item is not available yet.,Cet article n'est pas encore disponible.
@@ -403,6 +404,8 @@ rank.sketch,Sketch,Vellum,,Sketch,Esquisse
 result.details,Details,Vellum,,Details,Détails
 reward.folios,+{amount},Vellum,,+{amount},+{amount}
 reward.xp,+{xp} XP,Vellum,,+{xp} XP,+{xp} XP
+save.delayed,"Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.",Vellum,,"Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.","La sauvegarde est retardée. Ta progression est gardée ici, et les achats en Robux attendent son retour."
+save.restored,Saving is back. Robux purchases are open again.,Vellum,,Saving is back. Robux purchases are open again.,La sauvegarde est revenue. Les achats en Robux sont rouverts.
 season.rewardGranted,Volume reward ({rank}): +{amount} Folios,Vellum,,Volume reward ({rank}): +{amount} Folios,Récompense du volume ({rank}) : +{amount} Folios
 settings.bound,{action} is now {key}. Don't forget to save!,Vellum,,{action} is now {key}. Don't forget to save!,{action} est maintenant sur {key}. N'oublie pas de sauvegarder !
 settings.cameraShake,Shakes and flashes,Vellum,,Shakes and flashes,Secousses et flashs

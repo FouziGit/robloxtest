@@ -96,6 +96,10 @@ local function setup(tier: number, xp: number?): Fixture
 		isActive = function(): boolean
 			return true
 		end,
+		-- Saving works: tests/SaveOutage.spec.luau is where it does not.
+		isCritical = function(): boolean
+			return false
+		end,
 	}
 	local notify = {
 		send = function(_player: any, key: string, params: { [string]: any }?)

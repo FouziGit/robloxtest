@@ -364,7 +364,7 @@ local function matchWorld(): MatchWorld
 			Damaged = damaged,
 			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
 			Killed = Engine.signal(),
-			setPolicy = function() end,
+			claimZone = function() end,
 			resyncPosition = function() end,
 		},
 		Movement = {
@@ -413,6 +413,10 @@ local function matchWorld(): MatchWorld
 			-- A public server: ranked play counts (E4-S4).
 			rankedHere = function(): boolean
 				return true
+			end,
+			-- Nobody here plays the newcomers' quick duel (E10-S7): every match is ranked, as before it.
+			isNewcomer = function()
+				return false
 			end,
 		},
 		Quest = { report = function() end },

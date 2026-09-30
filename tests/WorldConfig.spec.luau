@@ -153,6 +153,7 @@ local function roleUses(): { { Label: string, Role: string } }
 	take("Proof", WorldConfig.Proof)
 	take("Portal", WorldConfig.Portal)
 	take("Battleground", WorldConfig.Battleground)
+	take("Flyleaf", WorldConfig.Flyleaf)
 	take("Forgers", WorldConfig.Forgers)
 	table.insert(out, { Label = "Footprints.Color", Role = WorldConfig.Footprints.Color })
 	table.insert(out, { Label = "Erasure.Mark", Role = WorldConfig.Erasure.Mark })

@@ -259,7 +259,7 @@ local function startAttack(boss: Boss, state: WorldBossMode.State, now: number):
 end
 
 -- The telegraph is over: everything standing in the shape takes the hit, through the single damage path
--- and with no source, so the attack lands whatever the PvP policy is. Knockback and stun only follow
+-- and with no source, so the attack lands whatever zone its target stands in. Knockback and stun only follow
 -- damage that actually landed, so a guard that soaked it all stops them too.
 --
 -- The shape is tested from where the boss stood when the warning was painted (state.Origin / Facing),

@@ -12,6 +12,10 @@
 
 local DataMigration = {}
 
+-- 9: the Flyleaf's daily allowance (`Daily.FlyleafDay`, `FlyleafFolios`, E16-S2). No upgrade step: every profile
+-- before it was paid nothing by the Flyleaf, which is the template's zeros. The version moves so a build that has
+-- never heard of them keeps them rather than dropping them (see `newer` in migrate).
+--
 -- 8: the ranked opponents of the day (`Rank.Opponents`) and the Folios matches paid today (`Daily.MatchDay`,
 -- `MatchFolios`), D-255. No upgrade step: every profile before it met nobody today and was paid nothing under
 -- a cap, which is the template's zeros and empty map. The version moves so a build that has never heard of them
@@ -44,7 +48,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 8
+DataMigration.CurrentVersion = 9
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

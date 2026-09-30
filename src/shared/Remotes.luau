@@ -189,6 +189,8 @@ Remotes.Definitions = {
 	BossChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- The Battleground for one of its members (Types.BattlegroundSnapshot), or nil when they leave it.
 	BattlegroundChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The Flyleaf for one of its members (Types.FlyleafSnapshot), or nil when they leave it.
+	FlyleafChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- The portal circle a player stands in and how long they must stay (Types.PortalSnapshot), or nil once they
 	-- step out or set off. There is no client-to-server remote for travelling, and there must never be one
 	-- (D-130): the server moves whoever it trusts to be standing in a circle, and the client is only told.

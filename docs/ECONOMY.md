@@ -23,6 +23,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
 | Faussaires du champ de bataille (D-131) | 1–4 (Barbouilleur, Plume 1 ; Surchargeur 4) | plafond **150 / jour** (profil) | hors du total ci-dessous |
+| Page de garde (E16-S2) | 5 par victoire (60 XP) | plafond **100 / jour** (profil) ; rien au-delà de 3 morts du même rival en 10 min | hors du total ci-dessous |
 | Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour, 1 / 20 min (les deux dans le profil, D-222) ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Première victoire du jour | 100 | ×1 | 100 |
 | Streak de connexion (J7 moyen) | 120 | ×1 | 120 |
@@ -34,7 +35,7 @@ Les matchs classés sont bornés eux aussi (D-255) : **1 400 Folios par jour** a
 
 Serveur privé acheté (D-251) : le classé n'y compte pas. Un match y paie la moitié de son XP et de ses Folios (`MatchConfig.PrivateServer.RewardShare`), ni la première victoire du jour ni la quête d'une victoire, et aucun Elo ne bouge. Un serveur réservé par le jeu reste classé.
 
-Les deux sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios` et `PracticeDay` / `PracticePaid`) : changer de serveur ne les remet pas à zéro. Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
+Les trois sources ajoutées par les portails sont bornées **par jour, dans le profil** (`DailyCap`, compteurs `Daily.ForgerDay` / `ForgerFolios`, `PracticeDay` / `PracticePaid` et `FlyleafDay` / `FlyleafFolios`) : changer de serveur ne les remet pas à zéro. À la Page de garde, une victoire ne passe pas par le « Kill joueur » du match (15 Folios, 120 XP) : la page la paie elle-même, 5 Folios et 60 XP, et ne paie plus rien pour un rival qu'on a vaincu trois fois dans les dix dernières minutes (le registre vit dans la mémoire du serveur, et quitter puis revenir ne l'efface pas). Le plafond des Faussaires porte sur le montant de base, avant le VIP ; au-delà, un Faussaire ne paie plus que de l'XP, et un toast le dit une fois par jour.
 
 Les Épreuves du hub le sont aussi depuis E10-S3 (`TrialPay`, compteurs `Daily.TrialDay` / `TrialKills` / `TrialFolios`) : 40 Folios par jour au plus, l'XP entière (40) pour les 25 premiers kills du jour puis 5 % (2 XP), rien sans glyphe lancé ni ruée dans la minute, et jamais d'XP de pass ; un glyphe qui touche une Épreuve ne paie pas d'XP (D-245 à D-247). Un toast le dit une fois par jour, au kill qui épuise les Folios.
 
@@ -67,7 +68,7 @@ Les jalons et l'Ex-libris (D-224, D-225) comptent dans ces Folios : aucun profil
 
 Ce que les configs ne disent pas est dans `Pacing.Assumptions`, une fois chacun, à remplacer par des mesures (E8) : file de 45 s et 10 s de portail par duel, manche de 50 s, matchs par quatre (deux gagnés, deux perdus, un net et un serré de chaque), un glyphe sur deux qui touche en duel (7 sur 10 sur un Faussaire, tous sur une Épreuve), un tiers du combat au corps à corps en duel, 6 ruées et 1 annulation par minute, un glyphe sur cinq enchaîné, un Faussaire qui encaisse 60 % des dégâts et demande 3 s d'approche. Les lancers de glyphes suivent l'encre en combat (`CombatConfig.Ink.RegenInCombat` sur le coût moyen de l'équipement de départ), les coups de poing la cadence du combo (`CombatConfig.Melee`).
 
-Trois constats pour le développeur, hors de ces stories : le niveau 40 (Orpiment) arrive en 4 à 6 h de jeu et non en 15-20 h ; une heure de Faussaires paie plus d'XP qu'une heure de duels ; et les plaques « adversaires » de l'Ex-libris se gagnent sur les Épreuves du hub (650 Folios au fermier en trois jours), ce que E17-S2 n'avait pas pesé.
+Trois constats pour le développeur, hors de ces stories : le niveau 40 (Orpiment) arrive en 4 à 6 h de jeu et non en 15-20 h ; une heure de Faussaires paie plus d'XP qu'une heure de duels ; et les plaques « adversaires » de l'Ex-libris se gagnent sur les Épreuves du hub (650 Folios au fermier en trois jours), ce que E17-S2 n'avait pas pesé. À la Page de garde, l'XP n'est pas plafonnée non plus (60 par victoire) mais elle suit les victoires sur de vrais joueurs : une victoire toutes les 30 à 60 s donnerait **3 600 à 7 200 XP/h**, sous la courbe d'un match ; deux comptes qui échangent leurs victoires s'arrêtent à trois chacun toutes les dix minutes (≈ 2 200 XP/h pour chacun).
 
 ## 3. Puits de Folios (boutique cosmétique)
 

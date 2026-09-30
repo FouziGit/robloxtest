@@ -1684,7 +1684,7 @@ function GlyphEffects.Dagger(ctx: Context): number
 		local line = position - start
 		local flat = Vector3.new(line.X, 0, line.Z)
 		-- A body straight above or below has no "behind": skipped, never given a made-up direction. One the hit
-		-- would be refused on (an ally, the safe zone, i-frames) is never jumped to (D-143), nor one behind a wall.
+		-- would be refused on (an ally, another zone's body, i-frames) is never jumped to (D-143), nor one behind a wall.
 		if
 			flat.Magnitude > EPSILON
 			and flat.Unit:Dot(aim) >= cone

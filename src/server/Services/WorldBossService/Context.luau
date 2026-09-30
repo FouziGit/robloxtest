@@ -49,7 +49,8 @@ export type Registry = {
 	fireAll: (name: string, ...any) -> (),
 }
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
-export type Policy = (source: Player?, targetModel: Model) -> boolean
+-- What the fight tells CombatService about the Boss zone (ZoneConfig): who it holds. Nobody there hurts another.
+export type ZoneClaim = { Holds: (player: Player) -> boolean }
 export type CombatApi = {
 	ApplyDamage: (
 		source: Player?,
@@ -61,8 +62,8 @@ export type CombatApi = {
 	knockback: (targetModel: Model, velocity: Vector3, duration: number) -> (),
 	-- Called after the encounter teleports a participant, so the position CombatService trusts follows.
 	resyncPosition: (player: Player, position: Vector3?) -> (),
-	-- Returns the policy it replaced, so a temporary owner can hand the slot back (see init.takePolicy).
-	setPolicy: (fn: Policy) -> Policy?,
+	-- The Boss zone (E16-S1): the players the fight engaged never hurt each other, event or practice.
+	claimZone: (zone: "Boss", claim: ZoneClaim) -> (),
 	-- One damage application, with who dealt it and to what. Boss contribution is attributed from this
 	-- and never by reading an attribute back from a Humanoid event (see Encounter.recordDamage).
 	Damaged: {

@@ -140,7 +140,7 @@ local TAKEDOWN_KEY = "hud.playerKill"
 -- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
-local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true }
+local ARENA_ZONES: { [string]: boolean } = { Battleground = true, WorldBoss = true, Flyleaf = true }
 local ERASURE_ZONE = "WorldBoss"
 -- Below the Menu disc, on a touch screen: the gap between the disc and the first message.
 local TOAST_UNDER_MENU = 8
@@ -727,6 +727,21 @@ local function place(zone: string?)
 	end
 end
 
+-- The announcement's versus plate (E10-S7): a quick duel says so first, then each opponent's name, level and rank --
+-- "unranked" for one still in the quick duel.
+local function versusLines(snapshot: Types.MatchSnapshot): { string }
+	local lines: { string } = {}
+	if not snapshot.Ranked then
+		table.insert(lines, localize.t("match.quickDuel"))
+	end
+	-- MatchSplash reads the snapshot's roster as plain fighters.
+	for _, fighter in ipairs(MatchSplash.opponents(snapshot :: any)) do
+		local rank = if fighter.RankKey ~= "" then localize.t(fighter.RankKey) else localize.t("match.versus.unranked")
+		table.insert(lines, localize.t("match.versus", { name = fighter.Name, level = fighter.Level, rank = rank }))
+	end
+	return lines
+end
+
 local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	local active = snapshot ~= nil
 	if active and not inMatch then
@@ -742,6 +757,11 @@ local function refreshMatch(snapshot: Types.MatchSnapshot?)
 	-- MatchSplash reads a snapshot's plain fields; the phase's literal union is a string to it.
 	for _, splash in ipairs(MatchSplash.between(lastMatch :: any, snapshot :: any)) do
 		banner:Show(splash.Kind, splash.Digit)
+		if splash.Kind == "MatchFound" and snapshot ~= nil then
+			banner:ShowVersus(versusLines(snapshot))
+		elseif splash.Kind == "Fight" then
+			banner:ShowVersus(nil)
+		end
 	end
 	if snapshot == nil and lastMatch ~= nil then
 		banner:Clear()

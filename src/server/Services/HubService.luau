@@ -2,8 +2,8 @@
 -- HubService: builds the whole hub in code at Start (nothing is authored in Studio). One Workspace
 -- folder holds the platform, the single SpawnLocation (HubSpawn), the training ring marker, the
 -- QueueTerminal, one LeaderboardBoard_<boardId> per RankingConfig board, the ShopKiosk, the Lectern where the
--- drills are picked, and the two portal gates on the platform's empty north (D-130): the way to the
--- Battleground and the way to the Erasure. The
+-- drills are picked, and the three portal gates on the platform's empty north (D-130): the way to the Battleground,
+-- to the Flyleaf and to the Erasure. The
 -- folder is destroyed and rebuilt at Start so a Rojo re-sync or a re-run never leaves two hubs.
 --
 -- Signage rule: a SurfaceGui parented to a server-built part is byte-identical for every viewer, so
@@ -20,7 +20,7 @@
 --
 -- Anchor names come from docs/GAME_DESIGN.md §8, live in WorldConfig.HubAnchors for every reader, and
 -- must survive any replacement by real assets: HubSpawn, QueueTerminal, LeaderboardBoard_<boardId>,
--- ShopKiosk, BattlegroundPortal, BossPortal, DrillLectern.
+-- ShopKiosk, BattlegroundPortal, BossPortal, FlyleafPortal, DrillLectern.
 --
 -- The platform and its kerbs carry MovementGuardConfig.BarrierTag: the geometry no body may pass through,
 -- which is all the movement audit casts its noclip ray against. Nothing else here does.
@@ -61,6 +61,7 @@ type Layout = {
 	LecternCFrame: CFrame,
 	BattlegroundPortalCFrame: CFrame,
 	BossPortalCFrame: CFrame,
+	FlyleafPortalCFrame: CFrame,
 }
 
 local ANCHORS = WorldConfig.HubAnchors
@@ -83,8 +84,8 @@ local SPAWN_SIZE_STUDS = Vector3.new(12, 1, 12)
 -- ladder every floor builder shares (WorldConfig.Ladder), in studs above the platform's top face (y = 0).
 local FLAT_THICKNESS_STUDS = WorldConfig.FlatThicknessStuds
 local LADDER = WorldConfig.Ladder
--- Same radius as CombatService's hub safe zone, so the marker shows exactly where PvP is disabled
--- and the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) stands inside it.
+-- The training ground: the EnemyService dummy ring (GameConfig.Enemy.DummyRingRadius) and the spawn's margin
+-- around it. No player hurts another anywhere in the hub (ZoneConfig), so the marker only says where to train.
 local TRAINING_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + GameConfig.Spawn.SafeZoneMarginStuds
 local TRAINING_MARKER_TRANSPARENCY = 0.4
 -- Props stand clear of the dummy ring; boards sit a little further out so their panels never touch.
@@ -107,8 +108,8 @@ local SHOP_EMBLEM_BARS = { 0, 90 }
 -- the Erasure's gate (north), by the training ground its drills are done on; tests/Hub.spec.luau holds it clear.
 local LECTERN_EMBLEM_BARS = { 40 }
 local LECTERN_ANGLE_RADIANS = -math.pi / 4
--- The two gates, on a ring either side of the empty north (-pi/2), where nothing else stands: the boards
--- are south and the terminal and the kiosk east and west. tests/Hub.spec.luau recomputes their clearance.
+-- The three gates, on a ring across the empty north (-pi/2), where nothing else stands: the boards are south and
+-- the terminal and the kiosk east and west. tests/Hub.spec.luau recomputes their clearance.
 local PORTALS = PortalConfig.Hub
 -- Returning players land on a small ring around the spawn so a whole team never stacks on one point.
 local RETURN_SLOT_COUNT = 8
@@ -160,6 +161,7 @@ local function computeLayout(): Layout
 		BossPortalCFrame = facingCenter(
 			ringPosition(-math.pi / 2 + PORTALS.AngleOffsetRadians, PORTALS.RingRadiusStuds, 0)
 		),
+		FlyleafPortalCFrame = facingCenter(ringPosition(-math.pi / 2, PORTALS.RingRadiusStuds, 0)),
 	}
 end
 
@@ -382,15 +384,12 @@ local function buildBoard(parent: Folder, board: BoardLayout)
 	model.Parent = parent
 end
 
--- Any SpawnLocation outside this folder would steal the hub safe zone CombatService and EnemyService
--- resolve from the first SpawnLocation in the Workspace, so it is reported loudly.
+-- Any SpawnLocation outside this folder would steal the spawn point CombatService anchors new bodies on and the
+-- dummy ring EnemyService builds, both resolved from the first SpawnLocation in the Workspace: reported loudly.
 local function warnOnForeignSpawns(folder: Folder)
 	for _, descendant in ipairs(Workspace:GetDescendants()) do
 		if descendant:IsA("SpawnLocation") and not descendant:IsDescendantOf(folder) then
-			log.warn(
-				"foreign SpawnLocation %s: the hub safe zone must be centred on HubSpawn only",
-				descendant:GetFullName()
-			)
+			log.warn("foreign SpawnLocation %s: every body must spawn on HubSpawn only", descendant:GetFullName())
 		end
 	end
 end
@@ -422,6 +421,7 @@ function HubService.Start()
 	buildPedestal(folder, ANCHORS.Lectern, layout.LecternCFrame, emblem, LECTERN_EMBLEM_BARS)
 	PortalGate.build(folder, ANCHORS.BattlegroundPortal, layout.BattlegroundPortalCFrame, "Battleground")
 	PortalGate.build(folder, ANCHORS.BossPortal, layout.BossPortalCFrame, "WorldBoss")
+	PortalGate.build(folder, ANCHORS.FlyleafPortal, layout.FlyleafPortalCFrame, "Flyleaf")
 	for _, board in ipairs(layout.Boards) do
 		buildBoard(folder, board)
 	end

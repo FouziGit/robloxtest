@@ -62,6 +62,8 @@ local function template(): { [string]: any }
 			PremiumBonusDay = 0,
 			ForgerDay = 0,
 			ForgerFolios = 0,
+			FlyleafDay = 0,
+			FlyleafFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
 			PracticeLastPaidAt = 0,
@@ -279,6 +281,8 @@ describe("DataMigration daily caps", function()
 			"TrialFolios",
 			"MatchDay",
 			"MatchFolios",
+			"FlyleafDay",
+			"FlyleafFolios",
 		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
@@ -340,7 +344,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(14)
+		expect(#service).toBe(16)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)

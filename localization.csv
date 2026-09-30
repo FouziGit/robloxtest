@@ -225,6 +225,13 @@ exlibris.granted.one,Ex-libris: {name}! +{amount} Folio,Vellum,,Ex-libris: {name
 exlibris.granted.other,Ex-libris: {name}! +{amount} Folios,Vellum,,Ex-libris: {name}! +{amount} Folios,Ex-libris : {name} ! +{amount} Folios
 exlibris.grantedTitle.one,Ex-libris: {name}! +{amount} Folio and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folio and the title {title},Ex-libris : {name} ! +{amount} Folio et le titre {title}
 exlibris.grantedTitle.other,Ex-libris: {name}! +{amount} Folios and the title {title},Vellum,,Ex-libris: {name}! +{amount} Folios and the title {title},Ex-libris : {name} ! +{amount} Folios et le titre {title}
+flyleaf.entered,Everyone here is a rival. No rank at stake.,Vellum,,Everyone here is a rival. No rank at stake.,"Ici, chacun est ton rival. Aucun rang en jeu."
+flyleaf.folioCap,The Flyleaf pays no more Folios today. XP still counts.,Vellum,,The Flyleaf pays no more Folios today. XP still counts.,La Page de garde ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.
+flyleaf.full,The Flyleaf is full. Try again in a moment.,Vellum,,The Flyleaf is full. Try again in a moment.,La Page de garde est pleine. Réessaie dans un instant.
+flyleaf.manicule,{name} wears the Manicule: three in a row!,Vellum,,{name} wears the Manicule: three in a row!,{name} porte la Manicule : trois d'affilée !
+flyleaf.maniculeTaken,{name} took the Manicule off {rival}!,Vellum,,{name} took the Manicule off {rival}!,{name} a fait tomber la Manicule de {rival} !
+flyleaf.noPay,{name} again: nothing more for them for now. Find another rival!,Vellum,,{name} again: nothing more for them for now. Find another rival!,Encore {name} : plus rien pour l'instant. Trouve un autre rival !
+flyleaf.status,Rivals: {members} · Takedowns: {kills} · Run: {streak},Vellum,,Rivals: {members} · Takedowns: {kills} · Run: {streak},Rivaux : {members} · Victoires : {kills} · Série : {streak}
 folios.balance,{folios},Vellum,,{folios},{folios}
 glyph.Binding.desc,Traps the closest enemy in a sphere of water and roots them in place.,Vellum,,Traps the closest enemy in a sphere of water and roots them in place.,Emprisonne l'ennemi le plus proche dans une sphère d'eau et le cloue au sol.
 glyph.Binding.name,Binding,Vellum,,Binding,Reliure
@@ -417,6 +424,7 @@ match.level,Level {level} · {xp} / {needed} XP,Vellum,,Level {level} · {xp} / 
 match.levelMax,Level {level} · max,Vellum,,Level {level} · max,Niveau {level} · max
 match.nextUnlock,Next: {name} at level {level},Vellum,,Next: {name} at level {level},Prochain : {name} au niveau {level}
 match.opponentLeft,Your opponent left.,Vellum,,Your opponent left.,Ton adversaire est parti.
+match.quickDuel,Quick duel · unranked,Vellum,,Quick duel · unranked,Duel rapide · non classé
 match.rankUp,New rank: {rank}!,Vellum,,New rank: {rank}!,Nouveau rang : {rank} !
 match.ratingDown,{rank}  {rating} ({delta}),Vellum,,{rank}  {rating} ({delta}),{rank}  {rating} ({delta})
 match.ratingUp,{rank}  {rating} (+{delta}),Vellum,,{rank}  {rating} (+{delta}),{rank}  {rating} (+{delta})
@@ -425,6 +433,8 @@ match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour a
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
+match.versus,{name} · level {level} · {rank},Vellum,,{name} · level {level} · {rank},{name} · niveau {level} · {rank}
+match.versus.unranked,unranked,Vellum,,unranked,non classé
 match.victory,Victory!,Vellum,,Victory!,Victoire !
 match.voided,"The other side left before the match was really played: no result, your rank stays as it was.",Vellum,,"The other side left before the match was really played: no result, your rank stays as it was.","L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas."
 match.watching,Watching {name},Vellum,,Watching {name},Tu regardes {name}
@@ -459,6 +469,7 @@ pigment.verdigris,Verdigris,Vellum,,Verdigris,Vert-de-gris
 portal.battleground.name,Battleground,Vellum,,Battleground,Champ de bataille
 portal.cooldown,Wait a moment before travelling again.,Vellum,,Wait a moment before travelling again.,Attends un instant avant de repartir.
 portal.entering,Stay in the circle: {place},Vellum,,Stay in the circle: {place},Reste dans le cercle : {place}
+portal.flyleaf.name,The Flyleaf,Vellum,,The Flyleaf,La Page de garde
 portal.hint.enter,Stay in the circle to enter,Vellum,,Stay in the circle to enter,Reste dans le cercle pour entrer
 portal.hint.return,Stay in the circle to go back,Vellum,,Stay in the circle to go back,Reste dans le cercle pour revenir
 portal.return.name,Back to the hub,Vellum,,Back to the hub,Retour au hub
@@ -537,6 +548,9 @@ quest.winMatch,Win a match,Vellum,,Win a match,Gagne un match
 quest.winMatches.one,Win {target} match,Vellum,,Win {target} match,Gagne {target} match
 quest.winMatches.other,Win {target} matches,Vellum,,Win {target} matches,Gagne {target} matchs
 queue.alreadyQueued,You are already in a queue.,Vellum,,You are already in a queue.,Tu es déjà dans une file.
+queue.gate.both,"Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",Vellum,,"Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).","Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played})."
+queue.gate.level,"Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",Vellum,,"Quick duel for now, unranked. Ranked at level {level} (you: level {current}).","Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current})."
+queue.gate.matches,"Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",Vellum,,"Quick duel for now, unranked. Ranked after {count} matches (played: {played}).","Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played})."
 queue.inMatch,You are already in a match.,Vellum,,You are already in a match.,Tu es déjà en match.
 queue.join,Join queue,Vellum,,Join queue,Rejoindre la file
 queue.joined,Queued for {mode}.,Vellum,,Queued for {mode}.,En file pour {mode}.

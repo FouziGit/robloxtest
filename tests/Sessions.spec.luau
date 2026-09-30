@@ -21,12 +21,23 @@ local function key(player: any): string
 	return "Player_" .. tostring(player.UserId)
 end
 
+-- A player past the quick duel (E10-S7): at the level and with the matches ranked asks for, so their duel is ranked.
+local function ranked(setup: Server.Services, player: any)
+	local data = setup.data.get(player)
+	assert(data ~= nil, "no profile loaded for " .. player.Name)
+	data.Stats.MatchesPlayed = MatchConfig.Newcomer.MinMatches
+	data.Progression.Level = MatchConfig.Newcomer.MinLevel
+end
+
 -- Two players in a ranked duel, past the countdown: the round is being played.
 local function duel(): (Server.Services, any, any)
 	local setup = Server.services()
 	local a = setup.world:join(101, "Ada")
 	local b = setup.world:join(102, "Bea")
+	ranked(setup, a)
+	ranked(setup, b)
 	expect(setup.match.start(DUEL.Id, { { a.UserId }, { b.UserId } })).never.toBe(nil)
+	expect(setup.match.getMatch(a).Ranked).toBe(true)
 	setup.world:advance(DUEL.CountdownSeconds + 0.5)
 	expect(setup.match.getMatch(a).Phase).toBe("Playing")
 	return setup, a, b

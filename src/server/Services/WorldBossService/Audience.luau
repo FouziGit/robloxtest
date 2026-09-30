@@ -3,8 +3,8 @@
 --
 -- The scheduled event is server-wide: everybody hears of it, wherever they are. A practice (D-132) is its
 -- participants' own business: only those still in the server, not let go since, and not in a match. A
--- participant is let go by a gate (WorldBossService.leave) or, in a practice, by a ranked match taking them;
--- they then stop counting as engaged, and keep their share.
+-- participant is let go by a gate (WorldBossService.leave) or by a ranked match taking them; they then stop
+-- counting as engaged, and keep their share.
 
 local Players = game:GetService("Players")
 
@@ -65,13 +65,12 @@ function Audience.release(player: Player, how: Context.Release)
 	end
 end
 
--- A practice participant a ranked match took (MatchService.start places them wherever they stood): a match is
--- a way out of the arena like a gate, so they are let go the same way, and the practice's band leaves their
--- screen instead of freezing over the match. The event keeps everybody: it is shown server-wide.
+-- A participant a ranked match took (MatchService.start places them wherever they stood): a match is a way out of
+-- the arena like a gate, so they are let go the same way -- event or practice, now that ranked keeps pairing
+-- through the event (E16-S1) -- and keep their share. They stop counting as engaged, so after the match the
+-- Battleground and the Flyleaf take them in again; a practice's band leaves their screen instead of freezing over
+-- the match, while the event's stays up, as it does for the whole server.
 function Audience.releaseMatched()
-	if slot.Kind ~= "Practice" then
-		return
-	end
 	for _, player in ipairs(Context.livePlayers(slot.Participants)) do
 		if not slot.Departed[player.UserId] and deps.Match.isInMatch(player) then
 			Audience.release(player, "Match")

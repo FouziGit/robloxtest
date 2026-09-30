@@ -109,8 +109,9 @@ export type DailyData = {
 	FirstWinDay: number,
 	PremiumBonusDay: number,
 	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each
-	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), and
-	-- practice fights against the Erasure that paid out (WorldBossConfig.Practice).
+	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), practice
+	-- fights against the Erasure that paid out (WorldBossConfig.Practice), and Folios paid for the Flyleaf's
+	-- kills (FlyleafConfig.Rewards).
 	ForgerDay: number,
 	ForgerFolios: number,
 	PracticeDay: number,
@@ -126,6 +127,9 @@ export type DailyData = {
 	-- The Folios ranked matches paid (MatchConfig.DailyFolioCap).
 	MatchDay: number,
 	MatchFolios: number,
+	-- The Flyleaf's daily allowance (FlyleafConfig): the day it belongs to and the Folios its kills paid.
+	FlyleafDay: number,
+	FlyleafFolios: number,
 }
 
 -- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level
@@ -244,6 +248,10 @@ export type MatchPlayerSnapshot = {
 	Alive: boolean,
 	Health: number,
 	MaxHealth: number,
+	-- Shown on the match's announcement (E10-S7): their level, and the Strings key of their rank tier, "" for a
+	-- player still in the quick duel.
+	Level: number,
+	RankKey: string,
 }
 
 -- Replicated to every participant a few times per second (MatchChanged).
@@ -257,6 +265,8 @@ export type MatchSnapshot = {
 	Scores: { number }, -- team index -> rounds won
 	Teams: { { MatchPlayerSnapshot } },
 	LocalTeam: number,
+	-- Whether the match moves ratings: false for the quick duel of a newcomer (E10-S7).
+	Ranked: boolean,
 }
 
 -- Sent once when a match ends (MatchEnded), then the player returns to the hub.
@@ -319,6 +329,14 @@ export type BossSnapshot = {
 export type BattlegroundSnapshot = {
 	Standing: number,
 	Defeated: number,
+}
+
+-- The Flyleaf as its member sees it (FlyleafChanged), or nil once they are no longer one: how many members fight
+-- on the page, how many lives this member took since they came in, and how many since they last lost theirs.
+export type FlyleafSnapshot = {
+	Members: number,
+	Kills: number,
+	Streak: number,
 }
 
 -- The portal circle a player stands in (PortalChanged), or nil once they step out or set off: where it leads

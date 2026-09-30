@@ -11,7 +11,7 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local DIR = "src/server/Services/WorldBossService/"
-local MODULES = { "init", "Context", "Encounter", "Audience", "Admission", "Policy", "Rewards" }
+local MODULES = { "init", "Context", "Encounter", "Audience", "Admission", "Rewards" }
 local MODE = "src/server/GameModes/WorldBossMode.luau"
 local GLYPHS = "src/server/Services/GlyphService.luau"
 
@@ -98,7 +98,7 @@ end
 
 describe("the WorldBossService folder", function()
 	it("holds exactly the modules these gates read", function()
-		expect(#MODULES).toBe(7)
+		expect(#MODULES).toBe(6)
 		for _, name in ipairs(MODULES) do
 			expect(#modules()[name] > 0).toBe(true)
 		end
@@ -125,7 +125,6 @@ describe("a practice leaves the server's event alone", function()
 		).toBe(true)
 		-- Everything the fight in the slot carried goes with it.
 		requireAll(reset, {
-			"Policy.release()",
 			"slot.Participants = {}",
 			"slot.Departed = {}",
 			"slot.Reentries = {}",
@@ -136,20 +135,19 @@ describe("a practice leaves the server's event alone", function()
 		}, "reset")
 	end)
 
-	it("never borrows the event's PvP rule", function()
-		-- Policy.luau defines it; everywhere else, it is taken once, by the event's spawn.
+	it("owns the Boss zone once, for the event and a practice alike, and borrows no other rule", function()
+		-- E16-S1: the zones replaced the single PvP slot the event used to borrow (D-25). Whoever either fight
+		-- engaged stands in the Boss zone, where nobody hurts another player; nothing is taken or handed back.
 		local total = 0
-		for name, source in pairs(modules()) do
-			if name ~= "Policy" then
-				total += count(source, "Policy.take(")
-			end
+		for _, source in pairs(modules()) do
+			total += count(source, "claimZone(")
+			expect(has(source, "setPolicy")).toBe(false)
+			expect(has(source, "Policy.")).toBe(false)
 		end
 		expect(total).toBe(1)
-		local spawn = body(module("init"), "local function spawnBoss(", "init")
-		expect(ordered(spawn, "Policy.take()", "openFight(eligible,")).toBe(true)
-		expect(has(body(module("init"), "local function openFight(", "init"), "Policy.")).toBe(false)
-		expect(has(body(module("init"), "function WorldBossService.enterFromPortal(", "init"), "Policy.")).toBe(false)
-		expect(has(module("Admission"), "Policy")).toBe(false)
+		local start = body(module("init"), "function WorldBossService.Start(", "init")
+		expect(has(start, 'deps.Combat.claimZone("Boss", { Holds = WorldBossService.isEngaged })')).toBe(true)
+		expect(has(module("Context"), 'claimZone: (zone: "Boss", claim: ZoneClaim) -> (),')).toBe(true)
 	end)
 
 	it("sends back to the hub only whoever still stands in the arena", function()
@@ -200,29 +198,36 @@ describe("a practice speaks to its own participants", function()
 		expect(has(init, 'Registry.fire("BossChanged"')).toBe(false)
 	end)
 
-	it("lets a participant go through a gate, or a ranked match, and clears a practice's band", function()
-		local audience = module("Audience")
-		local release = body(audience, "function Audience.release(", "Audience")
-		expect(
-			ordered(
-				release,
-				"slot.Departed[player.UserId] = how",
-				'if slot.Kind == "Practice" then deps.Registry.fire("BossChanged", player, nil) end'
+	it(
+		"lets a participant go through a gate, or a ranked match of either kind, and clears a practice's band",
+		function()
+			local audience = module("Audience")
+			local release = body(audience, "function Audience.release(", "Audience")
+			expect(
+				ordered(
+					release,
+					"slot.Departed[player.UserId] = how",
+					'if slot.Kind == "Practice" then deps.Registry.fire("BossChanged", player, nil) end'
+				)
+			).toBe(true)
+			-- The event lets a matched participant go too, now that ranked keeps pairing through it (E16-S1): kept
+			-- engaged, they would come back from their match to a Battleground and a Flyleaf that turned them away.
+			local matched = body(audience, "function Audience.releaseMatched(", "Audience")
+			expect(has(matched, "slot.Kind")).toBe(false)
+			expect(has(matched, 'deps.Match.isInMatch(player) then Audience.release(player, "Match")')).toBe(true)
+			local init = module("init")
+			expect(
+				ordered(body(init, "local function tickFight(", "init"), "Audience.releaseMatched()", "Encounter.step")
+			).toBe(true)
+			expect(has(body(init, "function WorldBossService.leave(", "init"), 'Audience.release(player, "Gate")')).toBe(
+				true
 			)
-		).toBe(true)
-		local matched = body(audience, "function Audience.releaseMatched(", "Audience")
-		expect(has(matched, 'if slot.Kind ~= "Practice" then return end')).toBe(true)
-		expect(has(matched, 'deps.Match.isInMatch(player) then Audience.release(player, "Match")')).toBe(true)
-		local init = module("init")
-		expect(ordered(body(init, "local function tickFight(", "init"), "Audience.releaseMatched()", "Encounter.step")).toBe(
-			true
-		)
-		expect(has(body(init, "function WorldBossService.leave(", "init"), 'Audience.release(player, "Gate")')).toBe(
-			true
-		)
-		local engaged = body(init, "function WorldBossService.isEngaged(", "init")
-		expect(has(engaged, "table.find(slot.Participants, userId) ~= nil and not slot.Departed[userId]")).toBe(true)
-	end)
+			local engaged = body(init, "function WorldBossService.isEngaged(", "init")
+			expect(has(engaged, "table.find(slot.Participants, userId) ~= nil and not slot.Departed[userId]")).toBe(
+				true
+			)
+		end
+	)
 end)
 
 describe("the hub's gate", function()

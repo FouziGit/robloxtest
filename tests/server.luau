@@ -295,11 +295,13 @@ function Server.world(options: Options?): World
 		AnalyticsService = analytics.services.AnalyticsService,
 		HttpService = analytics.services.HttpService,
 		Players = players,
-		-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged.
+		-- CosmeticService asks whether a kill was a proof or a Forger: nothing here is tagged. A world builder tags
+		-- what it builds (a barrier, a gate's seal); nothing here reads those tags back.
 		CollectionService = {
 			HasTag = function(_self: any, _instance: any, _tag: string): boolean
 				return false
 			end,
+			AddTag = function(_self: any, _instance: any, _tag: string) end,
 		},
 		-- LocaleService asks for each player's Translator: it reads the language of their app.
 		LocalizationService = {
@@ -426,6 +428,8 @@ export type Services = {
 	movement: any,
 	-- The players who hold their guard up, as CombatService.isBlocking answers.
 	guarding: { [any]: boolean },
+	-- Every remote the services fired at a player, in order: its name, the player and the payload.
+	fired: { { Name: string, Player: any, Payload: any } },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
 	cast: (player: any, glyphId: string) -> boolean,
 }
@@ -453,8 +457,11 @@ function Server.services(options: Options?): Services
 	local analytics = world.require("src/server/Services/AnalyticsService")
 
 	local handlers: { [string]: (...any) -> () } = {}
+	local fired: { { Name: string, Player: any, Payload: any } } = {}
 	local registry = {
-		fire = function(_name: string, _player: any, _payload: any) end,
+		fire = function(name: string, player: any, payload: any)
+			table.insert(fired, { Name = name, Player = player, Payload = payload })
+		end,
 		on = function(name: string, handler: (...any) -> ())
 			handlers[name] = handler
 		end,
@@ -485,7 +492,7 @@ function Server.services(options: Options?): Services
 	local combat = {
 		Damaged = Engine.signal(),
 		Killed = Engine.signal(),
-		setPolicy = function(_fn: any) end,
+		claimZone = function(_zone: string, _claim: any) end,
 		resyncPosition = function(_player: any, _position: any) end,
 		trustedOrigin = function(player: any): any
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -505,6 +512,9 @@ function Server.services(options: Options?): Services
 		isStunned = movement.isStunned,
 		isChanneling = function(_player: any): boolean
 			return false
+		end,
+		zoneOf = function(_player: any): string
+			return "Hub"
 		end,
 	}
 	local killZone = Engine.instance("BasePart")
@@ -664,6 +674,7 @@ function Server.services(options: Options?): Services
 		kill = function(source: any, target: any)
 			combat.Killed:Fire(source.UserId, target.Character)
 		end,
+		fired = fired,
 		cast = cast,
 	}
 end

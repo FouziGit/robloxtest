@@ -107,7 +107,7 @@ L'idempotence des reçus et le cas du profil non chargé sont déjà prouvés pa
 
 ## 5. Matchs 1v1 / 3v3 et abandons
 
-Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). Pour tout ce qui touche au classement, lire l'Output serveur.
+Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). Pour tout ce qui touche au classement, lire l'Output serveur. Les joueurs de test sont des nouveaux venus (niveau 1, aucun match) : pour les étapes qui parlent de classement, passer d'abord `StudioConfig.RankedFromTheStart` à `true` (`src/server/Config/StudioConfig.luau`, jamais lu hors de Studio), puis le remettre à `false` ; l'étape 18 se joue réglage éteint.
 
 1. **Appariement.** Sur les deux clients : **Jouer** → **1v1 classé**. Attendu : appariement en quelques secondes, puis un compte à rebours de 5 s (`MatchConfig.Modes`).
 2. **Durée des manches.** Attendu : trois manches au plus, de 60 s chacune (180 s / 3, `Duel1v1.Start` ; `GameModes.maxRounds`). Le premier à deux manches gagne. Il y a 3 s de pause entre deux manches (`MatchConfig.RoundOverSeconds`) et 8 s d'écran de résultat.
@@ -120,7 +120,7 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 7. **Départ pendant l'attente.** Quitter le jeu pendant qu'on est en file. Attendu : le joueur est retiré de la file et aucun match fantôme ne se crée (`onPlayerRemoving`, `MatchmakingService.luau`).
 8. **Attente trop longue.** Rester seul en file pendant 240 s. Attendu : toast `queue.timedOut` en information (médaillon « i », pas le « ! » rouge d'un échec, D-147) ; écran Jouer ouvert, la carte du mode devient « Personne en file pour l'instant » avec Réessayer et Retour au hub (`MatchConfig.Matchmaking.MaxQueueSeconds`, `tick`, `MatchmakingService.luau`, `PlayScreen.luau`).
 9. **Rejouer.** Cliquer **Rejouer** sur l'écran de résultat. Attendu : retour immédiat en file, pendant que l'autre joueur voit toujours son écran de résultat (`MatchService.releaseFromResult`).
-10. **Pas de PvP au hub.** Deux joueurs au hub se frappent. Attendu : aucun dégât, nulle part dans le hub. Les mannequins, eux, prennent des dégâts (`allowDamage`, `MatchService.luau`).
+10. **Pas de PvP au hub.** Deux joueurs au hub se frappent. Attendu : aucun dégât, nulle part dans le hub. Les mannequins, eux, prennent des dégâts (zone `Hub` de `ZoneConfig.Rules`, appliquée par `CombatService.claimZone` et `zoneAllows` ; `tests/DamageZones.spec.luau`).
 11. **3v3 sans tir allié.** Avec six clients, frapper un coéquipier. Attendu : aucun dégât (`allowDamage`, `MatchService.luau`, D-113).
 12. **3v3 avec un joueur qui part.** Fermer un client. Attendu : son équipe continue à deux et le joueur parti est débité. Si toute une équipe part, le match se termine par forfait (`GameModes.forfeitVerdict`).
 13. **3v3, joueur éliminé.** Attendu : la caméra suit un coéquipier, avec le bandeau `match.watching` (`SpectateController.luau`).
@@ -130,15 +130,17 @@ Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (6 pour le 3v3). P
 17. **Rien dans les classements.** Après un match classé joué dans Studio. Attendu : dans l'Output serveur, une seule ligne `[LeaderboardService] <nom> has the test id <id>: ratings of non-positive ids stay off the ladders` pour tout le serveur, quel que soit le nombre de matchs (`LadderGate`, `onRatingChanged`, D-210). En Play solo avec son propre compte, la ligne est `Studio session: ratings stay off the ladders (StudioConfig.WriteLadders is off)`. Au prochain rafraîchissement (60 s), aucun tableau du hub ne montre un identifiant brut, négatif ou nul, même dans un classement qu'un test avait sali avant le correctif.
 18. **Serveur privé acheté (après publication).** Studio n'ouvre pas de serveur privé : sur la place publiée, acheter ou ouvrir un serveur privé, y entrer à deux comptes. Attendu : l'Output serveur écrit `[RankingService] a private server bought by a player: ranked play is off here` ; les cartes de Jouer disent « Non classé en serveur privé » sans l'étiquette Classé, et le ruban de la tuile Jouer « Non classé » ; un duel joué jusqu'au bout ne déplace aucun Elo, le Résultat ne montre aucune note, le Résultat compte 175 XP et 30 Folios pour la victoire (les kills paient à part, comme sur tout serveur), sans première victoire du jour (D-251, `tests/PrivateServer.spec.luau`). Sur un serveur public, rien ne change. L'aspect se voit déjà dans Studio : en Play, dans la barre de commande côté serveur, `workspace:SetAttribute("UnrankedServer", true)` avant d'ouvrir le Menu, puis Jouer, sur ordinateur et au Device Emulator d'un téléphone (le ruban « Non classé » dans le coin de la tuile, la mention sous le nom de chaque carte, en français aussi).
 
+18. **Le duel rapide des nouveaux venus** (E10-S7, réglage `RankedFromTheStart` éteint). Deux joueurs de test en file 1v1. Attendu : sur l'écran Jouer, sous la règle de chaque carte classée, « Duel rapide pour l'instant, non classé. Classé au niveau 10, après 5 matchs (toi : niveau 1, matchs joués : 0). » ; à l'annonce du match, sous le compte à rebours, une plaque d'encre « Duel rapide · non classé » puis l'adversaire avec son niveau et « non classé », qui part quand le combat commence ; l'Output dit `[MatchService] match … (2 players, unranked)` ; l'écran de résultat n'a pas de ligne de classement, et aucune ligne `abandoned` quand l'un part. Au sixième match, la ligne de la carte ne parle plus que du niveau (`queue.gate.level`).
+
 ## 6. World Boss
 
 L'événement revient toutes les 1200 s. Pour le déclencher tout de suite, suivre `docs/STUDIO_SETUP.md` §5.15 (`IntervalSeconds = 30`, `AnnounceSeconds = 5`). Tant que ces valeurs ne sont pas remises, le test « scales health with the player count and stays bounded » de `tests/Config.spec.luau` échoue. C'est voulu : cela empêche de publier le raccourci.
 
 1. **Déroulé.** Avec 2 clients. Attendu : annonce, apparition du boss, et le boss prend des coups (`announce`, `spawnBoss`, `openFight` et `tickFight`, `WorldBossService/init.luau`).
 2. **Un seul joueur.** Avec 1 client. Attendu : `[WorldBossService] event skipped: 1 player(s) available, 2 needed` (`announce`, `WorldBossService/init.luau`).
-3. **File gelée.** Attendu : pendant l'événement, la file est en pause et le temps d'attente n'est pas compté (`tick`, `MatchmakingService.luau`, `docs/STUDIO_SETUP.md` §5.16).
-4. **Duel en cours.** Avec 4 clients, dont deux en duel au moment de l'annonce. Attendu : les duellistes ne sont pas emmenés à l'événement, et leurs dégâts entre eux fonctionnent toujours (`bossPolicy`, `WorldBossService/Policy.luau` ; `Context.eligiblePlayers`).
-5. **Pas de PvP pendant l'événement.** Deux joueurs de l'événement se frappent. Attendu : aucun dégât entre eux, mais le boss en prend (`bossPolicy`, `WorldBossService/Policy.luau`).
+3. **La file continue.** Avec 4 clients, deux en file 1v1 pendant l'événement. Attendu : le match se forme pendant l'événement, le temps d'attente compte normalement, et les deux duellistes se blessent dans leur arène ; l'événement les libère (`Audience.releaseMatched`) et ils gardent leur part (`MatchmakingService.tick`, zone `Match` avant la zone `Boss`, D-266 ; `tests/MatchmakingService.spec.luau`).
+4. **Duel en cours.** Avec 4 clients, dont deux en duel au moment de l'annonce. Attendu : les duellistes ne sont pas emmenés à l'événement, et leurs dégâts entre eux fonctionnent toujours (zone `Match`, `CombatService.zoneOf` ; `Context.eligiblePlayers`).
+5. **Pas de PvP pendant l'événement.** Deux joueurs de l'événement se frappent. Attendu : aucun dégât entre eux, mais le boss en prend (zone `Boss` de `ZoneConfig.Rules`, réclamée dans `WorldBossService.Start`).
 6. **Seuils de récompense.** Attendu : à partir de 1 % des dégâts, toast `boss.reward` ; à partir de 15 %, `boss.killBonus` en plus ; sous 1 %, aucun des deux (`WorldBossConfig.Rewards`, `Rewards.pay`, `WorldBossService/Rewards.luau`).
 7. **Chrono écoulé.** Ne pas tuer le boss en 300 s. Attendu : `boss.expired`, retour au hub après 15 s, puis l'événement suivant est planifié (`WorldBossConfig.Schedule`, `reset`, `WorldBossService/init.luau`).
 8. **Tout le monde mort ou parti.** Attendu : l'événement se termine comme expiré (issue `Empty`, `closeEmpty`, `WorldBossService/init.luau`).
@@ -152,7 +154,7 @@ Ce code n'existe pas au commit `c0b6687` : les renvois donnent le fichier et la 
 
 **Les portails du hub**
 
-1. **Au démarrage.** Attendu côté serveur : `[PortalService] watching 3 portal circles at 10 Hz`, soit les deux portails du hub et le retour du champ de bataille. Le gabarit de l'arène de l'Effacement, rangé dans ServerStorage, n'ouvre aucun cercle (`addSeal`, `PortalService.luau` ; `PortalConfig.CheckHz`). Et aussi : `[BattlegroundService] page built at x 1500: 170 studs, <n> waypoints, up to 12 members and 10 Forgers` (`BattlegroundService.Start`).
+1. **Au démarrage.** Attendu côté serveur : `[PortalService] watching 5 portal circles at 10 Hz`, soit les trois portails du hub, le retour du champ de bataille et celui de la Page de garde. Le gabarit de l'arène de l'Effacement, rangé dans ServerStorage, n'ouvre aucun cercle (`addSeal`, `PortalService.luau` ; `PortalConfig.CheckHz`). Et aussi : `[BattlegroundService] page built at x 1500: 170 studs, <n> waypoints, up to 12 members and 10 Forgers` (`BattlegroundService.Start`).
 2. **Entrer en restant dans le cercle.** Au nord du hub, entrer dans le cercle du portail « Champ de bataille » et ne plus bouger. Attendu : la bande « Reste dans le cercle : Champ de bataille » se remplit en 1,5 s, puis le joueur arrive dans le camp. Aucune touche n'est à presser : aucun remote client→serveur ne fait voyager (`step`, `PortalService.luau` ; `PortalConfig.Zones`, `DwellSeconds = 1.5` ; la bande : `onPortalChanged`, `TravelController.luau` ; `tests/Portal.spec.luau`). Un joueur mort, en match ou à terre n'est emporté par aucun cercle (`standing` et `step`, `PortalService.luau`).
 3. **Sortir avant la fin.** Ressortir du cercle avant 1,5 s. Attendu : la bande disparaît et rien ne se passe. Revenir dans le cercle relance l'attente à zéro (`moveTo`, `PortalService.luau`).
 4. **Un écran ouvert.** Ouvrir un écran (`M`), puis se tenir dans un cercle. Attendu : l'écran se ferme à l'arrivée, et les commandes ne restent pas suspendues (`MenuController.close` branché sur `TravelController.Travelled`).
@@ -208,6 +210,19 @@ Ce code n'existe pas au commit `c0b6687` (vague 2, E10-S3, E10-S5, E10-S10). Les
 **Le pass**
 
 8. **Des paliers plus longs.** Ouvrir le Battle Pass. Attendu : le premier palier demande 1 200 XP et le 49ᵉ 5 040 ; la barre et son compte (« 350 / 1 200 ») tiennent dans la case, au pointeur et sur téléphone (`BattlepassConfig.xpForTier`).
+
+## 6 quater. La Page de garde
+
+Ce que Lune ne voit pas de la Page de garde (E16-S2, D-267). Dans Studio, **Test → Clients and Servers**, avec 2 joueurs (3 pour la Manicule).
+
+1. **Au démarrage.** Attendu : `[FlyleafService] page built at x -1500: 120 studs, 6 seals, up to 12 members`, et le portail du milieu, au nord du hub, écrit « La Page de garde » (« The Flyleaf » en anglais) sur son enseigne, sans toucher les enseignes voisines (`Hub.spec`).
+2. **Du hub au premier coup en 10 s au plus.** Les deux joueurs prennent le portail du milieu en même temps, chronomètre en main. Attendu : ils arrivent sur deux sceaux opposés, chacun sous un champ de force, et le premier coup qui retire de la vie tombe moins de 10 s après leur entrée dans le cercle (`tests/Flyleaf.spec.luau` en fait le compte sur les chiffres ; ici, on le mesure). Noter le temps.
+3. **Protection de 4 s.** Pendant les 4 s qui suivent une arrivée ou une réapparition, aucun coup ne retire de vie, ni dans un sens ni dans l'autre ; le champ de force disparaît à la fin (`pairAllowed`, `FlyleafService`).
+4. **Réapparition en 3 s.** Se laisser vaincre. Attendu : le joueur revient sur la page, sur le sceau le plus loin de l'autre, 3 s après sa mort, sans repasser par le hub et sans seconde réapparition du moteur à 5 s (`respawn`, `FlyleafService` : c'est la vérification que Lune ne peut pas faire).
+5. **Récompenses.** Une victoire : toast `hud.playerKill` avec +60 XP, et +5 Folios avant VIP. Au-delà de 100 Folios dans la journée, toast `flyleaf.folioCap` une fois. Vaincre le même rival une quatrième fois en moins de 10 min : toast `flyleaf.noPay`, rien de payé (`Rewards.pay`).
+6. **La Manicule.** Avec 3 joueurs, en vaincre deux, dont l'un deux fois, sans mourir. Attendu : à la troisième victoire, une main d'encre cernée de craie pointe vers le bas au-dessus de la tête du vainqueur, pour tous ; elle ne se voit pas à travers un mur, et tous lisent `flyleaf.manicule`. Quand on le vainc, tous lisent `flyleaf.maniculeTaken` et la main disparaît avec son corps. Son dessin n'a pas encore été jugé dans Studio : noter ce qui est vu.
+7. **Sortir.** Le portail du nord de la page (« Retour au hub ») ramène au hub, sans bande ni musique de combat. Un match classé qui se forme pendant qu'on est sur la page emmène le joueur, et la page le lâche.
+8. **Le streaming.** Si `StreamingEnabled` est actif (`docs/PUBLISH.md` §6.8) : la page, ses sceaux et son portail de retour sont chargés à l'arrivée et à chaque réapparition, et le joueur ne tombe pas (`streamAround`, `FlyleafService` ; `PortalConfig.StreamTimeoutSeconds = 2`). Sinon, noter « sans objet ».
 
 ## 7. États qui ne doivent pas déborder d'un match à l'autre
 

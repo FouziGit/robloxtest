@@ -808,6 +808,7 @@ Strings.Table = {
 	-- The portals (D-130): the name of each seal and what it asks of whoever stands in it (PortalConfig.Zones).
 	["portal.battleground.name"] = { en = "Battleground", fr = "Champ de bataille" },
 	["portal.worldBoss.name"] = { en = "Face the Erasure", fr = "Affronter l'Effacement" },
+	["portal.flyleaf.name"] = { en = "The Flyleaf", fr = "La Page de garde" },
 	["portal.return.name"] = { en = "Back to the hub", fr = "Retour au hub" },
 	["portal.hint.enter"] = { en = "Stay in the circle to enter", fr = "Reste dans le cercle pour entrer" },
 	["portal.hint.return"] = { en = "Stay in the circle to go back", fr = "Reste dans le cercle pour revenir" },
@@ -840,6 +841,56 @@ Strings.Table = {
 	["battleground.campHit"] = {
 		en = "Hits from the camp don't count. Step out to fight.",
 		fr = "Les coups portés depuis le camp ne comptent pas. Sors pour te battre.",
+	},
+
+	-- The quick duel for newcomers (E10-S7): the match's announcement, and the Play screen's word on why and how far.
+	["match.quickDuel"] = { en = "Quick duel · unranked", fr = "Duel rapide · non classé" },
+	["match.versus"] = { en = "{name} · level {level} · {rank}", fr = "{name} · niveau {level} · {rank}" },
+	["match.versus.unranked"] = { en = "unranked", fr = "non classé" },
+	["queue.gate.level"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current}).",
+	},
+	["queue.gate.matches"] = {
+		en = "Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played}).",
+	},
+	["queue.gate.both"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played}).",
+	},
+
+	-- The Flyleaf (E16-S2): every member against every other, no rank at stake.
+	["flyleaf.entered"] = {
+		en = "Everyone here is a rival. No rank at stake.",
+		fr = "Ici, chacun est ton rival. Aucun rang en jeu.",
+	},
+	-- The member's band (TravelController): members on the page, lives taken since arriving, and the run going on.
+	["flyleaf.status"] = {
+		en = "Rivals: {members} · Takedowns: {kills} · Run: {streak}",
+		fr = "Rivaux : {members} · Victoires : {kills} · Série : {streak}",
+	},
+	["flyleaf.full"] = {
+		en = "The Flyleaf is full. Try again in a moment.",
+		fr = "La Page de garde est pleine. Réessaie dans un instant.",
+	},
+	["flyleaf.folioCap"] = {
+		en = "The Flyleaf pays no more Folios today. XP still counts.",
+		fr = "La Page de garde ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
+	-- The same rival taken down again and again (FlyleafConfig.Farm): nothing more is paid for them for a while.
+	["flyleaf.noPay"] = {
+		en = "{name} again: nothing more for them for now. Find another rival!",
+		fr = "Encore {name} : plus rien pour l'instant. Trouve un autre rival !",
+	},
+	-- Every member hears who now wears the Manicule, and who took it off them.
+	["flyleaf.manicule"] = {
+		en = "{name} wears the Manicule: three in a row!",
+		fr = "{name} porte la Manicule : trois d'affilée !",
+	},
+	["flyleaf.maniculeTaken"] = {
+		en = "{name} took the Manicule off {rival}!",
+		fr = "{name} a fait tomber la Manicule de {rival} !",
 	},
 
 	-- L'Effacement (the World Boss, docs/GAME_DESIGN.md §7)

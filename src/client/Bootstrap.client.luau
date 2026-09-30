@@ -64,6 +64,8 @@ local ORDER = {
 	-- Draws the portal and Battleground bands in the HUD's column and hears the trips MenuController closes a
 	-- screen on: after the HUD, before the menu.
 	"TravelController",
+	-- The Flyleaf's Manicule over the head of whoever the server marked (E16-S2).
+	"ManiculeController",
 	"MenuController",
 	-- Words the hub and opens its screens from the pedestals' prompts: after MenuController.
 	"HubSignsController",

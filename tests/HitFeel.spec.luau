@@ -88,7 +88,7 @@ describe("a finisher", function()
 		expect(refusals:find("if targetState ~= nil and now < targetState.IFramesUntil then return true end", 1, true)).never.toBe(
 			nil
 		)
-		expect(refusals:find("return not policy(source, targetModel) end", 1, true)).never.toBe(nil)
+		expect(refusals:find("return not zoneAllows(source, targetModel) end", 1, true)).never.toBe(nil)
 		local damage = functionIn(combat, "function CombatService.ApplyDamage(")
 		local refused = damage:find("if refuses(source, targetModel, now) then return result end", 1, true)
 		local taken = damage:find("humanoid:TakeDamage(applied)", 1, true)

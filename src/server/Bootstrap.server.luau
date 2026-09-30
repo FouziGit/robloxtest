@@ -23,6 +23,7 @@ local DailyRewardService = require(Services.DailyRewardService)
 local DataService = require(Services.DataService)
 local DrillService = require(Services.DrillService)
 local EnemyService = require(Services.EnemyService)
+local FlyleafService = require(Services.FlyleafService)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphEffects = require(Effects.GlyphEffects)
 local GlyphService = require(Services.GlyphService)
@@ -92,6 +93,7 @@ local deps = {
 	Monetization = MonetizationService,
 	WorldBoss = WorldBossService,
 	Battleground = BattlegroundService,
+	Flyleaf = FlyleafService,
 	Portal = PortalService,
 	Drill = DrillService,
 }
@@ -99,7 +101,7 @@ local deps = {
 -- Dependency order: each service only reads services listed before it. Critical: the game cannot run without it
 -- (profiles, damage, matches, purchases, the referee), so a failure to start it closes the server.
 local ordered: { Boot.Entry } = {
-	-- HubService builds HubSpawn first: CombatService resolves its safe zone and EnemyService its
+	-- HubService builds HubSpawn first: CombatService resolves its spawn point and EnemyService its
 	-- dummy ring from the first SpawnLocation in the Workspace.
 	{ Name = "HubService", Service = HubService },
 	{ Name = "ArenaService", Service = ArenaService },
@@ -135,7 +137,10 @@ local ordered: { Boot.Entry } = {
 	-- After every service whose events a drill counts (Glyph, Combat) and every place that takes a player out of the
 	-- hub (Match, WorldBoss, Battleground).
 	{ Name = "DrillService", Service = DrillService },
-	-- After every builder of a gate (Hub, Arena, Battleground) and every place a gate leads to: its first look
+	-- After Match and WorldBoss, as another place that takes a player out of the hub, and after Combat, whose
+	-- Flyleaf zone it claims.
+	{ Name = "FlyleafService", Service = FlyleafService },
+	-- After every builder of a gate (Hub, Arena, Battleground, Flyleaf) and every place a gate leads to: its first look
 	-- finds the seals already standing.
 	{ Name = "PortalService", Service = PortalService },
 	-- Last: it applies pass ownership through Loadout / Cosmetic / Battlepass, which must all be up.

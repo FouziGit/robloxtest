@@ -456,6 +456,7 @@ local SIGNALS = {
 	PromptShown = true,
 	PromptHidden = true,
 	Triggered = true,
+	Touched = true,
 	CharacterAdded = true,
 	CharacterRemoving = true,
 	Died = true,
@@ -488,6 +489,11 @@ InstanceMeta.__newindex = function(self: any, key: string, value: any)
 	local data = dataOf[self]
 	if key == "Parent" then
 		setParent(self, value)
+		return
+	end
+	-- A spec that hands an instance its own signal (a kill zone's Touched) reads back the one it handed.
+	if SIGNALS[key] then
+		data.Signals[key] = value
 		return
 	end
 	if key == "Name" then

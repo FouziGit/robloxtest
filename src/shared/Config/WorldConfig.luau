@@ -81,9 +81,10 @@ WorldConfig.HubAnchors = {
 	Panel = "Panel",
 	BoardGui = "Board",
 	Entries = "Entries",
-	-- The two portal gates (PortalConfig): the way to the Battleground and to the Erasure.
+	-- The three portal gates (PortalConfig): the way to the Battleground, to the Erasure and to the Flyleaf.
 	BattlegroundPortal = "BattlegroundPortal",
 	BossPortal = "BossPortal",
+	FlyleafPortal = "FlyleafPortal",
 	-- The Lectern, where the drills are picked (DrillService): a pedestal like the terminal and the kiosk.
 	Lectern = "DrillLectern",
 }
@@ -179,7 +180,13 @@ WorldConfig.Portal = {
 	SealRimStuds = 1.2,
 	-- Rotations (degrees) of the bars inside each gate's emblem ring, as on the hub's pedestals: shapes only,
 	-- never text, so every viewer reads the same sign and each client words it in its own language.
-	Emblems = { Battleground = { -60, 0, 60 }, WorldBoss = { 90 }, Return = { 0 } } :: { [string]: { number } },
+	Emblems = {
+		Battleground = { -60, 0, 60 },
+		WorldBoss = { 90 },
+		-- Two crossed strokes: blade against blade.
+		Flyleaf = { -45, 45 },
+		Return = { 0 },
+	} :: { [string]: { number } },
 }
 
 -- The Battleground (D-131): a page walled in bone like an arena, ruled in ink like the hub, with bone pillars,
@@ -200,6 +207,19 @@ WorldConfig.Battleground = {
 	KillZone = "Page",
 	Marker = "Page",
 	CampTransparency = 0.4,
+}
+
+-- The Flyleaf (E16-S2): a smaller page walled in bone like an arena, ruled in ink like the hub, with ink cover and
+-- six chalk seals on ink rims where its members arrive. Every Role of Pure/FlyleafLayout's boxes is a key of this
+-- table, beside the seals' two roles.
+WorldConfig.Flyleaf = {
+	Floor = "Page",
+	Wall = "Bone",
+	Rule = "Ink",
+	Cover = "Ink",
+	KillZone = "Page",
+	Seal = "Chalk",
+	SealRim = "Ink",
 }
 
 -- The Forgers (D-131): figures of ink -- writing that fights back -- told apart by the chalk bars on their

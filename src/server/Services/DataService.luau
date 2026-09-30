@@ -163,6 +163,8 @@ function DataService.template(): { [string]: any }
 			PremiumBonusDay = 0,
 			ForgerDay = 0,
 			ForgerFolios = 0,
+			FlyleafDay = 0,
+			FlyleafFolios = 0,
 			PracticeDay = 0,
 			PracticePaid = 0,
 			PracticeLastPaidAt = 0,

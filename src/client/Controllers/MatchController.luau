@@ -123,6 +123,8 @@ local function readTeams(payload: any): { { Types.MatchPlayerSnapshot } }
 						Alive = raw.Alive ~= false,
 						Health = math.max(0, finite(raw.Health, 0)),
 						MaxHealth = math.max(0, finite(raw.MaxHealth, 0)),
+						Level = math.max(1, count(raw.Level, 1)),
+						RankKey = stringOr(raw.RankKey, ""),
 					})
 				end
 			end
@@ -149,6 +151,7 @@ local function readMatch(payload: any): MatchSnapshot?
 		Scores = readScores(payload.Scores),
 		Teams = readTeams(payload.Teams),
 		LocalTeam = count(payload.LocalTeam, 0),
+		Ranked = payload.Ranked == true,
 	}
 end
 

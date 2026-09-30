@@ -13,6 +13,13 @@
 -- The dashboards hear of every wait's end (AnalyticsConfig.Events): MatchFormed for each player of a match that
 -- formed, QueueTimedOut for each player a queue let go, both with the seconds they waited; and of every glyph a
 -- player takes into a queue (GlyphPick), the pick rate of the balance telemetry.
+--
+-- Nothing pauses the queues: a match formed while the Erasure's event runs keeps its participant PvP, because
+-- every place owns its own damage rule now (CombatService.claimZone, E16-S1), and a participant the event had
+-- engaged is let go the moment the match takes them (WorldBossService's Audience).
+--
+-- A newcomer (RankingService.isNewcomer, MatchConfig.Newcomer) queues flagged as one: MatchmakingCore holds them to
+-- the newcomer's window for their first seconds, and MatchService plays their match unranked (E10-S7).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,14 +43,16 @@ type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
 	fire: (name: string, player: Player, ...any) -> (),
 }
-type RankingApi = { getRating: (player: Player, modeId: string) -> number }
+type RankingApi = {
+	getRating: (player: Player, modeId: string) -> number,
+	isNewcomer: (player: Player) -> boolean,
+}
 type MatchApi = {
 	isInMatch: (player: Player) -> boolean,
 	isFinishing: (player: Player) -> boolean,
 	releaseFromResult: (player: Player) -> boolean,
 	start: (modeId: string, teams: { { number } }) -> string?,
 }
-type WorldBossApi = { isLive: () -> boolean }
 type DataApi = { get: (player: Player) -> Types.ProfileData? }
 -- What a player fields where play pays out: their earned glyphs, cut to the slots they own (D-208).
 type LoadoutApi = { fielded: (data: Types.ProfileData) -> ({ string }, { string }) }
@@ -56,14 +65,20 @@ type Deps = {
 	Notify: NotifyApi,
 	Ranking: RankingApi,
 	Match: MatchApi,
-	WorldBoss: WorldBossApi,
 	DataService: DataApi,
 	Loadout: LoadoutApi,
 	Analytics: AnalyticsApi,
 }
 
--- MatchmakingCore.Config: the widening window and the maximum wait.
-local WINDOW = MatchConfig.Matchmaking
+-- MatchmakingCore.Config: the widening window, the maximum wait, and a newcomer's cap and how long it holds.
+local WINDOW: MatchmakingCore.Config = {
+	BaseWindow = MatchConfig.Matchmaking.BaseWindow,
+	WindowGrowthPerSecond = MatchConfig.Matchmaking.WindowGrowthPerSecond,
+	MaxWindow = MatchConfig.Matchmaking.MaxWindow,
+	MaxQueueSeconds = MatchConfig.Matchmaking.MaxQueueSeconds,
+	NewcomerMaxWindow = MatchConfig.Newcomer.MaxWindow,
+	NewcomerSeconds = MatchConfig.Newcomer.WindowSeconds,
+}
 local TICK_SECONDS = MatchConfig.Matchmaking.TickSeconds
 
 local MatchmakingService = {}
@@ -72,7 +87,6 @@ local registry: Registry
 local notify: NotifyApi
 local ranking: RankingApi
 local match: MatchApi
-local worldBoss: WorldBossApi
 local dataService: DataApi
 local loadout: LoadoutApi
 local analytics: AnalyticsApi
@@ -85,9 +99,6 @@ local pending: { [number]: string } = {}
 -- out: a player who leaves and joins again, a button pressed over and over, takes the same glyphs in once.
 local picksTold: { [number]: string } = {}
 local accumulator = 0
--- Scan time of the previous tick, so a scan suspended by a World Boss event knows how long the queues
--- stood still and can hand that time back to everybody waiting.
-local lastTickAt: number? = nil
 
 local function neededFor(def: MatchConfig.ModeDef): number
 	return def.TeamSize * def.Teams
@@ -146,6 +157,16 @@ local function ratingOf(player: Player, modeId: string): number
 	end
 	log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
 	return RankingConfig.InitialRating
+end
+
+-- Whether `player` still plays the quick duel, as RankingService says: a newcomer while it cannot tell.
+local function isNewcomer(player: Player): boolean
+	local ok, newcomer = pcall(ranking.isNewcomer, player)
+	if ok and type(newcomer) == "boolean" then
+		return newcomer
+	end
+	log.warn("isNewcomer failed for %s: %s", player.Name, tostring(newcomer))
+	return true
 end
 
 local function snapshotFor(userId: number, now: number): Types.QueueSnapshot
@@ -222,7 +243,8 @@ local function onJoinQueue(player: Player, modeId: string)
 		return
 	end
 	local rating = ratingOf(player, modeId)
-	if not MatchmakingCore.enqueue(queue, { UserId = player.UserId, Rating = rating, JoinedAt = now }) then
+	local entry = { UserId = player.UserId, Rating = rating, JoinedAt = now, Newcomer = isNewcomer(player) }
+	if not MatchmakingCore.enqueue(queue, entry) then
 		notify.send(player, "queue.alreadyQueued", nil, "Error")
 		push(player, now)
 		return
@@ -265,6 +287,7 @@ local function requeue(modeId: string, teams: { { number } }, joinedAt: { [numbe
 					UserId = userId,
 					Rating = ratingOf(player, modeId),
 					JoinedAt = joinedAt[userId] or now,
+					Newcomer = isNewcomer(player),
 				}
 				if MatchmakingCore.enqueue(queue, entry) then
 					restored += 1
@@ -305,18 +328,6 @@ local function formMatches(modeId: string, def: MatchConfig.ModeDef, queue: Matc
 end
 
 local function tick(now: number)
-	-- A World Boss event owns the single CombatService PvP policy for its whole duration, so a match
-	-- started now would lose participant PvP. Match formation is suspended for the event and the wait it
-	-- costs is handed back: every JoinedAt slides forward by the paused interval, so a queue only ages
-	-- while the server is really trying to pair it. Otherwise an event (375s) outlasts MaxQueueSeconds
-	-- (240s) and every entry would be dropped mid-event for a wait nobody was serving. Clients still get
-	-- QueueChanged while paused, and the first scan after the event pairs the queue again.
-	local paused = worldBoss.isLive()
-	local pausedSeconds = 0
-	if paused and lastTickAt ~= nil then
-		pausedSeconds = math.max(0, now - lastTickAt)
-	end
-	lastTickAt = now
 	-- The wishes kept from result screens: every player the match has let go joins now, with a fresh
 	-- wait, the same way a JoinQueue would have.
 	for userId, modeId in pairs(pending) do
@@ -334,13 +345,6 @@ local function tick(now: number)
 		if def == nil or queue == nil then
 			continue
 		end
-		if pausedSeconds > 0 then
-			for _, entry in ipairs(queue.Entries) do
-				-- Clamped to now: an entry that joined inside the paused interval has waited nothing yet.
-				entry.JoinedAt = math.min(now, entry.JoinedAt + pausedSeconds)
-			end
-		end
-		-- A wait already too long before the event still ends here: the pause excuses only its own seconds.
 		local joinedAt = joinTimes(queue)
 		for _, userId in ipairs(MatchmakingCore.expire(queue, now, WINDOW)) do
 			picksTold[userId] = nil
@@ -353,10 +357,8 @@ local function tick(now: number)
 				push(player, now)
 			end
 		end
-		if not paused then
-			formMatches(modeId, def, queue, now)
-		end
-		-- Everybody still waiting sees their timer: advancing normally, standing still while paused.
+		formMatches(modeId, def, queue, now)
+		-- Everybody still waiting sees their timer advance.
 		for _, entry in ipairs(queue.Entries) do
 			pushUserId(entry.UserId, now)
 		end
@@ -388,7 +390,6 @@ function MatchmakingService.Init(deps: Deps)
 	notify = deps.Notify
 	ranking = deps.Ranking
 	match = deps.Match
-	worldBoss = deps.WorldBoss
 	dataService = deps.DataService
 	loadout = deps.Loadout
 	analytics = deps.Analytics

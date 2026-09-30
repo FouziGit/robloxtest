@@ -16,6 +16,7 @@ local GATE_FOOTPRINT = "tests/gate.luau"
 local REMOTES = "src/shared/Remotes.luau"
 local ARENA = "src/server/Services/ArenaService.luau"
 local MAP = "src/server/Services/BattlegroundService/Map.luau"
+local FLYLEAF_MAP = "src/server/Services/FlyleafService/Map.luau"
 local BOOTSTRAP = "src/server/Bootstrap.server.luau"
 local SERVER = "src/server"
 
@@ -242,11 +243,14 @@ describe("where a trip goes", function()
 		local dispatch = body(PORTALS, "local function dispatch(")
 		expect(ordered(dispatch, "deps.WorldBoss.leave(player)", "deps.Battleground.enter(player)")).toBe(true)
 		expect(has(dispatch, 'elseif id == "WorldBoss" then return deps.WorldBoss.enterFromPortal(player)')).toBe(true)
-		-- Return, the rest: out of the Battleground and out of the Erasure's fight, then home.
-		local home = dispatch:sub(dispatch:find("deps.WorldBoss.enterFromPortal(player)", 1, true) :: number)
+		expect(ordered(dispatch, "deps.WorldBoss.leave(player)", "deps.Flyleaf.enter(player)")).toBe(true)
+		-- Return, the rest: out of the Battleground, the Flyleaf and the Erasure's fight, then home.
+		local home = dispatch:sub(dispatch:find("deps.Flyleaf.enter(player)", 1, true) :: number)
 		expect(ordered(home, "deps.Battleground.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
+		expect(ordered(home, "deps.Flyleaf.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
 		expect(ordered(home, "deps.WorldBoss.leave(player)", "deps.Hub.travelToHub(player)")).toBe(true)
 		expect(ordered(dispatch, 'if id == "Battleground" then', 'elseif id == "WorldBoss" then')).toBe(true)
+		expect(ordered(dispatch, 'elseif id == "WorldBoss" then', 'elseif id == "Flyleaf" then')).toBe(true)
 	end)
 
 	it("lets a player out of the Erasure's fight only for a trip the Battleground will take", function()
@@ -264,6 +268,24 @@ describe("where a trip goes", function()
 			"if not open then return false, closed, nil end",
 			"deps.WorldBoss.leave(player)",
 		}, "dispatch's Battleground branch")
+		local refused = branch:find("if not open then return false, closed, nil end", 1, true) :: number
+		expect((branch:find("deps.WorldBoss.leave(player)", 1, true) :: number) > refused).toBe(true)
+	end)
+
+	it("lets a player out of the Erasure's fight only for a trip the Flyleaf will take", function()
+		local dispatch = body(PORTALS, "local function dispatch(")
+		local from = dispatch:find('elseif id == "Flyleaf" then', 1, true)
+		local to = dispatch:find("deps.Battleground.leave(player)", 1, true)
+		if from == nil or to == nil or to < from then
+			error("dispatch has no Flyleaf branch ahead of the way home: this gate would check nothing")
+		end
+		local branch = dispatch:sub(from, to)
+		requireAll(branch, {
+			"local open, closed = deps.Flyleaf.admits(player)",
+			"if not open then return false, closed, nil end",
+			"deps.WorldBoss.leave(player)",
+			"local entered, refusal = deps.Flyleaf.enter(player) return entered, refusal, nil",
+		}, "dispatch's Flyleaf branch")
 		local refused = branch:find("if not open then return false, closed, nil end", 1, true) :: number
 		expect((branch:find("deps.WorldBoss.leave(player)", 1, true) :: number) > refused).toBe(true)
 	end)
@@ -373,7 +395,7 @@ describe("a gate", function()
 		expect(signers[1]).toBe(GATE)
 	end)
 
-	it("leads home from the Erasure's arena and from the Battleground's camp", function()
+	it("leads home from the Erasure's arena, the Battleground's camp and the Flyleaf", function()
 		-- The arena's gate, in the template of the arena no mode references (the Erasure's), facing its centre --
 		-- the placement tests/Config.spec.luau measures.
 		local template = body(ARENA, "local function buildTemplate(")
@@ -395,6 +417,13 @@ describe("a gate", function()
 			'PortalGate.build(model, PortalConfig.Anchors.ReturnGate, CFrame.lookAt(gate, gate + Vector3.xAxis), "Return")',
 		}, "Map.build")
 		expect(ordered(map, "PortalGate.build(", "model.Parent = Workspace")).toBe(true)
+		-- The Flyleaf's, facing south into the page -- the placement tests/Flyleaf.spec.luau measures.
+		local page = body(FLYLEAF_MAP, "function Map.build(")
+		requireAll(page, {
+			"local gate = Context.toWorld(layout.ReturnGate.X, 0, layout.ReturnGate.Z)",
+			'PortalGate.build(model, PortalConfig.Anchors.ReturnGate, CFrame.lookAt(gate, gate + Vector3.zAxis), "Return")',
+		}, "Flyleaf's Map.build")
+		expect(ordered(page, "PortalGate.build(", "model.Parent = Workspace")).toBe(true)
 	end)
 end)
 
@@ -402,7 +431,13 @@ describe("the service's place", function()
 	it("starts after every gate is built and every place a gate leads to is up", function()
 		local bootstrap = code(BOOTSTRAP)
 		expect(has(bootstrap, "Portal = PortalService,")).toBe(true)
-		for _, before in ipairs({ "HubService", "ArenaService", "WorldBossService", "BattlegroundService" }) do
+		for _, before in ipairs({
+			"HubService",
+			"ArenaService",
+			"WorldBossService",
+			"BattlegroundService",
+			"FlyleafService",
+		}) do
 			local entry = ('{ Name = "%s", Service = %s }'):format(before, before)
 			expect(ordered(bootstrap, entry, '{ Name = "PortalService", Service = PortalService }')).toBe(true)
 		end

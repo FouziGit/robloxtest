@@ -2,10 +2,12 @@
 -- PlayScreen: the queue screen (D-147), in the yellow Play chapter. One mode card per MatchConfig.ModeOrder
 -- entry, side by side: a picture of the fight (the number of fighters on each side IS the picture), the mode's
 -- name and its "Ranked" tag, its rule, and one button. On a private server a player bought, where no match is
--- ranked (E4-S4), a ranked mode's card says so under its name instead of wearing the tag. While the player waits, their card breathes a yellow
--- ring and counts the wait in big numbers, the other card is veiled, and the way out is a plain Leave --
--- leaving a queue is no danger. When the server gives up finding a match, the card says so and offers a
--- retry or the way back to the hub, instead of a lone error line.
+-- ranked (E4-S4), a ranked mode's card says so under its name instead of wearing the tag. A newcomer's ranked card
+-- also says that their matches are the quick duel for now, why, and how far off ranked is (E10-S7, Pure/RankedGate),
+-- from their own profile. While the player waits, their card breathes a yellow ring and counts the wait in big
+-- numbers, the other card is veiled, and the way out is a plain Leave -- leaving a queue is no danger. When the
+-- server gives up finding a match, the card says so and offers a retry or the way back to the hub, instead of a lone
+-- error line.
 --
 -- The screen never touches the queue remotes itself: MatchController owns them, so a single JoinQueue /
 -- LeaveQueue is sent per press and every number shown here is server-authored. The waited seconds are
@@ -20,6 +22,7 @@ local Button = require(script.Parent.Parent.components.Button)
 local MatchConfig = require(Shared.Config.MatchConfig)
 local Motion = require(script.Parent.Parent.Motion)
 local Panel = require(script.Parent.Parent.components.Panel)
+local RankedGate = require(Shared.Pure.RankedGate)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
 local Splat = require(script.Parent.Parent.components.Splat)
 local Sticker = require(script.Parent.Parent.components.Sticker)
@@ -67,6 +70,8 @@ type Card = {
 	Clock: Frame,
 	Timer: TextLabel,
 	Waiting: TextLabel,
+	-- A ranked mode's word to a newcomer: the quick duel, and what ranked still asks of them.
+	Gate: TextLabel?,
 	Normal: Frame,
 	TimedOut: Frame,
 	Veil: Frame,
@@ -392,10 +397,21 @@ function PlayScreen.new(deps: Deps): Screen
 		-- One round decides, or the first to so many wins: never "first to 1 rounds" (the rule's two forms).
 		rule.Text = t("queue.rule", { rounds = def.RoundsToWin })
 
+		-- Wrapped under the rule, as tall as its words: written by render, from the profile.
+		local gate: TextLabel? = nil
+		if def.Ranked then
+			local line = label("Gate", Theme.Fonts.Body, RULE_SIZE, Theme.Colors.TextMuted, 5, normal)
+			line.TextWrapped = true
+			line.TextTruncate = Enum.TextTruncate.None
+			line.AutomaticSize = Enum.AutomaticSize.Y
+			line.Visible = false
+			gate = line
+		end
+
 		local actions = blank("Actions", normal)
 		actions.AutomaticSize = Enum.AutomaticSize.Y
 		actions.Size = UDim2.fromScale(1, 0)
-		actions.LayoutOrder = 5
+		actions.LayoutOrder = 6
 		list(actions, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
 
 		local joinButton = Button.new({
@@ -484,6 +500,7 @@ function PlayScreen.new(deps: Deps): Screen
 			Clock = clock,
 			Timer = timer,
 			Waiting = waiting,
+			Gate = gate,
 			Normal = normal,
 			TimedOut = stateCard,
 			Veil = veil,
@@ -540,7 +557,39 @@ function PlayScreen.new(deps: Deps): Screen
 		end
 	end
 
+	-- Why a newcomer's matches are the quick duel and how far ranked is, or nothing once they are ranked.
+	local function gateText(): string?
+		local data = deps.ClientData.get()
+		if data == nil then
+			return nil
+		end
+		local rules = MatchConfig.Newcomer
+		local status = RankedGate.status(data.Stats.MatchesPlayed, data.Progression.Level, rules)
+		local params = {
+			level = rules.MinLevel,
+			current = data.Progression.Level,
+			count = rules.MinMatches,
+			played = data.Stats.MatchesPlayed,
+		}
+		if status.Ranked then
+			return nil
+		elseif status.LevelsLeft > 0 and status.MatchesLeft > 0 then
+			return t("queue.gate.both", params)
+		elseif status.LevelsLeft > 0 then
+			return t("queue.gate.level", params)
+		end
+		return t("queue.gate.matches", params)
+	end
+
 	local function render()
+		local text = gateText()
+		for _, card in ipairs(cards) do
+			local gate = card.Gate
+			if gate ~= nil then
+				gate.Text = text or ""
+				gate.Visible = text ~= nil
+			end
+		end
 		local queue = deps.MatchController.getQueue()
 		for _, card in ipairs(cards) do
 			local state = stateOf(card, queue)
@@ -602,6 +651,12 @@ function PlayScreen.new(deps: Deps): Screen
 	end
 
 	trove:Connect(deps.MatchController.QueueChanged, adopt)
+	-- A level or a match gained moves the newcomer's line, and the last one takes it away.
+	trove:Connect(deps.ClientData.Changed, function()
+		if screen.Visible then
+			render()
+		end
+	end)
 	trove:Connect(deps.HudController.Notified, function(key: string)
 		if key == TIMED_OUT_KEY and lastMode ~= nil then
 			timedOut = lastMode

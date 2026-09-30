@@ -7,7 +7,8 @@
 -- heavy -- holds, and leaves smaller and fading. Nothing appears, nothing vanishes (docs/ART_BIBLE.md rule 3).
 --
 -- The player's own takedown is a small cyan sticker in the top half, off the centre, which never covers the
--- fight. While a boss's attack is telegraphed the splashes wait, and one kept waiting more than two seconds is
+-- fight. While a match is announced, an ink plate under the centre names who the player faces, with their level and
+-- their rank (E10-S7), and leaves when the fight is called. While a boss's attack is telegraphed the splashes wait, and one kept waiting more than two seconds is
 -- not worth saying any more. A fight surface: cyan for us, ink, the sheet; no value colour (rule 11).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,7 +37,9 @@ export type Banner = {
 	Pop: (self: Banner) -> (),
 	-- While a boss's warning is up nothing new shows; what waited too long is dropped once it is down.
 	Suppress: (self: Banner, suppressed: boolean) -> (),
-	-- The match is over: what waits is dropped and what shows leaves.
+	-- Who the player faces, a line each (with a first line for a quick duel), until the fight is called; nil hides it.
+	ShowVersus: (self: Banner, lines: { string }?) -> (),
+	-- The match is over: what waits is dropped and what shows leaves, the versus plate with it.
 	Clear: (self: Banner) -> (),
 	Destroy: (self: Banner) -> (),
 }
@@ -120,6 +123,11 @@ local POP_POSITION = UDim2.fromScale(0.62, 0.35)
 local POP_TEXT = 26
 local POP_PADDING = 12
 local POP_ENTER = 1.6
+-- The versus plate: under the centre, clear of the digits and the fight's word, its lines at a readable size.
+local VERSUS_POSITION = UDim2.fromScale(0.5, 0.72)
+local VERSUS_TEXT = 22
+local VERSUS_PADDING = 12
+local VERSUS_ENTER = 0.85
 
 function Banner.new(props: Props): Banner
 	local trove = Trove.new()
@@ -128,6 +136,7 @@ function Banner.new(props: Props): Banner
 	local current: Shown? = nil
 	local suppressed = false
 	local lastPop: Pop? = nil
+	local versus: Pop? = nil
 
 	local root = ScreenRoot.new({ Name = "Banner", DisplayOrder = Theme.Layers.Banner, Parent = props.Parent })
 	trove:Add(function()
@@ -358,6 +367,55 @@ function Banner.new(props: Props): Banner
 		task.delay(math.max(0, Theme.Timing.KillPopSeconds - EXIT_SECONDS), dismiss, taken)
 	end
 
+	-- The plate that names the opponents: the Encre vive plate, sized to its lines (Sticker's Host, D-170), that grows
+	-- into place and leaves the way the takedown pop does.
+	local function showVersus(_self: Banner, lines: { string }?)
+		local previous = versus
+		if previous ~= nil then
+			versus = nil
+			dismiss(previous)
+		end
+		if lines == nil or #lines == 0 then
+			return
+		end
+		local holder = Instance.new("Frame")
+		holder.Name = "Versus"
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = VERSUS_POSITION
+		holder.Size = UDim2.new()
+		holder.AutomaticSize = Enum.AutomaticSize.XY
+		local sticker = Sticker.new({
+			Kind = "Plate",
+			Fill = Theme.Colors.Plate,
+			Corner = UDim.new(0, Theme.Sizes.CornerCard),
+			Host = holder,
+		})
+		local words = Instance.new("TextLabel")
+		words.Name = "Words"
+		words.BackgroundTransparency = 1
+		words.AutomaticSize = Enum.AutomaticSize.XY
+		words.Size = UDim2.new()
+		words.FontFace = Theme.Fonts.Bold
+		words.TextSize = VERSUS_TEXT
+		words.TextColor3 = Theme.Colors.TextInverse
+		words.Text = table.concat(lines, "\n")
+		words.ZIndex = 3
+		local padding = Instance.new("UIPadding")
+		padding.PaddingLeft = UDim.new(0, VERSUS_PADDING)
+		padding.PaddingRight = UDim.new(0, VERSUS_PADDING)
+		padding.PaddingTop = UDim.new(0, VERSUS_PADDING)
+		padding.PaddingBottom = UDim.new(0, VERSUS_PADDING)
+		padding.Parent = words
+		words.Parent = holder
+		local scale = Instance.new("UIScale")
+		scale.Parent = holder
+		holder.Parent = stage
+		versus = { Holder = holder, Scale = scale, Sticker = sticker, Gone = false }
+		Motion.set(scale, { Scale = VERSUS_ENTER })
+		Motion.to(scale, { Scale = 1 }, "UiPop")
+	end
+
 	local function suppress(_self: Banner, next: boolean)
 		suppressed = next
 		if next then
@@ -373,12 +431,13 @@ function Banner.new(props: Props): Banner
 		pump()
 	end
 
-	local function clear(_self: Banner)
+	local function clear(self: Banner)
 		table.clear(queue)
 		local shown = current
 		if shown ~= nil then
 			leave(shown)
 		end
+		showVersus(self, nil)
 	end
 
 	local function destroy(_self: Banner)
@@ -389,6 +448,7 @@ function Banner.new(props: Props): Banner
 	local object: Banner = {
 		Show = show,
 		Pop = pop,
+		ShowVersus = showVersus,
 		Suppress = suppress,
 		Clear = clear,
 		Destroy = destroy,

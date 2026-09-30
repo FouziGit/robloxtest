@@ -391,8 +391,8 @@ describe("a server teleport of a player", function()
 				end
 			end
 		end
-		-- Caret, the Dagger, and Teleport.place, through which a match pad, the hub, the Erasure's pads and the
-		-- Battleground's camp all put a body down (D-221).
+		-- Caret, the Dagger, and Teleport.place, through which a match pad, the hub, the Erasure's pads, the
+		-- Battleground's camp and the Flyleaf's seals all put a body down (D-221).
 		expect(players).toBe(3)
 		expect(others).toBe(3)
 	end)

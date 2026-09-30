@@ -529,12 +529,15 @@ end)
 
 describe("free casting", function()
 	it("is refused to a developer in any fight against the Erasure, practice included", function()
-		local free = body(code(GLYPHS), "local function freeCasting(", "GlyphService")
-		requireAll(free, {
+		local glyphs = code(GLYPHS)
+		local perks = body(glyphs, "local function developerPerks(", "GlyphService")
+		requireAll(perks, {
 			"not match.isInMatch(player)",
 			"and not worldBoss.isLive()",
 			"and not worldBoss.isEngaged(player)",
 			"and not battleground.isInside(player)",
-		}, "freeCasting")
+		}, "developerPerks")
+		local free = body(glyphs, "local function freeCasting(", "GlyphService")
+		requireAll(free, { "DeveloperConfig.FreeCasting and developerPerks(player)" }, "freeCasting")
 	end)
 end)

@@ -104,8 +104,8 @@ local lastRating: { [string]: { [number]: number } } = {}
 
 -- Match id whose penalty applyAbandon already wrote for a user id. Keyed by match, not by a bare
 -- boolean, for two reasons:
---  * applyAbandon consults it, so the same match can never be debited twice however many times a caller
---    finds it (MatchService looks the match up two ways to survive signal ordering);
+--  * applyAbandon consults it, so the same match can never be debited twice for one player, whoever
+--    calls it again;
 --  * an entry orphaned by a match that ended without a result is inert, because it can only ever match
 --    the id that wrote it. A match can end that way: MatchService finishes outright when nobody is left,
 --    with no result to apply.
@@ -263,10 +263,10 @@ end
 -- Debits the forfeit of a ranked match the player is walking out of, while their profile is still
 -- loaded. Returns the rating move, or nil when there is nothing to write.
 --
--- Called from DataService.BeforeRelease: after the release the profile is gone and nothing can ever be
--- written for them on this server again, which is exactly how quitting used to be free. The match then
--- resolves in their absence, applyResult skips them, and the opposing team is still scored against the
--- rating they actually had.
+-- Called from DataService.BeforeRelease, the final write of their session: after it the profile is gone
+-- and nothing can ever be written for them on this server again, which is exactly how quitting used to be
+-- free. The match resolves in their absence, applyResult skips them, and the opposing team is still scored
+-- against the rating they actually had.
 --
 -- The loss is scored against `opponentRating` with the same Elo call a real defeat uses, so abandoning
 -- costs the same as losing, never less: there is no cheaper exit than playing the match out.
@@ -280,8 +280,7 @@ function RankingService.applyAbandon(
 		return nil
 	end
 	if settled[player.UserId] == matchId then
-		-- Already debited for this match. MatchService finds the match two ways so that no signal ordering
-		-- can skip the debit, which means it can also find it twice.
+		-- Already debited for this match.
 		return nil
 	end
 	local data = dataService.get(player)

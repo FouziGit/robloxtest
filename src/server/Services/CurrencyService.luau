@@ -77,6 +77,12 @@ function CurrencyService.add(player: Player, amount: number, reason: string): nu
 	return amount
 end
 
+-- True when `player` spends without paying: a developer account while DeveloperConfig.UnlimitedFolios is on
+-- (D-129). ShopService marks what such a purchase bought, so it leaves with the list.
+function CurrencyService.waives(player: Player): boolean
+	return DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name)
+end
+
 -- Debits `amount` when the balance covers it. Returns false (and changes nothing) otherwise.
 function CurrencyService.trySpend(player: Player, amount: number, reason: string): boolean
 	if not isPositiveInteger(amount) then
@@ -89,7 +95,7 @@ function CurrencyService.trySpend(player: Player, amount: number, reason: string
 		return false
 	end
 	-- The purchase goes through and the balance is untouched: nothing is debited, nothing is credited.
-	if DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name) then
+	if CurrencyService.waives(player) then
 		log.info("%s paid nothing for %s (developer: %d Folios waived)", player.Name, reason, amount)
 		return true
 	end

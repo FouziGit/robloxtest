@@ -21,9 +21,17 @@ end
 describe("a developer's Folios", function()
 	it("buy without paying, and never write an unearned balance (D-129)", function()
 		expect(type(DeveloperConfig.UnlimitedFolios)).toBe("boolean")
+		-- One predicate says who is waived: trySpend and the shop's record of what the waiver bought ask it.
+		local waives = body(CURRENCY, "function CurrencyService.waives(")
+		expect(
+			waives:find(
+				"return DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name)",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		local spend = body(CURRENCY, "function CurrencyService.trySpend(")
-		local waiver =
-			"if DeveloperConfig.UnlimitedFolios and DeveloperConfig.isDeveloper(player.UserId, player.Name) then"
+		local waiver = "if CurrencyService.waives(player) then"
 		local waived = spend:find(waiver, 1, true)
 		local balanceCheck = spend:find("if data.Currency.Folios < amount then", 1, true)
 		expect(waived).never.toBe(nil)

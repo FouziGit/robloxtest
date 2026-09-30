@@ -48,10 +48,11 @@ type CurrencyApi = {
 	get: (player: Player) -> number,
 	trySpend: (player: Player, amount: number, reason: string) -> boolean,
 	refund: (player: Player, amount: number, reason: string) -> number,
+	waives: (player: Player) -> boolean,
 }
 type GrantedSignal = { Connect: (self: GrantedSignal, fn: (player: Player, cosmeticId: string) -> ()) -> any }
 type CosmeticApi = {
-	grant: (player: Player, cosmeticId: string) -> boolean,
+	grant: (player: Player, cosmeticId: string, waived: boolean?) -> boolean,
 	Granted: GrantedSignal?,
 }
 type AnalyticsApi = {
@@ -310,8 +311,10 @@ local function onBuyCosmetic(player: Player, cosmeticId: string)
 	-- reported with its context by log.succeeded) pays the debit back through CurrencyService.refund, which
 	-- returns exactly what trySpend took, so a refused grant never costs the player their Folios. What decides
 	-- is the item, not the call: one that threw after writing it delivered it, and is settled as a purchase,
-	-- never as the item and the Folios both.
-	local granted = log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId)
+	-- never as the item and the Folios both. A purchase the developer list paid for is marked as such: it
+	-- leaves with the list (CosmeticService.revokeWaived).
+	local waived = currency.waives(player)
+	local granted = log.succeeded("cosmetic grant " .. cosmeticId, cosmetic.grant, player, cosmeticId, waived)
 	if not granted and table.find(data.Cosmetics.Owned, cosmeticId) == nil then
 		local refunded = currency.refund(player, price, TRANSACTION_SHOP .. ":" .. cosmeticId)
 		log.warn("%s was not granted %s: %d of %d Folios paid back", player.Name, cosmeticId, refunded, price)

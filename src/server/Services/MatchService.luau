@@ -49,10 +49,13 @@ type ProfileData = Types.ProfileData
 type BeforeReleaseSignal = {
 	Connect: (self: BeforeReleaseSignal, fn: (player: Player, data: ProfileData) -> ()) -> any,
 }
+type ReleasedSignal = { Connect: (self: ReleasedSignal, fn: (player: Player) -> ()) -> any }
 type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	push: (player: Player, section: string) -> (),
+	isClosing: () -> boolean,
 	BeforeRelease: BeforeReleaseSignal,
+	ProfileReleased: ReleasedSignal,
 }
 type NotifyKind = "Info" | "Success" | "Error"
 type NotifyApi = {
@@ -88,7 +91,7 @@ type DamagedSignal = {
 		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
 	) -> any,
 }
-type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal }
+type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
 type Deps = {
 	Registry: Registry,
@@ -126,7 +129,13 @@ type Active = {
 	Ticks: number,
 	Stats: { [number]: ParticipantStats }, -- user id -> the execution, graded at the result
 	Placed: { [Player]: Placement }, -- the body each participant was last placed with, which falls are judged on
+	LeftAt: number, -- os.clock of the latest departure; 0 while nobody left
+	Emptied: boolean, -- ended because every participant was gone, or the server was closing
 }
+
+-- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
+-- left, which their loss is scored against.
+type Forfeit = { Active: Active, OpponentRating: number }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 -- MatchChanged pushes per second; the client tweens between snapshots (see notes: a MatchConfig entry
@@ -136,6 +145,8 @@ local TICKS_PER_SNAPSHOT = math.max(1, math.floor(GameConfig.Server.TickRate / S
 -- Characters are pivoted this far above their spawn pad so they never start clipped into it.
 local SPAWN_CLEARANCE_STUDS = 4
 local ROOT_PART_NAME = "HumanoidRootPart"
+-- A departure is a forfeit only once it is this old (see applyVerdict).
+local LEAVE_GRACE_SECONDS = GameConfig.Server.LeaveGraceSeconds
 local XP = ProgressionConfig.XP
 local FOLIOS = ProgressionConfig.Folios
 -- Per-mode reward multipliers; MatchConfig.Rewards is keyed by mode id.
@@ -160,6 +171,8 @@ local glyph: GlyphApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
+-- The forfeit each departed player owes, settled when their session ends (onBeforeRelease).
+local owed: { [Player]: Forfeit } = {}
 local accumulator = 0
 local nextMatchIndex = 0
 
@@ -376,6 +389,7 @@ local function finish(active: Active)
 			activeByUserId[participant.UserId] = nil
 		end
 		if isLive(participant) and not participant.Released then
+			glyph.resetCooldowns(participant.Player)
 			registry.fire("MatchChanged", participant.Player, nil)
 			notify.send(participant.Player, "match.returning", nil, "Info")
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
@@ -412,7 +426,9 @@ end
 
 -- Round setup: yields on LoadCharacterAsync, so it runs in its own thread and bails out when the match
 -- moved on meanwhile. A fresh character is the only reset CombatService exposes — it restores full
--- health, full ink and spawn protection on CharacterAdded — so every round starts on one.
+-- health, full ink and spawn protection on CharacterAdded — so every round starts on one, and with every
+-- glyph ready (D-20): the cooldowns are the player's, not the character's, and outlived the old body. They
+-- are cleared with the freeze on, so no cast lands between the reset and the round.
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)
@@ -436,6 +452,7 @@ local function prepareRound(active: Active)
 				end
 				participant.Alive = true
 				movement.applyFreeze(player, active.Def.CountdownSeconds)
+				glyph.resetCooldowns(player)
 			end
 		end
 	end
@@ -467,9 +484,23 @@ end
 local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: number)
 	local match = active.Match
 	if verdict.Reason == "Forfeit" then
-		if GameModes.presentCount(active.Match) == 0 then
-			log.warn("match %s abandoned: no participant left", match.Id)
+		-- Nobody walked out on anybody: every participant is gone, or the server is closing. A shutdown or a
+		-- migration removes a whole match within LEAVE_GRACE_SECONDS, and none of its departures is then
+		-- an abandon (stillOwed), nor a win for whoever the server happened to remove last.
+		local closing = dataService.isClosing()
+		if closing or GameModes.presentCount(active.Match) == 0 then
+			if closing then
+				log.info("match %s ends with the server: no result", match.Id)
+			else
+				log.warn("match %s abandoned: no participant left", match.Id)
+			end
+			active.Emptied = true
 			finish(active)
+			return
+		end
+		if now - active.LeftAt < LEAVE_GRACE_SECONDS then
+			-- Not a forfeit yet: the rest of the match may be about to go the same way, with the server. The
+			-- verdict is asked again on the next tick.
 			return
 		end
 		local winner = verdict.WinnerTeam
@@ -692,63 +723,71 @@ local function opposingRating(active: Active, player: Player): number
 	return Elo.teamRating(ratings)
 end
 
--- Walking out of a live ranked match costs exactly what losing it costs. Settled here, on
--- DataService.BeforeRelease, because this is the last instant the leaver's profile is still loaded: the
--- match resolves seconds later in their absence, and nothing could be written for them by then. Without
--- it, quitting was strictly better than losing and a rating could only ever go up.
--- The live ranked match `userId` is walking out of. `activeByUserId` is the fast path, but Roblox does
--- not contract the order in which two connections to the same signal fire: if MatchService's own
--- PlayerRemoving handler happened to run before DataService's, the slot would already be clear and the
--- forfeit would be silently skipped. So the list is scanned as a fallback, which no ordering can defeat.
--- A double debit is impossible either way: RankingService settles a user id once per match.
-local function liveRankedMatchOf(userId: number): Active?
-	local direct = activeByUserId[userId]
-	if direct ~= nil then
-		return if direct.Finished or not direct.Def.Ranked then nil else direct
+-- What walking out of `active` costs `player`: the forfeit of a live ranked match, or nil. Nothing when the
+-- result is already being applied (applyResult owns their rating move), and nothing when their team has
+-- ALREADY won the series on rounds, which stays theirs whoever then walks out (D-34): debiting a loss would
+-- contradict that and, by marking them settled, make applyResult skip the win it is about to declare. That
+-- window is real: a won series sits in RoundOver for MatchConfig.RoundOverSeconds before the result is
+-- entered, which is exactly when a player who just saw "round won" closes the client.
+local function forfeitOf(active: Active, player: Player): Forfeit?
+	if active.Finished or not active.Def.Ranked or active.Match.Phase == "Result" then
+		return nil
 	end
-	local fallback: Active? = nil
-	for _, active in ipairs(actives) do
-		if not active.Finished and active.Def.Ranked then
-			for _, participant in ipairs(active.Match.Participants) do
-				if participant.UserId == userId then
-					if participant.Present then
-						return active
-					end
-					fallback = fallback or active
-					break
-				end
-			end
-		end
-	end
-	return fallback
-end
-
-local function onBeforeRelease(player: Player)
-	local active = liveRankedMatchOf(player.UserId)
-	if active == nil then
-		return
-	end
-	if active.Match.Phase == "Result" then
-		-- The result is already being applied; applyResult owns this player's rating move.
-		return
-	end
-	-- A series this player has ALREADY won on rounds stays theirs whoever then walks out (D-34), and
-	-- applyResult is about to credit them for it. Debiting a loss here would both contradict that and, by
-	-- marking them settled, make applyResult skip the win it is about to declare. The window is real: a
-	-- won series sits in RoundOver for MatchConfig.RoundOverSeconds before the result is entered, which is
-	-- exactly when a player who just saw "round won" closes the client.
 	local decided = GameModes.decidedWinner(active.Match)
 	if decided ~= nil and decided == teamOfParticipant(active, player.UserId) then
+		return nil
+	end
+	return { Active = active, OpponentRating = opposingRating(active, player) }
+end
+
+-- Whether the departure is still an abandon when its session ends. It is not when the whole match walked
+-- out together before a forfeit was declared: a shutdown or a migration removes every participant within
+-- the grace, and that is the server's doing (docs/QA.md R3). It is when somebody stayed to take the forfeit,
+-- or is still on the field.
+local function stillOwed(forfeit: Forfeit): boolean
+	local active = forfeit.Active
+	if active.Emptied then
+		return false
+	end
+	if active.Finished or active.Match.Phase == "Result" then
+		return true
+	end
+	return GameModes.presentCount(active.Match) > 0
+end
+
+-- Walking out of a live ranked match costs exactly what losing it costs. Settled on
+-- DataService.BeforeRelease, the final write of the leaver's session: the last instant their profile is
+-- still loaded. It comes after the grace for a player who left, with the forfeit judged when they left;
+-- or at once, while they are still on the field, when another server takes their profile first (R4).
+-- Without it, quitting was strictly better than losing and a rating could only ever go up. A double debit
+-- is impossible: RankingService settles a user id once per match.
+local function settle(player: Player, forfeit: Forfeit)
+	if not stillOwed(forfeit) then
 		return
 	end
+	local active = forfeit.Active
 	log.try(
 		"applyAbandon " .. active.Def.Id,
 		ranking.applyAbandon,
 		player,
 		active.Match.Id,
 		active.Def.Id,
-		opposingRating(active, player)
+		forfeit.OpponentRating
 	)
+end
+
+local function onBeforeRelease(player: Player)
+	local departed = owed[player]
+	if departed ~= nil then
+		owed[player] = nil
+		settle(player, departed)
+		return
+	end
+	local active = activeByUserId[player.UserId]
+	local onField = if active ~= nil then forfeitOf(active, player) else nil
+	if onField ~= nil then
+		settle(player, onField)
+	end
 end
 
 local function onPlayerRemoving(player: Player)
@@ -757,6 +796,13 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	activeByUserId[player.UserId] = nil
+	-- Judged now, while the match still says what this departure is; paid when the session ends, the grace
+	-- later. Only with a loaded profile: without one, another server already holds it and nothing is paid.
+	local forfeit = if dataService.get(player) ~= nil then forfeitOf(active, player) else nil
+	if forfeit ~= nil then
+		owed[player] = forfeit
+	end
+	active.LeftAt = os.clock()
 	if not log.try("OnPlayerLeft " .. active.Def.Id, active.Mode.OnPlayerLeft, active.Match, player) then
 		-- A hook that blew up must not leave a phantom teammate holding a team against a forfeit.
 		GameModes.markLeft(active.Match, player)
@@ -853,6 +899,8 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Ticks = 0,
 		Stats = {},
 		Placed = {},
+		LeftAt = 0,
+		Emptied = false,
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -945,6 +993,7 @@ function MatchService.releaseFromResult(player: Player): boolean
 	end
 	activeByUserId[player.UserId] = nil
 	movement.clearStun(player)
+	glyph.resetCooldowns(player)
 	registry.fire("MatchChanged", player, nil)
 	log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
 	return true
@@ -977,9 +1026,11 @@ end
 
 function MatchService.Start()
 	combat.setPolicy(allowDamage)
-	-- Before PlayerRemoving: DataService fires BeforeRelease from inside its own PlayerRemoving handler,
-	-- which runs first, so the forfeit is debited while activeByUserId still holds the match.
 	dataService.BeforeRelease:Connect(onBeforeRelease)
+	-- A session that ends without BeforeRelease (the server closing) leaves its forfeit unpaid.
+	dataService.ProfileReleased:Connect(function(player: Player)
+		owed[player] = nil
+	end)
 	glyph.Cast:Connect(onCast)
 	glyph.CastLanded:Connect(onCastLanded)
 	combat.Damaged:Connect(onDamaged)

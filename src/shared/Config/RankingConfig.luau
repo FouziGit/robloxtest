@@ -33,9 +33,10 @@ RankingConfig.Modes = { "Duel1v1", "Team3v3" } :: { string }
 -- matches of the day count in full; from the next one on, the pair's ratings no longer move and each of them earns
 -- RepeatRewardScale of a match's XP and Folios. Counted in each profile (Rank.Opponents, Pure/OpponentLedger), so a
 -- new server does not start the count over. In a 3v3, a participant is held to the rule by any opponent they have
--- met that often today. Five is a long evening of rematches between friends; the sixth is a farm.
+-- met that often today. Six is a duel and five rematches, a long evening between friends (the series E4-S3 asks to
+-- keep whole); the seventh is a farm.
 RankingConfig.Opponents = {
-	FullMatchesPerDay = 5,
+	FullMatchesPerDay = 6,
 	RepeatRewardScale = 0.25,
 }
 

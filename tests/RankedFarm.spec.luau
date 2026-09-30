@@ -19,6 +19,8 @@ local DUEL = MatchConfig.Modes.Duel1v1
 local TEAM = MatchConfig.Modes.Team3v3
 local GRACE = GameConfig.Server.LeaveGraceSeconds
 local FULL = RankingConfig.Opponents.FullMatchesPerDay
+-- The honest series the rule must leave whole: a duel, and five rematches by Play again.
+local SERIES = 1 + 5
 local SCALE = RankingConfig.Opponents.RepeatRewardScale
 local BOUNDS = { Floor = RankingConfig.RatingFloor, Ceiling = RankingConfig.RatingCeiling }
 local WIN_FOLIOS = ProgressionConfig.Folios.MatchWin
@@ -139,32 +141,35 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 		expect(alts.Rating < RankingConfig.InitialRating).toBe(true)
 	end)
 
-	it("moves the pair's Elo for five matches a day when the alt fights, then holds it, under the Folio cap", function()
-		-- The farm that plays along: thirty seconds, a hit each way, then the alt walks out. Every one is a real
-		-- forfeit, and only the day's first five move a rating.
-		local setup = Server.services()
-		local main = setup.world:join(411, "Main")
-		local alt = setup.world:join(412, "Alt")
-		local ratings: { number } = {}
-		for _ = 1, 20 do
-			begin(setup, main, alt)
-			fight(setup, main, alt)
-			alt = altWalksOut(setup, main, alt)
-			table.insert(ratings, rating(setup, main))
+	it(
+		"moves the pair's Elo for the day's full matches when the alt fights, then holds it, under the Folio cap",
+		function()
+			-- The farm that plays along: thirty seconds, a hit each way, then the alt walks out. Every one is a real
+			-- forfeit, and only the day's first few move a rating.
+			local setup = Server.services()
+			local main = setup.world:join(411, "Main")
+			local alt = setup.world:join(412, "Alt")
+			local ratings: { number } = {}
+			for _ = 1, 20 do
+				begin(setup, main, alt)
+				fight(setup, main, alt)
+				alt = altWalksOut(setup, main, alt)
+				table.insert(ratings, rating(setup, main))
+			end
+			expect(ratings[1] > RankingConfig.InitialRating).toBe(true)
+			for index = 2, FULL do
+				expect(ratings[index] > ratings[index - 1]).toBe(true)
+			end
+			for index = FULL + 1, 20 do
+				expect(ratings[index]).toBe(ratings[FULL])
+			end
+			local expected = FULL * WIN_FOLIOS + (20 - FULL) * math.floor(WIN_FOLIOS * SCALE + 0.5)
+			expect(folios(setup, main)).toBe(expected)
+			expect(folios(setup, main)).toBeLessThanOrEqual(MatchConfig.DailyFolioCap)
+			expect(told(setup, main, "match.repeatOpponent")).toBe(20 - FULL)
+			expect(setup.data.get(main).Rank.Opponents).toEqual({ Day = today(), Counts = { ["412"] = 20 } })
 		end
-		expect(ratings[1] > RankingConfig.InitialRating).toBe(true)
-		for index = 2, FULL do
-			expect(ratings[index] > ratings[index - 1]).toBe(true)
-		end
-		for index = FULL + 1, 20 do
-			expect(ratings[index]).toBe(ratings[FULL])
-		end
-		local expected = FULL * WIN_FOLIOS + (20 - FULL) * math.floor(WIN_FOLIOS * SCALE + 0.5)
-		expect(folios(setup, main)).toBe(expected)
-		expect(folios(setup, main)).toBeLessThanOrEqual(MatchConfig.DailyFolioCap)
-		expect(told(setup, main, "match.repeatOpponent")).toBe(20 - FULL)
-		expect(setup.data.get(main).Rank.Opponents).toEqual({ Day = today(), Counts = { ["412"] = 20 } })
-	end)
+	)
 
 	it("keeps counting the pair on another server, and starts over on a new UTC day", function()
 		local setup = Server.services()
@@ -194,10 +199,11 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 end)
 
 describe("an honest rematch series (E4-S3)", function()
-	it("keeps every point of Elo over five rematches by Play again, with damage traded", function()
+	it("keeps every point of Elo over a duel and five rematches by Play again, with damage traded", function()
 		local setup = Server.services()
 		local a = setup.world:join(431, "Ada")
 		local b = setup.world:join(432, "Bea")
+		expect(FULL >= SERIES).toBe(true)
 		for match = 1, FULL do
 			local winner, loser = if match % 2 == 1 then a else b, if match % 2 == 1 then b else a
 			local winnerBefore, loserBefore = rating(setup, winner), rating(setup, loser)

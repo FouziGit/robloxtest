@@ -31,9 +31,9 @@ local Badge = {}
 
 -- How far a breath swells the badge.
 local BREATH_SCALE = 1.12
--- The disc: its height and least width, how far inside its host's corner it sits, the room either side of
--- the count, and the count's size.
-local SIZE = 32
+-- The disc (its height and least width: Theme.Sizes.Badge), how far inside its host's corner it sits, the room
+-- either side of the count, and the count's size.
+local SIZE = Theme.Sizes.Badge
 local INSET = 8
 local PAD_X = 8
 local TEXT_SIZE = 17

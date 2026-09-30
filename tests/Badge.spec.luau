@@ -40,6 +40,8 @@ describe("a badge, run", function()
 		expect(stroke.Thickness).toBeLessThanOrEqual(3)
 		-- 32 tall, and never narrower: a count of two figures stretches it into a pill.
 		expect(disc.Size.Y.Offset).toBe(32)
+		-- The theme's own badge size, which nothing else reads.
+		expect(Theme.Sizes.Badge).toBe(disc.Size.Y.Offset)
 		expect(disc.AutomaticSize.Name).toBe("X")
 		expect(holder.AutomaticSize.Name).toBe("X")
 		expect(disc:FindFirstChildOfClass("UISizeConstraint").MinSize).toBe(roblox.Vector2.new(32, 32))
@@ -62,6 +64,17 @@ describe("a badge, run", function()
 		for _, part in ipairs(holder:GetDescendants()) do
 			expect(part:IsA("ImageLabel")).toBe(false)
 		end
+	end)
+
+	it("is as large as the theme's badge size", function()
+		local world = Engine.world({ Stubs = Engine.interfaceStubs() })
+		local Theme = world.require("src/ui/Theme")
+		Theme.Sizes.Badge = 40
+		local Badge = world.require("src/ui/components/Badge")
+		local host = Engine.instance("Frame", Engine.instance("ScreenGui", world.playerGui))
+		local disc = Badge.new(3, host).Instance:FindFirstChild("Blot")
+		expect(disc.Size.Y.Offset).toBe(40)
+		expect(disc:FindFirstChildOfClass("UISizeConstraint").MinSize).toBe(roblox.Vector2.new(40, 40))
 	end)
 
 	it("takes the sheet on a host of the primary yellow", function()

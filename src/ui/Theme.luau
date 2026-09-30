@@ -146,7 +146,7 @@ Theme.Sizes = {
 	TileHeight = 150,
 	-- The HUD's chips, hotbar slots and pips are ThemeConfig.Hud's, one home for the numbers HudFit adds up.
 	Keycap = 28,
-	Badge = 26,
+	Badge = 32,
 	Medallion = 48,
 	-- The ink outline of a sticker, and the thin one of a row, a chip or a keycap.
 	Stroke = 3,

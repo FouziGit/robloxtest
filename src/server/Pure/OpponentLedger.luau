@@ -1,6 +1,6 @@
 --!strict
--- How often a player met each opponent in ranked play today (E4-S3, D-255). Pure module: no require, no
--- Roblox global.
+-- How often a player met each opponent in a paid match today, ranked or not (E4-S3, D-255). Pure module: no require,
+-- no Roblox global.
 --
 -- The count lives in the profile (Rank.Opponents), beside the UTC day it belongs to: a count kept in a server's
 -- memory is escaped by switching server. A ledger of any other day counts nothing. Opponents are keyed by their
@@ -10,7 +10,7 @@ export type Ledger = { Day: number, Counts: { [string]: number } }
 
 local OpponentLedger = {}
 
--- Ranked matches `ledger` holds against `opponentId` on `today`.
+-- Matches `ledger` holds against `opponentId` on `today`.
 function OpponentLedger.count(ledger: Ledger, today: number, opponentId: number): number
 	if ledger.Day ~= today then
 		return 0
@@ -18,7 +18,7 @@ function OpponentLedger.count(ledger: Ledger, today: number, opponentId: number)
 	return math.max(ledger.Counts[tostring(opponentId)] or 0, 0)
 end
 
--- The ledger after one more ranked match against each of `opponentIds` on `today`. A ledger of another day starts
+-- The ledger after one more match against each of `opponentIds` on `today`. A ledger of another day starts
 -- over: yesterday's opponents are forgotten, not carried.
 function OpponentLedger.record(ledger: Ledger, today: number, opponentIds: { number }): Ledger
 	local counts: { [string]: number } = if ledger.Day == today then table.clone(ledger.Counts) else {}

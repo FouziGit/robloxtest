@@ -66,8 +66,8 @@ export type RankModeData = {
 	PeakRating: number,
 }
 
--- Ranked matches played today against each opponent (Pure/OpponentLedger): the UTC day the counts belong to, and
--- the count by opponent user id, as a string. RankingService writes it with every ranked result.
+-- Matches played today against each opponent, ranked or not (Pure/OpponentLedger): the UTC day the counts belong to,
+-- and the count by opponent user id, as a string. RankingService writes it with every result MatchService pays.
 export type RankOpponentsData = { Day: number, Counts: { [string]: number } }
 
 export type RankData = {

@@ -6,7 +6,8 @@
 --
 -- A pair of players who meet again and again in one UTC day stops moving each other's rating once past
 -- RankingConfig.Opponents.FullMatchesPerDay (D-255): every ranked result is written into both profiles'
--- Rank.Opponents (Pure/OpponentLedger), and a repeat is reported in its delta so MatchService pays it less.
+-- Rank.Opponents (Pure/OpponentLedger), and a repeat is reported in its delta so MatchService pays it less. A match
+-- that moves no rating counts the pair all the same (recordMeetings).
 --
 -- It also runs the end-of-season pass. DataService resets Rank.Modes when GameConfig.SeasonId changes,
 -- so the profile itself no longer knows what the player reached last season: the durable record is the
@@ -344,6 +345,42 @@ function RankingService.applyResult(result: Types.MatchResult): { [number]: Rati
 		end
 	end
 	return deltas
+end
+
+-- The pair rule for a match MatchService pays that moves no rating (D-255): a newcomer's quick duel (D-269) and any
+-- match of a server that is not ranked (D-251). Neither is a way around it: the match is written into the same ledger
+-- (Rank.Opponents) of every participant still here, and the participants past the day's full matches against one of
+-- the players they faced are returned by user id, judged before any ledger takes this match, as applyResult judges
+-- them. No rating, rank or ladder moves. Without it, a fresh alt that lost every quick duel by walking out (which
+-- costs nothing there) paid its main a full win each time, however often the pair met that day.
+function RankingService.recordMeetings(result: Types.MatchResult): { [number]: boolean }
+	if #result.Teams ~= TEAMS_PER_MATCH then
+		log.warn("recordMeetings ignored: %s reported %d teams", result.ModeId, #result.Teams)
+		return {}
+	end
+	local teams: { { Participant } } = {}
+	for teamIndex, userIds in ipairs(result.Teams) do
+		local participants: { Participant } = {}
+		for _, userId in ipairs(userIds) do
+			local player = Players:GetPlayerByUserId(userId)
+			local data = if player ~= nil then dataService.get(player) else nil
+			local rank = if data ~= nil then data.Rank else nil
+			table.insert(participants, { UserId = userId, Player = player, Entry = nil, Rank = rank })
+		end
+		teams[teamIndex] = participants
+	end
+	local today = DailyStreak.dayIndex(os.time())
+	local repeats = repeatsOf(teams, today)
+	for teamIndex, participants in ipairs(teams) do
+		for _, participant in ipairs(participants) do
+			local player, rank = participant.Player, participant.Rank
+			if player ~= nil and rank ~= nil then
+				rank.Opponents = OpponentLedger.record(rank.Opponents, today, opponentIds(teams, teamIndex))
+				dataService.push(player, RANK_SECTION)
+			end
+		end
+	end
+	return repeats
 end
 
 -- Debits the forfeit of a ranked match the player is walking out of, while their profile is still

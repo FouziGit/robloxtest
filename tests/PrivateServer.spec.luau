@@ -6,6 +6,7 @@
 -- The three kinds of server run for real: RankingService, LeaderboardService (on OrderedDataStores that keep every
 -- write) and MatchService in the pretend engine (tests/engine), a duel started, fought and walked out of, as the
 -- engine would have it on each kind.
+local DailyStreak = require("../src/shared/Pure/DailyStreak")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -40,7 +41,8 @@ type Played = {
 	quests: { [string]: boolean },
 }
 
-local function play(kind: Kind): Played
+-- `met`: the matches player 1's profile says the two of them already played today (Rank.Opponents, D-255).
+local function play(kind: Kind, met: number?): Played
 	-- The ladders' OrderedDataStores, as LeaderboardService opens them: every write kept, every board read empty.
 	local ladders: { string } = {}
 	local dataStores = {
@@ -112,6 +114,9 @@ local function play(kind: Kind): Played
 	end
 	local winner = join(1)
 	local leaver = join(2)
+	if met ~= nil then
+		profiles[1].Rank.Opponents = { Day = DailyStreak.dayIndex(os.time()), Counts = { ["2"] = met } }
+	end
 	players.GetPlayers = function(): { any }
 		return if leaver.Parent == players then { winner, leaver } else { winner }
 	end
@@ -188,6 +193,7 @@ local function play(kind: Kind): Played
 	}
 
 	local damaged = Engine.signal()
+	local killed = Engine.signal()
 	local Match = world.require("src/server/Services/MatchService")
 	Match.Init({
 		Registry = {
@@ -203,8 +209,8 @@ local function play(kind: Kind): Played
 		Notify = { send = function() end },
 		Combat = {
 			Damaged = damaged,
-			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
-			Killed = Engine.signal(),
+			-- A match's kills are paid by MatchService with its result, under the same rules (D-255).
+			Killed = killed,
 			-- The match holds the Match zone (ZoneConfig, D-266).
 			claimZone = function() end,
 			resyncPosition = function() end,
@@ -263,11 +269,15 @@ local function play(kind: Kind): Played
 
 	assert(Match.start("Duel1v1", { { 1 }, { 2 } }) ~= nil, "the duel did not start: this gate would check nothing")
 	-- The duel is fought, a hit each way past MatchConfig.MinPlayedSeconds: a walk-out before that is void (D-255)
-	-- and would leave the winner no result to read.
+	-- and would leave the winner no result to read. Player 1 takes the first round by a kill, as CombatService reports
+	-- one: the body dies, then Killed says whose it was.
 	world:advance(MatchConfig.Modes.Duel1v1.CountdownSeconds + 1)
 	damaged:Fire(1, leaver.Character, 10, "Glyph")
 	damaged:Fire(2, winner.Character, 10, "Glyph")
+	leaver.Character:FindFirstChildOfClass("Humanoid").Health = 0
+	killed:Fire(1, leaver.Character)
 	world:advance(MatchConfig.MinPlayedSeconds)
+	assert(Match.getMatch(winner).Round == 2, "the kill did not take the round: this gate would check nothing")
 	-- Then player 2 walks out: Players says they left, the match waits out the grace in which a server closing would
 	-- take everybody (D-206), and their profile's session ends with its last save.
 	players.PlayerRemoving:Fire(leaver)
@@ -314,9 +324,14 @@ describe("ranked play on each kind of server", function()
 					expect(member.RankKey).never.toBe("")
 				end
 			end
+			-- The win, and the kill at its own value.
 			local scale = MatchConfig.Rewards.Duel1v1
-			expect(played.xp).toBe(math.floor(ProgressionConfig.XP.MatchWin * scale.Xp + 0.5))
-			expect(played.folios).toBe(math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios + 0.5))
+			expect(played.xp).toBe(
+				math.floor(ProgressionConfig.XP.MatchWin * scale.Xp + 0.5) + ProgressionConfig.XP.PlayerKill
+			)
+			expect(played.folios).toBe(
+				math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios + 0.5) + ProgressionConfig.Folios.PlayerKill
+			)
 			expect(played.firstWins).toBe(1)
 			expect(played.quests["MatchWin:1"]).toBe(true)
 			expect(played.quests["MatchPlayed:1"]).toBe(true)
@@ -347,8 +362,15 @@ describe("ranked play on each kind of server", function()
 		local share = MatchConfig.PrivateServer.RewardShare
 		expect(share).toBeGreaterThan(0)
 		expect(share).toBeLessThan(1)
-		expect(played.xp).toBe(math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5))
-		expect(played.folios).toBe(math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * share + 0.5))
+		-- The share of the win, and the same share of the kill: paid in full, the kill was a private server's farm.
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * share + 0.5)
+		)
+		expect(played.folios).toBe(
+			math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * share + 0.5)
+				+ math.floor(ProgressionConfig.Folios.PlayerKill * share + 0.5)
+		)
 		expect(played.xp).toBeLessThan(ProgressionConfig.XP.MatchWin * scale.Xp)
 		-- No first win of the day and no won match towards a quest; the match still counts as played.
 		expect(played.firstWins).toBe(0)
@@ -357,6 +379,40 @@ describe("ranked play on each kind of server", function()
 		expect(played.outcome.FirstWinOfDay).toBe(false)
 		-- And the server says so to its clients.
 		expect(played.world.workspace:GetAttribute(MatchConfig.PrivateServer.UnrankedAttribute)).toBe(true)
+	end)
+end)
+
+describe("a pair met too often today on a private server a player bought (D-255)", function()
+	-- Found by review: a match there moves no rating, so RankingService.applyResult, where the pair rule lived, was
+	-- never asked. Its owner brings an alt, and every match of the day paid the share in full.
+	it("is paid a quarter of the share, its kill included, and still moves no Elo", function()
+		local played = play(PURCHASED, RankingConfig.Opponents.FullMatchesPerDay)
+		local scale = MatchConfig.Rewards.Duel1v1
+		local cut = MatchConfig.PrivateServer.RewardShare * RankingConfig.Opponents.RepeatRewardScale
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * cut + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * cut + 0.5)
+		)
+		expect(played.folios).toBe(
+			math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * cut + 0.5)
+				+ math.floor(ProgressionConfig.Folios.PlayerKill * cut + 0.5)
+		)
+		-- Counted like any other meeting of the pair, and nothing else of the rank is written.
+		expect(played.profiles[1].Rank.Opponents.Counts["2"]).toBe(RankingConfig.Opponents.FullMatchesPerDay + 1)
+		expect(played.profiles[1].Rank.Modes.Duel1v1).toBeNil()
+		expect(#played.moved).toBe(0)
+		expect(played.ladders).toEqual({})
+	end)
+
+	it("counts the pair from the first match, which is paid the share in full", function()
+		local played = play(PURCHASED)
+		expect(played.profiles[1].Rank.Opponents.Counts["2"]).toBe(1)
+		local scale = MatchConfig.Rewards.Duel1v1
+		local share = MatchConfig.PrivateServer.RewardShare
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * share + 0.5)
+		)
 	end)
 end)
 

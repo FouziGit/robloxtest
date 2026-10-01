@@ -447,6 +447,7 @@ match.repeatOpponent,Same opponent too many times today: this match leaves your 
 match.returning,Returning to the hub…,Vellum,,Returning to the hub…,Retour au hub…
 match.roundLost,Round lost,Vellum,,Round lost,Manche perdue
 match.roundWon,Round won!,Vellum,,Round won!,Manche gagnée !
+match.takedown,You defeated {name}!,Vellum,,You defeated {name}!,Tu as vaincu {name} !
 match.timeLeft,{seconds}s,Vellum,,{seconds}s,{seconds}s
 match.versus,{name} · level {level} · {rank},Vellum,,{name} · level {level} · {rank},{name} · niveau {level} · {rank}
 match.versus.unranked,unranked,Vellum,,unranked,non classé

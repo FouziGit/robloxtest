@@ -16,9 +16,8 @@ export type Rule = {
 	BetweenPlayers: Between,
 	-- Whether a player of this zone may hurt a body no player owns: a training proof, the Erasure, a Forger.
 	OnBodies: boolean,
-	-- Whether CombatService pays a player kill here itself (its XP, ProgressionConfig.XP.PlayerKill; a match kill's
-	-- Folios are MatchService's, under the day's cap, D-255), or leaves the pay to the zone's owner, which hears every
-	-- kill through CombatService.Killed.
+	-- Whether CombatService pays a player kill here itself (its XP, ProgressionConfig.XP.PlayerKill), or leaves the pay
+	-- to the zone's owner, which hears every kill through CombatService.Killed.
 	CombatPaysKills: boolean,
 }
 
@@ -29,8 +28,9 @@ ZoneConfig.Order = { "Match", "Boss", "Flyleaf", "Hub" } :: { ZoneId }
 ZoneConfig.Fallback = "Hub" :: ZoneId
 
 ZoneConfig.Rules = {
-	-- Opponents of the same live match, and nothing else: no NPC in the middle of a duel.
-	Match = { BetweenPlayers = "Owner", OnBodies = false, CombatPaysKills = true },
+	-- Opponents of the same live match, and nothing else: no NPC in the middle of a duel. A kill is the match's, paid
+	-- with its result under its share, its repeated pair's quarter and the day's Folio cap (MatchService).
+	Match = { BetweenPlayers = "Owner", OnBodies = false, CombatPaysKills = false },
 	-- Never between players, event or practice; the Erasure takes every hit.
 	Boss = { BetweenPlayers = "Never", OnBodies = true, CombatPaysKills = true },
 	-- The free-for-all page (E16-S2): members against members, paid by the page itself under its own cap.

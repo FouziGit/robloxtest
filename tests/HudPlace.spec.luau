@@ -244,7 +244,7 @@ describe("a success in a fight, run", function()
 	it("and in a match", function()
 		local fixture = setup()
 		fixture.match(SNAPSHOT)
-		fixture.remote("Notify", { Key = "hud.playerKill", Kind = "Success", Params = { name = "Ada" } })
+		fixture.remote("Notify", { Key = "match.takedown", Kind = "Success", Params = { name = "Ada" } })
 		fixture.world:advance(0.5)
 		local fill = medallionOf(fixture, "Success").BackgroundColor3
 		for _, colour in ipairs(valueColours(fixture)) do

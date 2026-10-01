@@ -600,6 +600,8 @@ Strings.Table = {
 	["grade.shaky"] = { en = "a shaking hand", fr = "une main tremblante" },
 	["match.bestChain"] = { en = "Best chain: ×{count}", fr = "Meilleure chaîne : ×{count}" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
+	-- A takedown in a match: its XP and Folios are paid with the result, which counts them (MatchService.award).
+	["match.takedown"] = { en = "You defeated {name}!", fr = "Tu as vaincu {name} !" },
 	["match.returning"] = { en = "Returning to the hub…", fr = "Retour au hub…" },
 	-- A match whose tick kept failing (MatchService.cancel): no result, nothing won or lost.
 	["match.cancelled"] = {

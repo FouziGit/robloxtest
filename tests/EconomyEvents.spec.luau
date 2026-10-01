@@ -144,10 +144,10 @@ local SITES: { Site } = {
 		Flow = "Source",
 		Reasons = { "MatchWin", "MatchLoss", "MatchDraw" },
 	},
-	-- A match kill's Folios, under the day's cap like the result (D-255).
+	-- A match's kills, paid with its result and under the same rules (D-255).
 	{
 		File = "MatchService",
-		Call = '(killer, folios, "PlayerKill")',
+		Call = '(player, killFolios, "PlayerKill")',
 		Flow = "Source",
 		Reasons = { "PlayerKill" },
 	},

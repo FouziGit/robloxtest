@@ -47,9 +47,12 @@ describe("the zones' rule", function()
 		expect(RULES.Boss.OnBodies).toBe(true)
 		expect(RULES.Match.OnBodies).toBe(false)
 		expect(RULES.Flyleaf.OnBodies).toBe(false)
-		-- The Flyleaf pays its own kills, under its cap; nowhere else changes.
+		-- The Flyleaf pays its own kills, under its cap, and a match with its result, under its rules; nowhere else
+		-- changes.
 		expect(DamageZones.combatPays(RULES, "Flyleaf")).toBe(false)
-		expect(DamageZones.combatPays(RULES, "Match")).toBe(true)
+		expect(DamageZones.combatPays(RULES, "Match")).toBe(false)
+		expect(DamageZones.combatPays(RULES, "Hub")).toBe(true)
+		expect(DamageZones.combatPays(RULES, "Boss")).toBe(true)
 		for _, zone in ipairs(ZoneConfig.Order) do
 			expect(RULES[zone] ~= nil).toBe(true)
 		end
@@ -295,14 +298,15 @@ describe("CombatService's zones", function()
 		expect(fx.killed[1].Source).toBe(a.UserId)
 	end)
 
-	it("pay a match's kill as they always did, and tell whoever listens", function()
+	-- Paid here, a match's kill took none of the rules its result is paid under: no private server's share, no repeated
+	-- pair's quarter, no void. The match pays it with its result (MatchService.award).
+	it("leave a match's kill to the match, which hears it, and pay nothing for it themselves", function()
 		local fx = fixture()
 		local red, blue = fx.join(1, 0), fx.join(2, 4)
 		owner(fx, "Match", { red, blue })
 		fx.settle()
 		expect(fx.combat.ApplyDamage(red, blue.Character, 1000, "Melee", {}).Killed).toBe(true)
-		expect(#fx.xp).toBe(1)
-		expect(fx.xp[1].Reason).toBe("PlayerKill")
+		expect(#fx.xp).toBe(0)
 		expect(#fx.killed).toBe(1)
 		expect(fx.killed[1].Source).toBe(red.UserId)
 	end)
@@ -341,7 +345,7 @@ describe("CombatService's zones", function()
 		expect(#fx.xp).toBe(0)
 	end)
 
-	it("pay a match's credited death as they always did, the match over or not", function()
+	it("leave a match's credited death to the match as well, the match over or not", function()
 		local fx = fixture()
 		local red, blue = fx.join(1, 0), fx.join(2, 4)
 		local duel = owner(fx, "Match", { red, blue })
@@ -354,8 +358,7 @@ describe("CombatService's zones", function()
 		humanoid.Died:Fire()
 		expect(#fx.killed).toBe(1)
 		expect(fx.killed[1].Source).toBe(red.UserId)
-		expect(#fx.xp).toBe(1)
-		expect(fx.xp[1].Reason).toBe("PlayerKill")
+		expect(#fx.xp).toBe(0)
 	end)
 
 	it("take one claim per zone, never the hub's, and say so", function()

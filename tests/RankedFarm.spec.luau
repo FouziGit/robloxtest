@@ -12,6 +12,7 @@ local MatchConfig = require("../src/shared/Config/MatchConfig")
 local ProgressionConfig = require("../src/shared/Config/ProgressionConfig")
 local RankingConfig = require("../src/shared/Config/RankingConfig")
 local Server = require("./server")
+local ZoneConfig = require("../src/shared/Config/ZoneConfig")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -26,6 +27,7 @@ local SCALE = RankingConfig.Opponents.RepeatRewardScale
 local BOUNDS = { Floor = RankingConfig.RatingFloor, Ceiling = RankingConfig.RatingCeiling }
 local WIN_FOLIOS = ProgressionConfig.Folios.MatchWin
 local KILL_FOLIOS = ProgressionConfig.Folios.PlayerKill
+local KILL_XP = ProgressionConfig.XP.PlayerKill
 
 local function today(): number
 	return DailyStreak.dayIndex(os.time())
@@ -211,6 +213,57 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 	end)
 end)
 
+describe("a main and a fresh alt farming the quick duel (E10-S7)", function()
+	-- Found by review: a match with a newcomer in it moves no rating (D-269), so RankingService.applyResult, where the
+	-- pair rule lived, was never asked. A fresh alt walked out of every quick duel after thirty seconds and a hit each
+	-- way, which costs nothing there, and stayed a newcomer forever (it never finishes a match, so never earns XP):
+	-- its main took a full win each time, however often the pair met that day.
+	it("pays the main six full wins a day, then a quarter, and the pair is counted as in ranked", function()
+		local setup = Server.services()
+		local main = join(setup, 511, "Main")
+		local alt = setup.world:join(512, "Alt")
+		local wins: { number } = {}
+		for _ = 1, 20 do
+			begin(setup, main, alt)
+			expect(setup.match.getMatch(main).Ranked).toBe(false)
+			fight(setup, main, alt)
+			setup.world:leave(alt)
+			setup.world:advance(GRACE + 1)
+			expect(setup.match.releaseFromResult(main)).toBe(true)
+			table.insert(wins, lastXp(setup, main, "MatchWin") :: number)
+			alt = setup.world:join(512, "Alt")
+		end
+		expect(setup.ranking.isNewcomer(alt)).toBe(true)
+		for index = 1, FULL do
+			expect(wins[index]).toBe(ProgressionConfig.XP.MatchWin)
+		end
+		for index = FULL + 1, 20 do
+			expect(wins[index]).toBe(math.floor(ProgressionConfig.XP.MatchWin * SCALE + 0.5))
+		end
+		expect(told(setup, main, "match.repeatOpponent")).toBe(20 - FULL)
+		expect(folios(setup, main)).toBe(FULL * WIN_FOLIOS + (20 - FULL) * math.floor(WIN_FOLIOS * SCALE + 0.5))
+		expect(setup.data.get(main).Rank.Opponents).toEqual({ Day = today(), Counts = { ["512"] = 20 } })
+		-- Still no rating anywhere: the quick duel moves none.
+		expect(setup.data.get(main).Rank.Modes[DUEL.Id]).toBeNil()
+	end)
+
+	it("holds two honest newcomers to the same rule, and counts the pair in both profiles", function()
+		local setup = Server.services()
+		local a = setup.world:join(513, "Ada")
+		local b = setup.world:join(514, "Bea")
+		setup.data.get(b).Rank.Opponents = { Day = today(), Counts = { ["513"] = FULL } }
+		begin(setup, a, b)
+		fight(setup, a, b)
+		winSeries(setup, a, b)
+		-- Either ledger is enough: Ada's knows nothing of it, Bea's says the pair is past its full matches.
+		expect(told(setup, a, "match.repeatOpponent")).toBe(1)
+		expect(told(setup, b, "match.repeatOpponent")).toBe(1)
+		expect(lastXp(setup, a, "MatchWin")).toBe(math.floor(ProgressionConfig.XP.MatchWin * SCALE + 0.5))
+		expect(setup.data.get(a).Rank.Opponents.Counts["514"]).toBe(1)
+		expect(setup.data.get(b).Rank.Opponents.Counts["513"]).toBe(FULL + 1)
+	end)
+end)
+
 describe("an honest rematch series (E4-S3)", function()
 	it("keeps every point of Elo over a duel and five rematches by Play again, with damage traded", function()
 		local setup = Server.services()
@@ -366,34 +419,162 @@ describe("a day of matches pays at most its Folio cap", function()
 	end)
 end)
 
-describe("a kill in a match pays its Folios under the day's cap (E4-S3)", function()
-	-- The farm the forfeit rules leave open: the alt stays and is knocked out twice a duel. Paid by CombatService,
-	-- past every cap and every repeat, those kills paid its main without end.
-	it("pays them once, and counts them with the match's", function()
+-- `killer` takes `victim` down as CombatService reports a killing blow: the body dies, then Killed says whose it was.
+local function takeDown(setup: Server.Services, killer: any, victim: any)
+	victim.Character:FindFirstChildOfClass("Humanoid").Health = 0
+	setup.kill(killer, victim)
+	setup.world:advance(0.2)
+end
+
+-- `winner` takes the duel 2-0 on the field, each round by a kill of their own: the result is on screen.
+local function winByKills(setup: Server.Services, winner: any, loser: any)
+	takeDown(setup, winner, loser)
+	setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+	expect(setup.match.getMatch(winner).Phase).toBe("Playing")
+	takeDown(setup, winner, loser)
+	setup.world:advance(MatchConfig.RoundOverSeconds + 0.2)
+	expect(setup.match.getMatch(winner).Phase).toBe("Result")
+end
+
+-- The last MatchEnded `player` was sent: what the Result shows them.
+local function outcomeOf(setup: Server.Services, player: any): any
+	local found = nil
+	for _, event in ipairs(setup.fired) do
+		if event.Name == "MatchEnded" and event.Player == player then
+			found = event.Payload
+		end
+	end
+	return found
+end
+
+describe("a match's kills are paid with its result, under its rules (E4-S3)", function()
+	-- The farm the forfeit rules leave open: the alt stays and is knocked out twice a duel. Paid on the spot by
+	-- CombatService, outside the private server's share, the repeated pair's quarter and the void, those kills paid
+	-- the main 240 XP a duel without end.
+	it("pays a 2-0's two kills with its result, under the day's cap, and nothing before it", function()
 		local setup = Server.services()
 		local a = join(setup, 483, "Ada")
 		local b = join(setup, 484, "Bea")
 		begin(setup, a, b)
-		setup.kill(a, b)
-		expect(folios(setup, a)).toBe(KILL_FOLIOS)
+		fight(setup, a, b)
+		takeDown(setup, a, b)
+		-- Told at once; paid with the result.
+		expect(told(setup, a, "match.takedown")).toBe(1)
+		expect(folios(setup, a)).toBe(0)
+		expect(lastXp(setup, a, "PlayerKill")).toBeNil()
+		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+		takeDown(setup, a, b)
+		setup.world:advance(MatchConfig.RoundOverSeconds + 0.2)
+		expect(setup.match.getMatch(a).Phase).toBe("Result")
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
+		expect(lastXp(setup, a, "MatchWin")).toBe(ProgressionConfig.XP.MatchWin)
+		expect(folios(setup, a)).toBe(WIN_FOLIOS + 2 * KILL_FOLIOS)
 		local daily = setup.data.get(a).Daily
 		expect(daily.MatchDay).toBe(today())
-		expect(daily.MatchFolios).toBe(KILL_FOLIOS)
+		expect(daily.MatchFolios).toBe(WIN_FOLIOS + 2 * KILL_FOLIOS)
+		-- The Result counts the kills with the rest of what the match paid.
+		local outcome = outcomeOf(setup, a)
+		expect(outcome.Xp).toBe(ProgressionConfig.XP.MatchWin + 2 * KILL_XP)
+		expect(outcome.Folios).toBe(WIN_FOLIOS + 2 * KILL_FOLIOS)
+		-- The loser killed nobody, and is paid for none.
+		expect(lastXp(setup, b, "PlayerKill")).toBeNil()
 	end)
 
-	it("pays what is left under the cap, then nothing", function()
+	it("pays the kills what is left under the cap once the result is paid, their XP in full", function()
 		local setup = Server.services()
 		local a = join(setup, 485, "Ada")
 		local b = join(setup, 486, "Bea")
 		local daily = setup.data.get(a).Daily
 		daily.MatchDay = today()
-		daily.MatchFolios = MatchConfig.DailyFolioCap - 5
+		daily.MatchFolios = MatchConfig.DailyFolioCap - WIN_FOLIOS - 5
 		begin(setup, a, b)
-		setup.kill(a, b)
-		expect(folios(setup, a)).toBe(5)
-		setup.kill(a, b)
-		expect(folios(setup, a)).toBe(5)
+		fight(setup, a, b)
+		winByKills(setup, a, b)
+		expect(folios(setup, a)).toBe(WIN_FOLIOS + 5)
 		expect(daily.MatchFolios).toBe(MatchConfig.DailyFolioCap)
+		expect(told(setup, a, "match.folioCap")).toBe(1)
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
+	end)
+
+	it("pays a pair past its day's full matches a quarter of its kills, as of its result", function()
+		local setup = Server.services()
+		local a = join(setup, 490, "Ada")
+		local b = join(setup, 498, "Bea")
+		setup.data.get(a).Rank.Opponents = { Day = today(), Counts = { ["498"] = FULL } }
+		begin(setup, a, b)
+		fight(setup, a, b)
+		winByKills(setup, a, b)
+		expect(told(setup, a, "match.repeatOpponent")).toBe(1)
+		expect(lastXp(setup, a, "PlayerKill")).toBe(math.floor(2 * KILL_XP * SCALE + 0.5))
+		local expected = math.floor(WIN_FOLIOS * SCALE + 0.5) + math.floor(2 * KILL_FOLIOS * SCALE + 0.5)
+		expect(folios(setup, a)).toBe(expected)
+	end)
+
+	it("pays no kill of a match nobody fought", function()
+		-- The alt is knocked out once in the first seconds, then walks out on the next countdown: void (D-255).
+		local setup = Server.services()
+		local main = join(setup, 499, "Main")
+		local alt = join(setup, 500, "Alt")
+		begin(setup, main, alt)
+		takeDown(setup, main, alt)
+		setup.world:advance(MatchConfig.RoundOverSeconds + 1)
+		expect(setup.match.getMatch(main).Phase).toBe("Countdown")
+		setup.world:leave(alt)
+		setup.world:advance(GRACE + 1)
+		expect(told(setup, main, "match.voided")).toBe(1)
+		expect(lastXp(setup, main, "PlayerKill")).toBeNil()
+		expect(folios(setup, main)).toBe(0)
+		expect(setup.data.get(main).Daily.MatchFolios).toBe(0)
+	end)
+
+	-- Found by review: CombatService credits a death to the last attacker for six seconds, and the pause after a round
+	-- lasts three. The winner of a round pressed Reset on it and handed the loser a kill that changed no score: two
+	-- kills a duel for the pair, the second for nothing played.
+	it("pays no kill credited after the round's verdict: a winner's Reset on the pause is nobody's", function()
+		local setup = Server.services()
+		local a = join(setup, 503, "Ada")
+		local b = join(setup, 504, "Bea")
+		begin(setup, a, b)
+		fight(setup, a, b)
+		takeDown(setup, a, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		-- The credit heard at once...
+		takeDown(setup, b, a)
+		expect(told(setup, b, "match.takedown")).toBe(0)
+		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+		expect(setup.match.getMatch(a).Phase).toBe("Playing")
+		expect(setup.match.getMatch(a).Scores).toEqual({ 1, 0 })
+		takeDown(setup, a, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		-- ...and, on the last pause, heard only once a tick has seen the body fall.
+		knockOut(setup, a)
+		setup.kill(b, a)
+		expect(told(setup, b, "match.takedown")).toBe(0)
+		setup.world:advance(MatchConfig.RoundOverSeconds)
+		expect(setup.match.getMatch(a).Phase).toBe("Result")
+		expect(lastXp(setup, b, "PlayerKill")).toBeNil()
+		expect(outcomeOf(setup, b).Folios).toBe(ProgressionConfig.Folios.MatchLoss)
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
+	end)
+
+	it("counts once a kill the round already judged, when CombatService names the killer after the verdict", function()
+		-- A fall off the arena: the tick that kills under the kill zone gives the verdict too, and the death's Died,
+		-- which CombatService credits from, comes after it.
+		local setup = Server.services()
+		local a = join(setup, 505, "Ada")
+		local b = join(setup, 506, "Bea")
+		begin(setup, a, b)
+		fight(setup, a, b)
+		knockOut(setup, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		setup.kill(a, b)
+		setup.kill(a, b)
+		expect(told(setup, a, "match.takedown")).toBe(1)
+		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+		takeDown(setup, a, b)
+		setup.world:advance(MatchConfig.RoundOverSeconds + 0.2)
+		expect(setup.match.getMatch(a).Phase).toBe("Result")
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
 	end)
 
 	it("pays nothing for a player the killer is not in a match with", function()
@@ -403,15 +584,20 @@ describe("a kill in a match pays its Folios under the day's cap (E4-S3)", functi
 		local c = join(setup, 489, "Cyd")
 		c:LoadCharacterAsync()
 		begin(setup, a, b)
+		fight(setup, a, b)
 		setup.kill(a, c)
-		expect(folios(setup, a)).toBe(0)
+		expect(told(setup, a, "match.takedown")).toBe(0)
+		winSeries(setup, a, b)
+		expect(lastXp(setup, a, "PlayerKill")).toBeNil()
+		expect(folios(setup, a)).toBe(WIN_FOLIOS)
 	end)
 
-	it("leaves CombatService the kill's XP only: two payers would pay it twice, one of them past the cap", function()
+	it("leaves CombatService no part of a match's kill: two payers would pay it twice, one past every rule", function()
+		expect(ZoneConfig.Rules.Match.CombatPaysKills).toBe(false)
 		local combat = fs.readFile("src/server/Services/CombatService.luau")
 		local onKill = string.match(combat, "\nfunction onKill%(.-\nend\n")
 		expect(onKill).never.toBeNil()
-		expect(string.find(onKill :: string, "ProgressionConfig.XP.PlayerKill", 1, true)).never.toBeNil()
+		expect(string.find(onKill :: string, "DamageZones.combatPays(ZONE_RULES, zone)", 1, true)).never.toBeNil()
 		expect(string.find(onKill :: string, "ProgressionConfig.Folios", 1, true)).toBeNil()
 		expect(string.find(onKill :: string, "currency", 1, true)).toBeNil()
 	end)

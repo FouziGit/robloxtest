@@ -138,9 +138,9 @@ local ONBOARDING_HINTS = "Onboarding"
 local DAILY_SCREEN = "Daily"
 -- The rounds the centre splash already says (Banner, from the snapshots): the same words again as a toast
 -- would only be the same news twice. The player's own takedown pops at the centre too, and its toast keeps
--- the XP it paid.
+-- the XP it paid: on the Flyleaf, which pays it there and then; a match's pays it with the result, which says so.
 local SPLASH_KEYS: { [string]: boolean } = { ["match.roundWon"] = true, ["match.roundLost"] = true }
-local TAKEDOWN_KEY = "hud.playerKill"
+local TAKEDOWN_KEYS: { [string]: boolean } = { ["hud.playerKill"] = true, ["match.takedown"] = true }
 -- A fight shows no value colour (docs/ART_BIBLE.md rule 11): its rewards and celebrations wait for the hub.
 local FIGHT_HELD: { [string]: boolean } = { Reward = true, Celebrate = true }
 -- The places a portal takes a player to fight in (PortalConfig.Zones); the rest of the page is the hub.
@@ -885,7 +885,7 @@ end
 -- their keys became words: the cooldown's glyph is found by its name key.
 local function show(key: string, params: { [string]: any }?, kind: ToastKind, raw: { [string]: any }?)
 	local text = localize.t(key, params)
-	if key == TAKEDOWN_KEY then
+	if TAKEDOWN_KEYS[key] then
 		banner:Pop()
 	end
 	local name = if raw ~= nil then raw.name else nil

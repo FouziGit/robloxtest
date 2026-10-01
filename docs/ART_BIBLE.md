@@ -194,7 +194,10 @@ Elles s'appliquent à chaque ligne de rendu écrite à partir de maintenant.
 9. **Un volume est surtout de l'air.** C'est un trait de pinceau qui a pris de l'épaisseur — goutte,
    anneau, couronne d'éclaboussure, balayage, papier arraché —, jamais un objet ni de l'énergie. Il est
    du pigment, pas de la lumière. Il ne couvre jamais un avertissement, ne dépasse jamais le mal qu'il
-   dessine, et ne reste pas haut et sombre plus d'un tiers de seconde.
+   dessine, et ne reste pas haut et sombre plus d'un tiers de seconde. Seule exception, le **corps d'un
+   glyphe** (D-273) — la boule de rubans de la Marque, la vague du Lavis — : modelé d'après les références
+   du développeur, toujours de l'encre et du pigment, il vit exactement le temps où il fait mal, parce
+   qu'il **est** ce mal ; il ne dépasse jamais sa sphère de dégâts.
 10. **Seul le cœur brûle** (D-119). La page reste de l'encre ; un glyphe est la seule chose qui ait le
    droit de briller, et seulement en son **cœur** : le pigment chauffé vers le blanc — jamais le blanc
    pur (règle 7) —, petit, au centre d'un éclat, et toujours entouré de son pigment ou de l'encre de la

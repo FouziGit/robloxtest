@@ -433,21 +433,34 @@ end)
 describe("a glyph drawn where it hurts, when it hurts", function()
 	it("draws the Wash's front at the rim of its damage, not at its centre", function()
 		-- The server's sphere hurts a target when its rim reaches it; drawn at the carrier (its centre)
-		-- the front arrived a third of a second after the hit it announced (the lab, D-119).
+		-- the front arrived a third of a second after the hit it announced (the lab, D-119). The front is
+		-- the wave's lip (D-273), its body's leading extent: within two studs of the rim while it stands
+		-- full height, and never past the rim at any moment of its life, rising or crashing.
 		local radius = (GlyphConfig.ById.Wash.Params :: any).HitRadius
-		local fronts = 0
+		local wave = MeshConfig.get("WaveBody") :: MeshConfig.Mesh
+		local one = { 1, 1, 1 }
+		local function lip(layer: any, size: number?, stretch: { number }): number
+			-- Forward is -Z in the mesh and +Z in a layer's Offset.
+			return (layer.Offset or { 0, 0, 0 })[3] + (wave.Pivot[3] - wave.Min[3]) * (size or 1) * stretch[3]
+		end
+		local standing = 0
 		for _, phase in ipairs(TIMELINES.Wash.Phases) do
-			if phase.Name == "Travel" then
-				for _, layer in ipairs(phase.Layers) do
-					if layer.Kind == "Sprite" and layer.Ride == true then
-						fronts += 1
-						local ahead = (layer.Offset or { 0, 0, 0 })[3]
-						expect(ahead >= radius - 2 and ahead <= radius).toBe(true)
+			for _, layer in ipairs(phase.Layers) do
+				if layer.Kind == "Mesh" and layer.Mesh == "WaveBody" then
+					expect(layer.Ride).toBe(true)
+					local from: { number } = layer.Stretch or one
+					local to: { number } = layer.EndStretch or from
+					local first = lip(layer, layer.Size, from)
+					local last = lip(layer, layer.EndSize or layer.Size, to)
+					expect(first <= radius and last <= radius).toBe(true)
+					if from[2] >= 1 and to[2] >= 1 then
+						standing += 1
+						expect(first >= radius - 2 and last >= radius - 2).toBe(true)
 					end
 				end
 			end
 		end
-		expect(fronts).toBeGreaterThanOrEqual(1)
+		expect(standing).toBeGreaterThanOrEqual(1)
 	end)
 
 	it("plays the Sweep at the centre the server struck, on the frame it struck", function()

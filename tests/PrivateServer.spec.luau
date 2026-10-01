@@ -6,6 +6,7 @@
 -- The three kinds of server run for real: RankingService, LeaderboardService (on OrderedDataStores that keep every
 -- write) and MatchService in the pretend engine (tests/engine), a duel started, fought and walked out of, as the
 -- engine would have it on each kind.
+local DailyStreak = require("../src/shared/Pure/DailyStreak")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
@@ -40,7 +41,8 @@ type Played = {
 	quests: { [string]: boolean },
 }
 
-local function play(kind: Kind): Played
+-- `met`: the matches player 1's profile says the two of them already played today (Rank.Opponents, D-255).
+local function play(kind: Kind, met: number?): Played
 	-- The ladders' OrderedDataStores, as LeaderboardService opens them: every write kept, every board read empty.
 	local ladders: { string } = {}
 	local dataStores = {
@@ -112,6 +114,9 @@ local function play(kind: Kind): Played
 	end
 	local winner = join(1)
 	local leaver = join(2)
+	if met ~= nil then
+		profiles[1].Rank.Opponents = { Day = DailyStreak.dayIndex(os.time()), Counts = { ["2"] = met } }
+	end
 	players.GetPlayers = function(): { any }
 		return if leaver.Parent == players then { winner, leaver } else { winner }
 	end
@@ -374,6 +379,40 @@ describe("ranked play on each kind of server", function()
 		expect(played.outcome.FirstWinOfDay).toBe(false)
 		-- And the server says so to its clients.
 		expect(played.world.workspace:GetAttribute(MatchConfig.PrivateServer.UnrankedAttribute)).toBe(true)
+	end)
+end)
+
+describe("a pair met too often today on a private server a player bought (D-255)", function()
+	-- Found by review: a match there moves no rating, so RankingService.applyResult, where the pair rule lived, was
+	-- never asked. Its owner brings an alt, and every match of the day paid the share in full.
+	it("is paid a quarter of the share, its kill included, and still moves no Elo", function()
+		local played = play(PURCHASED, RankingConfig.Opponents.FullMatchesPerDay)
+		local scale = MatchConfig.Rewards.Duel1v1
+		local cut = MatchConfig.PrivateServer.RewardShare * RankingConfig.Opponents.RepeatRewardScale
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * cut + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * cut + 0.5)
+		)
+		expect(played.folios).toBe(
+			math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * cut + 0.5)
+				+ math.floor(ProgressionConfig.Folios.PlayerKill * cut + 0.5)
+		)
+		-- Counted like any other meeting of the pair, and nothing else of the rank is written.
+		expect(played.profiles[1].Rank.Opponents.Counts["2"]).toBe(RankingConfig.Opponents.FullMatchesPerDay + 1)
+		expect(played.profiles[1].Rank.Modes.Duel1v1).toBeNil()
+		expect(#played.moved).toBe(0)
+		expect(played.ladders).toEqual({})
+	end)
+
+	it("counts the pair from the first match, which is paid the share in full", function()
+		local played = play(PURCHASED)
+		expect(played.profiles[1].Rank.Opponents.Counts["2"]).toBe(1)
+		local scale = MatchConfig.Rewards.Duel1v1
+		local share = MatchConfig.PrivateServer.RewardShare
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * share + 0.5)
+		)
 	end)
 end)
 

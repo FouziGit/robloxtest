@@ -213,6 +213,57 @@ describe("a main and an alt farming ranked (E4-S3)", function()
 	end)
 end)
 
+describe("a main and a fresh alt farming the quick duel (E10-S7)", function()
+	-- Found by review: a match with a newcomer in it moves no rating (D-269), so RankingService.applyResult, where the
+	-- pair rule lived, was never asked. A fresh alt walked out of every quick duel after thirty seconds and a hit each
+	-- way, which costs nothing there, and stayed a newcomer forever (it never finishes a match, so never earns XP):
+	-- its main took a full win each time, however often the pair met that day.
+	it("pays the main six full wins a day, then a quarter, and the pair is counted as in ranked", function()
+		local setup = Server.services()
+		local main = join(setup, 511, "Main")
+		local alt = setup.world:join(512, "Alt")
+		local wins: { number } = {}
+		for _ = 1, 20 do
+			begin(setup, main, alt)
+			expect(setup.match.getMatch(main).Ranked).toBe(false)
+			fight(setup, main, alt)
+			setup.world:leave(alt)
+			setup.world:advance(GRACE + 1)
+			expect(setup.match.releaseFromResult(main)).toBe(true)
+			table.insert(wins, lastXp(setup, main, "MatchWin") :: number)
+			alt = setup.world:join(512, "Alt")
+		end
+		expect(setup.ranking.isNewcomer(alt)).toBe(true)
+		for index = 1, FULL do
+			expect(wins[index]).toBe(ProgressionConfig.XP.MatchWin)
+		end
+		for index = FULL + 1, 20 do
+			expect(wins[index]).toBe(math.floor(ProgressionConfig.XP.MatchWin * SCALE + 0.5))
+		end
+		expect(told(setup, main, "match.repeatOpponent")).toBe(20 - FULL)
+		expect(folios(setup, main)).toBe(FULL * WIN_FOLIOS + (20 - FULL) * math.floor(WIN_FOLIOS * SCALE + 0.5))
+		expect(setup.data.get(main).Rank.Opponents).toEqual({ Day = today(), Counts = { ["512"] = 20 } })
+		-- Still no rating anywhere: the quick duel moves none.
+		expect(setup.data.get(main).Rank.Modes[DUEL.Id]).toBeNil()
+	end)
+
+	it("holds two honest newcomers to the same rule, and counts the pair in both profiles", function()
+		local setup = Server.services()
+		local a = setup.world:join(513, "Ada")
+		local b = setup.world:join(514, "Bea")
+		setup.data.get(b).Rank.Opponents = { Day = today(), Counts = { ["513"] = FULL } }
+		begin(setup, a, b)
+		fight(setup, a, b)
+		winSeries(setup, a, b)
+		-- Either ledger is enough: Ada's knows nothing of it, Bea's says the pair is past its full matches.
+		expect(told(setup, a, "match.repeatOpponent")).toBe(1)
+		expect(told(setup, b, "match.repeatOpponent")).toBe(1)
+		expect(lastXp(setup, a, "MatchWin")).toBe(math.floor(ProgressionConfig.XP.MatchWin * SCALE + 0.5))
+		expect(setup.data.get(a).Rank.Opponents.Counts["514"]).toBe(1)
+		expect(setup.data.get(b).Rank.Opponents.Counts["513"]).toBe(FULL + 1)
+	end)
+end)
+
 describe("an honest rematch series (E4-S3)", function()
 	it("keeps every point of Elo over a duel and five rematches by Play again, with damage traded", function()
 		local setup = Server.services()

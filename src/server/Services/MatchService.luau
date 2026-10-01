@@ -2,8 +2,8 @@
 -- MatchService: the match lifecycle. Acquires an arena, teleports the roster to its team spawns,
 -- restricts PvP to the participants of the same live match, runs Countdown → Playing → RoundOver → …
 -- → Result, pays the rewards, applies the ranking and brings everybody back to the hub. A match with a newcomer in
--- it is the quick duel (E10-S7, RankingService.isNewcomer): played and paid in full, it moves nobody's rating, and
--- walking out of it costs none.
+-- it is the quick duel (E10-S7, RankingService.isNewcomer): played and paid as any match, the pair rule below
+-- included, it moves nobody's rating, and walking out of it costs none.
 --
 -- One Heartbeat accumulator drives every live match (no per-match thread, no per-player loop): it
 -- kills whoever fell under the arena's kill zone, refreshes the participants from their Humanoid, asks
@@ -113,6 +113,7 @@ type RankingApi = {
 	getRating: (player: Player, modeId: string) -> number,
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
+	recordMeetings: (result: Types.MatchResult) -> { [number]: boolean },
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
 	hold: (matchId: string, modeId: string, players: { Player }) -> (),
 	release: (matchId: string) -> (),
@@ -392,16 +393,33 @@ local function takeFolios(player: Player, want: number): number
 	return granted
 end
 
+-- The rating move of each participant, and the pair rule's word on them (D-255). A ranked match is applyResult's. One
+-- that moves no rating, a newcomer's quick duel or a match of a server that is not ranked, still counts the pair
+-- (RankingService.recordMeetings): the rating of everybody still here stays where it was, and a repeat is paid a
+-- quarter all the same.
 local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
-	if not active.Match.Ranked then
+	if active.Match.Ranked then
+		local ok, applied = pcall(ranking.applyResult, result)
+		if not ok or type(applied) ~= "table" then
+			log.warn("Ranking.applyResult failed for match %s: %s", active.Match.Id, tostring(applied))
+			return {}
+		end
+		return (applied :: any) :: { [number]: RatingChange }
+	end
+	local ok, repeats = pcall(ranking.recordMeetings, result)
+	if not ok or type(repeats) ~= "table" then
+		log.warn("Ranking.recordMeetings failed for match %s: %s", active.Match.Id, tostring(repeats))
 		return {}
 	end
-	local ok, applied = pcall(ranking.applyResult, result)
-	if not ok or type(applied) ~= "table" then
-		log.warn("Ranking.applyResult failed for match %s: %s", active.Match.Id, tostring(applied))
-		return {}
+	local changes: { [number]: RatingChange } = {}
+	for _, participant in ipairs(active.Match.Participants) do
+		if isLive(participant) then
+			local change = ratingFallback(participant.Player, active.Def.Id, false)
+			change.Repeat = (repeats :: { [number]: boolean })[participant.UserId] == true
+			changes[participant.UserId] = change
+		end
 	end
-	return (applied :: any) :: { [number]: RatingChange }
+	return changes
 end
 
 -- How long `active` has been under way, in whole seconds, for the dashboards.

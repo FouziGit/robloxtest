@@ -57,3 +57,16 @@ Coût par effet (`lune run scripts/effect-cost`) : Marque 12 couches au pic, 69 
 ## La boule de rubans de flamme (D-273)
 
 À la demande du développeur, d'après ses deux références (une boule en tourbillon de langues crochues vue de face, une planche 3D d'une sphère enveloppée de rubans qui se détachent) : la goutte devient une boule de treize rubans — sept bras en spirale, six langues crochues —, un œil sombre, un trait chaud sur chaque langue, le contour en coque inversée ; elle tourne sur l'axe de son vol. `modele.png` : la planche du modèle livré (`tools/meshes/preview.py`). Choisie entre deux constructions (pelote, vortex) par un juge, retouchée puis vérifiée par un relecteur indépendant. Les planches au labo Studio (avant/après, deux tours, notes) restent à faire.
+
+### Au labo Studio (1er octobre 2026) — `corps.jpg`
+
+Vue dans le vrai moteur : la coque inversée donne bien le contour d'encre, la boule de dos est exactement la référence (tourbillon de langues crochues, œil sombre, traits chauds). Tour 1 : à 2,4 studs, la caméra de jeu ne voyait plus qu'un point à vingt studs — portée à **3,6 au lâcher, 3,4 en vol**, traînées élargies (encre 1,6, trait chaud 0,7). Le vol reste celui du serveur : depuis la caméra de jeu la boule passe derrière la tête du lanceur et dépasse au-dessus (règle connue du labo). Charge : 6 Marques à la fois, 16,7 ms en moyenne, 18,9 ms au pire, en Élevé comme en Performance ; au plafond de couches, l'encre et l'écume tombent avant le corps (ordre des couches).
+
+| Critère | Corps (D-273) |
+|---|---|
+| Lisibilité | 4 |
+| Contraste | 5 |
+| Couleur du pigment | 5 |
+| Dynamisme | 4 |
+| Impact | 4 |
+| Performance | 5 |

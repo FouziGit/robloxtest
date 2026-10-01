@@ -709,3 +709,10 @@ Les quatre branches de la vague 3, menées en parallèle pendant que les vagues 
   - un duel d'épreuve n'envoie aucun événement de match au tableau de bord (ni `MatchEnded` ni `GlyphMatch`) ; l'offre reste affichée quand les quatre fosses sont prises ; l'écran du jour dit la série menacée même quand un Signet la couvrirait ;
   - `scripts/check.sh` ne retélécharge `globalTypes.d.luau` que s'il manque (D-261) ;
   - le constat de la vague 2 « un kill joueur paie 120 XP et 15 Folios sans plafond, deux comptes peuvent farmer au hub » est fermé : plus de PvP au hub (D-266), les Folios d'un kill de match sous le plafond du jour (D-255).
+
+## Corps de la Marque et du Lavis (D-273) — 1er octobre 2026
+
+**Fait.** À la demande du développeur, d'après ses références : la Marque vole en boule de rubans de flamme qui tourne sur son vol, le Lavis déferle en vague d'encre indigo de la largeur exacte de ses dégâts. Six volumes générés (`tools/meshes/fireball.py`, `tools/meshes/wave.py`), choisis par un juge entre des constructions concurrentes, retouchés sur planches (`tools/meshes/preview.py`, six vues dont celles du lanceur) et vérifiés par un relecteur indépendant ; téléversés et approuvés, identifiants lus dans Studio ; deux tours au labo (taille de la boule, écrasement de la vague), charge à six sorts tenue à 60 i/s. Règles tenues par les specs (plafonds de triangles par corps, un corps en plusieurs volumes qui bougent comme un seul, front du Lavis mesuré sur la lèvre), cinq défauts réintroduits. Le banc d'écrans ouvre désormais tout le monde sur un jour fixe (la boutique tourne chaque jour et faisait rougir la porte).
+
+**Reste.** Les fouets de la vague, encore presque droits (des rubans animés en `Beam`, comme le prototype de la boule, les feraient onduler) ; voir les deux corps sur un vrai téléphone (E6-S5) ; sous la saturation du plafond de couches, un corps peut perdre son encre avant son pigment (ordre des couches) plutôt qu'être dessiné entier ou pas du tout.
+

@@ -1,0 +1,7 @@
+{"title": "Le Lavis - la vague d'encre (D-273), labo Studio, tours 1 et 2", "frames": [
+ {"capture": "wash_rise_profile_r1b", "moment": "montee", "row": "profil"},
+ {"capture": "wash_profile_r1", "moment": "roule", "row": "profil"},
+ {"capture": "wash_crash_profile_r1", "moment": "ecrasement", "row": "profil (tour 1)"},
+ {"capture": "wash_crash_profile_r2", "moment": "ecrasement", "row": "profil (tour 2)"},
+ {"capture": "wash_thrower_r1", "moment": "roule", "row": "lanceur"}
+]}

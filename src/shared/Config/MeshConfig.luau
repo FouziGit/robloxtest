@@ -189,7 +189,13 @@ local UPLOADED: { [string]: Uploaded } = {
 	["assets/meshes/ink_crown.glb"] = { Id = "rbxassetid://136872056111313", Native = { 1.2754, 0.5792, 1.2582 } },
 	["assets/meshes/ink_drop.glb"] = { Id = "rbxassetid://102080336188266", Native = { 0.52, 0.52, 1 } },
 	["assets/meshes/ink_enso.glb"] = { Id = "rbxassetid://112318728967677", Native = { 0.9865, 0.0063, 0.9205 } },
+	["assets/meshes/ink_fire_body.glb"] = { Id = "rbxassetid://71931020456075", Native = { 0.9006, 0.8765, 0.5251 } },
+	["assets/meshes/ink_fire_core.glb"] = { Id = "rbxassetid://108655142567678", Native = { 0.868, 0.8396, 0.4232 } },
+	["assets/meshes/ink_fire_ink.glb"] = { Id = "rbxassetid://122320573471996", Native = { 0.9323, 0.9073, 0.5732 } },
 	["assets/meshes/ink_split_ring.glb"] = { Id = "rbxassetid://113641567956885", Native = { 0.9366, 0.0038, 0.9996 } },
+	["assets/meshes/ink_wave_body.glb"] = { Id = "rbxassetid://93181479414171", Native = { 0.9752, 0.597, 1.4586 } },
+	["assets/meshes/ink_wave_crest.glb"] = { Id = "rbxassetid://104876439500476", Native = { 0.5507, 0.5313, 0.6654 } },
+	["assets/meshes/ink_wave_ink.glb"] = { Id = "rbxassetid://131312737692105", Native = { 1, 0.6079, 1.4751 } },
 	["assets/meshes/paper_scrap_a.glb"] = { Id = "rbxassetid://133675506830844", Native = { 0.9806, 0.1378, 0.7105 } },
 	["assets/meshes/paper_scrap_b.glb"] = { Id = "rbxassetid://115657160344567", Native = { 0.9568, 0.2034, 0.7024 } },
 }

@@ -515,21 +515,39 @@
       "assetType": "Model",
       "sha256": "47135a3bbb7207064c8d2c258d03b7600c060e2397858a555099646afff17b30",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:12:09+00:00"
+      "uploadedAt": "2026-10-01T01:12:09+00:00",
+      "meshId": "71931020456075",
+      "native": [
+        0.9006214737892151,
+        0.8765277862548828,
+        0.5250644087791443
+      ]
     },
     "assets/meshes/ink_fire_core.glb": {
       "assetId": "103986610773644",
       "assetType": "Model",
       "sha256": "254b16d54f9e37e756d6f3aa77947443f2da4c14e70c44180a60d7d137d34eac",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:12:17+00:00"
+      "uploadedAt": "2026-10-01T01:12:17+00:00",
+      "meshId": "108655142567678",
+      "native": [
+        0.8679562211036682,
+        0.839556872844696,
+        0.4232342541217804
+      ]
     },
     "assets/meshes/ink_fire_ink.glb": {
       "assetId": "127151578719951",
       "assetType": "Model",
       "sha256": "92b0bab7ff2886c54c4fd42be8d0cfb1b1915f3b4a0f71dd67816b3be89b7ffe",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:12:23+00:00"
+      "uploadedAt": "2026-10-01T01:12:23+00:00",
+      "meshId": "122320573471996",
+      "native": [
+        0.9323103427886963,
+        0.9073091745376587,
+        0.5732119679450989
+      ]
     },
     "assets/meshes/ink_split_ring.glb": {
       "assetId": "110168756587220",
@@ -549,21 +567,39 @@
       "assetType": "Model",
       "sha256": "0426a8deae68cefac66aa66bf1e760cd0c5499bbbb32ae5510cebdf016d034e2",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:12:33+00:00"
+      "uploadedAt": "2026-10-01T01:12:33+00:00",
+      "meshId": "93181479414171",
+      "native": [
+        0.9752329587936401,
+        0.5969574451446533,
+        1.4586172103881836
+      ]
     },
     "assets/meshes/ink_wave_crest.glb": {
       "assetId": "105225647390519",
       "assetType": "Model",
       "sha256": "3f2318af062d67af06fbc9b5ffc2d83181f6201d802e828a0674d1338cfec89d",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:12:46+00:00"
+      "uploadedAt": "2026-10-01T01:12:46+00:00",
+      "meshId": "104876439500476",
+      "native": [
+        0.5506647825241089,
+        0.5313345789909363,
+        0.6654320955276489
+      ]
     },
     "assets/meshes/ink_wave_ink.glb": {
       "assetId": "120907252437432",
       "assetType": "Model",
       "sha256": "7d718ca029442040896514875db1e18fea400df34e44b4bb77088c457385bda1",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-01T01:13:01+00:00"
+      "uploadedAt": "2026-10-01T01:13:01+00:00",
+      "meshId": "131312737692105",
+      "native": [
+        1.0,
+        0.6078792810440063,
+        1.475083827972412
+      ]
     },
     "assets/meshes/paper_scrap_a.glb": {
       "assetId": "125757916870539",

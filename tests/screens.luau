@@ -22,6 +22,10 @@ local Strings = require("../src/shared/Strings")
 local Screens = {}
 
 local SECONDS_PER_DAY = 86400
+-- The day every screen is opened on: noon UTC on 30 September 2026, the day docs/PERFORMANCE.md's counts were
+-- measured. The Shop's Today tab draws that day's rotation, so a bench on the real clock drew a different
+-- shop -- and a different count -- every day.
+Screens.EPOCH = 1790769600
 Screens.DESKTOP_HEIGHT = 1080
 -- The local player's user id, twelfth on the leaderboard.
 Screens.ME = 42
@@ -184,6 +188,7 @@ end
 -- The world a screen opens in: the menu's Invite asks whether an invite can be sent (it cannot, here).
 local function worldFor(options: Options): (any, number)
 	local world = Engine.world({
+		Epoch = Screens.EPOCH,
 		Stubs = Engine.interfaceStubs(),
 		Services = {
 			SocialService = {

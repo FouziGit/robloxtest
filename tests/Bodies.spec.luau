@@ -1,16 +1,23 @@
 --!strict
 -- A player's body as MovementService keeps it: every part in the players' collision group, which does not collide
--- with itself (D-215). MovementService runs in the pretend engine (tests/serverworld.luau); what only a live server
--- can show -- two clients passing through each other, a finisher still throwing -- is QA §7.
+-- with itself (D-215), and replaced when its client takes its Humanoid away (D-216), whose holds it keeps (D-XXX).
+-- MovementService runs in the pretend engine (tests/serverworld.luau), CombatService and GlyphService in the pretend
+-- server (tests/server.luau); what only a live server can show -- two clients passing through each other, a finisher
+-- still throwing -- is QA §7.
+local CombatConfig = require("../src/shared/Config/CombatConfig")
 local Engine = require("./engine")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Harness = require("./harness")
+local Server = require("./server")
 local ServerWorld = require("./serverworld")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local GROUP = GameConfig.Movement.CharacterCollisionGroup
+local STUN = CombatConfig.Status.StunAttribute
+local SLOW = CombatConfig.Status.SlowAttribute
+local RAGDOLL = CombatConfig.Status.RagdollAttribute
 
 local function code(path: string): string
 	return ((fs.readFile(path):gsub("%-%-[^\n]*", "")):gsub("%s+", " "))
@@ -154,6 +161,83 @@ describe("a body whose Humanoid was taken away", function()
 		expect(humanoid.WalkSpeed).toBe(0)
 	end)
 
+	it("keeps its stun, slow and fall while its Humanoid is away, and is held by them again", function()
+		-- Cleared on the way out, a client that took its Humanoid out and put it back within a frame walked, and cast,
+		-- out of any stun the server had put on it (E2-S1, D-XXX). Moved out of the body or into one of its parts.
+		local WALK = GameConfig.Movement.WalkSpeed
+		for _, into in ipairs({ "nowhere", "Head" }) do
+			local s = ServerWorld.start()
+			local humanoid = s.humanoid
+			local joint = Engine.instance("AnimationConstraint", s.character)
+			joint.Name = "LeftShoulder"
+			joint.IsKinematic = true
+			joint.MaxTorque = 1000
+			s.world:advance(1)
+			s.service.applySlow(s.player, "Glyph", 0.5, 2.5)
+			s.service.ragdoll(s.player, CombatConfig.Hit.RagdollSeconds)
+			local stunUntil = humanoid:GetAttribute(STUN)
+			local slowUntil = humanoid:GetAttribute(SLOW)
+			humanoid.Parent = if into == "Head" then s.character:FindFirstChild("Head") else nil
+			s.world:advance(1 / 60)
+			expect(s.service.isStunned(s.player)).toBe(true)
+			humanoid.Parent = s.character
+			expect(s.service.isStunned(s.player)).toBe(true)
+			expect(s.service.isDown(s.player)).toBe(true)
+			expect(humanoid.WalkSpeed).toBe(0)
+			expect(humanoid.JumpPower).toBe(0)
+			expect(humanoid:GetAttribute(STUN)).toBe(stunUntil)
+			expect(humanoid:GetAttribute(SLOW)).toBe(slowUntil)
+			expect(joint.MaxTorque).toBe(0)
+			expect(s.character:GetAttribute(RAGDOLL)).toBe(CombatConfig.Status.RagdollLimp)
+			-- Each runs out on its own date: the body gets up, the stun ends and the slow takes over, then nothing.
+			s.world:advance(stunUntil - s.world.now + 2 * TICK)
+			expect(s.service.isStunned(s.player)).toBe(false)
+			expect(s.service.isDown(s.player)).toBe(false)
+			expect(joint.MaxTorque).toBe(1000)
+			expect(joint.IsKinematic).toBe(true)
+			expect(humanoid:GetAttribute(STUN)).toBe(nil)
+			expect(humanoid.WalkSpeed).toBe(WALK * 0.5)
+			s.world:advance(slowUntil - s.world.now + 2 * TICK)
+			expect(humanoid:GetAttribute(SLOW)).toBe(nil)
+			expect(humanoid.WalkSpeed).toBe(WALK)
+			expect(#s.loads).toBe(0)
+			expect(#s.strikes).toBe(0)
+		end
+	end)
+
+	it("comes back without what the server let go of while its Humanoid was away", function()
+		-- A stun the server ends early (the result screen's freeze) and a slow it lifts, while nothing can be written
+		-- on the body: the Humanoid given back is not marked with them, as no tick would ever take the marks off.
+		local s = ServerWorld.start()
+		local humanoid = s.humanoid
+		s.world:advance(1)
+		s.service.applyFreeze(s.player, 5)
+		s.service.applySlow(s.player, "Block", 0.5, 5)
+		humanoid.Parent = nil
+		s.world:advance(1 / 60)
+		s.service.clearStun(s.player)
+		s.service.clearSlow(s.player, "Block")
+		humanoid.Parent = s.character
+		expect(humanoid:GetAttribute(STUN)).toBe(nil)
+		expect(humanoid:GetAttribute(SLOW)).toBe(nil)
+		expect(humanoid.WalkSpeed).toBe(GameConfig.Movement.WalkSpeed)
+		s.world:advance(1)
+		expect(humanoid:GetAttribute(STUN)).toBe(nil)
+		expect(humanoid:GetAttribute(SLOW)).toBe(nil)
+	end)
+
+	it("lets its holds go with the body when its Humanoid does not come back", function()
+		local s = ServerWorld.start()
+		s.world:advance(1)
+		s.service.applyStun(s.player, 2)
+		s.humanoid.Parent = nil
+		s.world:advance(RETURN + 2 * TICK)
+		expect(#s.loads).toBe(1)
+		s:spawn()
+		expect(s.service.isStunned(s.player)).toBe(false)
+		expect(s.humanoid.WalkSpeed).toBe(GameConfig.Movement.WalkSpeed)
+	end)
+
 	it("is replaced once its time away adds up, however often its Humanoid comes back", function()
 		-- A client that takes it out and puts it back a little before the half second, again and again, spends
 		-- most of its time where nothing can hurt it.
@@ -237,5 +321,93 @@ describe("a body whose Humanoid was taken away", function()
 		for _, path in ipairs(files) do
 			expect(code(path)).never.toContain("CharacterAdded")
 		end
+	end)
+end)
+
+-- CombatService refuses the melee, the dash and the guard from the moment a client takes its Humanoid out until its
+-- next body, even put back in time; a glyph is refused with them (D-XXX), so that no hold MovementService gives back
+-- with the Humanoid is all that stands between that body and a cast.
+describe("a glyph from a body whose Humanoid was taken out", function()
+	-- The real CombatService in a pretend server, with one player standing in a body.
+	local function combatWorld(): (any, any)
+		-- The movement audit needs the engine's physics; nothing here moves.
+		local audit = setmetatable({}, {
+			__index = function(): any
+				return function() end
+			end,
+		})
+		local world = Server.world({ Stubs = { ["src/server/Security/MovementAudit"] = audit } })
+		local combat = world.require("src/server/Services/CombatService")
+		local function nothing() end
+		combat.Init({
+			Registry = {
+				on = nothing,
+				fire = nothing,
+				lastInbound = function(): number
+					return 0
+				end,
+			},
+			DataService = {
+				get = function(): any
+					return { Stats = { Kills = 0, Deaths = 0 } }
+				end,
+				push = nothing,
+			},
+			Notify = { send = nothing },
+			Movement = {
+				applySlow = nothing,
+				clearSlow = nothing,
+				applyStun = nothing,
+				ragdoll = nothing,
+				isStunned = function(): boolean
+					return false
+				end,
+				isDown = function(): boolean
+					return false
+				end,
+				command = nothing,
+			},
+			AntiCheat = { strike = nothing },
+			Vfx = { emit = nothing },
+			Progression = { addXp = nothing },
+			Currency = { add = nothing },
+			Cosmetic = {
+				skinShade = function(): number
+					return 0
+				end,
+			},
+		})
+		combat.Start()
+		local player = world:join(1, "Ada")
+		player:LoadCharacterAsync()
+		player.CharacterAdded:Fire(player.Character)
+		return combat, player
+	end
+
+	it("finds no live body from the moment its Humanoid leaves until the next body, even put back in time", function()
+		local combat, player = combatWorld()
+		expect(combat.hasLiveBody(player)).toBe(true)
+		local character = player.Character
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		humanoid.Parent = nil
+		expect(combat.hasLiveBody(player)).toBe(false)
+		humanoid.Parent = character
+		expect(combat.hasLiveBody(player)).toBe(false)
+		player:LoadCharacterAsync()
+		player.CharacterAdded:Fire(player.Character)
+		expect(combat.hasLiveBody(player)).toBe(true)
+		-- Nor a dead one.
+		player.Character:FindFirstChildOfClass("Humanoid").Health = 0
+		expect(combat.hasLiveBody(player)).toBe(false)
+	end)
+
+	it("is refused while CombatService holds no live body, Humanoid in place or not", function()
+		local setup = Server.services()
+		local player = setup.world:join(501, "Ada")
+		player:LoadCharacterAsync()
+		setup.bodiless[player] = true
+		expect(setup.cast(player, "Brand")).toBe(false)
+		setup.bodiless[player] = nil
+		expect(setup.cast(player, "Brand")).toBe(true)
 	end)
 end)

@@ -428,6 +428,9 @@ export type Services = {
 	movement: any,
 	-- The players who hold their guard up, as CombatService.isBlocking answers.
 	guarding: { [any]: boolean },
+	-- The players whose body CombatService no longer holds (a Humanoid their client took out), as
+	-- CombatService.hasLiveBody answers.
+	bodiless: { [any]: boolean },
 	-- Every remote the services fired at a player, in order: its name, the player and the payload.
 	fired: { { Name: string, Player: any, Payload: any } },
 	-- Runs the CastGlyph remote's handler with the recipe of `glyphId`; true when the server accepted the cast.
@@ -489,6 +492,7 @@ function Server.services(options: Options?): Services
 		command = function(_player: any, _payload: any) end,
 	}
 	local guarding: { [any]: boolean } = {}
+	local bodiless: { [any]: boolean } = {}
 	local combat = {
 		Damaged = Engine.signal(),
 		Killed = Engine.signal(),
@@ -510,6 +514,9 @@ function Server.services(options: Options?): Services
 			return guarding[player] == true
 		end,
 		isStunned = movement.isStunned,
+		hasLiveBody = function(player: any): boolean
+			return bodiless[player] ~= true
+		end,
 		isChanneling = function(_player: any): boolean
 			return false
 		end,
@@ -668,6 +675,7 @@ function Server.services(options: Options?): Services
 		gains = gains,
 		movement = movement,
 		guarding = guarding,
+		bodiless = bodiless,
 		hit = function(source: any, target: any, amount: number)
 			combat.Damaged:Fire(source.UserId, target.Character, amount, "Glyph")
 		end,

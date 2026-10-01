@@ -57,6 +57,9 @@ type CombatApi = {
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 	isBlocking: (player: Player) -> boolean,
 	isStunned: (player: Player) -> boolean,
+	-- Whether the player stands in a live body CombatService holds: not from the moment its client took the Humanoid
+	-- out until the next body, even put back in time (D-XXX).
+	hasLiveBody: (player: Player) -> boolean,
 	-- A charged glyph or a rush holding its caster (D-142): no other glyph until it ends or a dash breaks it.
 	isChanneling: (player: Player) -> boolean,
 	-- Where the server last believed the player stood, read without judging it: what a frame asks every step.
@@ -227,8 +230,13 @@ local function cooldownsOf(player: Player): { [string]: number }
 	return map
 end
 
--- Live root of the player's character, or nil when dead / not spawned.
+-- Live root of the player's character, or nil when dead / not spawned, or when CombatService no longer holds the
+-- body: a Humanoid its client took out and put back is refused a glyph until the next body, as it is refused the
+-- melee, the dash and the guard (D-XXX).
 local function liveRoot(player: Player): BasePart?
+	if not combat.hasLiveBody(player) then
+		return nil
+	end
 	local character: Model? = player.Character
 	if character == nil then
 		return nil

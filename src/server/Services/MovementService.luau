@@ -223,6 +223,16 @@ local function clearStatuses(state: State)
 	end
 end
 
+-- Marks a Humanoid given back in time with the holds its body kept while it was away, and holds it by them: the stun
+-- and the slows run on their own dates, which its time away took nothing off (D-XXX).
+local function holdAgain(state: State, humanoid: Humanoid, now: number)
+	recomputeSlow(state, now)
+	humanoid:SetAttribute(SLOW_ATTRIBUTE, if state.SlowUntil > 0 then state.SlowUntil else nil)
+	StunClock.expire(state.Stun, now)
+	humanoid:SetAttribute(STUN_ATTRIBUTE, if StunClock.running(state.Stun, now) then state.Stun.Until else nil)
+	applyStats(state, now)
+end
+
 local function releaseCharacter(state: State)
 	local characterTrove = state.CharacterTrove
 	state.CharacterTrove = nil
@@ -299,7 +309,10 @@ local function onCharacterAdded(player: Player, character: Model)
 	-- leaves is timed away (respawnLost); given back, the body is held as before, and its time away is kept:
 	-- a client that took it out and put it back over and over would otherwise never be replaced. Given back once
 	-- that time has run out, it came back too late: it stays away, and the next tick replaces the body, where a
-	-- Humanoid returned between the half second and that tick was taken back with no strike.
+	-- Humanoid returned between the half second and that tick was taken back with no strike. Its stun, its slows and
+	-- its fall stay with the body while it is away, and hold it again when it comes back: cleared on the way out, a
+	-- client that took it out and put it back within a frame walked, and cast, out of any stun (D-XXX). Only a
+	-- death or a new body lets them go.
 	local function onHumanoidDetached()
 		if states[player] ~= state or state.CharacterTrove ~= characterTrove then
 			return
@@ -314,12 +327,11 @@ local function onCharacterAdded(player: Player, character: Model)
 				lost.Away += now - lost.Since
 				lost.Since = nil
 				state.Humanoid = humanoid
-				applyStats(state, now)
+				holdAgain(state, humanoid, now)
 			end
 			return
 		end
 		local alive = state.Humanoid == humanoid
-		clearStatuses(state)
 		state.Humanoid = nil
 		if not alive then
 			return

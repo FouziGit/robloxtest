@@ -510,6 +510,27 @@
         0.9204848408699036
       ]
     },
+    "assets/meshes/ink_fire_body.glb": {
+      "assetId": "123000068267243",
+      "assetType": "Model",
+      "sha256": "47135a3bbb7207064c8d2c258d03b7600c060e2397858a555099646afff17b30",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:12:09+00:00"
+    },
+    "assets/meshes/ink_fire_core.glb": {
+      "assetId": "103986610773644",
+      "assetType": "Model",
+      "sha256": "254b16d54f9e37e756d6f3aa77947443f2da4c14e70c44180a60d7d137d34eac",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:12:17+00:00"
+    },
+    "assets/meshes/ink_fire_ink.glb": {
+      "assetId": "127151578719951",
+      "assetType": "Model",
+      "sha256": "92b0bab7ff2886c54c4fd42be8d0cfb1b1915f3b4a0f71dd67816b3be89b7ffe",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:12:23+00:00"
+    },
     "assets/meshes/ink_split_ring.glb": {
       "assetId": "110168756587220",
       "assetType": "Model",
@@ -522,6 +543,27 @@
         0.003807331435382366,
         0.9995793104171753
       ]
+    },
+    "assets/meshes/ink_wave_body.glb": {
+      "assetId": "127514164147312",
+      "assetType": "Model",
+      "sha256": "0426a8deae68cefac66aa66bf1e760cd0c5499bbbb32ae5510cebdf016d034e2",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:12:33+00:00"
+    },
+    "assets/meshes/ink_wave_crest.glb": {
+      "assetId": "105225647390519",
+      "assetType": "Model",
+      "sha256": "3f2318af062d67af06fbc9b5ffc2d83181f6201d802e828a0674d1338cfec89d",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:12:46+00:00"
+    },
+    "assets/meshes/ink_wave_ink.glb": {
+      "assetId": "120907252437432",
+      "assetType": "Model",
+      "sha256": "7d718ca029442040896514875db1e18fea400df34e44b4bb77088c457385bda1",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-01T01:13:01+00:00"
     },
     "assets/meshes/paper_scrap_a.glb": {
       "assetId": "125757916870539",

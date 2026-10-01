@@ -716,3 +716,21 @@ Les quatre branches de la vague 3, menées en parallèle pendant que les vagues 
 
 **Reste.** Les fouets de la vague, encore presque droits (des rubans animés en `Beam`, comme le prototype de la boule, les feraient onduler) ; voir les deux corps sur un vrai téléphone (E6-S5) ; sous la saturation du plafond de couches, un corps peut perdre son encre avant son pigment (ordre des couches) plutôt qu'être dessiné entier ou pas du tout.
 
+## Relecture du serveur de la PR #2 (E2-S1 ; D-274 à D-277) — 1er octobre 2026
+
+Les 93 fichiers de `src/server` que modifie la PR #2 ont été relus en six tranches (argent, classé, sécurité, combat, modes, plateforme). Chaque tranche a eu deux chercheurs, et chaque constat critique ou haut deux sceptiques. Le rapport complet est dans `docs/reviews/E2-S1.md`. Rien n'a été vu dans Studio, rien n'est poussé.
+
+- **Fait, les correctifs.** Les 10 constats confirmés décrivent 4 défauts distincts, tous corrigés avec un test prouvé par mutation. Deux branches sont fusionnées en `--no-ff`, `scripts/check.sh` vert après chacune (2 512 puis 2 520 tests, 179 specs, 5 vérifications sur la place construite) :
+  - `fix/e2s1-security` (fusion `c6d82b6`, numéro D-274 en `ba835f4`). Un Humanoid sorti puis rendu à temps garde l'étourdissement, les ralentissements et la chute de son corps, et ce corps ne lance plus de glyphe avant d'être remplacé.
+  - `fix/e2s1-ranked` (fusion `edb4990`, numéros D-275 à D-277 en `1434462`) apporte trois correctifs :
+    - un kill en match est payé avec le résultat, sous la part du serveur privé, le quart de la paire et le plafond du jour, et rien pour un match nul (D-275) ;
+    - seule une mort de la manche jouée compte (D-276) ;
+    - un duel rapide ou un match de serveur privé acheté entre dans le registre de la paire du jour (D-277).
+- **Fermé.** La ligne de la vague 3 « l'XP d'un kill (120) n'a ni plafond ni règle de paire » est fermée par D-275.
+- **Pas fusionné, exprès.** `fix/e2s1-money`, `fix/e2s1-combat`, `fix/e2s1-modes` et `fix/e2s1-platform` corrigeaient le même défaut que D-275 de façons qui s'excluent : les fusionner en plus aurait payé le kill deux fois. Leurs branches et leurs worktrees restent jusqu'à ta décision.
+- **Statut de la story : partielle** (`docs/roadmap/backlog.json`). Les dix tickets (T1 à T10 du rapport, de gravité moyenne ou basse) attendent que tu choisisses le suivi (GitHub Issues ou Notion) et que tu acceptes leur création.
+- **À confirmer par le développeur** (décidé en autonomie) :
+  - D-274 : plus aucune action de combat jusqu'à la réinitialisation après un Humanoid rendu ;
+  - D-275 : un kill garde ses 120 XP et 15 Folios dans tous les modes, ses Folios suivent la part et le quart, le toast n'a plus de montant, rien pour qui part avant le résultat ;
+  - D-277 : un huitième pour une paire répétée en serveur privé acheté, un seul registre pour tous les matchs.
+- **Reste, dans Studio.** `docs/QA.md` §11.11 : savoir si le retour d'un Humanoid se réplique, ce que supposent D-216 et D-274. Dans un match vivant, le bandeau de `match.takedown` et le Résultat qui compte l'XP et les Folios des kills.

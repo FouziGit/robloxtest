@@ -98,6 +98,7 @@
         {
           "id": "E2-S1",
           "title": "Relecture ciblée et bornée du serveur de la PR #2",
+          "status": "partial",
           "owner": "both",
           "effort": "L",
           "acceptance": [

@@ -964,8 +964,12 @@ local TAP: Timeline = {
 -- It has no Impact phase, because its impact is a separate packet: the server detonates it and emits
 -- Explosion, which has its own timeline below. That split is not an accident of the old code, it is
 -- correct -- the projectile does not know where it will end, and the blast does not know where it began.
+-- Radians a second the Brand's fireball turns about its flight (D-273): about a turn a second, the
+-- negative way, so its hooked flame tongues trail as flames do instead of leading like a saw.
+local FIREBALL_SPIN = -6
+
 local BRAND: Timeline = {
-	Intent = "Born hot in the hand, flicked out along the throw, and flown as a drop with a burning stroke behind it",
+	Intent = "Born hot in the hand, flicked out along the throw, and flown as a ball of flame ribbons turning about its flight, with a burning stroke behind it",
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -974,26 +978,66 @@ local BRAND: Timeline = {
 			Duration = 0.04,
 			Layers = {
 				-- The glyph lights in the hand with the shared Cast timeline (the blot, the hot point, the seal and
-				-- the light at the fist); what is the Brand's own is the drop, and the throw below.
+				-- the light at the fist); what is the Brand's own is the fireball, and the throw below.
 				--
-				-- The drop gathering where the server lets go of it: grown, never appeared, drawn out along the
-				-- throw, and handed to the flight (Chain), which carries it on from exactly where this leaves it
-				-- (D-114). Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame and overshot.
+				-- The fireball gathering where the server lets go of it (D-273): its ribbons, their heated
+				-- streaks and their contour, three volumes grown together, never appeared, drawn out along the
+				-- throw, and each handed to the flight (Chain), which carries it on from exactly where this
+				-- leaves it (D-114). Quad Out, not Back: in 0.06 s a Back did most of its growth in one frame
+				-- and overshot. Already turning, at the flight's own rate: the turn is an angle on the play's
+				-- clock, so the hand-over neither jumps nor stalls.
 				{
 					Kind = "Mesh",
-					Mesh = "Drop",
-					Chain = "Head",
+					Mesh = "FireBody",
+					Chain = "Fire",
 					At = 0,
 					For = 0.06,
 					Ease = "Quad",
 					EaseDirection = "Out",
 					Offset = { 0, 0.4, 4 },
-					Size = 0.2,
-					EndSize = 1.6,
+					Size = 0.3,
+					EndSize = 2.6,
 					Stretch = { 1, 1, 1 },
-					EndStretch = { 0.7, 0.7, 1.8 },
+					EndStretch = { 0.85, 0.85, 1.25 },
 					Transparency = 0,
 					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "FireCore",
+					Role = "Core",
+					Chain = "FireCore",
+					At = 0,
+					For = 0.06,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = { 0, 0.4, 4 },
+					Size = 0.3,
+					EndSize = 2.6,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 0.85, 0.85, 1.25 },
+					Transparency = 0,
+					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "FireInk",
+					Role = "Ink",
+					Chain = "FireInk",
+					At = 0,
+					For = 0.06,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = { 0, 0.4, 4 },
+					Size = 0.3,
+					EndSize = 2.6,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 0.85, 0.85, 1.25 },
+					Transparency = 0,
+					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
 				},
 			},
 		},
@@ -1066,29 +1110,68 @@ local BRAND: Timeline = {
 					-- it reads as thrown rather than fired; halved so the drawn one stays inside the blast.
 					Arc = 1.5,
 				},
-				-- The drop itself, riding the flight head first: stretched along its speed at the throw, settling
-				-- round as drag would. It is the threat, so it does not fade in flight: its burst splats it
-				-- (VfxTimeline.land), and so does the end of a flight nothing burst.
+				-- The fireball itself, riding the flight and turning about it, its flame tongues trailing like
+				-- flames off a thing that flies (a negative turn about the flight axis: the hooks were modelled
+				-- pointing the other way): drawn out along its speed at the throw, settling round as drag would.
+				-- It is the threat, so it does not fade in flight: its burst splats it (VfxTimeline.land), and
+				-- so does the end of a flight nothing burst.
 				{
 					Kind = "Mesh",
-					Mesh = "Drop",
-					Chain = "Head",
+					Mesh = "FireBody",
+					Chain = "Fire",
 					Ride = true,
 					At = 0,
 					For = 1,
 					Ease = "Exponential",
 					EaseDirection = "Out",
-					Size = 1.6,
-					EndSize = 1.3,
-					Stretch = { 0.7, 0.7, 1.8 },
-					EndStretch = { 1, 1, 1.1 },
+					Size = 2.6,
+					EndSize = 2.4,
+					Stretch = { 0.85, 0.85, 1.25 },
+					EndStretch = { 1, 1, 1.05 },
 					Transparency = 0,
 					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "FireCore",
+					Role = "Core",
+					Chain = "FireCore",
+					Ride = true,
+					At = 0,
+					For = 1,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Size = 2.6,
+					EndSize = 2.4,
+					Stretch = { 0.85, 0.85, 1.25 },
+					EndStretch = { 1, 1, 1.05 },
+					Transparency = 0,
+					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "FireInk",
+					Role = "Ink",
+					Chain = "FireInk",
+					Ride = true,
+					At = 0,
+					For = 1,
+					Ease = "Exponential",
+					EaseDirection = "Out",
+					Size = 2.6,
+					EndSize = 2.4,
+					Stretch = { 0.85, 0.85, 1.25 },
+					EndStretch = { 1, 1, 1.05 },
+					Transparency = 0,
+					EndTransparency = 0,
+					Spin = FIREBALL_SPIN,
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
-				-- The stroke behind it, in the page's ink: as thick as the drop where it leaves it and tapering to
-				-- a point a fifth of a second back. The contour that detaches a red drop from a pale floor.
+				-- The stroke behind it, in the page's ink: as thick as the ball where it leaves it and tapering to
+				-- a point a fifth of a second back. The contour that detaches a red ball from a pale floor.
 				-- Untextured on purpose: a trail stretches its texture over its whole length, and the brush
 				-- stroke drawn that way was a faint smudge in the lab where a bare ribbon is a clean wedge.
 				{
@@ -1103,7 +1186,7 @@ local BRAND: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The burning line inside it: hot at the drop, cooling into the pigment along the ribbon.
+				-- The burning line inside it: hot at the ball, cooling into the pigment along the ribbon.
 				{
 					Kind = "Trail",
 					At = 0,
@@ -1118,7 +1201,7 @@ local BRAND: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- Embers shed by the heat, and beads of pigment flung off the drop: what makes the stroke a
+				-- Embers shed by the heat, and beads of pigment flung off the ball: what makes the stroke a
 				-- thing moving through air rather than a line drawn on the screen.
 				{
 					Kind = "Emitter",
@@ -1473,13 +1556,14 @@ local EXPLOSION: Timeline = {
 -- target once inside a sphere of HitRadius 8 and shoving it back.
 --
 -- The French name is the design: a lavis is a broad dilute layer of pigment dragged across a page with a
--- loaded flat brush. So this glyph is not water. It is a wash -- a wide wet stroke painted across the
--- floor, darkest at its leading edge where the pigment piles up against the dry paper, thinning behind it.
--- That leading line is the whole read, and it is the one image no other battleground has.
+-- loaded flat brush. The developer asked for it to stand up (D-273): the lavis rises off the page as an
+-- ink tidal wave, a calligraphic curl -- still ink, never water: its body is the pigment, the foam on its
+-- crest the heated pigment, its contour, flow lines and trailing whips the page's ink -- and it still
+-- soaks the strip it crosses, which is what the world keeps.
 --
--- What it replaced was a translucent Glass slab the width of the hit sphere, tweened to the end of its
--- range and then shrunk flat. Glass is a stock Roblox material, the slab was a rectangle rather than a
--- mark, nothing preceded it, and the floor it crossed forgot it instantly.
+-- What it replaced: a flat front, a brush stroke turned to whoever looked at it (D-119), and before that
+-- a translucent Glass slab the width of the hit sphere. The stroke read from the thrower's camera only as
+-- a band; the slab was a stock material and a rectangle rather than a mark.
 --
 -- THE TIMING IS THE WHOLE SPELL, so it is worth the paragraph. GlyphEffects.Wash emits this packet and
 -- then steps its damage sphere immediately, at a constant rate, 6 to 40 over TravelTime 0.8. Every phase
@@ -1493,15 +1577,21 @@ local EXPLOSION: Timeline = {
 --
 -- How it is built: the start line is wetted on the page (not in the air -- the shared Cast timeline is
 -- drawing the seal in front of the caster over exactly these frames, and it owns that space), the pigment
--- is thrown low, and then ONE invisible carrier flies the front. The leading edge, the wet curtain, the
--- shed pigment and the light all ride it, so none of them can disagree about where the danger is. Three
--- marks are laid on the floor as the front crosses them, in that order, and they are what the world keeps.
+-- is thrown low, and then ONE invisible carrier flies the wave. Its three volumes, the shed pigment, the
+-- spray off its crest and the light all ride it, so none of them can disagree about where the danger is.
+-- Three marks are laid on the floor as the front crosses them, in that order, and they are what the world
+-- keeps.
 --
 -- This timeline must be played with no Follow in its Context. buildTrail anchors to Context.Follow when it
 -- is given one, and followCarrier then writes that part's CFrame every frame: a Follow here would drag the
 -- caster's own root thirty-four studs down the wave.
+-- Where the Wash's wave stands, from its carrier (D-273): the carrier rides 2.2 studs under the
+-- caster's root, which is 3 above the floor for a standard body, so the floor is 0.8 under it; the wave's
+-- pivot is on its own floor line, and sinks 0.3 more so a taller body's throw never floats its foot.
+local WAVE_FOOT = { 0, -1.1, 0 }
+
 local WASH: Timeline = {
-	Intent = "A loaded brush is dragged forward: a dark wet front at the edge of the damage, on the server's own clock, and the strip it soaks",
+	Intent = "An ink tidal wave surges off the page, rolls its crest over the edge of the damage on the server's own clock, crashes where the damage ends, and leaves the strip it soaks",
 	Phases = {
 		{
 			Name = "Anticipation",
@@ -1594,67 +1684,170 @@ local WASH: Timeline = {
 					EaseDirection = "Out",
 					Offset = { 0, -2.2, 6 },
 					Travel = 34,
-					-- A stud and a half of crest. A wave at exactly floor height is a sliding decal; one
-					-- that lifts and settles once is water, and 1.6 studs is far inside the eight the
-					-- sphere forgives.
-					Arc = 1.6,
+					-- Flat: the wave stands on the page it sweeps. Its rise and its fall are its own shape
+					-- (below), which the old flat front had to borrow from an arc of the whole flight.
+					Arc = 0,
 				},
 				-- After the carrier, so it exists when the tail starts riding it.
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Tail", Ride = true },
-				-- The leading edge, the signature layer: a stroke turned to whoever looks at it, widening to the full sixteen-stud hit diameter as it goes. It ends half a stud wider than the
-				-- sphere that hurts, never narrower -- and it is drawn seven studs AHEAD of the carrier, at the
-				-- sphere's leading edge: the damage reaches a target when the sphere's rim does, and a front
-				-- drawn at its centre arrived a third of a second after the hit it announced (the lab, D-119).
+				-- The wave itself (D-273): three volumes drawn together -- its indigo body, the pale foam
+				-- on its crest and its ink (contour, flow lines, trailing whips) -- as wide as the sixteen studs
+				-- that hurt, its pivot on the floor under the centre of the server's sphere and its lip at the
+				-- sphere's leading edge: the damage reaches a target when the rim does, and a front drawn at its
+				-- centre arrived a third of a second after the hit it announced (the lab, D-119). A little
+				-- below the floor, so a tall avatar's throw does not float its foot.
+				-- It surges up flat out of the floor (Back: it overshoots and settles), rolls forward whole, and
+				-- crashes as the server's front reaches its range: it slumps and spreads, never reaching past
+				-- the rim, and the page drinks it (Residue). One chain per volume, so each is borrowed once.
 				{
-					Kind = "Sprite",
-					Face = "Camera",
-					At = 0,
-					For = 0.7,
+					Kind = "Mesh",
+					Mesh = "WaveBody",
+					Chain = "Wave",
 					Ride = true,
-					Ease = "Sine",
+					At = 0,
+					For = 0.16,
+					Ease = "Back",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
-					Offset = { 0, 0.6, 7 },
-					Size = 9,
-					EndSize = 16.6,
-					Transparency = 0.05,
-					EndTransparency = 0.55,
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 0.7, 0.08, 0.55 },
+					EndStretch = { 1, 1, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
 				},
-				-- Its wet lip in the page's ink, just in front: where the pigment piles up against dry paper,
-				-- the darkest line of a wash, and what detaches an indigo front from a pale floor.
 				{
-					Kind = "Sprite",
-					Face = "Camera",
-					At = 0,
-					For = 0.7,
+					Kind = "Mesh",
+					Mesh = "WaveCrest",
+					Role = "Core",
+					Chain = "WaveCrest",
 					Ride = true,
-					Ease = "Sine",
+					At = 0,
+					For = 0.16,
+					Ease = "Back",
 					EaseDirection = "Out",
-					Texture = "BrushStroke",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 0.7, 0.08, 0.55 },
+					EndStretch = { 1, 1, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveInk",
 					Role = "Ink",
-					Offset = { 0, 0.1, 7.6 },
-					Size = 8,
-					EndSize = 15,
-					Transparency = 0.1,
-					EndTransparency = 0.8,
-				},
-				-- The wet curtain: a five-stud ribbon riding the front, tapering to 1.4 at its tail. A
-				-- riding trail turns its face to the camera (buildTrail), because a sheet standing along
-				-- the line of travel is seen edge-on by the caster and by whoever the wave is sweeping
-				-- toward -- the two people it is for. The Offset lifts it off the floor. The stroke ON the
-				-- floor is the business of the three marks below; Mark is the only layer kind that lies
-				-- flat.
-				{
-					Kind = "Trail",
-					At = 0,
-					For = 0.7,
+					Chain = "WaveInk",
 					Ride = true,
-					Ribbon = 0.25,
-					Size = 4,
-					EndSize = 0.5,
-					Offset = { 0, 1.7, 0 },
-					Transparency = 0.35,
-					EndTransparency = 1,
+					At = 0,
+					For = 0.16,
+					Ease = "Back",
+					EaseDirection = "Out",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 0.7, 0.08, 0.55 },
+					EndStretch = { 1, 1, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveBody",
+					Chain = "Wave",
+					Ride = true,
+					At = 0.16,
+					For = 0.4,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 1.02, 1.05, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveCrest",
+					Role = "Core",
+					Chain = "WaveCrest",
+					Ride = true,
+					At = 0.16,
+					For = 0.4,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 1.02, 1.05, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveInk",
+					Role = "Ink",
+					Chain = "WaveInk",
+					Ride = true,
+					At = 0.16,
+					For = 0.4,
+					Ease = "Sine",
+					EaseDirection = "InOut",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1, 1, 1 },
+					EndStretch = { 1.02, 1.05, 1 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveBody",
+					Chain = "Wave",
+					Ride = true,
+					At = 0.56,
+					For = 0.14,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.02, 1.05, 1 },
+					EndStretch = { 1.12, 0.45, 1.04 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveCrest",
+					Role = "Core",
+					Chain = "WaveCrest",
+					Ride = true,
+					At = 0.56,
+					For = 0.14,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.02, 1.05, 1 },
+					EndStretch = { 1.12, 0.45, 1.04 },
+					Transparency = 0,
+					EndTransparency = 0,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveInk",
+					Role = "Ink",
+					Chain = "WaveInk",
+					Ride = true,
+					At = 0.56,
+					For = 0.14,
+					Ease = "Quad",
+					EaseDirection = "In",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.02, 1.05, 1 },
+					EndStretch = { 1.12, 0.45, 1.04 },
+					Transparency = 0,
+					EndTransparency = 0,
 				},
 				-- Beads of pigment shed off the back of the front and falling to the page: a brush depositing,
 				-- where a file of identical grey puffs read as exhaust (the lab's before sheet).
@@ -1677,8 +1870,8 @@ local WASH: Timeline = {
 					Transparency = 0,
 					EndTransparency = 1,
 				},
-				-- The crest: hot points of the pigment spitting off the leading edge, and spray of ink torn up
-				-- by it -- the only things on the wave that shine, and the dark that makes them read.
+				-- The crest: hot points of the pigment spitting off the foam at the top of the curl -- the only
+				-- things on the wave that shine, read against the wave's own ink contour behind them.
 				{
 					Kind = "Emitter",
 					At = 0,
@@ -1689,31 +1882,13 @@ local WASH: Timeline = {
 					Brightness = 2,
 					Emit = "Up",
 					Texture = "DustMote",
-					Offset = { 0, 1, 7 },
+					Offset = { 0, 7.6, 7 },
 					Rate = 30,
 					Speed = { 1, 4 },
 					Lifetime = { 0.15, 0.3 },
 					Spread = 60,
 					Drag = 2,
 					Size = 0.5,
-					EndSize = 0,
-				},
-				{
-					Kind = "Emitter",
-					At = 0,
-					For = 0.66,
-					Ride = true,
-					Role = "Ink",
-					Emit = "Up",
-					Texture = "SparkStreak",
-					Offset = { 0, 0.5, 7 },
-					Rate = 24,
-					Speed = { 8, 16 },
-					Lifetime = { 0.12, 0.22 },
-					Spread = 50,
-					Drag = 3,
-					Squash = 0.5,
-					Size = 0.8,
 					EndSize = 0,
 				},
 				{
@@ -1779,9 +1954,60 @@ local WASH: Timeline = {
 		{
 			Name = "Residue",
 			-- The marks laid during the flight are still soaking through most of this phase; what is left
-			-- to add is the page drying over the middle of the strip.
+			-- to add is the crashed wave sinking into the page where it broke, and the page drying over the
+			-- middle of the strip.
 			Duration = 2.2,
 			Layers = {
+				{
+					Kind = "Mesh",
+					Mesh = "WaveBody",
+					Chain = "Wave",
+					Ride = true,
+					At = 0,
+					For = 0.35,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.12, 0.45, 1.04 },
+					EndStretch = { 1.2, 0.05, 1.04 },
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveCrest",
+					Role = "Core",
+					Chain = "WaveCrest",
+					Ride = true,
+					At = 0,
+					For = 0.35,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.12, 0.45, 1.04 },
+					EndStretch = { 1.2, 0.05, 1.04 },
+					Transparency = 0,
+					EndTransparency = 1,
+				},
+				{
+					Kind = "Mesh",
+					Mesh = "WaveInk",
+					Role = "Ink",
+					Chain = "WaveInk",
+					Ride = true,
+					At = 0,
+					For = 0.35,
+					Ease = "Quad",
+					EaseDirection = "Out",
+					Offset = WAVE_FOOT,
+					Size = 16,
+					Stretch = { 1.12, 0.45, 1.04 },
+					EndStretch = { 1.2, 0.05, 1.04 },
+					Transparency = 0,
+					EndTransparency = 1,
+				},
 				{
 					Kind = "Emitter",
 					At = 0,

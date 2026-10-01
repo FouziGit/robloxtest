@@ -53,3 +53,7 @@ Ce qui reste à 4 et pourquoi : depuis la caméra de jeu, une cible droit devant
 | idem, niveau Performance | 16,7 ms | 18,3 ms | 18,8 ms | 24 (plafond) |
 
 Coût par effet (`lune run scripts/effect-cost`) : Marque 12 couches au pic, 69 particules ; explosion 11 et 60 ; éclat d'appui 4 et 10.
+
+## La boule de rubans de flamme (D-273)
+
+À la demande du développeur, d'après ses deux références (une boule en tourbillon de langues crochues vue de face, une planche 3D d'une sphère enveloppée de rubans qui se détachent) : la goutte devient une boule de treize rubans — sept bras en spirale, six langues crochues —, un œil sombre, un trait chaud sur chaque langue, le contour en coque inversée ; elle tourne sur l'axe de son vol. `modele.png` : la planche du modèle livré (`tools/meshes/preview.py`). Choisie entre deux constructions (pelote, vortex) par un juge, retouchée puis vérifiée par un relecteur indépendant. Les planches au labo Studio (avant/après, deux tours, notes) restent à faire.

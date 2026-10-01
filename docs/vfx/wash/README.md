@@ -19,3 +19,7 @@
 | Dynamisme | 1 |
 | Impact | 1 |
 | Performance | 3 |
+
+## La vague d'encre (D-273)
+
+À la demande du développeur, d'après ses références (`ref-1.jpg` en jeu, `ref-2.jpg` planche annotée, `ref-3.jpg` quatre vues) : le front de pinceau devient une vague d'encre indigo en volume — corps (pigment), écume de la crête (cœur), encre (contour en coque inversée, lignes de flux, fouets). `modele.png` : la planche du modèle livré, rendue comme le jeu la dessine (`tools/meshes/preview.py`), six vues dont les deux du lanceur. Choisie entre trois constructions (profil balayé, brins, feuilles superposées) par un juge, deux tours de retouche, vérifiée par un relecteur indépendant. Les planches au labo Studio (avant/après, deux tours, notes) restent à faire.

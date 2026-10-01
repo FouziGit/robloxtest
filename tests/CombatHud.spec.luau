@@ -767,12 +767,19 @@ describe("the centre splashes", function()
 		expect(has(pop, 'localize.t("hud.splash.defeated")')).toBe(true)
 		expect(has(pop, "Theme.Timing.KillPopSeconds")).toBe(true)
 		local hud = code(HUD_CONTROLLER)
-		expect(has(hud, 'local TAKEDOWN_KEY = "hud.playerKill"')).toBe(true)
+		-- Two takedowns: the Flyleaf's, which pays there and then and says the XP, and a match's, paid with the result.
+		expect(
+			has(
+				hud,
+				'local TAKEDOWN_KEYS: { [string]: boolean } = { ["hud.playerKill"] = true, ["match.takedown"] = true }'
+			)
+		).toBe(true)
 		local show = body(hud, "show")
-		expect(has(show, "if key == TAKEDOWN_KEY then banner:Pop() end")).toBe(true)
+		expect(has(show, "if TAKEDOWN_KEYS[key] then banner:Pop() end")).toBe(true)
 		expect(has(code(GLYPH_SERVICE) .. code("src/server/Services/CombatService.luau"), '"hud.playerKill"')).toBe(
 			true
 		)
+		expect(has(code("src/server/Services/MatchService.luau"), '"match.takedown"')).toBe(true)
 	end)
 
 	it("say a round won or lost once, at the centre, and not again as a toast", function()

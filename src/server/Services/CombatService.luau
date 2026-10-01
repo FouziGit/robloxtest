@@ -1058,10 +1058,10 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model, zone
 				sourceData.Stats.Kills += 1
 				dataService.push(source, "Stats")
 			end
-			-- A zone that pays its own kills (the Flyleaf, under its daily cap) hears this one through Killed. The zone
-			-- is the blow's, never where the killer stands at the death: a Flyleaf member who hit a rival and stepped
-			-- home before the rival pressed Reset would otherwise be paid by the hub, past the page's cap. Here, the
-			-- kill's XP only: a match kill's Folios are the match's, paid by MatchService under the day's cap (D-255).
+			-- A zone that pays its own kills (the Flyleaf under its daily cap, a match with its result) hears this one
+			-- through Killed. The zone is the blow's, never where the killer stands at the death: a Flyleaf member who
+			-- hit a rival and stepped home before the rival pressed Reset would otherwise be paid by the hub, past the
+			-- page's cap. Here, the kill's XP only, never its Folios.
 			if zone ~= nil and DamageZones.combatPays(ZONE_RULES, zone) then
 				local xp = ProgressionConfig.XP.PlayerKill
 				progression.addXp(source, xp, "PlayerKill")

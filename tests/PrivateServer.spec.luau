@@ -188,6 +188,7 @@ local function play(kind: Kind): Played
 	}
 
 	local damaged = Engine.signal()
+	local killed = Engine.signal()
 	local Match = world.require("src/server/Services/MatchService")
 	Match.Init({
 		Registry = {
@@ -203,8 +204,8 @@ local function play(kind: Kind): Played
 		Notify = { send = function() end },
 		Combat = {
 			Damaged = damaged,
-			-- A match kill's Folios are paid by MatchService under the day's cap (D-255).
-			Killed = Engine.signal(),
+			-- A match's kills are paid by MatchService with its result, under the same rules (D-255).
+			Killed = killed,
 			-- The match holds the Match zone (ZoneConfig, D-266).
 			claimZone = function() end,
 			resyncPosition = function() end,
@@ -263,11 +264,15 @@ local function play(kind: Kind): Played
 
 	assert(Match.start("Duel1v1", { { 1 }, { 2 } }) ~= nil, "the duel did not start: this gate would check nothing")
 	-- The duel is fought, a hit each way past MatchConfig.MinPlayedSeconds: a walk-out before that is void (D-255)
-	-- and would leave the winner no result to read.
+	-- and would leave the winner no result to read. Player 1 takes the first round by a kill, as CombatService reports
+	-- one: the body dies, then Killed says whose it was.
 	world:advance(MatchConfig.Modes.Duel1v1.CountdownSeconds + 1)
 	damaged:Fire(1, leaver.Character, 10, "Glyph")
 	damaged:Fire(2, winner.Character, 10, "Glyph")
+	leaver.Character:FindFirstChildOfClass("Humanoid").Health = 0
+	killed:Fire(1, leaver.Character)
 	world:advance(MatchConfig.MinPlayedSeconds)
+	assert(Match.getMatch(winner).Round == 2, "the kill did not take the round: this gate would check nothing")
 	-- Then player 2 walks out: Players says they left, the match waits out the grace in which a server closing would
 	-- take everybody (D-206), and their profile's session ends with its last save.
 	players.PlayerRemoving:Fire(leaver)
@@ -314,9 +319,14 @@ describe("ranked play on each kind of server", function()
 					expect(member.RankKey).never.toBe("")
 				end
 			end
+			-- The win, and the kill at its own value.
 			local scale = MatchConfig.Rewards.Duel1v1
-			expect(played.xp).toBe(math.floor(ProgressionConfig.XP.MatchWin * scale.Xp + 0.5))
-			expect(played.folios).toBe(math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios + 0.5))
+			expect(played.xp).toBe(
+				math.floor(ProgressionConfig.XP.MatchWin * scale.Xp + 0.5) + ProgressionConfig.XP.PlayerKill
+			)
+			expect(played.folios).toBe(
+				math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios + 0.5) + ProgressionConfig.Folios.PlayerKill
+			)
 			expect(played.firstWins).toBe(1)
 			expect(played.quests["MatchWin:1"]).toBe(true)
 			expect(played.quests["MatchPlayed:1"]).toBe(true)
@@ -347,8 +357,15 @@ describe("ranked play on each kind of server", function()
 		local share = MatchConfig.PrivateServer.RewardShare
 		expect(share).toBeGreaterThan(0)
 		expect(share).toBeLessThan(1)
-		expect(played.xp).toBe(math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5))
-		expect(played.folios).toBe(math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * share + 0.5))
+		-- The share of the win, and the same share of the kill: paid in full, the kill was a private server's farm.
+		expect(played.xp).toBe(
+			math.floor(ProgressionConfig.XP.MatchWin * scale.Xp * share + 0.5)
+				+ math.floor(ProgressionConfig.XP.PlayerKill * share + 0.5)
+		)
+		expect(played.folios).toBe(
+			math.floor(ProgressionConfig.Folios.MatchWin * scale.Folios * share + 0.5)
+				+ math.floor(ProgressionConfig.Folios.PlayerKill * share + 0.5)
+		)
 		expect(played.xp).toBeLessThan(ProgressionConfig.XP.MatchWin * scale.Xp)
 		-- No first win of the day and no won match towards a quest; the match still counts as played.
 		expect(played.firstWins).toBe(0)

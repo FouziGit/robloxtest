@@ -15,7 +15,8 @@
 -- Two rules keep two accounts from farming each other (D-255): a forfeit before the match was really fought
 -- is void (MatchConfig.MinPlayedSeconds, or no damage exchanged), and a pair past its day's full matches is paid a
 -- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios, its
--- kills' included: this service pays those too (onKilled).
+-- kills' included. This service pays a kill too, with the result and under the same rules: onKilled counts it, award
+-- pays it.
 --
 -- It tells the dashboards how each match went (AnalyticsConfig.Events): MatchEnded for each player at the result,
 -- with a GlyphMatch for every glyph they cast in it and the damage it dealt, and MatchVoided once for a match that
@@ -153,7 +154,7 @@ type Deps = {
 type TroveType = typeof(Trove.new())
 
 -- What one participant did over the match, counted from the signals of the services that saw it.
-type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number }
+type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number, Kills: number }
 
 -- The body a round setup put on its pad, and when.
 type Placement = { Character: Model, At: number }
@@ -365,7 +366,7 @@ end
 
 -- Takes up to `want` Folios from the player's day of matches (MatchConfig.DailyFolioCap, counted in the profile
 -- like the Forgers' cap) and writes the count back. Returns what may be paid, before VIP; all of it with no
--- profile loaded, which award and onKilled never meet (they pay only players still here).
+-- profile loaded, which award never meets (it pays only players still here).
 local function takeFolios(player: Player, want: number): number
 	local data = dataService.get(player)
 	if data == nil then
@@ -423,6 +424,11 @@ end
 -- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server. A private
 -- server a player bought is not ranked (RankingService.rankedHere): its matches pay MatchConfig.PrivateServer's
 -- share of their XP and Folios, and neither the first win of the day nor a won match's quest.
+--
+-- The kills each one made (onKilled) are paid here, with the result: at their own value whatever the mode, and under
+-- the same rules -- the private server's share, the repeated pair's quarter, the day's Folio cap -- so a match nobody
+-- fought (voidMatch), a match cancelled and a player who walked out are paid none. Paid on the spot by CombatService,
+-- outside every one of those rules, two kills a duel paid an alt's main without end.
 local function award(active: Active, result: Types.MatchResult)
 	local match = active.Match
 	local scale = REWARD_SCALES[active.Def.Id] or DEFAULT_SCALE
@@ -443,16 +449,29 @@ local function award(active: Active, result: Types.MatchResult)
 		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, active.Match.Ranked)
 		-- A pair past its day's full matches is paid a quarter, and told why its rating held.
 		local repeatScale = if change.Repeat then REPEAT_SCALE else 1
+		local stats = active.Stats[participant.UserId]
+			or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0, Kills = 0 }
 		local xp = math.floor(baseXp * scale.Xp * share * repeatScale + 0.5)
 		local wanted = math.floor(baseFolios * scale.Folios * share * repeatScale + 0.5)
-		local folios = takeFolios(player, wanted)
+		local killXp = math.floor(stats.Kills * XP.PlayerKill * share * repeatScale + 0.5)
+		local killWanted = math.floor(stats.Kills * FOLIOS.PlayerKill * share * repeatScale + 0.5)
+		-- One take for the result and its kills, the result served first.
+		local granted = takeFolios(player, wanted + killWanted)
+		local folios = math.min(granted, wanted)
+		local killFolios = granted - folios
 		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
 		local firstWin = won and rankedServer and grantFirstWin(player)
 		progression.addXp(player, xp, reason)
+		if killXp >= 1 then
+			progression.addXp(player, killXp, "PlayerKill")
+		end
 		if folios >= 1 then
 			currency.add(player, folios, reason)
 		end
-		if folios < wanted then
+		if killFolios >= 1 then
+			currency.add(player, killFolios, "PlayerKill")
+		end
+		if granted < wanted + killWanted then
 			notify.send(player, "match.folioCap", nil, "Info")
 		end
 		if change.Repeat then
@@ -463,14 +482,14 @@ local function award(active: Active, result: Types.MatchResult)
 		if won and rankedServer then
 			quest.report(player, "MatchWin", 1)
 		end
-		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
+		-- What the match paid, its kills included: the Result counts it up and fills the level bar from where it was.
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
 			Won = won,
 			Draw = draw,
 			Scores = table.clone(match.Scores),
-			Xp = xp,
-			Folios = folios,
+			Xp = xp + killXp,
+			Folios = granted,
 			RatingBefore = change.Before,
 			RatingAfter = change.After,
 			RankKeyBefore = change.RankKeyBefore,
@@ -1237,7 +1256,7 @@ end
 local function statsOf(active: Active, userId: number): ParticipantStats
 	local stats = active.Stats[userId]
 	if stats == nil then
-		stats = { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
+		stats = { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0, Kills = 0 }
 		active.Stats[userId] = stats
 	end
 	return stats
@@ -1300,9 +1319,9 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	end
 end
 
--- The Folios of a player kill in a match, paid here rather than by CombatService (D-255): they are the match's,
--- under the day's cap like its result. Paid past every cap and every repeat, an alt knocked out twice a duel paid
--- its main two kills a match however many matches the pair played that day. The kill's XP stays CombatService's.
+-- A player kill in a match is the match's (ZoneConfig.Rules.Match leaves it to this service): counted here and paid
+-- with the result (award), its XP and its Folios, under every rule the result is paid under. The killer hears of
+-- the takedown at once; what it paid, the Result says.
 local function onKilled(sourceUserId: number, victimModel: Model)
 	local active = activeByUserId[sourceUserId]
 	if active == nil then
@@ -1313,10 +1332,8 @@ local function onKilled(sourceUserId: number, victimModel: Model)
 	if killer == nil or victim == nil or activeByUserId[victim.UserId] ~= active then
 		return
 	end
-	local folios = takeFolios(killer, FOLIOS.PlayerKill)
-	if folios >= 1 then
-		currency.add(killer, folios, "PlayerKill")
-	end
+	statsOf(active, sourceUserId).Kills += 1
+	notify.send(killer, "match.takedown", { name = victim.DisplayName }, "Success", "Kill")
 end
 
 -- Lets one participant go while the match is still winding down on its result screen, which is what makes

@@ -658,6 +658,9 @@ export type Options = {
 	Stubs: { [string]: any }?,
 	-- Services beyond RunService and ReplicatedStorage, by name.
 	Services: { [string]: any }?,
+	-- The second the world begins, for a spec whose result depends on the day: os.time() and the servers'
+	-- clock then start there and move on by the world's own. Without it, the real time it began.
+	Epoch: number?,
 }
 
 -- An action bound through ContextActionService: at what priority, on which inputs, and whether it asked the engine
@@ -708,8 +711,10 @@ function Engine.world(options: Options?): World
 	camera.ViewportSize = roblox.Vector2.new(1920, 1080)
 	workspace.CurrentCamera = camera
 	world.workspace = workspace
-	-- The servers' clock: the real time the world began, moved on by the world's own.
-	local began = os.time()
+	-- The servers' clock: the time the world began (the real one unless the spec fixed it), moved on by the
+	-- world's own.
+	local epoch = if options ~= nil then options.Epoch else nil
+	local began = epoch or os.time()
 	workspace.GetServerTimeNow = function(): number
 		return began + world.now
 	end
@@ -920,7 +925,16 @@ function Engine.world(options: Options?): World
 			clock = function(): number
 				return world.now
 			end,
-			time = os.time,
+			-- A fixed epoch is the screens' day too: a screen that reads os.time() (the Shop's rotation, the
+			-- quests' period) otherwise drew a different day from the one the spec measured.
+			time = if epoch == nil
+				then os.time
+				else function(date: any?): number
+					if date ~= nil then
+						return os.time(date)
+					end
+					return began + math.floor(world.now)
+				end,
 			date = os.date,
 		},
 		Instance = {

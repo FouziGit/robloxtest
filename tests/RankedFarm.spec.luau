@@ -476,6 +476,56 @@ describe("a match's kills are paid with its result, under its rules (E4-S3)", fu
 		expect(setup.data.get(main).Daily.MatchFolios).toBe(0)
 	end)
 
+	-- Found by review: CombatService credits a death to the last attacker for six seconds, and the pause after a round
+	-- lasts three. The winner of a round pressed Reset on it and handed the loser a kill that changed no score: two
+	-- kills a duel for the pair, the second for nothing played.
+	it("pays no kill credited after the round's verdict: a winner's Reset on the pause is nobody's", function()
+		local setup = Server.services()
+		local a = join(setup, 503, "Ada")
+		local b = join(setup, 504, "Bea")
+		begin(setup, a, b)
+		fight(setup, a, b)
+		takeDown(setup, a, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		-- The credit heard at once...
+		takeDown(setup, b, a)
+		expect(told(setup, b, "match.takedown")).toBe(0)
+		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+		expect(setup.match.getMatch(a).Phase).toBe("Playing")
+		expect(setup.match.getMatch(a).Scores).toEqual({ 1, 0 })
+		takeDown(setup, a, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		-- ...and, on the last pause, heard only once a tick has seen the body fall.
+		knockOut(setup, a)
+		setup.kill(b, a)
+		expect(told(setup, b, "match.takedown")).toBe(0)
+		setup.world:advance(MatchConfig.RoundOverSeconds)
+		expect(setup.match.getMatch(a).Phase).toBe("Result")
+		expect(lastXp(setup, b, "PlayerKill")).toBeNil()
+		expect(outcomeOf(setup, b).Folios).toBe(ProgressionConfig.Folios.MatchLoss)
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
+	end)
+
+	it("counts once a kill the round already judged, when CombatService names the killer after the verdict", function()
+		-- A fall off the arena: the tick that kills under the kill zone gives the verdict too, and the death's Died,
+		-- which CombatService credits from, comes after it.
+		local setup = Server.services()
+		local a = join(setup, 505, "Ada")
+		local b = join(setup, 506, "Bea")
+		begin(setup, a, b)
+		fight(setup, a, b)
+		knockOut(setup, b)
+		expect(setup.match.getMatch(a).Phase).toBe("RoundOver")
+		setup.kill(a, b)
+		setup.kill(a, b)
+		expect(told(setup, a, "match.takedown")).toBe(1)
+		setup.world:advance(MatchConfig.RoundOverSeconds + DUEL.CountdownSeconds + 0.5)
+		takeDown(setup, a, b)
+		setup.world:advance(MatchConfig.RoundOverSeconds + 0.2)
+		expect(setup.match.getMatch(a).Phase).toBe("Result")
+		expect(lastXp(setup, a, "PlayerKill")).toBe(2 * KILL_XP)
+	end)
+
 	it("pays nothing for a player the killer is not in a match with", function()
 		local setup = Server.services()
 		local a = join(setup, 487, "Ada")

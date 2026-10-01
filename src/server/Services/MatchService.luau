@@ -176,6 +176,10 @@ type Active = {
 	Emptied: boolean, -- ended because every participant was gone, or the server was closing
 	FirstPlayedAt: number, -- os.clock the first round started being played; 0 until then
 	Glyphs: { [number]: { [string]: number } }, -- user id -> each glyph cast in the match -> the damage it dealt
+	-- This round's deaths, by user id, each started over with the round: who refresh saw fall while it was played, and
+	-- whose death already counted as a kill (onKilled).
+	FellInPlay: { [number]: boolean },
+	KillsCounted: { [number]: boolean },
 }
 
 -- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
@@ -278,8 +282,10 @@ local function placeCharacter(
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns
--- in the hub after losing a round never comes back to life inside it.
+-- in the hub after losing a round never comes back to life inside it. A death seen while the round is played is
+-- noted, so its kill still counts when CombatService says whose it was after the verdict (onKilled).
 local function refresh(active: Active)
+	local playing = active.Match.Phase == "Playing"
 	for _, participant in ipairs(active.Match.Participants) do
 		if not participant.Alive then
 			participant.Health = 0
@@ -290,6 +296,9 @@ local function refresh(active: Active)
 		if humanoid == nil or humanoid.Health <= 0 then
 			participant.Alive = false
 			participant.Health = 0
+			if playing then
+				active.FellInPlay[participant.UserId] = true
+			end
 			continue
 		end
 		participant.Health = humanoid.Health
@@ -681,6 +690,8 @@ local function beginRound(active: Active)
 	local match = active.Match
 	match.Phase = "Countdown"
 	active.Generation += 1
+	active.FellInPlay = {}
+	active.KillsCounted = {}
 	active.Preparing = true
 	local now = os.clock()
 	active.PhaseEndsAt = now + active.Def.CountdownSeconds
@@ -1208,6 +1219,8 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Emptied = false,
 		FirstPlayedAt = 0,
 		Glyphs = {},
+		FellInPlay = {},
+		KillsCounted = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
@@ -1322,6 +1335,11 @@ end
 -- A player kill in a match is the match's (ZoneConfig.Rules.Match leaves it to this service): counted here and paid
 -- with the result (award), its XP and its Folios, under every rule the result is paid under. The killer hears of
 -- the takedown at once; what it paid, the Result says.
+--
+-- Only a death of the round being played, once: while it is played, or one refresh saw while it was, whose Died comes
+-- after the tick that killed it and gave the verdict (a fall off the arena). Never a death that came after the
+-- verdict: CombatService credits one to the last attacker for CombatConfig.Ink.InCombatSeconds, longer than
+-- MatchConfig.RoundOverSeconds, and a winner who pressed Reset on the pause handed the loser a kill.
 local function onKilled(sourceUserId: number, victimModel: Model)
 	local active = activeByUserId[sourceUserId]
 	if active == nil then
@@ -1332,6 +1350,11 @@ local function onKilled(sourceUserId: number, victimModel: Model)
 	if killer == nil or victim == nil or activeByUserId[victim.UserId] ~= active then
 		return
 	end
+	local inPlay = active.Match.Phase == "Playing" or active.FellInPlay[victim.UserId] == true
+	if not inPlay or active.KillsCounted[victim.UserId] then
+		return
+	end
+	active.KillsCounted[victim.UserId] = true
 	statsOf(active, sourceUserId).Kills += 1
 	notify.send(killer, "match.takedown", { name = victim.DisplayName }, "Success", "Kill")
 end

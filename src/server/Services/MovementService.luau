@@ -224,7 +224,7 @@ local function clearStatuses(state: State)
 end
 
 -- Marks a Humanoid given back in time with the holds its body kept while it was away, and holds it by them: the stun
--- and the slows run on their own dates, which its time away took nothing off (D-XXX).
+-- and the slows run on their own dates, which its time away took nothing off (D-274).
 local function holdAgain(state: State, humanoid: Humanoid, now: number)
 	recomputeSlow(state, now)
 	humanoid:SetAttribute(SLOW_ATTRIBUTE, if state.SlowUntil > 0 then state.SlowUntil else nil)
@@ -311,7 +311,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	-- that time has run out, it came back too late: it stays away, and the next tick replaces the body, where a
 	-- Humanoid returned between the half second and that tick was taken back with no strike. Its stun, its slows and
 	-- its fall stay with the body while it is away, and hold it again when it comes back: cleared on the way out, a
-	-- client that took it out and put it back within a frame walked, and cast, out of any stun (D-XXX). Only a
+	-- client that took it out and put it back within a frame walked, and cast, out of any stun (D-274). Only a
 	-- death or a new body lets them go.
 	local function onHumanoidDetached()
 		if states[player] ~= state or state.CharacterTrove ~= characterTrove then

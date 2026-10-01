@@ -1763,7 +1763,7 @@ end
 
 -- Whether `player` stands in a live body this service holds: false while dead, and from the moment its client took
 -- the Humanoid out of it until the next body, even put back in time. What refuses a glyph (GlyphService) as the
--- melee, the dash and the guard are refused (D-XXX).
+-- melee, the dash and the guard are refused (D-274).
 function CombatService.hasLiveBody(player: Player): boolean
 	local state = states[player]
 	return state ~= nil and liveCharacter(state) ~= nil

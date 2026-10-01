@@ -1,6 +1,6 @@
 --!strict
 -- A player's body as MovementService keeps it: every part in the players' collision group, which does not collide
--- with itself (D-215), and replaced when its client takes its Humanoid away (D-216), whose holds it keeps (D-XXX).
+-- with itself (D-215), and replaced when its client takes its Humanoid away (D-216), whose holds it keeps (D-274).
 -- MovementService runs in the pretend engine (tests/serverworld.luau), CombatService and GlyphService in the pretend
 -- server (tests/server.luau); what only a live server can show -- two clients passing through each other, a finisher
 -- still throwing -- is QA §7.
@@ -163,7 +163,7 @@ describe("a body whose Humanoid was taken away", function()
 
 	it("keeps its stun, slow and fall while its Humanoid is away, and is held by them again", function()
 		-- Cleared on the way out, a client that took its Humanoid out and put it back within a frame walked, and cast,
-		-- out of any stun the server had put on it (E2-S1, D-XXX). Moved out of the body or into one of its parts.
+		-- out of any stun the server had put on it (E2-S1, D-274). Moved out of the body or into one of its parts.
 		local WALK = GameConfig.Movement.WalkSpeed
 		for _, into in ipairs({ "nowhere", "Head" }) do
 			local s = ServerWorld.start()
@@ -325,7 +325,7 @@ describe("a body whose Humanoid was taken away", function()
 end)
 
 -- CombatService refuses the melee, the dash and the guard from the moment a client takes its Humanoid out until its
--- next body, even put back in time; a glyph is refused with them (D-XXX), so that no hold MovementService gives back
+-- next body, even put back in time; a glyph is refused with them (D-274), so that no hold MovementService gives back
 -- with the Humanoid is all that stands between that body and a cast.
 describe("a glyph from a body whose Humanoid was taken out", function()
 	-- The real CombatService in a pretend server, with one player standing in a body.

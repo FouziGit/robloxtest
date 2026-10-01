@@ -1761,6 +1761,14 @@ function CombatService.isStunned(player: Player): boolean
 	return movement.isStunned(player)
 end
 
+-- Whether `player` stands in a live body this service holds: false while dead, and from the moment its client took
+-- the Humanoid out of it until the next body, even put back in time. What refuses a glyph (GlyphService) as the
+-- melee, the dash and the guard are refused (D-XXX).
+function CombatService.hasLiveBody(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and liveCharacter(state) ~= nil
+end
+
 -- Whether `player` is kept in a hold now, whoever opened it: what refuses every other glyph (GlyphService).
 function CombatService.isChanneling(player: Player): boolean
 	local state = states[player]

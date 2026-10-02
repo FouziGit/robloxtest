@@ -49,7 +49,7 @@ Ces cinq commandes sont les quality gates : toutes vertes avant chaque commit. `
 
 ## Git
 
-Branche `main`. Conventional Commits (`feat(matchmaking): …`, `fix(combat): …`, `docs: …`, `chore(toolchain): …`). Commits atomiques ; le jeu reste `rojo build`-able et les tests verts à chaque commit. Push après chaque phase. Ne jamais prétendre avoir poussé si le push a échoué.
+Branche `main`, protégée : rien n'y entre sans le CI vert. Une branche courte par lot, jamais plus de 30 commits ou 3 jours d'avance sur `main`, fusionnée par PR. Conventional Commits (`feat(matchmaking): …`, `fix(combat): …`, `docs: …`, `chore(toolchain): …`). Commits atomiques ; le jeu reste `rojo build`-able et les tests verts à chaque commit. Push après chaque phase. Ne jamais prétendre avoir poussé si le push a échoué.
 
 ## Animations
 

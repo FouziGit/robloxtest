@@ -128,7 +128,8 @@
           "findingIds": [
             "merge-vfx-pass-pr",
             "long-lived-branch"
-          ]
+          ],
+          "status": "done"
         },
         {
           "id": "E2-S2",
@@ -146,7 +147,8 @@
           "findingIds": [
             "long-lived-branch",
             "merge-vfx-pass-pr"
-          ]
+          ],
+          "status": "done"
         },
         {
           "id": "E2-S7",

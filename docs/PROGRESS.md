@@ -734,3 +734,10 @@ Les 93 fichiers de `src/server` que modifie la PR #2 ont été relus en six tran
   - D-275 : un kill garde ses 120 XP et 15 Folios dans tous les modes, ses Folios suivent la part et le quart, le toast n'a plus de montant, rien pour qui part avant le résultat ;
   - D-277 : un huitième pour une paire répétée en serveur privé acheté, un seul registre pour tous les matchs.
 - **Reste, dans Studio.** `docs/QA.md` §11.11 : savoir si le retour d'un Humanoid se réplique, ce que supposent D-216 et D-274. Dans un match vivant, le bandeau de `match.takedown` et le Résultat qui compte l'XP et les Folios des kills.
+
+## La PR #2 fusionnée dans `main` (E2-S8, E2-S2) — 2 octobre 2026
+
+**Fait.** Après la relecture du serveur (E2-S1) et avec l'accord du développeur, la PR #2 est fusionnée dans `main` par un commit de fusion (`678d16f`, 455 commits, l'historique gardé) ; le tag `pre-device-qa` la marque ; `main` est protégée : le CI (« Format, lint, analyze, test, build ») est exigé, à jour, sans force ni suppression. `CLAUDE.md` §Git le dit : une branche courte par lot, jamais plus de 30 commits ou trois jours d'avance, fusionnée par PR.
+
+**Reste.** Le travail en cours repart de `main` : les corps des 26 glyphes sur `feat/da-bodies`, en PR quand chaque lot est prêt.
+

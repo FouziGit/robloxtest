@@ -73,6 +73,10 @@ CombatConfig.Hit = {
 	IFrameSeconds = 0.3,
 	KnockbackDurationSeconds = 0.25,
 	StunMaxSeconds = 2,
+	-- A glyph's stun never lands on a body already stunned, nor this soon after its last stun ended
+	-- (Pure/StunClock, D-213): a chain of glyphs holds nobody longer than its longest glyph's stun, and gives
+	-- this much back between two. The Watermark's own ticks (0.18 s of stun every 0.7 s) still all land.
+	StunGraceSeconds = 0.5,
 	-- How long the melee finisher leaves its victim limp (MovementService.ragdoll, D-112), then how long its
 	-- joints pull the body back into its pose before they are rigid again. The victim acts again only once
 	-- both are over, and nothing can hit it until then (CombatService.ApplyDamage): a knockdown is a pause
@@ -82,6 +86,10 @@ CombatConfig.Hit = {
 	-- (about 0.2 s on an R15 avatar) plus a network delay each way.
 	RagdollSeconds = 0.8,
 	RagdollRiseSeconds = 0.3,
+	-- The tag a glyph's last stroke carries after its glyph id and archetype (the Hatching's, five damage): its Hit
+	-- is named a finisher, for the impact frame a light hit and a heavy moment earns (D-112). Never a guard
+	-- breaker (Block.BrokenBy), and never the first tag, which is the hit memory's key.
+	GlyphFinisherTag = "GlyphFinisher",
 	-- Camera weight for the spells phase 4 of docs/JUICE_PLAN.md has not reworked yet, on the old 0-to-1
 	-- scale VfxLibrary.shakeNear still takes. Everything already reworked names a profile in
 	-- Config/FeelConfig instead, and these two leave with the last renderer that reads them. Hit-stop

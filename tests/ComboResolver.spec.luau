@@ -70,6 +70,32 @@ describe("ComboResolver", function()
 		expect(tooLong).toEqual({ Action = "Reset", Reason = "TooLong" })
 	end)
 
+	it("says where a sequence can go next: one step, only toward a recipe", function()
+		-- Nothing pressed: every first pigment, once each, in the order the recipes come.
+		expect(ComboResolver.continuations(resolver, {})).toEqual({ "Cinnabar", "Verdigris", "Indigo" })
+		-- After Cinnabar: exactly the next pigments of the recipes that start with it.
+		expect(ComboResolver.continuations(resolver, { "Cinnabar" })).toEqual({ "Cinnabar", "Umber" })
+		expect(ComboResolver.continuations(resolver, { "Cinnabar", "Cinnabar" })).toEqual({ "Verdigris" })
+		expect(ComboResolver.continuations(resolver, { "Indigo" })).toEqual({ "Cinnabar", "Indigo" })
+		-- A whole recipe that nothing extends, and a sequence no recipe starts with, lead nowhere.
+		expect(ComboResolver.continuations(resolver, { "Verdigris", "Verdigris" })).toEqual({})
+		expect(ComboResolver.continuations(resolver, { "Umber" })).toEqual({})
+		expect(ComboResolver.continuations(resolver, { "Cinnabar", "Umber", "Cinnabar", "Cinnabar" })).toEqual({})
+		-- Each call hands out its own list.
+		local first = ComboResolver.continuations(resolver, {})
+		table.clear(first)
+		expect(#ComboResolver.continuations(resolver, {})).toBe(3)
+	end)
+
+	it("hints only pigments that a push then waits on or casts", function()
+		for _, prefix in ipairs({ {}, { "Cinnabar" }, { "Indigo" }, { "Cinnabar", "Umber" } }) do
+			for _, pigment in ipairs(ComboResolver.continuations(resolver, prefix)) do
+				local _, decision = ComboResolver.push(resolver, prefix, pigment)
+				expect(decision.Action ~= "Reset").toBe(true)
+			end
+		end
+	end)
+
 	it("reports duplicate recipes and keeps the first", function()
 		local dup = ComboResolver.new({
 			{ Id = "A", Combo = { "Cinnabar", "Cinnabar" } },

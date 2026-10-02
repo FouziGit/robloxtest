@@ -249,8 +249,11 @@ describe("a Mesh layer", function()
 		expect(handed).toBeGreaterThanOrEqual(2)
 	end)
 
-	it("lies on the ground or rides a carrier, never both, and a timeline has one riding body at most", function()
-		local riders: { [string]: number } = {}
+	it("lies on the ground or rides a carrier, never both, and a timeline rides one body at a time", function()
+		-- The body of a projectile is one thing (D-114). It may be drawn as several volumes laid over each
+		-- other -- a fireball's ribbons, their streaks and their contour (D-273) -- which then move as one:
+		-- the same window, place, size, stretch, ease and turn. Links of a chain ride one after the other.
+		local riders: { [string]: { { At: number, Until: number, Shape: string } } } = {}
 		for _, placed in ipairs(volumes()) do
 			local layer = placed.Layer
 			if layer.Face == "Ground" then
@@ -258,12 +261,35 @@ describe("a Mesh layer", function()
 				expect(layer.Follow).never.toBe(true)
 			end
 			if layer.Kind == "Mesh" and layer.Ride == true then
-				riders[placed.Id .. "/" .. placed.Phase.Name] = (riders[placed.Id .. "/" .. placed.Phase.Name] or 0) + 1
+				local key = placed.Id .. "/" .. placed.Phase.Name
+				local list = riders[key] or {}
+				riders[key] = list
+				local offset: { number } = layer.Offset or { 0, 0, 0 }
+				local from: { number } = layer.Stretch or { 1, 1, 1 }
+				local to: { number } = layer.EndStretch or from
+				local shape = table.concat({
+					tostring(layer.At),
+					tostring(layer.For),
+					tostring(layer.Ease),
+					tostring(layer.EaseDirection),
+					table.concat(offset, ","),
+					tostring(layer.Size),
+					tostring(layer.EndSize),
+					table.concat(from, ","),
+					table.concat(to, ","),
+					tostring(layer.Spin or 0),
+				}, "|")
+				table.insert(list, { At = layer.At, Until = layer.At + layer.For, Shape = shape })
 			end
 		end
-		for key, count in pairs(riders) do
-			if count > 1 then
-				error(key .. " rides " .. count .. " volumes: the body of a projectile is one thing")
+		for key, list in pairs(riders) do
+			for first = 1, #list do
+				for second = first + 1, #list do
+					local a, b = list[first], list[second]
+					if a.At < b.Until and b.At < a.Until and a.Shape ~= b.Shape then
+						error(key .. " rides two bodies at once: the body of a projectile is one thing")
+					end
+				end
 			end
 		end
 	end)
@@ -396,7 +422,13 @@ describe("the volumes on screen", function()
 	it("carry their meaning on every tier: only named flourishes are left out, and a crown needs a floor", function()
 		-- Which volumes are weight and not meaning is a design decision, so it is written down here:
 		-- a new volume is drawn on every tier until someone decides otherwise, on purpose.
-		local FLOURISHES = { ["Explosion/SplitRing"] = true, ["Explosion/Debris"] = true, ["Hit/Crescent"] = true }
+		local FLOURISHES = {
+			["Explosion/SplitRing"] = true,
+			["Explosion/Debris"] = true,
+			["Hit/Crescent"] = true,
+			-- The page torn up by the wipe (D-119): the charcoal crescent and the spurts already say it.
+			["Sweep/Debris"] = true,
+		}
 		local found: { [string]: boolean } = {}
 		for _, placed in ipairs(volumes()) do
 			local layer = placed.Layer

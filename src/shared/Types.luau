@@ -39,6 +39,9 @@ export type BattlepassSeasonData = {
 export type CosmeticsData = {
 	Owned: { string },
 	Equipped: { [string]: string }, -- slot -> cosmetic id ("Aura", "Trail", "KillEffect", "Title", "Skin:<glyphId>")
+	-- The owned ids a developer account bought with Folios the developer list waived (D-129): they leave the
+	-- profile when the account leaves the list (CosmeticService.revokeWaived).
+	Waived: { string },
 }
 
 export type LoadoutData = {
@@ -63,10 +66,15 @@ export type RankModeData = {
 	PeakRating: number,
 }
 
+-- Matches played today against each opponent, ranked or not (Pure/OpponentLedger): the UTC day the counts belong to,
+-- and the count by opponent user id, as a string. RankingService writes it with every result MatchService pays.
+export type RankOpponentsData = { Day: number, Counts: { [string]: number } }
+
 export type RankData = {
 	SeasonId: string,
 	Modes: { [string]: RankModeData }, -- "Duel1v1" / "Team3v3"
 	LastRewardedSeason: string,
+	Opponents: RankOpponentsData,
 }
 
 export type StatsData = {
@@ -84,9 +92,11 @@ export type StatsData = {
 
 export type QuestProgress = { [string]: number } -- questId -> progress
 export type QuestSetData = {
-	PeriodKey: string, -- day or week key the set belongs to
+	PeriodKey: string, -- day or week key the set belongs to, with the pool revision it was drawn at (QuestLogic.setKey)
 	Progress: QuestProgress,
 	Claimed: { [string]: boolean },
+	-- The quests of the draw a free reroll replaced, each by the quest that took its place (QuestLogic.reroll).
+	Swaps: { [string]: string },
 }
 export type QuestsData = {
 	Daily: QuestSetData,
@@ -95,10 +105,51 @@ export type QuestsData = {
 
 export type DailyData = {
 	LastClaimDay: number, -- days since epoch
-	Streak: number,
+	Streak: number, -- days claimed in a row, a day missed with a Signet included in none
+	-- The login calendar (DailyConfig.Calendar): the last of its days claimed (0 before the first), and the Signets
+	-- held, each of which keeps the streak through one missed day (Pure/DailyStreak).
+	CalendarDay: number,
+	Signets: number,
 	FirstWinDay: number,
 	PremiumBonusDay: number,
+	-- Daily caps kept in the profile, so switching servers never resets them (DailyCap.take): the day each
+	-- count belongs to, and the count. Folios paid by the Battleground's Forgers (BotConfig.Credit), practice
+	-- fights against the Erasure that paid out (WorldBossConfig.Practice), and Folios paid for the Flyleaf's
+	-- kills (FlyleafConfig.Rewards).
+	ForgerDay: number,
+	ForgerFolios: number,
+	PracticeDay: number,
+	PracticePaid: number,
+	-- When a practice last paid out (os.time, 0 for never): WorldBossConfig.Practice.RewardGapSeconds runs from
+	-- it, whichever server the next practice is fought on.
+	PracticeLastPaidAt: number,
+	-- The hub's Trials (TrialPay): the day both counts belong to, the kills paid their whole XP, and the Folios
+	-- paid (GameConfig.Enemy.Pay).
+	TrialDay: number,
+	TrialKills: number,
+	TrialFolios: number,
+	-- The Folios ranked matches paid (MatchConfig.DailyFolioCap).
+	MatchDay: number,
+	MatchFolios: number,
+	-- The Flyleaf's daily allowance (FlyleafConfig): the day it belongs to and the Folios its kills paid.
+	FlyleafDay: number,
+	FlyleafFolios: number,
+	-- The practice duels against a Forger that paid out today (MatchConfig.Spar.PaidPerDay, SparService).
+	SparDay: number,
+	SparPaid: number,
 }
+
+-- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level
+-- as a string (JSON-safe) -> true. HonoursService is its one writer, and a milestone in it is never paid again.
+export type MilestonesData = { [string]: boolean }
+
+-- The best grade each drill of the Lectern reached (DrillConfig, Pure/DrillLogic): drill id -> 1 Draft, 2 Fair
+-- Copy, 3 Calligraphy. DrillService is its one writer, and every grade at or under it has been paid.
+export type DrillsData = { [string]: number }
+
+-- The plates of the Ex-libris earned (ExLibrisConfig, Pure/ExLibris): plate id -> the os.time() it was granted.
+-- HonoursService is its one writer, and a plate in it is never granted again.
+export type ExLibrisData = { [string]: number }
 
 export type PurchasesData = {
 	Receipts: { string }, -- processed PurchaseIds (bounded ring, newest last)
@@ -119,7 +170,6 @@ export type MetaData = {
 	LastJoin: number,
 	SessionCount: number,
 	LegacyImported: boolean,
-	FirstSessionPromptGate: boolean, -- true once the first-session no-prompt window has elapsed
 	-- Bumped by DataService.saveNow before each forced save, and matched against the value ProfileStore
 	-- reports as written. It is the only way to tell a save that CONTAINS the caller's mutation from one
 	-- that was already in flight when the mutation happened, which matters because a purchase is only
@@ -143,6 +193,9 @@ export type ProfileData = {
 	Stats: StatsData,
 	Quests: QuestsData,
 	Daily: DailyData,
+	Milestones: MilestonesData,
+	Drills: DrillsData,
+	ExLibris: ExLibrisData,
 	Purchases: PurchasesData,
 	Passes: PassesData,
 	Boosts: BoostsData,
@@ -179,7 +232,7 @@ export type HitEvent = {
 	Killed: boolean,
 }
 
-export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss"
+export type MatchModeId = "Duel1v1" | "Team3v3" | "WorldBoss" | "Spar1v1"
 
 export type MatchResult = {
 	-- Identifies which match this result belongs to, so a rating move already written for a player who
@@ -202,6 +255,10 @@ export type MatchPlayerSnapshot = {
 	Alive: boolean,
 	Health: number,
 	MaxHealth: number,
+	-- Shown on the match's announcement (E10-S7): their level, and the Strings key of their rank tier, "" for a
+	-- player still in the quick duel.
+	Level: number,
+	RankKey: string,
 }
 
 -- Replicated to every participant a few times per second (MatchChanged).
@@ -215,6 +272,8 @@ export type MatchSnapshot = {
 	Scores: { number }, -- team index -> rounds won
 	Teams: { { MatchPlayerSnapshot } },
 	LocalTeam: number,
+	-- Whether the match moves ratings: false for the quick duel of a newcomer (E10-S7).
+	Ranked: boolean,
 }
 
 -- Sent once when a match ends (MatchEnded), then the player returns to the hub.
@@ -248,6 +307,15 @@ export type QueueSnapshot = {
 	NeededCount: number, -- players required to start
 }
 
+-- The practice duel against a Forger, as the queue's card shows it (SparChanged): whether it is offered now,
+-- whether the player is fighting one, and how many of today's paid spars are left (MatchConfig.Spar).
+export type SparSnapshot = {
+	Offered: boolean,
+	Sparring: boolean,
+	PaidLeft: number,
+	PaidPerDay: number,
+}
+
 export type LeaderboardEntry = {
 	Rank: number,
 	UserId: number,
@@ -256,7 +324,8 @@ export type LeaderboardEntry = {
 	RankKey: string, -- Strings key of the rank tier
 }
 
--- World Boss state replicated to everyone on the server while the event runs (BossChanged).
+-- World Boss state (BossChanged): replicated to everyone on the server while the event runs, and to its own
+-- participants only while a practice does.
 export type BossPhaseSnapshot = "Announced" | "Fighting" | "Defeated" | "Expired"
 
 export type BossSnapshot = {
@@ -268,6 +337,29 @@ export type BossSnapshot = {
 	Participants: number,
 	TelegraphKey: string?, -- Strings key of the attack being telegraphed, nil when none
 	MyShare: number, -- 0..1, the receiving player's damage contribution
+	Practice: boolean, -- a practice one player opened from the hub's gate (D-132), not the scheduled event
+}
+
+-- The Battleground as its member sees it (BattlegroundChanged), or nil once they are no longer one: how many
+-- Forgers stand on the page, and how many this member has defeated since they came in.
+export type BattlegroundSnapshot = {
+	Standing: number,
+	Defeated: number,
+}
+
+-- The Flyleaf as its member sees it (FlyleafChanged), or nil once they are no longer one: how many members fight
+-- on the page, how many lives this member took since they came in, and how many since they last lost theirs.
+export type FlyleafSnapshot = {
+	Members: number,
+	Kills: number,
+	Streak: number,
+}
+
+-- The portal circle a player stands in (PortalChanged), or nil once they step out or set off: where it leads
+-- (a PortalConfig.PortalId) and how long, from now, they must stay in it before it takes them.
+export type PortalSnapshot = {
+	Id: string,
+	Seconds: number,
 }
 
 -- One purchasable entry of today's rotation (ShopChanged).

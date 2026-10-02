@@ -82,7 +82,7 @@ describe("a drawn layer", function()
 		expect(writes).toBe(1)
 		for _, call in ipairs({
 			"stepSprite(entry, alpha, elapsed, deltaTime)",
-			"stepMark(entry, alpha, elapsed, now)",
+			"stepMark(entry, alpha, elapsed, now, deltaTime)",
 			"stepBeam(entry, alpha, elapsed)",
 		}) do
 			if not step:find(call, 1, true) then

@@ -29,8 +29,12 @@ local log = Log.new("ClientBootstrap")
 
 -- Order in which Start-installed behaviour becomes available (see the contract above).
 local ORDER = {
+	-- How the player plays: started with the interface's doors below, before any Init builds a screen.
+	"InputMode",
 	"ClientData",
 	"Localize",
+	-- The VIP tag in the chat: its words are the reader's, which Localize's Init resolved.
+	"ChatController",
 	"SoundController",
 	-- Before every system that asks it what it may draw: WorldLighting, VfxTimeline and the footprints
 	-- all read the tier at Start (Config/QualityConfig).
@@ -57,7 +61,14 @@ local ORDER = {
 	-- Reads the match snapshots and toasts through the HUD: after both.
 	"SpectateController",
 	"BossController",
+	-- Draws the portal and Battleground bands in the HUD's column and hears the trips MenuController closes a
+	-- screen on: after the HUD, before the menu.
+	"TravelController",
+	-- The Flyleaf's Manicule over the head of whoever the server marked (E16-S2).
+	"ManiculeController",
 	"MenuController",
+	-- Words the hub and opens its screens from the pedestals' prompts: after MenuController.
+	"HubSignsController",
 	"InputController",
 	"ComboController",
 	-- Listens to the combo and draws in the HUD: after both.
@@ -83,6 +94,29 @@ for _, name in ipairs(ORDER) do
 		log.error("could not load controller %s: %s", name, tostring(result))
 	end
 end
+
+-- The interface's three doors to the client (D-147, D-228), opened before any screen or the HUD is built: the
+-- player's own Roblox accessibility settings, which every spring and background reads, the sound a component
+-- plays on its own, and how the player plays, which every layout and key hint reads (src/ui never requires a
+-- controller). Guarded like a controller: a failure here costs the interface its sound, its preferences or its
+-- phone layouts, never the client.
+log.try("wire the interface", function()
+	local UI = ReplicatedStorage:WaitForChild("UI")
+	require(UI:WaitForChild("UiPrefs")).start()
+	local soundController = deps.SoundController
+	if soundController ~= nil then
+		require(UI:WaitForChild("UiSound")).setPlayer(soundController.play)
+	else
+		log.warn("SoundController did not load: the interface plays no sound")
+	end
+	local inputMode = deps.InputMode
+	if inputMode ~= nil then
+		inputMode.start()
+		require(UI:WaitForChild("Theme")).useInput(inputMode)
+	else
+		log.warn("InputMode did not load: the interface is laid out for a pointer")
+	end
+end)
 
 for _, name in ipairs(loaded) do
 	local controller = deps[name]

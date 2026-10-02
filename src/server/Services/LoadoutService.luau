@@ -32,20 +32,27 @@ type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type ProgressionApi = { LevelUp: LevelSignal }
+-- CosmeticService owns Cosmetics: it takes back what the developer list paid for when the list lets go.
+type CosmeticApi = { revokeWaived: (player: Player) -> () }
 type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
 	Notify: NotifyApi,
 	Progression: ProgressionApi,
+	Cosmetic: CosmeticApi,
 }
 
 local LOADOUT = ProgressionConfig.Loadout
 local ORPIMENT_PIGMENT = "Orpiment"
 local ORPIMENT_LEVEL = ProgressionConfig.OrpimentUnlockLevel
+-- The MonetizationConfig.Passes key of the pass that sells the Orpiment pigment, as ProfileData.Passes caches it.
+local ORPIMENT_PASS = "Orpiment"
 local PIGMENT_NAME_KEYS = (PigmentConfig.NameKeys :: any) :: { [string]: string? }
 -- Strings has no dedicated unlock key; "{name} unlocked!" is the closest fit (see notes).
 local UNLOCKED_KEY = "purchase.passGranted"
+-- The one line a catch-up grant sends at login, with how many glyphs it handed over.
+local CAUGHT_UP_KEY = "loadout.caughtUp"
 
 local LoadoutService = {}
 
@@ -53,6 +60,7 @@ local registry: Registry
 local dataService: DataApi
 local notify: NotifyApi
 local progression: ProgressionApi
+local cosmetic: CosmeticApi
 
 -- Adds `glyphId` to the unlocks when it is missing and tells the player. Returns true when it was just
 -- granted (the caller pushes "Unlocks" once for the whole batch).
@@ -75,18 +83,19 @@ end
 
 -- Grants every glyph the profile has already earned: the level gates up to its current level and the
 -- glyphs of every owned pigment. Catches up a profile that predates a roster change or comes from V1.
+-- Quietly: a roster that grows by eight hands a veteran all eight at once, and the caller says so in one line.
 local function grantEarned(player: Player, data: ProfileData): number
 	local granted = 0
 	for level = 1, data.Progression.Level do
 		for _, glyphId in ipairs(GlyphConfig.unlocksForLevel(level)) do
-			if grantGlyph(player, data, glyphId) then
+			if grantGlyph(player, data, glyphId, true) then
 				granted += 1
 			end
 		end
 	end
 	for _, pigment in ipairs(data.Unlocks.Pigments) do
 		for _, glyphId in ipairs(GlyphConfig.unlocksForPigment(pigment)) do
-			if grantGlyph(player, data, glyphId) then
+			if grantGlyph(player, data, glyphId, true) then
 				granted += 1
 			end
 		end
@@ -98,12 +107,64 @@ local function isDeveloper(player: Player): boolean
 	return DeveloperConfig.isDeveloper(player.UserId, player.Name)
 end
 
+-- The slots a player owns: the base slots plus what the pass bought, capped.
+local function ownedSlots(data: ProfileData): number
+	return math.clamp(LOADOUT.BaseSlots + math.max(0, data.Loadout.ExtraSlots), LOADOUT.BaseSlots, LOADOUT.MaxSlots)
+end
+
+-- The pigments the profile holds on its own: the base ones, and Orpiment once reached by level or bought.
+local function earnedPigments(data: ProfileData): { string }
+	local pigments: { string } = {}
+	for _, pigment in ipairs(PigmentConfig.Base) do
+		table.insert(pigments, pigment)
+	end
+	if data.Progression.Level >= ORPIMENT_LEVEL or data.Passes[ORPIMENT_PASS] == true then
+		table.insert(pigments, ORPIMENT_PIGMENT)
+	end
+	return pigments
+end
+
+-- The glyphs the profile holds on its own: the defaults, every level gate up to its level, and the glyphs of
+-- the pigments it earned.
+local function earnedGlyphs(data: ProfileData): { string }
+	local glyphs = GlyphConfig.defaultUnlocks()
+	for level = 1, data.Progression.Level do
+		for _, glyphId in ipairs(GlyphConfig.unlocksForLevel(level)) do
+			table.insert(glyphs, glyphId)
+		end
+	end
+	for _, pigment in ipairs(earnedPigments(data)) do
+		for _, glyphId in ipairs(GlyphConfig.unlocksForPigment(pigment)) do
+			table.insert(glyphs, glyphId)
+		end
+	end
+	return glyphs
+end
+
+-- What `data` fields with the developer list set aside: the glyphs it earned, and the loadout a player with
+-- the same level, passes and slots could equip -- its earned glyphs, in slot order, cut to the slots it owns.
+-- Wherever play pays out, GlyphService checks a developer's cast against this rather than against the whole
+-- roster, in as many slots, that the list hands out (DeveloperConfig.UnlimitedSlots is the hub's).
+function LoadoutService.fielded(data: ProfileData): ({ string }, { string })
+	local unlocked = earnedGlyphs(data)
+	local budget = ownedSlots(data)
+	local slots: { string } = {}
+	for _, glyphId in ipairs(data.Loadout.Slots) do
+		if #slots >= budget then
+			break
+		end
+		if table.find(unlocked, glyphId) ~= nil then
+			table.insert(slots, glyphId)
+		end
+	end
+	return unlocked, slots
+end
+
 -- Slots this player may fill, written into the profile so the client reads the number instead of
 -- recomputing the rule. A developer with UnlimitedSlots holds the whole roster; everybody else gets the
 -- base slots plus what the pass bought, capped.
 local function refreshSlotLimit(player: Player, data: ProfileData): boolean
-	local limit =
-		math.clamp(LOADOUT.BaseSlots + math.max(0, data.Loadout.ExtraSlots), LOADOUT.BaseSlots, LOADOUT.MaxSlots)
+	local limit = ownedSlots(data)
 	if isDeveloper(player) and DeveloperConfig.UnlimitedSlots then
 		limit = #GlyphConfig.Glyphs
 	end
@@ -272,17 +333,21 @@ local function onLevelUp(player: Player, level: number)
 end
 
 -- Puts back what the developer list handed out, for an account that is no longer on it. Without this the
--- grant was irrevocable: removing the id left the profile holding all twenty glyphs and the Orpiment
+-- grant was irrevocable: removing the id left the profile holding the whole roster and the Orpiment
 -- pigment that other players pay for, with the whole set still castable.
 --
--- The unlocks are rebuilt rather than subtracted, because there is no record of which ones were earned.
--- grantEarned below puts the level gates back, the Orpiment level check and the game pass sync put the
--- pigment back if it is genuinely owned, and refreshSlotLimit trims the loadout to the real budget.
+-- The unlocks are rebuilt rather than subtracted, because there is no record of which ones were earned: the
+-- profile becomes exactly what it fields with the list set aside (LoadoutService.fielded), its loadout
+-- included, and refreshSlotLimit then writes the real budget. The cosmetics the list paid for leave too.
 local function revokeDeveloperGrants(player: Player, data: ProfileData)
-	table.clear(data.Unlocks.Pigments)
-	data.Unlocks.Glyphs = GlyphConfig.defaultUnlocks()
+	local unlocked, slots = LoadoutService.fielded(data)
+	data.Unlocks.Pigments = earnedPigments(data)
+	data.Unlocks.Glyphs = unlocked
+	data.Loadout.Slots = slots
 	data.Meta.DevGranted = false
 	dataService.push(player, "Unlocks")
+	dataService.push(player, "Loadout")
+	log.try("revokeWaived " .. player.Name, cosmetic.revokeWaived, player)
 	log.info("%s is no longer a developer: unlocks rebuilt from what the profile earned", player.Name)
 end
 
@@ -297,8 +362,10 @@ local function onProfileLoaded(player: Player, data: ProfileData)
 	if data.Progression.Level >= ORPIMENT_LEVEL then
 		LoadoutService.grantPigment(player, ORPIMENT_PIGMENT)
 	end
-	if grantEarned(player, data) > 0 then
+	local caughtUp = grantEarned(player, data)
+	if caughtUp > 0 then
 		dataService.push(player, "Unlocks")
+		notify.send(player, CAUGHT_UP_KEY, { count = caughtUp }, "Success", "LevelUp")
 	end
 	refreshSlotLimit(player, data)
 end
@@ -308,6 +375,7 @@ function LoadoutService.Init(deps: Deps)
 	dataService = deps.DataService
 	notify = deps.Notify
 	progression = deps.Progression
+	cosmetic = deps.Cosmetic
 end
 
 function LoadoutService.Start()

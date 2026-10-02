@@ -39,6 +39,17 @@ GameConfig.Server = {
 	-- failure. A purchase is only acknowledged to Roblox once the write is confirmed.
 	SaveConfirmTimeoutSeconds = 10,
 	SaveConfirmPollSeconds = 0.1,
+	-- How long a departure waits before it counts as a player leaving: the leaver's session stays loaded,
+	-- and a forfeit it causes is not declared, until then. A shutdown or a server migration removes the
+	-- players a moment before game:BindToClose says so, and a whole match walking out inside this window is
+	-- the server's doing, never an abandon (docs/QA.md R3). Also what a player who rejoins another server
+	-- at once may wait on top of ProfileStore's own session hand-over.
+	LeaveGraceSeconds = 2,
+	-- A per-player or per-match step of a tick that throws is written to the log at most once per element this
+	-- often (Log.faults), and a match whose tick throws this many ticks in a row is cancelled, its arena released
+	-- (MatchService): at TickRate, well within a second of its first failure.
+	FaultLogSeconds = 10,
+	MatchFaultTicks = 5,
 }
 
 GameConfig.Vfx = {
@@ -52,9 +63,9 @@ GameConfig.Vfx = {
 
 GameConfig.Latency = {
 	-- Extra studs an ACTION may be resolved from beyond what the speed ceiling allows, to absorb the
-	-- client round trip. It is never banked: an origin that needs it is honoured once and does not move
-	-- the trusted anchor, so a client cannot collect it sample after sample. Kept just under
-	-- CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
+	-- client round trip. It is never banked: an origin that needs it is honoured once until the trusted
+	-- anchor catches up again (OriginGuard.follow), so a client cannot collect it sample after sample.
+	-- Kept just under CombatConfig.Melee.Range (7) so at worst it lends a swing one extra body width, once.
 	OriginToleranceStuds = 6,
 	-- Anti-teleport ceiling, applied to HORIZONTAL travel only: vertical speed is gravity-driven and
 	-- unbounded (a fall from an arena at altitude 900 reaches several hundred studs per second), while the
@@ -66,9 +77,9 @@ GameConfig.Latency = {
 	-- its own is Movement.WalkSpeed (16), which a jump and a fall preserve rather than exceed, plus at most
 	-- the boss's own MoveSpeed (18) if it shoves someone. 40 leaves room for that and for jitter.
 	--
-	-- The value matters more than it looks: the budget grows with the time since the last accepted sample,
-	-- so a client that holds a spoofed position long enough eventually has it accepted. At 40 a 90-stud
-	-- offset takes 2.3 seconds of clamped, whiffing attacks before it is believed, which is no longer a
+	-- The value matters more than it looks: the trusted anchor chases the observation at this speed, so a
+	-- client that holds a spoofed position long enough eventually has it accepted. At 40 a 90-stud offset
+	-- is believed on the 45th tick, after 2.25 seconds of clamped, whiffing attacks, which is no longer a
 	-- teleport; at 120 it took 0.75 s.
 	MaxSpeedStudsPerSecond = 40,
 	-- How much elapsed time the travel budget may accumulate. It must accumulate at all, because an uplink
@@ -85,10 +96,6 @@ GameConfig.Latency = {
 	-- client that keeps attacking from positions the server never believed.
 	ViolationsBeforeStrike = 3,
 	ViolationWindowSeconds = 10,
-	-- Server-granted movement (dash, knockback) is added to the travel budget for its duration plus this
-	-- grace, which covers the client round trip. A dash is 22 studs in 0.22 s, i.e. 100 studs per second,
-	-- and a client that replicates it in a single frame must not look like a teleport.
-	AllowanceGraceSeconds = 0.5,
 }
 
 GameConfig.Movement = {
@@ -96,11 +103,17 @@ GameConfig.Movement = {
 	JumpPower = 50,
 	DoubleJumpVelocity = 50,
 	MaxJumps = 2,
+	-- The collision group of every part of a player's body, which does not collide with itself: players pass
+	-- through one another and nobody flings anybody (D-215). The Forgers and the Erasure stay Default.
+	CharacterCollisionGroup = "Characters",
 }
 
 GameConfig.Spawn = {
 	ProtectionSeconds = 4, -- no damage taken/dealt right after (re)spawn
-	SafeZoneMarginStuds = 10, -- PvP disabled within DummyRingRadius + this margin of the hub spawn
+	SafeZoneMarginStuds = 10, -- the training ground's margin around the dummy ring (HubService's marker)
+	-- A Humanoid its client took out of the body and did not give back within this is replaced with a new body and a
+	-- Schema strike (MovementService, D-216): without one, nothing can hurt the body.
+	HumanoidReturnSeconds = 0.5,
 }
 
 GameConfig.Enemy = {
@@ -109,6 +122,10 @@ GameConfig.Enemy = {
 	DummyHealth = 150,
 	DummyRingRadius = 22,
 	DummyRespawnSeconds = 3,
+	-- What the Trials pay a day (E10-S3, TrialPay): Folios stop at DailyFolioCap (before VIP), XP is whole for
+	-- the first FullXpKills kills and TailXpShare of it after, and nothing is paid without a glyph cast or a dash
+	-- in the last ActiveWindowSeconds. Counted in the profile (Daily.TrialDay, TrialKills, TrialFolios).
+	Pay = { DailyFolioCap = 40, FullXpKills = 25, TailXpShare = 0.05, ActiveWindowSeconds = 60 },
 }
 
 return GameConfig

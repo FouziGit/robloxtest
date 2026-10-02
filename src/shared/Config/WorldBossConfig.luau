@@ -34,6 +34,43 @@ WorldBossConfig.Health = {
 	Max = 40000,
 }
 
+-- A fight on demand from the hub's gate (D-132): the same Erasure in the same single encounter slot, opened
+-- by one player, marked as practice. Schedule.MinPlayers governs the scheduled event only; a practice has no
+-- minimum. It never pauses ranked matchmaking, never takes the event's PvP rule, never moves the schedule,
+-- and is refused when the event is due before it would end (BossPractice.startVerdict).
+WorldBossConfig.Practice = {
+	-- Solo: 2500 health in 240 s asks about 10.4 damage a second, sustained. Every player who joins in progress
+	-- adds HealthPerJoiner with their first hit that leaves it standing, up to HealthCap: walking in and out, or
+	-- standing idle, adds nothing (BossPractice.growthOnHit).
+	Health = 2500,
+	HealthPerJoiner = 1200,
+	HealthCap = 8000,
+	FightSeconds = 240,
+	CleanupSeconds = 5,
+	-- An arena nobody stands in is kept this long for whoever is on the way back; a participant who died may
+	-- walk back in through the hub's gate MaxReentries times per fight.
+	EmptyGraceSeconds = 15,
+	MaxReentries = 2,
+	-- A practice pays this share of the event's rewards: a solo top share earns 100 + 150 XP and 20 + 38 Folios.
+	RewardFactor = 0.25,
+	-- Paid practices a day, counted in the profile (Daily.PracticeDay / PracticePaid) so switching servers does
+	-- not reset it: at most 174 Folios a day. And at most one paid practice per RewardGapSeconds, from the
+	-- profile too (Daily.PracticeLastPaidAt), whichever server it is fought on.
+	RewardsPerDay = 3,
+	RewardGapSeconds = 1200,
+	-- Only a pay of at least this many Folios (before multipliers) counts against either cap. A share the
+	-- factor rounds to no Folio -- a late joiner's 1 % pays 1 XP and 0 Folios -- is paid its XP alone and
+	-- charged nothing, so tagging along never spends the day's paid practices; and at 1, no Folio is ever paid
+	-- outside the caps (BossPractice.charged).
+	MinPaidFolios = 1,
+	-- Whoever opened a practice waits StartCooldownSeconds to open another -- EarlyEmptyCooldownSeconds if they
+	-- walked out through a gate and it ended empty within EarlyEmptySeconds of opening, so the gate cannot be held
+	-- by opening and walking out. A match that took them, a death or a disconnect costs StartCooldownSeconds.
+	StartCooldownSeconds = 30,
+	EarlyEmptySeconds = 30,
+	EarlyEmptyCooldownSeconds = 300,
+}
+
 -- Phases switch at these remaining-health fractions; each phase speeds the boss up.
 WorldBossConfig.Phases = {
 	{ Threshold = 1.0, AttackSpeed = 1.0, MoveSpeed = 12 },

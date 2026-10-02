@@ -12,10 +12,12 @@ local BattlepassConfig = {}
 
 BattlepassConfig.MaxTier = 50
 
--- XP needed to go from tier n to n+1. Total for 50 tiers = 100 + 120 + … = 28,420 → with the V2
--- income of ~600-900 pass XP per match, the pass takes ≈ 35-45 matches (5-7 h) to complete.
+-- XP needed to go from tier n to n+1: 1,200 for the first, 80 more for each after, 152,880 for the whole pass. A
+-- pass lasts a Volume, not a week (E10-S5): scripts/pacing.luau, playing the real configs, finishes it on day 34
+-- at 20 minutes a day of duels, day 41 at 20 minutes a day alone, and day 15 at an hour a day of duels, and
+-- tests/Pacing.spec.luau holds those days between 28 and 42, and past 14.
 function BattlepassConfig.xpForTier(tier: number): number
-	return 100 + (tier - 1) * 20
+	return 1200 + (tier - 1) * 80
 end
 
 local function folios(amount: number): Reward

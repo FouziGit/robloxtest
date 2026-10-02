@@ -1,9 +1,9 @@
 --!strict
 -- Glyph roster. Pure data (no requires, no Roblox globals) so tests can validate it under Lune.
--- The 20 glyphs of docs/GAME_DESIGN.md §5: the 8 V1 glyphs (unlocked by default) first, then the
--- 12 Phase 2 additions grouped by pigment. Cost, Cooldown and Damage come straight from that
--- table; every other number a server effect or a client renderer needs lives in Params, so no
--- effect ever carries a magic constant.
+-- The 28 glyphs of docs/GAME_DESIGN.md §5: the 8 V1 glyphs (unlocked by default) first, then the
+-- 12 Phase 2 additions grouped by pigment, then the 8 of the second roster (D-145). Cost, Cooldown and
+-- Damage come straight from that table; every other number a server effect or a client renderer needs
+-- lives in Params, so no effect ever carries a magic constant.
 --
 -- Field reference (see Types.GlyphDef):
 --   Id           stable identifier (persisted in loadouts/unlocks): never rename
@@ -11,7 +11,8 @@
 --   Combo        pigment sequence, 2..4 entries (GameConfig.Combo.MinLength..MaxLength)
 --   Cost         ink spent on cast
 --   Cooldown     seconds before the same glyph can be cast again
---   Damage       per hit (or per tick for Zone/Aoe with Params.Ticks)
+--   Damage       per hit (or per tick with Params.Ticks); an Ultimate with Params.TickDamage: Damage is its
+--                opening hit, TickDamage each tick
 --   Range        studs; reach of the effect: projectile / hitscan travel, AoE radius, forward
 --                offset of a zone centre, dash or teleport distance, aura radius of a self buff
 --   Archetype    Projectile | Aoe | Zone | Wall | Mobility | Counter | Ultimate | Buff
@@ -423,6 +424,217 @@ GlyphConfig.Glyphs = {
 		DescriptionKey = "glyph.Colophon.desc",
 		Params = { SpawnOffset = 3, HitRadius = 5, ChainCount = 3, ChainRadius = 26, StunSeconds = 0.6, Knockback = 25 },
 	},
+
+	-- Second roster (D-145): one glyph for each two-key recipe left free, an Indigo ultimate and an Umber
+	-- three-key. Two of them charge and one rushes, which holds the caster (the channel, D-142).
+	{
+		-- Charged melee: winds Windup s in the hand (a channel: no M1, no glyph, a dash drops it), then strikes
+		-- the nearest body it may damage within HitRadius of a point Offset ahead of where the caster stands at
+		-- the release: hurled away (Knockback, Lift) and stunned StunSeconds. Range = Offset + HitRadius.
+		Id = "Volute",
+		Pigment = "Indigo",
+		Combo = { "Indigo", "Umber" },
+		Cost = 25,
+		Cooldown = 6,
+		Damage = 24,
+		Range = 8,
+		Archetype = "Aoe",
+		Effect = "Volute",
+		VfxId = "Volute",
+		Unlock = { Kind = "Level", Value = 8 },
+		NameKey = "glyph.Volute.name",
+		DescriptionKey = "glyph.Volute.desc",
+		Params = {
+			Windup = 0.4,
+			Offset = 4,
+			HitRadius = 4,
+			MaxTargets = 1,
+			Knockback = 80,
+			Lift = 25,
+			StunSeconds = 0.4,
+		},
+	},
+	{
+		-- Charged hitscan: aim locked at the press, caster rooted (ChargeSlowFactor) and channelled for Windup s;
+		-- then one ray from SpawnOffset ahead of the PRESS point (or from the wall in that gap, D-144) to Range or
+		-- the first wall, damaging up to MaxTargets bodies within HitRadius of it and pushing them along the aim.
+		-- A caster carried more than ReleaseDriftStuds off the press point by the release has lost the charge
+		-- (D-141): the client's round trip at a run, the slack the origin check also gives an action.
+		Id = "Rubric",
+		Pigment = "Cinnabar",
+		Combo = { "Cinnabar", "Indigo" },
+		Cost = 24,
+		Cooldown = 6,
+		Damage = 25,
+		Range = 85,
+		Archetype = "Projectile",
+		Effect = "Rubric",
+		VfxId = "Rubric",
+		Unlock = { Kind = "Level", Value = 33 },
+		NameKey = "glyph.Rubric.name",
+		DescriptionKey = "glyph.Rubric.desc",
+		Params = {
+			Windup = 0.7,
+			ChargeSlowFactor = 0,
+			SpawnOffset = 3,
+			HitRadius = 4,
+			MaxTargets = 3,
+			Knockback = 30,
+			ReleaseDriftStuds = 6,
+		},
+	},
+	{
+		-- A flourish along the ground: its front moves at Speed from SpawnOffset to Range, stopping at the first
+		-- wall (a Margin included, and one inside the SpawnOffset gap, D-144), damaging once every body its
+		-- Width x Height box sweeps (Depth deep) and pushing it along the aim.
+		Id = "Swash",
+		Pigment = "Umber",
+		Combo = { "Umber", "Cinnabar" },
+		Cost = 25,
+		Cooldown = 7,
+		Damage = 20,
+		Range = 45,
+		Archetype = "Aoe",
+		Effect = "Swash",
+		VfxId = "Swash",
+		Unlock = { Kind = "Level", Value = 12 },
+		NameKey = "glyph.Swash.name",
+		DescriptionKey = "glyph.Swash.desc",
+		Params = { Speed = 75, SpawnOffset = 4, Width = 12, Height = 5, Depth = 3, Knockback = 35, Lift = 12 },
+	},
+	{
+		-- Teleports behind the nearest body within Range and ConeDegrees of the aim that it may damage now
+		-- (canDamage, D-143) and can see, BehindStuds past its back (validated like the Caret: ground within
+		-- GroundSnapStuds, ClearanceRadius free), then strikes its back and pushes it away. No target: nothing
+		-- happens, and the ink stays spent (the Caret's rule, D-146).
+		Id = "Dagger",
+		Pigment = "Verdigris",
+		Combo = { "Verdigris", "Umber" },
+		Cost = 25,
+		Cooldown = 10,
+		Damage = 14,
+		Range = 25,
+		Archetype = "Mobility",
+		Effect = "Dagger",
+		VfxId = "Dagger",
+		Unlock = { Kind = "Level", Value = 28 },
+		NameKey = "glyph.Dagger.name",
+		DescriptionKey = "glyph.Dagger.desc",
+		Params = {
+			ConeDegrees = 35,
+			BehindStuds = 3,
+			ClearanceRadius = 2,
+			GroundSnapStuds = 12,
+			IFrameSeconds = 0.2,
+			Knockback = 14,
+		},
+	},
+	{
+		-- Ultimate frame fixed at the cast point: a seal of Damage on everything within Radius (it breaks guards,
+		-- and its StunSeconds is the only stun), then Ticks ticks every TickInterval of TickDamage that never
+		-- break a guard and slow whoever they hurt (D-140). Stops ticking when its caster is stunned, guards or dies.
+		-- For as long (Ticks x TickInterval), its caster's other cooldowns run Hasten times as fast while they
+		-- stand inside it (GlyphService, D-256): at most (Hasten - 1) x 4 s saved on each.
+		Id = "Cartouche",
+		Pigment = "Indigo",
+		Combo = { "Indigo", "Indigo", "Indigo", "Indigo" },
+		Cost = 50,
+		Cooldown = 20,
+		Damage = 28,
+		Range = 16,
+		Archetype = "Ultimate",
+		Effect = "Cartouche",
+		VfxId = "Cartouche",
+		Unlock = { Kind = "Level", Value = 36 },
+		NameKey = "glyph.Cartouche.name",
+		DescriptionKey = "glyph.Cartouche.desc",
+		Params = {
+			Radius = 16,
+			StunSeconds = 0.4,
+			Ticks = 5,
+			TickInterval = 0.8,
+			TickDamage = 4,
+			SlowFactor = 0.5,
+			SlowDuration = 1,
+			Hasten = 2,
+		},
+	},
+	{
+		-- Instant blast centred on the caster: everything within Radius is damaged once and thrown horizontally
+		-- away (Push, plus Lift). No stun, no guard break: the three-key "get off me", under the Rupture.
+		Id = "Emboss",
+		Pigment = "Umber",
+		Combo = { "Umber", "Umber", "Verdigris" },
+		Cost = 35,
+		Cooldown = 12,
+		Damage = 24,
+		Range = 13,
+		Archetype = "Aoe",
+		Effect = "Emboss",
+		VfxId = "Emboss",
+		Unlock = { Kind = "Level", Value = 30 },
+		NameKey = "glyph.Emboss.name",
+		DescriptionKey = "glyph.Emboss.desc",
+		Params = { Radius = 13, Push = 100, Lift = 25 },
+	},
+	{
+		-- A stitch thrown at Speed for at most Fuse s (a projectile a Margin stops, one inside the SpawnOffset gap
+		-- included, D-144): the first body it meets is damaged, dragged to PullStopStuds of the caster in
+		-- PullSeconds and rooted (RootSlowFactor) for RootDuration. Speed x Fuse = Range.
+		Id = "Stitch",
+		Pigment = "Verdigris",
+		Combo = { "Verdigris", "Indigo" },
+		Cost = 25,
+		Cooldown = 10,
+		Damage = 10,
+		Range = 32,
+		Archetype = "Counter",
+		Effect = "Stitch",
+		VfxId = "Stitch",
+		Unlock = { Kind = "Level", Value = 22 },
+		NameKey = "glyph.Stitch.name",
+		DescriptionKey = "glyph.Stitch.desc",
+		Params = {
+			Speed = 100,
+			Fuse = 0.32,
+			SpawnOffset = 3,
+			HitRadius = 3,
+			PullSeconds = 0.35,
+			PullStopStuds = 4,
+			RootSlowFactor = 0,
+			RootDuration = 0.8,
+		},
+	},
+	{
+		-- A channelled rush (no M1, no glyph; a dash ends it, D-142): Ticks strokes every TickInterval (above
+		-- CombatConfig.Hit.IFrameSeconds, the per-glyph hit memory, with a frame to spare), each in a Width x
+		-- Height box Range deep in front of the caster's validated frame. Strokes slow; the last one launches
+		-- (FinisherPush, FinisherLift) and stuns.
+		Id = "Hatching",
+		Pigment = "Cinnabar",
+		Combo = { "Cinnabar", "Umber" },
+		Cost = 25,
+		Cooldown = 7,
+		Damage = 5,
+		Range = 7,
+		Archetype = "Aoe",
+		Effect = "Hatching",
+		VfxId = "Hatching",
+		Unlock = { Kind = "Level", Value = 18 },
+		NameKey = "glyph.Hatching.name",
+		DescriptionKey = "glyph.Hatching.desc",
+		Params = {
+			Ticks = 5,
+			TickInterval = 0.34,
+			Width = 6,
+			Height = 6,
+			SlowFactor = 0.35,
+			SlowDuration = 0.45,
+			FinisherPush = 45,
+			FinisherLift = 35,
+			StunSeconds = 0.4,
+		},
+	},
 } :: { GlyphDef }
 
 -- Indexes built once at load.
@@ -449,6 +661,20 @@ end
 function GlyphConfig.isUtility(id: string): boolean
 	local def = byId[id]
 	return def ~= nil and def.Damage <= 0
+end
+
+-- What one body takes from a whole cast, which is what the loadout card shows: one hit for most glyphs, every
+-- tick of a zone and every stroke of a rush (Params.Ticks, capped by MaxHitsPerTarget for a trail a body crosses
+-- twice at most), and for an ultimate that opens with a hit and ticks after it (Params.TickDamage, D-140) that hit
+-- plus its ticks -- the Cartouche's 48, not its seal's 28. tests/Config.spec.luau counts a cast the same way, on
+-- its own, for the damage budgets.
+function GlyphConfig.castDamage(def: GlyphDef): number
+	local params = def.Params
+	local tickDamage = params.TickDamage
+	if tickDamage ~= nil then
+		return def.Damage + tickDamage * (params.Ticks or 0)
+	end
+	return def.Damage * (params.MaxHitsPerTarget or params.Ticks or 1)
 end
 
 function GlyphConfig.recipes(): { { Id: string, Combo: { string } } }
@@ -481,27 +707,20 @@ function GlyphConfig.unlocksForLevel(level: number): { string }
 	return ids
 end
 
--- Ids gated by `pigment` (Orpiment): granted with the pigment itself, never before.
--- The first thing a level past `level` unlocks, or nil when nothing is left: the next reward the result
--- card names. `orpimentLevel` is ProgressionConfig.OrpimentUnlockLevel, passed in because a config module
--- requires nothing (tests/Purity.spec.luau).
-function GlyphConfig.nextUnlock(level: number, orpimentLevel: number): { Id: string, NameKey: string, Level: number }?
-	local best: { Id: string, NameKey: string, Level: number }? = nil
-	for _, def in ipairs(GlyphConfig.Glyphs) do
-		local value = def.Unlock.Value
-		if def.Unlock.Kind == "Level" and value ~= nil and value > level then
-			if best == nil or value < best.Level then
-				best = { Id = def.Id, NameKey = def.NameKey, Level = value }
-			end
+-- Every glyph a level unlocks, with that level, in the roster's order: the glyphs of the level road
+-- (Pure/LevelRoad), which the Result card and the Lectern read and HonoursService pays beside.
+function GlyphConfig.levelUnlocks(): { { Id: string, NameKey: string, Level: number } }
+	local unlocks = {}
+	for _, glyph in ipairs(GlyphConfig.Glyphs) do
+		local level = glyph.Unlock.Value
+		if glyph.Unlock.Kind == "Level" and level ~= nil then
+			table.insert(unlocks, { Id = glyph.Id, NameKey = glyph.NameKey, Level = level })
 		end
 	end
-	if best == nil and level < orpimentLevel then
-		-- Nothing is left at a level; the pigment itself is, and it unlocks four glyphs at once.
-		return { Id = "Orpiment", NameKey = "pigment.orpiment", Level = orpimentLevel }
-	end
-	return best
+	return unlocks
 end
 
+-- Ids gated by `pigment` (Orpiment): granted with the pigment itself, never before.
 function GlyphConfig.unlocksForPigment(pigment: string): { string }
 	local ids = {}
 	for _, glyph in ipairs(GlyphConfig.Glyphs) do

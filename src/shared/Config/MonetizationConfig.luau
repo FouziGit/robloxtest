@@ -12,6 +12,12 @@ export type ProductDef = {
 	Amount: number?, -- Folios amount / tiers
 	Minutes: number?, -- XpBoost
 	Rarity: string?, -- Cosmetic
+	-- Folios paid for each unit a receipt can no longer deliver when it lands (a tier past the last one, for a
+	-- TierSkip; the pass itself, for a PremiumPass the player already has): the Robux are already taken, so
+	-- the receipt is settled in Folios rather than refused (D-202).
+	-- Worth at least what the same Robux buy in FolioSmall, the pack with the fewest Folios per Robux
+	-- (tests/Receipts.spec.luau).
+	CompensationFolios: number?,
 	NameKey: string,
 	DescKey: string,
 }
@@ -67,6 +73,7 @@ MonetizationConfig.Products = {
 		Id = 0,
 		PriceRobux = 349,
 		Kind = "PremiumPass",
+		CompensationFolios = 3530, -- 349 R$ ≈ 3 525 Folios at FolioSmall's rate
 		NameKey = "product.premiumPass",
 		DescKey = "product.premiumPass.desc",
 	},
@@ -75,6 +82,7 @@ MonetizationConfig.Products = {
 		PriceRobux = 149,
 		Kind = "TierSkip",
 		Amount = 5,
+		CompensationFolios = 310, -- per tier past the last one: 149 R$ / 5 ≈ 30 R$ ≈ 301 Folios at FolioSmall's rate
 		NameKey = "product.tierSkip5",
 		DescKey = "product.tierSkip5.desc",
 	},
@@ -119,16 +127,6 @@ MonetizationConfig.Products = {
 		DescKey = "product.cosmetic.desc",
 	},
 } :: { [string]: ProductDef }
-
--- Contextual prompt rules (see docs/ECONOMY.md §5).
-MonetizationConfig.Prompts = {
-	FirstSessionGraceSeconds = 180, -- never prompt during the first 3 minutes of the first session
-	MinIntervalSeconds = 300, -- at most one prompt every 5 minutes
-	CloseLossHealthFraction = 0.15, -- "close loss" threshold for the XP boost prompt
-	CloseLossCooldownSeconds = 1800,
-	OrpimentDeathMinLevel = 10,
-	OrpimentDeathPerSession = 1,
-}
 
 -- Keys whose Id is still 0.
 function MonetizationConfig.missingIds(): { string }

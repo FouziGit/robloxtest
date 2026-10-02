@@ -5,10 +5,10 @@
 -- leaving it green, so treat the old spellings here as data, never as names to update.
 -- tests are the proof: they migrate a realistic version 2 profile and check that every unlock, every
 -- equipped slot and every owned pigment survived, translated.
-local DataMigration = require("../src/shared/Pure/DataMigration")
+local DataMigration = require("../src/server/Pure/DataMigration")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local Harness = require("./harness")
-local LegacyNames = require("../src/shared/Pure/LegacyNames")
+local LegacyNames = require("../src/server/Pure/LegacyNames")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -33,12 +33,26 @@ describe("LegacyNames", function()
 	end)
 
 	it("covers the whole roster and the five schools", function()
-		expect(#GlyphConfig.Glyphs).toBe(20)
+		-- Every old id lands on a glyph that exists, and no glyph added since answers to an old name: a profile
+		-- holding it would have it rewritten on load into another glyph.
 		local mapped = 0
-		for _ in pairs(LegacyNames.Glyphs) do
+		for old, fresh in pairs(LegacyNames.Glyphs) do
+			if GlyphConfig.ById[fresh] == nil then
+				error(("LegacyNames maps %s to %s, which GlyphConfig does not declare"):format(old, fresh))
+			end
 			mapped += 1
 		end
 		expect(mapped).toBe(20)
+		for _, def in ipairs(GlyphConfig.Glyphs) do
+			if LegacyNames.Glyphs[def.Id] ~= nil then
+				error(
+					("%s is an old identifier: migration would rewrite it to %s"):format(
+						def.Id,
+						LegacyNames.Glyphs[def.Id]
+					)
+				)
+			end
+		end
 		local pigments = 0
 		for _ in pairs(LegacyNames.Pigments) do
 			pigments += 1

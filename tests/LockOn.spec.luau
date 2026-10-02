@@ -326,6 +326,26 @@ describe("the wiring of a lock", function()
 		)
 		expect(has(opponents, "CollectionService:GetTagged(GameConfig.Enemy.Tag)")).toBe(true)
 		expect(has(opponents, "CollectionService:GetTagged(WorldBossConfig.Boss.Tag)")).toBe(true)
+		-- The Forgers outside a match (D-131), and in a match only as the opponent of a practice duel, which the
+		-- snapshot names by MatchConfig.Spar.ForgerUserId (E10-S6): a lock on one is held while it keeps its own
+		-- tag, which it does until its body is gone, so a corpse is let go by its health like any other.
+		expect(
+			has(
+				functionIn(CONTROLLER, "local function addForgers("),
+				'for _, model in ipairs(CollectionService:GetTagged(BotConfig.Tag)) do local lock = lockOf(model, "Bot")'
+			)
+		).toBe(true)
+		expect(has(flat(CONTROLLER), "local FORGER_USER_ID = MatchConfig.Spar.ForgerUserId")).toBe(true)
+		local match = opponents:find("if match ~= nil then", 1, true)
+		local duel = opponents:find("if member.UserId == FORGER_USER_ID then addForgers(out) continue end", 1, true)
+		-- Outside a match: after the proofs and the boss, the last opponents it gathers.
+		local outside = opponents:find("addForgers(out) return out end", 1, true)
+		expect(match).never.toBe(nil)
+		expect(duel).never.toBe(nil)
+		expect(outside).never.toBe(nil)
+		expect((match :: number) < (duel :: number) and (duel :: number) < (outside :: number)).toBe(true)
+		local _, calls = string.gsub(opponents, "addForgers%(out%)", "")
+		expect(calls).toBe(2)
 		local lockOf = functionIn(CONTROLLER, "local function lockOf(")
 		expect(has(lockOf, "model == player.Character then return nil end")).toBe(true)
 		expect(has(lockOf, "humanoid.Health <= 0")).toBe(true)
@@ -340,6 +360,9 @@ describe("the wiring of a lock", function()
 		expect(has(holds, "return Players:GetPlayerFromCharacter(lock.Model) ~= nil")).toBe(true)
 		expect(has(holds, "return CollectionService:HasTag(lock.Model, GameConfig.Enemy.Tag)")).toBe(true)
 		expect(has(holds, "return CollectionService:HasTag(lock.Model, WorldBossConfig.Boss.Tag)")).toBe(true)
+		expect(has(holds, 'elseif lock.Kind == "Bot" then return CollectionService:HasTag(lock.Model, BotConfig.Tag)')).toBe(
+			true
+		)
 	end)
 
 	it("binds above the default camera, and shift-lock no longer shares the dash's key", function()

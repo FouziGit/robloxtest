@@ -32,16 +32,31 @@ local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
 local Shake = require(Packages.Shake)
 local Spring = require(Shared.Pure.Spring)
+local Theme = require(UI.Theme)
 local WorldConfig = require(Shared.Config.WorldConfig)
+-- WaitForChild: a sibling module may not have been copied into PlayerScripts yet.
+local VfxClock = require(script.Parent:WaitForChild("VfxClock"))
 
 local log = Log.new("Feel")
 
-type Deps = { ClientData: any, MovementController: any }
+type Deps = { ClientData: any, MovementController: any, Localize: any }
 type SpringType = typeof(Spring.new(0, 1, 1))
 
 export type Role = "Dealt" | "Taken" | "None"
+-- How a hit's number is drawn (the redesign's 4.12): a glyph's, a fist's, or one the player took; a hit a status
+-- amplified is bigger whatever its kind.
+-- A hit's number: whose it is, whether a status amplified it and which (its Strings key and the bonus it paid), and
+-- for a glyph's the pigment it is drawn in.
+export type DamageStyle = {
+	Kind: "Glyph" | "Fist" | "Taken",
+	Amplified: boolean?,
+	Pigment: string?,
+	Status: { Key: string, Percent: number }?,
+}
 
 local RENDER_NAME = "VellumFeel"
+-- The words under an amplified hit's number: "{status}: +{percent}% damage".
+local STATUS_KEY = "hud.status.bonus"
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value + 1
 local ROOT_PART_NAME = "HumanoidRootPart"
 local GAMEPAD = Enum.UserInputType.Gamepad1
@@ -50,6 +65,7 @@ local Feel = {}
 
 local clientData: any
 local movementController: any
+local localize: any
 
 local player = Players.LocalPlayer
 local fovSpring: SpringType = Spring.new(0, FeelConfig.Fov.Tension, FeelConfig.Fov.Friction)
@@ -62,11 +78,13 @@ local heldPosition = Vector3.zero
 local heldRotation = Vector3.zero
 
 -- A number in flight. Origin plus a per-number drift, so two hits in one spot do not print on top of
--- each other, and a pop spring that overshoots its size and settles back.
+-- each other, how far it climbs (down, for damage taken), and a pop spring that overshoots its size and
+-- settles back.
 type FlyingNumber = {
 	Marker: DamageNumber.Marker,
 	Origin: Vector3,
 	Drift: Vector3,
+	Rise: number,
 	Elapsed: number,
 	Pop: SpringType,
 }
@@ -112,6 +130,10 @@ local function motionAllowed(): boolean
 	end
 	return data.Settings.CameraShake ~= false
 end
+
+-- Exposed for what is drawn elsewhere and asks the same question: VfxTimeline, before letting a glyph's
+-- core shine (VfxConfig.Calm).
+Feel.motionAllowed = motionAllowed
 
 local function toVector(triple: FeelConfig.Triple): Vector3
 	return Vector3.new(triple[1], triple[2], triple[3])
@@ -208,10 +230,14 @@ end
 --
 -- `role` is who the local player was. Landing a hit plants their feet, which is most of what makes a
 -- melee blow feel heavy; taking one does not, because the knockback has to land.
+--
+-- The drawn effects stop with the camera (VfxClock.hold, D-119): the burst, its sparks and its light held
+-- still on their widest frames for as long, and never what is drawn on the server's own time.
 function Feel.hitStop(seconds: number, role: Role?)
 	if seconds <= 0 then
 		return
 	end
+	VfxClock.hold(seconds)
 	local merged = FeelMath.mergeHitStop(hitStopRemaining, seconds)
 	if merged > hitStopRemaining or hitStopRole == "None" then
 		hitStopRole = role or "None"
@@ -371,9 +397,12 @@ end
 -- Damage numbers
 --------------------------------------------------------------------------------------------------
 
--- Spawns a floating number. `critical` is the amplified hit (docs/GAME_DESIGN.md §6), which gets its
--- own size and its own colour so a player learns the interaction by seeing it pay off.
-function Feel.damageNumber(position: Vector3, amount: number, color: Color3, critical: boolean?)
+-- Spawns a floating number. A hit dealt rises in `color` on the ink's stroke, larger the heavier it was; a glyph's
+-- in its pigment's form on ink (Theme.pigmentOnInk: the exact Indigo and Umber do not read on ink). One the player
+-- took is a red minus on the sheet's stroke that drifts down, at the base size: it is read, not weighed, and red
+-- is the one colour that means it hit you. An amplified hit (docs/GAME_DESIGN.md §6) is bigger again and says under
+-- it which status paid off and by how much, so a player learns the interaction by seeing it pay off.
+function Feel.damageNumber(position: Vector3, amount: number, color: Color3, style: DamageStyle)
 	local config = FeelConfig.DamageNumbers
 	if #numbers >= config.MaxConcurrent then
 		local oldest = table.remove(numbers, 1)
@@ -382,14 +411,34 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, cri
 		end
 	end
 
+	local taken = style.Kind == "Taken"
 	local severity = FeelMath.severity(amount, FeelConfig.HitStop)
-	local sizeScale = FeelMath.lerp(1, config.MaxSizeScale, severity)
-	if critical then
-		sizeScale *= 1.15
+	local sizeScale = if taken then 1 else FeelMath.lerp(1, config.MaxSizeScale, severity)
+	if style.Amplified then
+		sizeScale *= config.AmplifiedScale
 	end
 
 	local marker = DamageNumber.acquire()
-	DamageNumber.dress(marker, tostring(math.floor(amount + 0.5)), color, sizeScale)
+	local value = tostring(math.floor(amount + 0.5))
+	local status = style.Status
+	local tag = if status ~= nil
+		then localize.t(STATUS_KEY, localize.resolveParams({ status = status.Key, percent = status.Percent }))
+		else nil
+	if taken then
+		DamageNumber.dress(
+			marker,
+			Theme.Glyphs.Minus .. value,
+			Theme.Colors.DangerFill,
+			Theme.Colors.PanelRaised,
+			sizeScale,
+			tag
+		)
+	elseif style.Pigment ~= nil then
+		local fill, edge = Theme.pigmentOnInk(style.Pigment)
+		DamageNumber.dress(marker, value, fill, edge, sizeScale, tag)
+	else
+		DamageNumber.dress(marker, value, color, Theme.Colors.Outline, sizeScale, tag)
+	end
 
 	-- Deterministic scatter: a counter through a sine rather than math.random, so two clients watching
 	-- the same fight scatter their numbers the same way and a recording is reproducible.
@@ -405,6 +454,7 @@ function Feel.damageNumber(position: Vector3, amount: number, color: Color3, cri
 		Marker = marker,
 		Origin = position + Vector3.new(0, config.HeightStuds, 0),
 		Drift = drift,
+		Rise = if taken then config.TakenRiseStuds else config.RiseStuds,
 		Elapsed = 0,
 		Pop = pop,
 	})
@@ -421,8 +471,8 @@ local function stepNumbers(deltaTime: number)
 			DamageNumber.release(entry.Marker)
 			table.remove(numbers, index)
 		else
-			-- Rises fast then slows, the way a thrown thing does, instead of sliding up at one speed.
-			local rise = config.RiseStuds * (1 - (1 - alpha) * (1 - alpha))
+			-- Rises (or sinks) fast then slows, the way a thrown thing does, instead of sliding at one speed.
+			local rise = entry.Rise * (1 - (1 - alpha) * (1 - alpha))
 			local position = entry.Origin + Vector3.new(0, rise, 0) + entry.Drift * alpha
 			local transparency = 1 - FeelMath.holdThenFade(alpha, config.HoldFraction)
 			DamageNumber.place(entry.Marker, position, transparency, entry.Pop:step(deltaTime))
@@ -649,6 +699,7 @@ end
 function Feel.Init(deps: Deps)
 	clientData = deps.ClientData
 	movementController = deps.MovementController
+	localize = deps.Localize
 end
 
 function Feel.Start()

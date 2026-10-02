@@ -1,8 +1,14 @@
 --!strict
--- BattlepassScreen: season progress (tier + XP bar) and the 50-tier reward list with Free / Premium
--- cells. Rows are built once, on the first Open; cell states (claim / claimed / locked / premium
--- required) refresh from ClientData on Open and on every Battlepass change. Claims go through the
--- ClaimBattlepassReward remote; the server answers with a profile push and a Notify toast.
+-- BattlepassScreen: the season's pass (D-147), in the Tyrian purple of its chapter. The header holds the
+-- tier seal and the XP to the next tier, and the three things to do with the pass: get its premium track,
+-- skip five tiers, and claim everything waiting at once. Under it, the next reward waits in a showcase on the
+-- left, and the tiers run to the right as a road that scrolls sideways (pass/Track, pass/Cell) and comes to
+-- rest on the current tier when the screen opens.
+--
+-- Claims go through ClaimBattlepassReward, never faster than the remote's own token bucket allows: a mirror
+-- of it, built from Remotes, paces every claim this screen sends -- "Claim all" and a single Claim alike share
+-- one queue -- so a burst of claims is never refused as abuse. The server answers each with a profile push
+-- and a toast. There is no season timer: BattlepassConfig has no end date (D-147).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -11,11 +17,23 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local BattlepassConfig = require(Shared.Config.BattlepassConfig)
 local Button = require(script.Parent.Parent.components.Button)
+local Cell = require(script.Parent.pass.Cell)
+local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GameConfig = require(Shared.Config.GameConfig)
+local Icon = require(script.Parent.Parent.components.Icon)
+local ItemPreview = require(script.Parent.Parent.components.ItemPreview)
+local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Panel = require(script.Parent.Parent.components.Panel)
 local ProgressBar = require(script.Parent.Parent.components.ProgressBar)
+local RarityRibbon = require(script.Parent.Parent.components.RarityRibbon)
+local Remotes = require(Shared.Remotes)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
+local Seal = require(script.Parent.Parent.components.Seal)
+local Splat = require(script.Parent.Parent.components.Splat)
+local Sticker = require(script.Parent.Parent.components.Sticker)
 local Theme = require(script.Parent.Parent.Theme)
+local TokenBucket = require(Shared.Util.TokenBucket)
+local Track = require(script.Parent.pass.Track)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
@@ -26,52 +44,59 @@ export type Deps = {
 	InputController: { captureNext: (kind: string, callback: (keyName: string?) -> ()) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
 	OnClose: () -> (),
-	OnNavigate: (id: string) -> (),
+	OnNavigate: (id: string, args: any?) -> (),
+	OnBack: () -> (),
+	CanGoBack: () -> boolean,
 }
 
 export type Screen = {
 	Instance: ScreenGui,
 	Visible: boolean,
-	Open: (self: Screen) -> (),
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 }
 
-type Track = "Free" | "Premium"
-type Reward = BattlepassConfig.Reward
 type SeasonData = Types.BattlepassSeasonData
-type Cell = { Track: Track, HasReward: boolean, Button: Button.Button }
-type Row = { Instance: Frame, Highlight: UIStroke, Free: Cell, Premium: Cell }
+type Claim = { Tier: number, Track: Cell.Track }
 type Destroyable = { Destroy: (self: any) -> () }
 
 local BattlepassScreen = {}
 
-local OVERLAY_TRANSPARENCY = 0.45
+local CHAPTER = "Battlepass"
 local SEASON = GameConfig.SeasonId
 local MAX_TIER = BattlepassConfig.MaxTier
-local TIER_COLUMN_WIDTH = Theme.Sizes.RowHeight
-local REWARD_LABEL_HEIGHT = Theme.Sizes.TextLarge
-local COLUMN_HEADER_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
-local BAR_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
-local HEADER_HEIGHT = Theme.Sizes.PaddingSmall * 2
-	+ Theme.Sizes.TextLarge
-	+ Theme.Sizes.Gap
-	+ BAR_HEIGHT
-	+ Theme.Sizes.Gap
-	+ COLUMN_HEADER_HEIGHT
-local HIGHLIGHT_THICKNESS = 2
+local TIERS = BattlepassConfig.Seasons[SEASON].Tiers
+-- The remote every claim goes through, and its own rate, which this screen stays under.
+local CLAIM_REMOTE = "ClaimBattlepassReward"
+local CLAIM_RATE = Remotes.Definitions[CLAIM_REMOTE].Rate :: Remotes.Rate
+-- Claims leave at least this far apart, and never before the mirror holds a token and this margin of one: a
+-- claim that crosses the network a little faster than the one before must still find its token.
+local CLAIM_SPACING = 0.3
+local CLAIM_MARGIN = 0.1
+-- The header: the tier seal, the XP bar and its line.
+local HEADER_SEAL = 48
+local XP_BAR_HEIGHT = 16
+local XP_BAR_MAX = 360
+local XP_TEXT_SIZE = 16
+-- The showcase of the next reward.
+local SHOWCASE_WIDTH = 240
+local SHOWCASE_ICON = 64
+local SHOWCASE_NAME_SIZE = 20
+local SHOWCASE_TIER_SIZE = 18
+local SHOWCASE_SPLAT = 1.6
+local SHOWCASE_SPLAT_TRANSPARENCY = 0.2
+local MIN_SCALED_TEXT = 14
+-- Columns built around the current tier on opening; the track builds the rest as its view nears them.
+local BUILD_BEHIND = 10
+local BUILD_AHEAD = 15
+-- A tier's two rewards.
+local TRACKS: { Cell.Track } = { "Free", "Premium" }
 
--- Dimmed backdrop that also swallows clicks so the world under the menu is not interacted with.
-local function makeOverlay(parent: Instance): Frame
-	local overlay = Instance.new("Frame")
-	overlay.Name = "Overlay"
-	overlay.BackgroundColor3 = Theme.Colors.Overlay
-	overlay.BackgroundTransparency = OVERLAY_TRANSPARENCY
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Active = true
-	overlay.Parent = parent
-	return overlay
+-- Whether a Robux product can be bought: it is configured, and it exists on Roblox (a non-zero id).
+local function productOffered(productKey: string): boolean
+	local product = MonetizationConfig.Products[productKey]
+	return product ~= nil and product.Id ~= 0
 end
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
@@ -80,274 +105,97 @@ local function own(owner: typeof(Trove.new()), object: Destroyable)
 	end)
 end
 
-local function horizontalLayout(parent: Instance)
+local function blank(name: string, parent: Instance?): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.BackgroundTransparency = 1
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	return frame
+end
+
+local function list(frame: Frame, direction: Enum.FillDirection, gap: number)
 	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.FillDirection = direction
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
-	layout.Parent = parent
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, gap)
+	layout.Parent = frame
 end
 
-local function flexFill(parent: Instance)
-	local flex = Instance.new("UIFlexItem")
-	flex.FlexMode = Enum.UIFlexMode.Fill
-	flex.Parent = parent
-end
-
-local function sidePadding(parent: Instance)
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, Theme.Sizes.PaddingSmall)
-	padding.PaddingRight = UDim.new(0, Theme.Sizes.PaddingSmall)
-	padding.Parent = parent
-end
-
--- Fixed-width column holding the tier number (rows) or nothing (column headers).
-local function tierColumn(parent: Instance, text: string): TextLabel
+local function textLabel(name: string, font: Font, size: number, order: number, parent: Instance): TextLabel
 	local label = Instance.new("TextLabel")
-	label.Name = "Tier"
+	label.Name = name
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(0, TIER_COLUMN_WIDTH, 1, 0)
-	label.FontFace = Theme.Fonts.Title
-	label.TextSize = Theme.Sizes.TextLarge
-	label.TextColor3 = Theme.Colors.TextMuted
-	label.Text = text
-	label.LayoutOrder = 1
+	label.Size = UDim2.new(1, 0, 0, size + 6)
+	label.FontFace = font
+	label.TextScaled = true
+	label.TextColor3 = Theme.Colors.Text
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.LayoutOrder = order
+	label.Text = ""
+	local cap = Instance.new("UITextSizeConstraint")
+	cap.MinTextSize = MIN_SCALED_TEXT
+	cap.MaxTextSize = size
+	cap.Parent = label
 	label.Parent = parent
 	return label
 end
 
-local function columnHeader(parent: Instance, text: string, color: Color3, layoutOrder: number): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = "Column"
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(0, 1)
-	label.FontFace = Theme.Fonts.Bold
-	label.TextSize = Theme.Sizes.TextSmall
-	label.TextColor3 = color
-	label.Text = text
-	label.LayoutOrder = layoutOrder
-	label.Parent = parent
-	flexFill(label)
-	return label
+local function rewardOf(tier: number, track: Cell.Track): BattlepassConfig.Reward?
+	local def = TIERS[tier]
+	if def == nil then
+		return nil
+	end
+	return if track == "Premium" then def.Premium else def.Free
 end
 
 function BattlepassScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
 	local t = deps.Localize.t
 	local screen: Screen
-	local rows: { Row } = {}
-	local pendingScrollTier: number? = nil
+	-- Every reward waiting on the pass, and the claims on their way out.
+	local claimable: { Claim } = {}
+	local queue: { Claim } = {}
+	-- When each claim left, by "tier:track". Until its push lands the reward still reads Claimable here: a
+	-- second tap on its Claim, or Claim all pressed again once the queue drained, must not send it twice (the
+	-- server would answer battlepass.alreadyClaimed in red). The server pushes only a claim it grants, so one
+	-- it refused is let go after the pending timeout.
+	local sent: { [string]: number } = {}
+	-- The mirror of the remote's bucket, and when the last claim left.
+	local bucket = TokenBucket.new(CLAIM_RATE.Capacity, CLAIM_RATE.Refill, os.clock())
+	local lastSent = -math.huge
+	local pumping = false
+	local alive = true
+	local refresh: () -> ()
 
-	-- Each cell stacks a reward label over a claim button, and the button carries the touch minimum, which
-	-- follows the viewport: the row is re-measured with it (see the scale binding below) instead of keeping
-	-- the height it had on the first Open.
-	local rowHeight = 0
-	local rowPitch = 0
-
-	local function measureRow()
-		rowHeight = Theme.Sizes.PaddingSmall * 2
-			+ REWARD_LABEL_HEIGHT
-			+ Theme.Sizes.PaddingSmall
-			+ Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-		rowPitch = rowHeight + Theme.Sizes.Gap
-	end
-
-	local root = ScreenRoot.new({ Name = "BattlepassScreen", DisplayOrder = Theme.Layers.Screen })
+	local root = ScreenRoot.new({
+		Name = "BattlepassScreen",
+		DisplayOrder = Theme.Layers.Screen,
+		Chapter = CHAPTER,
+		TextScalable = true,
+	})
 	own(trove, root)
 	root.Instance.Enabled = false
 
-	local overlay = makeOverlay(root.Content)
-
 	local panel = Panel.new({
-		Title = t("battlepass.title", { season = SEASON }),
+		Title = t("battlepass.title", { season = string.match(SEASON, "%d+") or SEASON }),
+		Chapter = CHAPTER,
 		Closable = true,
 		OnClose = function()
 			screen:Close()
 			deps.OnClose()
 		end,
-		Parent = overlay,
+		OnBack = deps.OnBack,
+		ShowBack = deps.CanGoBack,
+		Localize = deps.Localize,
+		Parent = root.Content,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(HEADER_HEIGHT)
+	root:SetCard(panel)
 
 	----------------------------------------------------------------
-	-- Header: tier, XP bar, column titles
-	----------------------------------------------------------------
-
-	local headerLayout = Instance.new("UIListLayout")
-	headerLayout.FillDirection = Enum.FillDirection.Vertical
-	headerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	headerLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
-	headerLayout.Parent = panel.Header
-
-	local tierLabel = Instance.new("TextLabel")
-	tierLabel.Name = "TierLabel"
-	tierLabel.BackgroundTransparency = 1
-	tierLabel.Size = UDim2.new(1, 0, 0, Theme.Sizes.TextLarge)
-	tierLabel.FontFace = Theme.Fonts.Bold
-	tierLabel.TextSize = Theme.Sizes.TextLarge
-	tierLabel.TextColor3 = Theme.Colors.Text
-	tierLabel.TextXAlignment = Enum.TextXAlignment.Left
-	tierLabel.TextTruncate = Enum.TextTruncate.AtEnd
-	tierLabel.Text = ""
-	tierLabel.LayoutOrder = 1
-	tierLabel.Parent = panel.Header
-
-	local xpBar = ProgressBar.new({
-		Color = Theme.Colors.Accent,
-		Size = UDim2.new(1, 0, 0, BAR_HEIGHT),
-		LayoutOrder = 2,
-		Parent = panel.Header,
-	})
-	own(trove, xpBar)
-
-	local columns = Instance.new("Frame")
-	columns.Name = "Columns"
-	columns.BackgroundTransparency = 1
-	columns.Size = UDim2.new(1, 0, 0, COLUMN_HEADER_HEIGHT)
-	columns.LayoutOrder = 3
-	columns.Parent = panel.Header
-	sidePadding(columns)
-	horizontalLayout(columns)
-	tierColumn(columns, "")
-	columnHeader(columns, t("battlepass.free"), Theme.Colors.TextMuted, 2)
-	columnHeader(columns, t("battlepass.premium"), Theme.Colors.Premium, 3)
-
-	----------------------------------------------------------------
-	-- Rows
-	----------------------------------------------------------------
-
-	local function rewardText(reward: Reward?): string
-		if reward == nil then
-			return t("battlepass.reward.none")
-		end
-		if reward.Kind == "Folios" then
-			return t("battlepass.reward.folio", { amount = reward.Amount })
-		elseif reward.Kind == "Cosmetic" then
-			return t("battlepass.reward.cosmetic", { name = t("cosmetic." .. reward.Id) })
-		end
-		return t("battlepass.reward.xpBoost", { minutes = reward.Minutes })
-	end
-
-	local function claim(tier: number, track: Track)
-		deps.SoundController.play("UiClick")
-		deps.RemoteClient.fire("ClaimBattlepassReward", tier, track)
-	end
-
-	local function buildCell(parent: Frame, tier: number, track: Track, reward: Reward?, layoutOrder: number): Cell
-		local cell = Instance.new("Frame")
-		cell.Name = track
-		cell.BackgroundTransparency = 1
-		cell.Size = UDim2.fromScale(0, 1)
-		cell.LayoutOrder = layoutOrder
-		flexFill(cell)
-
-		local layout = Instance.new("UIListLayout")
-		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
-		layout.Parent = cell
-
-		local label = Instance.new("TextLabel")
-		label.Name = "Reward"
-		label.BackgroundTransparency = 1
-		label.Size = UDim2.new(1, 0, 0, REWARD_LABEL_HEIGHT)
-		label.FontFace = Theme.Fonts.Body
-		label.TextSize = Theme.Sizes.TextSmall
-		-- The column header carries the gold; the rows are ink. Gilded thirteen-pixel text on the shaded
-		-- sheet was under the body floor even after the pigment was soaked into the page.
-		label.TextColor3 = Theme.Colors.Text
-		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.TextTruncate = Enum.TextTruncate.AtEnd
-		label.Text = rewardText(reward)
-		label.LayoutOrder = 1
-		label.Parent = cell
-
-		local button = Button.new({
-			Text = "",
-			Variant = "Secondary",
-			Disabled = true,
-			Size = UDim2.new(1, 0, 0, Theme.Sizes.ButtonHeight),
-			LayoutOrder = 2,
-			Parent = cell,
-			OnClick = function()
-				claim(tier, track)
-			end,
-		})
-		own(trove, button)
-
-		cell.Parent = parent
-		return { Track = track, HasReward = reward ~= nil, Button = button }
-	end
-
-	local function buildRows()
-		for tier = 1, MAX_TIER do
-			local tierDef = BattlepassConfig.getTier(SEASON, tier)
-
-			local row = Instance.new("Frame")
-			row.Name = "Tier" .. tostring(tier)
-			row.BackgroundColor3 = Theme.Colors.PanelRaised
-			row.BorderSizePixel = 0
-			row.Size = UDim2.new(1, 0, 0, rowHeight)
-			row.LayoutOrder = tier
-			sidePadding(row)
-			horizontalLayout(row)
-
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-			corner.Parent = row
-
-			local highlight = Instance.new("UIStroke")
-			highlight.Color = Theme.Colors.Accent
-			highlight.Thickness = HIGHLIGHT_THICKNESS
-			highlight.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			highlight.Enabled = false
-			highlight.Parent = row
-
-			tierColumn(row, tostring(tier))
-			local freeReward: Reward? = if tierDef ~= nil then tierDef.Free else nil
-			local premiumReward: Reward? = if tierDef ~= nil then tierDef.Premium else nil
-			local free = buildCell(row, tier, "Free", freeReward, 2)
-			local premium = buildCell(row, tier, "Premium", premiumReward, 3)
-
-			row.Parent = panel.Content
-			rows[tier] = { Instance = row, Highlight = highlight, Free = free, Premium = premium }
-		end
-	end
-
-	local function updateCell(cell: Cell, tier: number, season: SeasonData?)
-		local button = cell.Button
-		if not cell.HasReward then
-			button.Instance.Visible = false
-			return
-		end
-		local claimedMap: { [string]: boolean }? = if season == nil
-			then nil
-			elseif cell.Track == "Premium" then season.ClaimedPremium
-			else season.ClaimedFree
-		local claimed = claimedMap ~= nil and claimedMap[tostring(tier)] == true
-		if claimed then
-			button:SetText(t("battlepass.claimed"))
-			button:SetVariant("Secondary")
-			button:SetDisabled(true)
-		elseif cell.Track == "Premium" and (season == nil or not season.Premium) then
-			button:SetText(t("battlepass.premiumRequired"))
-			button:SetVariant("Secondary")
-			button:SetDisabled(true)
-		elseif season == nil or tier > season.Tier then
-			button:SetText(t("common.locked"))
-			button:SetVariant("Secondary")
-			button:SetDisabled(true)
-		else
-			button:SetText(t("battlepass.claim"))
-			button:SetVariant("Primary")
-			button:SetDisabled(false)
-		end
-	end
-
-	----------------------------------------------------------------
-	-- Refresh
+	-- Claims, paced under the remote's bucket
 	----------------------------------------------------------------
 
 	local function currentSeason(): SeasonData?
@@ -358,61 +206,363 @@ function BattlepassScreen.new(deps: Deps): Screen
 		return data.Battlepass[SEASON]
 	end
 
-	local function refresh()
+	local function keyOf(tier: number, track: Cell.Track): string
+		return tostring(tier) .. ":" .. track
+	end
+
+	local function inFlight(tier: number, track: Cell.Track, now: number): boolean
+		local at = sent[keyOf(tier, track)]
+		return at ~= nil and now - at < Theme.Timing.PendingTimeoutSeconds
+	end
+
+	-- Whether `claim` is still worth sending: its reward waits, and no claim for it is on its way.
+	local function worthSending(claim: Claim, now: number): boolean
+		return Cell.state(claim.Tier, claim.Track, currentSeason()) == "Claimable"
+			and not inFlight(claim.Tier, claim.Track, now)
+	end
+
+	-- Sends the queued claims one at a time: never closer than CLAIM_SPACING, and never before the mirror of
+	-- the server's bucket holds a token and its margin. With a full bucket the first few leave a spacing
+	-- apart, then one a refill.
+	local function pump()
+		if pumping or not alive then
+			return
+		end
+		local now = os.clock()
+		-- Each claim is looked at again as its turn comes: a push that landed while it waited in the queue may
+		-- have claimed it already, and a claim sent once is not sent again while its push is on its way.
+		while queue[1] ~= nil and not worthSending(queue[1], now) do
+			table.remove(queue, 1)
+		end
+		local nextClaim = queue[1]
+		if nextClaim == nil then
+			refresh()
+			return
+		end
+		local wait = math.max(0, CLAIM_SPACING - (now - lastSent))
+		local shortfall = 1 + CLAIM_MARGIN - TokenBucket.available(bucket, now)
+		if shortfall > 0 then
+			wait = math.max(wait, shortfall / CLAIM_RATE.Refill)
+		end
+		if wait > 0 then
+			pumping = true
+			task.delay(wait, function()
+				pumping = false
+				pump()
+			end)
+			return
+		end
+		table.remove(queue, 1)
+		if TokenBucket.tryTake(bucket, now) then
+			lastSent = now
+			deps.RemoteClient.fire(CLAIM_REMOTE, nextClaim.Tier, nextClaim.Track)
+			sent[keyOf(nextClaim.Tier, nextClaim.Track)] = now
+			-- A claim the server refused frees its reward here once it has waited out the timeout.
+			task.delay(Theme.Timing.PendingTimeoutSeconds, function()
+				if alive then
+					refresh()
+				end
+			end)
+		end
+		refresh()
+		pump()
+	end
+	trove:Add(function()
+		alive = false
+		table.clear(queue)
+	end)
+
+	local function enqueue(tier: number, track: Cell.Track)
+		for _, queued in ipairs(queue) do
+			if queued.Tier == tier and queued.Track == track then
+				return
+			end
+		end
+		table.insert(queue, { Tier = tier, Track = track })
+		pump()
+	end
+
+	----------------------------------------------------------------
+	-- Header: tier, XP, premium, tier skip, claim all
+	----------------------------------------------------------------
+
+	panel:SetHeaderHeight(function()
+		return Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	end)
+	local header = blank("Season", panel.Header)
+	header.Size = UDim2.fromScale(1, 1)
+	list(header, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
+
+	local tierSeal = Seal.new({
+		Text = "",
+		Fill = Theme.Colors.Epic,
+		Size = HEADER_SEAL,
+		Face = "Numeric",
+		LayoutOrder = 1,
+		Parent = header,
+	})
+	own(trove, tierSeal)
+
+	local xpColumn = blank("Xp", header)
+	xpColumn.Size = UDim2.fromScale(0, 1)
+	xpColumn.LayoutOrder = 2
+	local xpFlex = Instance.new("UIFlexItem")
+	xpFlex.FlexMode = Enum.UIFlexMode.Fill
+	xpFlex.Parent = xpColumn
+	local xpCap = Instance.new("UISizeConstraint")
+	xpCap.MaxSize = Vector2.new(XP_BAR_MAX, math.huge)
+	xpCap.Parent = xpColumn
+	list(xpColumn, Enum.FillDirection.Vertical, 4)
+	local tierText = textLabel("Tier", Theme.Fonts.Bold, Theme.Sizes.TextBody, 1, xpColumn)
+	local xpBar = ProgressBar.new({
+		Color = Theme.Colors.Primary,
+		Size = UDim2.new(1, 0, 0, XP_BAR_HEIGHT),
+		LayoutOrder = 2,
+		Parent = xpColumn,
+	})
+	own(trove, xpBar)
+	local xpText = textLabel("Progress", Theme.Fonts.Numeric, XP_TEXT_SIZE, 3, xpColumn)
+
+	local premiumButton = Button.new({
+		Text = t("battlepass.getPremium"),
+		Sublabel = t("shop.robuxPrice", { price = MonetizationConfig.Products.PremiumPass.PriceRobux }),
+		Variant = "Premium",
+		LayoutOrder = 3,
+		Parent = header,
+		OnClick = function()
+			deps.RemoteClient.fire("PromptPurchase", "Product", "PremiumPass")
+		end,
+	})
+	own(trove, premiumButton)
+
+	local skipButton = Button.new({
+		Text = t("product.tierSkip5"),
+		Variant = "Secondary",
+		LayoutOrder = 4,
+		Parent = header,
+		OnClick = function()
+			deps.RemoteClient.fire("PromptPurchase", "Product", "TierSkip5")
+		end,
+	})
+	own(trove, skipButton)
+
+	local claimAllButton = Button.new({
+		Text = "",
+		Variant = "Owner",
+		Chapter = CHAPTER,
+		LayoutOrder = 5,
+		Parent = header,
+		OnClick = function()
+			-- A copy: the first claim leaves at once, and the refresh after it recounts `claimable` without it.
+			for _, claim in ipairs(table.clone(claimable)) do
+				enqueue(claim.Tier, claim.Track)
+			end
+		end,
+	})
+	own(trove, claimAllButton)
+
+	----------------------------------------------------------------
+	-- The stage: the showcase on the left, the road on the right
+	----------------------------------------------------------------
+
+	-- The content never scrolls: its canvas is its window, which the stage fills. The road scrolls itself.
+	panel:SetContentMode("Fill")
+	local content = panel.Content
+	local stage = blank("Stage", content)
+	stage.Size = UDim2.fromScale(1, 1)
+	list(stage, Enum.FillDirection.Horizontal, Theme.Sizes.Gap)
+
+	local showcase = Sticker.new({
+		Kind = "Card",
+		Fill = Theme.Colors.PanelRaised,
+		Size = UDim2.new(0, SHOWCASE_WIDTH, 1, 0),
+		LayoutOrder = 1,
+		Parent = stage,
+		Name = "NextReward",
+	})
+	own(trove, showcase)
+	local showBody = blank("Body", showcase.Face)
+	showBody.Size = UDim2.fromScale(1, 1)
+	local showPadding = Instance.new("UIPadding")
+	showPadding.PaddingTop = UDim.new(0, Theme.Sizes.Padding)
+	showPadding.PaddingBottom = UDim.new(0, Theme.Sizes.Padding)
+	showPadding.PaddingLeft = UDim.new(0, Theme.Sizes.Padding)
+	showPadding.PaddingRight = UDim.new(0, Theme.Sizes.Padding)
+	showPadding.Parent = showBody
+	list(showBody, Enum.FillDirection.Vertical, Theme.Sizes.PaddingSmall)
+	textLabel("Label", Theme.Fonts.Label, Theme.Sizes.TextLabel, 1, showBody).Text = t("battlepass.nextReward")
+	local showArt = blank("Art", showBody)
+	showArt.Size = UDim2.fromScale(1, 0)
+	showArt.LayoutOrder = 2
+	local artFlex = Instance.new("UIFlexItem")
+	artFlex.FlexMode = Enum.UIFlexMode.Fill
+	artFlex.Parent = showArt
+	Splat.new({
+		Size = UDim2.fromOffset(SHOWCASE_ICON * SHOWCASE_SPLAT, SHOWCASE_ICON * SHOWCASE_SPLAT),
+		Tint = Theme.Colors.Epic,
+		Rotation = Splat.rotation(3),
+		Transparency = SHOWCASE_SPLAT_TRANSPARENCY,
+		Parent = showArt,
+	})
+	local showIcon = blank("Icon", showArt)
+	showIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	showIcon.Position = UDim2.fromScale(0.5, 0.5)
+	showIcon.Size = UDim2.fromOffset(SHOWCASE_ICON, SHOWCASE_ICON)
+	showIcon.ZIndex = 2
+	local showName = textLabel("Name", Theme.Fonts.Title, SHOWCASE_NAME_SIZE, 3, showBody)
+	-- An item's rarity, under its name: in its colour, its word and its pips, as the Shop shows it.
+	local showRarity: RarityRibbon.RarityRibbon? = nil
+	trove:Add(function()
+		local ribbon = showRarity
+		showRarity = nil
+		if ribbon ~= nil then
+			ribbon:Destroy()
+		end
+	end)
+	local showTier = textLabel("Tier", Theme.Fonts.Numeric, SHOWCASE_TIER_SIZE, 5, showBody)
+
+	local road = Track.new({
+		Tiers = TIERS,
+		Localize = deps.Localize,
+		OnClaim = enqueue,
+		LayoutOrder = 2,
+		Parent = stage,
+	})
+	own(trove, road)
+
+	----------------------------------------------------------------
+	-- Refresh
+	----------------------------------------------------------------
+
+	-- The reward of the next tier, on the track the player can have: premium when they own it.
+	local function showNext(season: SeasonData?)
+		for _, child in ipairs(showIcon:GetChildren()) do
+			child:Destroy()
+		end
+		local shownRarity = showRarity
+		showRarity = nil
+		if shownRarity ~= nil then
+			shownRarity:Destroy()
+		end
+		local reached = if season ~= nil then season.Tier else 1
+		if reached >= MAX_TIER then
+			showName.Text = t("battlepass.completed")
+			showTier.Text = ""
+			Seal.new({
+				Text = Theme.Glyphs.Check,
+				Fill = Theme.Colors.SuccessFill,
+				Size = SHOWCASE_ICON,
+				Parent = showIcon,
+			})
+			return
+		end
+		local tier = reached + 1
+		local reward = if season ~= nil and season.Premium
+			then rewardOf(tier, "Premium") or rewardOf(tier, "Free")
+			else rewardOf(tier, "Free")
+		showTier.Text = t("battlepass.tierShort", { tier = tier })
+		showName.Text = ""
+		if reward == nil then
+			return
+		end
+		if reward.Kind == "Folios" then
+			Icon.new("Coin", SHOWCASE_ICON).Parent = showIcon
+			showName.Text = t("battlepass.reward.folio", { amount = reward.Amount })
+		elseif reward.Kind == "XpBoost" then
+			Icon.new("Clock", SHOWCASE_ICON, Theme.Colors.Text).Parent = showIcon
+			showName.Text = t("battlepass.reward.xpBoost", { minutes = reward.Minutes })
+		else
+			local item = CosmeticConfig.ById[reward.Id]
+			if item ~= nil then
+				ItemPreview.new(item, showIcon, deps.Localize)
+				showName.Text = t(item.NameKey)
+				local ribbon = RarityRibbon.new(item.Rarity, t(Theme.rarity(item.Rarity).WordKey), showBody)
+				ribbon.Instance.LayoutOrder = 4
+				showRarity = ribbon
+			end
+		end
+	end
+
+	-- Every reward of the pass waiting to be claimed, built on the road or not: Claim all counts them all.
+	local function countClaimable(season: SeasonData?)
+		table.clear(claimable)
+		local now = os.clock()
+		for tier = 1, MAX_TIER do
+			for index = 1, #TRACKS do
+				local which: Cell.Track = TRACKS[index]
+				if
+					rewardOf(tier, which) ~= nil
+					and Cell.state(tier, which, season) == "Claimable"
+					and not inFlight(tier, which, now)
+				then
+					table.insert(claimable, { Tier = tier, Track = which })
+				end
+			end
+		end
+	end
+
+	-- Claim all, else the current tier's own claim, else the premium track, else the cross.
+	local function focusTarget(): GuiObject?
+		if claimAllButton.Instance.Visible and not claimAllButton:IsDisabled() then
+			return claimAllButton.Instance
+		end
+		local season = currentSeason()
+		local claim = road:ClaimOf(if season ~= nil then season.Tier else 1)
+		if claim ~= nil then
+			return claim
+		end
+		if premiumButton.Instance.Visible and not premiumButton:IsDisabled() then
+			return premiumButton.Instance
+		end
+		return nil
+	end
+
+	-- The header, the road, Claim all and the showcase, from the profile.
+	local function paintAll()
 		local season = currentSeason()
 		local tier = if season ~= nil then season.Tier else 1
 		local xp = if season ~= nil then season.XP else 0
-
-		tierLabel.Text = t("battlepass.tier", { tier = tier, max = MAX_TIER })
+		tierSeal:SetText(tostring(tier))
+		tierText.Text = t("battlepass.tier", { tier = tier, max = MAX_TIER })
 		if tier >= MAX_TIER then
 			xpBar:SetProgress(1)
-			xpBar:SetLabel(t("battlepass.completed"))
+			xpText.Text = t("battlepass.completed")
 		else
 			local needed = BattlepassConfig.xpForTier(tier)
 			xpBar:SetProgress(if needed > 0 then xp / needed else 0)
-			xpBar:SetLabel(t("battlepass.xp", { xp = xp, needed = needed }))
+			xpText.Text = t("battlepass.xp", { xp = xp, needed = needed })
 		end
 
-		for index, row in ipairs(rows) do
-			updateCell(row.Free, index, season)
-			updateCell(row.Premium, index, season)
-			row.Highlight.Enabled = index == tier
+		premiumButton.Instance.Visible = season == nil or not season.Premium
+		premiumButton:SetDisabled(not productOffered("PremiumPass"))
+		if tier >= MAX_TIER then
+			skipButton:SetDisabled(true, "Full", t("battlepass.completed"))
+		else
+			skipButton:SetDisabled(not productOffered("TierSkip5"))
 		end
+
+		road:Paint(season)
+		countClaimable(season)
+		-- Claims queued but not sent yet still wait: the button counts down what is left of them.
+		local waiting = #queue > 0
+		claimAllButton.Instance.Visible = waiting or #claimable >= 2
+		if waiting then
+			claimAllButton:SetDisabled(true, "Pending", t("battlepass.claimAll", { count = #queue }))
+		else
+			claimAllButton:SetDisabled(false)
+			claimAllButton:SetText(t("battlepass.claimAll", { count = #claimable }))
+		end
+		road:SetWiggling(screen.Visible and #claimable > 0)
+		showNext(season)
 	end
 
-	-- Scrolls so the current tier sits near the top (one row of context above it). The canvas only
-	-- has a size once the layout has run, so the request is kept until AbsoluteCanvasSize is known.
-	local function applyPendingScroll()
-		local tier = pendingScrollTier
-		if tier == nil or panel.Content.AbsoluteCanvasSize.Y <= 0 then
-			return
-		end
-		pendingScrollTier = nil
-		local y = math.max(0, (tier - 2) * rowPitch * root:GetScale())
-		panel.Content.CanvasPosition = Vector2.new(0, y)
+	-- A claim that lands takes its Claim button with it (Cell), and the pad was on it: it goes on to the
+	-- earliest claim still waiting, or to what the screen opens on.
+	refresh = function()
+		panel:KeepGamepadFocus(paintAll, function()
+			return road:FirstClaim() or focusTarget()
+		end)
 	end
-
-	trove:Connect(panel.Content:GetPropertyChangedSignal("AbsoluteCanvasSize"), applyPendingScroll)
-
-	-- The claim buttons grow when the UIScale shrinks, so the rows grow with them; a row left at its old
-	-- height would hide the bottom of its buttons under the next one. The scroll target is only re-requested
-	-- here: the canvas is measured a frame later, and the AbsoluteCanvasSize change above applies it against
-	-- the new pitch.
-	trove:Add(Theme.bindScale(function()
-		local previous = rowHeight
-		measureRow()
-		if rowHeight == previous then
-			return
-		end
-		for _, row in ipairs(rows) do
-			row.Instance.Size = UDim2.new(1, 0, 0, rowHeight)
-		end
-		if not root.Instance.Enabled then
-			return
-		end
-		local season = currentSeason()
-		pendingScrollTier = if season ~= nil then season.Tier else 1
-	end))
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Battlepass" then
@@ -420,26 +570,22 @@ function BattlepassScreen.new(deps: Deps): Screen
 		end
 	end)
 
-	refresh()
-
 	----------------------------------------------------------------
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen)
+	local function open(self: Screen, _args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
-		if #rows == 0 then
-			buildRows()
-		end
-		refresh()
 		local season = currentSeason()
-		pendingScrollTier = if season ~= nil then season.Tier else 1
-		root.Instance.Enabled = true
-		applyPendingScroll()
-		panel:FocusForGamepad()
+		local tier = if season ~= nil then season.Tier else 1
+		road:Ensure(tier - BUILD_BEHIND, tier + BUILD_AHEAD)
+		refresh()
+		root:PlayEnter()
+		road:CentreOn(tier)
+		panel:FocusForGamepad(focusTarget())
 		deps.SoundController.play("UiOpen")
 	end
 
@@ -448,9 +594,9 @@ function BattlepassScreen.new(deps: Deps): Screen
 			return
 		end
 		self.Visible = false
-		pendingScrollTier = nil
+		road:SetWiggling(false)
 		panel:ReleaseGamepadFocus()
-		root.Instance.Enabled = false
+		root:PlayExit()
 		deps.SoundController.play("UiClose")
 	end
 
@@ -466,6 +612,7 @@ function BattlepassScreen.new(deps: Deps): Screen
 		Close = close,
 		Destroy = destroy,
 	}
+	refresh()
 	return screen
 end
 

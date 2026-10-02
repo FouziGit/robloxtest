@@ -115,6 +115,54 @@ describe("FeelMath.impulseSpeed", function()
 	end)
 end)
 
+describe("FeelMath.impulseStep", function()
+	-- A mover that holds each step's value for that step's share of the impulse, as the server's Forger
+	-- knockback does once per tick: the steps must add up to the flat distance, whatever their size.
+	local function stepped(alphas: { number }, exponent: number): number
+		local total = 0
+		for index = 2, #alphas do
+			local from, to = alphas[index - 1], alphas[index]
+			total += FeelMath.impulseStep(from, to, exponent) * (to - from)
+		end
+		return total
+	end
+
+	it("covers exactly the flat distance in five even steps, where sampling each start overshoots", function()
+		local exponent = FeelConfig.Impulse.KnockbackExponent
+		local alphas = { 0, 0.2, 0.4, 0.6, 0.8, 1 }
+		expect(stepped(alphas, exponent)).toBeCloseTo(1, 9)
+		local sampled = 0
+		for index = 1, 5 do
+			sampled += FeelMath.impulseSpeed(alphas[index], exponent) * 0.2
+		end
+		expect(sampled).toBeGreaterThan(1.25)
+	end)
+
+	it("covers it at the server's tick over a knockback, and over uneven ticks", function()
+		local exponent = FeelConfig.Impulse.KnockbackExponent
+		local duration = 0.25
+		local alphas = {}
+		local elapsed = 0
+		while elapsed < duration do
+			table.insert(alphas, elapsed / duration)
+			elapsed += 1 / 20
+		end
+		table.insert(alphas, 1)
+		expect(stepped(alphas, exponent)).toBeCloseTo(1, 9)
+		expect(stepped({ 0, 0.07, 0.31, 0.32, 0.9, 1 }, exponent)).toBeCloseTo(1, 9)
+		expect(stepped({ 0, 0.5, 1 }, 0)).toBeCloseTo(1, 9)
+	end)
+
+	it("is the curve's own speed for a step of no length, and nothing once the impulse is spent", function()
+		local exponent = FeelConfig.Impulse.KnockbackExponent
+		expect(FeelMath.impulseStep(0.3, 0.3, exponent)).toBe(FeelMath.impulseSpeed(0.3, exponent))
+		expect(FeelMath.impulseStep(1, 1, exponent)).toBe(0)
+		expect(FeelMath.impulseStep(1.5, 2, exponent)).toBe(0)
+		-- A step decays with the curve: the first is the fastest.
+		expect(FeelMath.impulseStep(0, 0.2, exponent)).toBeGreaterThan(FeelMath.impulseStep(0.2, 0.4, exponent))
+	end)
+end)
+
 describe("FeelMath.holdThenFade", function()
 	it("holds, then fades to nothing", function()
 		local hold = FeelConfig.DamageNumbers.HoldFraction

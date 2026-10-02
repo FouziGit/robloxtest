@@ -2,6 +2,7 @@
 -- Typed remote registry. The server creates instances from `Definitions`; both sides look them up by
 -- name. Every client→server definition carries a Guard schema per argument and a token-bucket rate.
 
+local DrillCatalog = require(script.Parent.DrillCatalog)
 local GameConfig = require(script.Parent.Config.GameConfig)
 local GlyphConfig = require(script.Parent.Config.GlyphConfig)
 local Guard = require(script.Parent.Util.Guard)
@@ -97,6 +98,13 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf({ "Daily", "Weekly" }), Guard.string({ min = 1, max = 64 }) },
 		Rate = { Capacity = 6, Refill = 1 },
 	},
+	-- One free reroll a day (QuestConfig.Rerolls): a player needs one press, so the bucket holds two.
+	RerollQuest = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf({ "Daily", "Weekly" }), Guard.string({ min = 1, max = 64 }) },
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
 	ClaimDaily = {
 		Kind = "RemoteEvent",
 		Direction = "ClientToServer",
@@ -140,6 +148,34 @@ Remotes.Definitions = {
 		Args = { Guard.oneOf({ "Melee", "Dash", "BlockStart", "BlockEnd" }) },
 		Rate = { Capacity = 12, Refill = 6 },
 	},
+	-- A drill of the Lectern, by its id (DrillCatalog): the server checks the glyph is unlocked and equipped, and
+	-- counts the set from what it accepts itself (DrillService).
+	StartDrill = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = { Guard.oneOf((DrillCatalog.ids() :: any) :: { any }) },
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	StopDrill = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 4, Refill = 0.5 },
+	},
+	-- The practice duel against a Forger while waiting in the 1v1 queue (SparService): take the one offered, or walk
+	-- out of the one being fought. No argument: the server decides whether it is offered and where it is fought.
+	StartSpar = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
+	LeaveSpar = {
+		Kind = "RemoteEvent",
+		Direction = "ClientToServer",
+		Args = {},
+		Rate = { Capacity = 2, Refill = 0.2 },
+	},
 
 	-- Server → Client
 	ProfileChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" }, -- (section: string | "*", value)
@@ -153,18 +189,34 @@ Remotes.Definitions = {
 	-- Server-approved movement applied by the owning client (characters are client-simulated on Roblox):
 	-- ({Kind = "Dash", Direction: Vector3, Distance: number, Duration: number}
 	--  | {Kind = "Knockback", Velocity: Vector3, Duration: number}
-	--  | {Kind = "Stun", Seconds: number})
+	--  | {Kind = "Stun", Seconds: number}
+	--  | {Kind = "StunEnd"})
 	MovementCommand = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Queue state of the receiving player (Types.QueueSnapshot), pushed on every change.
 	QueueChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The practice duel as the queue's card shows it (Types.SparSnapshot), pushed on every change.
+	SparChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Match snapshot for a participant (Types.MatchSnapshot), or nil when the match is over.
 	MatchChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- End-of-match summary (Types.MatchOutcome), sent once before the return to the hub.
 	MatchEnded = { Kind = "RemoteEvent", Direction = "ServerToClient" },
-	-- World Boss state for everyone on the server (Types.BossSnapshot), or nil when no event runs.
+	-- World Boss state (Types.BossSnapshot): to everyone on the server during the event, to its own
+	-- participants during a practice (D-132); nil when no fight runs, and to a participant who left a practice.
 	BossChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The Battleground for one of its members (Types.BattlegroundSnapshot), or nil when they leave it.
+	BattlegroundChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The Flyleaf for one of its members (Types.FlyleafSnapshot), or nil when they leave it.
+	FlyleafChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The portal circle a player stands in and how long they must stay (Types.PortalSnapshot), or nil once they
+	-- step out or set off. There is no client-to-server remote for travelling, and there must never be one
+	-- (D-130): the server moves whoever it trusts to be standing in a circle, and the client is only told.
+	PortalChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- Where a portal just took the player (a PortalConfig.PortalId), once they have arrived.
+	Travelled = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 	-- Today's shop rotation with ownership resolved for the receiver (Types.ShopSnapshot).
 	ShopChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+	-- The drill its player is doing at the Lectern ({Drill, Reps, Target, Misses}), or nil once it is put down.
+	DrillChanged = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 } :: { [string]: Definition }
 
 function Remotes.names(): { string }

@@ -1,9 +1,10 @@
 --!strict
 -- CombatService: the ONLY damage path of the game. Owns per-player combat state (ink, guard,
 -- dash / melee timers, spawn protection, per-glyph hit memory), the M1 / dash / block handlers and
--- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ).
--- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so PvP policy,
--- spawn protection, i-frames and guard rules apply everywhere.
+-- the single gameplay Heartbeat (regen, timers, CombatState replication at STATE_REPLICATION_HZ, and the
+-- movement audit, Security/MovementAudit, stepped once per tick).
+-- Every hit, from melee, glyphs, bosses or the environment, goes through ApplyDamage so the zones' rules
+-- (who may hurt whom, place by place: claimZone), spawn protection, i-frames and guard rules apply everywhere.
 -- It also owns the combat statuses of docs/GAME_DESIGN.md §6 (Fanned, Conductive, Gilding): they
 -- live as Humanoid attributes named by CombatConfig.Status, carry their own expiry and are read back
 -- inside ApplyDamage / knockback, so no status needs a ticker and clients can render them.
@@ -16,22 +17,38 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
+local ChannelHold = require(script.Parent.Parent.Pure.ChannelHold)
 local CombatConfig = require(Shared.Config.CombatConfig)
+local DamageZones = require(script.Parent.Parent.Pure.DamageZones)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
-local OriginGuard = require(Shared.Pure.OriginGuard)
+local MovementAudit = require(script.Parent.Parent.Security.MovementAudit)
+local MovementGuard = require(script.Parent.Parent.Pure.MovementGuard)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
+local OriginGuard = require(script.Parent.Parent.Pure.OriginGuard)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Packages.Signal)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
+local ZoneConfig = require(Shared.Config.ZoneConfig)
 
 local log = Log.new("CombatService")
+-- Each player's tick is a step of its own: one whose state throws never stops the others (E9-S2).
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 export type DamageKind = Types.DamageKind
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
 export type CombatState = { Ink: number, MaxInk: number, InCombat: boolean, Blocking: boolean, Stunned: boolean }
-export type Policy = (source: Player?, targetModel: Model) -> boolean
+export type ZoneId = ZoneConfig.ZoneId
+-- What the owner of a zone tells this service (claimZone): whether it holds a player now and, where players may
+-- hurt each other there, whether this pair may. Both are read on every hit, and must not yield.
+export type ZoneClaim = {
+	Holds: (player: Player) -> boolean,
+	Pair: ((source: Player, target: Player) -> boolean)?,
+}
 export type Action = "Melee" | "Dash" | "BlockStart" | "BlockEnd"
+-- A glyph's hold on a body that is not a player's (controlNpc): a stun, or a slow by a factor.
+export type ControlKind = "Stun" | "Slow"
 
 type ProfileData = Types.ProfileData
 type DataApi = {
@@ -47,7 +64,12 @@ type MovementCommand =
 	| { Kind: "Knockback", Velocity: Vector3, Duration: number }
 	| { Kind: "Stun", Seconds: number }
 type AntiCheatApi = {
-	strike: (player: Player, source: string, reason: string, kind: string?) -> (),
+	strike: (
+		player: Player,
+		source: string,
+		reason: string,
+		kind: ("Schema" | "RateLimit" | "Origin" | "Movement")?
+	) -> (),
 }
 type MovementApi = {
 	applySlow: (player: Player, key: string, factor: number, seconds: number) -> (),
@@ -56,6 +78,8 @@ type MovementApi = {
 	ragdoll: (player: Player, seconds: number) -> (),
 	isStunned: (player: Player) -> boolean,
 	isDown: (player: Player) -> boolean,
+	-- The running stun's dates, for the movement audit (Security/MovementAudit).
+	stunDates: (player: Player) -> (number, number),
 	command: (player: Player, payload: MovementCommand) -> (),
 }
 type VfxPacket = {
@@ -68,11 +92,11 @@ type VfxPacket = {
 }
 type VfxApi = { emit: (packet: VfxPacket, reliable: boolean?) -> () }
 type ProgressionApi = { addXp: (player: Player, amount: number, reason: string) -> () }
-type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> () }
 type GlyphApi = { getCooldowns: (player: Player) -> { [string]: number } }
 type Registry = {
 	on: (name: string, handler: (player: Player, ...any) -> ()) -> (),
 	fire: (name: string, player: Player, ...any) -> (),
+	lastInbound: (player: Player) -> number,
 }
 type Deps = {
 	Registry: Registry,
@@ -81,7 +105,6 @@ type Deps = {
 	Movement: MovementApi,
 	Vfx: VfxApi,
 	Progression: ProgressionApi,
-	Currency: CurrencyApi,
 	AntiCheat: AntiCheatApi,
 	Glyph: GlyphApi?, -- wired after Combat in the bootstrap table: read in Start, never in Init
 	Cosmetic: CosmeticApi,
@@ -113,11 +136,16 @@ type State = {
 	BlockCooldownUntil: number,
 	DashCooldownUntil: number,
 	IFramesUntil: number,
+	-- The hold a charged glyph or a rush keeps on its caster, on os.clock, and whose hold it is (D-142).
+	Channel: ChannelHold.Hold,
 	MeleeIndex: number,
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
 	SpawnProtectedUntil: number,
 	KillCredited: boolean, -- this character's death was already credited (ApplyDamage or onDied)
+	-- The zone the last player's blow on this character was dealt in (ZoneConfig): what pays for a death credited to
+	-- that player later (creditDeath), wherever they have gone since. nil until a player hurts this body.
+	LastBlowZone: string?,
 	HitMemory: { [string]: { [Model]: number } }, -- tag -> target model -> i-frame expiry
 	-- Last root position the server was willing to believe, and when. Characters are simulated by the
 	-- owning client, so the replicated CFrame is whatever that client last sent: every hitbox and every
@@ -134,21 +162,34 @@ type State = {
 	-- a multiple of itself.
 	TravelAllowanceStuds: number,
 	TravelAllowanceUntil: number,
+	-- The round-trip tolerance has been used by an action since the anchor last caught up (OriginGuard
+	-- .follow). Only an action sets it; an Accepted sample clears it.
+	ToleranceSpent: boolean,
+	-- The anchor fell behind across a stall (a non-Accepted verdict after MovementGuardConfig.StallSeconds
+	-- of silence) and is chasing until this os.clock: as long as closing that gap on a body walking away
+	-- could take (OriginGuard.convergeSeconds). A refused action counts no violation meanwhile: the gap is the
+	-- connection's, and the action is already resolved from the anchor. Cleared by an Accepted sample.
+	ConvergingUntil: number,
+	-- The body the last server teleport (resyncPosition with a position) moved. With deferred signals a new body's
+	-- CharacterAdded can run after the teleport that placed it, and must not put the anchors back on the spawn.
+	TeleportCharacter: Model?,
+	-- When the server last pivoted this body (a teleport, or the movement audit pulling it back): until the pivot
+	-- has settled, the client may still replicate where it stood before, and the anchor is held (settling).
+	TeleportAt: number,
 }
 
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 -- CombatState snapshots per second (unreliable remote; the HUD tweens between them).
 local STATE_REPLICATION_HZ = GameConfig.Server.CombatStateHz
 local TICKS_PER_REPLICATION = math.max(1, math.floor(GameConfig.Server.TickRate / STATE_REPLICATION_HZ))
--- Hub safe zone: the dummy ring plus a margin. Players inside cannot be damaged by other players.
-local SAFE_ZONE_MARGIN_STUDS = GameConfig.Spawn.SafeZoneMarginStuds
-local SAFE_ZONE_RADIUS_STUDS = GameConfig.Enemy.DummyRingRadius + SAFE_ZONE_MARGIN_STUDS
 -- Vertical extent of the M1 hitbox (covers crouching / jumping targets in front of the attacker).
 local MELEE_HITBOX_HEIGHT = CombatConfig.Melee.HitboxHeight
 -- Read by EnemyService on death to credit the killer.
 local LAST_ATTACKER_ATTRIBUTE = "LastAttackerUserId"
 local ROOT_PART_NAME = "HumanoidRootPart"
 local HUMANOID_WAIT_SECONDS = 10
+-- The MicroProfiler label the movement audit's share of the tick is read under.
+local AUDIT_PROFILE_LABEL = "MovementAudit"
 local BLOCK_ATTRIBUTE = CombatConfig.Status.BlockAttribute
 -- Slow source key of the guard, so releasing the guard never cleanses a glyph slow.
 local BLOCK_SLOW_KEY = "Block"
@@ -181,10 +222,28 @@ CombatService.Killed = Signal.new() -- (sourceUserId: number, victimModel: Model
 -- Consumers must attribute from this payload and not by reading an attribute back from a Humanoid
 -- event: several players hit the boss in one resumption cycle, so a shared "last attacker" slot
 -- credits them all to whoever wrote it last.
-CombatService.Damaged = Signal.new() -- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind)
+--
+-- (sourceUserId: number, targetModel: Model, applied: number, kind: DamageKind, glyphId: string?). Glyph damage
+-- names its glyph (the tags[1] GlyphEffects' tracker puts first), for the balance each glyph is measured by
+-- (MatchService's GlyphMatch); any other damage names none.
+CombatService.Damaged = Signal.new()
 -- Fired once per dash the server actually granted (ink spent, cooldown armed). `cancelled` is true when
 -- the dash cut a finisher's recovery short (CombatConfig.Dash.CancelCost).
 CombatService.Dashed = Signal.new() -- (player: Player, cancelled: boolean)
+-- Fired once per melee swing the server accepted, after it struck: each body it struck has fired Damaged (kind
+-- Melee) before this. `index` is the swing's place in its string, the finisher's being #CombatConfig.Melee.Damage.
+-- The Lectern's drills read the four strokes from it (DrillService).
+CombatService.Swung = Signal.new() -- (player: Player, index: number)
+-- A knockback approved for a body no player owns (knockback). A player's character is moved by its own
+-- client through a MovementCommand; nothing moves a server-owned body unless its owner listens here --
+-- the Battleground's Forgers do (D-131). Anchored bodies (the training proofs, the Erasure) have no
+-- listener and stay where they are.
+CombatService.Shoved = Signal.new() -- (targetModel: Model, velocity: Vector3, duration: number)
+-- A glyph's stun or slow on a body no player owns (controlNpc): players are held through MovementService,
+-- which only knows players, so the owner of any other body listens here. Its last argument is the glyph's
+-- id: two glyphs' slows stay apart, as MovementService keeps a player's.
+-- (targetModel: Model, kind: ControlKind, seconds: number, factor: number, key: string)
+CombatService.Controlled = Signal.new()
 
 local registry: Registry
 local dataService: DataApi
@@ -193,13 +252,13 @@ local movement: MovementApi
 local antiCheat: AntiCheatApi
 local vfx: VfxApi
 local progression: ProgressionApi
-local currency: CurrencyApi
 local cosmetic: CosmeticApi
 local glyph: GlyphApi? = nil
 local deps: Deps
 
 local states: { [Player]: State } = {}
-local policy: Policy
+-- Zone -> what its owner said (claimZone). The fallback zone, the hub, holds everybody no owner holds.
+local claims: { [string]: ZoneClaim } = {}
 local accumulator = 0
 local ticksSinceReplication = 0
 -- os.clock of the previous tick, so regeneration integrates over the time that really passed. 0 until
@@ -263,7 +322,7 @@ local function findHumanoid(character: Model): Humanoid?
 	return nil
 end
 
--- The hub SpawnLocation (centre of the safe zone), re-resolved when the cached one leaves the world.
+-- The hub SpawnLocation (where the engine puts a new body), re-resolved when the cached one leaves the world.
 local function findSpawn(): SpawnLocation?
 	local cached = cachedSpawn
 	if cached ~= nil and cached:IsDescendantOf(Workspace) then
@@ -349,6 +408,24 @@ local GUARD: OriginGuard.Config = {
 	StillEpsilonStuds = 0.05,
 }
 
+-- Pure/MovementGuard's configuration, handed to MovementAudit: MovementGuardConfig, which only the server reads,
+-- plus what it does not hold -- the engine's gravity, the jump velocities, the speed ceiling and its window, the
+-- stillness epsilon above and the tick. tests/MovementGates.spec.luau checks that nothing the judge reads is left
+-- out.
+local function auditConfig(): MovementGuard.Config
+	local config = table.clone(MovementGuardConfig) :: any
+	config.Gravity = Workspace.Gravity
+	config.JumpVelocity = GameConfig.Movement.JumpPower
+	config.DoubleJumpVelocity = GameConfig.Movement.DoubleJumpVelocity
+	config.MaxSpeedStudsPerSecond = LATENCY.MaxSpeedStudsPerSecond
+	config.MaxBudgetSeconds = LATENCY.MaxBudgetSeconds
+	config.StillEpsilonStuds = GUARD.StillEpsilonStuds
+	config.TickSeconds = TICK_SECONDS
+	return config :: MovementGuard.Config
+end
+
+local AUDIT = auditConfig()
+
 -- The CFrame a hitbox or a cast origin is built from.
 --
 -- Roblox simulates a player's character on the owning client, so `root.CFrame` is whatever that client
@@ -362,18 +439,21 @@ local GUARD: OriginGuard.Config = {
 -- would punish a bad connection: the action still happens, anchored at the last position the server did
 -- believe, so a teleported attacker swings at empty air. Only a sustained stream of them strikes.
 --
--- The envelope widens with the time since the last accepted sample, so a stale sample always catches up
--- and nobody can be stuck. Server-authored teleports go through resyncPosition instead.
+-- An implausible sample does not freeze the anchor: it chases the observation at the speed ceiling, so a
+-- body that fell behind catches up and nobody stays stuck. Server-authored teleports go through
+-- resyncPosition instead.
 -- Grants `studs` of extra travel for `seconds`, because the server itself set this character moving.
 -- Called by every server-authored displacement the client applies (dash, knockback, a glyph dash): the
 -- character is simulated by the owning client, so the move arrives as one jump in the replicated
--- position. Overlapping grants add up and share the later deadline.
-local function allowTravel(state: State, studs: number, seconds: number, now: number)
-	local deadline = now + seconds + LATENCY.AllowanceGraceSeconds
+-- position. Overlapping grants add up, capped at MovementGuardConfig.MaxAllowanceStuds, and share the later
+-- deadline, which the round trip `rtt` stretches by MovementGuard.grace: the client plays the move that much
+-- later. No mover overshoot here: it would lend every action after a dash a few free studs.
+local function allowTravel(state: State, studs: number, seconds: number, now: number, rtt: number)
+	local deadline = now + seconds + MovementGuard.grace(rtt, AUDIT)
 	if now >= state.TravelAllowanceUntil then
 		state.TravelAllowanceStuds = 0
 	end
-	state.TravelAllowanceStuds += math.max(0, studs)
+	state.TravelAllowanceStuds = math.min(state.TravelAllowanceStuds + math.max(0, studs), AUDIT.MaxAllowanceStuds)
 	state.TravelAllowanceUntil = math.max(state.TravelAllowanceUntil, deadline)
 end
 
@@ -409,59 +489,117 @@ local function upright(frame: CFrame): CFrame
 	return CFrame.lookAlong(frame.Position, Vector3.new(x, 0, z))
 end
 
+-- Every coordinate a number and within MovementGuardConfig.MaxCoordinateStuds: NaN fails every comparison,
+-- so it is caught by the same test as a coordinate flung out of the world.
+local function isSanePosition(position: Vector3): boolean
+	local limit = MovementGuardConfig.MaxCoordinateStuds
+	return math.abs(position.X) <= limit and math.abs(position.Y) <= limit and math.abs(position.Z) <= limit
+end
+
+-- Whether the server pivoted this body so recently that what the client replicates may still be where it stood
+-- before the pivot reached it: MovementGuard.settle of the round trip the audit reads, which the audit waits out
+-- too. The first test only spares reading the round trip on every tick.
+local function settling(state: State, now: number): boolean
+	local since = now - state.TeleportAt
+	return since < AUDIT.SettleMaxSeconds and since < MovementGuard.settle(MovementAudit.rtt(state.Player), AUDIT)
+end
+
 -- `strikeOnFailure` is true only for an action the player chose (a melee, a cast). The per-tick sampling
--- passes false: it only ever moves the anchor, and must neither strike nor absolve.
+-- passes false: it moves the anchor, and must neither strike, nor absolve, nor spend the tolerance.
 --
--- Three outcomes, and the middle one is what keeps the tolerance from being farmed:
+-- The verdicts (OriginGuard.follow):
 --  * within the speed ceiling plus any unspent server-granted allowance -> honest movement: the anchor
 --    follows, and the allowance is reduced by the part of the travel that needed it;
---  * beyond that but within OriginToleranceStuds -> the action is resolved where the client says it is,
---    to absorb the round trip, but the anchor does NOT move. So the tolerance is worth one action, never
---    a fresh helping every 50 ms, and the displacement keeps accumulating against a stationary anchor
---    until it is refused;
---  * beyond that -> the action is resolved from the anchor instead, and it counts as a violation.
+--  * beyond that but within OriginToleranceStuds, on the first action since the anchor last caught up ->
+--    the action is resolved where the client says it is, to absorb the round trip, once;
+--  * beyond that -> the action is resolved from the anchor, and only a Refused one (past the tolerance)
+--    counts as a violation, unless the anchor is converging after a stall.
+-- In every case but the first, the anchor advances toward the observation by what the ceiling allows, so a
+-- body that fell behind is caught up with rather than refused forever, and a held spoof is believed only
+-- after it has cost the time it would have taken to walk there.
+--
+-- Except while a server pivot settles: the observation that does not fit is where the body stood before the
+-- pivot, which the stream still carries. Chased, it pulled the anchor two studs a tick back toward the hub
+-- after a portal -- out of the Battleground's bounds at 0.4 s of round trip -- and a Caret's landing ten studs
+-- behind the first swing. It is held instead, whole: no advance, no allowance or tolerance spent, not even
+-- the height, and an action is resolved from the destination without counting a violation. Its clock restarts,
+-- or the budget grown through the wait would accept a short teleport's stale sample late (a Caret's after
+-- 0.45 s).
 --
 -- Only HORIZONTAL travel is measured. Vertical speed is gravity-driven and unbounded, so a fall would
 -- fail every check, while the exploit being bounded is repositioning onto a target. The anchor's height
--- always follows the observation, so a clamped origin still sits at the player's real altitude.
+-- follows every observation it judges, so a clamped origin still sits at the player's real altitude; a held
+-- one is the height the body had before the pivot, and is left out.
+--
+-- A position that is not a number, or is beyond MovementGuardConfig.MaxCoordinateStuds, is never stored:
+-- the action is resolved from the anchor, and a later honest sample is still judged against it.
 --
 -- Upright, always: every swing and every glyph is aimed with this frame, and a root tilted by a fall
 -- aimed them into the ground or the sky (D-113).
 local function trustedCFrame(state: State, root: BasePart, now: number, strikeOnFailure: boolean): CFrame
 	local observed = upright(root.CFrame)
+	local position = observed.Position
 	local trusted = state.TrustedPosition
+	if not isSanePosition(position) then
+		return if trusted ~= nil then CFrame.new(trusted) else observed
+	end
 	if trusted == nil then
-		state.TrustedPosition = observed.Position
+		state.TrustedPosition = position
 		state.TrustedAt = now
 		return observed
 	end
 	local elapsed = now - state.TrustedAt
 	local allowance = liveAllowance(state, now)
-	local delta = observed.Position - trusted
-	local travelled = Vector3.new(delta.X, 0, delta.Z).Magnitude
-	local verdict, allowanceLeft = OriginGuard.judge(travelled, elapsed, allowance, GUARD)
+	local delta = position - trusted
+	local flatDelta = Vector3.new(delta.X, 0, delta.Z)
+	local travelled = flatDelta.Magnitude
+	local verdict, allowanceLeft, advance, toleranceSpent =
+		OriginGuard.follow(travelled, elapsed, allowance, strikeOnFailure, state.ToleranceSpent, GUARD)
+	if verdict ~= "Still" and verdict ~= "Accepted" and settling(state, now) then
+		state.TrustedAt = now
+		return CFrame.new(trusted) * (observed - position)
+	end
 	state.TravelAllowanceStuds = allowanceLeft
-
+	state.ToleranceSpent = toleranceSpent
 	if verdict == "Accepted" then
-		state.TrustedPosition = observed.Position
+		state.ConvergingUntil = -math.huge
+		state.TrustedPosition = position
 		state.TrustedAt = now
 		return observed
 	end
-	-- Every other verdict leaves the horizontal anchor and its clock alone. The altitude still follows, so
-	-- a falling player is not measured against where they jumped from and a clamped origin is never
-	-- underground.
-	local anchor = Vector3.new(trusted.X, observed.Position.Y, trusted.Z)
-	state.TrustedPosition = anchor
-	if verdict ~= "Refused" then
+	if verdict == "Still" then
+		-- Nothing moved: the clock is left alone so the budget keeps growing through a stall. The altitude
+		-- still follows, so a falling player is not measured against where they jumped from.
+		state.TrustedPosition = Vector3.new(trusted.X, position.Y, trusted.Z)
 		return observed
 	end
-	if strikeOnFailure then
+	if elapsed >= MovementGuardConfig.StallSeconds then
+		-- Converging for as long as the chase could need to close what is left on a body that keeps walking away
+		-- at the pace the audit forgives a stall at, and no longer.
+		state.ConvergingUntil = now
+			+ OriginGuard.convergeSeconds(
+				travelled - advance,
+				MovementGuardConfig.StallSpeedStudsPerSecond,
+				MovementGuardConfig.StallCapSeconds,
+				GUARD
+			)
+	end
+	-- Chase: `advance` never reaches the observation here (it would have been Accepted), so the flat delta
+	-- is long enough to have a direction.
+	local chased = trusted + flatDelta.Unit * advance
+	local anchor = Vector3.new(chased.X, position.Y, chased.Z)
+	state.TrustedPosition = anchor
+	state.TrustedAt = now
+	if verdict == "Tolerated" then
+		return observed
+	end
+	if verdict == "Refused" and strikeOnFailure and now >= state.ConvergingUntil then
 		countViolation(state, now, travelled, OriginGuard.budget(elapsed, allowance, GUARD))
 	end
 	-- Rotation is the player's aim and costs nothing to honour; only the position is corrected. The local
 	-- anchor is used rather than state.TrustedPosition, which the field's own type says may be nil: it is
-	-- not, one line above, but relying on that is how a later edit turns a type error into a crash.
-	return CFrame.new(anchor) * (observed - observed.Position)
+	-- not, a few lines above, but relying on that is how a later edit turns a type error into a crash.
+	return CFrame.new(anchor) * (observed - position)
 end
 
 -- The live root of `player`, resolved through Players rather than the state's cached Character: with
@@ -473,41 +611,95 @@ local function playerRoot(player: Player): BasePart?
 	return if root ~= nil and root:IsA("BasePart") then root else nil
 end
 
+-- Where the engine puts a new body: the root of `character` standing on the hub's SpawnLocation, at its own
+-- standing height (MovementAudit.standingHeight), a default body's for a player who has none yet. nil with no
+-- SpawnLocation.
+local function spawnPoint(character: Model?): Vector3?
+	local spawn = findSpawn()
+	if spawn == nil then
+		return nil
+	end
+	local stand = if character ~= nil
+		then MovementAudit.standingHeight(character)
+		else MovementGuardConfig.DefaultStandHeightStuds
+	return spawn.Position + Vector3.new(0, spawn.Size.Y / 2 + stand, 0)
+end
+
+-- Puts OriginGuard's anchor on `position` with a clean slate: no allowance, the tolerance whole, nothing
+-- converging, no pivot settling, and the origin violations cleared if `clearViolations`. nil leaves no anchor,
+-- and the next sample is taken as it comes. A server pivot starts its settle after this.
+local function anchorOn(state: State, position: Vector3?, now: number, clearViolations: boolean)
+	state.TrustedPosition = position
+	state.TrustedAt = now
+	state.TravelAllowanceStuds = 0
+	state.TravelAllowanceUntil = 0
+	state.ToleranceSpent = false
+	state.ConvergingUntil = -math.huge
+	state.TeleportAt = -math.huge
+	if clearViolations then
+		table.clear(state.OriginViolations)
+	end
+end
+
 -- Re-anchors the trust sample on a position the SERVER chose. Every server-authored reposition (match
--- spawn, hub return, boss arena placement, a teleporting glyph) must call this, or the player's next
--- hitbox would be built where they used to stand and miss.
+-- spawn, hub return, boss arena placement, a portal's trip, the Battleground's camp, a teleporting glyph)
+-- must call this right after its PivotTo, or the player's next hitbox would be built where they used to
+-- stand and miss, and the movement audit would read the move as a teleport.
 --
 -- A teleport MUST pass `position`. Re-reading the character would anchor trust on whatever the client
 -- last replicated, which is the one value this path exists not to believe: a glyph that moves the caster
--- relative to a spoofed root would otherwise have the server bless the spoof. Callers that only want the
--- sample re-armed on the current character, such as a respawn, pass nil.
+-- relative to a spoofed root would otherwise have the server bless the spoof. With a position both guards
+-- move there: OriginGuard's anchor, held there while the pivot settles, and MovementAudit, which then waits
+-- for the body to arrive. Called with nil (no caller does today), only OriginGuard re-arms on the current
+-- root: the audit never adopts a position the client chose.
 function CombatService.resyncPosition(player: Player, position: Vector3?)
 	local state = states[player]
 	if state == nil then
 		return
 	end
-	local anchor = position
-	if anchor == nil then
+	local now = os.clock()
+	if position == nil then
 		local root = playerRoot(player)
-		anchor = if root ~= nil then root.Position else nil
+		anchorOn(state, if root ~= nil then root.Position else nil, now, true)
+		return
 	end
-	state.TrustedPosition = anchor
-	state.TrustedAt = os.clock()
-	state.TravelAllowanceStuds = 0
-	state.TravelAllowanceUntil = 0
-	table.clear(state.OriginViolations)
+	anchorOn(state, position, now, true)
+	state.TeleportAt = now
+	state.TeleportCharacter = player.Character
+	MovementAudit.teleported(player, position)
+end
+
+-- The movement audit pulled `player`'s body back to `position`: OriginGuard starts there too, and holds there
+-- while the pivot settles. The origin violations stay: a correction absolves nothing.
+local function reanchor(player: Player, position: Vector3)
+	local state = states[player]
+	if state ~= nil then
+		local now = os.clock()
+		anchorOn(state, position, now, false)
+		state.TeleportAt = now
+	end
 end
 
 -- Issues a server-authored movement command AND grants the travel it covers. The single door for every
 -- displacement the client applies, so no caller can set a character moving without the travel budget
 -- being told: a glyph dash that forgot to would make an honest player's follow-up melee whiff.
+--
+-- A knockback's vertical share is lift, never horizontal travel: OriginGuard is given only the flat distance, and
+-- the movement audit the two apart, each stretched by the round trip the audit reads.
 function CombatService.grantMovement(player: Player, command: MovementCommand)
 	local state = states[player]
 	if state ~= nil then
+		local now = os.clock()
+		local rtt = MovementAudit.rtt(player)
 		if command.Kind == "Dash" then
-			allowTravel(state, command.Distance, command.Duration, os.clock())
+			allowTravel(state, command.Distance, command.Duration, now, rtt)
+			MovementAudit.grant(player, command.Distance, 0, command.Duration)
 		elseif command.Kind == "Knockback" then
-			allowTravel(state, command.Velocity.Magnitude * command.Duration, command.Duration, os.clock())
+			local velocity = command.Velocity
+			local flat = Vector3.new(velocity.X, 0, velocity.Z).Magnitude * command.Duration
+			local lift = math.max(0, velocity.Y) * command.Duration
+			allowTravel(state, flat, command.Duration, now, rtt)
+			MovementAudit.grant(player, flat, lift, command.Duration)
 		end
 	end
 	movement.command(player, command)
@@ -524,6 +716,81 @@ function CombatService.trustedOrigin(player: Player): CFrame?
 	return trustedCFrame(state, root, os.clock(), true)
 end
 
+-- The same origin, for a loop the SERVER runs on its own clock: a charge's release, the Scorch's ticks, the pull of a
+-- Stitch, the strokes of the Hatching. Judged and chased exactly as trustedOrigin judges it, so the zone and the
+-- strokes follow the same anchor, but as the per-tick sampling is: no violation counted, no tolerance spent. The
+-- player chose the cast, which trustedOrigin judged; they did not choose when the server's loop asks again, and
+-- three ticks after a network freeze were three violations -- a strike -- that no action of theirs had made. nil
+-- when the caster has no live character: the loop then stops, never falls back to the client's word.
+function CombatService.currentOrigin(player: Player): CFrame?
+	local state = states[player]
+	local root = playerRoot(player)
+	if state == nil or root == nil then
+		return nil
+	end
+	return trustedCFrame(state, root, os.clock(), false)
+end
+
+-- Where the server last believed `player` stood: the anchor the per-tick sampling keeps, read as it is. Never
+-- judged here and never counted as an action, so reading it can neither move the anchor nor strike anyone --
+-- which is what a watcher that asks every tick needs (the Battleground's roster, and anything else that must
+-- know where a player is without taking the client's word for it). Right after a respawn it is the SpawnLocation
+-- the engine put the new body on; nil only when there is none, until the next tick samples the new body.
+function CombatService.trustedPosition(player: Player): Vector3?
+	local state = states[player]
+	if state == nil then
+		return nil
+	end
+	return state.TrustedPosition
+end
+
+-- Heals a live player by `amount`, but only once they have taken no damage for `quietSeconds`, and never past
+-- their MaxHealth. Returns what was healed. A place that heals (the Battleground's camp) goes through this so
+-- it can never heal somebody in the middle of taking hits, and never a dead body.
+function CombatService.heal(player: Player, amount: number, quietSeconds: number): number
+	if not isFiniteNonNegative(amount) or not isFiniteNonNegative(quietSeconds) then
+		log.warn("heal rejected for %s: amount %s, quiet %s", player.Name, tostring(amount), tostring(quietSeconds))
+		return 0
+	end
+	local state = states[player]
+	if state == nil then
+		return 0
+	end
+	local humanoid = state.Humanoid
+	if humanoid == nil or humanoid.Parent ~= state.Character or humanoid.Health <= 0 then
+		return 0
+	end
+	if os.clock() - state.LastDamageTakenAt < quietSeconds then
+		return 0
+	end
+	local healed = math.min(amount, humanoid.MaxHealth - humanoid.Health)
+	if healed <= 0 then
+		return 0
+	end
+	humanoid.Health += healed
+	return healed
+end
+
+-- A glyph's stun (factor 0) or slow (0 <= factor <= 1) on a body that is not a player's, for `seconds`, under
+-- the source `key` (the glyph's id, as MovementService.applySlow takes it): fires Controlled for whoever owns
+-- that body. A player's character is refused, because players are held through MovementService, and a second
+-- path would let the two disagree about how long somebody is held.
+function CombatService.controlNpc(targetModel: Model, kind: ControlKind, seconds: number, factor: number, key: string)
+	if Players:GetPlayerFromCharacter(targetModel) ~= nil then
+		log.warn("controlNpc rejected: %s is a player's character", targetModel.Name)
+		return
+	end
+	if seconds ~= seconds or seconds <= 0 or seconds == math.huge or not (factor >= 0 and factor <= 1) then
+		log.warn("controlNpc rejected (%s): seconds %s, factor %s", kind, tostring(seconds), tostring(factor))
+		return
+	end
+	if type(key) ~= "string" or key == "" then
+		log.warn("controlNpc rejected (%s): invalid key %s", kind, tostring(key))
+		return
+	end
+	CombatService.Controlled:Fire(targetModel, kind, seconds, factor, key)
+end
+
 -- Guard drop (manual release, auto-release, guard break, death): starts the block cooldown.
 local function releaseBlock(state: State, now: number)
 	state.Blocking = false
@@ -535,38 +802,38 @@ local function releaseBlock(state: State, now: number)
 	end
 end
 
-local function isInSafeZone(spawn: SpawnLocation, model: Model): boolean
-	return (model:GetPivot().Position - spawn.Position).Magnitude <= SAFE_ZONE_RADIUS_STUDS
+local ZONE_RULES = (ZoneConfig.Rules :: any) :: { [string]: DamageZones.Rule }
+local ZONE_ORDER = (ZoneConfig.Order :: any) :: { string }
+
+local function holdsIn(zone: string, player: Player): boolean
+	local claim = claims[zone]
+	return claim ~= nil and claim.Holds(player)
 end
 
--- Default PvP policy: NPCs are always valid targets; players only outside spawn protection and the
--- hub safe zone. The safe zone is symmetric: standing inside it protects from PvP damage AND
--- forbids dealing it, so the zone can never be used as a one-way firing position. A source without
--- a character (NPC, environment) is not zone-tested. Match / boss modes replace it through setPolicy.
-local function defaultPolicy(source: Player?, targetModel: Model): boolean
+-- The zone `player` stands in: the first of ZoneConfig.Order whose owner holds them, the hub otherwise.
+local function zoneOf(player: Player): string
+	return DamageZones.zoneOf(ZONE_ORDER, ZoneConfig.Fallback, holdsIn, player)
+end
+
+-- Whether the zones let a hit from `source` land on `targetModel` (E16-S1). Server-authored damage (no source:
+-- the boss, the Forgers, a kill plane) is no zone's business. A player hurts another only when both stand in
+-- the same zone and its owner says this pair may -- opponents of the same live match, two members of the
+-- Flyleaf -- and hurts a body no player owns only where their zone allows it: the hub's proofs, the Erasure.
+-- A hub with no owner at all is the fallback's rule: nobody hurts anybody, and the proofs are open.
+local function zoneAllows(source: Player?, targetModel: Model): boolean
+	if source == nil then
+		return true
+	end
+	local sourceZone = zoneOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
-	if targetPlayer == nil then
-		return true
+	local verdict = DamageZones.judge(ZONE_RULES, sourceZone, if targetPlayer ~= nil then zoneOf(targetPlayer) else nil)
+	if verdict ~= "Owner" or targetPlayer == nil then
+		return verdict == "Allow"
 	end
-	local now = os.clock()
-	if isSpawnProtected(states[targetPlayer], targetModel, now) then
-		return false
-	end
-	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
-	if source ~= nil and isSpawnProtected(states[source], sourceCharacter, now) then
-		return false
-	end
-	local spawn = findSpawn()
-	if spawn == nil then
-		return true
-	end
-	if isInSafeZone(spawn, targetModel) then
-		return false
-	end
-	return sourceCharacter == nil or not isInSafeZone(spawn, sourceCharacter)
+	local claim = claims[sourceZone]
+	local pair = if claim ~= nil then claim.Pair else nil
+	return pair ~= nil and pair(source, targetPlayer)
 end
-
-policy = defaultPolicy
 
 ----------------------------------------------------------------
 -- Character lifecycle
@@ -574,7 +841,7 @@ policy = defaultPolicy
 
 -- Defined in the damage section below; the Died handler reaches the same crediting path for deaths
 -- that never went through ApplyDamage.
-local onKill: (source: Player?, targetPlayer: Player?, targetModel: Model) -> ()
+local onKill: (source: Player?, targetPlayer: Player?, targetModel: Model, zone: string?) -> ()
 
 local function releaseCharacter(state: State, now: number)
 	if state.Blocking then
@@ -589,7 +856,11 @@ local function releaseCharacter(state: State, now: number)
 	state.Character = nil
 end
 
-local function resetState(state: State, now: number)
+-- A fresh slate for a new body (`character`), or for a player who has none yet. The anchors start where the
+-- engine spawns bodies, the SpawnLocation, rather than on the new body's first report -- unless a server teleport
+-- of this very body already ran (deferred signals can deliver CharacterAdded after it): it set them on the point
+-- the server chose.
+local function resetState(state: State, now: number, character: Model?)
 	state.Ink = CombatConfig.Ink.Max * CombatConfig.Ink.StartFraction
 	state.InCombatUntil = 0
 	state.LastDamageTakenAt = 0
@@ -598,17 +869,21 @@ local function resetState(state: State, now: number)
 	state.BlockCooldownUntil = 0
 	state.DashCooldownUntil = 0
 	state.IFramesUntil = 0
+	ChannelHold.breaks(state.Channel)
 	state.MeleeIndex = 0
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
 	state.KillCredited = false
+	state.LastBlowZone = nil
 	state.HitMemory = {}
-	state.TrustedPosition = nil
-	state.TrustedAt = now
-	state.OriginViolations = {}
-	state.TravelAllowanceStuds = 0
-	state.TravelAllowanceUntil = 0
+	if character ~= nil and state.TeleportCharacter == character then
+		return
+	end
+	anchorOn(state, spawnPoint(character), now, true)
+	if character ~= nil then
+		MovementAudit.spawned(state.Player, character)
+	end
 end
 
 -- Credits a death that did not come from ApplyDamage (Reset Character, fall, environment) to the
@@ -634,7 +909,7 @@ local function creditDeath(state: State, character: Model, now: number)
 	end
 	character:SetAttribute(LAST_ATTACKER_ATTRIBUTE, nil)
 	state.KillCredited = true
-	onKill(attacker, state.Player, character)
+	onKill(attacker, state.Player, character, state.LastBlowZone)
 end
 
 local function onDied(state: State)
@@ -656,7 +931,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	end
 	local now = os.clock()
 	releaseCharacter(state, now)
-	resetState(state, now)
+	resetState(state, now, character)
 	local characterTrove = Trove.new()
 	state.CharacterTrove = characterTrove
 	state.Character = character
@@ -720,20 +995,27 @@ local function onPlayerAdded(player: Player)
 		BlockCooldownUntil = 0,
 		DashCooldownUntil = 0,
 		IFramesUntil = 0,
+		Channel = ChannelHold.new(),
 		MeleeIndex = 0,
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
 		SpawnProtectedUntil = 0,
 		KillCredited = false,
+		LastBlowZone = nil,
 		HitMemory = {},
 		TrustedPosition = nil,
 		TrustedAt = 0,
 		OriginViolations = {},
 		TravelAllowanceStuds = 0,
 		TravelAllowanceUntil = 0,
+		ToleranceSpent = false,
+		ConvergingUntil = -math.huge,
+		TeleportCharacter = nil,
+		TeleportAt = -math.huge,
 	}
 	resetState(state, os.clock())
 	states[player] = state
+	MovementAudit.add(player)
 	trove:Connect(player.CharacterAdded, function(character: Model)
 		onCharacterAdded(player, character)
 	end)
@@ -752,6 +1034,8 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	states[player] = nil
+	faults.forget(player)
+	MovementAudit.remove(player)
 	releaseCharacter(state, os.clock())
 	state.Trove:Destroy()
 end
@@ -760,7 +1044,8 @@ end
 -- Damage
 ----------------------------------------------------------------
 
-function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
+-- `zone`: where the killing blow was dealt (ZoneConfig), which says whether this service pays the kill itself.
+function onKill(source: Player?, targetPlayer: Player?, targetModel: Model, zone: string?)
 	if targetPlayer ~= nil then
 		local victimData = dataService.get(targetPlayer)
 		if victimData ~= nil then
@@ -768,15 +1053,20 @@ function onKill(source: Player?, targetPlayer: Player?, targetModel: Model)
 			dataService.push(targetPlayer, "Stats")
 		end
 		if source ~= nil then
-			local xp = ProgressionConfig.XP.PlayerKill
-			progression.addXp(source, xp, "PlayerKill")
-			currency.add(source, ProgressionConfig.Folios.PlayerKill, "PlayerKill")
 			local sourceData = dataService.get(source)
 			if sourceData ~= nil then
 				sourceData.Stats.Kills += 1
 				dataService.push(source, "Stats")
 			end
-			notify.send(source, "hud.playerKill", { name = targetPlayer.DisplayName, xp = xp }, "Success", "Kill")
+			-- A zone that pays its own kills (the Flyleaf under its daily cap, a match with its result) hears this one
+			-- through Killed. The zone is the blow's, never where the killer stands at the death: a Flyleaf member who
+			-- hit a rival and stepped home before the rival pressed Reset would otherwise be paid by the hub, past the
+			-- page's cap. Here, the kill's XP only, never its Folios.
+			if zone ~= nil and DamageZones.combatPays(ZONE_RULES, zone) then
+				local xp = ProgressionConfig.XP.PlayerKill
+				progression.addXp(source, xp, "PlayerKill")
+				notify.send(source, "hud.playerKill", { name = targetPlayer.DisplayName, xp = xp }, "Success", "Kill")
+			end
 		end
 	end
 	CombatService.Killed:Fire(if source ~= nil then source.UserId else 0, targetModel)
@@ -831,6 +1121,42 @@ local function applyGuard(
 	return damage * (1 - CombatConfig.Block.DamageReduction), true
 end
 
+-- Everything a hit is turned away for before it is scaled, in one place: what ApplyDamage refuses and what
+-- canDamage answers (a glyph that commits to a body before it strikes it, D-143). Read-only: the per-source
+-- hit memory stays in ApplyDamage, because only a hit that is going to land may write it.
+local function refuses(source: Player?, targetModel: Model, now: number): boolean
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil or humanoid.Health <= 0 then
+		return true
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
+	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+		return true
+	end
+	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+	local targetState = stateOf(targetPlayer)
+	if isSpawnProtected(stateOf(source), sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
+		return true
+	end
+	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
+	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
+	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
+	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
+		return true
+	end
+	if targetState ~= nil and now < targetState.IFramesUntil then
+		return true
+	end
+	return not zoneAllows(source, targetModel)
+end
+
+-- Whether a hit from `source` on `targetModel` would be let through right now: the zones' rules, spawn
+-- protection, i-frames and a body on the ground, exactly as ApplyDamage judges them. For an effect
+-- that has to choose its body before it strikes (the Dagger moves its caster first).
+function CombatService.canDamage(source: Player, targetModel: Model): boolean
+	return not refuses(source, targetModel, os.clock())
+end
+
 -- `pigment` (glyph pigment, nil for melee / environment) colours the Hit packet clients render and
 -- drives the pigment interactions: it writes the mark of its own pigment on the target and reads
 -- the mark that amplifies it (docs/GAME_DESIGN.md §6).
@@ -847,28 +1173,18 @@ function CombatService.ApplyDamage(
 		log.warn("ApplyDamage rejected (%s): invalid amount %s", kind, tostring(amount))
 		return result
 	end
-	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
-	if humanoid == nil or humanoid.Health <= 0 then
-		return result
-	end
 	local now = os.clock()
-	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
-	if sourceCharacter ~= nil and sourceCharacter == targetModel then
+	if refuses(source, targetModel, now) then
 		return result
 	end
+	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil then
+		return result
+	end
+	local sourceCharacter: Model? = if source ~= nil then source.Character else nil
 	local sourceState = stateOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
-
-	if isSpawnProtected(sourceState, sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
-		return result
-	end
-	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
-	-- that could be hit would be a guaranteed follow-up. Every knockback, stun and slow rides on damage
-	-- applied, so this refuses them too; GlyphEffects does not even pick such a body as a target.
-	if targetPlayer ~= nil and movement.isDown(targetPlayer) then
-		return result
-	end
 
 	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
@@ -884,12 +1200,6 @@ function CombatService.ApplyDamage(
 			return result
 		end
 		memory = existing
-	end
-	if targetState ~= nil and now < targetState.IFramesUntil then
-		return result
-	end
-	if not policy(source, targetModel) then
-		return result
 	end
 
 	local origin = positionOf(targetModel)
@@ -916,13 +1226,17 @@ function CombatService.ApplyDamage(
 	-- every consumer of this attribute reads it from one of those events. Written late, EnemyService
 	-- credited a dummy kill to the previous attacker (or to nobody on a one-shot) and CombatService's
 	-- own last-attacker fallback named the wrong player.
+	local blowZone: string? = if source ~= nil then zoneOf(source) else nil
 	if source ~= nil then
 		targetModel:SetAttribute(LAST_ATTACKER_ATTRIBUTE, source.UserId)
+		if targetState ~= nil then
+			targetState.LastBlowZone = blowZone
+		end
 	end
 	humanoid:TakeDamage(applied)
 	result.Applied = applied
 	if source ~= nil then
-		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind)
+		CombatService.Damaged:Fire(source.UserId, targetModel, applied, kind, if kind == "Glyph" then tags[1] else nil)
 	end
 	markTarget(humanoid, pigment, now)
 	if sourceState ~= nil then
@@ -939,6 +1253,10 @@ function CombatService.ApplyDamage(
 	-- The end of a melee chain: the client reads it for the impact frame a finisher earns (D-112), whatever
 	-- its damage -- fourteen is a light hit and a heavy moment.
 	if kind == "Melee" and tags[1] == "MeleeFinisher" then
+		hitParams.Finisher = true
+	end
+	-- And a glyph's last stroke, which says so after its id (GlyphEffects.Hatching: five damage, the rush's end).
+	if kind == "Glyph" and table.find(tags, CombatConfig.Hit.GlyphFinisherTag) ~= nil then
 		hitParams.Finisher = true
 	end
 	-- A skinned glyph lands in its skin: the ring, the burn and the number of its hit are part of the
@@ -990,17 +1308,19 @@ function CombatService.ApplyDamage(
 		if targetState ~= nil then
 			targetState.KillCredited = true
 		end
-		onKill(source, targetPlayer, targetModel)
+		onKill(source, targetPlayer, targetModel, blowZone)
 	end
 	return result
 end
 
 -- Server-approved knockback, applied by the owning client (characters are client-simulated).
--- NPCs (anchored dummies, bosses) ignore it. A Gilding target keeps its ground: "la Terre bloque"
--- of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
+-- Any other body is announced on Shoved for whoever moves it: the Forgers are thrown by their service, the
+-- anchored dummies and the Erasure have no listener and ignore it. A Gilding target keeps its ground: "la
+-- Terre bloque" of docs/GAME_DESIGN.md §6 makes the buff stop knockback as well as damage.
 function CombatService.knockback(targetModel: Model, velocity: Vector3, duration: number)
 	local player = Players:GetPlayerFromCharacter(targetModel)
 	if player == nil then
+		CombatService.Shoved:Fire(targetModel, velocity, duration)
 		return
 	end
 	local humanoid = targetModel:FindFirstChildOfClass("Humanoid")
@@ -1032,6 +1352,36 @@ function CombatService.grantIFrames(player: Player, seconds: number)
 		return
 	end
 	state.IFramesUntil = math.max(state.IFramesUntil, os.clock() + seconds)
+end
+
+-- A charged glyph or a rush holds its caster for `seconds`: no M1 and no other glyph meanwhile, and a dash
+-- breaks it (D-142). Returns the hold's number, which the effect keeping it asks about (holdsChannel) and ends
+-- it with (endChannel); nil when there is nothing to hold, which no hold is ever read as.
+function CombatService.channel(player: Player, seconds: number): number?
+	if seconds ~= seconds or seconds < 0 or seconds == math.huge then
+		log.warn("channel rejected for %s: seconds %s", player.Name, tostring(seconds))
+		return nil
+	end
+	local state = states[player]
+	if state == nil then
+		return nil
+	end
+	return ChannelHold.open(state.Channel, os.clock(), seconds)
+end
+
+-- Whether the hold numbered `token` is still the one `player` is kept in: no dash broke it and no later cast
+-- opened another. Its effect asks this, never isChanneling, which would read a later glyph's hold as its own.
+function CombatService.holdsChannel(player: Player, token: number?): boolean
+	local state = states[player]
+	return state ~= nil and token ~= nil and ChannelHold.owns(state.Channel, token)
+end
+
+-- Ends the hold numbered `token`, and nothing a later cast opened.
+function CombatService.endChannel(player: Player, token: number?)
+	local state = states[player]
+	if state ~= nil and token ~= nil then
+		ChannelHold.close(state.Channel, token)
+	end
 end
 
 function CombatService.applyStoneSkin(player: Player): boolean
@@ -1094,7 +1444,7 @@ local function onMelee(player: Player, state: State, now: number)
 	if character == nil or root == nil then
 		return
 	end
-	if movement.isStunned(player) or state.Blocking then
+	if movement.isStunned(player) or state.Blocking or ChannelHold.refuses(state.Channel, now) then
 		return
 	end
 	local melee = CombatConfig.Melee
@@ -1141,6 +1491,7 @@ local function onMelee(player: Player, state: State, now: number)
 		state.MeleeCooldownUntil = now + melee.FinisherCooldownSeconds
 	end
 	markInCombat(state, now)
+	CombatService.Swung:Fire(player, index)
 	vfx.emit({
 		Id = "Melee",
 		-- The validated position, not the raw root: emitting the raw one drew the swing where the client
@@ -1192,6 +1543,7 @@ local function onDash(player: Player, state: State, now: number)
 	-- here (docs/DECISIONS.md D-13). The cost and the cooldown are what bound the ability.
 	state.IFramesUntil = now + dash.IFrameSeconds
 	state.DashCooldownUntil = now + dash.CooldownSeconds
+	ChannelHold.breaks(state.Channel) -- a dash is the way out of a charge or a rush (D-142)
 	local direction = dashDirection(humanoid, root)
 	CombatService.grantMovement(player, {
 		Kind = "Dash",
@@ -1345,8 +1697,13 @@ local function onHeartbeat(deltaTime: number)
 	local elapsed = if lastTickAt > 0 then now - lastTickAt else 0
 	lastTickAt = now
 	for player, state in pairs(states) do
-		tickPlayer(player, state, now, elapsed, replicate)
+		faults.try(player, "tick of", tickPlayer, player, state, now, elapsed, replicate)
 	end
+	-- Once per tick, after every player's own: a tick that came late is a server hitch, which excuses what it
+	-- makes a body look like. Under its own MicroProfiler label, so its cost can be read apart.
+	debug.profilebegin(AUDIT_PROFILE_LABEL)
+	log.try("MovementAudit.step", MovementAudit.step, now, elapsed > MovementGuardConfig.HitchSeconds)
+	debug.profileend()
 end
 
 ----------------------------------------------------------------
@@ -1404,17 +1761,42 @@ function CombatService.isStunned(player: Player): boolean
 	return movement.isStunned(player)
 end
 
--- Replaces the PvP policy (match / boss modes). The policy runs after spawn protection and i-frames.
--- Installs the PvP rule and returns the one it replaced, so a temporary owner (a World Boss event)
--- can hand it back. There is a single slot: two owners at once must coordinate, never interleave.
-function CombatService.setPolicy(fn: Policy): Policy?
-	if type(fn) ~= "function" then
-		log.warn("setPolicy rejected: expected function, got %s", typeof(fn))
-		return nil
+-- Whether `player` stands in a live body this service holds: false while dead, and from the moment its client took
+-- the Humanoid out of it until the next body, even put back in time. What refuses a glyph (GlyphService) as the
+-- melee, the dash and the guard are refused (D-274).
+function CombatService.hasLiveBody(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and liveCharacter(state) ~= nil
+end
+
+-- Whether `player` is kept in a hold now, whoever opened it: what refuses every other glyph (GlyphService).
+function CombatService.isChanneling(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and ChannelHold.refuses(state.Channel, os.clock())
+end
+
+-- The owner of a zone (ZoneConfig) says who it holds and, where players may hurt each other there, which pairs may
+-- (E16-S1): MatchService its participants, WorldBossService the players its fight engaged, FlyleafService its
+-- members. The rules run after spawn protection, i-frames and a body on the ground. One owner per zone: the hub is
+-- everybody no owner holds and is claimed by nobody, and a zone whose players may hurt each other needs its Pair.
+function CombatService.claimZone(zone: ZoneId, claim: ZoneClaim)
+	local rule = ZONE_RULES[zone]
+	if rule == nil or zone == ZoneConfig.Fallback then
+		log.warn("claimZone rejected: %s is not a zone an owner can claim", tostring(zone))
+		return
 	end
-	local previous = policy
-	policy = fn
-	return previous
+	if rule.BetweenPlayers == "Owner" and claim.Pair == nil then
+		log.warn("claimZone for %s has no Pair: no player there can hurt another", zone)
+	end
+	if claims[zone] ~= nil then
+		log.warn("zone %s claimed twice: the later claim replaces the first", zone)
+	end
+	claims[zone] = claim
+end
+
+-- The zone `player` stands in now (ZoneConfig.Order): what decides whom they may hurt, and who pays their kills.
+function CombatService.zoneOf(player: Player): ZoneId
+	return zoneOf(player) :: ZoneId
 end
 
 ----------------------------------------------------------------
@@ -1430,8 +1812,14 @@ function CombatService.Init(injected: Deps)
 	antiCheat = injected.AntiCheat
 	vfx = injected.Vfx
 	progression = injected.Progression
-	currency = injected.Currency
 	cosmetic = injected.Cosmetic
+	MovementAudit.init({
+		AntiCheat = antiCheat,
+		Movement = movement,
+		Registry = registry,
+		Reanchor = reanchor,
+		SpawnPoint = spawnPoint,
+	}, AUDIT)
 end
 
 function CombatService.Start()
@@ -1439,6 +1827,7 @@ function CombatService.Start()
 	if glyph == nil then
 		log.warn("Glyph dependency missing: CombatState replicates without cooldowns")
 	end
+	MovementAudit.start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -1447,10 +1836,10 @@ function CombatService.Start()
 	registry.on("CombatAction", onCombatAction)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info(
-		"started (tick %d Hz, state %d Hz, safe zone %d studs)",
+		"started (tick %d Hz, state %d Hz, zones %s)",
 		GameConfig.Server.TickRate,
 		STATE_REPLICATION_HZ,
-		SAFE_ZONE_RADIUS_STUDS
+		table.concat(ZONE_ORDER, " > ")
 	)
 end
 

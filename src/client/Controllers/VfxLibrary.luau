@@ -69,6 +69,7 @@ type TimelineContext = {
 	Pigment: string?,
 	Shot: string?,
 	Follow: BasePart?,
+	Hand: BasePart?,
 }
 
 type TroveType = typeof(Trove.new())
@@ -86,7 +87,6 @@ type PartProps = {
 
 type EmitterProps = {
 	Color: Color3,
-	Rate: number?,
 	Lifetime: NumberRange?,
 	Speed: NumberRange?,
 	Size: NumberSequence?,
@@ -95,7 +95,6 @@ type EmitterProps = {
 	Acceleration: Vector3?,
 }
 
-local MAX_PARTICLE_RATE = 40
 local MAX_PARTICLE_BURST = 40
 local FOLDER_NAME = "ClientVfx"
 local ROOT_PART_NAME = "HumanoidRootPart"
@@ -340,7 +339,8 @@ end
 local function newEmitter(parent: Instance, props: EmitterProps): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Color = ColorSequence.new(props.Color)
-	emitter.Rate = math.min(props.Rate or 0, MAX_PARTICLE_RATE)
+	-- Never on its own: it only bursts, and only what the screen's budget grants (burst below).
+	emitter.Rate = 0
 	emitter.Lifetime = props.Lifetime or NumberRange.new(0.4, 0.8)
 	emitter.Speed = props.Speed or NumberRange.new(4, 10)
 	emitter.Size = props.Size or NumberSequence.new(1, 0)
@@ -353,8 +353,13 @@ local function newEmitter(parent: Instance, props: EmitterProps): ParticleEmitte
 	return emitter
 end
 
-local function burst(emitter: ParticleEmitter, count: number)
-	emitter:Emit(math.min(count, MAX_PARTICLE_BURST))
+-- As many of `count` particles as the screen's particle budget still holds (VfxTimeline.grant), each living up to
+-- the emitter's longest life.
+local function burst(emitter: ParticleEmitter, count: number, api: Api)
+	local granted = api.Timeline.grant(math.min(count, MAX_PARTICLE_BURST), emitter.Lifetime.Max)
+	if granted > 0 then
+		emitter:Emit(granted)
+	end
 end
 
 local function rootOf(character: Model?): BasePart?
@@ -392,14 +397,23 @@ local function shieldFlash(trove: TroveType, origin: Vector3, startTransparency:
 	play(trove, shield, seconds, { Transparency = 1, Size = Vector3.one * 7.5 })
 end
 
+-- The hand the caster throws with, for the layers born in it (Layer.Anchor).
+local function casterHand(packet: Packet): BasePart?
+	local root = casterRoot(packet)
+	local character = if root ~= nil then root.Parent else nil
+	local hand = if character ~= nil then character:FindFirstChild(VfxConfig.Hand) else nil
+	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
+end
+
 -- Casting flash at the caster, colored by the glyph pigment, with its cast sound.
 VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	-- What this replaced was one ball that grew and one spark burst, played identically by all twenty
 	-- glyphs: two layers, no wind-up, nothing left behind, and no way to tell a Cinnabar cast from an
 	-- Orpiment one except the tint. docs/JUICE_AUDIT.md lists it as the single worst offender in the game.
 	--
-	-- It is now the Cast timeline: a seal drawn in the air, held, and folded into a point that releases.
-	-- The renderer's whole job is to say who cast it, where, and in what pigment.
+	-- It is now the Cast timeline: the glyph lighting in the casting hand, a seal snapping open round it
+	-- and folding as the spell leaves (D-119). The renderer's whole job is to say who cast it, with which
+	-- hand, and in what pigment.
 	local pigment = stringParam(packet, "Pigment", "")
 	api.Timeline.play("Cast", {
 		Origin = packet.Origin,
@@ -408,6 +422,7 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 		Pigment = pigment,
 		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
 	})
 	-- The field of view and the pad belong to the person who cast it, and to nobody else. The timeline's
 	-- own shake layer is distance-attenuated, so bystanders feel the cast without being punched by it.
@@ -417,7 +432,6 @@ VfxLibrary.Cast = function(packet: Packet, _trove: TroveType, api: Api)
 	end
 end
 
--- Neon ball with fire and a trail, flying along Direction for the fuse duration.
 -- Brand (Cinnabar, projectile). The first glyph every player learns and the one they throw most.
 --
 -- What it replaced was a ball wearing Roblox's own Fire class, flying a straight line at a constant speed
@@ -443,6 +457,7 @@ VfxLibrary.Brand = function(packet: Packet, _trove: TroveType, api: Api)
 		Pigment = "Cinnabar",
 		Shade = numberParam(packet, "Shade", 0),
 		Shot = shotKey(packet),
+		Hand = casterHand(packet),
 	})
 end
 
@@ -455,7 +470,6 @@ VfxLibrary.Fizzle = function(packet: Packet, _trove: TroveType, api: Api)
 	end
 end
 
--- Expanding sphere and ember burst where a projectile or blast lands.
 -- The detonation every exploding projectile shares. The server sends the blast radius it actually used,
 -- so the visual is the size of the damage rather than a constant that happens to look right for one
 -- glyph: a blast drawn smaller than it hurts is the most expensive lie a fighting game can tell.
@@ -490,18 +504,101 @@ end
 -- The caster's body is passed unconditionally. It costs one lookup, and only a layer that declared
 -- Follow ever uses it, so a timeline that does not need one is not paying for a decision the renderer
 -- would otherwise have to remember to make per glyph.
-local function playGlyph(id: string, packet: Packet, api: Api)
+local function playGlyph(id: string, packet: Packet, api: Api): number?
 	local def = GlyphConfig.ById[id]
 	local pigment = if def ~= nil then def.Pigment else stringParam(packet, "Pigment", "")
-	api.Timeline.play(id, {
+	-- The radius the server struck with, when the packet carries one: what a zone's edge is drawn at.
+	local radius = numberParam(packet, "Radius", 0)
+	local _, playId = api.Timeline.play(id, {
 		Origin = packet.Origin,
 		Direction = directionOf(packet),
 		Color = glyphColor(pigment, packet, api),
 		Pigment = pigment,
 		Shade = numberParam(packet, "Shade", 0),
 		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Radius = if radius > 0 then radius else nil,
+		-- A thrown glyph's name (the Blot's, D-123): its burst lands the drawn one where it burst.
+		Shot = shotKey(packet),
 	})
+	return playId
 end
+
+-- A charge held for exactly the time the server waits (GlyphEffects' charge, D-141): the Anticipation of `id`
+-- lasts the glyph's Params.Windup (tests/Flight.spec.luau), on the caster's body, which may walk while it
+-- winds. A lane it paints starts where the server's will: SpawnOffset ahead, Range long, both measured at
+-- the press, and Radius either side of it, the width the release strikes.
+local function playCharge(id: string, glyphId: string, packet: Packet, api: Api): number?
+	local def = GlyphConfig.ById[glyphId]
+	local direction = directionOf(packet)
+	local radius = numberParam(packet, "Radius", 0)
+	local _, playId = api.Timeline.play(id, {
+		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
+		Direction = direction,
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", 1), 1),
+		Radius = if radius > 0 then radius else nil,
+	})
+	return playId
+end
+
+-- The play each caster has running of an effect the server may still take back (GlyphEffects' retract, D-141):
+-- a charge broken before its release, a rush a dash ended, a zone or a frame its caster stopped. By caster, then
+-- by effect: a caster has one of each at a time. Cut and forgotten with the player.
+local retractable: { [number]: { [string]: number? } } = {}
+-- The runtime those plays were given to (Api.Timeline), for the one cut no packet asks for: a caster who leaves.
+local retractRuntime: any = nil
+
+-- Keeps `playId` as the play of `id` that `packet`'s caster may have taken back.
+local function remember(id: string, packet: Packet, playId: number?)
+	local caster = packet.Caster
+	if type(caster) ~= "number" then
+		return
+	end
+	local plays = retractable[caster]
+	if plays == nil then
+		plays = {}
+		retractable[caster] = plays
+	end
+	plays[id] = playId
+end
+
+-- Whether `packet` is the server taking back its caster's play of `id` (Params.Cancel): that play is cut on the
+-- spot -- nothing of it still to come is drawn, and what it has on screen goes -- and nothing else is played.
+local function retracted(id: string, packet: Packet, api: Api): boolean
+	retractRuntime = api.Timeline
+	local params = packet.Params
+	if params == nil or params.Cancel ~= true then
+		return false
+	end
+	local caster = packet.Caster
+	local plays = if type(caster) == "number" then retractable[caster] else nil
+	local playId = if plays ~= nil then plays[id] else nil
+	if plays ~= nil then
+		plays[id] = nil
+	end
+	if playId ~= nil then
+		api.Timeline.cancel(playId)
+	end
+	return true
+end
+
+-- A caster who leaves is forgotten before the server's retraction of what he left running can arrive: it comes on
+-- the effect's next tick, and names somebody this screen no longer keeps plays for. The server stops each of them
+-- (a caster gone is a caster stopped), so they are cut here, now.
+Players.PlayerRemoving:Connect(function(player: Player)
+	local plays = retractable[player.UserId]
+	retractable[player.UserId] = nil
+	if plays ~= nil and retractRuntime ~= nil then
+		for _, playId in pairs(plays) do
+			retractRuntime.cancel(playId)
+		end
+	end
+end)
 
 VfxLibrary.Wash = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Wash", packet, api)
@@ -511,12 +608,41 @@ VfxLibrary.Serif = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Serif", packet, api)
 end
 
+-- Drawn at the centre the server damaged: it sends the caster's position and the offset it struck at
+-- along the aim (GlyphEffects.Sweep), and a wipe drawn round the caster is a wipe of nobody (D-119).
 VfxLibrary.Sweep = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Sweep", packet, api)
+	local centre = packet.Origin + directionOf(packet) * numberParam(packet, "Offset", 0)
+	local def = GlyphConfig.ById.Sweep
+	api.Timeline.play("Sweep", {
+		Origin = centre,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Radius = numberParam(packet, "Radius", 12),
+	})
 end
 
+-- The zone's edge is drawn at the radius the server drinks from (the packet's), not a constant. Taken back
+-- when its caster stops it before its last drink: the pool no longer burns.
 VfxLibrary.Bleed = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Bleed", packet, api)
+	if retracted("Bleed", packet, api) then
+		return
+	end
+	local def = GlyphConfig.ById.Bleed
+	local _, playId = api.Timeline.play("Bleed", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Radius = numberParam(packet, "Radius", 9),
+	})
+	remember("Bleed", packet, playId)
 end
 
 -- The slab this packet announced: tagged glyph collision, named for the Margin, standing where the packet
@@ -590,8 +716,11 @@ VfxLibrary.Margin = function(packet: Packet, _trove: TroveType, api: Api)
 	end)
 end
 
+-- Taken back when its caster stops it before its last tick: the ring round him no longer burns.
 VfxLibrary.Scorch = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Scorch", packet, api)
+	if not retracted("Scorch", packet, api) then
+		remember("Scorch", packet, playGlyph("Scorch", packet, api))
+	end
 end
 
 VfxLibrary.Rupture = function(packet: Packet, _trove: TroveType, api: Api)
@@ -610,8 +739,21 @@ VfxLibrary.Blot = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Blot", packet, api)
 end
 
+-- On the one it caught (the packet's first target, where the server rooted it), or at the centre of the grab
+-- when it caught nobody (D-123): a prison drawn beside its prisoner holds nobody.
 VfxLibrary.Binding = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Binding", packet, api)
+	local targets = packet.Targets
+	local caught = if targets ~= nil then targets[1] else nil
+	local def = GlyphConfig.ById.Binding
+	api.Timeline.play("Binding", {
+		Origin = if typeof(caught) == "Vector3" then caught else packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+	})
 end
 
 VfxLibrary.Stipple = function(packet: Packet, _trove: TroveType, api: Api)
@@ -626,57 +768,210 @@ VfxLibrary.Hairline = function(packet: Packet, _trove: TroveType, api: Api)
 	playGlyph("Hairline", packet, api)
 end
 
+-- Taken back when its caster stops it before its last tick: the storm no longer pulls.
 VfxLibrary.Spiral = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Spiral", packet, api)
+	if not retracted("Spiral", packet, api) then
+		remember("Spiral", packet, playGlyph("Spiral", packet, api))
+	end
 end
 
+-- Taken back when its caster stops it before its last tick: the grain no longer slows.
 VfxLibrary.Pounce = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Pounce", packet, api)
+	if not retracted("Pounce", packet, api) then
+		remember("Pounce", packet, playGlyph("Pounce", packet, api))
+	end
 end
 
+-- A line ruled from the muzzle to where the server's ray stopped (D-126): the packet's Origin is the caster
+-- and its Range the length from SpawnOffset ahead of him, past the body it hit and up to the wall.
 VfxLibrary.Strike = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Strike", packet, api)
+	local def = GlyphConfig.ById.Strike
+	local direction = directionOf(packet)
+	api.Timeline.play("Strike", {
+		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
+		Direction = direction,
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
 end
 
+-- A step to where the server put the body (D-126): Range is the distance it validated against walls and
+-- ground, shorter than the glyph's reach whenever something was in the way.
 VfxLibrary.Caret = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Caret", packet, api)
+	local def = GlyphConfig.ById.Caret
+	api.Timeline.play("Caret", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
 end
 
+-- Taken back when its caster stops it before its last tick: the mark no longer holds.
 VfxLibrary.Watermark = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Watermark", packet, api)
+	if not retracted("Watermark", packet, api) then
+		remember("Watermark", packet, playGlyph("Watermark", packet, api))
+	end
 end
 
 -- Colophon is the one glyph whose packet carries a PATH rather than a point. The server chains from body
--- to body and sends Targets as one position per link, in the order the arcs fired, so the visual is the
--- signature struck at the caster plus one ruled stroke per link, each aimed at the body the chain went to
--- next. Drawing only the first would hide the whole reason the ultimate costs fifty-five ink.
+-- to body in one frame and sends Targets as one position per link, in the order the arcs fired. So the
+-- visual is the signature ruled from the muzzle to the first body it struck (or to the wall, when it struck
+-- nobody), then one stroke per JUMP, from each body to the next, each exactly as long as the jump (D-127).
+-- It used to rule a fixed sixty studs from the caster and draw a stroke from every body toward the next --
+-- the last one toward nothing -- a fixed twenty-six studs long: the contract its timeline describes was
+-- never played.
 VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
-	playGlyph("Colophon", packet, api)
-
-	local points = packet.Targets
-	if points == nil then
-		return
-	end
 	local def = GlyphConfig.ById.Colophon
-	local color = glyphColor(if def ~= nil then def.Pigment else "Orpiment", packet, api)
-	for index, point in ipairs(points) do
-		-- Aimed at the next link, or along the cast for the last one, which has nowhere further to go.
-		-- Typed optional explicitly: Luau reads a list index as non-optional, so the guard below would be
-		-- dead to the analyser and the last link would subtract nil.
-		local nextPoint: Vector3? = points[index + 1]
-		local direction = if nextPoint ~= nil then nextPoint - point else directionOf(packet)
-		if direction.Magnitude < 1e-3 then
-			direction = directionOf(packet)
+	local color = glyphColor(def.Pigment, packet, api)
+	local shade = numberParam(packet, "Shade", 0)
+	local muzzle = packet.Origin + directionOf(packet) * numberParam(packet, "SpawnOffset", 0)
+	local points = packet.Targets or {}
+	local first: Vector3? = points[1]
+	local toFirst = if first ~= nil then first - muzzle else Vector3.zero
+	local struck = toFirst.Magnitude > 1e-3
+	api.Timeline.play("Colophon", {
+		Origin = muzzle,
+		Direction = if struck then toFirst.Unit else directionOf(packet),
+		Color = color,
+		Pigment = def.Pigment,
+		Shade = shade,
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = if struck then toFirst.Magnitude else math.max(numberParam(packet, "Range", def.Range), 1),
+	})
+	for index = 1, #points - 1 do
+		local from, to = points[index], points[index + 1]
+		local jump = to - from
+		if jump.Magnitude > 1e-3 then
+			api.Timeline.play("ColophonLink", {
+				Origin = from,
+				Direction = jump.Unit,
+				Color = color,
+				-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
+				Pigment = def.Pigment,
+				Shade = shade,
+				Reach = jump.Magnitude,
+			})
 		end
-		api.Timeline.play("ColophonLink", {
-			Origin = point,
-			Direction = direction.Unit,
-			Color = color,
-			-- The link's impact voice is the Colophon's own: an Orpiment glyph, whatever body it jumps to.
-			Pigment = "Orpiment",
-			Shade = numberParam(packet, "Shade", 0),
-		})
 	end
+end
+
+----------------------------------------------------------------
+-- Second roster (D-145), grouped by pigment
+----------------------------------------------------------------
+
+-- The coil wound in the hand for the Windup the server holds the caster through (D-141), taken back when the
+-- charge breaks: no release will come.
+VfxLibrary.VoluteCharge = function(packet: Packet, _trove: TroveType, api: Api)
+	if not retracted("VoluteCharge", packet, api) then
+		remember("VoluteCharge", packet, playCharge("VoluteCharge", "Volute", packet, api))
+	end
+end
+
+-- Pressed into the nearest body, at the centre the server struck and by the radius it struck with.
+VfxLibrary.Volute = function(packet: Packet, _trove: TroveType, api: Api)
+	playGlyph("Volute", packet, api)
+end
+
+-- Taken back when its caster stops it before its last tick: the frame no longer hurts.
+VfxLibrary.Cartouche = function(packet: Packet, _trove: TroveType, api: Api)
+	if not retracted("Cartouche", packet, api) then
+		remember("Cartouche", packet, playGlyph("Cartouche", packet, api))
+	end
+end
+
+-- The drop swelling in the hands and the locked lane on the floor, measured at the press (D-141), taken back
+-- when the charge breaks: a lane left painted would tell a player to leave a line that will not be ruled.
+VfxLibrary.RubricCharge = function(packet: Packet, _trove: TroveType, api: Api)
+	if not retracted("RubricCharge", packet, api) then
+		remember("RubricCharge", packet, playCharge("RubricCharge", "Rubric", packet, api))
+	end
+end
+
+-- The Strike's ruling (D-126), from the release packet: Origin is where the caster pressed, the lane the charge
+-- painted (D-141), SpawnOffset the gap to where the line starts (shorter against a wall, D-144), Range its
+-- length up to where the ray stopped.
+VfxLibrary.Rubric = function(packet: Packet, _trove: TroveType, api: Api)
+	local def = GlyphConfig.ById.Rubric
+	local direction = directionOf(packet)
+	api.Timeline.play("Rubric", {
+		Origin = packet.Origin + direction * numberParam(packet, "SpawnOffset", 0),
+		Direction = direction,
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
+end
+
+-- Taken back when a dash, a stun or a guard breaks the rush: its strokes still to come are never struck.
+VfxLibrary.Hatching = function(packet: Packet, _trove: TroveType, api: Api)
+	if not retracted("Hatching", packet, api) then
+		remember("Hatching", packet, playGlyph("Hatching", packet, api))
+	end
+end
+
+-- Named like the Brand (D-114): the Fizzle at its end lands the drawn flourish where the server's stopped.
+VfxLibrary.Swash = function(packet: Packet, _trove: TroveType, api: Api)
+	playGlyph("Swash", packet, api)
+end
+
+VfxLibrary.Emboss = function(packet: Packet, _trove: TroveType, api: Api)
+	playGlyph("Emboss", packet, api)
+end
+
+-- The Caret's step (D-126): Range is the distance from where the caster stood to where the server put him,
+-- behind the body he strikes, and Direction the flight's own, climbing to a ledge or down to a floor.
+VfxLibrary.Dagger = function(packet: Packet, _trove: TroveType, api: Api)
+	local def = GlyphConfig.ById.Dagger
+	api.Timeline.play("Dagger", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = casterRoot(packet),
+		Hand = casterHand(packet),
+		Reach = math.max(numberParam(packet, "Range", def.Range), 1),
+	})
+end
+
+-- Named like the Brand (D-114): the Fizzle, or the catch below, lands the drawn thread where the server's
+-- stopped.
+VfxLibrary.Stitch = function(packet: Packet, _trove: TroveType, api: Api)
+	playGlyph("Stitch", packet, api)
+end
+
+-- The thread came down on a body it could hurt: it lands there, and the catch is drawn on that body (the
+-- server names it, Params.Victim), which the server drags and roots. Of a body this client has not
+-- streamed in, only the print where it was caught is drawn.
+VfxLibrary.StitchCatch = function(packet: Packet, _trove: TroveType, api: Api)
+	local shot = shotKey(packet)
+	if shot ~= nil then
+		api.Timeline.land(shot, packet.Origin)
+	end
+	local def = GlyphConfig.ById.Stitch
+	local victim = if packet.Params ~= nil then packet.Params.Victim else nil
+	local body = if typeof(victim) == "Instance" and victim:IsA("Model") then rootOf(victim) else nil
+	api.Timeline.play("StitchCatch", {
+		Origin = packet.Origin,
+		Direction = directionOf(packet),
+		Color = glyphColor(def.Pigment, packet, api),
+		Pigment = def.Pigment,
+		Shade = numberParam(packet, "Shade", 0),
+		Follow = body,
+	})
 end
 
 -- Impact. Everything a player learns about a hit in the first tenth of a second happens here: how hard it
@@ -700,7 +995,9 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 	local outline = if fist then KIT_OUTLINE else color
 	local amount = numberParam(packet, "Amount", 0)
 	local targetUserId = numberParam(packet, "Target", 0)
-	local amplified = packet.Params ~= nil and packet.Params.StatusKey ~= nil
+	-- The status that amplified the hit, which the server names by its Strings key (CombatService).
+	local status = stringParam(packet, "StatusKey", "")
+	local amplified = status ~= ""
 	local heavy = amount >= HEAVY_HIT_DAMAGE
 
 	api.Timeline.play("Hit", {
@@ -767,7 +1064,13 @@ VfxLibrary.Hit = function(packet: Packet, _trove: TroveType, api: Api)
 				feel.impactFrame(bodies)
 			end
 		end
-		feel.damageNumber(packet.Origin, amount, if takenByMe then HIT_TAKEN_COLOR else number, amplified)
+		-- A glyph's number wears its pigment's form on ink, and an amplified one says what paid off (§4.12).
+		feel.damageNumber(packet.Origin, amount, number, {
+			Kind = if takenByMe then "Taken" elseif fist then "Fist" else "Glyph",
+			Amplified = amplified,
+			Pigment = if fist or pigment == "" then nil else pigment,
+			Status = if amplified then { Key = status, Percent = numberParam(packet, "StatusPercent", 0) } else nil,
+		})
 	end
 end
 
@@ -837,7 +1140,7 @@ VfxLibrary.BlockHit = function(packet: Packet, trove: TroveType, api: Api)
 end
 
 -- Cracking flash when a guard is broken.
-VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
+VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, api: Api)
 	local crack = newPart(trove, "GuardBreak", {
 		Shape = Enum.PartType.Ball,
 		Color = GUARD_BREAK_COLOR,
@@ -852,7 +1155,7 @@ VfxLibrary.GuardBreak = function(packet: Packet, trove: TroveType, _api: Api)
 		Size = NumberSequence.new(0.6, 0),
 		Acceleration = Vector3.new(0, -30, 0),
 	})
-	burst(shards, 24)
+	burst(shards, 24, api)
 end
 
 -- A killer's KillEffect cosmetic, where the victim fell (CosmeticService). Tinted in the page's inks,
@@ -1013,6 +1316,73 @@ end
 -- A new phase: the band widened on the body, and the page around it takes the blow.
 VfxLibrary.BossPhase = function(packet: Packet, _trove: TroveType, api: Api)
 	playBossEvent("BossPhase", packet, api)
+end
+
+----------------------------------------------------------------
+-- The Battleground's Forgers (D-131)
+----------------------------------------------------------------
+
+-- A Forger's tell is drawn in the Forger's own two inks, never in the Erasure's danger colour (FORGER_TELL in
+-- Config/VfxTimelineConfig): its body's charcoal on the floor (a mark takes the play's Ink), and the chalk of
+-- the bars on its chest in the flash at its hand.
+local FORGER_INK = Palette.world(WorldConfig.Forgers.Body)
+local FORGER_CHALK = Palette.world(WorldConfig.Forgers.Mark)
+
+-- The hand a Forger strikes with (Params.Actor, the body the server owns), for the flash at the end of its
+-- tell. nil when the body is gone or has not streamed in: the flash is then drawn at the Forger's feet.
+local function actorHand(packet: Packet): BasePart?
+	local params = packet.Params
+	local actor = if params ~= nil then params.Actor else nil
+	if typeof(actor) ~= "Instance" or not actor:IsA("Model") then
+		return nil
+	end
+	local hand = actor:FindFirstChild(VfxConfig.Hand)
+	return if hand ~= nil and hand:IsA("BasePart") then hand else nil
+end
+
+-- A length the packet measures the tell by, or nil when it carried none that can be drawn: every layer measured
+-- by a missing length is then left out (and the runtime says so) rather than painted at a guess, which would
+-- tell a player they stand outside a blow that reaches them.
+local function measureParam(packet: Packet, key: string): number?
+	local value = numberParam(packet, key, 0)
+	return if value > 0 then value else nil
+end
+
+-- The play of the tell each Forger shows, by its slot (Params.Forger): what a retraction takes back. A slot
+-- holds one Forger and a Forger shows one tell at a time, so this never holds more than BotConfig.MaxBots, and
+-- one per pit of the practice duel (BattlegroundConfig.Pits.Count), whose slots come after the page's.
+local forgerTells: { [number]: number } = {}
+
+-- A Forger winding up a blow (D-131): the floor it will cover, for exactly the window the server waits
+-- (Params.Seconds), measured on what the server will hit -- Width across the aim, Range along it from the
+-- Forger (BattlegroundService's Attacks.windup). The Origin is already the floor under the Forger. A packet
+-- with Params.Cancel is the server taking that Forger's tell back (Attacks.retract): its blow will not come.
+VfxLibrary.ForgerTell = function(packet: Packet, _trove: TroveType, api: Api)
+	local forger = numberParam(packet, "Forger", 0)
+	local params = packet.Params
+	if params ~= nil and params.Cancel == true then
+		local playId = forgerTells[forger]
+		forgerTells[forger] = nil
+		if playId ~= nil then
+			api.Timeline.cancel(playId)
+		end
+		return
+	end
+	local width = measureParam(packet, "Width")
+	local _, playId = api.Timeline.play("ForgerTell", {
+		Origin = packet.Origin,
+		Direction = flatDirectionOf(packet),
+		Color = FORGER_CHALK,
+		Ink = FORGER_INK,
+		-- A packet with no window warns for the phase's own Duration, which a zero asks for.
+		Window = numberParam(packet, "Seconds", 0),
+		Radius = if width ~= nil then width / 2 else nil,
+		Reach = measureParam(packet, "Range"),
+		-- A Forger is no glyph: nothing of it shines (docs/ART_BIBLE.md rule 10).
+		Unlit = true,
+		Hand = actorHand(packet),
+	})
+	forgerTells[forger] = playId
 end
 
 return VfxLibrary

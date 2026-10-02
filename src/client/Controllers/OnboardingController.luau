@@ -4,8 +4,10 @@
 -- docs/JUICE_PLAN.md phase 8, item 6. A player whose profile has never cast a glyph is shown, in the
 -- sequence row of the HUD, the recipe of the first glyph everyone starts with -- as ghost chips, the
 -- same chips their own presses will draw, so the hint IS the thing to do rather than a description of
--- it. The moment a sequence resolves, the ghosts fold away and never come back: the profile now says
--- one glyph was cast, and the server is the one that says so.
+-- it; with a pointer each stands under the key that presses it, and on touch the discs breathe (D-147).
+-- The ghosts fold on the first press. They come back once the sequence is empty again without a cast the
+-- server confirmed -- it broke, it dissipated, it was refused -- until the profile says one glyph was
+-- cast, and the server is the one that says so.
 --
 -- Nothing here persists anything. The only state is the profile's Stats.GlyphsCast, which the server
 -- writes; a hint drawn from a client flag would follow a player who never learned anything.
@@ -28,6 +30,10 @@ local comboController: any
 local hudController: any
 local vfxController: any
 local showing = false
+-- The ghosts come back this long after the sequence empties: long enough for the server's word on a cast, and
+-- for a refusal said under the chips to go first. A press or a confirmed cast in the meantime cancels it.
+local RETURN_SECONDS = 1.5
+local returnToken = 0
 
 -- The recipe of the first glyph unlocked by default: what a new player can cast at once.
 local function firstRecipe(): { string }?
@@ -73,9 +79,23 @@ local function dismiss()
 end
 
 local function onSequenceChanged(sequence: { string })
+	returnToken += 1
 	if #sequence > 0 then
 		dismiss()
+		return
 	end
+	local token = returnToken
+	task.delay(RETURN_SECONDS, function()
+		if token == returnToken then
+			refresh()
+		end
+	end)
+end
+
+-- The server confirmed a cast: nothing comes back, and the profile's count follows.
+local function onCast()
+	returnToken += 1
+	dismiss()
 end
 
 function OnboardingController.Init(deps: Deps)
@@ -93,7 +113,7 @@ function OnboardingController.Start()
 	end)
 	-- The server's own confirmation of an accepted cast, not the client's resolution of a sequence: a cast
 	-- the server refuses for a cooldown or for ink has taught the player nothing.
-	vfxController.LocalCast:Connect(dismiss)
+	vfxController.LocalCast:Connect(onCast)
 	comboController.SequenceChanged:Connect(onSequenceChanged)
 	refresh()
 	log.info("started")

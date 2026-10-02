@@ -2,6 +2,9 @@
 -- Localization table. Pure module: no requires, no Roblox globals.
 -- Every player-visible string lives here as {en = …, fr = …}. English is the default locale.
 -- Placeholders use {name} and are substituted by Strings.t(key, params, locale).
+-- A sentence that counts something ("Cast 30 glyphs") has two forms, "<key>.one" and "<key>.other", and a line
+-- in Strings.Plurals naming the placeholder that counts; Strings.t and Strings.plural pick the form the count
+-- takes in the player's language, so no sentence ever reads "Win 1 matches".
 
 export type Entry = { en: string, fr: string }
 
@@ -13,7 +16,6 @@ Strings.Locales = { "en", "fr" }
 Strings.Table = {
 	-- Common
 	["common.ok"] = { en = "OK", fr = "OK" },
-	["common.save"] = { en = "Save", fr = "Sauvegarder" },
 	["common.reset"] = { en = "Reset", fr = "Réinitialiser" },
 	["common.locked"] = { en = "Locked", fr = "Verrouillé" },
 
@@ -53,21 +55,13 @@ Strings.Table = {
 	["hud.tierUp"] = { en = "Battle pass tier {tier} unlocked!", fr = "Palier {tier} du pass débloqué !" },
 	["hud.killReward"] = { en = "Enemy defeated! +{xp} XP", fr = "Ennemi vaincu ! +{xp} XP" },
 	["hud.playerKill"] = { en = "You defeated {name}! +{xp} XP", fr = "Tu as vaincu {name} ! +{xp} XP" },
-	["hud.hint.keyboard"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
-	["hud.hint.gamepad"] = { en = "{menu} = Menu", fr = "{menu} = Menu" },
-	["hud.ink"] = { en = "Ink", fr = "Encre" },
-	["hud.health"] = { en = "Health", fr = "Vie" },
-	["hud.bar"] = { en = "{name}  {current} / {max}", fr = "{name}  {current} / {max}" },
-	["hud.currency"] = { en = "{amount} {currency}", fr = "{amount} {currency}" },
 
 	-- Level bar
-	["level.title"] = { en = "Level {level}", fr = "Niveau {level}" },
 	["level.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["level.max"] = { en = "Max level", fr = "Niveau max" },
 
 	-- Menu
 	["menu.title"] = { en = "Menu", fr = "Menu" },
-	["menu.settings"] = { en = "Settings", fr = "Options" },
 	["menu.battlepass"] = { en = "Battle Pass", fr = "Battle Pass" },
 	["menu.shop"] = { en = "Shop", fr = "Boutique" },
 	["menu.quests"] = { en = "Quests", fr = "Quêtes" },
@@ -94,12 +88,13 @@ Strings.Table = {
 		fr = "{action} est maintenant sur {key}. N'oublie pas de sauvegarder !",
 	},
 	["settings.duplicate"] = { en = "{key} is used twice.", fr = "La touche {key} est utilisée deux fois." },
-	["settings.saving"] = { en = "Saving…", fr = "Sauvegarde…" },
 	["settings.saved"] = { en = "Settings saved!", fr = "Options sauvegardées !" },
 	["settings.saveFailed"] = { en = "Could not save settings.", fr = "Impossible de sauvegarder les options." },
 	["settings.music"] = { en = "Music volume", fr = "Volume musique" },
 	["settings.sfx"] = { en = "Effects volume", fr = "Volume effets" },
-	["settings.cameraShake"] = { en = "Camera shake", fr = "Secousses de caméra" },
+	-- What the switch has governed since D-112 and D-119: the camera's shakes, the page's flashes and the
+	-- glow of a spell's core.
+	["settings.cameraShake"] = { en = "Shakes and flashes", fr = "Secousses et flashs" },
 	["settings.tab.graphics"] = { en = "Graphics", fr = "Graphismes" },
 	["settings.quality"] = { en = "Quality", fr = "Qualité" },
 	["settings.qualityHint"] = {
@@ -110,26 +105,20 @@ Strings.Table = {
 	["quality.medium"] = { en = "Medium", fr = "Moyenne" },
 	["quality.low"] = { en = "Low", fr = "Basse" },
 	["quality.performance"] = { en = "Performance", fr = "Performance" },
-	["settings.resetPending"] = {
-		en = "Defaults restored. Don't forget to save!",
-		fr = "Touches par défaut restaurées. N'oublie pas de sauvegarder !",
-	},
 
 	-- Battle pass
 	["battlepass.title"] = { en = "Battle Pass — Volume {season}", fr = "Battle Pass — Volume {season}" },
 	["battlepass.tier"] = { en = "Tier {tier} / {max}", fr = "Palier {tier} / {max}" },
 	["battlepass.xp"] = { en = "{xp} / {needed} XP", fr = "{xp} / {needed} XP" },
 	["battlepass.completed"] = { en = "Completed!", fr = "Terminé !" },
-	["battlepass.free"] = { en = "Free", fr = "Gratuit" },
 	["battlepass.premium"] = { en = "Premium", fr = "Premium" },
-	["battlepass.claim"] = { en = "Claim", fr = "Récupérer" },
-	["battlepass.claimed"] = { en = "Claimed", fr = "Récupéré" },
-	["battlepass.reward.folio"] = { en = "{amount} Folios", fr = "{amount} Folios" },
+	["battlepass.claim"] = { en = "Claim", fr = "Réclamer" },
+	["battlepass.reward.folio.one"] = { en = "{amount} Folio", fr = "{amount} Folio" },
+	["battlepass.reward.folio.other"] = { en = "{amount} Folios", fr = "{amount} Folios" },
 	["battlepass.reward.cosmetic"] = { en = "Cosmetic: {name}", fr = "Cosmétique : {name}" },
 	["battlepass.reward.xpBoost"] = { en = "XP boost ({minutes} min)", fr = "Boost d'XP ({minutes} min)" },
-	["battlepass.reward.none"] = { en = "No reward", fr = "Aucune récompense" },
 	["battlepass.notReached"] = { en = "Tier {tier} not reached yet.", fr = "Palier {tier} pas encore atteint." },
-	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà récupéré." },
+	["battlepass.alreadyClaimed"] = { en = "Already claimed.", fr = "Déjà réclamé." },
 	["battlepass.premiumRequired"] = { en = "Premium pass required.", fr = "Pass premium requis." },
 
 	-- Glyphs
@@ -233,6 +222,46 @@ Strings.Table = {
 		en = "Your signature leaps from body to body, and everyone it touches is signed.",
 		fr = "Ta signature bondit d'un corps à l'autre, et chacun qu'elle touche est signé.",
 	},
+	["glyph.Volute.name"] = { en = "Volute", fr = "Volute" },
+	["glyph.Volute.desc"] = {
+		en = "Winds a coil of ink in your hand, then presses it into the closest enemy: hurled back and stunned.",
+		fr = "Enroule une volute d'encre dans ta main, puis la plaque sur l'ennemi le plus proche : projeté et étourdi.",
+	},
+	["glyph.Rubric.name"] = { en = "Rubric", fr = "Rubrique" },
+	["glyph.Rubric.desc"] = {
+		en = "Hold still to charge, then rule a thick red line straight ahead that pierces up to three enemies.",
+		fr = "Charge sans bouger, puis trace droit devant une épaisse ligne rouge qui transperce jusqu'à trois ennemis.",
+	},
+	["glyph.Swash.name"] = { en = "Swash", fr = "Paraphe" },
+	["glyph.Swash.desc"] = {
+		en = "Sweeps a wide flourish of ink along the ground, cutting through everyone in its path until a wall stops it.",
+		fr = "Lance au ras du sol un large paraphe d'encre qui tranche tous ceux qu'il traverse, jusqu'au premier mur.",
+	},
+	["glyph.Dagger.name"] = { en = "Dagger", fr = "Obèle" },
+	["glyph.Dagger.desc"] = {
+		en = "Vanish and reappear behind the nearest enemy in front of you, striking their back.",
+		fr = "Disparais et réapparais dans le dos de l'ennemi le plus proche devant toi, et frappe-le.",
+	},
+	["glyph.Cartouche.name"] = { en = "Cartouche", fr = "Cartouche" },
+	["glyph.Cartouche.desc"] = {
+		en = "An ink frame that stuns and slows enemies; your other glyphs recharge twice as fast inside it.",
+		fr = "Un cadre d'encre étourdit et ralentit l'ennemi ; tes autres glyphes s'y rechargent deux fois plus vite.",
+	},
+	["glyph.Emboss.name"] = { en = "Emboss", fr = "Gaufrage" },
+	["glyph.Emboss.desc"] = {
+		en = "Presses the page outward from you: everyone around you is thrown back.",
+		fr = "Repousse la page tout autour de toi : tous ceux qui t'entourent sont projetés.",
+	},
+	["glyph.Stitch.name"] = { en = "Stitch", fr = "Chaînette" },
+	["glyph.Stitch.desc"] = {
+		en = "Throws a stitch of ink that catches the first enemy in its path and drags them to you, rooted.",
+		fr = "Lance une chaînette d'encre qui saisit le premier ennemi sur sa route et le ramène à toi, cloué au sol.",
+	},
+	["glyph.Hatching.name"] = { en = "Hatching", fr = "Hachures" },
+	["glyph.Hatching.desc"] = {
+		en = "A flurry of strokes in front of you, then a last one that launches.",
+		fr = "Une rafale de traits devant toi, puis un dernier qui projette.",
+	},
 
 	-- Pigment statuses (CombatConfig.Status): shown as floating text on the marked target
 	["status.fanned"] = { en = "Fanned", fr = "Éventé" },
@@ -270,39 +299,85 @@ Strings.Table = {
 	["rank.codex"] = { en = "Codex", fr = "Codex" },
 	["mode.duel1v1"] = { en = "Ranked 1v1", fr = "1v1 classé" },
 	["mode.team3v3"] = { en = "Team 3v3", fr = "3v3 en équipe" },
+	["mode.spar1v1"] = { en = "Practice duel", fr = "Duel d'épreuve" },
 	["cosmetic.TitleScript"] = { en = "Title: Script", fr = "Titre : Écriture" },
 	["cosmetic.TitleIllumination"] = { en = "Title: Illumination", fr = "Titre : Enluminure" },
 	["cosmetic.TitleCodexSeason"] = { en = "Title: Codex of the Volume", fr = "Titre : Codex du volume" },
+	["cosmetic.TitleRubricator"] = { en = "Title: Rubricator", fr = "Titre : Rubricateur" },
+	["cosmetic.TitleMasterCopyist"] = { en = "Title: Master Copyist", fr = "Titre : Maître copiste" },
+	["cosmetic.TitleHundredLeaves"] = { en = "Title: A Hundred Leaves", fr = "Titre : Cent feuillets" },
+	["cosmetic.TitleThousandErasures"] = { en = "Title: A Thousand Erasures", fr = "Titre : Mille ratures" },
+	["cosmetic.TitleDogEared"] = { en = "Title: Dog-Eared", fr = "Titre : Écorné" },
+	["cosmetic.TitleOneBreath"] = { en = "Title: In One Breath", fr = "Titre : D'un seul souffle" },
+	["cosmetic.TitleCalligrapher"] = { en = "Title: Calligrapher", fr = "Titre : Calligraphe" },
+	-- The login calendar's cosmetics (DailyConfig.Calendar), never sold.
+	["cosmetic.TitleFaithfulHand"] = { en = "Title: Faithful Hand", fr = "Titre : Main Fidèle" },
+	["cosmetic.TrailRibbon"] = { en = "Signet Ribbon Trail", fr = "Traînée du Signet" },
+	["cosmetic.TitleKeeperOfDays"] = { en = "Title: Keeper of Days", fr = "Titre : Gardien des Jours" },
+	["cosmetic.AuraSignet"] = { en = "Signet Aura", fr = "Aura du Signet" },
 
 	-- Quests & daily
-	["quest.castGlyphs"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
-	["quest.hitGlyphs"] = { en = "Hit enemies with {target} glyphs", fr = "Touche des ennemis avec {target} glyphes" },
-	["quest.defeatDummies"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
-	["quest.winMatches"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
-	["quest.playMatches"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
-	["quest.dealDamage"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
-	["quest.useDash"] = { en = "Dash {target} times", fr = "Utilise le dash {target} fois" },
-	["quest.landMelee"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
-	["quest.defeatPlayers"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
-	["quest.joinBoss"] = {
-		en = "Face the Erasure {target} times",
-		fr = "Affronte l'Effacement {target} fois",
+	["quest.castGlyphs.one"] = { en = "Cast {target} glyph", fr = "Trace {target} glyphe" },
+	["quest.castGlyphs.other"] = { en = "Cast {target} glyphs", fr = "Trace {target} glyphes" },
+	["quest.hitGlyphs.one"] = { en = "Hit enemies with {target} glyph", fr = "Touche des ennemis avec {target} glyphe" },
+	["quest.hitGlyphs.other"] = {
+		en = "Hit enemies with {target} glyphs",
+		fr = "Touche des ennemis avec {target} glyphes",
 	},
-	["quest.chainCasts"] = { en = "Chain {target} glyphs", fr = "Enchaîne {target} glyphes" },
-	["quest.cancelRecovery"] = {
+	["quest.defeatDummies.one"] = { en = "Defeat {target} training dummy", fr = "Détruis {target} mannequin" },
+	["quest.defeatDummies.other"] = { en = "Defeat {target} training dummies", fr = "Détruis {target} mannequins" },
+	["quest.defeatForgers.one"] = { en = "Defeat {target} Forger", fr = "Vaincs {target} Faussaire" },
+	["quest.defeatForgers.other"] = { en = "Defeat {target} Forgers", fr = "Vaincs {target} Faussaires" },
+	["quest.winMatch"] = { en = "Win a match", fr = "Gagne un match" },
+	["quest.winMatches.one"] = { en = "Win {target} match", fr = "Gagne {target} match" },
+	["quest.winMatches.other"] = { en = "Win {target} matches", fr = "Gagne {target} matchs" },
+	["quest.playMatches.one"] = { en = "Play {target} match", fr = "Joue {target} match" },
+	["quest.playMatches.other"] = { en = "Play {target} matches", fr = "Joue {target} matchs" },
+	["quest.dealDamage.one"] = { en = "Deal {target} damage", fr = "Inflige {target} dégât" },
+	["quest.dealDamage.other"] = { en = "Deal {target} damage", fr = "Inflige {target} dégâts" },
+	["quest.useDash.one"] = { en = "Dash {target} time", fr = "Utilise le dash {target} fois" },
+	["quest.useDash.other"] = { en = "Dash {target} times", fr = "Utilise le dash {target} fois" },
+	["quest.landMelee.one"] = { en = "Land {target} melee hit", fr = "Place {target} coup au corps à corps" },
+	["quest.landMelee.other"] = { en = "Land {target} melee hits", fr = "Place {target} coups au corps à corps" },
+	["quest.defeatPlayers.one"] = { en = "Defeat {target} player", fr = "Vaincs {target} joueur" },
+	["quest.defeatPlayers.other"] = { en = "Defeat {target} players", fr = "Vaincs {target} joueurs" },
+	["quest.joinBoss.one"] = { en = "Face the Erasure {target} time", fr = "Affronte l'Effacement {target} fois" },
+	["quest.joinBoss.other"] = { en = "Face the Erasure {target} times", fr = "Affronte l'Effacement {target} fois" },
+	["quest.chainCasts.one"] = { en = "Chain {target} glyph", fr = "Enchaîne {target} glyphe" },
+	["quest.chainCasts.other"] = { en = "Chain {target} glyphs", fr = "Enchaîne {target} glyphes" },
+	["quest.cancelRecovery.one"] = {
+		en = "Cancel {target} recovery with a dash",
+		fr = "Annule {target} récupération d'une ruée",
+	},
+	["quest.cancelRecovery.other"] = {
 		en = "Cancel {target} recoveries with a dash",
 		fr = "Annule {target} récupérations d'une ruée",
 	},
 	["quest.daily"] = { en = "Daily quests", fr = "Quêtes journalières" },
 	["quest.weekly"] = { en = "Weekly quests", fr = "Quêtes hebdomadaires" },
 	["quest.progress"] = { en = "{progress} / {target}", fr = "{progress} / {target}" },
-	["quest.claim"] = { en = "Claim", fr = "Récupérer" },
-	["quest.claimed"] = { en = "Claimed", fr = "Récupérée" },
-	["quest.reward"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
+	["quest.claim"] = { en = "Claim", fr = "Réclamer" },
+	["quest.claimed"] = { en = "Claimed", fr = "Réclamée" },
+	["quest.reward.one"] = { en = "+{xp} XP, +{folios} Folio", fr = "+{xp} XP, +{folios} Folio" },
+	["quest.reward.other"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["quest.completed"] = { en = "Quest completed: {name}", fr = "Quête terminée : {name}" },
+	["quest.reroll"] = { en = "Swap", fr = "Changer" },
+	["quest.rerolled"] = { en = "New quest: {name}", fr = "Nouvelle quête : {name}" },
+	["quest.rerollRefused"] = { en = "This quest can't be swapped.", fr = "Cette quête ne peut pas être changée." },
+	["trials.capped"] = {
+		en = "The training dummies pay less until tomorrow. The portals pay more!",
+		fr = "Les mannequins rapportent moins jusqu'à demain. Les portails rapportent plus !",
+	},
+	["trials.idle"] = {
+		en = "Cast a glyph or dash to earn from the training dummies.",
+		fr = "Trace un glyphe ou fais une ruée pour gagner avec les mannequins.",
+	},
 	["daily.title"] = { en = "Daily reward", fr = "Récompense du jour" },
-	["daily.streak"] = { en = "Login streak: day {day}", fr = "Série de connexion : jour {day}" },
-	["daily.claimed"] = {
+	["daily.claimed.one"] = {
+		en = "Day {day} reward: +{xp} XP, +{folios} Folio",
+		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folio",
+	},
+	["daily.claimed.other"] = {
 		en = "Day {day} reward: +{xp} XP, +{folios} Folios",
 		fr = "Récompense du jour {day} : +{xp} XP, +{folios} Folios",
 	},
@@ -310,13 +385,21 @@ Strings.Table = {
 		en = "Your streak was reset. Come back tomorrow to keep it going!",
 		fr = "Ta série est repartie de zéro. Reviens demain pour la garder !",
 	},
-	["daily.firstWin"] = {
+	["daily.firstWin.one"] = {
+		en = "First win of the day! +{xp} XP, +{folios} Folio",
+		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folio",
+	},
+	["daily.firstWin.other"] = {
 		en = "First win of the day! +{xp} XP, +{folios} Folios",
 		fr = "Première victoire du jour ! +{xp} XP, +{folios} Folios",
 	},
-	["daily.premium"] = {
-		en = "Premium bonus: +{xp} XP, +{folios} Folios",
-		fr = "Bonus Premium : +{xp} XP, +{folios} Folios",
+	["daily.premium.one"] = {
+		en = "Premium bonus: +{folios} Folio and double XP for {minutes} min",
+		fr = "Bonus Premium : +{folios} Folio et XP doublée pendant {minutes} min",
+	},
+	["daily.premium.other"] = {
+		en = "Premium bonus: +{folios} Folios and double XP for {minutes} min",
+		fr = "Bonus Premium : +{folios} Folios et XP doublée pendant {minutes} min",
 	},
 
 	["cosmetic.SkinWashJade"] = { en = "Deep Wash Skin", fr = "Skin Lavis Profond" },
@@ -347,6 +430,15 @@ Strings.Table = {
 	["cosmetic.title.TitleScript"] = { en = "Script", fr = "Écriture" },
 	["cosmetic.title.TitleIllumination"] = { en = "Illumination", fr = "Enluminure" },
 	["cosmetic.title.TitleCodexSeason"] = { en = "Codex of the Volume", fr = "Codex du volume" },
+	["cosmetic.title.TitleRubricator"] = { en = "Rubricator", fr = "Rubricateur" },
+	["cosmetic.title.TitleMasterCopyist"] = { en = "Master Copyist", fr = "Maître copiste" },
+	["cosmetic.title.TitleHundredLeaves"] = { en = "A Hundred Leaves", fr = "Cent feuillets" },
+	["cosmetic.title.TitleThousandErasures"] = { en = "A Thousand Erasures", fr = "Mille ratures" },
+	["cosmetic.title.TitleDogEared"] = { en = "Dog-Eared", fr = "Écorné" },
+	["cosmetic.title.TitleOneBreath"] = { en = "In One Breath", fr = "D'un seul souffle" },
+	["cosmetic.title.TitleCalligrapher"] = { en = "Calligrapher", fr = "Calligraphe" },
+	["cosmetic.title.TitleFaithfulHand"] = { en = "Faithful Hand", fr = "Main Fidèle" },
+	["cosmetic.title.TitleKeeperOfDays"] = { en = "Keeper of Days", fr = "Gardien des Jours" },
 	["cosmetic.title.TitleRookie"] = { en = "Rookie", fr = "Recrue" },
 	["cosmetic.title.TitleWanderer"] = { en = "Wanderer", fr = "Vagabond" },
 
@@ -356,10 +448,12 @@ Strings.Table = {
 		en = "Double XP, +50% Folios, chat tag and an exclusive aura.",
 		fr = "XP ×2, +50 % de Folios, tag dans le chat et une aura exclusive.",
 	},
-	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Slots d'équipement" },
+	-- Drawn before a VIP's name in the chat, in the reader's language (ChatConfig.VipTag).
+	["chat.vipTag"] = { en = "[VIP]", fr = "[VIP]" },
+	["pass.loadoutSlots"] = { en = "Loadout Slots", fr = "Emplacements d'équipement" },
 	["pass.loadoutSlots.desc"] = {
 		en = "+4 loadout slots (10 in total).",
-		fr = "+4 slots d'équipement (10 au total).",
+		fr = "+4 emplacements d'équipement (10 au total).",
 	},
 	["pass.orpiment"] = { en = "Orpiment Pigment", fr = "Pigment Orpiment" },
 	["pass.orpiment.desc"] = {
@@ -385,8 +479,8 @@ Strings.Table = {
 	},
 	["product.tierSkip5"] = { en = "+5 Tiers", fr = "+5 paliers" },
 	["product.tierSkip5.desc"] = {
-		en = "Advance five battle pass tiers.",
-		fr = "Avance de cinq paliers du battle pass.",
+		en = "Five battle pass tiers; any past the last one are paid in Folios.",
+		fr = "Cinq paliers du battle pass ; ceux au-delà du dernier sont payés en Folios.",
 	},
 	["product.xpBoost1h"] = { en = "XP Boost (1 h)", fr = "Boost d'XP (1 h)" },
 	["product.xpBoost1h.desc"] = { en = "Double XP for one hour.", fr = "XP doublée pendant une heure." },
@@ -396,10 +490,8 @@ Strings.Table = {
 		fr = "Achète le cosmétique sélectionné avec des Robux.",
 	},
 	["shop.title"] = { en = "Shop", fr = "Boutique" },
-	["shop.rotation"] = { en = "Today's selection", fr = "Sélection du jour" },
-	["shop.buyFolios"] = { en = "{price} Folios", fr = "{price} Folios" },
-	["shop.balance"] = { en = "You have {amount} Folios", fr = "Tu as {amount} Folios" },
-	["shop.buyRobux"] = { en = "Buy with Robux", fr = "Acheter en Robux" },
+	["shop.buyFolios.one"] = { en = "{price} Folio", fr = "{price} Folio" },
+	["shop.buyFolios.other"] = { en = "{price} Folios", fr = "{price} Folios" },
 	["shop.owned"] = { en = "Owned", fr = "Possédé" },
 	["shop.equip"] = { en = "Equip", fr = "Équiper" },
 	["shop.equipped"] = { en = "Equipped", fr = "Équipé" },
@@ -415,63 +507,410 @@ Strings.Table = {
 	["queue.join"] = { en = "Join queue", fr = "Rejoindre la file" },
 	["queue.leave"] = { en = "Leave queue", fr = "Quitter la file" },
 	["queue.searching"] = { en = "Searching… {waited}s", fr = "Recherche… {waited}s" },
-	["queue.teamSize"] = { en = "{size}v{size}", fr = "{size}v{size}" },
-	["queue.waiting"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
+	["queue.waiting.one"] = { en = "{queued} / {needed} player", fr = "{queued} / {needed} joueur" },
+	["queue.waiting.other"] = { en = "{queued} / {needed} players", fr = "{queued} / {needed} joueurs" },
 	["queue.joined"] = { en = "Queued for {mode}.", fr = "En file pour {mode}." },
 	["queue.left"] = { en = "You left the queue.", fr = "Tu as quitté la file." },
 	["queue.timedOut"] = { en = "No opponent found. Try again!", fr = "Aucun adversaire trouvé. Réessaie !" },
 	["queue.alreadyQueued"] = { en = "You are already in a queue.", fr = "Tu es déjà dans une file." },
 	["queue.inMatch"] = { en = "You are already in a match.", fr = "Tu es déjà en match." },
 	["match.countdown"] = { en = "{seconds}", fr = "{seconds}" },
-	["match.round"] = { en = "Round {round} / {total}", fr = "Manche {round} / {total}" },
+	-- The match's band (ScoreBand): the round, and the mode in the leaderboard's word for it ("1v1").
+	["match.band"] = { en = "Round {round} · {mode}", fr = "Manche {round} · {mode}" },
 	["match.timeLeft"] = { en = "{seconds}s", fr = "{seconds}s" },
-	["match.score"] = { en = "{ours} - {theirs}", fr = "{ours} - {theirs}" },
 	["match.roundWon"] = { en = "Round won!", fr = "Manche gagnée !" },
 	["match.roundLost"] = { en = "Round lost", fr = "Manche perdue" },
 	["match.victory"] = { en = "Victory!", fr = "Victoire !" },
 	["match.defeat"] = { en = "Defeat", fr = "Défaite" },
 	["match.draw"] = { en = "Draw", fr = "Égalité" },
-	["match.rewards"] = { en = "+{xp} XP, +{folios} Folios", fr = "+{xp} XP, +{folios} Folios" },
 	["match.ratingUp"] = { en = "{rank}  {rating} (+{delta})", fr = "{rank}  {rating} (+{delta})" },
 	["match.ratingDown"] = { en = "{rank}  {rating} ({delta})", fr = "{rank}  {rating} ({delta})" },
 	["match.rankUp"] = { en = "New rank: {rank}!", fr = "Nouveau rang : {rank} !" },
-	["season.rewardGranted"] = {
+	["season.rewardGranted.one"] = {
+		en = "Volume reward ({rank}): +{amount} Folio",
+		fr = "Récompense du volume ({rank}) : +{amount} Folio",
+	},
+	["season.rewardGranted.other"] = {
 		en = "Volume reward ({rank}): +{amount} Folios",
 		fr = "Récompense du volume ({rank}) : +{amount} Folios",
 	},
 	["match.firstWin"] = { en = "First win of the day!", fr = "Première victoire du jour !" },
 	["match.again"] = { en = "Play again", fr = "Rejouer" },
 	["match.watching"] = { en = "Watching {name}", fr = "Tu regardes {name}" },
-	["menu.invite"] = { en = "Invite a friend", fr = "Inviter un ami" },
 	["menu.inviteUnavailable"] = {
 		en = "Invites are not available here.",
 		fr = "Les invitations ne sont pas disponibles ici.",
 	},
 	["match.grade"] = { en = "Execution: {grade}", fr = "Exécution : {grade}" },
-	["match.execution"] = {
-		en = "{hits} / {casts} glyphs landed · {damage} damage",
-		fr = "{hits} / {casts} glyphes placés · {damage} dégâts",
+	-- The execution line: what landed of what was cast, then the damage dealt, each counted in its own words.
+	["match.execution"] = { en = "{landed} · {dealt}", fr = "{landed} · {dealt}" },
+	["match.execution.glyphs.one"] = { en = "{hits} / {casts} glyph landed", fr = "{hits} / {casts} glyphe placé" },
+	["match.execution.glyphs.other"] = {
+		en = "{hits} / {casts} glyphs landed",
+		fr = "{hits} / {casts} glyphes placés",
 	},
+	["match.execution.damage.one"] = { en = "{damage} damage", fr = "{damage} dégât" },
+	["match.execution.damage.other"] = { en = "{damage} damage", fr = "{damage} dégâts" },
 	["match.level"] = { en = "Level {level} · {xp} / {needed} XP", fr = "Niveau {level} · {xp} / {needed} XP" },
 	["match.levelMax"] = { en = "Level {level} · max", fr = "Niveau {level} · max" },
 	["match.nextUnlock"] = { en = "Next: {name} at level {level}", fr = "Prochain : {name} au niveau {level}" },
+	-- What a milestone of the level road pays (ProgressionConfig.Milestones), where the Result card names it and
+	-- where the Lectern lists the road; and the line that replaces the promise once the road is walked.
+	["levelroad.folios.one"] = { en = "{amount} Folio", fr = "{amount} Folio" },
+	["levelroad.folios.other"] = { en = "{amount} Folios", fr = "{amount} Folios" },
+	["levelroad.foliosAndTitle.one"] = {
+		en = "the title {title} and {amount} Folio",
+		fr = "le titre {title} et {amount} Folio",
+	},
+	["levelroad.foliosAndTitle.other"] = {
+		en = "the title {title} and {amount} Folios",
+		fr = "le titre {title} et {amount} Folios",
+	},
+	["levelroad.complete"] = {
+		en = "Every level's reward is yours",
+		fr = "Toutes les récompenses de niveau sont à toi",
+	},
+	["milestone.reached.one"] = {
+		en = "Milestone of level {level}: +{amount} Folio",
+		fr = "Jalon du niveau {level} : +{amount} Folio",
+	},
+	["milestone.reached.other"] = {
+		en = "Milestone of level {level}: +{amount} Folios",
+		fr = "Jalon du niveau {level} : +{amount} Folios",
+	},
+	["milestone.caughtUp.one"] = {
+		en = "Milestones you had passed: {count}, +{amount} Folio",
+		fr = "Jalons déjà passés : {count}, +{amount} Folio",
+	},
+	["milestone.caughtUp.other"] = {
+		en = "Milestones you had passed: {count}, +{amount} Folios",
+		fr = "Jalons déjà passés : {count}, +{amount} Folios",
+	},
+	["milestone.reachedTitle.one"] = {
+		en = "Milestone of level {level}: +{amount} Folio and the title {title}",
+		fr = "Jalon du niveau {level} : +{amount} Folio et le titre {title}",
+	},
+	["milestone.reachedTitle.other"] = {
+		en = "Milestone of level {level}: +{amount} Folios and the title {title}",
+		fr = "Jalon du niveau {level} : +{amount} Folios et le titre {title}",
+	},
 	["grade.steady"] = { en = "a steady hand", fr = "une main sûre" },
 	["grade.clean"] = { en = "a clean hand", fr = "une main nette" },
 	["grade.unsure"] = { en = "an unsure hand", fr = "une main incertaine" },
 	["grade.shaky"] = { en = "a shaking hand", fr = "une main tremblante" },
 	["match.bestChain"] = { en = "Best chain: ×{count}", fr = "Meilleure chaîne : ×{count}" },
 	["match.opponentLeft"] = { en = "Your opponent left.", fr = "Ton adversaire est parti." },
+	-- A takedown in a match: its XP and Folios are paid with the result, which counts them (MatchService.award).
+	["match.takedown"] = { en = "You defeated {name}!", fr = "Tu as vaincu {name} !" },
 	["match.returning"] = { en = "Returning to the hub…", fr = "Retour au hub…" },
+	-- A match whose tick kept failing (MatchService.cancel): no result, nothing won or lost.
+	["match.cancelled"] = {
+		en = "Match cancelled after a server error: nothing won, nothing lost.",
+		fr = "Match annulé après une erreur du serveur : rien de gagné, rien de perdu.",
+	},
+	-- Two accounts farming each other (D-255): a forfeit before the match was fought, a pair met too often today,
+	-- and a day of matches that has paid all its Folios.
+	["match.voided"] = {
+		en = "The other side left before the match was really played: no result, your rank stays as it was.",
+		fr = "L'autre camp est parti avant que le match soit vraiment joué : pas de résultat, ton rang ne bouge pas.",
+	},
+	["match.repeatOpponent"] = {
+		en = "Same opponent too many times today: this match leaves your rank as it was and pays a quarter.",
+		fr = "Même adversaire trop de fois aujourd'hui : ce match laisse ton rang tel quel et rapporte un quart.",
+	},
+	["match.folioCap"] = {
+		en = "Matches pay no more Folios today. XP still counts.",
+		fr = "Les matchs ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
 	["leaderboard.title"] = { en = "Leaderboard", fr = "Classement" },
 	["leaderboard.board.Global"] = { en = "Global", fr = "Global" },
 	["leaderboard.board.Duel1v1"] = { en = "1v1", fr = "1v1" },
 	["leaderboard.board.Team3v3"] = { en = "3v3", fr = "3v3" },
+	["leaderboard.board.Spar1v1"] = { en = "Practice", fr = "Épreuve" },
 	["leaderboard.empty"] = { en = "No ranked player yet.", fr = "Aucun joueur classé pour l'instant." },
+	-- The hub, worded by each client (HubSignsController, D-128).
+	["hub.board.title"] = { en = "Leaderboard · {board}", fr = "Classement · {board}" },
+	["hub.queue.name"] = { en = "Ranked matches", fr = "Matchs classés" },
+	["hub.prompt.open"] = { en = "Open", fr = "Ouvrir" },
+	-- The Lectern (LecternScreen, HubSignsController) and its drills (DrillConfig, DrillService).
+	["lectern.title"] = { en = "The Lectern", fr = "Le Pupitre" },
+	["lectern.prompt"] = { en = "Practise", fr = "S'exercer" },
+	["lectern.tab.drills"] = { en = "Drills", fr = "Exercices" },
+	["lectern.tab.road"] = { en = "Level road", fr = "Jalons" },
+	["lectern.kit"] = { en = "The kit", fr = "Le kit" },
+	["lectern.recipes"] = { en = "The recipes", fr = "Les recettes" },
+	["lectern.start"] = { en = "Start", fr = "Commencer" },
+	["lectern.again"] = { en = "Again", fr = "Refaire" },
+	["lectern.stop"] = { en = "Put down", fr = "Poser" },
+	["lectern.blank"] = { en = "not drawn yet", fr = "pas encore tracé" },
+	["lectern.drillLine"] = { en = "{hint} · {grade}", fr = "{hint} · {grade}" },
+	["lectern.running"] = {
+		en = "Now: {name} · {count} / {reps} · missed {misses}",
+		fr = "En cours : {name} · {count} / {reps} · ratés {misses}",
+	},
+	["lectern.road.level"] = { en = "Level {level}", fr = "Niveau {level}" },
+	["lectern.road.glyph"] = { en = "A glyph to draw", fr = "Un glyphe à tracer" },
+	["lectern.road.pigment"] = { en = "A pigment and its four glyphs", fr = "Un pigment et ses quatre glyphes" },
+	["lectern.road.milestone"] = { en = "A milestone", fr = "Un jalon" },
+	["lectern.road.titled"] = { en = "A milestone and its title", fr = "Un jalon et son titre" },
+	["lectern.road.held"] = { en = "Yours", fr = "Acquis" },
+	["lectern.road.next"] = { en = "Next", fr = "Prochain" },
+	["levelroad.titleRow.one"] = { en = "{title} · {amount} Folio", fr = "{title} · {amount} Folio" },
+	["levelroad.titleRow.other"] = { en = "{title} · {amount} Folios", fr = "{title} · {amount} Folios" },
+	["drills.grade.draft"] = { en = "Draft", fr = "Brouillon" },
+	["drills.grade.fairCopy"] = { en = "Fair copy", fr = "Mise au net" },
+	["drills.grade.calligraphy"] = { en = "Calligraphy", fr = "Calligraphie" },
+	["drills.kit.string"] = { en = "Four strokes", fr = "Les quatre traits" },
+	["drills.kit.string.hint.one"] = {
+		en = "Land all four strokes of a string, {reps} time",
+		fr = "Place les quatre coups d'un enchaînement, {reps} fois",
+	},
+	["drills.kit.string.hint.other"] = {
+		en = "Land all four strokes of a string, {reps} times",
+		fr = "Place les quatre coups d'un enchaînement, {reps} fois",
+	},
+	["drills.kit.cancel"] = { en = "The cancel", fr = "L'annulation" },
+	["drills.kit.cancel.hint.one"] = {
+		en = "Land the last stroke, then dash out of its recovery, {reps} time",
+		fr = "Place le dernier coup, puis rue hors de sa récupération, {reps} fois",
+	},
+	["drills.kit.cancel.hint.other"] = {
+		en = "Land the last stroke, then dash out of its recovery, {reps} times",
+		fr = "Place le dernier coup, puis rue hors de sa récupération, {reps} fois",
+	},
+	["drills.kit.chain"] = { en = "Chain of three", fr = "Chaîne de trois" },
+	["drills.kit.chain.hint.one"] = {
+		en = "Chain three glyphs, each within a second, {reps} time",
+		fr = "Enchaîne trois glyphes, chacun dans la seconde, {reps} fois",
+	},
+	["drills.kit.chain.hint.other"] = {
+		en = "Chain three glyphs, each within a second, {reps} times",
+		fr = "Enchaîne trois glyphes, chacun dans la seconde, {reps} fois",
+	},
+	["drills.recipe.hint.one"] = {
+		en = "Land it on a training dummy, {reps} time",
+		fr = "Place-le sur un mannequin, {reps} fois",
+	},
+	["drills.recipe.hint.other"] = {
+		en = "Land it on a training dummy, {reps} times",
+		fr = "Place-le sur un mannequin, {reps} fois",
+	},
+	["drills.recipe.hintUtility.one"] = { en = "Draw it, {reps} time", fr = "Trace-le, {reps} fois" },
+	["drills.recipe.hintUtility.other"] = { en = "Draw it, {reps} times", fr = "Trace-le, {reps} fois" },
+	["drills.started"] = { en = "Drill: {name}. {hint}", fr = "Exercice : {name}. {hint}" },
+	["drills.rep"] = { en = "{name} · {count} / {reps}", fr = "{name} · {count} / {reps}" },
+	["drills.miss"] = { en = "{name} · missed ({misses})", fr = "{name} · raté ({misses})" },
+	["drills.graded.one"] = {
+		en = "{name}: {grade}! +{folios} Folio, +{xp} XP",
+		fr = "{name} : {grade} ! +{folios} Folio, +{xp} XP",
+	},
+	["drills.graded.other"] = {
+		en = "{name}: {grade}! +{folios} Folios, +{xp} XP",
+		fr = "{name} : {grade} ! +{folios} Folios, +{xp} XP",
+	},
+	["drills.gradedAgain"] = {
+		en = "{name}: {grade}. Only a better grade pays",
+		fr = "{name} : {grade}. Seul un meilleur grade paie",
+	},
+	["drills.stopped"] = { en = "Drill put down", fr = "Exercice posé" },
+	["drills.lapsed"] = {
+		en = "Drill put down: nothing counted for a minute",
+		fr = "Exercice posé : rien n'a compté depuis une minute",
+	},
+	["drills.left"] = { en = "Drill put down: drills are done in the hub", fr = "Exercice posé : on s'exerce au hub" },
+	["drills.notInHub"] = { en = "Drills are done in the hub", fr = "On s'exerce au hub" },
+	-- The Ex-libris (ExLibrisConfig, HonoursService, the Lectern's third tab). A plate's target is an {amount}: a
+	-- thousand glyphs are grouped as a thousand Folios are.
+	["lectern.tab.exlibris"] = { en = "Ex-libris", fr = "Ex-libris" },
+	["lectern.exlibris.count"] = { en = "Plates: {count} / {total}", fr = "Plaques : {count} / {total}" },
+	["lectern.exlibris.progress"] = { en = "{desc} · {count} / {target}", fr = "{desc} · {count} / {target}" },
+	["lectern.exlibris.earned"] = { en = "{desc} · earned", fr = "{desc} · obtenue" },
+	["lectern.exlibris.rewardTitled"] = { en = "+{amount} · a title", fr = "+{amount} · un titre" },
+	["exlibris.Erasures100"] = { en = "A Hundred Erasures", fr = "Cent ratures" },
+	["exlibris.Erasures1000"] = { en = "A Thousand Erasures", fr = "Mille ratures" },
+	["exlibris.Pages25"] = { en = "Twenty-Five Pages", fr = "Vingt-cinq pages" },
+	["exlibris.Pages250"] = { en = "Dog-Eared", fr = "Écorné" },
+	["exlibris.Strokes1000"] = { en = "A Thousand Strokes", fr = "Mille traits" },
+	["exlibris.Strokes10000"] = { en = "Ten Thousand Strokes", fr = "Dix mille traits" },
+	["exlibris.Breath4"] = { en = "Four in a Breath", fr = "Quatre d'un souffle" },
+	["exlibris.Breath6"] = { en = "In One Breath", fr = "D'un seul souffle" },
+	["exlibris.Erasure1"] = { en = "The Erasure Erased", fr = "L'Effacement effacé" },
+	["exlibris.Erasure10"] = { en = "Ten Times Erased", fr = "Dix fois effacé" },
+	["exlibris.SteadyKit"] = { en = "A Steady Kit", fr = "Un kit sûr" },
+	["exlibris.Copyist"] = { en = "The Copyist", fr = "Le Copiste" },
+	["exlibris.Calligrapher"] = { en = "The Calligrapher", fr = "Le Calligraphe" },
+	["exlibris.desc.Kills.one"] = {
+		en = "Defeat {amount} foe, dummies and Forgers included",
+		fr = "Vaincs {amount} adversaire, mannequins et Faussaires compris",
+	},
+	["exlibris.desc.Kills.other"] = {
+		en = "Defeat {amount} foes, dummies and Forgers included",
+		fr = "Vaincs {amount} adversaires, mannequins et Faussaires compris",
+	},
+	["exlibris.desc.MatchesPlayed.one"] = { en = "Play {amount} match", fr = "Joue {amount} match" },
+	["exlibris.desc.MatchesPlayed.other"] = { en = "Play {amount} matches", fr = "Joue {amount} matchs" },
+	["exlibris.desc.GlyphsCast.one"] = { en = "Draw {amount} glyph", fr = "Trace {amount} glyphe" },
+	["exlibris.desc.GlyphsCast.other"] = { en = "Draw {amount} glyphs", fr = "Trace {amount} glyphes" },
+	["exlibris.desc.BestChain.one"] = { en = "Chain {amount} glyph", fr = "Enchaîne {amount} glyphe" },
+	["exlibris.desc.BestChain.other"] = { en = "Chain {amount} glyphs", fr = "Enchaîne {amount} glyphes" },
+	["exlibris.desc.BossKills.one"] = {
+		en = "Defeat the Erasure in its event ×{amount}",
+		fr = "Vaincs l'Effacement lors de son événement, {amount} fois",
+	},
+	["exlibris.desc.BossKills.other"] = {
+		en = "Defeat the Erasure in its event ×{amount}",
+		fr = "Vaincs l'Effacement lors de son événement, {amount} fois",
+	},
+	["exlibris.desc.KitCalligraphy.one"] = {
+		en = "Reach Calligraphy on the kit's {amount} drill",
+		fr = "Atteins la Calligraphie à {amount} exercice du kit",
+	},
+	["exlibris.desc.KitCalligraphy.other"] = {
+		en = "Reach Calligraphy on the kit's {amount} drills",
+		fr = "Atteins la Calligraphie aux {amount} exercices du kit",
+	},
+	["exlibris.desc.DrillsFairCopy.one"] = {
+		en = "Reach Fair copy on {amount} drill",
+		fr = "Atteins la Mise au net sur {amount} exercice",
+	},
+	["exlibris.desc.DrillsFairCopy.other"] = {
+		en = "Reach Fair copy on {amount} drills",
+		fr = "Atteins la Mise au net sur {amount} exercices",
+	},
+	["exlibris.desc.DrillsCalligraphy.one"] = {
+		en = "Reach Calligraphy on {amount} drill",
+		fr = "Atteins la Calligraphie sur {amount} exercice",
+	},
+	["exlibris.desc.DrillsCalligraphy.other"] = {
+		en = "Reach Calligraphy on {amount} drills",
+		fr = "Atteins la Calligraphie sur {amount} exercices",
+	},
+	["exlibris.granted.one"] = {
+		en = "Ex-libris: {name}! +{amount} Folio",
+		fr = "Ex-libris : {name} ! +{amount} Folio",
+	},
+	["exlibris.granted.other"] = {
+		en = "Ex-libris: {name}! +{amount} Folios",
+		fr = "Ex-libris : {name} ! +{amount} Folios",
+	},
+	["exlibris.grantedTitle.one"] = {
+		en = "Ex-libris: {name}! +{amount} Folio and the title {title}",
+		fr = "Ex-libris : {name} ! +{amount} Folio et le titre {title}",
+	},
+	["exlibris.grantedTitle.other"] = {
+		en = "Ex-libris: {name}! +{amount} Folios and the title {title}",
+		fr = "Ex-libris : {name} ! +{amount} Folios et le titre {title}",
+	},
+	["exlibris.caughtUp.one"] = {
+		en = "Ex-libris plates earned: {count}, +{amount} Folio",
+		fr = "Plaques d'Ex-libris obtenues : {count}, +{amount} Folio",
+	},
+	["exlibris.caughtUp.other"] = {
+		en = "Ex-libris plates earned: {count}, +{amount} Folios",
+		fr = "Plaques d'Ex-libris obtenues : {count}, +{amount} Folios",
+	},
 	["leaderboard.row"] = { en = "#{rank}  {name}", fr = "#{rank}  {name}" },
 	["leaderboard.rating"] = { en = "{rating}", fr = "{rating}" },
 	["leaderboard.you"] = { en = "You: #{rank} ({rating})", fr = "Toi : #{rank} ({rating})" },
 	["leaderboard.youUnlisted"] = { en = "You: outside the top {count}", fr = "Toi : hors du top {count}" },
 	["leaderboard.unranked"] = { en = "Unranked — play a ranked match", fr = "Non classé — joue un match classé" },
+
+	-- The portals (D-130): the name of each seal and what it asks of whoever stands in it (PortalConfig.Zones).
+	["portal.battleground.name"] = { en = "Battleground", fr = "Champ de bataille" },
+	["portal.worldBoss.name"] = { en = "Face the Erasure", fr = "Affronter l'Effacement" },
+	["portal.flyleaf.name"] = { en = "The Flyleaf", fr = "La Page de garde" },
+	["portal.return.name"] = { en = "Back to the hub", fr = "Retour au hub" },
+	["portal.hint.enter"] = { en = "Stay in the circle to enter", fr = "Reste dans le cercle pour entrer" },
+	["portal.hint.return"] = { en = "Stay in the circle to go back", fr = "Reste dans le cercle pour revenir" },
+	["portal.unavailable"] = { en = "This way is closed for now.", fr = "Ce passage est fermé pour l'instant." },
+	-- The band that fills while its player stands in a circle (TravelController): {place} is the seal's name.
+	["portal.entering"] = { en = "Stay in the circle: {place}", fr = "Reste dans le cercle : {place}" },
+	-- A circle stood in just after a trip: step out, then back in, once this has passed (PortalService).
+	["portal.cooldown"] = {
+		en = "Wait a moment before travelling again.",
+		fr = "Attends un instant avant de repartir.",
+	},
+
+	-- The Battleground and its Forgers (D-131).
+	["battleground.entered"] = { en = "The Forgers have seen you.", fr = "Les Faussaires t'ont vu." },
+	-- The member's band (TravelController): Forgers on the page now, and how many they helped defeat, each counted
+	-- in its own words.
+	["battleground.status"] = { en = "{standing} · {defeated}", fr = "{standing} · {defeated}" },
+	["battleground.standing.one"] = { en = "{standing} Forger standing", fr = "{standing} Faussaire debout" },
+	["battleground.standing.other"] = { en = "{standing} Forgers standing", fr = "{standing} Faussaires debout" },
+	["battleground.defeated.one"] = { en = "{defeated} defeated", fr = "{defeated} vaincu" },
+	["battleground.defeated.other"] = { en = "{defeated} defeated", fr = "{defeated} vaincus" },
+	["battleground.full"] = {
+		en = "The battleground is full. Try again in a moment.",
+		fr = "Le champ de bataille est plein. Réessaie dans un instant.",
+	},
+	["battleground.folioCap"] = {
+		en = "Forgers pay no more Folios today. XP still counts.",
+		fr = "Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
+	["battleground.campHit"] = {
+		en = "Hits from the camp don't count. Step out to fight.",
+		fr = "Les coups portés depuis le camp ne comptent pas. Sors pour te battre.",
+	},
+
+	-- The quick duel for newcomers (E10-S7): the match's announcement, and the Play screen's word on why and how far.
+	["match.quickDuel"] = { en = "Quick duel · unranked", fr = "Duel rapide · non classé" },
+	["match.versus"] = { en = "{name} · level {level} · {rank}", fr = "{name} · niveau {level} · {rank}" },
+	["match.versus.unranked"] = { en = "unranked", fr = "non classé" },
+	["queue.gate.level"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level} (you: level {current}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level} (toi : niveau {current}).",
+	},
+	-- Counted sentences (Strings.Plurals): how many matches ranked asks for.
+	["queue.gate.matches.one"] = {
+		en = "Quick duel for now, unranked. Ranked after {count} match (played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé après {count} match (matchs joués : {played}).",
+	},
+	["queue.gate.matches.other"] = {
+		en = "Quick duel for now, unranked. Ranked after {count} matches (played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé après {count} matchs (matchs joués : {played}).",
+	},
+	["queue.gate.both.one"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} match (you: level {current}, played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} match (toi : niveau {current}, matchs joués : {played}).",
+	},
+	["queue.gate.both.other"] = {
+		en = "Quick duel for now, unranked. Ranked at level {level}, after {count} matches (you: level {current}, played: {played}).",
+		fr = "Duel rapide pour l'instant, non classé. Classé au niveau {level}, après {count} matchs (toi : niveau {current}, matchs joués : {played}).",
+	},
+
+	-- The Flyleaf (E16-S2): every member against every other, no rank at stake.
+	["flyleaf.entered"] = {
+		en = "Everyone here is a rival. No rank at stake.",
+		fr = "Ici, chacun est ton rival. Aucun rang en jeu.",
+	},
+	-- The member's band (TravelController): members on the page, lives taken since arriving, and the run going on.
+	["flyleaf.status"] = {
+		en = "Rivals: {members} · Takedowns: {kills} · Run: {streak}",
+		fr = "Rivaux : {members} · Victoires : {kills} · Série : {streak}",
+	},
+	["flyleaf.full"] = {
+		en = "The Flyleaf is full. Try again in a moment.",
+		fr = "La Page de garde est pleine. Réessaie dans un instant.",
+	},
+	["flyleaf.folioCap"] = {
+		en = "The Flyleaf pays no more Folios today. XP still counts.",
+		fr = "La Page de garde ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.",
+	},
+	-- The same rival taken down again and again (FlyleafConfig.Farm): nothing more is paid for them for a while.
+	["flyleaf.noPay"] = {
+		en = "{name} again: nothing more for them for now. Find another rival!",
+		fr = "Encore {name} : plus rien pour l'instant. Trouve un autre rival !",
+	},
+	-- Every member hears who now wears the Manicule, and who took it off them.
+	["flyleaf.manicule"] = {
+		en = "{name} wears the Manicule: three in a row!",
+		fr = "{name} porte la Manicule : trois d'affilée !",
+	},
+	["flyleaf.maniculeTaken"] = {
+		en = "{name} took the Manicule off {rival}!",
+		fr = "{name} a fait tomber la Manicule de {rival} !",
+	},
 
 	-- L'Effacement (the World Boss, docs/GAME_DESIGN.md §7)
 	["boss.name"] = { en = "The Erasure", fr = "L'Effacement" },
@@ -482,14 +921,19 @@ Strings.Table = {
 	["boss.started"] = { en = "The Erasure is here.", fr = "L'Effacement est là." },
 	["boss.health"] = { en = "{health} / {max}", fr = "{health} / {max}" },
 	["boss.phase"] = { en = "Phase {phase}", fr = "Phase {phase}" },
-	["boss.timeLeft"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
+	["boss.timeLeft.one"] = { en = "{seconds}s left", fr = "{seconds}s restante" },
+	["boss.timeLeft.other"] = { en = "{seconds}s left", fr = "{seconds}s restantes" },
 	["boss.share"] = { en = "Your damage: {percent}%", fr = "Tes dégâts : {percent} %" },
 	["boss.defeated"] = {
 		en = "The Erasure is undone. The page keeps.",
 		fr = "L'Effacement est défait. La page reste.",
 	},
 	["boss.expired"] = { en = "The Erasure has left the page…", fr = "L'Effacement a quitté la page…" },
-	["boss.reward"] = {
+	["boss.reward.one"] = {
+		en = "Erasure reward: +{xp} XP, +{folios} Folio",
+		fr = "Récompense de l'Effacement : +{xp} XP, +{folios} Folio",
+	},
+	["boss.reward.other"] = {
 		en = "Erasure reward: +{xp} XP, +{folios} Folios",
 		fr = "Récompense de l'Effacement : +{xp} XP, +{folios} Folios",
 	},
@@ -498,23 +942,52 @@ Strings.Table = {
 	["boss.attack.sweep"] = { en = "Sweep", fr = "Balayage" },
 	["boss.attack.eruption"] = { en = "Eruption", fr = "Éruption" },
 	["boss.attack.fury"] = { en = "Fury", fr = "Furie" },
-	["boss.incoming"] = { en = "{attack} incoming!", fr = "{attack} en approche !" },
+	-- Practice against the Erasure and joining a fight through the hub's gate (D-132).
+	["boss.practice.title"] = { en = "The Erasure · practice", fr = "L'Effacement · entraînement" },
+	["boss.portal.announced"] = {
+		en = "The Erasure arrives in {seconds}s: you will be drawn in.",
+		fr = "L'Effacement arrive dans {seconds} s : tu y seras appelé.",
+	},
+	["boss.portal.eventSoon"] = {
+		en = "The Erasure itself comes in {seconds}s: no practice now.",
+		fr = "Le vrai Effacement arrive dans {seconds} s : pas d'entraînement maintenant.",
+	},
+	["boss.portal.closing"] = {
+		en = "This fight is ending. Try again in a moment.",
+		fr = "Ce combat se termine. Réessaie dans un instant.",
+	},
+	["boss.portal.cooldown"] = { en = "Practice again in {seconds}s.", fr = "Nouvel entraînement dans {seconds} s." },
+	["boss.portal.busy"] = {
+		en = "No arena is free. Try again in a moment.",
+		fr = "Aucune arène libre. Réessaie dans un instant.",
+	},
+	["boss.portal.noReentry"] = {
+		en = "You have used your returns for this fight.",
+		fr = "Tu as épuisé tes retours pour ce combat.",
+	},
+	["boss.practice.noReward"] = {
+		en = "Practice rewards come back in {minutes} min.",
+		fr = "Les récompenses d'entraînement reviennent dans {minutes} min.",
+	},
+	["boss.practice.dailyDone"] = {
+		en = "Practice rewards are done for today.",
+		fr = "Les récompenses d'entraînement sont épuisées pour aujourd'hui.",
+	},
 
 	-- Loadout
 	["loadout.title"] = { en = "Loadout", fr = "Équipement" },
-	["loadout.slots"] = { en = "{used} / {total} slots", fr = "{used} / {total} slots" },
+	["loadout.slots.one"] = { en = "{used} / {total} slot", fr = "{used} / {total} emplacement" },
+	["loadout.slots.other"] = { en = "{used} / {total} slots", fr = "{used} / {total} emplacements" },
 	["loadout.equip"] = { en = "Equip", fr = "Équiper" },
 	["loadout.unequip"] = { en = "Unequip", fr = "Retirer" },
 	["loadout.equipped"] = { en = "Equipped", fr = "Équipé" },
-	["loadout.full"] = { en = "Every slot is taken.", fr = "Tous les slots sont pris." },
 	["loadout.locked"] = { en = "Unlocks at level {level}", fr = "Se débloque au niveau {level}" },
 	["loadout.lockedPigment"] = { en = "Requires the {pigment} pigment", fr = "Nécessite le pigment {pigment}" },
 	["loadout.saved"] = { en = "Loadout saved!", fr = "Équipement sauvegardé !" },
 	["loadout.invalid"] = { en = "Invalid loadout.", fr = "Équipement invalide." },
-	["loadout.combo"] = { en = "Sequence: {combo}", fr = "Séquence : {combo}" },
-	["loadout.stats"] = {
-		en = "{damage} damage · {cost} ink · {cooldown}s",
-		fr = "{damage} dégâts · {cost} encre · {cooldown}s",
+	["loadout.caughtUp"] = {
+		en = "New glyphs unlocked: {count}. Add them to your loadout.",
+		fr = "Nouveaux glyphes débloqués : {count}. Ajoute-les à ton équipement.",
 	},
 
 	-- Cosmetics
@@ -525,7 +998,11 @@ Strings.Table = {
 	-- Purchases
 	["purchase.prompt"] = { en = "Opening the Roblox purchase…", fr = "Ouverture de l'achat Roblox…" },
 	["purchase.granted"] = { en = "Purchase complete: {name}", fr = "Achat terminé : {name}" },
-	["purchase.grantedFoliosInstead"] = {
+	["purchase.grantedFoliosInstead.one"] = {
+		en = "You own every item of that rarity: +{amount} Folio instead",
+		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Folio à la place",
+	},
+	["purchase.grantedFoliosInstead.other"] = {
 		en = "You own every item of that rarity: +{amount} Folios instead",
 		fr = "Tu possèdes tous les articles de cette rareté : +{amount} Folios à la place",
 	},
@@ -540,7 +1017,42 @@ Strings.Table = {
 		en = "XP boost active for {minutes} min",
 		fr = "Boost d'XP actif pendant {minutes} min",
 	},
-	["purchase.tiersGranted"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	["purchase.tiersGranted.one"] = { en = "+{tiers} battle pass tier", fr = "+{tiers} palier de battle pass" },
+	["purchase.tiersGranted.other"] = { en = "+{tiers} battle pass tiers", fr = "+{tiers} paliers de battle pass" },
+	["purchase.premiumOwnedFolios.one"] = {
+		en = "You already have the Premium Battle Pass: +{amount} Folio instead",
+		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folio à la place",
+	},
+	["purchase.premiumOwnedFolios.other"] = {
+		en = "You already have the Premium Battle Pass: +{amount} Folios instead",
+		fr = "Tu as déjà le Battle Pass Premium : +{amount} Folios à la place",
+	},
+	["purchase.tiersPastLast.one"] = {
+		en = "Past the last tier: +{amount} Folio instead",
+		fr = "Au-delà du dernier palier : +{amount} Folio à la place",
+	},
+	["purchase.tiersPastLast.other"] = {
+		en = "Past the last tier: +{amount} Folios instead",
+		fr = "Au-delà du dernier palier : +{amount} Folios à la place",
+	},
+	-- Seen only in Studio, where a test purchase grants nothing (StudioConfig.PersistTestPurchases).
+	["purchase.sandboxed"] = {
+		en = "Studio test purchase of {name}: nothing was granted or saved.",
+		fr = "Achat de test dans Studio ({name}) : rien n'a été accordé ni enregistré.",
+	},
+	-- A DataStore outage (DataService, ProfileStore's critical state): once to each player, and when it ends.
+	["purchase.savesDelayed"] = {
+		en = "Robux purchases are paused while saving is delayed.",
+		fr = "Les achats en Robux sont suspendus tant que la sauvegarde est retardée.",
+	},
+	["save.delayed"] = {
+		en = "Saving is delayed. Your progress is kept here, and Robux purchases are paused until it's back.",
+		fr = "La sauvegarde est retardée. Ta progression est gardée ici, et les achats en Robux attendent son retour.",
+	},
+	["save.restored"] = {
+		en = "Saving is back. Robux purchases are open again.",
+		fr = "La sauvegarde est revenue. Les achats en Robux sont rouverts.",
+	},
 
 	-- Enemies
 
@@ -557,7 +1069,376 @@ Strings.Table = {
 		en = "Disconnected: too many invalid requests.",
 		fr = "Déconnecté : trop de requêtes invalides.",
 	},
+	-- A critical service failed to start (Boot.close): the server sends everyone away.
+	["kick.serverError"] = {
+		en = "Server error: this server could not start. Please rejoin.",
+		fr = "Erreur serveur : ce serveur n'a pas pu démarrer. Rejoins à nouveau.",
+	},
+
+	-- D-147 · slice F (components and shared)
+	-- The words on a keycap (Keycap.label): every rebindable key longer than a letter, in the player's language.
+	["key.LeftShift"] = { en = "Shift", fr = "Maj" },
+	["key.RightShift"] = { en = "Right Shift", fr = "Maj droite" },
+	["key.LeftControl"] = { en = "Ctrl", fr = "Ctrl" },
+	["key.RightControl"] = { en = "Right Ctrl", fr = "Ctrl droite" },
+	["key.LeftAlt"] = { en = "Alt", fr = "Alt" },
+	["key.RightAlt"] = { en = "Alt Gr", fr = "Alt Gr" },
+	["key.MouseButton1"] = { en = "Left click", fr = "Clic gauche" },
+	["key.MouseButton2"] = { en = "Right click", fr = "Clic droit" },
+	["key.MouseButton3"] = { en = "Middle click", fr = "Clic molette" },
+	["key.ButtonB"] = { en = "B", fr = "B" },
+	["key.ButtonX"] = { en = "X", fr = "X" },
+	["key.ButtonY"] = { en = "Y", fr = "Y" },
+	["key.ButtonL1"] = { en = "LB", fr = "LB" },
+	["key.ButtonR1"] = { en = "RB", fr = "RB" },
+	["key.ButtonL2"] = { en = "LT", fr = "LT" },
+	["key.ButtonR2"] = { en = "RT", fr = "RT" },
+	["key.ButtonL3"] = { en = "L3", fr = "L3" },
+	["key.ButtonR3"] = { en = "R3", fr = "R3" },
+	["key.ButtonSelect"] = { en = "Select", fr = "Sélection" },
+	-- The way back on a screen opened from another one (ChapterBand).
+	["nav.back"] = { en = "Back", fr = "Retour" },
+
+	-- D-147 · slice A (menus: menu, play, shop, battle pass, daily)
+	-- The play cards (PlayScreen): the tag on a ranked mode, its rule, and what the card says when the server
+	-- finds nobody. A mode of one round has its own rule: "first to 1 rounds" reads wrong in both languages.
+	["queue.ranked"] = { en = "Ranked", fr = "Classé" },
+	-- On a private server a player bought, no match is ranked (E4-S4): the play cards say so, and the Menu's ribbon.
+	["queue.unranked"] = { en = "Unranked in a private server", fr = "Non classé en serveur privé" },
+	["queue.unrankedShort"] = { en = "Unranked", fr = "Non classé" },
+	["queue.rule.one"] = { en = "A single round decides", fr = "Une seule manche décide" },
+	["queue.rule.other"] = { en = "First to {rounds} rounds wins", fr = "Le premier à {rounds} manches gagne" },
+	["queue.timedOut.title"] = { en = "Nobody in the queue right now", fr = "Personne en file pour l'instant" },
+	["queue.timedOut.hint"] = {
+		en = "Try the Battleground or face the Erasure: their circles are in the hub.",
+		fr = "Essaie le Champ de bataille ou affronte l'Effacement : leurs cercles sont dans le hub.",
+	},
+	-- The practice duel against a Forger while waiting in the 1v1 queue (E10-S6, SparService): the offer on the
+	-- queue's card, the duel going on, and what the server says about it.
+	["spar.pitch"] = {
+		en = "Spar a Duelist Forger while you wait: first to 2, unranked",
+		fr = "Affronte un Faussaire Duelliste en attendant : premier à 2, non classé",
+	},
+	["spar.start"] = { en = "Spar", fr = "S'entraîner" },
+	["spar.paidLeft"] = {
+		en = "Rewards: {left} of {total} left today",
+		fr = "Récompenses : encore {left} sur {total} aujourd'hui",
+	},
+	["spar.noneLeft"] = {
+		en = "No rewards left today: the practice is still yours",
+		fr = "Plus de récompenses aujourd'hui : l'entraînement reste à toi",
+	},
+	["spar.sparring"] = {
+		en = "Practice duel under way. A real opponent takes over at the next round break.",
+		fr = "Duel d'épreuve en cours. Un vrai adversaire prend la main à la prochaine pause de manche.",
+	},
+	["spar.leave"] = { en = "Leave practice", fr = "Quitter l'épreuve" },
+	["spar.started"] = {
+		en = "A Duelist Forger answers. First to 2 rounds!",
+		fr = "Un Faussaire Duelliste répond. Premier à 2 manches !",
+	},
+	["spar.handover"] = {
+		en = "An opponent is here: to the ranked duel!",
+		fr = "Un adversaire est là : au duel classé !",
+	},
+	["spar.unavailable"] = { en = "No practice duel right now.", fr = "Pas de duel d'épreuve pour l'instant." },
+	["spar.unpaid"] = {
+		en = "Practice duels pay again tomorrow.",
+		fr = "Les duels d'épreuve paient de nouveau demain.",
+	},
+	["spar.left"] = { en = "You left the practice duel.", fr = "Tu as quitté le duel d'épreuve." },
+	-- Slice F's shared words, entered with their first reader (D-150).
+	["common.retry"] = { en = "Retry", fr = "Réessayer" },
+	["time.minutesSeconds"] = { en = "{minutes}:{seconds}", fr = "{minutes}:{seconds}" },
+	["time.hoursMinutes"] = { en = "{hours}h {minutes}m", fr = "{hours} h {minutes}" },
+	["common.cancel"] = { en = "Cancel", fr = "Annuler" },
+	["common.pendingTimeout"] = {
+		en = "No answer from the server. Try again.",
+		fr = "Pas de réponse du serveur. Réessaie.",
+	},
+	-- The shop (ShopScreen): the countdown to the next rotation, the Robux price, and the sheet that asks
+	-- before a Folios purchase.
+	["shop.nextRotation"] = { en = "New items in {time}", fr = "Nouveautés dans {time}" },
+	["shop.robuxPrice"] = { en = "R$ {price}", fr = "R$ {price}" },
+	["shop.confirm.title"] = { en = "Buy {name}?", fr = "Acheter {name} ?" },
+	["shop.confirm.balance.one"] = { en = "{before} → {after} Folio", fr = "{before} → {after} Folio" },
+	["shop.confirm.balance.other"] = { en = "{before} → {after} Folios", fr = "{before} → {after} Folios" },
+	["shop.buy"] = { en = "Buy", fr = "Acheter" },
+	["shop.acquired"] = { en = "Acquired!", fr = "Acquis !" },
+	["shop.getFolios"] = { en = "Get Folios", fr = "Obtenir des Folios" },
+	-- The shop's tabs, and the locker of what the player owns, by slot.
+	["shop.tab.today"] = { en = "Today", fr = "Du jour" },
+	["shop.tab.folios"] = { en = "Folios", fr = "Folios" },
+	["shop.tab.passes"] = { en = "Passes & packs", fr = "Pass et packs" },
+	["shop.tab.locker"] = { en = "Locker", fr = "Casier" },
+	["shop.unequip"] = { en = "Unequip", fr = "Retirer" },
+	["shop.locker.empty"] = {
+		en = "Nothing here yet. Earn cosmetics in the Battle Pass or buy them in today's selection.",
+		fr = "Rien pour l'instant. Gagne des cosmétiques avec le Battle Pass ou achète-les dans la sélection du jour.",
+	},
+	["cosmetics.slot.Aura"] = { en = "Auras", fr = "Auras" },
+	["cosmetics.slot.Trail"] = { en = "Trails", fr = "Traînées" },
+	["cosmetics.slot.KillEffect"] = { en = "Takedown effects", fr = "Effets d'élimination" },
+	["cosmetics.slot.Title"] = { en = "Titles", fr = "Titres" },
+	["cosmetics.slot.Skin"] = { en = "Glyph skins", fr = "Apparences de glyphe" },
+	-- The battle pass (BattlepassScreen): its header's buttons, the showcase of the next reward, and a cell's
+	-- amounts. A cell is too narrow for "XP boost (30 min)": it shows the clock and the minutes.
+	["battlepass.getPremium"] = { en = "Get Premium", fr = "Obtenir le Premium" },
+	["battlepass.claimAll"] = { en = "Claim all ({count})", fr = "Tout réclamer ({count})" },
+	["battlepass.nextReward"] = { en = "Next reward", fr = "Prochaine récompense" },
+	["battlepass.tierShort"] = { en = "Tier {tier}", fr = "Palier {tier}" },
+	["battlepass.reward.minutes"] = { en = "{minutes} min", fr = "{minutes} min" },
+	["reward.folios"] = { en = "+{amount}", fr = "+{amount}" },
+	["reward.xp"] = { en = "+{xp} XP", fr = "+{xp} XP" },
+	-- The player's balance where a screen shows it (FoliosPill, the hub's MetaCluster): the amount alone, grouped
+	-- by thousands as every amount of Folios is.
+	["folios.balance"] = { en = "{folios}", fr = "{folios}" },
+	-- The daily reward (DailyScreen): each day's card, the claim, tomorrow's reward, and the streak worth keeping.
+	["daily.day"] = { en = "Day {day}", fr = "Jour {day}" },
+	["daily.claim"] = { en = "Claim", fr = "Réclamer" },
+	["daily.tomorrow"] = { en = "Tomorrow: {reward}", fr = "Demain : {reward}" },
+	["daily.atRisk.one"] = {
+		en = "Claim today to keep your {streak}-day streak!",
+		fr = "Réclame aujourd'hui pour garder ta série de {streak} jour !",
+	},
+	["daily.atRisk.other"] = {
+		en = "Claim today to keep your {streak}-day streak!",
+		fr = "Réclame aujourd'hui pour garder ta série de {streak} jours !",
+	},
+	-- The login calendar (E15-S1): where the player stands in its 28 days and in their streak, the Signets they
+	-- hold, what a Signet does, and what the day's claim brought beyond its Folios.
+	["daily.calendar"] = {
+		en = "Day {day} of {length} · Streak {streak}",
+		fr = "Jour {day} sur {length} · Série {streak}",
+	},
+	["daily.signets"] = { en = "Signets", fr = "Signets" },
+	["daily.signetHint"] = {
+		en = "A Signet keeps your streak through one missed day.",
+		fr = "Un Signet garde ta série un jour manqué.",
+	},
+	["daily.signetSaves"] = {
+		en = "You missed a day: your Signet keeps your streak. Claim today!",
+		fr = "Tu as manqué un jour : ton Signet garde ta série. Réclame aujourd'hui !",
+	},
+	["daily.tomorrow.signet"] = { en = "Tomorrow: {reward}, and a Signet", fr = "Demain : {reward}, et un Signet" },
+	["daily.signetUsed"] = {
+		en = "Signet used: your streak goes on!",
+		fr = "Signet utilisé : ta série continue !",
+	},
+	["daily.signetEarned"] = {
+		en = "A Signet slips into your book: it keeps your streak through a missed day.",
+		fr = "Un Signet se glisse dans ton livre : il garde ta série un jour manqué.",
+	},
+	["daily.cosmetic"] = { en = "New cosmetic: {name}!", fr = "Nouveau cosmétique : {name} !" },
+	-- The streak on the hub's HUD (MetaCluster), beside the level's XP.
+	["hud.streak"] = { en = "Streak {streak}", fr = "Série {streak}" },
+
+	-- D-147 · slice B (menus: loadout, quests, leaderboard, result, settings)
+	-- A time left, on a countdown (QuestBoard.countdown): days and hours past a day (under a day it reads
+	-- time.hoursMinutes, entered above by slice A).
+	["time.daysHours"] = { en = "{days}d {hours}h", fr = "{days} j {hours} h" },
+	-- The quests board: when each section is drawn again.
+	["quest.resetsIn"] = { en = "Resets in {time}", fr = "Réinitialisation dans {time}" },
+	-- A number of seconds, beside a clock (a glyph's cooldown on its card).
+	["common.seconds"] = { en = "{seconds}s", fr = "{seconds} s" },
+	-- The loadout: a full loadout's Equip, the offer of the pass's slots, and the strip that undoes a change.
+	["loadout.fullShort"] = { en = "Slots full", fr = "Emplacements pleins" },
+	["loadout.moreSlots.one"] = { en = "+{count} slot", fr = "+{count} emplacement" },
+	["loadout.moreSlots.other"] = { en = "+{count} slots", fr = "+{count} emplacements" },
+	["loadout.equippedToast"] = { en = "{name} equipped", fr = "{name} équipé" },
+	["loadout.unequippedToast"] = { en = "{name} removed", fr = "{name} retiré" },
+	["common.undo"] = { en = "Undo", fr = "Annuler" },
+	-- The leaderboard: the way to the player's own row, and a board that could not be fetched.
+	["leaderboard.findMe"] = { en = "My place", fr = "Ma place" },
+	["common.loadFailed"] = { en = "Couldn't load.", fr = "Impossible de charger." },
+	-- Settings: the accessibility tab, the words of a switch and of a percentage, the way a pad rebinds, and
+	-- the question before a reset.
+	["settings.tab.accessibility"] = { en = "Accessibility", fr = "Accessibilité" },
+	["common.on"] = { en = "On", fr = "Oui" },
+	["common.off"] = { en = "Off", fr = "Non" },
+	["common.percent"] = { en = "{value}%", fr = "{value} %" },
+	["settings.hint.gamepad"] = {
+		en = "Select a binding, then press the new button. A cancels.",
+		fr = "Sélectionne une touche, puis appuie sur le nouveau bouton. A annule.",
+	},
+	["settings.pressButton"] = {
+		en = "Press a button for {action}… (A to cancel)",
+		fr = "Appuie sur un bouton pour {action}… (A pour annuler)",
+	},
+	-- What a key being rebound shows while it waits for the new one.
+	["settings.capturing"] = { en = "…", fr = "…" },
+	["settings.resetConfirm"] = {
+		en = "Reset every binding to its default?",
+		fr = "Remettre toutes les touches par défaut ?",
+	},
+	-- Roblox's own accessibility settings, shown as they are (UiPrefs) and changed in the Roblox menu.
+	["settings.reducedMotion"] = { en = "Reduced motion", fr = "Mouvements réduits" },
+	["settings.textSize"] = { en = "Text size", fr = "Taille du texte" },
+	["settings.textSize.Medium"] = { en = "Standard", fr = "Standard" },
+	["settings.textSize.Large"] = { en = "Large", fr = "Grand" },
+	["settings.textSize.Larger"] = { en = "Larger", fr = "Plus grand" },
+	["settings.textSize.Largest"] = { en = "Largest", fr = "Très grand" },
+	["settings.transparency"] = { en = "Background transparency", fr = "Transparence des fonds" },
+	["settings.systemHint"] = {
+		en = "Set in the Roblox menu, under Settings.",
+		fr = "Se règle dans le menu Roblox, dans Paramètres.",
+	},
+	-- The Result: the details folded on a phone (its chips count up with reward.xp and reward.folios, above).
+	["result.details"] = { en = "Details", fr = "Détails" },
+
+	-- D-147 · slice C (HUD, toasts, world)
+	-- The centre splashes of a match (Banner).
+	["hud.splash.matchFound"] = { en = "Match found!", fr = "Match trouvé !" },
+	["hud.splash.fight"] = { en = "Fight!", fr = "Au combat !" },
+	["hud.splash.defeated"] = { en = "Defeated!", fr = "Vaincu !" },
+	-- The lock's mark (LockMarker): a press that finds nothing, the pill over the target with its name and the
+	-- health it has left, and the pill's name for what is not a player.
+	["hud.lock.none"] = { en = "No target", fr = "Aucune cible" },
+	["hud.lock.target"] = { en = "{name} · {health}", fr = "{name} · {health}" },
+	-- A cooling glyph's seconds on its hotbar slot, in tenths under ten (CooldownText): the language's own mark.
+	["hud.hotbar.seconds"] = { en = "{whole}.{tenth}", fr = "{whole},{tenth}" },
+	["hud.lock.dummy"] = { en = "Training dummy", fr = "Mannequin" },
+	["hud.lock.forger"] = { en = "Forger", fr = "Faussaire" },
+	-- A new player's first steps (MetaCluster), until all three are done.
+	["hud.checklist.title"] = { en = "First steps", fr = "Premiers pas" },
+	["hud.checklist.cast"] = { en = "Cast a glyph", fr = "Trace un glyphe" },
+	["hud.checklist.match"] = { en = "Play a match", fr = "Joue un match" },
+	["hud.checklist.daily"] = { en = "Claim your daily reward", fr = "Réclame ta récompense du jour" },
 } :: { [string]: Entry }
+
+-- The placeholders that carry an amount of Folios, XP or Robux: an integer given to one of them is grouped by
+-- thousands in the player's language (Strings.number). Ratings, ranks, levels, counts, seconds and health are not
+-- amounts and are never grouped. {needed} is also queue.waiting's count of players, which never reaches a
+-- thousand. A price ({price}) is grouped too: a Today card is as wide as its two grouped prices need on a phone
+-- (tests/LayoutRules.spec.luau, Layout.rowWords).
+Strings.Quantities = {
+	xp = true,
+	needed = true,
+	folios = true,
+	amount = true,
+	before = true,
+	after = true,
+	price = true,
+} :: { [string]: boolean }
+
+-- The sentences that count something, each with the placeholder that counts it. Every one has a "<key>.one" and a
+-- "<key>.other" in the table and no entry of its own; the key itself is what the code and the server's messages
+-- name. A sentence whose count is not a count of things (a tier, a level, a day of the streak) is not here.
+Strings.Plurals = {
+	["battleground.defeated"] = "defeated",
+	["battleground.standing"] = "standing",
+	["battlepass.reward.folio"] = "amount",
+	["boss.reward"] = "folios",
+	["boss.timeLeft"] = "seconds",
+	["daily.atRisk"] = "streak",
+	["daily.claimed"] = "folios",
+	["daily.firstWin"] = "folios",
+	["daily.premium"] = "folios",
+	["drills.graded"] = "folios",
+	["drills.kit.cancel.hint"] = "reps",
+	["drills.kit.chain.hint"] = "reps",
+	["drills.kit.string.hint"] = "reps",
+	["drills.recipe.hint"] = "reps",
+	["drills.recipe.hintUtility"] = "reps",
+	["exlibris.caughtUp"] = "amount",
+	["exlibris.desc.BestChain"] = "amount",
+	["exlibris.desc.BossKills"] = "amount",
+	["exlibris.desc.DrillsCalligraphy"] = "amount",
+	["exlibris.desc.DrillsFairCopy"] = "amount",
+	["exlibris.desc.GlyphsCast"] = "amount",
+	["exlibris.desc.Kills"] = "amount",
+	["exlibris.desc.KitCalligraphy"] = "amount",
+	["exlibris.desc.MatchesPlayed"] = "amount",
+	["exlibris.granted"] = "amount",
+	["exlibris.grantedTitle"] = "amount",
+	["levelroad.folios"] = "amount",
+	["levelroad.foliosAndTitle"] = "amount",
+	["levelroad.titleRow"] = "amount",
+	["loadout.moreSlots"] = "count",
+	["loadout.slots"] = "total",
+	["match.execution.damage"] = "damage",
+	["match.execution.glyphs"] = "casts",
+	["milestone.caughtUp"] = "amount",
+	["milestone.reached"] = "amount",
+	["milestone.reachedTitle"] = "amount",
+	["purchase.grantedFoliosInstead"] = "amount",
+	["purchase.premiumOwnedFolios"] = "amount",
+	["purchase.tiersGranted"] = "tiers",
+	["purchase.tiersPastLast"] = "amount",
+	["quest.cancelRecovery"] = "target",
+	["quest.castGlyphs"] = "target",
+	["quest.chainCasts"] = "target",
+	["quest.dealDamage"] = "target",
+	["quest.defeatDummies"] = "target",
+	["quest.defeatForgers"] = "target",
+	["quest.defeatPlayers"] = "target",
+	["quest.hitGlyphs"] = "target",
+	["quest.joinBoss"] = "target",
+	["quest.landMelee"] = "target",
+	["quest.playMatches"] = "target",
+	["quest.reward"] = "folios",
+	["quest.useDash"] = "target",
+	["quest.winMatches"] = "target",
+	["queue.gate.both"] = "count",
+	["queue.gate.matches"] = "count",
+	["queue.rule"] = "rounds",
+	["queue.waiting"] = "needed",
+	["season.rewardGranted"] = "amount",
+	["shop.buyFolios"] = "price",
+	["shop.confirm.balance"] = "after",
+} :: { [string]: string }
+
+export type PluralForm = "one" | "other"
+
+-- The form a count of `n` takes in `locale`, by the cardinal rules of the Unicode CLDR: English says "one" for
+-- exactly 1 ("1 glyph", "0 glyphs"), French for anything under 2 ("0 glyphe", "1,5 glyphe", "2 glyphes"). A
+-- language the table does not hold reads English, and so counts as English does.
+function Strings.pluralForm(n: number, locale: string?): PluralForm
+	if locale == "fr" then
+		return if math.abs(n) < 2 then "one" else "other"
+	end
+	return if math.abs(n) == 1 then "one" else "other"
+end
+
+-- The mark between two groups of three digits: a narrow no-break space in French, a comma in English.
+local GROUP_SEPARATORS: { [string]: string } = { en = ",", fr = "\u{202F}" }
+local GROUP = 3
+
+-- `n` with its digits grouped by three for `locale` ("3 120" in French, "3,120" in English), the sign kept. A
+-- number under a thousand, or one that is not a whole number, reads exactly as tostring gives it.
+function Strings.number(n: number, locale: string?): string
+	if math.abs(n) < 1000 or n ~= math.floor(n) or math.abs(n) == math.huge then
+		return tostring(n)
+	end
+	local separator = GROUP_SEPARATORS[locale or Strings.DefaultLocale] or GROUP_SEPARATORS[Strings.DefaultLocale]
+	local digits = string.format("%.0f", math.abs(n))
+	local head = #digits % GROUP
+	local groups: { string } = {}
+	if head > 0 then
+		table.insert(groups, string.sub(digits, 1, head))
+	end
+	for start = head + 1, #digits, GROUP do
+		table.insert(groups, string.sub(digits, start, start + GROUP - 1))
+	end
+	local grouped = table.concat(groups, separator)
+	return if n < 0 then "-" .. grouped else grouped
+end
+
+-- `params` with every number given to a quantity grouped for `locale`; the table itself when it holds none.
+local function withAmounts(params: { [string]: any }?, locale: string): { [string]: any }?
+	if params == nil then
+		return nil
+	end
+	local amounts: { [string]: any }? = nil
+	for name, value in pairs(params) do
+		if Strings.Quantities[name] and type(value) == "number" then
+			local copy = amounts or table.clone(params)
+			copy[name] = Strings.number(value, locale)
+			amounts = copy
+		end
+	end
+	return amounts or params
+end
 
 -- Substitutes {name} placeholders. Missing params are left as-is.
 function Strings.format(template: string, params: { [string]: any }?): string
@@ -574,22 +1455,57 @@ function Strings.format(template: string, params: { [string]: any }?): string
 	return result
 end
 
--- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible).
-function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
-	local entry = Strings.Table[key]
-	if entry == nil then
-		return "[" .. key .. "]"
-	end
+-- `entry` in `locale` (falling back to English), its placeholders filled from `params`.
+local function render(entry: Entry, params: { [string]: any }?, locale: string?): string
 	local chosen = locale or Strings.DefaultLocale
 	local template = (entry :: any)[chosen]
 	if type(template) ~= "string" then
 		template = entry.en
 	end
-	return Strings.format(template, params)
+	return Strings.format(template, withAmounts(params, chosen))
 end
 
+-- Translates `key` for `locale` (falls back to English, then to "[key]" so missing entries are visible). An
+-- amount of Folios or XP is grouped by thousands the way the locale writes it (Strings.Quantities). A sentence
+-- that counts (Strings.Plurals) takes the form its count calls for, read from its own placeholder in `params`;
+-- with no number there it takes its "other" form.
+function Strings.t(key: string, params: { [string]: any }?, locale: string?): string
+	local entry = Strings.Table[key]
+	if entry ~= nil then
+		return render(entry, params, locale)
+	end
+	local counted = Strings.Plurals[key]
+	if counted == nil then
+		return "[" .. key .. "]"
+	end
+	local n = if params ~= nil then tonumber(params[counted]) else nil
+	if n == nil then
+		local other = Strings.Table[key .. ".other"]
+		return if other ~= nil then render(other, params, locale) else "[" .. key .. "]"
+	end
+	return Strings.plural(key, n, params, locale)
+end
+
+-- The sentence `key` counting `n` in `locale`: its "one" or "other" form (Strings.pluralForm), with its counting
+-- placeholder filled with `n` unless `params` already gives it. "[key]" when `key` does not count anything.
+function Strings.plural(key: string, n: number, params: { [string]: any }?, locale: string?): string
+	local counted = Strings.Plurals[key]
+	local entry = if counted ~= nil then Strings.Table[key .. "." .. Strings.pluralForm(n, locale)] else nil
+	if counted == nil or entry == nil then
+		return "[" .. key .. "]"
+	end
+	local filled = params
+	if filled == nil or filled[counted] == nil then
+		local copy = if filled ~= nil then table.clone(filled) else {}
+		copy[counted] = n
+		filled = copy
+	end
+	return render(entry, filled, locale)
+end
+
+-- Whether `key` is a sentence of the table, one that counts included.
 function Strings.has(key: string): boolean
-	return Strings.Table[key] ~= nil
+	return Strings.Table[key] ~= nil or Strings.Plurals[key] ~= nil
 end
 
 -- Maps a Roblox LocaleId ("fr-fr", "en-us", "de-de") to a supported locale, defaulting to English.

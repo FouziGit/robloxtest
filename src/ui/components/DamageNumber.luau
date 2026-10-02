@@ -23,16 +23,27 @@ export type Marker = {
 	Billboard: BillboardGui,
 	Label: TextLabel,
 	Stroke: UIStroke,
+	-- Under the number of an amplified hit: the status that paid off, and by how much.
+	Status: TextLabel,
+	StatusStroke: UIStroke,
 }
 
 local DamageNumber = {}
 
 local CONTAINER_NAME = "VellumDamageNumbers"
--- Wide enough that a five-digit number never wraps, tall enough for the stroke not to clip.
-local BILLBOARD_SIZE = UDim2.fromOffset(220, 60)
+-- Wide enough that a five-digit number never wraps, tall enough for the stroke not to clip, and the line of a
+-- status under it: the number keeps the top VALUE_SHARE, the status the rest.
+local BILLBOARD_SIZE = UDim2.fromOffset(220, 84)
+local VALUE_SHARE = 60 / 84
+-- The status's words: the label face, on the ink's thinner stroke, in the sheet -- never a value colour in a
+-- fight (docs/ART_BIBLE.md rule 11).
+local STATUS_TEXT = 16
+local STATUS_STROKE = 2
 -- Past this the number is somebody else's fight and is not drawn at all.
 local MAX_DISTANCE_STUDS = 160
-local STROKE_THICKNESS = 2.5
+-- The ink around a number (D-147: the Number stroke), on its glyphs, a touch translucent.
+local NUMBER_STROKE = 3
+local STROKE_TRANSPARENCY = 0.15
 
 local container: Folder? = nil
 local pool: { Marker } = {}
@@ -61,6 +72,8 @@ local function build(): Marker
 	anchor.Parent = ensureContainer()
 
 	local billboard = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	billboard.AutoLocalize = false
 	billboard.Name = "Number"
 	billboard.Size = BILLBOARD_SIZE
 	billboard.AlwaysOnTop = true
@@ -72,7 +85,7 @@ local function build(): Marker
 	local label = Instance.new("TextLabel")
 	label.Name = "Value"
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.fromScale(1, VALUE_SHARE)
 	label.FontFace = Theme.Fonts.Numeric
 	label.TextScaled = false
 	label.TextSize = FeelConfig.DamageNumbers.BaseTextSize
@@ -81,13 +94,31 @@ local function build(): Marker
 
 	-- The stroke is what keeps a number readable over a bright explosion, which is exactly when it is
 	-- most needed and least visible.
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = STROKE_THICKNESS
-	stroke.Color = Theme.Colors.Outline
-	stroke.Transparency = 0.15
-	stroke.Parent = label
+	local stroke = Theme.stroke(label, "Outline", NUMBER_STROKE, "Contextual")
+	stroke.Transparency = STROKE_TRANSPARENCY
 
-	return { Anchor = anchor, Billboard = billboard, Label = label, Stroke = stroke }
+	local status = Instance.new("TextLabel")
+	status.Name = "Status"
+	status.BackgroundTransparency = 1
+	status.Position = UDim2.fromScale(0, VALUE_SHARE)
+	status.Size = UDim2.fromScale(1, 1 - VALUE_SHARE)
+	status.FontFace = Theme.Fonts.Label
+	status.TextSize = STATUS_TEXT
+	status.TextColor3 = Theme.Colors.PanelRaised
+	status.Text = ""
+	status.Visible = false
+	status.Parent = billboard
+	local statusStroke = Theme.stroke(status, "Outline", STATUS_STROKE, "Contextual")
+	statusStroke.Transparency = STROKE_TRANSPARENCY
+
+	return {
+		Anchor = anchor,
+		Billboard = billboard,
+		Label = label,
+		Stroke = stroke,
+		Status = status,
+		StatusStroke = statusStroke,
+	}
 end
 
 -- Takes a marker from the pool, or builds one. The caller always returns it through release.
@@ -107,6 +138,8 @@ function DamageNumber.release(marker: Marker)
 	end
 	marker.Billboard.Enabled = false
 	marker.Label.Text = ""
+	marker.Status.Text = ""
+	marker.Status.Visible = false
 	-- Out of the way, so a disabled billboard cannot flicker into view for one frame when the pool
 	-- hands it back before the next position is written.
 	marker.Anchor.CFrame = CFrame.new(0, -500, 0)
@@ -117,18 +150,33 @@ function DamageNumber.release(marker: Marker)
 	table.insert(pool, marker)
 end
 
--- Sets what a marker says and how it looks, once, at the moment it is spawned.
-function DamageNumber.dress(marker: Marker, text: string, color: Color3, sizeScale: number)
+-- Sets what a marker says and how it looks, once, at the moment it is spawned: its words, their fill, the colour
+-- of the stroke around them, their size, and the status an amplified hit says under them (nil: none). The stroke
+-- is recoloured on every dress, since markers are pooled and a number the player took wears the sheet where a
+-- dealt one wears the ink; its thickness never changes.
+function DamageNumber.dress(
+	marker: Marker,
+	text: string,
+	fill: Color3,
+	stroke: Color3,
+	sizeScale: number,
+	status: string?
+)
 	marker.Label.Text = text
-	marker.Label.TextColor3 = color
+	marker.Label.TextColor3 = fill
+	marker.Stroke.Color = stroke
 	marker.Label.TextSize = math.floor(FeelConfig.DamageNumbers.BaseTextSize * sizeScale + 0.5)
+	marker.Status.Text = status or ""
+	marker.Status.Visible = status ~= nil
 end
 
 -- Places a marker and sets how far through its life it is. Called every frame by Feel.
 function DamageNumber.place(marker: Marker, position: Vector3, transparency: number, scale: number)
 	marker.Anchor.CFrame = CFrame.new(position)
 	marker.Label.TextTransparency = transparency
-	marker.Stroke.Transparency = math.clamp(transparency + 0.15, 0, 1)
+	marker.Stroke.Transparency = math.clamp(transparency + STROKE_TRANSPARENCY, 0, 1)
+	marker.Status.TextTransparency = transparency
+	marker.StatusStroke.Transparency = math.clamp(transparency + STROKE_TRANSPARENCY, 0, 1)
 	marker.Billboard.Size = UDim2.fromOffset(BILLBOARD_SIZE.X.Offset * scale, BILLBOARD_SIZE.Y.Offset * scale)
 end
 

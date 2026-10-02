@@ -7,12 +7,21 @@
 -- frees its slot; a second release on the same arena frees nothing.
 --
 -- Spawn markers are plain anchored Parts, never SpawnLocations: HubSpawn must stay the only
--- SpawnLocation in the world, because CombatService and EnemyService resolve the hub safe zone and
--- the dummy ring from the first SpawnLocation they find.
+-- SpawnLocation in the world, because CombatService and EnemyService resolve the spawn point and the
+-- dummy ring from the first SpawnLocation they find.
 --
 -- The kill zone is exposed, not armed: it is an environment kill, and CombatService.ApplyDamage needs
 -- a source, so MatchService owns the reaction (eliminate the participant that falls into it).
+--
+-- The floor, the walls with their rules and the cover walls carry MovementGuardConfig.BarrierTag: the
+-- geometry no body may pass through, which is all the movement audit casts its noclip ray against. The kill
+-- zone and the markers touch nothing and are left out.
+--
+-- The Erasure's arena also carries a Return gate (World/PortalGate, D-130): whoever stands in its circle is
+-- taken back to the hub, which is the way out of a fight they no longer want. Its seal waits in ServerStorage
+-- with the template and opens nothing there; PortalService only watches the seals of live copies.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -22,7 +31,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local Palette = require(Shared.Util.Palette)
+local PortalConfig = require(Shared.Config.PortalConfig)
+local PortalGate = require(script.Parent.Parent.World.PortalGate)
 local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("ArenaService")
@@ -107,6 +119,12 @@ local function newPart(name: string, size: Vector3, cframe: CFrame, color: Color
 	return part
 end
 
+-- Tags `part` as a barrier (see the header). Tags survive Clone: tagging the template tags every live copy.
+local function asBarrier(part: Part): Part
+	CollectionService:AddTag(part, MovementGuardConfig.BarrierTag)
+	return part
+end
+
 -- Teams and team size of the mode that plays on this arena; nil when no mode references it.
 local function modeShapeFor(arenaId: string): (number?, number?)
 	for _, mode in pairs(MatchConfig.Modes) do
@@ -173,7 +191,7 @@ local function buildWalls(def: ArenaDef, parent: Model, floorTop: number)
 	local ruleHeight = ARENA.WallRuleStuds
 	local proud = ARENA.WallRuleProudStuds
 	for _, wall in ipairs(walls) do
-		newPart(wall.Name, wall.Size, CFrame.new(wall.Position), Palette.world(ARENA.Wall)).Parent = parent
+		asBarrier(newPart(wall.Name, wall.Size, CFrame.new(wall.Position), Palette.world(ARENA.Wall))).Parent = parent
 		local ruleSize = Vector3.new(
 			wall.Size.X + if wall.Size.X < wall.Size.Z then proud else 0,
 			ruleHeight,
@@ -183,7 +201,8 @@ local function buildWalls(def: ArenaDef, parent: Model, floorTop: number)
 		-- are coplanar over the whole length of every wall, which is the flicker this is here to avoid.
 		local ruleCenterY = floorTop + def.WallHeight - ruleHeight / 2 + proud
 		local rulePosition = Vector3.new(wall.Position.X, ruleCenterY, wall.Position.Z)
-		newPart(wall.Name .. "Rule", ruleSize, CFrame.new(rulePosition), Palette.world(ARENA.WallRule)).Parent = parent
+		asBarrier(newPart(wall.Name .. "Rule", ruleSize, CFrame.new(rulePosition), Palette.world(ARENA.WallRule))).Parent =
+			parent
 	end
 end
 
@@ -193,7 +212,8 @@ local function buildCoverWalls(def: ArenaDef, parent: Model, floorTop: number)
 	local centerY = floorTop + COVER_WALL_HEIGHT_STUDS / 2
 	for index, sign in ipairs({ -1, 1 }) do
 		local position = Vector3.new(offset * sign, centerY, offset * -sign)
-		newPart("CoverWall" .. index, size, CFrame.new(position), Palette.world(ARENA.CoverWall)).Parent = parent
+		asBarrier(newPart("CoverWall" .. index, size, CFrame.new(position), Palette.world(ARENA.CoverWall))).Parent =
+			parent
 	end
 end
 
@@ -225,11 +245,13 @@ local function buildTemplate(arenaId: string, def: ArenaDef): Template
 	local model = Instance.new("Model")
 	model.Name = arenaId
 
-	local floor = newPart(
-		FLOOR_NAME,
-		Vector3.new(def.Size, FLOOR_THICKNESS_STUDS, def.Size),
-		CFrame.new(0, 0, 0),
-		Palette.world(ARENA.Floor)
+	local floor = asBarrier(
+		newPart(
+			FLOOR_NAME,
+			Vector3.new(def.Size, FLOOR_THICKNESS_STUDS, def.Size),
+			CFrame.new(0, 0, 0),
+			Palette.world(ARENA.Floor)
+		)
 	)
 	floor.Parent = model
 	-- The floor is the pivot, so PivotTo(CFrame.new(0, altitude, 0)) places the whole arena.
@@ -270,6 +292,12 @@ local function buildTemplate(arenaId: string, def: ArenaDef): Template
 		end
 		names[1] = teamNames
 		buildMarker(BOSS_SPAWN_NAME, CFrame.new(0, markerY, 0), spawnsFolder)
+		-- The Return gate, inset from one corner and facing the centre, where the players stand: its posts
+		-- inside the walls and its circle well clear of every pad of the ring (tests/Config.spec.luau).
+		local inset = def.Size / 2 - PortalConfig.BossArenaGateInsetStuds
+		local gate = Vector3.new(-inset, floorTop, -inset)
+		local base = CFrame.lookAt(gate, Vector3.new(0, floorTop, 0))
+		PortalGate.build(model, PortalConfig.Anchors.ReturnGate, base, "Return")
 	end
 
 	-- Kept out of the world until a match asks for a copy.

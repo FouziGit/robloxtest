@@ -1,6 +1,7 @@
 --!strict
-local DataMigration = require("../src/shared/Pure/DataMigration")
+local DataMigration = require("../src/server/Pure/DataMigration")
 local Harness = require("./harness")
+local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -40,7 +41,7 @@ local function template(): { [string]: any }
 		Cosmetics = { Owned = {}, Equipped = {} },
 		Loadout = { Slots = { "Brand", "Wash" }, ExtraSlots = 0, SlotLimit = 6 },
 		Unlocks = { Glyphs = { "Brand" }, Pigments = { "Cinnabar", "Indigo", "Umber", "Verdigris" } },
-		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "" },
+		Rank = { SeasonId = "S1", Modes = {}, LastRewardedSeason = "", Opponents = { Day = 0, Counts = {} } },
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -51,10 +52,34 @@ local function template(): { [string]: any }
 			PlayTimeSeconds = 0,
 		},
 		Quests = {
-			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
-			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
 		},
-		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = 0,
+			Streak = 0,
+			CalendarDay = 0,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+			ForgerDay = 0,
+			ForgerFolios = 0,
+			FlyleafDay = 0,
+			FlyleafFolios = 0,
+			PracticeDay = 0,
+			PracticePaid = 0,
+			PracticeLastPaidAt = 0,
+			TrialDay = 0,
+			TrialKills = 0,
+			TrialFolios = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
+			SparDay = 0,
+			SparPaid = 0,
+		},
+		Milestones = {},
+		Drills = {},
+		ExLibris = {},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
@@ -63,7 +88,6 @@ local function template(): { [string]: any }
 			LastJoin = 0,
 			SessionCount = 0,
 			LegacyImported = false,
-			FirstSessionPromptGate = false,
 			SaveToken = 0,
 			DevGranted = false,
 		},
@@ -219,6 +243,311 @@ describe("DataMigration", function()
 		expect(tpl.Progression.Level).toBe(1)
 		expect(tpl.Battlepass._template).never.toBeNil()
 		expect(tpl.Cosmetics.Owned).toEqual({})
+	end)
+end)
+
+-- The daily caps kept in the profile (D-131, D-132): a count an old profile lacks arrives at zero through the
+-- template, with no version bump, and the template the service ships is the one these cases load over.
+describe("DataMigration daily caps", function()
+	-- The keys of one flat `Name = {` ... `}` table in a source file, or of the type `export type Name = {`,
+	-- read with the comments stripped so a word before a colon in prose is never taken for a field.
+	local function keysOf(path: string, opening: string, separator: string): { string }
+		local source = (fs.readFile(path):gsub("%-%-[^\n]*", ""))
+		local start = source:find(opening, 1, true)
+		if start == nil then
+			error(("%s has no %s: this gate would check nothing"):format(path, opening))
+		end
+		local finish = source:find("}", start + #opening, true) :: number
+		local keys: { string } = {}
+		for key in string.gmatch(source:sub(start + #opening, finish), "([%w_]+)%s*" .. separator) do
+			table.insert(keys, key)
+		end
+		table.sort(keys)
+		return keys
+	end
+
+	it("gives a profile saved before them its counters at zero, and keeps its streak", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Daily = { LastClaimDay = 20100, Streak = 6, FirstWinDay = 20100, PremiumBonusDay = 20099 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info).toEqual({ From = DataMigration.CurrentVersion, Migrated = false })
+		expect(data.Daily.Streak).toBe(6)
+		expect(data.Daily.PremiumBonusDay).toBe(20099)
+		for _, key in ipairs({
+			"ForgerDay",
+			"ForgerFolios",
+			"PracticeDay",
+			"PracticePaid",
+			"TrialDay",
+			"TrialKills",
+			"TrialFolios",
+			"MatchDay",
+			"MatchFolios",
+			"FlyleafDay",
+			"FlyleafFolios",
+			"SparDay",
+			"SparPaid",
+		}) do
+			expect(data.Daily[key]).toBe(0)
+		end
+	end)
+
+	-- Version 7 (E10-S3, E10-S10, D-243; 5 and 6 were taken by the QA pass and wave 1): the Trials' counts and each
+	-- quest set's swaps, with no upgrade step. A version 4 profile comes out with them at zero and empty, its quests
+	-- and its caps as they were, and is stamped current, so a build that has never heard of them keeps them instead
+	-- of dropping them. Since the wave 3 merge the current version is 11 (8 the day's ranked opponents, D-255; 9 the
+	-- Flyleaf's allowance, D-267; 10 the login calendar, D-271; 11 the practice duels paid, D-272).
+	it("brings a version 4 profile to version 11 with no Trials paid and no swap spent", function()
+		local raw = {
+			DataVersion = 4,
+			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
+			Quests = {
+				Daily = { PeriodKey = "D20400@2", Progress = { DailyDash = 7 }, Claimed = { DailyWin = true } },
+				Weekly = { PeriodKey = "W2914@2", Progress = { WeeklyCasts = 120 }, Claimed = {} },
+			},
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(DataMigration.CurrentVersion).toBe(11)
+		expect(info).toEqual({ From = 4, Migrated = true })
+		expect(data.DataVersion).toBe(11)
+		expect(data.Daily.ForgerFolios).toBe(90)
+		expect(data.Daily.TrialDay).toBe(0)
+		expect(data.Daily.TrialKills).toBe(0)
+		expect(data.Daily.TrialFolios).toBe(0)
+		expect(data.Quests.Daily).toEqual({
+			PeriodKey = "D20400@2",
+			Progress = { DailyDash = 7 },
+			Claimed = { DailyWin = true },
+			Swaps = {},
+		})
+		expect(data.Quests.Weekly.Swaps).toEqual({})
+		expect(data.Quests.Weekly.Progress).toEqual({ WeeklyCasts = 120 })
+	end)
+
+	it("gives each quest set of the service's template the fields of the profile's type", function()
+		local service = fs.readFile("src/server/Services/DataService.luau")
+		for _, period in ipairs({ "Daily", "Weekly" }) do
+			expect(service:find(period .. ' = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },', 1, true)).never.toBeNil()
+		end
+		-- The type's own fields, one per line up to its closing brace (a field's map type has braces of its own).
+		local types = (fs.readFile("src/shared/Types.luau"):gsub("%-%-[^\n]*", ""))
+		local start = types:find("export type QuestSetData = {", 1, true) :: number
+		local block = types:sub(start, types:find("\n}", start, true) :: number)
+		local fields: { string } = {}
+		for field in block:gmatch("\n\t([%w_]+):") do
+			table.insert(fields, field)
+		end
+		table.sort(fields)
+		expect(fields).toEqual({ "Claimed", "PeriodKey", "Progress", "Swaps" })
+	end)
+
+	it("loads over the service's own template, whose Daily section is the profile's type", function()
+		local service = keysOf("src/server/Services/DataService.luau", "\n\t\tDaily = {", "=")
+		local declared = keysOf("src/shared/Types.luau", "export type DailyData = {", ":")
+		local copied: { string } = {}
+		for key in pairs(template().Daily) do
+			table.insert(copied, key)
+		end
+		table.sort(copied)
+		expect(#service).toBe(20)
+		expect(service).toEqual(declared)
+		expect(service).toEqual(copied)
+	end)
+end)
+
+-- Version 6: the level road's milestones, the Lectern's drills and the Ex-libris (E17-S2, E14-S2, D-226; version 5
+-- holds the developer's waived cosmetics and the practice gap). A record of what was paid once, so losing it would
+-- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
+describe("DataMigration to version 6", function()
+	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243), and since the wave 3
+	-- merge 11: 8 the day's ranked opponents and match Folios (D-255), 9 the Flyleaf's allowance (D-267), 10 the login
+	-- calendar (D-271), 11 the practice duels paid (D-272).
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 11", function()
+		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(DataMigration.CurrentVersion).toBe(11)
+		expect(info).toEqual({ From = 4, Migrated = true })
+		expect(data.DataVersion).toBe(11)
+		expect(data.Milestones).toEqual({})
+		expect(data.Drills).toEqual({})
+		expect(data.ExLibris).toEqual({})
+		expect(data.Progression.Level).toBe(60)
+	end)
+
+	it("keeps every milestone paid, every drill's best grade and every plate earned", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Milestones = { ["45"] = true, ["50"] = true },
+			Drills = { Brand = 3, KitCancel = 1 },
+			ExLibris = { Breath4 = 1790000000 },
+		}
+		local once = DataMigration.migrate(raw, template(), "S1")
+		local twice = DataMigration.migrate(once, template(), "S1")
+		expect(twice.Milestones).toEqual({ ["45"] = true, ["50"] = true })
+		expect(twice.Drills).toEqual({ Brand = 3, KitCancel = 1 })
+		expect(twice.ExLibris).toEqual({ Breath4 = 1790000000 })
+	end)
+
+	it("is the shape the service ships", function()
+		local service = fs.readFile("src/server/Services/DataService.luau")
+		expect(service:find("\n\t\tMilestones = {},\n", 1, true)).never.toBeNil()
+		expect(service:find("\n\t\tDrills = {},\n", 1, true)).never.toBeNil()
+		expect(service:find("\n\t\tExLibris = {},\n", 1, true)).never.toBeNil()
+		local types = fs.readFile("src/shared/Types.luau")
+		expect(types:find("\n\tMilestones: MilestonesData,\n", 1, true)).never.toBeNil()
+		expect(types:find("\n\tDrills: DrillsData,\n", 1, true)).never.toBeNil()
+		expect(types:find("\n\tExLibris: ExLibrisData,\n", 1, true)).never.toBeNil()
+	end)
+end)
+
+-- The day's ranked opponents (Rank.Opponents, D-255): a free-form map under a fixed record.
+describe("DataMigration ranked opponents", function()
+	it("gives a profile saved before them an empty day, and keeps its ratings", function()
+		local raw = {
+			DataVersion = 5,
+			Rank = { SeasonId = "S1", Modes = { Duel1v1 = { Rating = 1240 } }, LastRewardedSeason = "" },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info.Migrated).toBe(true)
+		expect(data.Rank.Opponents).toEqual({ Day = 0, Counts = {} })
+		expect(data.Rank.Modes.Duel1v1.Rating).toBe(1240)
+		expect(data.Daily.MatchFolios).toBe(0)
+	end)
+
+	it("carries today's counts across a reload, every opponent of them", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Rank = {
+				SeasonId = "S1",
+				Modes = {},
+				LastRewardedSeason = "",
+				Opponents = { Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } },
+			},
+			Daily = { MatchDay = 20500, MatchFolios = 640 },
+		}
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Rank.Opponents).toEqual({ Day = 20500, Counts = { ["102"] = 5, ["-3"] = 1 } })
+		expect(data.Daily.MatchDay).toBe(20500)
+		expect(data.Daily.MatchFolios).toBe(640)
+	end)
+end)
+
+-- The login calendar (E15-S1): a profile of the seven-day streak goes on at the day of its week the streak last
+-- paid, keeps its streak's count, and holds no Signet, as a new profile does.
+describe("DataMigration to the login calendar", function()
+	local function before(streak: any): { [string]: any }
+		return {
+			DataVersion = 5,
+			Daily = { LastClaimDay = 20100, Streak = streak, FirstWinDay = 20100, PremiumBonusDay = 20099 },
+		}
+	end
+
+	it("puts a streak on the calendar at the day of its week, and keeps its count", function()
+		for streak, day in pairs({ [1] = 1, [3] = 3, [7] = 7, [8] = 1, [10] = 3, [14] = 7, [40] = 5 }) do
+			local data, info = DataMigration.migrate(before(streak), template(), "S1")
+			expect(info).toEqual({ From = 5, Migrated = true })
+			expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
+			expect(data.Daily.CalendarDay).toBe(day)
+			expect(data.Daily.Streak).toBe(streak)
+			expect(data.Daily.Signets).toBe(0)
+			expect(data.Daily.LastClaimDay).toBe(20100)
+		end
+	end)
+
+	it("leaves a profile with no streak, or a malformed one, before the calendar's first day", function()
+		for _, streak in ipairs({ 0, -3, 2.5, "7" } :: { any }) do
+			local data = DataMigration.migrate(before(streak), template(), "S1")
+			expect(data.Daily.CalendarDay).toBe(0)
+		end
+		local legacy = DataMigration.migrate({ DataVersion = 1, PlayerLevel = 3 }, template(), "S1")
+		expect(legacy.Daily.CalendarDay).toBe(0)
+		expect(legacy.Daily.Signets).toBe(0)
+	end)
+
+	it("never moves the calendar of a profile already on it", function()
+		local raw = {
+			DataVersion = DataMigration.CurrentVersion,
+			Daily = { LastClaimDay = 20100, Streak = 12, CalendarDay = 12, Signets = 2 },
+		}
+		local data, info = DataMigration.migrate(raw, template(), "S1")
+		expect(info.Migrated).toBe(false)
+		expect(data.Daily.CalendarDay).toBe(12)
+		expect(data.Daily.Signets).toBe(2)
+	end)
+
+	-- The calendar came after the other lanes' versions at the wave 3 merge (6 to 9, D-271): a profile any of them
+	-- saved still holds the old seven-day streak, so the calendar's step runs for it too.
+	it("puts a profile saved between the old streak and the calendar on it, whatever its version", function()
+		for version = 5, 9 do
+			local raw = { DataVersion = version, Daily = { LastClaimDay = 20100, Streak = 10 } }
+			local data, info = DataMigration.migrate(raw, template(), "S1")
+			expect(info).toEqual({ From = version, Migrated = true })
+			expect(data.Daily.CalendarDay).toBe(3)
+			expect(data.Daily.Streak).toBe(10)
+			expect(data.Daily.Signets).toBe(0)
+		end
+	end)
+end)
+
+-- A server still on this version while a newer one rolls out: whatever the newer build added to the
+-- profile must come back intact, however many times the player hops onto this version first.
+describe("DataMigration from a newer build", function()
+	local NEXT = DataMigration.CurrentVersion + 1
+
+	local function written(): { [string]: any }
+		return {
+			DataVersion = NEXT,
+			Currency = { Folios = 300, Seals = 4 },
+			Daily = { Streak = 2, ForgerDay = 20500, ForgerFolios = 150, NextCap = 3 },
+			Battlepass = { S1 = { Tier = 5, Echo = { true } } },
+			Ledger = { Pages = 12 },
+		}
+	end
+
+	it("keeps the keys and the version it cannot read, and fills the ones it can", function()
+		local data, info = DataMigration.migrate(written(), template(), "S1")
+		expect(info).toEqual({ From = NEXT, Migrated = false })
+		expect(data.DataVersion).toBe(NEXT)
+		expect(data.Currency.Seals).toBe(4)
+		expect(data.Daily.NextCap).toBe(3)
+		expect(data.Battlepass.S1.Echo).toEqual({ true })
+		expect(data.Ledger).toEqual({ Pages = 12 })
+		-- The keys this build knows load as always.
+		expect(data.Daily.ForgerFolios).toBe(150)
+		expect(data.Daily.PracticePaid).toBe(0)
+		expect(data.Battlepass.S1.Premium).toBe(false)
+	end)
+
+	it("still carries them after a second load by this version", function()
+		local once = DataMigration.migrate(written(), template(), "S1")
+		local twice = DataMigration.migrate(once, template(), "S1")
+		expect(twice.DataVersion).toBe(NEXT)
+		expect(twice.Daily.NextCap).toBe(3)
+		expect(twice.Ledger).toEqual({ Pages = 12 })
+	end)
+
+	-- Only the keys it has never heard of pass untouched: a known key the newer build retyped would reach
+	-- code that reads it as its own type, so it still falls back to the template.
+	it("keeps the template's value for a key the newer build retyped", function()
+		local raw = written()
+		raw.Currency.Folios = { Balance = 300 }
+		raw.Daily.Streak = "2"
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.Currency.Folios).toBe(0)
+		expect(data.Daily.Streak).toBe(0)
+		expect(data.Currency.Seals).toBe(4)
+	end)
+
+	it("drops unknown keys from a profile of its own version or older", function()
+		local raw = written()
+		raw.DataVersion = DataMigration.CurrentVersion
+		local data = DataMigration.migrate(raw, template(), "S1")
+		expect(data.DataVersion).toBe(DataMigration.CurrentVersion)
+		expect(data.Currency.Seals).toBeNil()
+		expect(data.Daily.NextCap).toBeNil()
+		expect(data.Ledger).toBeNil()
 	end)
 end)
 

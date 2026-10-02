@@ -16,6 +16,9 @@
 --   Footprints      -- src/client/Controllers/FootprintController (a share of its own budget, 0 = none)
 --   Flourishes      -- src/client/Controllers/VfxTimeline (a volume marked Flourish is not drawn when false)
 --   Afterimages     -- src/client/Controllers/VfxTimeline (how many of a dash's prints are drawn, 0 = none)
+--   EngineShare     -- QualityConfig.drivenShare, for VfxTimeline's Driven flows (the engine's thinning, modelled)
+--   Particles       -- src/client/Controllers/VfxTimeline, and CosmeticController for what bodies wear (the
+--                      particles alive on the screen at once, every emitter asking first: VfxParticles)
 --   NameKey         -- src/ui/screens/SettingsScreen
 -- tests/EffectCost.spec.luau reads that list back out of the sources: a field nothing reads is a promise
 -- to the player that nothing keeps.
@@ -41,6 +44,14 @@ export type TierDef = {
 	-- avatar, a thousand triangles for a blocky body and ten for a detailed one, so the lower tiers draw
 	-- none.
 	Afterimages: number,
+	-- The share of an emitter's Rate the engine is taken to draw on a device held at this tier: its automatic
+	-- graphics quality thins a Rate and never an Emit (D-124). A model until phones are measured (E6-S5): a
+	-- device that holds High is not thinned, the floor is the one measurement there is -- the lab's eighty
+	-- flames a second drawn as five at the engine's lowest automatic quality -- and each step between halves.
+	EngineShare: number,
+	-- The most particles alive at once on this screen, every effect and every worn look together (E11-S4). Chosen,
+	-- not measured: the best tier draws six Scorches among six worn bodies whole, the others thin them.
+	Particles: number,
 }
 
 -- Best first. Every step down is a step the client can take by itself, and the last one is the floor.
@@ -58,6 +69,8 @@ local tiers: { [string]: TierDef } = {
 		Footprints = 1,
 		Flourishes = true,
 		Afterimages = 2,
+		EngineShare = 1,
+		Particles = 1200,
 	},
 	-- Two thirds of the layers and a little over half the particles: the same effects, thinner. Nothing
 	-- structural goes -- every telegraph, every mark, every light is still there -- so the game still
@@ -71,6 +84,8 @@ local tiers: { [string]: TierDef } = {
 		Footprints = 0.5,
 		Flourishes = true,
 		Afterimages = 1,
+		EngineShare = 0.5,
+		Particles = 600,
 	},
 	-- Dynamic lights go. Roblox pays for a local light whether or not the surface ends up lit, and on a
 	-- phone they are the most expensive thing in the frame after the post-processing; the effects keep
@@ -84,6 +99,8 @@ local tiers: { [string]: TierDef } = {
 		Footprints = 0,
 		Flourishes = false,
 		Afterimages = 0,
+		EngineShare = 0.25,
+		Particles = 300,
 	},
 	-- The post-processing goes too: no bloom, no grade, no depth of field, and no page flash. This is the
 	-- floor, and it is still Vellum -- the world is lit high and pale by Lighting itself, not by the
@@ -97,10 +114,19 @@ local tiers: { [string]: TierDef } = {
 		Footprints = 0,
 		Flourishes = false,
 		Afterimages = 0,
+		EngineShare = 5 / 80,
+		Particles = 150,
 	},
 }
 
 QualityConfig.Tiers = tiers
+
+-- How the particles of a screen are counted against its tier's Particles (Pure/ParticleBudget, VfxParticles).
+--   Step       seconds a particle's death is rounded up to: the count is never under what is alive, and a flow
+--              that emits every frame costs a handful of entries, not one per particle.
+--   WornShare  the share of the budget what bodies wear (auras, trails) may keep alive: the rest is the glyphs',
+--              and a crowded hub's looks never starve a fight's.
+QualityConfig.ParticleLedger = { Step = 0.05, WornShare = 0.5 }
 
 -- When the client lowers a tier by itself, and when it gives it back.
 --
@@ -113,6 +139,26 @@ QualityConfig.Auto = {
 	DropAfterSeconds = 3,
 	RaiseAboveFps = 55,
 	RaiseAfterSeconds = 12,
+}
+
+-- A Driven flow (VfxTimelineConfig's Layer.Driven) emits its own particles, which the engine does not thin: a
+-- fire's density is its meaning (D-124). It may beat the engine's thinning by this much and no more, so a weak
+-- device keeps most of what the engine's thinning saved it (D-229).
+QualityConfig.DrivenOverEngine = 2
+
+-- Where a client starts, before its frame rate has said anything (D-229). A new player's first seconds decide
+-- whether they stay, and a modest phone that started at High spent them at twenty frames until three bad
+-- seconds brought it down. Two things the client knows before its first frame:
+--   a screen held in the hand (InputMode.handheld) this many points tall or less is a phone: it starts at Phone;
+--   a Roblox graphics level the player set by hand (UserGameSettings.SavedQualityLevel, 1 to 10) at or under
+--   LowLevelAtOrUnder starts at LowLevel -- they already told Roblox their device is weak.
+-- Either is only a start, never above what the player chose, which stays the ceiling; the frame rate moves it
+-- from there (Auto), and a choice made later in the Options is followed as it is.
+QualityConfig.Start = {
+	PhoneMaxHeight = 430,
+	Phone = "Medium" :: Tier,
+	LowLevelAtOrUnder = 3,
+	LowLevel = "Low" :: Tier,
 }
 
 function QualityConfig.isTier(value: any): boolean
@@ -156,6 +202,25 @@ end
 function QualityConfig.worse(a: any, b: any): Tier
 	local index = math.max(QualityConfig.indexOf(a), QualityConfig.indexOf(b))
 	return QualityConfig.Order[index]
+end
+
+-- The tier a client starts at (Start): what the player chose, lowered on a phone or under a low Roblox graphics
+-- level. `level` is the level the player set by hand, or nil when Roblox chooses it (automatic).
+function QualityConfig.startTier(chosen: any, phone: boolean, level: number?): Tier
+	local start: Tier = if QualityConfig.isTier(chosen) then chosen else QualityConfig.Default
+	if phone then
+		start = QualityConfig.worse(start, QualityConfig.Start.Phone)
+	end
+	if level ~= nil and level <= QualityConfig.Start.LowLevelAtOrUnder then
+		start = QualityConfig.worse(start, QualityConfig.Start.LowLevel)
+	end
+	return start
+end
+
+-- The share of a Driven flow's rate `tier` draws: all of it where the engine would draw at least
+-- 1 / DrivenOverEngine of a Rate, and otherwise DrivenOverEngine times what the engine would.
+function QualityConfig.drivenShare(tier: TierDef): number
+	return math.min(1, QualityConfig.DrivenOverEngine * tier.EngineShare)
 end
 
 return QualityConfig

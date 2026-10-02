@@ -1,0 +1,18 @@
+{"title": "Lot 1 - Lavis, Balayage, Empattement - avant / apres (labo Studio)", "frames": [
+ {"capture": "wash_before_depart_side", "moment": "Lavis : depart (profil)", "row": "avant", "t": 0.101},
+ {"capture": "wash_before_impact_close", "moment": "Lavis : 1er coup (gros plan)", "row": "avant", "t": 0.137},
+ {"capture": "wash_before_impact3_side", "moment": "Lavis : +0,3 (profil)", "row": "avant", "t": 0.418},
+ {"capture": "sweep_before_depart_side", "moment": "Balayage : coup (profil)", "row": "avant", "t": 0.161},
+ {"capture": "sweep_before_impact3_close", "moment": "Balayage : coup (gros plan)", "row": "avant", "t": 0.301},
+ {"capture": "serif_before_impact_game", "moment": "Empattement : jeu", "row": "avant", "t": 0.199},
+ {"capture": "serif_before_impact_side", "moment": "Empattement : profil", "row": "avant", "t": 0.199},
+ {"capture": "serif_before_impact1_close", "moment": "Empattement : gros plan", "row": "avant", "t": 0.183},
+ {"capture": "wash_after_depart_side", "moment": "Lavis : depart (profil)", "row": "apres", "t": 0.101},
+ {"capture": "wash_after_impact_close", "moment": "Lavis : 1er coup (gros plan)", "row": "apres", "t": 0.204},
+ {"capture": "wash_after_impact3_side", "moment": "Lavis : +0,3 (profil)", "row": "apres", "t": 0.467},
+ {"capture": "sweep_after_impact_side", "moment": "Balayage : coup (profil)", "row": "apres", "t": 0.044},
+ {"capture": "sweep_after2_impact_close", "moment": "Balayage : coup (gros plan)", "row": "apres", "t": 0.043},
+ {"capture": "serif_after_mid_game2", "moment": "Empattement : jeu", "row": "apres", "t": 0.332},
+ {"capture": "serif_after_mid_side2", "moment": "Empattement : profil", "row": "apres", "t": 0.332},
+ {"capture": "serif_after_impact1_close", "moment": "Empattement : gros plan", "row": "apres", "t": 0.186}
+]}

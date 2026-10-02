@@ -1,7 +1,9 @@
 --!strict
 -- MonetizationService: the only place in the game that talks to MarketplaceService. Game pass ownership
--- (Passes), contextual offers (Prompts), purchase dialogs (Purchases) and developer product receipts
--- (Receipts) live in this folder; this module wires them and owns the service lifecycle.
+-- (Passes), purchase dialogs (Purchases), developer product receipts (Receipts) and Studio test purchases
+-- (Sandbox) live in this folder; this module wires them and owns the service lifecycle. Nothing here opens
+-- an offer on its own: every dialog follows a player's press on a purchase surface (docs/ECONOMY.md §5,
+-- D-205).
 --
 -- Asset ids live only in MonetizationConfig and are validated at startup: every id still at 0 is warned
 -- once by name (the owner pastes it from the Creator Dashboard, see docs/STUDIO_SETUP.md) and only that
@@ -19,15 +21,14 @@ local Context = require(script.Context)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Passes = require(script.Passes)
-local Prompts = require(script.Prompts)
 local Purchases = require(script.Purchases)
 local Receipts = require(script.Receipts)
+local Sandbox = require(script.Sandbox)
 local Trove = require(Packages.Trove)
 
 local log = Log.new("MonetizationService")
 
 export type PurchaseKind = Context.PurchaseKind
-export type PromptReason = Context.PromptReason
 
 type Deps = Context.Deps
 
@@ -41,18 +42,6 @@ for _ in pairs(MonetizationConfig.Products) do
 	productCount += 1
 end
 
--- Offers the item of `reason` to `player` as a localized toast, when the guard-rails of
--- docs/ECONOMY.md §5 allow it. Returns true when the offer was shown.
-function MonetizationService.maybePrompt(player: Player, reason: string): boolean
-	return Prompts.maybePrompt(player, reason)
-end
-
--- Opens the Roblox purchase dialog for a catalog entry. The client never sends an asset id: it names a
--- pass key, a product key or a cosmetic id of today's rotation.
-function MonetizationService.promptPurchase(player: Player, kind: PurchaseKind, key: string)
-	Purchases.prompt(player, kind, key)
-end
-
 local function onProfileLoaded(player: Player)
 	task.spawn(function()
 		log.try("pass sync " .. player.Name, Passes.sync, player)
@@ -62,9 +51,9 @@ end
 function MonetizationService.Init(injected: Deps)
 	deps = injected
 	Passes.Init(deps)
-	Prompts.Init(deps)
 	Purchases.Init(deps)
 	Receipts.Init(deps)
+	Sandbox.Init(deps)
 end
 
 function MonetizationService.Start()
@@ -76,6 +65,8 @@ function MonetizationService.Start()
 		)
 	end
 
+	-- The client never sends an asset id: it names a pass key, a product key or a cosmetic id of today's
+	-- rotation, and Purchases resolves the id.
 	deps.Registry.on("PromptPurchase", function(player: Player, kind: PurchaseKind, key: string)
 		Purchases.prompt(player, kind, key)
 	end)
@@ -85,14 +76,13 @@ function MonetizationService.Start()
 	trove:Add(MarketplaceService.PromptProductPurchaseFinished:Connect(Purchases.onPurchaseFinished))
 
 	deps.DataService.ProfileLoaded:Connect(onProfileLoaded)
-	deps.DataService.ProfileReleased:Connect(Prompts.release)
-	trove:Add(Players.PlayerRemoving:Connect(Prompts.release))
 	for _, player in ipairs(Players:GetPlayers()) do
 		if deps.DataService.get(player) ~= nil then
 			onProfileLoaded(player)
 		end
 	end
 
+	Sandbox.announce()
 	log.info("started (%d passes, %d products, %d missing ids)", #Passes.Keys, productCount, #missing)
 end
 

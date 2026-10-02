@@ -102,10 +102,12 @@ end
 
 -- The four voices a pigment can have, in the order a glyph spends them: the wind-up, the release, the
 -- flight, the landing. A pigment only has the tail if something of it flies: Orpiment, the school that
--- strikes at once, has no Travel phase anywhere and so no tail (tests/VfxTimeline.spec.luau holds every
--- configured voice to a timeline that can play it). A timeline names a voice and the renderer names the pigment; the key is the two
--- joined (SoundConfig.voiceKey), which is what keeps a school's matter its own without twenty glyphs
--- carrying eighty sound ids.
+-- strikes at once, has none. Its Strike, Caret and Colophon rule a stroke across the page in a few
+-- hundredths -- a Travel phase, not a flight -- and are heard in the snap and the crack. A timeline names a
+-- voice and the renderer names the pigment; the key is the two joined (SoundConfig.voiceKey), which is what
+-- keeps a school's matter its own without twenty glyphs carrying eighty sound ids. tests/VfxTimeline.spec.luau
+-- holds both directions: every configured voice to a timeline that can play it, and every voice a timeline
+-- names to a sound in each pigment it is played in.
 SoundConfig.Voices = { "Attack", "Body", "Tail", "Impact" } :: { string }
 
 SoundConfig.Sfx = {
@@ -146,6 +148,10 @@ SoundConfig.Sfx = {
 	BossWarn = sound("boss_warn.wav", 2.00, 0.6, 0.0),
 	BossImpact = sound("boss_impact.wav", 0.90, 0.85, 0.04),
 	BossDefeat = sound("boss_defeat.wav", 2.20, 0.8, 0.0),
+	-- The Forgers' wind-ups (the ForgerTell timeline, D-133): a warning the server times sounds like one,
+	-- whoever gives it, so the ear learns one sound for "a blow is coming". The Erasure's own file, stretched
+	-- to each window like the boss's, and quieter: ten Forgers warn far more often than one boss.
+	ForgerWarn = sound("boss_warn.wav", 2.00, 0.35, 0.0),
 
 	-- The sequence: one note per pigment, played up a scale by ComboController, and its three endings.
 	NoteCinnabar = sound("note_cinnabar.wav", 0.70, 0.5, 0.0),

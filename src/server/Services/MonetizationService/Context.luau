@@ -11,12 +11,9 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Types = require(Shared.Types)
 
 export type PurchaseKind = "Pass" | "Product" | "Cosmetic"
--- Reasons another service may ask for a contextual prompt (docs/ECONOMY.md §5).
-export type PromptReason = "CloseLoss" | "PassTierLocked" | "OrpimentDeath" | "LoadoutFull"
 
 export type ProfileData = Types.ProfileData
 export type ProfileSignal = { Connect: (self: ProfileSignal, fn: (player: Player, data: ProfileData) -> ()) -> any }
-export type ReleaseSignal = { Connect: (self: ReleaseSignal, fn: (player: Player) -> ()) -> any }
 export type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	waitFor: (player: Player, timeout: number?) -> ProfileData?,
@@ -26,15 +23,15 @@ export type DataApi = {
 	-- a false: the Robux are already taken and the receipt would never be delivered again.
 	saveNow: (player: Player) -> boolean,
 	isActive: (player: Player) -> boolean,
+	-- True while saves are delayed (ProfileStore's critical state): no Robux purchase opens meanwhile.
+	isCritical: () -> boolean,
 	ProfileLoaded: ProfileSignal,
-	ProfileReleased: ReleaseSignal,
 }
 export type NotifyKind = "Info" | "Success" | "Error"
 export type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 export type CurrencyApi = {
-	get: (player: Player) -> number,
 	add: (player: Player, amount: number, reason: string) -> number,
 }
 export type BattlepassApi = {
@@ -44,7 +41,6 @@ export type BattlepassApi = {
 	-- The single writer of ProfileData.Boosts: it extends a live boost instead of shortening it.
 	grantXpBoost: (player: Player, minutes: number) -> boolean,
 }
-export type ProgressionApi = { getLevel: (player: Player) -> number }
 -- The single writer of ProfileData.Loadout and ProfileData.Unlocks: pass effects go through it.
 export type LoadoutApi = {
 	grantPigment: (player: Player, pigmentId: string) -> boolean,
@@ -58,18 +54,11 @@ export type ShopApi = {
 	clearPurchaseIntent: (player: Player, cosmeticId: string) -> (),
 	refresh: (player: Player) -> (),
 }
-export type MatchApi = { isInMatch: (player: Player) -> boolean }
 export type AnalyticsApi = {
-	economy: (
-		player: Player,
-		flowType: string,
-		currency: string,
-		amount: number,
-		endingBalance: number,
-		category: string,
-		itemSku: string?
-	) -> (),
-	custom: (player: Player, eventName: string, value: number?, fields: { [string]: any }?) -> (),
+	-- CustomField01 to 03 of one event, as text (AnalyticsService.fields).
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	-- `eventName` is a name of AnalyticsConfig.Events, and `fields` what `fields` built for it.
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
 }
 export type Registry = { on: (name: string, handler: (player: Player, ...any) -> ()) -> () }
 export type Deps = {
@@ -78,11 +67,9 @@ export type Deps = {
 	Notify: NotifyApi,
 	Currency: CurrencyApi,
 	Battlepass: BattlepassApi,
-	Progression: ProgressionApi,
 	Loadout: LoadoutApi,
 	Cosmetic: CosmeticApi,
 	Shop: ShopApi,
-	Match: MatchApi,
 	Analytics: AnalyticsApi,
 }
 
@@ -92,14 +79,6 @@ local Context = {}
 Context.SfxSuccess = "Claim"
 Context.SfxError = "Error"
 Context.SfxTierUp = "TierUp"
--- Roblox analytics transaction type name for a Robux purchase.
-Context.TransactionIap = "IAP"
--- Analytics event names: Creator Dashboard dimensions, never shown to a player.
-Context.EventPromptShown = "PromptShown"
-Context.EventPromptAccepted = "PromptAccepted"
-Context.EventPromptDeclined = "PromptDeclined"
-Context.EventProductPurchased = "ProductPurchased"
-Context.EventPassPurchased = "PassPurchased"
 
 function Context.seasonOf(data: ProfileData): Types.BattlepassSeasonData?
 	return data.Battlepass[GameConfig.SeasonId]

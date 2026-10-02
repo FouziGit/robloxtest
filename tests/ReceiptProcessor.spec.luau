@@ -1,6 +1,6 @@
 --!strict
 local Harness = require("./harness")
-local ReceiptProcessor = require("../src/shared/Pure/ReceiptProcessor")
+local ReceiptProcessor = require("../src/server/Pure/ReceiptProcessor")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -119,5 +119,26 @@ describe("ReceiptProcessor", function()
 		expect(decision).toBe("PurchaseGranted")
 		expect(world.profiles[7].Folios).toBe(1000)
 		expect(world.grants).toHaveLength(1)
+	end)
+
+	it("keeps a recorded receipt pending while no save has confirmed it", function()
+		-- Recorded in the live profile is not written: had the retry answered PurchaseGranted on the record
+		-- alone, a server lost before its next save would drop a purchase Roblox never delivers again.
+		local world, deps = makeWorld()
+		world.profiles[7] = { Receipts = {}, Folios = 0 }
+		world.failSave = true
+		expect((ReceiptProcessor.process(receipt("p6", 101), deps))).toBe("NotProcessedYet")
+		local decision, reason = ReceiptProcessor.process(receipt("p6", 101), deps)
+		expect(decision).toBe("NotProcessedYet")
+		expect(reason).toBe("save failed")
+		expect(world.saves).toBe(2)
+
+		world.failSave = false
+		decision, reason = ReceiptProcessor.process(receipt("p6", 101), deps)
+		expect(decision).toBe("PurchaseGranted")
+		expect(reason).toBe("already granted")
+		expect(world.saves).toBe(3)
+		expect(world.grants).toHaveLength(1)
+		expect(world.profiles[7].Folios).toBe(1000)
 	end)
 end)

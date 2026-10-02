@@ -38,12 +38,19 @@ describe("ink", function()
 	end)
 
 	it("dries in every particle, every trail and every floor mark a glyph draws", function()
-		expect(body("buildEmitter"):find("emitter.Color = inkRamp(entry.Context, entry.Context.Color)", 1, true)).never.toBe(
-			nil
-		)
-		expect(body("buildTrail"):find("trail.Color = inkRamp(entry.Context, entry.Context.Color)", 1, true)).never.toBe(
-			nil
-		)
+		-- Coloured by the layer's role (D-119): the Pigment role -- every layer that names none -- is the ink
+		-- ramp itself; a Core cools into the wet pigment and dries with it; only Ink stays the page's ink.
+		expect(body("buildEmitter"):find("emitter.Color = roleRamp(entry.Context, layer)", 1, true)).never.toBe(nil)
+		expect(body("buildTrail"):find("trail.Color = roleRamp(entry.Context, layer)", 1, true)).never.toBe(nil)
+		local role = (body("roleRamp"):gsub("%s+", " "))
+		expect(role:find("return inkRamp(context, context.Color) end", 1, true)).never.toBe(nil)
+		expect(
+			role:find(
+				"ColorSequenceKeypoint.new(VfxConfig.Heat.Cools, wet), ColorSequenceKeypoint.new(1, dry)",
+				1,
+				true
+			)
+		).never.toBe(nil)
 		local mark = body("buildMark")
 		expect(mark:find("wet, dry = wetAndDry(entry.Context, ink)", 1, true)).never.toBe(nil)
 		expect(mark:find("decal.Color3 = wet:Lerp(dry, driedBy(entry, entry.StartedAt))", 1, true)).never.toBe(nil)
@@ -114,7 +121,10 @@ describe("ink", function()
 	it("only when it is a pigment: the page-coloured Erasure and a kill effect's inks keep their colour", function()
 		local dry = body("wetAndDry")
 		expect(dry:find("if base == nil then\n\t\treturn color, color", 1, true)).never.toBe(nil)
-		expect(body("buildMark"):find("if entry.Context.Ink == nil then", 1, true)).never.toBe(nil)
+		-- A mark in the effect's own ink or in the page's charcoal (the Ink role, D-119) does not dry.
+		expect(body("buildMark"):find('if entry.Context.Ink == nil and layer.Role ~= "Ink" then', 1, true)).never.toBe(
+			nil
+		)
 		-- The glyph plays carry the pigment and the skin; a kill effect and the boss carry no pigment.
 		local library = strip(fs.readFile("src/client/Controllers/VfxLibrary.luau"))
 		local shaded = 0

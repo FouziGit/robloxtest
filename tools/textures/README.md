@@ -13,6 +13,8 @@ sur ce projet.
 | `smoke_soft.png` | 256×256 | Fumée, poussière, nuées d'encre. Le bord est bruité : un dégradé propre se lit comme une lueur, et la lueur appartient à la direction rejetée. |
 | `dust_mote.png` | 64×64 | Grain de poussière, étincelle froide, particule d'ambiance. Volontairement propre — à 64 pixels, du bruit n'est que de la saleté. |
 | `spark_streak.png` | 128×128 | Étincelles. Tête à gauche, traîne vers +X, parce que Roblox étire une particule sur son axe X : dessinée dans l'autre sens, l'émetteur tire à l'envers. |
+| `ink_spike.png` | 256×256 | Une pointe d'encre jetée vers le haut, épaisse à la racine, fine et sèche au bout ; la racine sur la ligne du milieu, la moitié basse vide : un `Sprite` centré sur le sol et tourné vers la caméra la montre jaillir de la page (empattements, jets d'impact). |
+| `ink_flame.png` | 256×256 | Une langue de feu tracée au pinceau : trois pointes qui montent d'un même ventre, sèches au bout. Une particule tenue droite par rapport au monde, qui monte, rétrécit et se balance : un flot d'entre elles est un feu, là où une tache au sol n'est qu'une flaque (D-123). |
 | `ink_blot.png` | 256×256 | Décalque de résidu au sol. Règle 5 de l'`ART_BIBLE` : chaque impact laisse une trace qui s'efface. |
 | `crack_web.png` | 512×512 | Marque d'impact lourd au sol. Fissures qui poussent et se ramifient, jamais des rayons réguliers. |
 | `shockwave_ring.png` | 512×512 | Onde de choc, agrandie image par image. Le fondu intérieur est trois fois plus long que l'extérieur : c'est ce qui donne un sens de déplacement au sprite lui-même. |

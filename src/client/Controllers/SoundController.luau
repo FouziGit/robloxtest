@@ -49,8 +49,9 @@ local DUCK_OUT_DIRECTION = Enum.EasingDirection.Out
 
 -- Who is asking for music, highest first. A ranked match and the Erasure can overlap on one server,
 -- and a duelist must not lose the match loop because a boss was announced in the hub: the loop that
--- plays is the highest source that has asked for one, and the hub is what plays when nobody has.
-local MUSIC_SOURCES = { "Match", "Boss" }
+-- plays is the highest source that has asked for one, and the hub is what plays when nobody has. The
+-- Battleground (TravelController) is last: a member the Erasure's event draws in hears the boss.
+local MUSIC_SOURCES = { "Match", "Boss", "Battleground" }
 
 export type PlayOptions = {
 	-- Multiplies the entry's speed, on top of the wander: the sequence's notes climb a scale with it.
@@ -125,15 +126,16 @@ end
 
 -- Plays a one-shot effect. With `position` the sound is 3D, on a short-lived anchored emitter part;
 -- without, it is 2D. Unknown keys warn -- a typo in a timeline is worth hearing about -- and an entry
--- with no id yet is silently not played, because that was already said once at startup.
-function SoundController.play(sfxId: string, position: Vector3?, options: PlayOptions?)
+-- with no id yet is silently not played, because that was already said once at startup. Returns the Sound
+-- it started, so an effect taken back before its end (VfxTimeline.cancel) can silence it; nil if none.
+function SoundController.play(sfxId: string, position: Vector3?, options: PlayOptions?): Sound?
 	local entry = SoundConfig.Sfx[sfxId]
 	if entry == nil then
 		log.warn("unknown sfx %s", tostring(sfxId))
-		return
+		return nil
 	end
 	if entry.Id == "" then
-		return
+		return nil
 	end
 
 	local sound = Instance.new("Sound")
@@ -178,6 +180,7 @@ function SoundController.play(sfxId: string, position: Vector3?, options: PlayOp
 		holder:Destroy()
 	end)
 	sound:Play()
+	return sound
 end
 
 -- Starts (or restarts) the return from a dip, toward whatever the player's music volume is now, over
@@ -263,8 +266,8 @@ local function resolveMusic()
 	switchMusic(HUB_MUSIC_ID)
 end
 
--- `source` (Match or Boss) asks for loop `id`, or withdraws with nil. Two systems can want music at once
--- and neither has to know about the other.
+-- `source` (Match, Boss or Battleground) asks for loop `id`, or withdraws with nil. Several systems can want
+-- music at once and none has to know about the others.
 function SoundController.wantMusic(source: string, id: string?)
 	musicWanted[source] = id
 	resolveMusic()

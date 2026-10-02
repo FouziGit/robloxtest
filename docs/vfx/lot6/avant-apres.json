@@ -1,0 +1,8 @@
+{"title": "Lot 6 - Frappe, Caret, Filigrane - avant / apres (labo Studio)", "frames": [
+ {"capture": "strike_before_hit_side", "moment": "Frappe : +0,1 s (profil)", "row": "avant", "t": 0.1},
+ {"capture": "caret_before_step_side", "moment": "Caret : +0,1 s (profil)", "row": "avant", "t": 0.1},
+ {"capture": "watermark_before_press_side", "moment": "Filigrane : 2e pression (profil)", "row": "avant", "t": 0.74},
+ {"capture": "strike_after_hit_side2", "moment": "Frappe : +0,1 s (profil)", "row": "apres", "t": 0.1},
+ {"capture": "caret_after_step_side2", "moment": "Caret : +0,1 s (profil)", "row": "apres", "t": 0.1},
+ {"capture": "watermark_after_press_side", "moment": "Filigrane : 2e pression (profil)", "row": "apres", "t": 0.74}
+]}

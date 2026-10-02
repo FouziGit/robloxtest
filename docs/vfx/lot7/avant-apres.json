@@ -1,0 +1,6 @@
+{"title": "Lot 7 - Colophon - avant / apres (labo Studio)", "frames": [
+ {"capture": "colophon_before_chain_side", "moment": "Colophon : la chaine (profil)", "row": "avant", "t": 0.12},
+ {"capture": "colophon_after_chain_side", "moment": "Colophon : la chaine (profil)", "row": "apres", "t": 0.1},
+ {"capture": "colophon_before_chain_side", "moment": "Colophon : la marque (profil)", "row": "avant", "t": 0.12},
+ {"capture": "colophon_after_chain_side2", "moment": "Colophon : la marque (profil)", "row": "apres", "t": 0.14}
+]}

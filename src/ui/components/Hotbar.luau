@@ -1,0 +1,587 @@
+--!strict
+-- Hotbar: the glyphs the player has equipped, and when each of them can be cast again (D-147). The server
+-- pushes every glyph's remaining cooldown five times a second (CombatController.State.Cooldowns), and until
+-- now nothing drew it: a player learned a glyph was cooling down by pressing its recipe and being refused.
+--
+-- With a pointer, a row of slots over the dock: each an ink plate ringed with the sheet, holding a chip of
+-- the glyph's own pigment with its sigil (rule 2: the glyph's colour is its school's), and under it the
+-- recipe as the keys the player has bound, each key carrying a strip of the pigment it presses -- "J" on
+-- Cinnabar, "K" on Indigo. That strip is what teaches the keyboard. On touch, where the discs already say it,
+-- a row of pips across the top of the dock.
+--
+-- Cooling down, an ink veil drains off the whole slot from the top, its edge straight, with the seconds left
+-- standing on it, in tenths under ten; ready again, the slot pops and a seal flashes behind it. A glyph the ink
+-- cannot pay for turns chalk and shows a drop. It is a fight surface: no value colour (rule 11). Slots are
+-- pooled by index, so a push at 5 Hz rebuilds nothing, and a drain only springs when its value changed.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
+
+local CooldownText = require(Shared:WaitForChild("Pure"):WaitForChild("CooldownText"))
+local GlyphConfig = require(Config:WaitForChild("GlyphConfig"))
+local Icon = require(script.Parent.Icon)
+local Keycap = require(script.Parent.Keycap)
+local Motion = require(script.Parent.Parent.Motion)
+local PigmentConfig = require(Config:WaitForChild("PigmentConfig"))
+local Sticker = require(script.Parent.Sticker)
+local Theme = require(script.Parent.Parent.Theme)
+local ThemeConfig = require(Config:WaitForChild("ThemeConfig"))
+local Trove = require(Packages.Trove)
+
+export type Mode = "Slots" | "Pips"
+
+export type Props = {
+	Parent: Instance,
+	-- Slots with their keys (a mouse or a gamepad), or pips (touch).
+	Mode: Mode,
+	Localize: Keycap.Localizer,
+	LayoutOrder: number?,
+}
+
+-- The part of CombatController.State the hotbar draws.
+export type State = { Ink: number, Cooldowns: { [string]: number } }
+
+export type Hotbar = {
+	Instance: Frame,
+	-- The equipped glyph ids, in slot order (ProfileData.Loadout.Slots).
+	SetLoadout: (self: Hotbar, slots: { string }) -> (),
+	-- The device the keys are drawn for, and the key bound to each pigment.
+	SetKeys: (self: Hotbar, device: Keycap.Device, keys: { [string]: string }) -> (),
+	SetState: (self: Hotbar, state: State) -> (),
+	-- A cast of the glyph named `nameKey` refused for its cooldown: its slot flashes chalk twice.
+	Refuse: (self: Hotbar, nameKey: string) -> (),
+	Destroy: (self: Hotbar) -> (),
+}
+
+type Slot = {
+	Root: Frame,
+	Scale: UIScale,
+	Chip: Frame,
+	Sigil: TextLabel?,
+	Drain: Frame,
+	-- Built the first time the slot shows them (secondsOf, dropOf); a pip has neither.
+	Seconds: TextLabel?,
+	Drop: Frame?,
+	-- A pointer slot's square, which they are built on.
+	Square: Frame?,
+	Flash: ImageLabel?,
+	FlashScale: UIScale?,
+	Keys: Frame?,
+	Caps: { Keycap.Keycap },
+	GlyphId: string?,
+	Fraction: number,
+	Remaining: number,
+	Unaffordable: boolean,
+}
+
+local Hotbar = {}
+
+local HUD = ThemeConfig.Hud
+local CHIP = 40
+-- The sigil on a chip, in the heavy face (the board's 21 at 900).
+local SIGIL_TEXT = 21
+-- The short-ink drop, off the slot's bottom-right corner by this much, on a rim of the sheet this wide.
+local DROP_INSET = 4
+local DROP_RIM = 2
+-- The veil a cooling glyph wears, drained from the top as the cooldown runs out: the board's ink at 69 %.
+local DRAIN_TRANSPARENCY = 0.31
+-- The seconds left, standing this far over the veil's edge, and never above the top of the slot.
+local SECONDS_TEXT = 16
+local SECONDS_STROKE = 2
+local SECONDS_INSET = 4
+local SECONDS_KEY = "hud.hotbar.seconds"
+local DROP = 14
+-- A key cap of 19 (D-172), standing on no lip: the three units the strip has left are the gap between the slot
+-- and its keys, as the board draws them.
+local CAP = HUD.HotbarKeyStrip - 3
+local CAP_GAP = 2
+local PIP_GAP = 3
+local READY_PUNCH = 1.12
+local FLASH_FROM = 0.2
+local FLASH_SCALE_FROM = 0.8
+local FLASH_SCALE_TO = 1.4
+
+local function fill(slot: Slot, color: Color3, animate: boolean)
+	if animate then
+		Motion.to(slot.Chip, { BackgroundColor3 = color }, "Ui")
+	else
+		Motion.set(slot.Chip, { BackgroundColor3 = color })
+	end
+	local sigil = slot.Sigil
+	if sigil ~= nil then
+		sigil.TextColor3 = Theme.inkOn(color)
+	end
+end
+
+-- The veil over what cools: ink, draining off from the top. A pip's is the ink itself, inside the pip, which
+-- clips it. A slot's covers the whole slot, its chip and its ring, and is cut straight where it ends, as the
+-- board's face cuts it: a window as deep as the cooldown left, clipping an ink of the slot's own size and
+-- corner. Rounded itself, its edge would curve up at both ends.
+local function drain(parent: Frame, corner: number?): Frame
+	local veil = Instance.new("Frame")
+	veil.Name = "Drain"
+	veil.BorderSizePixel = 0
+	veil.Size = UDim2.fromScale(1, 0)
+	veil.ZIndex = 4
+	local ink = veil
+	if corner ~= nil then
+		veil.BackgroundTransparency = 1
+		veil.ClipsDescendants = true
+		ink = Instance.new("Frame")
+		ink.Name = "Ink"
+		ink.BorderSizePixel = 0
+		ink.Size = UDim2.new(1, 0, 0, HUD.HotbarSlot)
+		Theme.corner(ink, corner)
+		ink.Parent = veil
+	end
+	ink.BackgroundColor3 = Theme.Colors.Plate
+	ink.BackgroundTransparency = DRAIN_TRANSPARENCY
+	veil.Parent = parent
+	return veil
+end
+
+-- Where the seconds stand in a slot veiled `fraction` deep: their foot the inset over the veil's edge, and no
+-- higher than the text's own height from the top of the slot.
+local function secondsAt(fraction: number): UDim2
+	return UDim2.new(0.5, 0, 0, math.max(fraction * HUD.HotbarSlot, SECONDS_TEXT + SECONDS_INSET) - SECONDS_INSET)
+end
+
+-- The seconds a cooling glyph has left, as its slot writes them: tenths under ten, in the language's own mark.
+local function secondsText(remaining: number, localize: Keycap.Localizer): string
+	local whole, tenth = CooldownText.split(remaining)
+	if tenth == nil then
+		return tostring(whole)
+	end
+	return localize.t(SECONDS_KEY, { whole = whole, tenth = tenth })
+end
+
+local function buildSlot(index: number, parent: Instance, trove: typeof(Trove.new())): Slot
+	local column = Instance.new("Frame")
+	column.Name = "Slot" .. index
+	column.BackgroundTransparency = 1
+	column.LayoutOrder = index
+	column.Size = UDim2.fromOffset(HUD.HotbarSlot, HUD.HotbarSlot + HUD.HotbarKeyStrip)
+	column.AutomaticSize = Enum.AutomaticSize.X
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = column
+
+	local square = Instance.new("Frame")
+	square.Name = "Square"
+	square.BackgroundTransparency = 1
+	square.Size = UDim2.fromOffset(HUD.HotbarSlot, HUD.HotbarSlot)
+	square.LayoutOrder = 1
+	square.Parent = column
+	local scale = Instance.new("UIScale")
+	scale.Parent = square
+
+	-- The seal that flashes behind a glyph that is ready again.
+	local flash: ImageLabel? = nil
+	local flashScale: UIScale? = nil
+	local id = Theme.texture("SealRing")
+	if id ~= "" then
+		local image = Instance.new("ImageLabel")
+		image.Name = "Ready"
+		image.BackgroundTransparency = 1
+		image.Image = id
+		image.ImageColor3 = Theme.Colors.PanelRaised
+		image.ImageTransparency = 1
+		-- Grown from the slot's centre, not its corner: scaled from its corner, it rose off-centre and the slot,
+		-- which sizes itself, grew to hold it and stayed 1.4 wide after it had faded (seen in Studio).
+		image.AnchorPoint = Vector2.new(0.5, 0.5)
+		image.Position = UDim2.fromScale(0.5, 0.5)
+		image.Size = UDim2.fromScale(1, 1)
+		image.ZIndex = 0
+		local imageScale = Instance.new("UIScale")
+		imageScale.Parent = image
+		image.Parent = square
+		flash, flashScale = image, imageScale
+	end
+
+	local plate = Sticker.new({
+		Kind = "Plate",
+		Fill = Theme.Colors.Plate,
+		Corner = UDim.new(0, Theme.Sizes.CornerChip),
+		Size = UDim2.fromScale(1, 1),
+		Parent = square,
+		Name = "Plate",
+	})
+	trove:Add(function()
+		plate:Destroy()
+	end)
+	-- The sheet's ring on the plate's own edge, inside it (the board's inset line): what shapes the slot on a dark
+	-- floor, and the frame the chip sits in. On the edge, it is the face's own line rather than a frame of its
+	-- size: every object the pointer's HUD holds is counted (tests/HudBudget.spec.luau).
+	Theme.stroke(plate.Face, "PanelRaised", Theme.Sizes.StrokeThin)
+
+	local chip = Instance.new("Frame")
+	chip.Name = "Chip"
+	chip.BorderSizePixel = 0
+	chip.AnchorPoint = Vector2.new(0.5, 0.5)
+	chip.Position = UDim2.fromScale(0.5, 0.5)
+	chip.Size = UDim2.fromOffset(CHIP, CHIP)
+	chip.ClipsDescendants = true
+	chip.ZIndex = 3
+	Theme.corner(chip, Theme.Sizes.CornerChip)
+	chip.Parent = square
+
+	local sigil = Instance.new("TextLabel")
+	sigil.Name = "Sigil"
+	sigil.BackgroundTransparency = 1
+	sigil.Size = UDim2.fromScale(1, 1)
+	sigil.FontFace = Theme.Fonts.Label
+	sigil.TextSize = SIGIL_TEXT
+	sigil.ZIndex = 3
+	sigil.Parent = chip
+
+	local keys = Instance.new("Frame")
+	keys.Name = "Keys"
+	keys.BackgroundTransparency = 1
+	keys.Size = UDim2.fromOffset(0, HUD.HotbarKeyStrip)
+	keys.AutomaticSize = Enum.AutomaticSize.X
+	keys.LayoutOrder = 2
+	local keysLayout = Instance.new("UIListLayout")
+	keysLayout.FillDirection = Enum.FillDirection.Horizontal
+	keysLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	keysLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	keysLayout.Padding = UDim.new(0, CAP_GAP)
+	keysLayout.Parent = keys
+	keys.Parent = column
+
+	column.Parent = parent
+	return {
+		Root = column,
+		Scale = scale,
+		Chip = chip,
+		Sigil = sigil,
+		Drain = drain(square, Theme.Sizes.CornerChip),
+		Seconds = nil,
+		Drop = nil,
+		Square = square,
+		Flash = flash,
+		FlashScale = flashScale,
+		Keys = keys,
+		Caps = {},
+		GlyphId = nil,
+		Fraction = 0,
+		Remaining = 0,
+		Unaffordable = false,
+	}
+end
+
+-- The seconds a cooling glyph has left, and the drop that says its ink is short, are built the first time the
+-- slot shows them: most slots of most fights never do, and every object the pointer's HUD holds is counted
+-- against its budget (ThemeConfig.Budget, tests/HudBudget.spec.luau).
+local function secondsOf(slot: Slot): TextLabel?
+	local square = slot.Square
+	if slot.Seconds == nil and square ~= nil then
+		local seconds = Instance.new("TextLabel")
+		seconds.Name = "Seconds"
+		seconds.BackgroundTransparency = 1
+		seconds.AnchorPoint = Vector2.new(0.5, 1)
+		seconds.Position = secondsAt(slot.Fraction)
+		seconds.Size = UDim2.new(1, 0, 0, SECONDS_TEXT)
+		seconds.FontFace = Theme.Fonts.Numeric
+		seconds.TextSize = SECONDS_TEXT
+		seconds.TextColor3 = Theme.Colors.PanelRaised
+		seconds.ZIndex = 5
+		seconds.Visible = false
+		Theme.stroke(seconds, "Outline", SECONDS_STROKE, "Contextual")
+		seconds.Parent = square
+		slot.Seconds = seconds
+	end
+	return slot.Seconds
+end
+
+-- The drop is the ink's blue on a rim of the sheet, the same drop a size larger behind it. It straddles the chalk
+-- chip, which the blue alone is 2.1 against, and the slot's ink; the sheet gives it one edge it stands out from
+-- on both (3.3).
+local function dropOf(slot: Slot): Frame?
+	local square = slot.Square
+	if slot.Drop == nil and square ~= nil then
+		local rimmed = DROP + DROP_RIM * 2
+		local holder = Instance.new("Frame")
+		holder.Name = "Drop"
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(1, 1)
+		holder.Position = UDim2.new(1, -DROP_INSET, 1, -DROP_INSET)
+		holder.Size = UDim2.fromOffset(rimmed, rimmed)
+		holder.ZIndex = 5
+		holder.Visible = false
+		local rim = Icon.new("Drop", rimmed, Theme.Colors.PanelRaised)
+		rim.Name = "Rim"
+		rim.Parent = holder
+		local drop = Icon.new("Drop", DROP, Theme.Colors.InfoFill)
+		drop.AnchorPoint = Vector2.new(0.5, 0.5)
+		drop.Position = UDim2.fromScale(0.5, 0.5)
+		drop.Parent = holder
+		holder.Parent = square
+		slot.Drop = holder
+	end
+	return slot.Drop
+end
+
+local function buildPip(index: number, parent: Instance): Slot
+	local pip = Instance.new("Frame")
+	pip.Name = "Pip" .. index
+	pip.BorderSizePixel = 0
+	pip.LayoutOrder = index
+	pip.ClipsDescendants = true
+	Theme.corner(pip, Theme.Pill)
+	-- The pips sit on the dock's ink plate, the colour an ink outline would be: an Indigo or an Umber pip,
+	-- 2.15 and 2.30 against it, keeps its shape by the sheet's ring, as the chips do (ComboRow). Drawn
+	-- outside the pip, where the cooling veil inside it never covers it, and on every pip, as a pip changes
+	-- pigment with the loadout; a stroke rather than a frame, the touch HUD's objects being counted.
+	Theme.stroke(pip, "PanelRaised", Theme.Sizes.StrokeThin, nil, "Outer")
+	-- Round in whatever share of the row setLoadout gives it, and never taller than the row.
+	local round = Instance.new("UIAspectRatioConstraint")
+	round.AspectRatio = 1
+	round.AspectType = Enum.AspectType.FitWithinMaxSize
+	round.Parent = pip
+	local scale = Instance.new("UIScale")
+	scale.Parent = pip
+	pip.Parent = parent
+	return {
+		Root = pip,
+		Scale = scale,
+		Chip = pip,
+		Sigil = nil,
+		Drain = drain(pip),
+		Seconds = nil,
+		Drop = nil,
+		Square = nil,
+		Flash = nil,
+		FlashScale = nil,
+		Keys = nil,
+		Caps = {},
+		GlyphId = nil,
+		Fraction = 0,
+		Remaining = 0,
+		Unaffordable = false,
+	}
+end
+
+function Hotbar.new(props: Props): Hotbar
+	local trove = Trove.new()
+	local pips = props.Mode == "Pips"
+	local slots: { Slot } = {}
+	local device: Keycap.Device = "Keyboard"
+	local keys: { [string]: string } = {}
+
+	local row = Instance.new("Frame")
+	row.Name = "Hotbar"
+	row.BackgroundTransparency = 1
+	row.LayoutOrder = props.LayoutOrder or 0
+	row.Size = if pips then UDim2.new(1, 0, 0, HUD.HotbarPipsHeight) else UDim2.new()
+	row.AutomaticSize = if pips then Enum.AutomaticSize.None else Enum.AutomaticSize.XY
+	trove:Add(row)
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, if pips then PIP_GAP else HUD.HotbarGap)
+	layout.Parent = row
+	trove:Add(function()
+		for _, slot in ipairs(slots) do
+			Motion.cancel(slot.Scale)
+			Motion.cancel(slot.Chip)
+			Motion.cancel(slot.Drain)
+			local seconds = slot.Seconds
+			if seconds ~= nil then
+				Motion.cancel(seconds)
+			end
+			local image, imageScale = slot.Flash, slot.FlashScale
+			if image ~= nil and imageScale ~= nil then
+				Motion.cancel(image)
+				Motion.cancel(imageScale)
+			end
+			for _, cap in ipairs(slot.Caps) do
+				cap:Destroy()
+			end
+		end
+	end)
+
+	row.Parent = props.Parent
+
+	local function drawKeys(slot: Slot, def: GlyphConfig.GlyphDef)
+		local strip = slot.Keys
+		if strip == nil then
+			return
+		end
+		for _, cap in ipairs(slot.Caps) do
+			cap:Destroy()
+		end
+		table.clear(slot.Caps)
+		for step, pigment in ipairs(def.Combo) do
+			table.insert(
+				slot.Caps,
+				Keycap.new({
+					Key = keys[pigment] or "",
+					Device = device,
+					Localize = props.Localize,
+					Size = CAP,
+					Pigment = pigment,
+					Lip = false,
+					LayoutOrder = step,
+					Parent = strip,
+				})
+			)
+		end
+	end
+
+	local function draw(slot: Slot, def: GlyphConfig.GlyphDef)
+		slot.GlyphId = def.Id
+		slot.Fraction = 0
+		slot.Remaining = 0
+		slot.Unaffordable = false
+		Motion.set(slot.Drain, { Size = UDim2.fromScale(1, 0) })
+		fill(slot, Theme.pigmentColor(def.Pigment), false)
+		local sigil = slot.Sigil
+		if sigil ~= nil then
+			sigil.Text = PigmentConfig.Sigils[def.Pigment :: any] or ""
+		end
+		local drop, seconds = slot.Drop, slot.Seconds
+		if drop ~= nil then
+			drop.Visible = false
+		end
+		if seconds ~= nil then
+			seconds.Visible = false
+			Motion.set(seconds, { Position = secondsAt(0) })
+		end
+		drawKeys(slot, def)
+	end
+
+	local function setLoadout(_self: Hotbar, next: { string })
+		local count = 0
+		for _, glyphId in ipairs(next) do
+			if GlyphConfig.byId(glyphId) ~= nil then
+				count += 1
+			end
+		end
+		-- A pip's share of the dock's row, less its share of the gaps (rounded up, a UDim's offset being whole):
+		-- as many as a pass allows fit the narrowest dock, and a few stay the row's height.
+		local pipShare = UDim2.new(1 / math.max(count, 1), -math.ceil(PIP_GAP * (count - 1) / math.max(count, 1)), 1, 0)
+		local shown = 0
+		for _, glyphId in ipairs(next) do
+			local def = GlyphConfig.byId(glyphId)
+			if def ~= nil then
+				shown += 1
+				local slot = slots[shown]
+				if slot == nil then
+					slot = if pips then buildPip(shown, row) else buildSlot(shown, row, trove)
+					slots[shown] = slot
+				end
+				local current = slot :: Slot
+				current.Root.Visible = true
+				if pips then
+					current.Root.Size = pipShare
+				end
+				if current.GlyphId ~= def.Id then
+					draw(current, def)
+				end
+			end
+		end
+		for index = shown + 1, #slots do
+			slots[index].Root.Visible = false
+			slots[index].GlyphId = nil
+		end
+	end
+
+	local function setKeys(_self: Hotbar, nextDevice: Keycap.Device, nextKeys: { [string]: string })
+		device = nextDevice
+		keys = table.clone(nextKeys)
+		for _, slot in ipairs(slots) do
+			local def = if slot.GlyphId ~= nil then GlyphConfig.byId(slot.GlyphId) else nil
+			if def ~= nil then
+				drawKeys(slot, def)
+			end
+		end
+	end
+
+	-- A glyph ready again: the slot pops, and the seal behind it flashes out.
+	local function ready(slot: Slot)
+		Motion.punch(slot.Scale, READY_PUNCH)
+		local image, imageScale = slot.Flash, slot.FlashScale
+		if image ~= nil and imageScale ~= nil then
+			Motion.set(image, { ImageTransparency = FLASH_FROM })
+			Motion.set(imageScale, { Scale = FLASH_SCALE_FROM })
+			Motion.to(image, { ImageTransparency = 1 }, "Ui")
+			Motion.to(imageScale, { Scale = FLASH_SCALE_TO }, "Ui")
+		end
+	end
+
+	local function setState(_self: Hotbar, state: State)
+		for _, slot in ipairs(slots) do
+			local glyphId = slot.GlyphId
+			local def = if glyphId ~= nil then GlyphConfig.byId(glyphId) else nil
+			if def ~= nil then
+				local left = state.Cooldowns[def.Id]
+				local remaining = if type(left) == "number" and left > 0 then left else 0
+				local fraction = if def.Cooldown > 0 then math.clamp(remaining / def.Cooldown, 0, 1) else 0
+				local seconds = if remaining > 0 then secondsOf(slot) else slot.Seconds
+				if fraction ~= slot.Fraction then
+					-- Retargeted at the server's pace: the spring keeps its speed, so the drain reads as one
+					-- movement rather than five steps a second, and the seconds ride its edge on the same spring.
+					slot.Fraction = fraction
+					Motion.to(slot.Drain, { Size = UDim2.fromScale(1, fraction) }, "UiSnappy")
+					if seconds ~= nil then
+						Motion.to(seconds, { Position = secondsAt(fraction) }, "UiSnappy")
+					end
+				end
+				if slot.Remaining > 0 and remaining <= 0 then
+					ready(slot)
+				end
+				slot.Remaining = remaining
+				if seconds ~= nil then
+					seconds.Visible = remaining > 0
+					seconds.Text = secondsText(remaining, props.Localize)
+				end
+				local unaffordable = state.Ink < def.Cost
+				if unaffordable ~= slot.Unaffordable then
+					slot.Unaffordable = unaffordable
+					fill(slot, if unaffordable then Theme.Colors.Chalk else Theme.pigmentColor(def.Pigment), true)
+					local drop = if unaffordable then dropOf(slot) else slot.Drop
+					if drop ~= nil then
+						drop.Visible = unaffordable
+					end
+				end
+			end
+		end
+	end
+
+	local function refuse(_self: Hotbar, nameKey: string)
+		for _, slot in ipairs(slots) do
+			local def = if slot.GlyphId ~= nil then GlyphConfig.byId(slot.GlyphId) else nil
+			if def ~= nil and def.NameKey == nameKey and slot.Root.Visible then
+				local color = if slot.Unaffordable then Theme.Colors.Chalk else Theme.pigmentColor(def.Pigment)
+				Motion.set(slot.Chip, { BackgroundColor3 = Theme.Colors.Chalk })
+				Motion.to(slot.Chip, { BackgroundColor3 = color }, "UiPop", function()
+					Motion.set(slot.Chip, { BackgroundColor3 = Theme.Colors.Chalk })
+					Motion.to(slot.Chip, { BackgroundColor3 = color }, "UiPop")
+				end)
+			end
+		end
+	end
+
+	local function destroy(_self: Hotbar)
+		trove:Destroy()
+	end
+
+	local object: Hotbar = {
+		Instance = row,
+		SetLoadout = setLoadout,
+		SetKeys = setKeys,
+		SetState = setState,
+		Refuse = refuse,
+		Destroy = destroy,
+	}
+	return object
+end
+
+return Hotbar

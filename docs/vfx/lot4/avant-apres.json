@@ -1,0 +1,12 @@
+{"title": "Lot 4 - Ligature, Pate, Entrave - avant / apres (labo Studio)", "frames": [
+ {"capture": "ligature_before_dash_side4", "moment": "Ligature : course (profil)", "row": "avant", "t": 0.15},
+ {"capture": "ligature_before_tick_side", "moment": "Ligature : 2e tick (profil)", "row": "avant", "t": 0.44},
+ {"capture": "blot_before_flight_side2", "moment": "Pate : en vol (profil)", "row": "avant", "t": 0.68},
+ {"capture": "blot_before_impact_impact", "moment": "Pate : eclat (impact)", "row": "avant", "t": 1.25},
+ {"capture": "binding_before_impact_side2", "moment": "Entrave : sur la cible (profil)", "row": "avant", "t": 0.15},
+ {"capture": "ligature_after_dash_side", "moment": "Ligature : course (profil)", "row": "apres", "t": 0.15},
+ {"capture": "ligature_after_tick_side", "moment": "Ligature : 2e tick (profil)", "row": "apres", "t": 0.44},
+ {"capture": "blot_after_flight_side2", "moment": "Pate : en vol (profil)", "row": "apres", "t": 0.43},
+ {"capture": "blot_after_impact_impact2", "moment": "Pate : eclat (impact)", "row": "apres", "t": 1.28},
+ {"capture": "binding_after_hold_side", "moment": "Entrave : sur la cible (profil)", "row": "apres", "t": 0.45}
+]}

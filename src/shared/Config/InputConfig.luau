@@ -100,6 +100,11 @@ end
 
 -- Whitelist for gamepad rebinding. Every button listed here must stay assignable, so none of them may
 -- double as the rebind capture cancel (see InputController): a button that cancels can never be bound.
+-- The key of the hub's prompts (the queue terminal, the shop kiosk: HubSignsController, D-128). The engine's
+-- own default for a prompt on a gamepad is ButtonX, which is Melee here: a player walking up to the
+-- terminal would punch it. Neither key is any action's default (tests/Hub.spec.luau).
+InputConfig.HubPrompt = { Keyboard = "E", Gamepad = "ButtonR1" }
+
 InputConfig.AllowedGamepad = {
 	DPadUp = true,
 	DPadDown = true,
@@ -164,6 +169,10 @@ InputConfig.Touch = {
 	Margin = 16,
 	JumpReserve = { Width = 150, Height = 150 },
 	Positions = touchPositions,
+	-- A disc drawn bigger than the others, by this factor (D-147): Melee, the one the thumb goes to most
+	-- and finds without looking. 44 points on a phone for the rest, 55 for it. The layout spaces every
+	-- pair by their own radii (TouchCluster), so a bigger disc never overlaps its neighbours.
+	SizeScale = { Melee = 1.25 } :: { [ActionId]: number },
 }
 
 -- Names of Strings keys for action labels.

@@ -1,6 +1,6 @@
 --!strict
 local Harness = require("./harness")
-local SeriesOutcome = require("../src/shared/Pure/SeriesOutcome")
+local SeriesOutcome = require("../src/server/Pure/SeriesOutcome")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 

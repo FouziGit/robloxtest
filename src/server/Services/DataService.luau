@@ -1,6 +1,12 @@
 --!strict
 -- DataService: the single owner of player profiles (ProfileStore). Loads, migrates, replicates and
 -- releases profiles. Other services mutate `DataService.get(player)` in place and call `push`.
+--
+-- It also listens to what ProfileStore says of the DataStore itself: a failed call and an overwritten key are
+-- logged with their store and key, and an outage (ProfileStore's critical state) is told to every player once,
+-- as it is told when it ends. While it lasts `isCritical` is true, and MonetizationService opens no Robux
+-- purchase (D-254): a purchase whose grant cannot be saved is Robux taken for something the next server may
+-- not know about.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -10,11 +16,11 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local DataMigration = require(Shared.Pure.DataMigration)
+local DataMigration = require(script.Parent.Parent.Pure.DataMigration)
 local GameConfig = require(Shared.Config.GameConfig)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local InputConfig = require(Shared.Config.InputConfig)
-local LegacyNames = require(Shared.Pure.LegacyNames)
+local LegacyNames = require(script.Parent.Parent.Pure.LegacyNames)
 local Log = require(Shared.Util.Log)
 local PigmentConfig = require(Shared.Config.PigmentConfig)
 local ProfileStore = require(script.Parent.Parent.Vendor.ProfileStore)
@@ -25,6 +31,10 @@ local Strings = require(Shared.Strings)
 local Types = require(Shared.Types)
 
 type ProfileData = Types.ProfileData
+type NotifyKind = "Info" | "Success" | "Error"
+type NotifyApi = {
+	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
+}
 
 local log = Log.new("DataService")
 
@@ -56,16 +66,38 @@ local DataService = {}
 
 DataService.ProfileLoaded = Signal.new() -- (player: Player, data: ProfileData)
 DataService.ProfileReleased = Signal.new() -- (player: Player)
--- Fired while a leaving player's profile is STILL loaded, immediately before it is released. The last
--- moment anything can be persisted for them: once the session ends, DataService.get returns nil and
--- nothing can be written for that player on this server again. MatchService debits the forfeit of an
--- abandoned ranked match here, which is what used to make quitting free.
+-- Fired at the final write of a session, while the profile is STILL loaded: whatever a listener writes
+-- into `data` goes out with that write, and it is the last thing that can ever be persisted for the player
+-- on this server. It comes whatever ended the session -- the player leaving, or another server taking the
+-- profile before this one saw them go (docs/QA.md R4) -- and never when the server is closing: a shutdown
+-- is nobody walking out (R3). MatchService debits the forfeit of an abandoned ranked match here, which is
+-- what used to make quitting free.
 DataService.BeforeRelease = Signal.new() -- (player: Player, data: ProfileData)
 
+-- ProfileStore's reasons for a session's final write (Profile.OnLastSave).
+local ENDED_HERE = "Manual" -- this server ended it: the player left
+local ENDED_BY_SHUTDOWN = "Shutdown"
+-- How long a departure waits before its session ends (see onPlayerRemoving).
+local LEAVE_GRACE_SECONDS = GameConfig.Server.LeaveGraceSeconds
+
 local registry -- RemoteRegistry
+-- The language each player reads a kick's reason in (LocaleService).
+local locale: { of: (player: Player) -> string }
+local notify: NotifyApi
 local store
+-- True while ProfileStore reports the DataStore failing call after call (OnCriticalToggle): saves are delayed.
+local critical = false
+-- The players told of the outage under way: each hears of it once, and hears it end.
+local toldOutage: { [Player]: boolean } = {}
 local profiles: { [Player]: any } = {} -- ProfileStore Profile objects
 local loadedSignals: { [Player]: { any } } = {}
+-- Set by game:BindToClose: from then on no session end is a player leaving (DataService.isClosing).
+local closing = false
+-- The reason ProfileStore gave for the final write of each session, read when the session ends.
+local lastSaveReasons: { [Player]: string } = {}
+-- Sessions of players who left, still loaded until the grace runs out: user id -> the session.
+type Hold = { Profile: any, Timer: thread }
+local held: { [number]: Hold } = {}
 
 ----------------------------------------------------------------
 -- Template
@@ -101,10 +133,15 @@ function DataService.template(): { [string]: any }
 		Progression = { Level = 1, XP = 0, TotalXP = 0 },
 		Currency = { Folios = 0 },
 		Battlepass = { _template = seasonTemplate() },
-		Cosmetics = { Owned = {}, Equipped = {} },
+		Cosmetics = { Owned = {}, Equipped = {}, Waived = {} },
 		Loadout = { Slots = defaultLoadout(), ExtraSlots = 0, SlotLimit = ProgressionConfig.Loadout.BaseSlots },
 		Unlocks = { Glyphs = GlyphConfig.defaultUnlocks(), Pigments = table.clone(PigmentConfig.Base) },
-		Rank = { SeasonId = GameConfig.SeasonId, Modes = {}, LastRewardedSeason = "" },
+		Rank = {
+			SeasonId = GameConfig.SeasonId,
+			Modes = {},
+			LastRewardedSeason = "",
+			Opponents = { Day = 0, Counts = {} },
+		},
 		Stats = {
 			Kills = 0,
 			Deaths = 0,
@@ -116,10 +153,34 @@ function DataService.template(): { [string]: any }
 			PlayTimeSeconds = 0,
 		},
 		Quests = {
-			Daily = { PeriodKey = "", Progress = {}, Claimed = {} },
-			Weekly = { PeriodKey = "", Progress = {}, Claimed = {} },
+			Daily = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
+			Weekly = { PeriodKey = "", Progress = {}, Claimed = {}, Swaps = {} },
 		},
-		Daily = { LastClaimDay = 0, Streak = 0, FirstWinDay = 0, PremiumBonusDay = 0 },
+		Daily = {
+			LastClaimDay = 0,
+			Streak = 0,
+			CalendarDay = 0,
+			Signets = 0,
+			FirstWinDay = 0,
+			PremiumBonusDay = 0,
+			ForgerDay = 0,
+			ForgerFolios = 0,
+			FlyleafDay = 0,
+			FlyleafFolios = 0,
+			PracticeDay = 0,
+			PracticePaid = 0,
+			PracticeLastPaidAt = 0,
+			TrialDay = 0,
+			TrialKills = 0,
+			TrialFolios = 0,
+			MatchDay = 0,
+			MatchFolios = 0,
+			SparDay = 0,
+			SparPaid = 0,
+		},
+		Milestones = {},
+		Drills = {},
+		ExLibris = {},
 		Purchases = { Receipts = {}, ProductCounts = {} },
 		Passes = {},
 		Boosts = { XpUntil = 0, XpMultiplier = 1 },
@@ -128,7 +189,6 @@ function DataService.template(): { [string]: any }
 			LastJoin = 0,
 			SessionCount = 0,
 			LegacyImported = false,
-			FirstSessionPromptGate = false,
 			SaveToken = 0,
 			DevGranted = false,
 		},
@@ -168,7 +228,7 @@ end
 
 local function kick(player: Player, key: string)
 	if player.Parent == Players then
-		player:Kick(Strings.t(key, nil, Strings.localeFromId(player.LocaleId)))
+		player:Kick(Strings.t(key, nil, locale.of(player)))
 	end
 end
 
@@ -202,14 +262,65 @@ local function ensureSeason(data: { [string]: any })
 	end
 end
 
-local function onSessionEnd(player: Player)
-	profiles[player] = nil
+-- The final write of a session is about to go out: ProfileStore fires this before its last save, for every
+-- way a session can end but a stolen one, and the data it then writes is whatever the listeners left.
+local function onLastSave(player: Player, profile: any, reason: string)
+	lastSaveReasons[player] = reason
+	if reason == ENDED_BY_SHUTDOWN or DataService.isClosing() then
+		log.info("%s's session ends with the server: nothing is settled as a departure", player.Name)
+		return
+	end
+	-- Inside log.try: a listener that throws must never cost the session its release, which would leave the
+	-- key locked until ProfileStore times out.
+	log.try("BeforeRelease " .. player.Name, function()
+		DataService.BeforeRelease:Fire(player, profile.Data)
+	end)
+end
+
+local function onSessionEnd(player: Player, profile: any)
+	if profiles[player] == profile then
+		profiles[player] = nil
+	end
+	local hold = held[player.UserId]
+	if hold ~= nil and hold.Profile == profile then
+		-- Ended before the grace ran out: a shutdown, or another server that took the profile.
+		held[player.UserId] = nil
+		task.cancel(hold.Timer)
+	end
 	loadedSignals[player] = nil
+	local reason = lastSaveReasons[player]
+	lastSaveReasons[player] = nil
 	DataService.ProfileReleased:Fire(player)
-	kick(player, "kick.sessionElsewhere")
+	-- Only a session another server took is news to the player (reason "External", or none at all when the
+	-- other server stole it without a last save). A session this server ended belongs to a player who has
+	-- already gone, and a shutdown's own message is Roblox's to show: telling them their session was opened
+	-- elsewhere would be false (docs/QA.md R15).
+	if reason ~= ENDED_HERE and reason ~= ENDED_BY_SHUTDOWN and not DataService.isClosing() then
+		kick(player, "kick.sessionElsewhere")
+	end
+end
+
+-- Ends a departed player's session once the grace ran out. Nothing to do when a shutdown or another server
+-- ended it first: EndSession is a no-op on a session that is no longer active.
+local function release(userId: number, profile: any)
+	local hold = held[userId]
+	if hold == nil or hold.Profile ~= profile then
+		return
+	end
+	-- Cleared before EndSession: ending the session reaches onSessionEnd from inside this very thread.
+	held[userId] = nil
+	profile:EndSession()
 end
 
 local function loadProfile(player: Player)
+	local hold = held[player.UserId]
+	if hold ~= nil then
+		-- Back on this server before the grace of the last visit ran out. That session ends now, exactly as it
+		-- would have: ProfileStore refuses to open a key that is still loaded here.
+		held[player.UserId] = nil
+		task.cancel(hold.Timer)
+		hold.Profile:EndSession()
+	end
 	local key = KEY_PREFIX .. tostring(player.UserId)
 	local profile = store:StartSessionAsync(key, {
 		Cancel = function()
@@ -274,8 +385,11 @@ local function loadProfile(player: Player)
 	end
 
 	profiles[player] = profile
+	profile.OnLastSave:Connect(function(reason: string)
+		onLastSave(player, profile, reason)
+	end)
 	profile.OnSessionEnd:Connect(function()
-		onSessionEnd(player)
+		onSessionEnd(player, profile)
 	end)
 
 	log.info(
@@ -305,16 +419,13 @@ local function onPlayerAdded(player: Player)
 	end)
 end
 
+-- A departure keeps its session loaded for LEAVE_GRACE_SECONDS before ending it. A shutdown removes the
+-- players a moment before game:BindToClose says the server is closing -- in Studio always, on a live server
+-- when the race goes that way -- and a session ended on the spot would settle that departure as a player
+-- walking out (docs/QA.md R3). Held, it is ended by the shutdown itself if one follows, and otherwise by the
+-- grace; either way its final write carries what BeforeRelease settled.
 local function onPlayerRemoving(player: Player)
-	local profile = profiles[player]
-	if profile ~= nil then
-		-- Before the profile leaves the table, and inside log.try: a listener that throws must never
-		-- cost the session its release, which would leave the key locked until ProfileStore times out.
-		log.try("BeforeRelease " .. player.Name, function()
-			DataService.BeforeRelease:Fire(player, profile.Data)
-		end)
-	end
-	profiles[player] = nil
+	toldOutage[player] = nil
 	local waiters = loadedSignals[player]
 	loadedSignals[player] = nil
 	if waiters ~= nil then
@@ -322,18 +433,73 @@ local function onPlayerRemoving(player: Player)
 			task.spawn(thread, nil)
 		end
 	end
-	if profile ~= nil then
-		profile:EndSession()
-		DataService.ProfileReleased:Fire(player)
+	local profile = profiles[player]
+	if profile == nil then
+		return
 	end
+	if DataService.isClosing() then
+		profile:EndSession()
+		return
+	end
+	held[player.UserId] = {
+		Profile = profile,
+		Timer = task.delay(LEAVE_GRACE_SECONDS, release, player.UserId, profile),
+	}
+end
+
+----------------------------------------------------------------
+-- DataStore health
+----------------------------------------------------------------
+
+-- A DataStore call ProfileStore caught. It warns too, in its own words; this line is the service's, with the
+-- store and the key, where the server's logs are read.
+local function onStoreError(message: string, storeName: string, key: string)
+	log.warn("DataStore call failed on store %s, key %s: %s", storeName, key, message)
+end
+
+-- A key that held something ProfileStore could not read as a profile, and wrote a fresh one over: whatever the
+-- player had there is gone, which no retry brings back.
+local function onOverwrite(storeName: string, key: string)
+	log.error("store %s, key %s held no readable profile and was overwritten with a new one", storeName, key)
+end
+
+local function tellOutage(player: Player)
+	if toldOutage[player] then
+		return
+	end
+	toldOutage[player] = true
+	notify.send(player, "save.delayed", nil, "Error")
+end
+
+-- ProfileStore's critical state: its DataStore calls have been failing in a row. Saves wait for them to answer
+-- again, so a player is told once that progress is kept here meanwhile, and told again when saves are back.
+-- Everyone in the server, including a player whose profile is still loading: its load finishing tells nobody
+-- twice (tellOutage).
+local function onCriticalToggle(isCritical: boolean)
+	critical = isCritical
+	if isCritical then
+		log.warn("DataStore critical: saves are delayed and Robux purchases are paused until it answers again")
+		for _, player in ipairs(Players:GetPlayers()) do
+			tellOutage(player)
+		end
+		return
+	end
+	log.info("DataStore answers again: saves resume and Robux purchases reopen")
+	for player in pairs(toldOutage) do
+		notify.send(player, "save.restored", nil, "Success")
+	end
+	table.clear(toldOutage)
 end
 
 ----------------------------------------------------------------
 -- Public API
 ----------------------------------------------------------------
 
-function DataService.Init(deps: { Registry: any })
+-- Notify tells players of an outage (onCriticalToggle), from Start on: every service is initialised by then.
+function DataService.Init(deps: { Registry: any, Locale: any, Notify: NotifyApi })
 	registry = deps.Registry
+	locale = deps.Locale
+	notify = deps.Notify
 	store = ProfileStore.New(STORE_NAME, storeTemplate())
 	if RunService:IsStudio() and ProfileStore.DataStoreState ~= "Access" then
 		log.info("DataStore state: %s (Studio without API access saves nothing)", ProfileStore.DataStoreState)
@@ -341,6 +507,20 @@ function DataService.Init(deps: { Registry: any })
 end
 
 function DataService.Start()
+	-- Bound here, at Start, rather than read from ProfileStore alone: ProfileStore binds its own close only
+	-- once its DataStore check has answered, which is a web call after the server started.
+	game:BindToClose(function()
+		closing = true
+	end)
+	ProfileStore.OnError:Connect(onStoreError)
+	ProfileStore.OnOverwrite:Connect(onOverwrite)
+	ProfileStore.OnCriticalToggle:Connect(onCriticalToggle)
+	-- A player who joins during an outage hears of it once their profile is there, like everybody else.
+	DataService.ProfileLoaded:Connect(function(player: Player)
+		if critical then
+			tellOutage(player)
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -349,7 +529,14 @@ function DataService.Start()
 	log.info("started")
 end
 
--- Live profile data (mutate in place, then push the changed section).
+-- True once the server has started shutting down (game:BindToClose). Nothing that happens from then on is
+-- a player's choice: MatchService neither debits nor awards a forfeit.
+function DataService.isClosing(): boolean
+	return closing or ProfileStore.IsClosing
+end
+
+-- Live profile data (mutate in place, then push the changed section). Still answers for a player who left,
+-- until the grace of onPlayerRemoving ends their session.
 function DataService.get(player: Player): ProfileData?
 	local profile = profiles[player]
 	if profile == nil then
@@ -489,6 +676,11 @@ end
 function DataService.isActive(player: Player): boolean
 	local profile = profiles[player]
 	return profile ~= nil and profile:IsActive()
+end
+
+-- True while ProfileStore is in its critical state: saves are delayed until the DataStore answers again.
+function DataService.isCritical(): boolean
+	return critical
 end
 
 return DataService

@@ -1,15 +1,22 @@
 --!strict
 -- QuestService: the single writer of ProfileData.Quests. The active set of a period is selected
--- deterministically from QuestConfig.Pool for the current period key (QuestLogic.select), so every
--- player on every server shares the same daily / weekly quests and the client can rebuild the list
--- from the replicated section alone. A day or week rollover resets the set (QuestLogic.ensurePeriod).
+-- deterministically from QuestConfig.Pool for the key the set stores (QuestLogic.select), so every
+-- player on every server whose set carries that key shares the same quests, and the client can
+-- rebuild the list from the replicated section alone. A day or week rollover resets the set
+-- (QuestLogic.ensurePeriod) and stores the new period's key with the pool revision it is drawn from,
+-- which the set keeps to the end of its period.
 --
 -- This service never decides that a gameplay event happened: the services that own the gameplay call
 -- `report(player, event, amount)` with the event strings QuestConfig documents. The only signal it
 -- subscribes to is CombatService.Killed, which already tells who killed what.
 --
 -- Progress pushes are coalesced on one Heartbeat accumulator (a DamageDealt quest would otherwise
--- replicate the section on every hit); a completion, a claim and a period reset push immediately.
+-- replicate the section on every hit); a completion, a claim, a reroll and a period reset push immediately.
+--
+-- A set may spend QuestConfig.Rerolls[period] free rerolls in its period (one a day, on a daily quest): the
+-- client names the quest, and QuestLogic.reroll decides everything else -- that the quest is in the live set,
+-- neither claimed nor completed, that a reroll is left, and which Solo quest not drawn today takes its place.
+-- The swap is kept in the set (Swaps), so every server and the client play the same quests.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -65,14 +72,12 @@ type Deps = {
 	Combat: CombatApi,
 }
 
--- One period's live quests, cached until its period key changes.
-type Selection = { PeriodKey: string, Quests: { QuestDef } }
-
 local PERIOD_ORDER: { Period } = { "Daily", "Weekly" }
 -- Keyed by period id so a Period value reads as a plain string key.
 local PERIOD_DEFS = (
 	QuestConfig.Periods :: any
 ) :: { [string]: { Count: number, RewardXp: number, RewardFolios: number } }
+local REROLLS = (QuestConfig.Rerolls :: any) :: { [string]: number }
 local ENEMY_TAG = GameConfig.Enemy.Tag
 -- Types.DamageKind value that makes a damage application a landed melee hit.
 local MELEE_KIND: Types.DamageKind = "Melee"
@@ -88,7 +93,10 @@ local progression: ProgressionApi
 local currency: CurrencyApi
 local combat: CombatApi
 
-local selections: { [string]: Selection } = {}
+-- Live quests by set key. Deterministic, so shared by every player whose set carries the key: one key per
+-- period, and one more for the rest of a period that a deploy grew the pool in. Never pruned: a few
+-- short lists a day for the life of a server.
+local selections: { [string]: { QuestDef } } = {}
 -- Players whose Quests section changed since the last flush.
 local pending: { [Player]: true } = {}
 local accumulator = 0
@@ -109,33 +117,30 @@ local function push(player: Player)
 	dataService.push(player, "Quests")
 end
 
--- Live quests of `period` for the period containing `now`. Deterministic, so the cache is shared by
--- every player and only rebuilt on a rollover.
-local function selectionFor(period: Period, now: number): Selection
-	local periodKey = QuestLogic.periodKey(period, now)
-	local cached = selections[period]
-	if cached ~= nil and cached.PeriodKey == periodKey then
+-- Live quests of `period` for the set key `setKey`.
+local function questsFor(period: Period, setKey: string): { QuestDef }
+	local cached = selections[setKey]
+	if cached ~= nil then
 		return cached
 	end
-	local selection: Selection = {
-		PeriodKey = periodKey,
-		Quests = QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, periodKey),
-	}
-	selections[period] = selection
-	log.info("%s set %s: %d quests", period, periodKey, #selection.Quests)
-	return selection
+	local quests = QuestLogic.select(QuestConfig.Pool, period, PERIOD_DEFS[period].Count, setKey, QuestConfig.SoloFloor)
+	selections[setKey] = quests
+	log.info("%s set %s: %d quests", period, setKey, #quests)
+	return quests
 end
 
 -- Aligns the stored set with the live period and hands back both. A rollover clears the progress and
--- is replicated at once so the client never shows yesterday's quests.
+-- is replicated at once so the client never shows yesterday's quests. The quests are the stored key's,
+-- never the live one's: a set drawn before a deploy grew the pool keeps its quests until its period ends.
+-- A quest a reroll replaced is played as its replacement.
 local function ensureSet(player: Player, data: ProfileData, period: Period, now: number): (SetData, { QuestDef })
-	local selection = selectionFor(period, now)
 	local set = setFor(data, period)
-	if QuestLogic.ensurePeriod(set, selection.PeriodKey) then
+	local setKey = QuestLogic.setKey(QuestLogic.periodKey(period, now), QuestConfig.PoolRevision)
+	if QuestLogic.ensurePeriod(set, setKey) then
 		push(player)
-		log.info("%s: %s quests reset for %s", player.Name, period, selection.PeriodKey)
+		log.info("%s: %s quests reset for %s", player.Name, period, setKey)
 	end
-	return set, selection.Quests
+	return set, QuestLogic.swapped(QuestConfig.Pool, questsFor(period, set.PeriodKey), set.Swaps)
 end
 
 -- True when `event` can still advance one of the active quests. A read-only relevance test: it keeps
@@ -222,6 +227,33 @@ function QuestService.claim(player: Player, period: Period, questId: string): bo
 	local folios = currency.add(player, reward.RewardFolios, "Quest" .. period)
 	notify.send(player, "quest.reward", { xp = xp, folios = folios }, "Success", "Claim")
 	log.info("%s claimed %s (%s): +%d XP, +%d Folios", player.Name, questId, period, xp, folios)
+	return true
+end
+
+-- Spends one of the set's free rerolls on `questId` of `period`. Every rule is QuestLogic.reroll's; a refusal
+-- is logged and told, and the section is replicated on every path so the client never stays pending.
+function QuestService.reroll(player: Player, period: Period, questId: string): boolean
+	local data = dataService.get(player)
+	if data == nil then
+		log.warn("reroll skipped for %s: profile not loaded", player.Name)
+		return false
+	end
+	local set = ensureSet(player, data, period, os.time())
+	local rules: QuestLogic.RerollRules = {
+		Pool = QuestConfig.Pool,
+		Count = PERIOD_DEFS[period].Count,
+		Floor = QuestConfig.SoloFloor,
+		Allowance = REROLLS[period],
+	}
+	local verdict, drawn = QuestLogic.reroll(rules, period, set, questId)
+	push(player)
+	if verdict ~= "Rerolled" or drawn == nil then
+		log.warn("reroll rejected for %s: %s (%s) is %s", player.Name, questId, period, verdict)
+		notify.send(player, "quest.rerollRefused", nil, "Error")
+		return false
+	end
+	notify.send(player, "quest.rerolled", { name = drawn.NameKey, target = drawn.Target }, "Success")
+	log.info("%s rerolled %s (%s) into %s", player.Name, questId, period, drawn.Id)
 	return true
 end
 
@@ -317,6 +349,9 @@ function QuestService.Start()
 	combat.Dashed:Connect(onDashed)
 	registry.on("ClaimQuest", function(player: Player, period: Period, questId: string)
 		QuestService.claim(player, period, questId)
+	end)
+	registry.on("RerollQuest", function(player: Player, period: Period, questId: string)
+		QuestService.reroll(player, period, questId)
 	end)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (%d daily, %d weekly)", PERIOD_DEFS.Daily.Count, PERIOD_DEFS.Weekly.Count)

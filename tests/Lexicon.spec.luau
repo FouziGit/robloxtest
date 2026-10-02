@@ -46,6 +46,32 @@ local BORROWED: { [string]: string } = {
 	-- borrowed terms and never had a row for money. A folio is a leaf of a manuscript, so in Vellum the
 	-- page is the coin.
 	ryo = "folio",
+	-- The eight glyphs of the second roster were each asked for as a technique of some existing licence, and
+	-- their working names were those techniques, translated (D-145). The names below are the originals and
+	-- the translations that were proposed, so neither comes back through a tooltip. Not "bleach": the scan
+	-- only checks where a word starts, and "bleaching" is a word a page can use.
+	kamehameha = "Rubric",
+	getsuga = "Swash",
+	shunpo = "Dagger",
+	hiraishin = "Dagger",
+	shinra = "Emboss",
+	kurapika = "Stitch",
+	ryoiki = "Cartouche",
+	["domain expansion"] = "Cartouche",
+	["extension du territoire"] = "Cartouche",
+	["whorl sphere"] = "Volute",
+	["spiral sphere"] = "Volute",
+	["sphère spirale"] = "Volute",
+	-- The same, spelled the other ways they were written: the romanisation with its macron, and the working
+	-- names shown to the developer in both languages.
+	["ryōiki"] = "Cartouche",
+	["extension de territoire"] = "Cartouche",
+	["pas éclair"] = "Dagger",
+	["flash step"] = "Dagger",
+	["répulsion universelle"] = "Emboss",
+	["universal repulse"] = "Emboss",
+	["chaînes du jugement"] = "Stitch",
+	["judgment chain"] = "Stitch",
 }
 
 -- Where an old spelling is data rather than a name, and must survive untouched.
@@ -56,8 +82,8 @@ local BORROWED: { [string]: string } = {
 -- The two literals are DataStore names. A DataStore is addressed by its name: change the string and the
 -- engine returns a different, empty store, and every profile ever saved reads as a brand new player.
 local EXEMPT_FILES: { [string]: boolean } = {
-	["src/shared/Pure/LegacyNames.luau"] = true,
-	["src/shared/Pure/DataMigration.luau"] = true,
+	["src/server/Pure/LegacyNames.luau"] = true,
+	["src/server/Pure/DataMigration.luau"] = true,
 	["tests/LegacyNames.spec.luau"] = true,
 	["tests/DataMigration.spec.luau"] = true,
 	["tests/Lexicon.spec.luau"] = true,
@@ -172,7 +198,7 @@ describe("lexicon", function()
 		-- The exemption above lets these four files hold old spellings. That is only safe while they
 		-- actually still do: a sweep that "tidied" LegacyNames into an identity map would leave every
 		-- other test green and quietly wipe the profiles it exists to save.
-		local legacy = fs.readFile("src/shared/Pure/LegacyNames.luau")
+		local legacy = fs.readFile("src/server/Pure/LegacyNames.luau")
 		for _, pair in ipairs({ { "Fireball", "Brand" }, { "Raijin", "Colophon" }, { "Genin", "Blank" } }) do
 			local old, fresh = pair[1], pair[2]
 			local expected = ("%s = %q,"):format(old, fresh)

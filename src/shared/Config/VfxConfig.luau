@@ -16,6 +16,25 @@ local VfxConfig = {}
 -- really wanted is a Light layer, which lights the page around it instead of bleaching the ink.
 VfxConfig.LightEmission = 0
 
+-- The glyph's own light (D-119). The page stays ink; a spell is the one thing on it allowed to burn. A layer
+-- may add up to MaxGlow of its colour as light (its Glow), and its Core role is the pigment pushed Toward
+-- white by that share at birth -- never white itself, which is invulnerability -- cooling into the wet
+-- pigment by `Cools` of its life.
+VfxConfig.MaxGlow = 1
+VfxConfig.Heat = { Toward = 0.72, Cools = 0.35 }
+
+-- How far past its end size a particle that pops (Layer.Pop) swells before it settles.
+VfxConfig.PopOvershoot = 1.2
+
+-- With shakes and flashes turned off (the profile's switch, or the platform's reduced motion), a core is
+-- still the hot centre of its pigment but adds at most Glow of its colour as light and shines no brighter
+-- than Brightness, so nothing on screen blooms (D-119).
+VfxConfig.Calm = { Glow = 0.25, Brightness = 1 }
+
+-- The hand a spell is born in and thrown from (Layer.Anchor, the local tap): R15's right hand, where every
+-- cast animation puts the release.
+VfxConfig.Hand = "RightHand"
+
 -- Ink dries (D-111). Every particle, trail and floor mark of a glyph is born a shade paler -- wet -- and
 -- dries a shade darker, in its own pigment: the same shading PigmentConfig measures, so the school stays
 -- readable at both ends. A thing drawn in one flat colour from birth to death is a sticker; one that
@@ -75,6 +94,10 @@ VfxConfig.Afterimage = {
 -- VelocityParallel turns the image to its velocity; checked live with sparks thrown straight up (D-111).
 VfxConfig.StreakTextures = { SparkStreak = true } :: { [string]: boolean }
 
+-- Textures that stand up in the world (D-123). A particle faces the camera and turns with it, so a flame
+-- seen from a raised camera leaned with the screen; FacingCameraWorldUp keeps its tip to the sky.
+VfxConfig.UprightTextures = { InkFlame = true } :: { [string]: boolean }
+
 -- The ink each client paints on a Margin's slab (VfxLibrary.Margin, D-110). The slab is the server's
 -- -- its collision, its paled pigment, its rise and sink -- and was a smooth board; tried live, two
 -- rhythms of horizontal brush courses over the page's grain read as earth laid by a hand, where one
@@ -91,7 +114,8 @@ VfxConfig.WallPaint = {
 }
 
 -- Emitted by GlyphEffects: one per glyph, plus the shared detonation ("Explosion", reused by
--- Brand and Blot when they blow up).
+-- Brand and Blot when they blow up), the two charges (the Volute's and the Rubric's, sent at the press
+-- and lasting their wind-up, D-141) and the Stitch's catch.
 VfxConfig.GlyphIds = {
 	"Brand",
 	"Explosion",
@@ -115,6 +139,18 @@ VfxConfig.GlyphIds = {
 	"Caret",
 	"Watermark",
 	"Colophon",
+	-- Second roster (D-145)
+	"Volute",
+	"VoluteCharge",
+	"Rubric",
+	"RubricCharge",
+	"Swash",
+	"Dagger",
+	"Cartouche",
+	"Emboss",
+	"Stitch",
+	"StitchCatch",
+	"Hatching",
 } :: { string }
 
 -- Emitted by GlyphService and CombatService (casting, hits, melee kit, guard).
@@ -129,7 +165,8 @@ VfxConfig.CombatIds = {
 	-- A killer's KillEffect cosmetic, drawn where the victim fell (CosmeticService).
 	"KillEffect",
 	-- A thrown Brand that never burst -- its caster stunned, guarding or dead before it landed: the
-	-- drawn one stops where the real one was (GlyphEffects.Brand, D-114).
+	-- drawn one stops where the real one was (GlyphEffects.Brand, D-114). A Blot that never burst comes
+	-- down on it too, and so do a Swash wherever it ends and a Stitch that caught nobody.
 	"Fizzle",
 } :: { string }
 
@@ -152,9 +189,16 @@ VfxConfig.BossIds = {
 	"BossDefeated",
 } :: { string }
 
+-- Emitted by the Battleground's Forgers (D-131), besides the players' own Melee stroke and the Strike beam they
+-- reuse for their blows: the tell of every wind-up, for as long as the server makes it wait (BattlegroundService's
+-- Context.TellVfxId).
+VfxConfig.ForgerIds = {
+	"ForgerTell",
+} :: { string }
+
 VfxConfig.Ids = {} :: { string }
 VfxConfig.IdSet = {} :: { [string]: boolean }
-for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds, VfxConfig.BossIds }) do
+for _, list in ipairs({ VfxConfig.GlyphIds, VfxConfig.CombatIds, VfxConfig.BossIds, VfxConfig.ForgerIds }) do
 	for _, id in ipairs(list) do
 		table.insert(VfxConfig.Ids, id)
 		VfxConfig.IdSet[id] = true

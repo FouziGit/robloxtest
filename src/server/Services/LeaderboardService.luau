@@ -8,30 +8,40 @@
 -- out the key's OrderedDataStore cooldown rather than writing through it, and a game:BindToClose waits
 -- for the passes still in flight so a shutdown a second later does not take a rating with it. Every
 -- board is re-read every RankingConfig.Leaderboard.RefreshSeconds with GetSortedAsync, names resolved
--- through a cache, and the rows are rendered onto the hub's LeaderboardBoard_<boardId> SurfaceGuis. Every
+-- through a cache, and the rows are rendered onto the hub boards' row containers, which HubService hands
+-- over by board id (D-128: this service used to look for a PART named LeaderboardBoard_<boardId>, while
+-- HubService gives that name to the board's Model -- no board ever showed a row). Every
 -- DataStore call goes through a retry with backoff and stays silent on failure, so a server without
 -- DataStore access (Studio) keeps a working hub, RequestLeaderboard handler and match flow.
+--
+-- Only players reach the ladders (LadderGate, D-210): a non-positive id, which is what Studio gives the
+-- players of a multi-client test, is never written and a row holding one is never shown, and a Studio
+-- session writes nothing unless StudioConfig.WriteLadders says so. Each reason is logged once per server.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local GameConfig = require(Shared.Config.GameConfig)
-local ListRow = require(UI.components.ListRow)
+local LadderGate = require(script.Parent.Parent.Pure.LadderGate)
 local Log = require(Shared.Util.Log)
+local Lru = require(script.Parent.Parent.Pure.Lru)
 local RankingConfig = require(Shared.Config.RankingConfig)
 local Strings = require(Shared.Strings)
+local StudioConfig = require(script.Parent.Parent.Config.StudioConfig)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
+local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("LeaderboardService")
+
+local BOARD = WorldConfig.HubBoard
 
 type LeaderboardSnapshot = Types.LeaderboardSnapshot
 type LeaderboardEntry = Types.LeaderboardEntry
@@ -47,17 +57,14 @@ type RankingApi = {
 	RatingChanged: RatingSignal,
 }
 type Registry = { setCallback: (name: string, callback: (player: Player, ...any) -> ...any) -> () }
-type Deps = { Registry: Registry, Ranking: RankingApi }
+type HubApi = { getLeaderboardEntries: (boardId: string) -> Frame? }
+type Deps = { Registry: Registry, Ranking: RankingApi, Hub: HubApi }
 
 -- One coalesced ladder write. `NotBefore` is the os.clock() at which the key leaves its per-key
 -- OrderedDataStore cooldown; writing earlier is rejected, so the write waits for it instead.
 type Write = { BoardId: string, UserId: number, Value: number, NotBefore: number }
 
 local STORE_SEPARATOR = "_"
-local BOARD_PART_PREFIX = "LeaderboardBoard_"
--- Row container inside a board's SurfaceGui. HubService may create it to place the rows under its own
--- header; when it is missing this service creates one filling the whole surface.
-local ROWS_FRAME_NAME = "LeaderboardRows"
 -- Granularity of the write-queue scan. The real cadence per key stays MinWriteIntervalSeconds.
 local WRITE_SCAN_SECONDS = 1
 local RETRY_ATTEMPTS = 3
@@ -76,6 +83,7 @@ local LeaderboardService = {}
 
 local registry: Registry
 local ranking: RankingApi
+local hub: HubApi
 
 local trove = Trove.new()
 local stores: { [string]: OrderedDataStore? } = {}
@@ -85,8 +93,7 @@ local pending: { [string]: { [number]: number } } = {}
 -- boardId -> userId -> os.clock() of the last write that landed. A failed write leaves no stamp: it earned
 -- no OrderedDataStore cooldown, and stamping it would make the retry wait one out for nothing.
 local lastWrite: { [string]: { [number]: number } } = {}
-local names: { [number]: string } = {}
-local parts: { [string]: BasePart? } = {}
+local names: Lru.Cache<number, string> = Lru.new(RankingConfig.Leaderboard.NameCacheSize)
 local rowTroves: { [string]: typeof(Trove.new()) } = {}
 
 local writeAccumulator = 0
@@ -99,6 +106,10 @@ local outstandingWrites = 0
 -- os.clock() until which DataStore calls are skipped: set when a call exhausts its retries, so a
 -- server without DataStore access reports the problem once per cooldown instead of on every call.
 local offlineUntil = 0
+-- Whether this server runs in Studio, read once in Init.
+local studio = false
+-- The reasons a rating was kept off the ladders that this server has already logged.
+local refusalsLogged: { [string]: boolean } = {}
 
 ----------------------------------------------------------------
 -- DataStore access
@@ -180,8 +191,26 @@ local function enqueue(boardId: string, userId: number, value: number)
 	queue[userId] = math.max(0, math.floor(value))
 end
 
+-- Says, the first time each reason turns up on this server, why a rating stays off the ladders.
+local function logRefusal(refusal: string, player: Player)
+	if refusalsLogged[refusal] then
+		return
+	end
+	refusalsLogged[refusal] = true
+	if refusal == "TestId" then
+		log.info("%s has the test id %d: ratings of non-positive ids stay off the ladders", player.Name, player.UserId)
+	else
+		log.info("Studio session: ratings stay off the ladders (StudioConfig.WriteLadders is off)")
+	end
+end
+
 local function onRatingChanged(player: Player, modeId: string, _before: number, after: number)
-	names[player.UserId] = player.Name
+	local refusal = LadderGate.refusal(player.UserId, studio, StudioConfig.WriteLadders)
+	if refusal ~= nil then
+		logRefusal(refusal, player)
+		return
+	end
+	Lru.set(names, player.UserId, player.Name)
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		if boardId == modeId then
 			enqueue(boardId, player.UserId, after)
@@ -303,20 +332,20 @@ end
 -- Username for a leaderboard row. Online players and already resolved ids cost nothing; a failed
 -- lookup falls back to the raw id and is not cached, so the next refresh retries it. Yields.
 local function nameFor(userId: number): string
-	local cached = names[userId]
+	local cached = Lru.get(names, userId)
 	if cached ~= nil then
 		return cached
 	end
 	local player = Players:GetPlayerByUserId(userId)
 	if player ~= nil then
-		names[userId] = player.Name
+		Lru.set(names, userId, player.Name)
 		return player.Name
 	end
 	local ok, resolved = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
 	end)
 	if ok and type(resolved) == "string" then
-		names[userId] = resolved
+		Lru.set(names, userId, resolved)
 		return resolved
 	end
 	return tostring(userId)
@@ -324,7 +353,9 @@ end
 
 local renderBoard: (boardId: string) -> ()
 
--- Re-reads every board from its ladder and renders it. Yields; runs on its own thread.
+-- Re-reads every board from its ladder and renders it. A row whose key is no player id (a Studio test
+-- player written before LadderGate existed) is skipped, and the rows below it move up. Yields; runs on its
+-- own thread.
 local function refreshBoards()
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		local store = storeFor(GameConfig.SeasonId, boardId)
@@ -338,7 +369,7 @@ local function refreshBoards()
 				for _, record in ipairs((pages :: DataStorePages):GetCurrentPage()) do
 					local userId = tonumber(record.key)
 					local value = tonumber(record.value)
-					if userId ~= nil and value ~= nil then
+					if userId ~= nil and value ~= nil and LadderGate.isPlayerId(userId) then
 						local rank = #entries + 1
 						table.insert(entries, {
 							Rank = rank,
@@ -357,52 +388,59 @@ local function refreshBoards()
 end
 
 ----------------------------------------------------------------
--- Hub SurfaceGuis
+-- Hub boards
 ----------------------------------------------------------------
 
--- The row container of a board's SurfaceGui, created when HubService did not provide one, always with
--- a vertical layout so the rows stack whoever built the frame.
-local function ensureRowsFrame(gui: SurfaceGui): Frame
-	local frame: Frame
-	local existing = gui:FindFirstChild(ROWS_FRAME_NAME)
-	if existing ~= nil and existing:IsA("Frame") then
-		frame = existing
-	else
-		frame = Instance.new("Frame")
-		frame.Name = ROWS_FRAME_NAME
-		frame.BackgroundTransparency = 1
-		frame.BorderSizePixel = 0
-		frame.Size = UDim2.fromScale(1, 1)
-		local padding = Instance.new("UIPadding")
-		padding.PaddingTop = UDim.new(0, Theme.Sizes.Padding)
-		padding.PaddingBottom = UDim.new(0, Theme.Sizes.Padding)
-		padding.PaddingLeft = UDim.new(0, Theme.Sizes.Padding)
-		padding.PaddingRight = UDim.new(0, Theme.Sizes.Padding)
-		padding.Parent = frame
-		frame.Parent = gui
-	end
-	if frame:FindFirstChildWhichIsA("UIListLayout") == nil then
-		local layout = Instance.new("UIListLayout")
-		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Padding = UDim.new(0, Theme.Sizes.PaddingSmall)
-		layout.Parent = frame
-	end
-	return frame
+-- One line of a hub board: rank and name on the left, rating on the right, in the page's ink, written as
+-- large as WorldConfig.HubBoard asks so it reads from across the hub. Names and ratings are not
+-- localizable text, which is why the server may write them on a part every viewer shares.
+local function boardLabel(name: string, text: string, alignment: Enum.TextXAlignment, font: Font, row: Frame): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.FontFace = font
+	label.TextSize = BOARD.TextPixels
+	label.TextColor3 = Theme.Colors.Text
+	label.TextXAlignment = alignment
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.Text = text
+	label.Parent = row
+	return label
 end
 
--- Rebuilds the rows of one board. A board with no entry is left empty: the localized empty state
--- belongs to the client screen.
+local function boardRow(entry: LeaderboardEntry, parent: Frame): Frame
+	local row = Instance.new("Frame")
+	row.Name = "Row" .. entry.Rank
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(1, 0, 0, BOARD.RowPixels)
+	row.LayoutOrder = entry.Rank
+	local name = boardLabel(
+		"Name",
+		Strings.t("leaderboard.row", { rank = entry.Rank, name = entry.Name }),
+		Enum.TextXAlignment.Left,
+		Theme.Fonts.Bold,
+		row
+	)
+	name.Size = UDim2.fromScale(0.78, 1)
+	local rating = boardLabel(
+		"Rating",
+		Strings.t("leaderboard.rating", { rating = entry.Rating }),
+		Enum.TextXAlignment.Right,
+		Theme.Fonts.Numeric,
+		row
+	)
+	rating.Size = UDim2.fromScale(1, 1)
+	row.Parent = parent
+	return row
+end
+
+-- Rebuilds the rows of one board, the first BOARD.Rows of its snapshot. A board with no entry is left
+-- empty: its localized title and empty state are drawn by each client (HubSignsController).
 renderBoard = function(boardId: string)
-	local part = parts[boardId]
-	if part == nil or part.Parent == nil then
+	local frame = hub.getLeaderboardEntries(boardId)
+	if frame == nil then
 		return
 	end
-	local gui = part:FindFirstChildWhichIsA("SurfaceGui")
-	if gui == nil then
-		return
-	end
-	local frame = ensureRowsFrame(gui)
 	local rows = rowTroves[boardId]
 	if rows == nil then
 		rows = trove:Extend()
@@ -414,39 +452,12 @@ renderBoard = function(boardId: string)
 	if snapshot == nil then
 		return
 	end
-	for _, entry in ipairs(snapshot.Entries) do
-		local row = ListRow.new({
-			Left = Strings.t("leaderboard.row", { rank = entry.Rank, name = entry.Name }),
-			Right = Strings.t("leaderboard.rating", { rating = entry.Rating }),
-			LayoutOrder = entry.Rank,
-			Parent = frame,
-		})
-		rows:Add(row, "Destroy")
-	end
-end
-
--- Hub boards are built in HubService.Start, which may run before or after this service: the initial
--- scan catches the ones already there and DescendantAdded the ones built later.
-local function registerPart(instance: Instance)
-	if not instance:IsA("BasePart") then
-		return
-	end
-	local matched = string.match(instance.Name, "^" .. BOARD_PART_PREFIX .. "(.+)$")
-	if type(matched) ~= "string" or snapshots[matched] == nil then
-		return
-	end
-	local boardId: string = matched
-	if parts[boardId] == instance then
-		return
-	end
-	parts[boardId] = instance
-	-- The SurfaceGui may be parented after the part itself.
-	trove:Add(instance.ChildAdded:Connect(function(child: Instance)
-		if child:IsA("SurfaceGui") then
-			renderBoard(boardId)
+	for index, entry in ipairs(snapshot.Entries) do
+		if index > BOARD.Rows then
+			break
 		end
-	end))
-	renderBoard(boardId)
+		rows:Add(boardRow(entry, frame))
+	end
 end
 
 ----------------------------------------------------------------
@@ -524,6 +535,8 @@ end
 function LeaderboardService.Init(deps: Deps)
 	registry = deps.Registry
 	ranking = deps.Ranking
+	hub = deps.Hub
+	studio = RunService:IsStudio()
 	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
 		snapshots[boardId] = { BoardId = boardId, UpdatedAt = 0, Entries = {} }
 		pending[boardId] = {}
@@ -538,25 +551,28 @@ function LeaderboardService.Start()
 	ranking.RatingChanged:Connect(onRatingChanged)
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		names[player.UserId] = player.Name
+		Lru.set(names, player.UserId, player.Name)
 	end
 	trove:Add(Players.PlayerAdded:Connect(function(player: Player)
-		names[player.UserId] = player.Name
+		Lru.set(names, player.UserId, player.Name)
 	end))
 	trove:Add(Players.PlayerRemoving:Connect(onPlayerRemoving))
 
-	for _, descendant in ipairs(Workspace:GetDescendants()) do
-		registerPart(descendant)
+	-- HubService built the boards in its own Start, which runs first (Bootstrap order).
+	for _, boardId in ipairs(RankingConfig.Leaderboard.Boards) do
+		renderBoard(boardId)
 	end
-	trove:Add(Workspace.DescendantAdded:Connect(registerPart))
 
 	trove:Add(RunService.Heartbeat:Connect(onHeartbeat))
 	game:BindToClose(onClose)
 	task.spawn(function()
 		log.try("initial refresh", refreshBoards)
 	end)
-	if RunService:IsStudio() then
-		log.info("Studio: ladders need API access to read and write")
+	if studio then
+		log.info(
+			"Studio: ladders need API access to be read, and are written only with StudioConfig.WriteLadders (%s)",
+			tostring(StudioConfig.WriteLadders)
+		)
 	end
 	log.info(
 		"started (%d boards, season %s, refresh %ds)",

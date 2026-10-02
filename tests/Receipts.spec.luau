@@ -1,0 +1,425 @@
+--!strict
+-- A developer product receipt, run (tests/engine.luau): the real Receipts, BattlepassService, CurrencyService and
+-- AnalyticsService, with the profile, its save, the player's toasts and Roblox's analytics (tests/analytics.luau) as
+-- the only fakes.
+--
+-- The Robux are taken when the player confirms the dialog, and only PurchaseGranted settles a receipt:
+-- NotProcessedYet leaves it pending, and Roblox delivers it again at every join. A tier skip that found the
+-- pass at its last tier answered NotProcessedYet for ever (R2), and one bought between tiers 46 and 49 gave
+-- fewer tiers than it sold, without a word (R14).
+local Analytics = require("./analytics")
+local BattlepassConfig = require("../src/shared/Config/BattlepassConfig")
+local Engine = require("./engine")
+local GameConfig = require("../src/shared/Config/GameConfig")
+local Harness = require("./harness")
+local MonetizationConfig = require("../src/shared/Config/MonetizationConfig")
+local ShopConfig = require("../src/shared/Config/ShopConfig")
+local roblox = require("@lune/roblox") :: any
+
+local describe, it, expect = Harness.describe, Harness.it, Harness.expect
+
+local USER_ID = 7
+local SEASON = GameConfig.SeasonId
+local GRANTED = roblox.Enum.ProductPurchaseDecision.PurchaseGranted
+local TIER_SKIP = "TierSkip5"
+
+type Toast = { Key: string, Params: { [string]: any }? }
+type Fixture = {
+	data: any,
+	-- This world's MonetizationConfig, ids filled in.
+	config: any,
+	toasts: { Toast },
+	saves: number,
+	-- Product ids of every Roblox purchase dialog the server opened.
+	opened: { number },
+	-- What reached Roblox's analytics.
+	analytics: Analytics.Recorder,
+	-- The player presses a Robux button (the PromptPurchase remote).
+	ask: (productKey: string) -> (),
+	-- Roblox delivers the receipt of a confirmed dialog.
+	deliver: (productKey: string, purchaseId: string) -> any,
+	-- The dialog of `productKey` closes, bought or not.
+	finish: (productKey: string, bought: boolean) -> (),
+}
+
+local function profile(tier: number, xp: number): any
+	return {
+		Battlepass = {
+			[SEASON] = { Tier = tier, XP = xp, Premium = false, ClaimedFree = {}, ClaimedPremium = {} },
+		},
+		Currency = { Folios = 0 },
+		Passes = {},
+		Boosts = { XpUntil = 0, XpMultiplier = 1 },
+		Purchases = { Receipts = {}, ProductCounts = {} },
+	}
+end
+
+local function setup(tier: number, xp: number?): Fixture
+	local opened: { number } = {}
+	local analytics = Analytics.recorder()
+	local services = table.clone(analytics.services)
+	services.MarketplaceService = {
+		PromptProductPurchase = function(_self: any, _player: any, productId: number)
+			table.insert(opened, productId)
+		end,
+	}
+	local world = Engine.world({ Services = services })
+	-- The ids ship at 0 until the Creator Dashboard fills them; this world's copy of the config gets its own.
+	local config = world.require("src/shared/Config/MonetizationConfig")
+	local keys: { string } = {}
+	for key in pairs(config.Products) do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for index, key in ipairs(keys) do
+		config.Products[key].Id = 1000 + index
+	end
+
+	local player = world.player
+	player.UserId = USER_ID
+	world.game:GetService("Players").GetPlayerByUserId = function(_self: any, userId: number): any
+		return if userId == USER_ID then player else nil
+	end
+	-- The head count AnalyticsService sizes the server's budget by.
+	world.game:GetService("Players").GetPlayers = function(_self: any): { any }
+		return { player }
+	end
+
+	local data = profile(tier, xp or 0)
+	local fixture = {
+		data = data,
+		toasts = {} :: { Toast },
+		saves = 0,
+		opened = opened,
+		config = config,
+		analytics = analytics,
+	} :: any
+	local dataService = {
+		get = function(): any
+			return data
+		end,
+		waitFor = function(): any
+			return data
+		end,
+		push = function() end,
+		recordReceipt = function(_player: any, purchaseId: string): boolean
+			table.insert(data.Purchases.Receipts, purchaseId)
+			return true
+		end,
+		saveNow = function(): boolean
+			fixture.saves += 1
+			return true
+		end,
+		isActive = function(): boolean
+			return true
+		end,
+		-- Saving works: tests/SaveOutage.spec.luau is where it does not.
+		isCritical = function(): boolean
+			return false
+		end,
+	}
+	local notify = {
+		send = function(_player: any, key: string, params: { [string]: any }?)
+			table.insert(fixture.toasts, { Key = key, Params = params })
+		end,
+	}
+	local analyticsService = world.require("src/server/Services/AnalyticsService")
+	local currency = world.require("src/server/Services/CurrencyService")
+	currency.Init({ DataService = dataService, Analytics = analyticsService })
+	local battlepass = world.require("src/server/Services/BattlepassService")
+	battlepass.Init({
+		Registry = { on = function() end },
+		DataService = dataService,
+		Notify = notify,
+		Currency = currency,
+		Cosmetic = {
+			grant = function(): boolean
+				return true
+			end,
+		},
+	})
+	local deps = {
+		DataService = dataService,
+		Notify = notify,
+		Currency = currency,
+		Battlepass = battlepass,
+		Analytics = analyticsService,
+		-- The player owns every article of every rarity: a cosmetic receipt is paid in Folios.
+		Shop = {
+			resolveReceiptItem = function(): string?
+				return nil
+			end,
+		},
+	}
+	local receipts = world.require("src/server/Services/MonetizationService/Receipts")
+	receipts.Init(deps)
+	local purchases = world.require("src/server/Services/MonetizationService/Purchases")
+	purchases.Init(deps)
+
+	fixture.ask = function(productKey: string)
+		purchases.prompt(player, "Product", productKey)
+	end
+
+	fixture.finish = function(productKey: string, bought: boolean)
+		purchases.onPurchaseFinished(USER_ID, config.Products[productKey].Id, bought)
+	end
+
+	fixture.deliver = function(productKey: string, purchaseId: string): any
+		return receipts.process({
+			PlayerId = USER_ID,
+			ProductId = config.Products[productKey].Id,
+			PurchaseId = purchaseId,
+		})
+	end
+	return fixture
+end
+
+local function keysOf(toasts: { Toast }): { string }
+	local keys = {}
+	for _, toast in ipairs(toasts) do
+		table.insert(keys, toast.Key)
+	end
+	return keys
+end
+
+local function toastOf(toasts: { Toast }, key: string): Toast?
+	for _, toast in ipairs(toasts) do
+		if toast.Key == key then
+			return toast
+		end
+	end
+	return nil
+end
+
+local MAX = BattlepassConfig.MaxTier
+local PER_TIER = MonetizationConfig.Products[TIER_SKIP].CompensationFolios :: number
+local TIERS = MonetizationConfig.Products[TIER_SKIP].Amount :: number
+
+describe("a tier skip receipt", function()
+	it("grants every tier below the last one and keeps the XP already earned towards the next", function()
+		local fixture = setup(10, 40)
+		expect(fixture.deliver(TIER_SKIP, "below")).toBe(GRANTED)
+		local season = fixture.data.Battlepass[SEASON]
+		expect(season.Tier).toBe(10 + TIERS)
+		expect(season.XP).toBe(40)
+		expect(fixture.data.Currency.Folios).toBe(0)
+		expect(toastOf(fixture.toasts, "purchase.tiersPastLast")).toBeNil()
+	end)
+
+	it("pays the whole skip in Folios when the pass already stands at the last tier, and settles once (R2)", function()
+		local fixture = setup(MAX, 0)
+		expect(fixture.deliver(TIER_SKIP, "at-max")).toBe(GRANTED)
+		expect(fixture.data.Battlepass[SEASON].Tier).toBe(MAX)
+		expect(fixture.data.Currency.Folios).toBe(PER_TIER * TIERS)
+		expect(fixture.data.Purchases.Receipts).toEqual({ "at-max" })
+		expect(fixture.saves).toBe(1)
+		local paid = toastOf(fixture.toasts, "purchase.tiersPastLast")
+		assert(paid ~= nil, "the player is never told where the purchase went")
+		expect((paid.Params :: any).amount).toBe(PER_TIER * TIERS)
+		-- No tier moved, so nothing says one did.
+		expect(toastOf(fixture.toasts, "purchase.tiersGranted")).toBeNil()
+
+		-- Roblox delivering the same receipt again (a join, a lost answer) pays nothing twice.
+		expect(fixture.deliver(TIER_SKIP, "at-max")).toBe(GRANTED)
+		expect(fixture.data.Currency.Folios).toBe(PER_TIER * TIERS)
+		expect(fixture.data.Purchases.Receipts).toEqual({ "at-max" })
+	end)
+
+	it("settles a skip whose dialog opened a tier short of the last one (R2)", function()
+		-- The server refuses a skip at the last tier only when the dialog opens. A match can finish the
+		-- pass while the dialog is open, and the receipt then finds it full.
+		local fixture = setup(MAX - 1, 0)
+		fixture.ask(TIER_SKIP)
+		expect(#fixture.opened).toBe(1)
+		fixture.data.Battlepass[SEASON].Tier = MAX
+		expect(fixture.deliver(TIER_SKIP, "raced")).toBe(GRANTED)
+		expect(fixture.data.Currency.Folios).toBe(PER_TIER * TIERS)
+
+		fixture.ask(TIER_SKIP)
+		expect(#fixture.opened).toBe(1)
+		expect(toastOf(fixture.toasts, "purchase.unavailable")).never.toBeNil()
+	end)
+
+	it("pays each tier past the last one in Folios between tiers 46 and 49 (R14)", function()
+		for tier = MAX - TIERS + 1, MAX - 1 do
+			local fixture = setup(tier, 25)
+			expect(fixture.deliver(TIER_SKIP, "near-" .. tier)).toBe(GRANTED)
+			local fits = MAX - tier
+			expect(fixture.data.Battlepass[SEASON].Tier).toBe(MAX)
+			expect(fixture.data.Currency.Folios).toBe(PER_TIER * (TIERS - fits))
+			local tiers = toastOf(fixture.toasts, "purchase.tiersGranted")
+			assert(tiers ~= nil, "the tiers that fit are never announced")
+			expect((tiers.Params :: any).tiers).toBe(fits)
+			local paid = toastOf(fixture.toasts, "purchase.tiersPastLast")
+			assert(paid ~= nil, "the tiers past the last one are paid without a word")
+			expect((paid.Params :: any).amount).toBe(PER_TIER * (TIERS - fits))
+			-- The tiers first, then what they could not hold.
+			local order = keysOf(fixture.toasts)
+			local first = table.find(order, "purchase.tiersGranted") :: number
+			local second = table.find(order, "purchase.tiersPastLast") :: number
+			expect(first).toBeLessThan(second)
+		end
+	end)
+
+	it("moves no tier and stays pending when what is past the last tier cannot be paid", function()
+		-- The retried receipt must start from the same pass: had the tiers moved first, it would find fewer
+		-- to give and pay the rest again, or give them twice.
+		local fixture = setup(MAX - 2, 25)
+		fixture.config.Products[TIER_SKIP].CompensationFolios = nil
+		expect(fixture.deliver(TIER_SKIP, "unpaid")).never.toBe(GRANTED)
+		expect(fixture.data.Battlepass[SEASON].Tier).toBe(MAX - 2)
+		expect(fixture.data.Battlepass[SEASON].XP).toBe(25)
+		expect(fixture.data.Purchases.Receipts).toEqual({})
+		expect(fixture.toasts).toEqual({})
+	end)
+
+	it("pays past the last tier at the VIP rate, the rate every Folios product is paid at", function()
+		local fixture = setup(MAX, 0)
+		fixture.data.Passes.Vip = true
+		expect(fixture.deliver(TIER_SKIP, "vip")).toBe(GRANTED)
+		expect(fixture.data.Currency.Folios).toBeGreaterThan(PER_TIER * TIERS)
+		local paid = toastOf(fixture.toasts, "purchase.tiersPastLast")
+		assert(paid ~= nil, "the VIP is paid without a word")
+		expect((paid.Params :: any).amount).toBe(fixture.data.Currency.Folios)
+	end)
+end)
+
+describe("a Premium Pass receipt", function()
+	it("opens the premium track", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("PremiumPass", "first")).toBe(GRANTED)
+		expect(fixture.data.Battlepass[SEASON].Premium).toBe(true)
+		expect(fixture.data.Currency.Folios).toBe(0)
+	end)
+
+	it("pays the pass in Folios when it lands on a player who already has the track, and settles once (R11)", function()
+		-- The dialog is refused to a Premium player; a second dialog confirmed before the first receipt
+		-- arrived is how a receipt still lands on one.
+		local fixture = setup(3, 0)
+		fixture.ask("PremiumPass")
+		fixture.ask("PremiumPass")
+		expect(#fixture.opened).toBe(2)
+		expect(fixture.deliver("PremiumPass", "first")).toBe(GRANTED)
+		expect(fixture.deliver("PremiumPass", "second")).toBe(GRANTED)
+		local worth = MonetizationConfig.Products.PremiumPass.CompensationFolios :: number
+		expect(fixture.data.Currency.Folios).toBe(worth)
+		local paid = toastOf(fixture.toasts, "purchase.premiumOwnedFolios")
+		assert(paid ~= nil, "the second pass is paid without a word")
+		expect((paid.Params :: any).amount).toBe(worth)
+
+		expect(fixture.deliver("PremiumPass", "second")).toBe(GRANTED)
+		expect(fixture.data.Currency.Folios).toBe(worth)
+		expect(fixture.data.Purchases.Receipts).toEqual({ "first", "second" })
+
+		-- Once Premium, the dialog does not open again.
+		fixture.ask("PremiumPass")
+		expect(#fixture.opened).toBe(2)
+	end)
+end)
+
+describe("what the Creator Dashboard learns of a purchase (E8-S2)", function()
+	it("names the product in CustomField01 of the purchase, at its price in Robux", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		local sent = fixture.analytics:of("LogCustomEvent", "ProductPurchased")
+		expect(#sent).toBe(1)
+		expect(sent[1].Args[2]).toBe(MonetizationConfig.Products.FolioSmall.PriceRobux)
+		expect(sent[1].Args[3]).toEqual({ CustomField01 = "FolioSmall" })
+	end)
+
+	it("says of each closed dialog that it was a product, and which", function()
+		local fixture = setup(3, 0)
+		fixture.finish("XpBoost1h", true)
+		fixture.finish("TierSkip5", false)
+		local accepted = fixture.analytics:of("LogCustomEvent", "PromptAccepted")
+		local declined = fixture.analytics:of("LogCustomEvent", "PromptDeclined")
+		expect(#accepted).toBe(1)
+		expect(#declined).toBe(1)
+		expect(accepted[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "XpBoost1h" })
+		expect(declined[1].Args[3]).toEqual({ CustomField01 = "Product", CustomField02 = "TierSkip5" })
+	end)
+end)
+
+-- Receipts reported the Folios they granted as well as CurrencyService: every pack counted twice, and the Folios a
+-- cosmetic receipt paid instead of an article were not counted at all (E8-S1).
+describe("what the Economy dashboards learn of a receipt (E8-S1)", function()
+	-- The economy events that reached Roblox, as { flow, amount, transaction, item }.
+	local function economy(fixture: Fixture): { { any } }
+		local found = {}
+		for _, call in ipairs(fixture.analytics:of("LogEconomyEvent")) do
+			local args = call.Args
+			table.insert(found, { args[1].Name, args[3], args[5], args[6] })
+		end
+		return found
+	end
+
+	it("is one source per pack of Folios, under IAP, with the product as its item", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		local amount = MonetizationConfig.Products.FolioSmall.Amount :: number
+		expect(economy(fixture)).toEqual({ { "Source", amount, "IAP", "FolioSmall" } })
+		-- Delivered again, the receipt pays nothing and reports nothing.
+		expect(fixture.deliver("FolioSmall", "small")).toBe(GRANTED)
+		expect(#economy(fixture)).toBe(1)
+	end)
+
+	it("is one source for what a skip could no longer deliver", function()
+		local fixture = setup(MAX, 0)
+		expect(fixture.deliver(TIER_SKIP, "at-max")).toBe(GRANTED)
+		expect(economy(fixture)).toEqual({ { "Source", PER_TIER * TIERS, "IAP", TIER_SKIP } })
+	end)
+
+	it("is one source for the Folios a cosmetic receipt pays instead of an article", function()
+		local fixture = setup(3, 0)
+		expect(fixture.deliver("CosmeticRare", "rare")).toBe(GRANTED)
+		expect(economy(fixture)).toEqual({ { "Source", ShopConfig.PriceFolios.Rare, "IAP", "CosmeticRare" } })
+	end)
+end)
+
+describe("what a receipt pays instead of what it can no longer deliver (D-202)", function()
+	-- Folios one Robux buys in each pack: FolioSmall gives the fewest, FolioLarge the most.
+	local fewest, most = math.huge, 0
+	for _, product in pairs(MonetizationConfig.Products) do
+		if product.Kind == "Folios" then
+			local rate = (product.Amount :: number) / product.PriceRobux
+			fewest = math.min(fewest, rate)
+			most = math.max(most, rate)
+		end
+	end
+	-- What one undeliverable unit of each kind cost: a tier of a skip, or the whole pass.
+	local UNIT: { [string]: (product: MonetizationConfig.ProductDef) -> number } = {
+		TierSkip = function(product: MonetizationConfig.ProductDef): number
+			return product.PriceRobux / (product.Amount :: number)
+		end,
+		PremiumPass = function(product: MonetizationConfig.ProductDef): number
+			return product.PriceRobux
+		end,
+	}
+
+	it("is worth at least what the same Robux buy in Folios, and no more than the biggest pack gives", function()
+		local checked: { [string]: boolean } = {}
+		for key, product in pairs(MonetizationConfig.Products) do
+			local unit = UNIT[product.Kind]
+			if unit ~= nil then
+				checked[product.Kind] = true
+				local each = product.CompensationFolios
+				assert(each ~= nil, key .. " has nothing to pay what it cannot deliver with")
+				expect(each % 10).toBe(0)
+				local robux = unit(product)
+				if each < robux * fewest or each > robux * most then
+					error(
+						("%s pays %d Folios a unit, outside %.0f to %.0f"):format(
+							key,
+							each,
+							robux * fewest,
+							robux * most
+						)
+					)
+				end
+			end
+		end
+		expect(checked).toEqual({ TierSkip = true, PremiumPass = true })
+	end)
+end)
+
+return nil

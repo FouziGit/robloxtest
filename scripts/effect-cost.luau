@@ -11,6 +11,11 @@
 -- (a burst, plus a rate over the layer's own life), and the peak number of layers alive at the same time,
 -- which is what the live-layer budget of QualityConfig is spent on.
 
+local AuraMath = require("../src/shared/Pure/AuraMath")
+local CosmeticConfig = require("../src/shared/Config/CosmeticConfig")
+local ParticleBudget = require("../src/shared/Pure/ParticleBudget")
+local QualityConfig = require("../src/shared/Config/QualityConfig")
+local Strings = require("../src/shared/Strings")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local process = require("@lune/process")
@@ -48,6 +53,8 @@ local BORROWS: { [string]: { [string]: number } } = {
 	-- A sketch of a body: a part and a mesh per limb (VfxConfig.Afterimage names fifteen), in one model
 	-- drawn flat by one highlight.
 	Afterimage = { Part = 15, SpecialMesh = 15, Model = 1, Highlight = 1 },
+	-- A figure drawn round a body (D-125): one highlight, on the body the renderer passed.
+	Outline = { Highlight = 1 },
 	-- A shake, a flash and a sound borrow nothing and never enter the live list: they are handed to Feel,
 	-- WorldLighting and SoundController and never come back (VfxTimeline.activate returns early).
 	Shake = {},
@@ -68,6 +75,7 @@ local OCCUPIES: { [string]: boolean } = {
 	Mesh = true,
 	Debris = true,
 	Afterimage = true,
+	Outline = true,
 }
 
 local function phaseSeconds(phase: any): number
@@ -154,6 +162,306 @@ end
 
 local CostReport = {}
 
+-- The most particles one effect may ask for over its life (tests/EffectCost.spec.luau). CHOSEN, not measured: no
+-- device has run this game, and it is a ratchet against drift, the first number to replace with a measurement.
+-- docs/PERFORMANCE.md quotes it with the worst effect beside it (ceilingLine below).
+CostReport.ParticleCeiling = 400
+
+-- The scene every tier's particle budget is held to (tests/ParticleBudget.spec.luau): six Scorches -- the most
+-- particles alive of any glyph -- cast at once among six bodies wearing the heaviest aura and trail.
+CostReport.Scene = { Plays = { "Scorch", "Scorch", "Scorch", "Scorch", "Scorch", "Scorch" }, Bodies = 6 }
+
+----------------------------------------------------------------
+-- A scene, frame by frame: the particles alive on one client
+----------------------------------------------------------------
+
+-- The particles a scene keeps alive on one screen, frame by frame, asked exactly as the renderers ask
+-- (Pure/ParticleBudget, through VfxParticles): a timeline's burst at its start, a flow the renderer emits (Driven)
+-- a frame at a time, an emitter the engine runs slowed to what fits and reserved for its life, and every body's
+-- aura and trail a frame at a time within their share. What is alive is counted apart, each particle until the
+-- top of its life: the budget has to hold THAT, not the ledger it keeps.
+export type SceneOptions = {
+	-- Timelines played at once, after the worn looks have run a second.
+	Plays: { string },
+	-- Bodies wearing the heaviest aura and the heaviest trail, walking; the first is the local player's.
+	Bodies: number,
+	Tier: string,
+	-- Whether the local player fights (CosmeticConfig.Fight): the worn looks step back.
+	Fighting: boolean,
+	-- The budget asked against; the tier's own when absent, math.huge for the scene as authored.
+	Budget: number?,
+	-- One kind of emission that skips the brake, as a renderer that forgot to ask would: "Burst", "Driven",
+	-- "Rate" or "Worn". A gate proves each one is what keeps the scene under its budget.
+	Unbraked: string?,
+}
+
+export type SceneResult = {
+	-- The most particles alive at one frame, and the budget they were asked against.
+	Peak: number,
+	Budget: number,
+	-- Everything the scene asked for over its life, and what it drew.
+	Asked: number,
+	Drawn: number,
+	-- What the local player's own look asked for and drew: the look he put on, on his own screen.
+	LocalAsked: number,
+	LocalDrawn: number,
+}
+
+local FRAME = 1 / 60
+local WARM_SECONDS = 1
+
+-- A flow of one layer: the renderer's (Driven), owed a frame at a time, or the engine's, born one every 1 / Rate
+-- seconds from its start (Next) as the engine emits it.
+type Flow = { Rate: number, Carry: number, At: number, Until: number, Life: number, Engine: boolean, Next: number }
+
+-- The flows of the heaviest look of `slot`: the one whose flows keep the most particles alive.
+local function heaviestLook(slot: string, styles: { [string]: CosmeticConfig.Style }): { CosmeticConfig.Emission }
+	local best: { CosmeticConfig.Emission } = {}
+	local most = -1
+	for _, item in ipairs(CosmeticConfig.Items) do
+		if item.Slot == slot then
+			local emissions: { CosmeticConfig.Emission } = {}
+			local live = 0
+			for _, name in ipairs(item.Look.Styles or {}) do
+				local style = styles[name]
+				for _, emission in ipairs(if style ~= nil then style.Emissions or {} else {}) do
+					table.insert(emissions, emission)
+					live += AuraMath.live(emission)
+				end
+			end
+			if live > most then
+				most = live
+				best = emissions
+			end
+		end
+	end
+	return best
+end
+
+-- When an emitter layer of a play starts, what it is, and how long it emits.
+type Start = { At: number, Layer: VfxTimelineConfig.Layer, Seconds: number }
+
+-- Every emitter layer of `plays`, all cast after the warm-up, in the order they start; and when the last play ends.
+local function emitterStarts(plays: { string }): ({ Start }, number)
+	local starts: { Start } = {}
+	local ends = WARM_SECONDS
+	for _, id in ipairs(plays) do
+		local timeline = VfxTimelineConfig.Timelines[id]
+		assert(timeline ~= nil, "no timeline named " .. id)
+		local offset = WARM_SECONDS
+		for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Name == name then
+					local seconds = VfxTimelineConfig.phaseSeconds(phase, VfxTimelineConfig.MaxWindowSeconds)
+					local factor = if phase.Window == true then seconds else 1
+					for _, layer in ipairs(phase.Layers) do
+						if layer.Kind == "Emitter" then
+							table.insert(
+								starts,
+								{ At = offset + layer.At * factor, Layer = layer, Seconds = layer.For * factor }
+							)
+						end
+					end
+					offset += seconds
+				end
+			end
+		end
+		ends = math.max(ends, WARM_SECONDS + VfxTimelineConfig.duration(timeline))
+	end
+	table.sort(starts, function(a: Start, b: Start): boolean
+		return a.At < b.At
+	end)
+	return starts, ends
+end
+
+-- The worn flows of `bodies` bodies, each with the heaviest aura and trail, at the density this screen draws them
+-- at, the longest life of each flow's particles, and whether each is the local player's own (the first body's).
+local function wornFlows(
+	bodies: number,
+	tierName: string,
+	fighting: boolean
+): ({ AuraMath.Flow }, { number }, { boolean })
+	local flows: { AuraMath.Flow } = {}
+	local lives: { number } = {}
+	local own: { boolean } = {}
+	local looks = { heaviestLook("Aura", CosmeticConfig.AuraStyles), heaviestLook("Trail", CosmeticConfig.TrailStyles) }
+	local floorTier = tierName == QualityConfig.Order[#QualityConfig.Order]
+	local scale = QualityConfig.Tiers[tierName].ParticleScale
+	for body = 1, bodies do
+		local share = AuraMath.density(scale, body == 1, floorTier, fighting, CosmeticConfig.Fight.Density)
+		if share > 0 then
+			for _, look in ipairs(looks) do
+				for _, emission in ipairs(look) do
+					table.insert(flows, { Rate = emission.Rate * share, Carry = 0 })
+					table.insert(lives, emission.Lifetime[2])
+					table.insert(own, body == 1)
+				end
+			end
+		end
+	end
+	return flows, lives, own
+end
+
+function CostReport.scene(options: SceneOptions): SceneResult
+	local tier = QualityConfig.Tiers[options.Tier]
+	assert(tier ~= nil, "no tier named " .. options.Tier)
+	local budget = options.Budget or tier.Particles
+	local unbraked = options.Unbraked
+	local settings = QualityConfig.ParticleLedger
+	local density = tier.ParticleScale
+	local effects = ParticleBudget.ledger(settings.Step)
+	local worn = ParticleBudget.ledger(settings.Step)
+	-- What is really alive, apart from any ledger: the particles that die at each frame, by frame index.
+	local alive = 0
+	local deaths: { [number]: number } = {}
+	local asked, drawn = 0, 0
+	-- `count` particles born at `at` (at most this frame's time) living `life`: alive at every frame before the one
+	-- their life ends at, where they are gone.
+	local function born(at: number, count: number, life: number)
+		local frame = math.ceil((at + life) / FRAME - 1e-9)
+		deaths[frame] = (deaths[frame] or 0) + count
+		alive += count
+	end
+	local function live(): number
+		return effects.Live + worn.Live
+	end
+	-- Draws what the budget grants of `wanted` particles living `life`, counted in `ledger`; all of them, counted
+	-- nowhere, for the kind that skips the brake. What a body wears asks within its share, the local player's own
+	-- look (`own`) only what is left of the whole (VfxParticles.grantWorn). Returns how many it drew.
+	local function emit(
+		now: number,
+		wanted: number,
+		life: number,
+		ledger: ParticleBudget.Ledger,
+		kind: string,
+		own: boolean?
+	): number
+		local granted = if unbraked == kind
+			then math.floor(wanted)
+			elseif kind == "Worn" and own ~= true then ParticleBudget.grant(
+				wanted,
+				ParticleBudget.wornRoom(budget, settings.WornShare, live(), worn.Live)
+			)
+			else ParticleBudget.grant(wanted, ParticleBudget.room(budget, live()))
+		asked += wanted
+		if granted <= 0 then
+			return 0
+		end
+		drawn += granted
+		if unbraked ~= kind then
+			ParticleBudget.count(ledger, now, granted, life)
+		end
+		born(now, granted, life)
+		return granted
+	end
+
+	local flows: { Flow } = {}
+	-- A layer that starts (VfxTimeline.activate, then buildEmitter): its burst, then its flow, the renderer's or
+	-- the engine's, the engine's slowed to what fits and reserved for as long as it can have particles alive.
+	local function begin(start: Start, now: number)
+		local layer = start.Layer
+		local life = (layer.Lifetime or VfxTimelineConfig.DefaultParticleLifetime)[2]
+		local burst = if layer.Burst ~= nil then math.max(1, math.floor(layer.Burst * density)) else 0
+		local flowing = if layer.Rate ~= nil then layer.Rate * density * start.Seconds else 0
+		if burst + flowing < 1 then
+			return
+		end
+		if layer.Burst ~= nil then
+			emit(now, burst, life, effects, "Burst")
+		end
+		if layer.Rate == nil then
+			return
+		end
+		local rate = layer.Rate * density
+		local engine = layer.Driven ~= true
+		if not engine then
+			-- The renderer's flow owes its tier's share of its rate (VfxTimeline.buildEmitter, D-229).
+			rate *= QualityConfig.drivenShare(tier)
+		end
+		if engine then
+			local allowed = if unbraked == "Rate"
+				then rate
+				else ParticleBudget.rate(rate, life, ParticleBudget.room(budget, live()))
+			asked += rate * start.Seconds
+			drawn += allowed * start.Seconds
+			if unbraked ~= "Rate" then
+				ParticleBudget.count(effects, now, ParticleBudget.held(allowed, life), start.Seconds + life)
+			end
+			rate = allowed
+		end
+		table.insert(flows, {
+			Rate = rate,
+			Carry = 0,
+			At = now,
+			Until = now + start.Seconds,
+			Life = life,
+			Engine = engine,
+			Next = now,
+		})
+	end
+	-- A flow's frame: the renderer's owes what its rate gave since the last (VfxTimeline.stepEmitter); an engine's
+	-- is born here, one every 1 / Rate seconds, only to count what is alive.
+	local function flowOn(flow: Flow, now: number)
+		if flow.Engine then
+			while flow.Rate > 0 and flow.Next <= now and flow.Next < flow.Until do
+				born(flow.Next, 1, flow.Life)
+				flow.Next += 1 / flow.Rate
+			end
+			return
+		end
+		local upTo = math.min(now, flow.Until)
+		if upTo > flow.At then
+			flow.Carry += (upTo - flow.At) * flow.Rate
+			flow.At = upTo
+			local count = math.floor(flow.Carry)
+			if count > 0 then
+				flow.Carry -= count
+				emit(now, count, flow.Life, effects, "Driven")
+			end
+		end
+	end
+
+	local starts, ends = emitterStarts(options.Plays)
+	local wearing, lives, own = wornFlows(options.Bodies, options.Tier, options.Fighting)
+	local localAsked, localDrawn = 0, 0
+	local nextStart = 1
+	local peak = 0
+	for frame = 0, math.ceil((ends + 1) / FRAME) do
+		local now = frame * FRAME
+		alive -= deaths[frame] or 0
+		deaths[frame] = nil
+		ParticleBudget.sweep(effects, now)
+		ParticleBudget.sweep(worn, now)
+		while starts[nextStart] ~= nil and starts[nextStart].At <= now do
+			begin(starts[nextStart], now)
+			nextStart += 1
+		end
+		for _, flow in ipairs(flows) do
+			flowOn(flow, now)
+		end
+		-- What bodies wear (CosmeticController's emitFlow), within their share.
+		for index, flow in ipairs(wearing) do
+			local count = AuraMath.owed(flow, FRAME, CosmeticConfig.Flow.MaxStepSeconds)
+			if count > 0 then
+				local granted = emit(now, count, lives[index], worn, "Worn", own[index])
+				if own[index] then
+					localAsked += count
+					localDrawn += granted
+				end
+			end
+		end
+		peak = math.max(peak, alive)
+	end
+	return {
+		Peak = peak,
+		Budget = budget,
+		Asked = asked,
+		Drawn = drawn,
+		LocalAsked = localAsked,
+		LocalDrawn = localDrawn,
+	}
+end
+
 -- Exposed so tests/EffectCost.spec.luau can hold this set against the renderer's own early returns: a kind
 -- listed here that the renderer hands off (or missing here while the renderer draws it) makes every peak in
 -- the report wrong in one direction or the other.
@@ -181,6 +489,62 @@ function CostReport.instanceTotal(cost: Cost): number
 end
 
 local CLASSES = { "Part", "Decal", "ParticleEmitter", "Attachment", "Trail", "Beam", "PointLight" }
+
+-- A number as the French documents write it: a comma before the tenths.
+local function decimal(value: number): string
+	return (string.format("%.1f", value):gsub("%.", ","))
+end
+
+-- The row of docs/PERFORMANCE.md's ceilings table for the particles of one effect: the ceiling, how far above the
+-- worst effect it stands, and which effect that is. Generated, so the document cannot keep a worst effect the
+-- data has moved past (it said 201 for the Pounce while the Scorch asked for 358).
+function CostReport.ceilingLine(costs: { Cost }): string
+	local worst, worstId = 0, ""
+	for _, cost in ipairs(costs) do
+		if cost.Particles > worst then
+			worst = cost.Particles
+			worstId = cost.Id
+		end
+	end
+	return ("| particules d'un effet | **choisi** : un cliquet contre la dérive, %s fois le pire effet | ≤ %d (pire : %d, `%s`) |"):format(
+		decimal(CostReport.ParticleCeiling / math.max(worst, 1)),
+		CostReport.ParticleCeiling,
+		math.floor(worst + 0.5),
+		worstId
+	)
+end
+
+-- docs/PERFORMANCE.md's table of each tier's particle budget against its scene (CostReport.Scene): the most
+-- particles alive at once as authored, then with every emitter asking the budget, in a fight and out of it.
+function CostReport.budgetLines(): { string }
+	local lines = {
+		"| Niveau | Budget de particules | En combat : sans frein → avec | Hors combat : sans frein → avec |",
+		"|---|---|---|---|",
+	}
+	for _, name in ipairs(QualityConfig.Order) do
+		local tier = QualityConfig.Tiers[name]
+		local cells = { Strings.t(tier.NameKey, nil, "fr"), tostring(tier.Particles) }
+		for _, fighting in ipairs({ true, false }) do
+			local scene = CostReport.Scene
+			local free = CostReport.scene({
+				Plays = scene.Plays,
+				Bodies = scene.Bodies,
+				Tier = name,
+				Fighting = fighting,
+				Budget = math.huge,
+			})
+			local braked =
+				CostReport.scene({ Plays = scene.Plays, Bodies = scene.Bodies, Tier = name, Fighting = fighting })
+			local cell = ("%d → %d"):format(free.Peak, braked.Peak)
+			if braked.Drawn < braked.Asked then
+				cell ..= (" (%d %% tirées)"):format(math.floor(braked.Drawn / braked.Asked * 100))
+			end
+			table.insert(cells, cell)
+		end
+		table.insert(lines, "| " .. table.concat(cells, " | ") .. " |")
+	end
+	return lines
+end
 
 -- Printed as a Markdown table, so docs/PERFORMANCE.md quotes what this produced rather than a number
 -- somebody remembered.
@@ -229,6 +593,12 @@ local function report()
 			VfxTimelineConfig.MaxLiveLayers / math.max(worstLayers, 1)
 		)
 	)
+	print("")
+	print(CostReport.ceilingLine(costs))
+	print("")
+	for _, line in ipairs(CostReport.budgetLines()) do
+		print(line)
+	end
 end
 
 -- Printed only when asked, because tests/EffectCost.spec.luau requires this file for its numbers and a

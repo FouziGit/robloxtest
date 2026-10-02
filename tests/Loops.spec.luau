@@ -32,15 +32,32 @@ local PATTERNS = {
 
 -- path -> how many loops that file is allowed, and why it has one at all.
 local ALLOWED: { [string]: { Count: number, Why: string } } = {
-	-- Server: nine, each on an accumulator at GameConfig.Server.TickRate.
-	["src/server/Services/CombatService.luau"] = { Count = 1, Why = "ink, cooldowns and the travel audit" },
+	-- Server: thirteen, each on an accumulator at GameConfig.Server.TickRate, or slower (the portals' CheckHz, the
+	-- drills' and the Ex-libris's CheckSeconds).
+	["src/server/Services/CombatService.luau"] = {
+		Count = 1,
+		Why = "ink, cooldowns, the travel audit and the movement guard",
+	},
 	["src/server/Services/MovementService.luau"] = { Count = 1, Why = "stuns, slows and freezes expiring" },
 	["src/server/Services/MatchService.luau"] = { Count = 1, Why = "match phases and snapshots" },
+	["src/server/Services/GlyphService.luau"] = { Count = 1, Why = "the Cartouche's frame hastening its caster" },
 	["src/server/Services/MatchmakingService.luau"] = { Count = 1, Why = "the queue scan" },
 	["src/server/Services/QuestService.luau"] = { Count = 1, Why = "period rollover" },
 	["src/server/Services/ShopService.luau"] = { Count = 1, Why = "the daily rotation" },
 	["src/server/Services/LeaderboardService.luau"] = { Count = 1, Why = "the board refresh" },
 	["src/server/Services/WorldBossService/init.luau"] = { Count = 1, Why = "the event schedule and the fight" },
+	["src/server/Services/BattlegroundService/init.luau"] = {
+		Count = 1,
+		Why = "the Forgers, the roster and the pits of the practice duel",
+	},
+	["src/server/Services/FlyleafService/init.luau"] = {
+		Count = 1,
+		Why = "the Flyleaf's members, protections, falls and respawns",
+	},
+	["src/server/Services/SparService.luau"] = { Count = 1, Why = "the practice duels' rounds and their offers" },
+	["src/server/Services/PortalService.luau"] = { Count = 1, Why = "portal zones" },
+	["src/server/Services/DrillService.luau"] = { Count = 1, Why = "drills left idle or taken out of the hub" },
+	["src/server/Services/HonoursService.luau"] = { Count = 1, Why = "the Ex-libris plates every profile has met" },
 	["src/server/Services/VfxBroadcaster.luau"] = {
 		Count = 1,
 		Why = "invalidating the recipient snapshot once a frame",
@@ -53,7 +70,7 @@ local ALLOWED: { [string]: { Count: number, Why: string } } = {
 	["src/client/Controllers/Posture.luau"] = { Count = 1, Why = "the joints of every character" },
 	["src/client/Controllers/CosmeticController.luau"] = {
 		Count = 1,
-		Why = "orbiting strokes and walking dust of every worn cosmetic",
+		Why = "the moving strokes and the driven particles of every worn cosmetic",
 	},
 	["src/client/Controllers/QualityController.luau"] = { Count = 1, Why = "the frame rate it decides the tier from" },
 	["src/client/Controllers/LockOnController.luau"] = {

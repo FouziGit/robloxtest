@@ -21,12 +21,12 @@ mesuré est dit tel quel à la fin.
 `src/shared/Config/QualityConfig.luau`. Le joueur choisit le sien dans l'onglet **Graphismes** des
 options ; son choix est un **plafond** que le client peut descendre, jamais dépasser.
 
-| Niveau | Couches vivantes | Particules | Lumières | Post-traitement | Empreintes |
-|---|---|---|---|---|---|
-| Élevée | 90 | ×1 | oui | oui | ×1 |
-| Moyenne | 60 | ×0,6 | oui | oui | ×0,5 |
-| Basse | 36 | ×0,35 | **non** | oui | aucune |
-| Performance | 24 | ×0,2 | non | **non** | aucune |
+| Niveau | Couches vivantes | Particules | Particules vivantes | Lumières | Post-traitement | Empreintes |
+|---|---|---|---|---|---|---|
+| Élevée | 90 | ×1 | 1200 | oui | oui | ×1 |
+| Moyenne | 60 | ×0,6 | 600 | oui | oui | ×0,5 |
+| Basse | 36 | ×0,35 | 300 | **non** | oui | aucune |
+| Performance | 24 | ×0,2 | 150 | non | **non** | aucune |
 
 Chaque champ a exactement un lecteur, et un test le vérifie dans la source du lecteur : un champ que
 personne ne lit est une promesse faite au joueur que rien ne tient.
@@ -35,13 +35,36 @@ personne ne lit est une promesse faite au joueur que rien ne tient.
   **Jamais un avertissement** : une télégraphie est une règle que six joueurs lisent, et c'est la couche
   la plus vieille de l'écran au moment où le budget est plein.
 - **Particules** — `VfxTimeline` multiplie `Rate` et `Burst` de chaque émetteur. Plancher à une particule :
-  un impact sans aucun grain se lit comme un effet manquant, pas comme un effet allégé.
+  un impact sans aucun grain se lit comme un effet manquant, pas comme un effet allégé. **Particules vivantes** — le budget de tout l'écran, effets et ce que portent les corps ensemble (voir « Le budget de particules d'un écran »).
 - **Lumières** — `VfxTimeline` ne dessine pas du tout une couche `Light`. Roblox paie une lumière locale
   qu'elle éclaire une surface ou non ; rien que le joueur doive **lire** n'est une lumière (chaque
   télégraphie est une marque), donc les couper amincit l'image sans toucher à une règle.
 - **Post-traitement** — `WorldLighting` désactive les cinq effets. Le monde reste clair et pâle : c'est
   `Lighting` lui-même, pas eux.
 - **Empreintes** — `FootprintController` prend cette part de son propre budget (0 = aucune).
+
+## Le niveau de départ (D-229)
+
+Avant qu'une seule image soit comptée, l'appareil dit où commencer (`QualityConfig.Start`, lu par
+`QualityController` à son `Start`) :
+
+| | |
+|---|---|
+| écran tenu en main (`InputMode.handheld`) de **430 points de haut ou moins** : un téléphone | démarre en **Moyenne** |
+| niveau graphique Roblox réglé à la main (`UserGameSettings.SavedQualityLevel`) de **1 à 3** | démarre en **Basse** |
+| les deux | le plus bas des deux |
+
+Jamais au-dessus du choix du joueur, qui reste le plafond ; la dégradation automatique part de là et peut
+remonter jusqu'au plafond. Le premier choix lu dans le profil est abaissé par le départ ; un choix fait ensuite
+dans les Options est suivi tel quel. Si le moteur refuse `SavedQualityLevel` à un LocalScript, un seul
+avertissement et le départ se fait comme en automatique (à vérifier dans Studio, `STUDIO_SETUP` §11, point 27).
+
+Un flot `Driven` (D-124), que le moteur n'éclaircit pas, n'émet jamais plus de **deux fois** ce que le moteur
+dessinerait du même `Rate` (`QualityConfig.DrivenOverEngine`) : la part que le moteur est censé dessiner à
+chaque niveau (`EngineShare` : 1, 0,5, 0,25, 5/80) est un **modèle**, ancré sur la seule mesure faite (le labo,
+80 flammes par seconde dessinées comme 5 à la qualité automatique la plus basse), à remplacer par les mesures
+des téléphones (E6-S5). Aux niveaux Élevé et Moyen le feu reste entier ; en Basse il émet la moitié de son débit,
+en Performance le huitième (`tests/QualityStart.spec.luau`).
 
 ## La dégradation automatique
 
@@ -78,9 +101,9 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 
 | Effet | Couches | Dessinées | Pic simultané | Durée (s) | Particules | Instances au pic | Part | Decal | Emitter | Attach | Trail | Beam | Light |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Binding | 13 | 10 | 5 | 2.70 | 53 | 16 | 6 | 4 | 2 | 2 | 0 | 1 | 1 |
-| Bleed | 13 | 11 | 5 | 4.60 | 52 | 13 | 6 | 1 | 2 | 2 | 0 | 1 | 1 |
-| Blot | 17 | 13 | 10 | 2.70 | 136 | 24 | 11 | 1 | 5 | 4 | 1 | 1 | 1 |
+| Binding | 15 | 12 | 10 | 2.73 | 43 | 24 | 10 | 10 | 3 | 0 | 0 | 0 | 1 |
+| Bleed | 20 | 18 | 7 | 4.60 | 42 | 15 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
+| Blot | 16 | 13 | 12 | 2.90 | 217 | 27 | 12 | 1 | 5 | 4 | 2 | 0 | 2 |
 | BossDefeated | 16 | 12 | 6 | 3.30 | 123 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
 | BossEruption | 20 | 15 | 10 | 4.30 | 156 | 21 | 10 | 3 | 7 | 0 | 0 | 0 | 1 |
 | BossEruptionSafe | 4 | 4 | 3 | 3.80 | 22 | 6 | 3 | 2 | 1 | 0 | 0 | 0 | 0 |
@@ -90,35 +113,48 @@ configuration autorise (`MaxWindowSeconds`), donc au pire cas.
 | BossSlam | 17 | 12 | 7 | 4.00 | 103 | 14 | 7 | 3 | 3 | 0 | 0 | 0 | 1 |
 | BossSpawn | 17 | 13 | 7 | 3.30 | 130 | 15 | 7 | 2 | 5 | 0 | 0 | 0 | 1 |
 | BossSweep | 20 | 15 | 8 | 4.00 | 98 | 19 | 8 | 6 | 4 | 0 | 0 | 0 | 1 |
-| Brand | 13 | 11 | 9 | 1.66 | 49 | 19 | 9 | 0 | 3 | 2 | 1 | 0 | 2 |
-| Caret | 15 | 12 | 9 | 1.08 | 76 | 21 | 9 | 4 | 4 | 2 | 1 | 0 | 1 |
-| Cast | 9 | 7 | 5 | 0.84 | 32 | 17 | 6 | 4 | 3 | 2 | 0 | 1 | 1 |
-| Colophon | 16 | 12 | 7 | 2.38 | 64 | 24 | 8 | 6 | 2 | 4 | 0 | 2 | 2 |
-| ColophonLink | 11 | 9 | 6 | 1.91 | 48 | 21 | 8 | 4 | 2 | 4 | 0 | 2 | 1 |
+| Brand | 13 | 11 | 9 | 1.66 | 67 | 21 | 9 | 0 | 3 | 4 | 2 | 0 | 1 |
+| Caret | 15 | 12 | 9 | 1.57 | 37 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
+| Cartouche | 29 | 21 | 10 | 5.73 | 216 | 22 | 10 | 6 | 3 | 0 | 0 | 0 | 2 |
+| Cast | 9 | 7 | 6 | 0.54 | 16 | 13 | 6 | 2 | 4 | 0 | 0 | 0 | 1 |
+| Colophon | 20 | 16 | 12 | 2.19 | 77 | 33 | 12 | 6 | 4 | 6 | 3 | 0 | 2 |
+| ColophonLink | 14 | 12 | 9 | 1.87 | 29 | 28 | 9 | 6 | 3 | 6 | 3 | 0 | 1 |
+| Dagger | 16 | 12 | 9 | 1.57 | 35 | 26 | 9 | 4 | 3 | 6 | 3 | 0 | 1 |
 | Dash | 6 | 6 | 6 | 0.87 | 12 | 74 | 34 | 1 | 2 | 2 | 1 | 0 | 0 |
-| Explosion | 14 | 11 | 10 | 3.22 | 44 | 34 | 17 | 2 | 3 | 0 | 0 | 0 | 1 |
-| Gilding | 17 | 14 | 5 | 4.00 | 42 | 18 | 5 | 4 | 2 | 4 | 2 | 0 | 1 |
-| Hairline | 12 | 9 | 7 | 1.11 | 27 | 20 | 8 | 0 | 2 | 6 | 2 | 1 | 1 |
-| Hit | 7 | 6 | 4 | 2.58 | 20 | 11 | 4 | 3 | 2 | 0 | 0 | 0 | 1 |
+| Emboss | 14 | 11 | 9 | 2.53 | 88 | 19 | 9 | 3 | 4 | 0 | 0 | 0 | 2 |
+| Explosion | 17 | 14 | 11 | 3.22 | 60 | 38 | 18 | 4 | 4 | 0 | 0 | 0 | 1 |
+| ForgerTell | 8 | 7 | 6 | 2.25 | 2 | 12 | 6 | 4 | 2 | 0 | 0 | 0 | 0 |
+| Gilding | 18 | 15 | 11 | 4.00 | 134 | 26 | 10 | 11 | 3 | 0 | 0 | 0 | 1 |
+| Hairline | 12 | 9 | 8 | 0.99 | 42 | 19 | 8 | 0 | 3 | 4 | 2 | 0 | 2 |
+| Hatching | 29 | 18 | 7 | 3.13 | 176 | 15 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
+| Hit | 10 | 9 | 7 | 2.58 | 36 | 16 | 7 | 3 | 4 | 0 | 0 | 0 | 1 |
 | KillOverexposure | 5 | 5 | 5 | 2.90 | 30 | 12 | 5 | 6 | 1 | 0 | 0 | 0 | 0 |
 | KillRedaction | 4 | 4 | 4 | 2.90 | 0 | 11 | 4 | 7 | 0 | 0 | 0 | 0 | 0 |
 | KillScraps | 4 | 4 | 4 | 2.40 | 34 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
 | KillTear | 4 | 4 | 4 | 2.64 | 21 | 9 | 4 | 3 | 2 | 0 | 0 | 0 | 0 |
-| Ligature | 27 | 25 | 11 | 3.06 | 108 | 26 | 11 | 6 | 5 | 2 | 1 | 0 | 1 |
-| Margin | 14 | 11 | 6 | 5.46 | 39 | 14 | 6 | 5 | 2 | 0 | 0 | 0 | 1 |
+| Ligature | 29 | 27 | 12 | 3.01 | 283 | 29 | 12 | 5 | 5 | 4 | 2 | 0 | 1 |
+| Margin | 20 | 17 | 12 | 5.45 | 39 | 31 | 12 | 15 | 3 | 0 | 0 | 0 | 1 |
 | Melee | 4 | 4 | 4 | 0.46 | 14 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 0 |
-| Pounce | 14 | 13 | 7 | 4.82 | 201 | 14 | 7 | 2 | 4 | 0 | 0 | 0 | 1 |
-| Rupture | 13 | 10 | 6 | 3.27 | 112 | 14 | 6 | 3 | 3 | 0 | 0 | 0 | 2 |
-| Scorch | 20 | 17 | 10 | 3.36 | 62 | 30 | 10 | 3 | 3 | 8 | 4 | 0 | 2 |
-| Serif | 19 | 16 | 12 | 2.30 | 80 | 32 | 14 | 5 | 5 | 4 | 0 | 2 | 2 |
-| Spiral | 16 | 11 | 6 | 4.70 | 109 | 12 | 6 | 2 | 3 | 0 | 0 | 0 | 1 |
-| Stipple | 12 | 9 | 7 | 2.36 | 53 | 16 | 7 | 2 | 3 | 2 | 1 | 0 | 1 |
-| Strike | 12 | 9 | 7 | 0.91 | 56 | 17 | 7 | 1 | 4 | 2 | 1 | 0 | 2 |
-| Sweep | 12 | 9 | 7 | 1.24 | 65 | 16 | 7 | 5 | 3 | 0 | 0 | 0 | 1 |
-| Wash | 15 | 12 | 9 | 3.00 | 50 | 21 | 9 | 5 | 3 | 2 | 1 | 0 | 1 |
-| Watermark | 18 | 13 | 5 | 4.34 | 115 | 11 | 5 | 2 | 3 | 0 | 0 | 0 | 1 |
+| Pounce | 13 | 12 | 6 | 4.72 | 288 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
+| Rubric | 15 | 11 | 8 | 2.13 | 64 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| RubricCharge | 10 | 9 | 6 | 1.00 | 87 | 15 | 6 | 5 | 3 | 0 | 0 | 0 | 1 |
+| Rupture | 19 | 16 | 12 | 3.22 | 82 | 31 | 12 | 13 | 3 | 0 | 0 | 0 | 2 |
+| Scorch | 21 | 19 | 10 | 3.23 | 358 | 20 | 10 | 3 | 6 | 0 | 0 | 0 | 1 |
+| Serif | 20 | 17 | 12 | 2.30 | 25 | 30 | 13 | 11 | 2 | 2 | 0 | 1 | 1 |
+| Spiral | 24 | 19 | 7 | 4.62 | 168 | 14 | 7 | 4 | 2 | 0 | 0 | 0 | 1 |
+| Stipple | 13 | 10 | 9 | 2.27 | 70 | 20 | 9 | 2 | 4 | 2 | 1 | 0 | 2 |
+| Stitch | 13 | 9 | 7 | 1.53 | 32 | 20 | 7 | 1 | 2 | 6 | 3 | 0 | 1 |
+| StitchCatch | 8 | 8 | 7 | 1.15 | 16 | 16 | 6 | 3 | 2 | 2 | 1 | 0 | 1 |
+| Strike | 14 | 11 | 8 | 1.83 | 49 | 23 | 8 | 1 | 4 | 6 | 3 | 0 | 1 |
+| Swash | 17 | 13 | 10 | 2.15 | 123 | 25 | 10 | 4 | 3 | 4 | 2 | 0 | 1 |
+| Sweep | 13 | 11 | 9 | 1.10 | 58 | 29 | 14 | 2 | 4 | 0 | 0 | 0 | 1 |
+| Tap | 4 | 4 | 4 | 0.25 | 10 | 8 | 4 | 0 | 3 | 0 | 0 | 0 | 1 |
+| Volute | 12 | 10 | 8 | 2.90 | 45 | 19 | 8 | 7 | 3 | 0 | 0 | 0 | 1 |
+| VoluteCharge | 7 | 6 | 5 | 0.70 | 37 | 13 | 5 | 4 | 3 | 0 | 0 | 0 | 1 |
+| Wash | 18 | 15 | 12 | 3.00 | 85 | 28 | 12 | 7 | 5 | 2 | 1 | 0 | 1 |
+| Watermark | 25 | 20 | 6 | 4.34 | 119 | 12 | 6 | 3 | 2 | 0 | 0 | 0 | 1 |
 
-**Lecture.** 39 timelines et 502 couches, dont 401 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 201 particules, 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
+**Lecture.** 52 timelines et 743 couches, dont 602 qui prennent une place du budget. Pire effet : 12 couches vivantes au même instant, 358 particules (le Brûlis et son anneau de feu, D-123), 74 instances empruntées au pic (l'esquive : ses deux empreintes sont quinze membres, un modèle et un contour chacune, comptées sur toute la fenêtre où elles peuvent attendre leur corps, D-116 ; elles ont leur propre plafond, quatre à la fois). Le budget du niveau le plus élevé tient donc sept fois et demie le
 pire effet, et celui du niveau **Performance** deux fois — ce que `tests/EffectCost.spec.luau` exige de
 chaque effet : un effet qui ne tiendrait pas deux fois dans le plancher rendrait la machine la plus faible
 incapable de montrer deux effets à la fois.
@@ -135,12 +171,106 @@ Trois plafonds, dont **deux dérivés** d'un autre nombre du dépôt et un **cho
 |---|---|---|
 | pic de couches d'un effet | moitié du budget du niveau plancher (24) | ≤ 12 (pire : 12, `Serif`) |
 | instances d'un effet par classe, au pic | quatre copies doivent tenir sous chaque plafond de `PoolPolicy` | pire : 30 maillages (`Dash`, ses esquisses) contre 128/4 = 32 |
-| particules d'un effet | **choisi** : environ deux fois ce que le pire effet demande | ≤ 400 (pire : 201, `Pounce`) |
+| particules d'un effet | **choisi** : un cliquet contre la dérive, 1,1 fois le pire effet | ≤ 400 (pire : 358, `Scorch`) |
 
 Le troisième est un cliquet contre la dérive, pas une mesure : **aucun appareil n'a fait tourner ce jeu**,
 et c'est le premier nombre à remplacer par une mesure. Une porte tient aussi le modèle de coût au rendu
 lui-même : si une couche empruntait une classe que le modèle ne connaît pas, chaque comparaison ci-dessus
 serait optimiste, donc le test relit les emprunts dans la source du rendu.
+
+## Le budget de particules d'un écran
+
+Le plafond ci-dessus tient **un** effet ; rien ne tenait l'écran : six Roussis lancés ensemble parmi six corps
+qui portent aura et traînée s'empilaient sans limite, à chaque niveau à la mesure de son seul `ParticleScale`
+(le tableau ci-dessous, « sans frein »). Chaque niveau a
+désormais un **budget de particules vivantes** (`QualityConfig`, champ `Particles`), et chaque émetteur le
+demande avant d'émettre (`VfxParticles`, sur `Pure/ParticleBudget`) :
+
+- une **rafale** (`Burst`) reçoit ce qui tient ;
+- un **flux émis par le rendu** (`Driven`, D-124) reçoit, image par image, ce qui tient, et ce qui ne tient pas
+  est sauté, jamais dû plus tard : un écran libéré ne répond pas par une rafale ;
+- un **émetteur que le moteur fait tourner** (`Rate`) est ralenti à ce qui tient, réservé pour toute sa vie ;
+- ce que **portent les corps** (auras, traînées, `CosmeticController`) reçoit ce qui tient dans sa part,
+  **la moitié du budget** au plus (`QualityConfig.ParticleLedger.WornShare`) : l'autre moitié est aux sorts,
+  qu'une foule du hub ne prive jamais ; le look du **joueur local**, compté dans cette part, ne demande que ce
+  qui reste du budget entier : une foule s'éclaircit, jamais ce qu'il porte sur son propre écran ;
+- l'éclat d'une garde brisée (`VfxLibrary`) demande comme une rafale.
+
+Chaque lot est compté jusqu'au haut de sa durée de vie, arrondi au vingtième de seconde supérieur, sur
+l'horloge où ses particules vieillissent (celle des effets, que l'image d'impact tient, ou l'horloge stable) :
+le compte n'est jamais sous ce qui est vivant. Les particules d'un avertissement comptent et s'éclaircissent
+comme les autres : ce qui dit la règle est une marque.
+
+Sortie de `lune run scripts/effect-cost -- --table` : la scène que chaque budget doit tenir (six Roussis
+ensemble, six corps en mouvement avec l'aura et la traînée les plus lourdes), le pic de particules vivantes
+telle qu'elle est écrite, puis avec chaque émetteur qui demande le budget. `tests/ParticleBudget.spec.luau`
+joue la scène à chaque niveau, compte à part ce qui est vivant, échoue au-delà du budget, et échoue aussi
+quand un seul genre d'émetteur saute le frein.
+
+| Niveau | Budget de particules | En combat : sans frein → avec | Hors combat : sans frein → avec |
+|---|---|---|---|
+| Élevée | 1200 | 882 → 882 | 1086 → 1086 |
+| Moyenne | 600 | 540 → 540 | 654 → 600 (92 % tirées) |
+| Basse | 300 | 210 → 210 | 282 → 282 (98 % tirées) |
+| Performance | 150 | 52 → 52 | 59 → 59 |
+
+Les quatre budgets sont **choisis**, comme le plafond d'un effet : aucun appareil n'a fait tourner ce jeu. Le
+niveau Élevé dessine la scène entière, telle qu'elle a été écrite ; les plus bas l'éclaircissent là où elle
+dépasse leur budget (la part « tirées »). Un flux `Driven` ne doit que la part de son niveau (« Le niveau de
+départ », D-229) : aux niveaux Bas et Performance, la scène demande moins que son budget ; au niveau Bas hors
+combat, le compte, jamais sous ce qui vit, touche le plafond avant les particules et en retient 2 %. Ce sont des
+nombres à remplacer par une mesure (E6-S5, E11-S2).
+
+## Ce que coûte ce qu'un corps porte
+
+Une aura et une traînée ne passent pas par `VfxTimeline` : `CosmeticController` les dessine à partir des
+données de `CosmeticConfig` (D-148), sur sa seule `Heartbeat`, et **émet lui-même chaque particule** — un
+accumulateur par émetteur, jamais un `Rate`, que le moteur éclaircirait d'environ neuf fois à sa qualité
+automatique (D-124). Le budget est donc tenu par le rendu, pas par le moteur :
+
+- **au plus 60 particules vivantes par corps** au niveau Élevé, aura et traînée ensemble
+  (`CosmeticConfig.Budget`) ; `tests/Cosmetics.spec.luau` calcule chaque paire aura × traînée et échoue
+  au-delà ;
+- chaque niveau multiplie le flux par son `ParticleScale` ; au niveau **Performance**, rien de ce que portent
+  les autres n'est dessiné, seulement ce que porte le joueur local ;
+- **en combat** (match classé, champ de bataille, arène de l'Effacement), tout ce qui est porté tombe à 0,4
+  de sa densité, 0,25 plus transparent et sans lumière (`CosmeticConfig.Fight`) ;
+- une image longue ne doit que 0,1 s de particules : un à-coup ne revient pas en rafale ;
+- chaque place est ajustée au corps qui la porte (`CosmeticConfig.Body`, D-148) : le corps est mesuré quand le
+  personnage arrive et chaque fois qu'un objet est porté — son tronc, sa tête et sa `HipHeight`, cinq recherches
+  parmi ses enfants —, jamais à l'image ; à l'image, l'ajustement coûte une multiplication par coordonnée.
+
+Sortie de `lune run scripts/cosmetic-cost`. « Vivantes » est le débit de chaque émetteur multiplié par sa vie
+la plus longue, au régime établi, puis par le `ParticleScale` du niveau ; « Rubans » compte les `Trail`, qui
+ne sont pas des particules.
+
+| Objet | Emplacement | Rareté | Couches | Émetteurs | Rubans | Vivantes Élevée | Vivantes Moyenne | Vivantes Basse | Vivantes Performance |
+|---|---|---|---|---|---|---|---|---|---|
+| AuraCodex | Aura | Legendary | 3 | 4 | 0 | 35.4 | 21.3 | 12.4 | 7.1 |
+| AuraVoid | Aura | Legendary | 3 | 4 | 0 | 40.6 | 24.4 | 14.2 | 8.1 |
+| GoldenInkAura | Aura | Legendary | 3 | 3 | 2 | 39.4 | 23.6 | 13.8 | 7.9 |
+| VipAura | Aura | Legendary | 3 | 4 | 0 | 42.0 | 25.2 | 14.7 | 8.4 |
+| AuraCrimson | Aura | Epic | 2 | 2 | 0 | 40.8 | 24.5 | 14.3 | 8.2 |
+| AuraStorm | Aura | Epic | 2 | 1 | 2 | 11.2 | 6.7 | 3.9 | 2.2 |
+| BlueInkAura | Aura | Epic | 2 | 2 | 0 | 13.8 | 8.3 | 4.8 | 2.8 |
+| VioletInkAura | Aura | Epic | 2 | 2 | 0 | 42.4 | 25.4 | 14.8 | 8.5 |
+| AuraEmber | Aura | Rare | 1 | 2 | 0 | 35.1 | 21.1 | 12.3 | 7.0 |
+| AuraFrost | Aura | Rare | 1 | 1 | 0 | 34.0 | 20.4 | 11.9 | 6.8 |
+| PalimpsestCape | Aura | Rare | 1 | 1 | 0 | 16.8 | 10.1 | 5.9 | 3.4 |
+| ScribeCloak | Trail | Epic | 2 | 1 | 1 | 5.6 | 3.4 | 2.0 | 1.1 |
+| TrailStorm | Trail | Epic | 2 | 1 | 2 | 5.6 | 3.4 | 2.0 | 1.1 |
+| SteelStylus | Trail | Rare | 1 | 0 | 1 | 0.0 | 0.0 | 0.0 | 0.0 |
+| TrailEmber | Trail | Rare | 1 | 1 | 0 | 12.6 | 7.6 | 4.4 | 2.5 |
+| TrailViolet | Trail | Rare | 1 | 0 | 1 | 0.0 | 0.0 | 0.0 | 0.0 |
+| TrailFolio | Trail | Common | 1 | 1 | 0 | 7.0 | 4.2 | 2.4 | 1.4 |
+| TrailSand | Trail | Common | 1 | 1 | 0 | 12.0 | 7.2 | 4.2 | 2.4 |
+
+Pire corps : VioletInkAura et TrailEmber, 55.0 particules vivantes au niveau Élevé, pour un budget de 60 (CosmeticConfig.Budget).
+En combat (CosmeticConfig.Fight) : 22.0 au niveau Élevé.
+
+Le coût d'instances est fixe et petit : une attache et un émetteur par émission, deux attaches et une
+`Trail` par ruban, construits une fois par objet porté et rendus au Trove de leur emplacement. Rien de cela
+n'a tourné sur un appareil : c'est ce que le rendu **demandera**, comme le reste de ce document.
 
 ## Le pooling
 
@@ -174,8 +304,76 @@ l'école précédente — ce que la règle 2 de la bible ne survit pas.
 | le pool crée bien moins qu'il ne prête | idem : plus de 5 000 prêts pour moins de 2 % de créations |
 | **un duel ne laisse aucune connexion derrière lui** | `tests/Loops.spec.luau` : une boucle par système, quinze en tout, chacune déclarée avec sa raison ; une seconde boucle dans un système qui en a déjà une échoue |
 | la densité plafonnée (règle 8) | `VfxTimelineConfig.MaxLiveLayers` = niveau Élevé, et la porte ci-dessus |
+| **un corps ne porte pas plus de 60 particules vivantes**, et tout ce qui est porté se tait en combat | `tests/Cosmetics.spec.luau` : chaque paire aura × traînée sous `CosmeticConfig.Budget`, l'émission pilotée (aucun `Rate`), la sourdine du combat branchée sur le match et les portails |
 | les empreintes ne peuvent évincer un résidu **à aucun niveau** | `tests/WorldConfig.spec.luau` : le seuil de retenue est une **fraction** du budget du niveau dessiné (0,66), et la somme seuil + empreintes tient dans le budget de chacun des quatre |
 | le modèle de coût emprunte ce que le rendu emprunte | `tests/EffectCost.spec.luau` relit les emprunts dans la source de `VfxTimeline` |
+
+## L'interface (D-147) : ce qu'elle a le droit de coûter
+
+La passe couleur ajoute des ressorts, des taches et des boucles d'attente ; leurs plafonds sont des jetons
+(`ThemeConfig.Budget`) et des règles tenues par des tests. Cible : un téléphone moyen au plancher de 0,68 et
+le niveau **Performance**.
+
+| Budget | Limite | Comment il est tenu |
+|---|---|---|
+| boucles par image | **aucune nouvelle** : une seule dans `src/ui` (`Motion`) | `tests/Loops.spec.luau`. Le chevron du verrou tourne dans la boucle que `LockOnController` avait déjà ; la recharge du dash, l'attente de la file et le tour de minuit sont des `task.delay` |
+| boucles d'attente (respiration, vague, battement) par écran | ≤ 3 (`Budget.MaxIdleLoops`) | `Motion.loop` compte les boucles de chaque écran et laisse immobile celle de trop (D-167) ; les badges et les disques suggérés respirent chacun sur **une** valeur partagée (`Breath`), hors de tout écran ; les trois points de la file, comme ceux d'un bouton en attente, suivent **une** vague ; au HUD en combat : le battement de la barre basse et le vignettage |
+| reflets animés par écran | ≤ 3 (`Budget.MaxAnimatedGradients`) | `RarityRibbon` compte les lustres de chaque écran ; celui de trop reste immobile (D-167) |
+| objets GUI du HUD en combat | téléphone ≤ 180, disques tactiles compris (`Budget.MaxHudObjects`) ; pointeur ≤ 340 (`Budget.MaxHudObjectsPointer`) | `tests/HudBudget.spec.luau` construit le vrai HUD (moteur de test `tests/engine.luau`) dans un 3 contre 3 avec les dix emplacements du pass et compte les objets affichés (D-168) |
+| taches (`Splat`) par écran | ≤ 12 (`Budget.MaxSplats`) | pool par `ScreenGui` ; la tache d'un disque tactile est créée à sa première pression, gardée, et rendue au pool (hors du disque) avant que le disque ne parte |
+| `CanvasGroup` | 1 passagère à la sortie d'un écran, 1 par toast visible ; **jamais dans le HUD** | le voile de recharge du dash coupe un disque par un simple cadre découpant |
+| allocations par poussée à 5 Hz | aucune instance | emplacements de la barre de glyphes et pastilles de l'équipe en pool ; les disques abordables sont écrits dans une table réutilisée (`TouchCluster.affordable`) |
+| mouvement réduit | boucles arrêtées, éclats remplacés par des fondus, pas de décalage d'entrée | `UiPrefs.reducedMotion()` lu dans `Motion` et ses aides |
+| niveau le plus bas | pas de reflets animés, pas de taches de fond, pas d'éclats à la pression | `UiPrefs.setLowQuality`, poussé par `HudController` |
+
+**Compté hors de Studio.** Les objets GUI que le HUD affiche en combat sont comptés par
+`tests/HudBudget.spec.luau`, qui fait tourner le vrai `HudController` dans le moteur de test : ce sont les
+objets que le code construit et laisse visibles, pas un relevé du moteur de Roblox. Dans un 3 contre 3 avec les
+dix emplacements du pass : **171** sur un téléphone (92 pour le HUD, 79 pour les dix disques tactiles),
+**335** avec un pointeur, dont la barre de glyphes écrit les touches de chaque glyphe sur des capuchons et dont
+le bouton Menu porte le sien. Les 180 que la passe visait sont ceux du téléphone ; le pointeur est tenu sous
+340 (D-168).
+
+**Non mesuré.** Le coût des ressorts à l'entrée d'un écran demande Studio : MicroProfiler sur l'appareil émulé
+« iPhone 12 / Galaxy S10 » à 0,68 (`docs/STUDIO_SETUP.md` §11). Les objets de chaque écran sont comptés
+ci-dessous, hors de Studio ; le relevé du moteur (compteurs `DebugSettings` de l'interface) reste à faire.
+
+## Objets par écran
+
+Chaque écran et chaque onglet de la Boutique et du Pupitre, ouverts sur un téléphone de 844 × 390 à l'échelle
+0,68 pour un joueur qui possède tout ce qu'ils listent — chaque glyphe, chaque cosmétique, chaque passe, le pass à
+son dernier palier, les cinquante premiers du classement, chaque exercice à son meilleur grade, chaque plaque de
+l'Ex-libris —, comptés par `tests/ScreenBudget.spec.luau` (D-234) : les objets
+GUI affichés, comme le HUD. Un écran en dessine **400** au plus (`Budget.MaxScreenObjects`), la route du pass
+**700** (`Budget.MaxPassObjects`) ; le test échoue au-delà, et échoue aussi si ce tableau ne dit pas ce qu'il
+compte. Avant, le Casier de tout ce qui se vend en dessinait 1 282, le classement 684 et l'Équipement de dix
+glyphes 510 : ces trois listes sont construites par tranches à mesure qu'on les fait défiler
+(`src/ui/Progressive.luau`). Le Pupitre, arrivé avec la vague 1, dessinait 736 objets pour un exercice par glyphe :
+ses exercices et sa route le sont aussi depuis la fusion de la vague 2. Chaque écran est compté disposé comme le moteur le dispose en s'ouvrant : sa
+fenêtre, et un canevas qui n'est jamais plus haut que ce que ses rangées et ses grilles demandent au moins
+(le moteur de Lune ne dispose rien). Sans cela une liste par tranches était comptée à sa première tranche,
+alors que le moteur, qui en voyait le pied à moins d'une fenêtre, construisait la suivante dès l'ouverture : le
+Casier en dessinait 475 ; une liste au repos en haut ne construit plus que ce qui remplit sa vue. La flèche
+« plus bas » d'une liste plus haute que sa fenêtre est comptée avec.
+
+| Écran | Objets | Plafond |
+|---|---|---|
+| `MenuScreen` | 171 | 400 |
+| `PlayScreen` | 106 | 400 |
+| `ShopScreen (Today)` | 236 | 400 |
+| `ShopScreen (Folios)` | 127 | 400 |
+| `ShopScreen (Passes)` | 167 | 400 |
+| `ShopScreen (Locker)` | 265 | 400 |
+| `BattlepassScreen` | 527 | 700 |
+| `DailyScreen` | 189 | 400 |
+| `LoadoutScreen` | 338 | 400 |
+| `QuestsScreen` | 200 | 400 |
+| `LeaderboardScreen` | 362 | 400 |
+| `SettingsScreen` | 71 | 400 |
+| `LecternScreen (Drills)` | 197 | 400 |
+| `LecternScreen (Road)` | 151 | 400 |
+| `LecternScreen (ExLibris)` | 211 | 400 |
+| `ResultScreen` | 79 | 400 |
 
 ## Ce qui n'est pas mesuré
 

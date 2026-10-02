@@ -1,7 +1,9 @@
 """The volumes of phase 4 (D-114), one function per mesh. Each returns the mesh and its manifest entry.
 
 Every shape is a brush stroke that has taken on thickness (art bible rule 9): an open circle, a ring
-of two strokes, a splash crown with round beads, a sweep, a thrown drop, two torn scraps of paper.
+of two strokes, a splash crown with round beads, a sweep, a thrown drop, and two torn scraps of paper.
+The glyph bodies modelled as volumes have their own modules: the Wash's tidal wave (wave.py) and the
+Brand's fireball (fireball.py).
 Sizes are in reference units -- the `Reference` extent is exactly 1 -- so the runtime scales a mesh in
 studs of that extent, the way a texture is scaled by its plane. `Pivot` is the point the runtime
 places, in the same units: the importer recentres a mesh on its bounding box, and the manifest's
@@ -14,6 +16,8 @@ from __future__ import annotations
 
 import math
 
+import fireball
+import wave
 from strokes import Mesh, Rng, fbm, octahedron, ribbon, stroke
 
 
@@ -261,6 +265,12 @@ RECIPES = {
     "Drop": ("ink_drop.glb", drop, 450),
     "ScrapA": ("paper_scrap_a.glb", scrap_a, 48),
     "ScrapB": ("paper_scrap_b.glb", scrap_b, 48),
+    "WaveBody": ("ink_wave_body.glb", wave.wave_body, 1600),
+    "WaveCrest": ("ink_wave_crest.glb", wave.wave_crest, 500),
+    "WaveInk": ("ink_wave_ink.glb", wave.wave_ink, 1800),
+    "FireBody": ("ink_fire_body.glb", fireball.fire_body, 1000),
+    "FireCore": ("ink_fire_core.glb", fireball.fire_core, 300),
+    "FireInk": ("ink_fire_ink.glb", fireball.fire_ink, 1000),
 }
 
 

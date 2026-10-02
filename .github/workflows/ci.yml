@@ -25,8 +25,10 @@ jobs:
       - name: Install packages (wally.toml)
         run: wally install
 
-      - name: Download Roblox type definitions
-        run: curl -fsSL https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/main/scripts/globalTypes.d.luau -o globalTypes.d.luau
+      # The definitions of the luau-lsp release rokit.toml pins, never those of its main branch: a new API upstream
+      # must not change what the strict gate accepts between two runs of the same commit (tests/ToolchainPin.spec.luau).
+      - name: Download Roblox type definitions (luau-lsp 1.69.0, as rokit.toml pins it)
+        run: curl -fsSL https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.69.0/scripts/globalTypes.d.luau -o globalTypes.d.luau
 
       - name: StyLua
         run: stylua --check src tests

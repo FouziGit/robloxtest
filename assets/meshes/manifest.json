@@ -105,6 +105,84 @@
       "Source": "assets/meshes/ink_enso.glb",
       "Tris": 396
     },
+    "FireBody": {
+      "Axis": "Z",
+      "Bytes": 49108,
+      "Flat": false,
+      "Max": [
+        0.4182,
+        0.447,
+        0.2625
+      ],
+      "Min": [
+        -0.4824,
+        -0.4295,
+        -0.2625
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Diameter",
+      "Seed": 4417,
+      "Sha256": "47135a3bbb7207064c8d2c258d03b7600c060e2397858a555099646afff17b30",
+      "Source": "assets/meshes/ink_fire_body.glb",
+      "Tris": 978
+    },
+    "FireCore": {
+      "Axis": "Z",
+      "Bytes": 22500,
+      "Flat": false,
+      "Max": [
+        0.4042,
+        0.4268,
+        0.2199
+      ],
+      "Min": [
+        -0.4637,
+        -0.4127,
+        -0.2033
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Diameter",
+      "Seed": 4417,
+      "Sha256": "254b16d54f9e37e756d6f3aa77947443f2da4c14e70c44180a60d7d137d34eac",
+      "Source": "assets/meshes/ink_fire_core.glb",
+      "Tris": 300
+    },
+    "FireInk": {
+      "Axis": "Z",
+      "Bytes": 42904,
+      "Flat": false,
+      "Max": [
+        0.4343,
+        0.4636,
+        0.2866
+      ],
+      "Min": [
+        -0.498,
+        -0.4437,
+        -0.2866
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Diameter",
+      "Seed": 4417,
+      "Sha256": "92b0bab7ff2886c54c4fd42be8d0cfb1b1915f3b4a0f71dd67816b3be89b7ffe",
+      "Source": "assets/meshes/ink_fire_ink.glb",
+      "Tris": 912
+    },
     "ScrapA": {
       "Axis": "Y",
       "Bytes": 2268,
@@ -182,6 +260,84 @@
       "Sha256": "3647d441e1563d9812e48258bb02c4ddaafd4177fbfaae83e561dc48b2025df9",
       "Source": "assets/meshes/ink_split_ring.glb",
       "Tris": 272
+    },
+    "WaveBody": {
+      "Axis": "Y",
+      "Bytes": 62876,
+      "Flat": false,
+      "Max": [
+        0.4858,
+        0.597,
+        0.9819
+      ],
+      "Min": [
+        -0.4894,
+        0.0,
+        -0.4767
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Width",
+      "Seed": 7731,
+      "Sha256": "0426a8deae68cefac66aa66bf1e760cd0c5499bbbb32ae5510cebdf016d034e2",
+      "Source": "assets/meshes/ink_wave_body.glb",
+      "Tris": 1520
+    },
+    "WaveCrest": {
+      "Axis": "Y",
+      "Bytes": 21972,
+      "Flat": false,
+      "Max": [
+        0.275,
+        0.5998,
+        0.1811
+      ],
+      "Min": [
+        -0.2756,
+        0.0684,
+        -0.4843
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Width",
+      "Seed": 7732,
+      "Sha256": "3f2318af062d67af06fbc9b5ffc2d83181f6201d802e828a0674d1338cfec89d",
+      "Source": "assets/meshes/ink_wave_crest.glb",
+      "Tris": 500
+    },
+    "WaveInk": {
+      "Axis": "Y",
+      "Bytes": 78068,
+      "Flat": false,
+      "Max": [
+        0.5,
+        0.6119,
+        0.9849
+      ],
+      "Min": [
+        -0.5,
+        0.004,
+        -0.4902
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Width",
+      "Seed": 7733,
+      "Sha256": "7d718ca029442040896514875db1e18fea400df34e44b4bb77088c457385bda1",
+      "Source": "assets/meshes/ink_wave_ink.glb",
+      "Tris": 1770
     }
   }
 }

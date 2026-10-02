@@ -3,14 +3,26 @@
 -- CosmeticService publishes on it ("Cosmetic<Slot>" = a CosmeticConfig id). Kill effects and glyph skins
 -- are events inside Vfx packets and are drawn by VfxLibrary; this file owns only what a body carries.
 --
--- What a cosmetic may look like is decided by docs/ART_BIBLE.md and written in CosmeticConfig's header:
--- the page's inks only (never a pigment, never white), rarity carried by craft rather than colour. And
--- rule 8, particle density is capped: an aura is the first thing a crowded fight gives up, so every rate
--- follows the quality tier and the lowest tier draws only the local player's own.
+-- What an aura or a trail looks like is data (CosmeticConfig.AuraStyles and TrailStyles, D-148): coloured, in
+-- the materials of the book, one layer for a Rare, two for an Epic, three with a small light core for a
+-- Legendary. This file turns that data into instances and drives it. Every particle is EMITTED here, on the
+-- one Heartbeat, by an accumulator per emitter (Pure/AuraMath.owed): the engine thins a Rate about nine
+-- times at its automatic graphics quality (D-124), and an aura is exactly the effect whose density is its
+-- meaning -- a legendary drawn at a ninth of itself was a few dots nobody saw.
 --
--- One Heartbeat for everything that moves (orbiting strokes, emitters that only run while walking); no
--- connection per character beyond the attribute signals, and every instance lives in the Trove of the
--- slot that built it, so a change of cosmetic, a respawn or a departure leaves nothing behind.
+-- Rule 8 still holds: every flow follows the quality tier and the lowest tier draws only the local player's
+-- own, and every particle is asked of the screen's budget, within the share of what bodies wear (VfxParticles).
+-- And while the local player fights -- a ranked match, the Battleground, the Erasure's arena -- every aura and
+-- trail on this screen steps back (CosmeticConfig.Fight: fewer, fainter, unlit), so the glyphs keep the colour of
+-- the fight.
+--
+-- Every place is drawn round the standard body and fitted to the wearer's own (CosmeticConfig.Body): a trunk
+-- wider than the standard one hid what was born against it. The body is measured when the character is tracked
+-- and again whenever a look is put on -- a respawn is a new character -- and never per frame.
+--
+-- One Heartbeat for everything that moves (paths, flows); no connection per character beyond the attribute
+-- signals, and every instance lives in the Trove of the slot that built it, so a change of cosmetic, a
+-- respawn or a departure leaves nothing behind.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,27 +33,50 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local AssetIds = require(Shared.Config.AssetIds)
+local AuraMath = require(Shared.Pure.AuraMath)
 local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
 local QualityConfig = require(Shared.Config.QualityConfig)
 local Theme = require(UI.Theme)
 local Trove = require(Packages.Trove)
+-- A sibling of the effects: every particle a body wears is asked of the screen's budget with them.
+local VfxParticles = require(script.Parent:WaitForChild("VfxParticles"))
 
 local log = Log.new("CosmeticController")
 
-type Deps = { QualityController: any, Localize: any }
+type Deps = { QualityController: any, Localize: any, MatchController: any, TravelController: any }
 type TroveType = typeof(Trove.new())
-type Tone = CosmeticConfig.Tone
+type Style = CosmeticConfig.Style
 
--- One orbiting stroke: an attachment pair circling the root, which a Trail draws between.
-type Orbit = { Upper: Attachment, Lower: Attachment, Phase: number, Radius: number }
+-- One stream of particles: its emitter, the attachment it is moved to before each particle, and what it owes.
+type Flow = {
+	Emitter: ParticleEmitter,
+	Anchor: Attachment,
+	Place: CosmeticConfig.Place,
+	Emit: string,
+	Owed: AuraMath.Flow,
+	-- The longest life of one of its particles: how long the screen's budget counts it.
+	Life: number,
+	-- A trail's particles are laid by walking: they are owed only while the body moves.
+	Moving: boolean,
+	-- The hand the last drop fell from.
+	Side: number,
+}
+-- One stroke of a ribbon on a moving path: the two attachments its Trail is drawn between.
+type Runner = {
+	Path: CosmeticConfig.Place,
+	Stroke: number,
+	Count: number,
+	Upper: Attachment,
+	Lower: Attachment,
+	HalfWidth: number,
+}
 -- What one slot built on one character.
 type Worn = {
 	Trove: TroveType,
-	Orbits: { Orbit },
-	-- Emitters that only run while the character is moving: a trail's dust is left by walking.
-	Movers: { ParticleEmitter },
+	Flows: { Flow },
+	Runners: { Runner },
 	-- Every ribbon, so a teleport can wipe what it would otherwise draw across the jump.
 	Ribbons: { Trail },
 }
@@ -49,6 +84,8 @@ type Tracked = {
 	Character: Model,
 	Root: BasePart,
 	IsLocal: boolean,
+	-- The body every place is fitted to, as last measured: its floor, its width and its height.
+	Fit: AuraMath.Fit,
 	Slots: { [string]: Worn },
 	Trove: TroveType,
 	-- Where the root was last frame; nil until the first frame is seen.
@@ -57,33 +94,46 @@ type Tracked = {
 
 local ATTRIBUTE_PREFIX = "Cosmetic"
 local SLOTS = { "Aura", "Trail", "Title" }
--- Below this horizontal speed a character is standing, and a trail's dust is not laid.
+-- The slot whose look is words, the only one a language change redraws.
+local TITLE_SLOT = "Title"
+-- The trunk of an R15 body and of an R6 one: the parts a body's width is read from.
+local TRUNK = { "UpperTorso", "LowerTorso", "Torso" }
+-- Below this horizontal speed a character is standing, and a trail's particles are not laid.
 local MOVING_STUDS_PER_SECOND = 1.5
--- One turn of an orbiting stroke, in seconds, and how far it rises and falls while it goes round.
-local ORBIT_SECONDS = 2.6
-local ORBIT_BOB = 0.8
--- Half the stroke's width. Tuned in a live client: at 0.12 the two strokes were hairlines nobody saw,
--- which on a legendary aura is a purchase that shows nothing.
-local ORBIT_HALF_WIDTH = 0.2
 -- How far a title is read from: past this it is noise over a crowd.
 local TITLE_DISTANCE = 45
 -- A body that moves further than this in one frame was teleported (the end of a match, the boss pads, a
 -- Caret blink), and a ribbon would draw a stroke across the whole jump.
 local TELEPORT_STUDS = 40
--- Auras are born on a ring round the body, never inside it: a particle born in the torso is hidden by
--- the torso until it has drifted clear, which for a slow mote is most of its life (found by review).
-local AURA_RING_RADIUS = 1.7
-local AURA_RING_HEIGHTS = { 1.2, 0, -1.2 }
+-- A ribbon narrows to this share of its width at its tail: a bare tapered wedge, which reads as a stroke.
+local RIBBON_TAPER = 0.2
+-- How far toward the camera a style's Front particles are drawn: a core's heart over its own halo.
+local FRONT_Z = 0.2
+local FIGHT = CosmeticConfig.Fight
+local FLOW = CosmeticConfig.Flow
+local INK = CosmeticConfig.Tones.Ink
+
+local EMISSION: { [string]: Enum.NormalId } = {
+	Up = Enum.NormalId.Top,
+	Down = Enum.NormalId.Bottom,
+	-- In and Out turn the attachment itself toward or away from the body's axis, and emit along its facing.
+	In = Enum.NormalId.Front,
+	Out = Enum.NormalId.Front,
+}
 
 local CosmeticController = {}
 
 local quality: any
 local localize: any
+local matchController: any
+local travelController: any
 local tracked: { [Model]: Tracked } = {}
+local random = Random.new()
+-- Whether the local player is in a fight, as the match and the portals last said.
+local fighting = false
 
-local function toneColor(tone: Tone?): Color3
-	local rgb = CosmeticConfig.Tones[(tone or "Ink") :: string] or CosmeticConfig.Tones.Ink
-	return Palette.rgb(rgb)
+local function toneRgb(tone: string?): { number }
+	return CosmeticConfig.Tones[tone or "Ink"] or INK
 end
 
 local function textureId(key: string): string
@@ -91,274 +141,190 @@ local function textureId(key: string): string
 	return if asset ~= nil then asset.Id else ""
 end
 
--- How much of a style this client may draw for this character: the tier's particle scale, and nothing
--- at all for somebody else's aura on the floor tier.
-local function density(isLocal: boolean): number
-	local tier: QualityConfig.TierDef = quality.def()
-	if not isLocal and quality.get() == QualityConfig.Order[#QualityConfig.Order] then
-		return 0
+-- A curve of values evenly spaced over a life (or a length).
+local function evenly(values: { number }): NumberSequence
+	if #values == 1 then
+		return NumberSequence.new(values[1])
 	end
-	return tier.ParticleScale
+	local keypoints = table.create(#values)
+	for index, value in ipairs(values) do
+		keypoints[index] = NumberSequenceKeypoint.new((index - 1) / (#values - 1), value)
+	end
+	return NumberSequence.new(keypoints)
+end
+
+local function colorSequence(rgb: { number }, ramp: AuraMath.Ramp): ColorSequence
+	local keypoints = {}
+	for _, stop in ipairs(AuraMath.colors(rgb, ramp, INK, FLOW.HoldShare)) do
+		table.insert(keypoints, ColorSequenceKeypoint.new(stop.Time, Palette.rgb(stop.Rgb)))
+	end
+	return ColorSequence.new(keypoints)
+end
+
+-- How much of a flow this client draws for this body: the tier's particle scale, nothing at all for somebody
+-- else's on the floor tier, and the fight's share while the local player fights.
+local function densityFor(entry: Tracked): number
+	local tier: QualityConfig.TierDef = quality.def()
+	local floorTier = quality.get() == QualityConfig.Order[#QualityConfig.Order]
+	return AuraMath.density(tier.ParticleScale, entry.IsLocal, floorTier, fighting, FIGHT.Density)
+end
+
+-- The body a look is fitted to (AuraMath.fit), from the character's own trunk and head, found by name among its
+-- children. A hat, wings, a cape or layered clothing keep their Handle inside their Accessory, and a tool its
+-- parts inside the Tool, so none of them is read -- GetExtentsSize reads them all, and a body with wings would
+-- wear its aura past their tips; nor are the arms, whose reach is a pose, not a size. The floor is where a
+-- Humanoid stands its root, HipHeight plus half the root over it; a body without one, or an R6 body (whose
+-- HipHeight is 0), is given the usual depth.
+local function measure(character: Model, root: BasePart): AuraMath.Fit
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local standing = if humanoid ~= nil and humanoid.HipHeight > 0
+		then humanoid.HipHeight + root.Size.Y / 2
+		else CosmeticConfig.FloorDepth
+	local spans: { AuraMath.Span } = {}
+	for _, name in ipairs(TRUNK) do
+		local part = character:FindFirstChild(name)
+		if part ~= nil and part:IsA("BasePart") then
+			table.insert(spans, { Offset = root.CFrame:PointToObjectSpace(part.Position).X, Size = part.Size.X })
+		end
+	end
+	local head = character:FindFirstChild("Head")
+	local crown = if head ~= nil and head:IsA("BasePart")
+		then root.CFrame:PointToObjectSpace(head.Position).Y + head.Size.Y / 2
+		else nil
+	return AuraMath.fit(
+		{ HalfWidth = AuraMath.halfWidth(spans), Standing = standing, Crown = crown },
+		CosmeticConfig.Body
+	)
 end
 
 local function newWorn(): Worn
-	return { Trove = Trove.new(), Orbits = {}, Movers = {}, Ribbons = {} }
+	return { Trove = Trove.new(), Flows = {}, Runners = {}, Ribbons = {} }
 end
 
-type EmitterSpec = {
-	Texture: string,
-	Rate: number,
-	Lifetime: { number },
-	Speed: { number },
-	Size: { number },
-	Transparency: { number },
-	Spread: number?,
-	Acceleration: Vector3?,
-	Drag: number?,
-	RotSpeed: number?,
-	Up: boolean?, -- emit along the parent's +Y rather than all round
-}
-
-local function emitter(worn: Worn, parent: Instance, color: Color3, spec: EmitterSpec, scale: number): ParticleEmitter
-	local e = Instance.new("ParticleEmitter")
-	e.Texture = textureId(spec.Texture)
-	e.Color = ColorSequence.new(color)
-	e.LightEmission = 0
-	e.LightInfluence = 0
-	e.Rate = spec.Rate * scale
-	e.Lifetime = NumberRange.new(spec.Lifetime[1], spec.Lifetime[2])
-	e.Speed = NumberRange.new(spec.Speed[1], spec.Speed[2])
-	e.Size = NumberSequence.new(spec.Size[1], spec.Size[2])
-	e.Transparency = NumberSequence.new(spec.Transparency[1], spec.Transparency[2])
-	e.SpreadAngle = Vector2.new(spec.Spread or 180, spec.Spread or 180)
-	e.Acceleration = spec.Acceleration or Vector3.zero
-	e.Drag = spec.Drag or 0
-	e.Rotation = NumberRange.new(0, 360)
-	e.RotSpeed = NumberRange.new(-(spec.RotSpeed or 0), spec.RotSpeed or 0)
-	e.EmissionDirection = if spec.Up == true then Enum.NormalId.Top else Enum.NormalId.Front
-	e.Enabled = scale > 0
-	e.Parent = parent
-	worn.Trove:Add(e)
-	return e
-end
-
-local function attachment(worn: Worn, root: BasePart, position: Vector3): Attachment
+local function attachment(worn: Worn, root: BasePart): Attachment
 	local a = Instance.new("Attachment")
-	a.Position = position
 	a.Parent = root
 	worn.Trove:Add(a)
 	return a
 end
 
--- A ribbon between two attachments. `faceCamera` for a thin stroke, which must read from every angle;
--- false for a band worn on the body, which stays the standing curtain it was drawn as (D-108).
-local function ribbon(
+-- A stream of particles: an emitter that never emits by itself (Rate 0, disabled), and the flow the Heartbeat
+-- emits it by.
+local function buildEmission(
 	worn: Worn,
-	a0: Attachment,
-	a1: Attachment,
-	color: Color3,
-	lifetime: number,
-	from: number,
-	faceCamera: boolean
-): Trail
-	local trail = Instance.new("Trail")
-	trail.Attachment0 = a0
-	trail.Attachment1 = a1
-	trail.Texture = textureId("BrushStroke")
-	trail.TextureMode = Enum.TextureMode.Stretch
-	trail.Color = ColorSequence.new(color)
-	trail.LightEmission = 0
-	trail.LightInfluence = 0
-	trail.Lifetime = lifetime
-	trail.MinLength = 0.1
-	trail.FaceCamera = faceCamera
-	trail.Transparency = NumberSequence.new(from, 1)
-	trail.WidthScale = NumberSequence.new(1, 0.25)
-	trail.Parent = a0.Parent
-	worn.Trove:Add(trail)
-	table.insert(worn.Ribbons, trail)
-	return trail
+	entry: Tracked,
+	spec: CosmeticConfig.Emission,
+	rgb: { number },
+	density: number,
+	moving: boolean
+)
+	local anchor = attachment(worn, entry.Root)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = textureId(spec.Texture)
+	e.Color = colorSequence(rgb, spec)
+	e.LightEmission = AuraMath.glow(spec.Glow, fighting, FIGHT.Glow)
+	e.LightInfluence = 0
+	e.Brightness = 1
+	e.Lifetime = NumberRange.new(spec.Lifetime[1], spec.Lifetime[2])
+	e.Speed = NumberRange.new(AuraMath.speed(spec.Speed, spec.Emit, entry.Fit))
+	e.Size = evenly(spec.Size)
+	e.Transparency = evenly(AuraMath.lifted(spec.Transparency, if fighting then FIGHT.Transparency else 0))
+	e.SpreadAngle = Vector2.new(spec.Spread or 0, spec.Spread or 0)
+	e.Acceleration = Vector3.new(0, spec.Rise or 0, 0)
+	e.Drag = spec.Drag or 0
+	-- A drop drawn long stays upright: turned at random it would be a streak flying sideways.
+	e.Rotation = if spec.Stretch ~= nil then NumberRange.new(0) else NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-(spec.Spin or 0), spec.Spin or 0)
+	e.Squash = NumberSequence.new(spec.Stretch or 0)
+	-- Flat: faces along its (upward) velocity, so it lies on the floor like the ink it is.
+	e.Orientation = if spec.Flat == true
+		then Enum.ParticleOrientation.VelocityPerpendicular
+		elseif spec.Stretch ~= nil then Enum.ParticleOrientation.FacingCameraWorldUp
+		else Enum.ParticleOrientation.FacingCamera
+	e.ZOffset = if spec.Front == true then FRONT_Z else 0
+	e.EmissionDirection = EMISSION[spec.Emit]
+	e.Rate = 0
+	e.Enabled = false
+	e.Parent = anchor
+	worn.Trove:Add(e)
+	table.insert(worn.Flows, {
+		Emitter = e,
+		Anchor = anchor,
+		Place = spec.Place,
+		Emit = spec.Emit,
+		Owed = { Rate = spec.Rate * density, Carry = 0 },
+		Life = spec.Lifetime[2],
+		Moving = moving,
+		Side = 1,
+	})
 end
 
--- The same emitter at points round the body, each carrying its share of the rate.
-local function aroundBody(worn: Worn, root: BasePart, color: Color3, spec: EmitterSpec, scale: number)
-	local points = #AURA_RING_HEIGHTS * 2
-	local share = table.clone(spec)
-	share.Rate = spec.Rate / points
-	for index, height in ipairs(AURA_RING_HEIGHTS) do
-		for side = 0, 1 do
-			local angle = (index / #AURA_RING_HEIGHTS + side * 0.5) * 2 * math.pi
-			local point = Vector3.new(math.cos(angle) * AURA_RING_RADIUS, height, math.sin(angle) * AURA_RING_RADIUS)
-			emitter(worn, attachment(worn, root, point), color, share, scale)
+local function run(runner: Runner, fit: AuraMath.Fit, now: number)
+	local x, y, z = AuraMath.path(runner.Path, fit, runner.Stroke, runner.Count, now)
+	runner.Upper.Position = Vector3.new(x, y + runner.HalfWidth, z)
+	runner.Lower.Position = Vector3.new(x, y - runner.HalfWidth, z)
+end
+
+-- Its strokes: a bare Trail each, between two attachments on its path. A still path is placed once; a
+-- moving one is run by the Heartbeat.
+local function buildRibbon(worn: Worn, entry: Tracked, spec: CosmeticConfig.Ribbon, rgb: { number })
+	local now = os.clock()
+	local head = math.min(spec.Transparency + (if fighting then FIGHT.Transparency else 0), 1)
+	for stroke = 1, spec.Count do
+		local runner: Runner = {
+			Path = spec.Path,
+			Stroke = stroke,
+			Count = spec.Count,
+			Upper = attachment(worn, entry.Root),
+			Lower = attachment(worn, entry.Root),
+			HalfWidth = spec.Width / 2,
+		}
+		run(runner, entry.Fit, now)
+		local trail = Instance.new("Trail")
+		trail.Attachment0 = runner.Upper
+		trail.Attachment1 = runner.Lower
+		trail.Color = colorSequence(rgb, { Dries = spec.Dries })
+		trail.LightEmission = 0
+		trail.LightInfluence = 0
+		trail.Lifetime = spec.Lifetime
+		trail.MinLength = 0.1
+		trail.FaceCamera = spec.FaceCamera == true
+		trail.Transparency = NumberSequence.new(head, 1)
+		trail.WidthScale = NumberSequence.new(1, RIBBON_TAPER)
+		trail.Parent = entry.Root
+		worn.Trove:Add(trail)
+		table.insert(worn.Ribbons, trail)
+		if spec.Path.Seconds ~= nil then
+			table.insert(worn.Runners, runner)
 		end
 	end
 end
 
--- Aura styles: what hangs around a body at rest. Rates are per second at the High tier.
-local AURA: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: number) -> () } = {
-	Motes = function(worn, root, color, scale)
-		aroundBody(worn, root, color, {
-			Texture = "DustMote",
-			Rate = 9,
-			Lifetime = { 1.6, 2.6 },
-			Speed = { 0.3, 1 },
-			Size = { 0.34, 0 },
-			Transparency = { 0.1, 1 },
-			Acceleration = Vector3.new(0, 0.7, 0),
-		}, scale)
-	end,
-	Wisps = function(worn, root, color, scale)
-		local feet = attachment(worn, root, Vector3.new(0, -2.6, 0))
-		emitter(worn, feet, color, {
-			Texture = "SmokeSoft",
-			Rate = 3,
-			Lifetime = { 1.6, 2.4 },
-			Speed = { 0.8, 1.6 },
-			Size = { 0.8, 2.6 },
-			Transparency = { 0.5, 1 },
-			Spread = 25,
-			Drag = 0.6,
-			RotSpeed = 30,
-			Up = true,
-		}, scale)
-	end,
-	Drips = function(worn, root, color, scale)
-		for _, side in ipairs({ -1, 1 }) do
-			local hand = attachment(worn, root, Vector3.new(side * 1.3, -0.9, 0))
-			emitter(worn, hand, color, {
-				Texture = "InkBlot",
-				Rate = 1.4,
-				Lifetime = { 0.55, 0.8 },
-				Speed = { 0, 0.2 },
-				Size = { 0.22, 0.12 },
-				Transparency = { 0.05, 1 },
-				Acceleration = Vector3.new(0, -16, 0),
-			}, scale)
-		end
-	end,
-	Pages = function(worn, root, color, scale)
-		aroundBody(worn, root, color, {
-			Texture = "PaperScrap",
-			Rate = 3,
-			Lifetime = { 2.2, 3.2 },
-			Speed = { 0.4, 1 },
-			Size = { 0.65, 0.5 },
-			Transparency = { 0, 1 },
-			Acceleration = Vector3.new(0, 0.35, 0),
-			RotSpeed = 70,
-		}, scale)
-	end,
-	Soot = function(worn, root, color, scale)
-		local feet = attachment(worn, root, Vector3.new(0, -2.4, 0))
-		emitter(worn, feet, color, {
-			Texture = "SmokeSoft",
-			Rate = 6,
-			Lifetime = { 0.8, 1.2 },
-			Speed = { 2, 4 },
-			Size = { 0.25, 0.6 },
-			Transparency = { 0.35, 1 },
-			Spread = 35,
-			Up = true,
-		}, scale)
-	end,
-	-- Two strokes traced round the wearer, a glyph being drawn in the air forever.
-	Orbit = function(worn, root, color, scale)
-		if scale <= 0 then
-			return
-		end
-		for index = 1, 2 do
-			local upper = attachment(worn, root, Vector3.zero)
-			local lower = attachment(worn, root, Vector3.zero)
-			ribbon(worn, upper, lower, color, 0.6, 0.05, true)
-			table.insert(worn.Orbits, { Upper = upper, Lower = lower, Phase = (index - 1) * math.pi, Radius = 2.2 })
-		end
-	end,
-}
-
--- Trail styles: what a body leaves when it moves.
-local TRAIL: { [string]: (worn: Worn, root: BasePart, color: Color3, scale: number) -> () } = {
-	Stroke = function(worn, root, color, _scale)
-		local a0 = attachment(worn, root, Vector3.new(0, 0.9, 0.4))
-		local a1 = attachment(worn, root, Vector3.new(0, -0.9, 0.4))
-		ribbon(worn, a0, a1, color, 0.35, 0.3, false)
-	end,
-	Hairline = function(worn, root, color, _scale)
-		local a0 = attachment(worn, root, Vector3.new(0, 0.28, 0.45))
-		local a1 = attachment(worn, root, Vector3.new(0, 0.12, 0.45))
-		ribbon(worn, a0, a1, color, 0.5, 0.15, true)
-	end,
-	Scrawl = function(worn, root, color, _scale)
-		for _, height in ipairs({ 0.7, -0.5 }) do
-			local a0 = attachment(worn, root, Vector3.new(0, height + 0.08, 0.45))
-			local a1 = attachment(worn, root, Vector3.new(0, height - 0.08, 0.45))
-			ribbon(worn, a0, a1, color, 0.45, 0.2, true)
-		end
-	end,
-	Soot = function(worn, root, color, scale)
-		local feet = attachment(worn, root, Vector3.new(0, -2.6, 0.3))
-		table.insert(
-			worn.Movers,
-			emitter(worn, feet, color, {
-				Texture = "SmokeSoft",
-				Rate = 12,
-				Lifetime = { 0.5, 0.9 },
-				Speed = { 0.5, 1.5 },
-				Size = { 0.5, 1.4 },
-				Transparency = { 0.45, 1 },
-				Spread = 40,
-				Up = true,
-			}, scale)
-		)
-	end,
-	Scraps = function(worn, root, color, scale)
-		local feet = attachment(worn, root, Vector3.new(0, -2.4, 0.3))
-		table.insert(
-			worn.Movers,
-			emitter(worn, feet, color, {
-				Texture = "PaperScrap",
-				Rate = 4,
-				Lifetime = { 0.9, 1.4 },
-				Speed = { 1, 2.5 },
-				Size = { 0.35, 0.25 },
-				Transparency = { 0.1, 1 },
-				Drag = 1.2,
-				RotSpeed = 120,
-				Up = true,
-			}, scale)
-		)
-	end,
-	Dust = function(worn, root, color, scale)
-		local feet = attachment(worn, root, Vector3.new(0, -2.8, 0.3))
-		table.insert(
-			worn.Movers,
-			emitter(worn, feet, color, {
-				Texture = "DustMote",
-				Rate = 16,
-				Lifetime = { 0.6, 1 },
-				Speed = { 0.4, 1.4 },
-				Size = { 0.22, 0 },
-				Transparency = { 0.2, 1 },
-				Spread = 60,
-				Up = true,
-			}, scale)
-		)
-	end,
-}
-
-local function buildStyles(styles: { [string]: any }, look: CosmeticConfig.Look, entry: Tracked): Worn
+local function buildStyles(
+	styles: { [string]: Style },
+	look: CosmeticConfig.Look,
+	entry: Tracked,
+	moving: boolean
+): Worn
 	local worn = newWorn()
-	local color = toneColor(look.Tone)
-	local scale = density(entry.IsLocal)
+	local density = densityFor(entry)
 	-- Nothing at all rather than the ribbons alone: rule 8, an effect that cannot be shown is not played.
-	if scale <= 0 then
+	if density <= 0 then
 		return worn
 	end
-	for _, style in ipairs(look.Styles or {}) do
-		local build = styles[style]
-		if build ~= nil then
-			build(worn, entry.Root, color, scale)
-		else
-			log.warn("no renderer for style %s", style)
+	entry.Fit = measure(entry.Character, entry.Root)
+	for index, name in ipairs(look.Styles or {}) do
+		local style = styles[name]
+		if style == nil then
+			log.warn("no style %s", name)
+			continue
+		end
+		local rgb = toneRgb(if look.Tones ~= nil then look.Tones[index] else look.Tone)
+		for _, emission in ipairs(style.Emissions or {}) do
+			buildEmission(worn, entry, emission, rgb, density, moving)
+		end
+		for _, ribbon in ipairs(style.Ribbons or {}) do
+			buildRibbon(worn, entry, ribbon, rgb)
 		end
 	end
 	return worn
@@ -371,6 +337,8 @@ local function buildTitle(look: CosmeticConfig.Look, entry: Tracked): Worn?
 	end
 	local worn = newWorn()
 	local board = Instance.new("BillboardGui")
+	-- Its words are the game's own, never Roblox's automatic translation's (E12-S3).
+	board.AutoLocalize = false
 	board.Name = "CosmeticTitle"
 	board.Size = UDim2.fromOffset(240, 24)
 	board.StudsOffset = Vector3.new(0, 2.1, 0)
@@ -410,10 +378,10 @@ local function wear(entry: Tracked, slot: string)
 	end
 	local worn: Worn? = nil
 	if slot == "Aura" then
-		worn = buildStyles(AURA, item.Look, entry)
+		worn = buildStyles(CosmeticConfig.AuraStyles, item.Look, entry, false)
 	elseif slot == "Trail" then
-		worn = buildStyles(TRAIL, item.Look, entry)
-	elseif slot == "Title" then
+		worn = buildStyles(CosmeticConfig.TrailStyles, item.Look, entry, true)
+	elseif slot == TITLE_SLOT then
 		worn = buildTitle(item.Look, entry)
 	end
 	if worn ~= nil then
@@ -445,6 +413,7 @@ local function track(player: Player, character: Model)
 		Character = character,
 		Root = root,
 		IsLocal = player == Players.LocalPlayer,
+		Fit = measure(character, root),
 		Slots = {},
 		Trove = Trove.new(),
 	}
@@ -483,8 +452,33 @@ local function wipeRibbons(entry: Tracked)
 	end
 end
 
--- Every tracked body: orbiting strokes advance, and a trail's dust runs only while its wearer moves.
-local function onHeartbeat()
+-- What a flow owes since the last frame, as much of it as the screen's particle budget grants what bodies wear
+-- (VfxParticles: their share, and what the effects leave; the local player's own look, what is left, whatever the
+-- crowd wears), each particle born where its place says: the attachment is moved there, turned toward or away from
+-- the body's axis for In and Out, and the emitter asked for one. What is not granted is skipped, never owed again.
+local function emitFlow(entry: Tracked, flow: Flow, dt: number, now: number)
+	local count = AuraMath.owed(flow.Owed, dt, FLOW.MaxStepSeconds)
+	if count <= 0 then
+		return
+	end
+	local tier: QualityConfig.TierDef = quality.def()
+	for _ = 1, VfxParticles.grantWorn(count, flow.Life, tier.Particles, entry.IsLocal) do
+		flow.Side = -flow.Side
+		local x, y, z = AuraMath.point(flow.Place, entry.Fit, now, random:NextNumber(), random:NextNumber(), flow.Side)
+		local at = Vector3.new(x, y, z)
+		local axis = Vector3.new(0, y, 0)
+		if (flow.Emit == "In" or flow.Emit == "Out") and (at - axis).Magnitude > 1e-3 then
+			flow.Anchor.CFrame = if flow.Emit == "In" then CFrame.lookAt(at, axis) else CFrame.lookAt(at, at * 2 - axis)
+		else
+			flow.Anchor.Position = at
+		end
+		flow.Emitter:Emit(1)
+	end
+end
+
+-- Every tracked body: its paths advance, and every flow emits what it owes -- a trail's only while its
+-- wearer moves.
+local function onHeartbeat(dt: number)
 	local now = os.clock()
 	for _, entry in pairs(tracked) do
 		local position = entry.Root.Position
@@ -495,24 +489,19 @@ local function onHeartbeat()
 		entry.Last = position
 		local moving = (entry.Root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)).Magnitude > MOVING_STUDS_PER_SECOND
 		for _, worn in pairs(entry.Slots) do
-			for _, mover in ipairs(worn.Movers) do
-				mover.Enabled = moving and mover.Rate > 0
+			for _, runner in ipairs(worn.Runners) do
+				run(runner, entry.Fit, now)
 			end
-			for _, orbit in ipairs(worn.Orbits) do
-				local angle = now * (2 * math.pi / ORBIT_SECONDS) + orbit.Phase
-				local center = Vector3.new(
-					math.cos(angle) * orbit.Radius,
-					math.sin(angle * 1.7) * ORBIT_BOB,
-					math.sin(angle) * orbit.Radius
-				)
-				orbit.Upper.Position = center + Vector3.new(0, ORBIT_HALF_WIDTH, 0)
-				orbit.Lower.Position = center - Vector3.new(0, ORBIT_HALF_WIDTH, 0)
+			for _, flow in ipairs(worn.Flows) do
+				if moving or not flow.Moving then
+					emitFlow(entry, flow, dt, now)
+				end
 			end
 		end
 	end
 end
 
--- A tier change redraws everything: a rate set at build time is the only rate an emitter has.
+-- A tier change or a fight redraws everything: the density, the fading and the light are set at build.
 local function rebuildAll()
 	for _, entry in pairs(tracked) do
 		for _, slot in ipairs(SLOTS) do
@@ -521,9 +510,28 @@ local function rebuildAll()
 	end
 end
 
+-- The player's language changed: the title over every head is written again in it.
+local function rewordTitles()
+	for _, entry in pairs(tracked) do
+		wear(entry, TITLE_SLOT)
+	end
+end
+
+-- The local player is fighting while a match holds them or a portal has put them where others fight.
+local function refreshFight()
+	local now = matchController.getMatch() ~= nil or travelController.inFight()
+	if now == fighting then
+		return
+	end
+	fighting = now
+	rebuildAll()
+end
+
 function CosmeticController.Init(deps: Deps)
 	quality = deps.QualityController
 	localize = deps.Localize
+	matchController = deps.MatchController
+	travelController = deps.TravelController
 end
 
 function CosmeticController.Start()
@@ -532,6 +540,9 @@ function CosmeticController.Start()
 		onPlayer(player)
 	end
 	quality.Changed:Connect(rebuildAll)
+	matchController.MatchChanged:Connect(refreshFight)
+	travelController.FightChanged:Connect(refreshFight)
+	localize.Changed:Connect(rewordTitles)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (%d cosmetics)", #CosmeticConfig.Items)
 end

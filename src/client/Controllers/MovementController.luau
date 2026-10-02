@@ -2,7 +2,8 @@
 -- MovementController: client-side movement the server cannot simulate. Double jump (edge-latched jump
 -- input, GameConfig.Movement), and the server-approved MovementCommand payloads: dash and knockback
 -- (LinearVelocity on the owned root, since characters are client-simulated) and stun (movement input
--- sink). WalkSpeed and JumpPower are server-owned and never written here.
+-- sink, until its seconds run out or the server says it ended). WalkSpeed and JumpPower are server-owned and never
+-- written here.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -268,6 +269,13 @@ local function onCommand(payload: any)
 			return
 		end
 		applyStun(math.min(payload.Seconds, CombatConfig.Hit.StunMaxSeconds))
+		return
+	end
+	if kind == "StunEnd" then
+		-- The server let go of the stun before its time (MovementService.clearStun): the input comes back now,
+		-- and the timer the stun armed ends nothing when it fires.
+		stunGeneration += 1
+		releaseStun()
 		return
 	end
 

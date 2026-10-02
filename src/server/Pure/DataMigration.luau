@@ -1,0 +1,457 @@
+--!strict
+-- Profile schema migration. Pure module (no requires, no Roblox globals), tested under Lune.
+--
+-- Versions:
+--   1  V1 (ProfileService era): flat table {DataVersion=1, Keybinds{Feu,Eau,Terre,Vent}, PlayerLevel,
+--      PlayerXP, BattlepassLevel, BattlepassXP, ClaimedRewards{["5"]=true}, Currency=number,
+--      Cosmetics={frenchIds}, TotalKills, TotalJutsusCast}
+--   2  V2 (ProfileStore): see Types.ProfileData
+--
+-- migrate(raw, template) returns a complete V2 table built from a deep copy of `template` with every
+-- recognizable value of `raw` carried over. Unknown / malformed values fall back to the template.
+
+local DataMigration = {}
+
+-- 11: the practice duel against a Forger (E10-S6): `Daily.SparDay` and `Daily.SparPaid`, the spars paid today. New
+-- keys with the template's zero and no upgrade step: the version moves so a server still on 10 keeps the count a
+-- newer build wrote, rather than dropping it and paying the day's spars again.
+--
+-- 10: the login calendar (E15-S1). `Daily.CalendarDay`, the last of the calendar's 28 days claimed, and
+-- `Daily.Signets`, the Signets held. The seven-day streak before it paid the day of its week the streak fell on,
+-- so upgradeToV10 puts a profile on the calendar at that same day of its first week: a streak short of its week's
+-- end still reaches the week's cosmetic, one that stood on that end -- paid it already, in Folios -- takes the next
+-- week and meets the first cosmetic on the calendar's next turn, and the streak itself keeps its count. Signets
+-- start at none, as a new profile's do.
+--
+-- 9: the Flyleaf's daily allowance (`Daily.FlyleafDay`, `FlyleafFolios`, E16-S2, D-267). No upgrade step: every
+-- profile before it was paid nothing by the Flyleaf, which is the template's zeros. The version moves so a build
+-- that has never heard of them keeps them rather than dropping them (see `newer` in migrate).
+--
+-- 8: the ranked opponents of the day (`Rank.Opponents`) and the Folios matches paid today (`Daily.MatchDay`,
+-- `MatchFolios`), D-255. No upgrade step: every profile before it met nobody today and was paid nothing under
+-- a cap, which is the template's zeros and empty map. The version moves so a build that has never heard of them
+-- keeps them rather than dropping them (see `newer` in migrate), or a hop to an old server would start the day's
+-- counts over.
+--
+-- 7: the day's Trials counts (`Daily.TrialDay`, `TrialKills`, `TrialFolios`, E10-S3) and each quest set's
+-- `Swaps` (E10-S10). No upgrade step: every profile before it paid no Trials under a cap and rerolled nothing,
+-- which is the template's zeros and empty maps. The version moves so a build that has never heard of them
+-- keeps them rather than dropping them (see `newer` in migrate).
+--
+-- 6: the level road's milestones (`Milestones`, the levels already paid), the Lectern's drills (`Drills`, the
+-- best grade of each) and the Ex-libris (`ExLibris`, the plates earned). New keys with the template's empty
+-- defaults and no upgrade step: the version moves so a server still on 5 keeps what a newer build wrote (see
+-- `newer` in migrate), rather than dropping the records and paying every milestone, grade and plate a second time.
+--
+-- 5: `Cosmetics.Waived`, the cosmetics a developer account bought with Folios the developer list waived, so
+-- they leave with the list (D-208). No upgrade step: every profile before it holds none, which is the
+-- template's empty list. The same release adds `Daily.PracticeLastPaidAt`, when the last practice against the
+-- Erasure paid, so a hop to another server does not reopen its gap (D-222); no upgrade step either, the template's
+-- 0 is "never".
+--
+-- 4: the currency. `Currency.Ryo` became `Currency.Folios`: Ryo is the borrowed licence's coin and the
+-- lexicon of docs/ART_BIBLE.md had missed it (a folio is a leaf of a manuscript, so the page is the
+-- money). The template no longer declares the old key, so the generic overlay cannot carry it and a
+-- migrated profile would read as a player who had never earned anything: upgradeToV4 moves the balance.
+--
+-- 3: the lexicon rename (docs/ART_BIBLE.md). Element and jutsu ids became pigment and glyph ids,
+-- cosmetics named after a rank or after the spell they reskin were renamed too, and the two lifetime
+-- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
+-- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
+-- below reads them out of the raw table before they are lost.
+DataMigration.CurrentVersion = 11
+
+-- V1 cosmetic ids (French) -> V2 ids.
+local LEGACY_COSMETICS: { [string]: string } = {
+	BandeauGenin = "BlankHeadband",
+	KatanaAcier = "SteelStylus",
+	CapeBrume = "PalimpsestCape",
+	MasqueAnbu = "FrisketMask",
+	AuraChakraBleu = "BlueInkAura",
+	KimonoClan = "ScriptoriumRobe",
+	AuraChakraViolet = "VioletInkAura",
+	ManteauSage = "ScribeCloak",
+	AuraChakraDore = "GoldenInkAura",
+	ManteauHokage = "CodexCloak",
+}
+
+-- V1 element names (French, as the first version shipped them) -> current pigment action ids, and the
+-- V1 default keys that must be replaced by current defaults.
+local LEGACY_PIGMENTS: { [string]: string } = { Feu = "Cinnabar", Eau = "Indigo", Terre = "Umber", Vent = "Verdigris" }
+local LEGACY_DEFAULT_KEYS: { [string]: string } = { Feu = "A", Eau = "E", Terre = "R", Vent = "T" }
+
+-- Keys that conflict with movement (QWERTY/AZERTY) or Roblox defaults: never carried over.
+local FORBIDDEN_KEYS: { [string]: boolean } =
+	{ A = true, D = true, S = true, W = true, Z = true, Q = true, I = true, O = true }
+
+local function deepCopy<T>(value: T): T
+	if type(value) ~= "table" then
+		return value
+	end
+	local copy = {}
+	for key, item in pairs(value :: any) do
+		copy[key] = deepCopy(item)
+	end
+	return (copy :: any) :: T
+end
+
+local function isInteger(value: any): boolean
+	return type(value) == "number" and value == value and value == math.floor(value) and math.abs(value) < 1e15
+end
+
+local function nonNegativeInteger(value: any, fallback: number): number
+	if isInteger(value) and value >= 0 then
+		return value
+	end
+	return fallback
+end
+
+-- V1 player-level curve, needed to reconstruct TotalXP from (Level, XP).
+local function legacyXpForLevel(level: number): number
+	return math.floor(80 * level ^ 1.3)
+end
+
+local function migrateV1(raw: { [string]: any }, result: { [string]: any }, seasonId: string)
+	-- Keybinds (keyboard only in V1).
+	local keybinds = raw.Keybinds
+	if type(keybinds) == "table" then
+		for legacyName, action in pairs(LEGACY_PIGMENTS) do
+			local key = keybinds[legacyName]
+			if
+				type(key) == "string"
+				and #key == 1
+				and key ~= LEGACY_DEFAULT_KEYS[legacyName]
+				and string.match(key, "^%u$") ~= nil
+				and not FORBIDDEN_KEYS[key]
+			then
+				result.Settings.Keyboard[action] = key
+			end
+		end
+	end
+
+	-- Progression.
+	local level = nonNegativeInteger(raw.PlayerLevel, 1)
+	if level < 1 then
+		level = 1
+	end
+	local xp = nonNegativeInteger(raw.PlayerXP, 0)
+	local total = xp
+	for previous = 1, level - 1 do
+		total += legacyXpForLevel(previous)
+	end
+	result.Progression.Level = level
+	result.Progression.XP = xp
+	result.Progression.TotalXP = total
+
+	-- Currency.
+	-- V1 kept one number; the current profile keeps it under the name the lexicon gave it (see version 4
+	-- above), so this writes the new key rather than the old one it read.
+	result.Currency.Folios = nonNegativeInteger(raw.Currency, 0)
+
+	-- Battle pass (single V1 track -> free track of the current season).
+	local season = result.Battlepass[seasonId]
+	if season == nil then
+		season = deepCopy(result.Battlepass._template)
+		result.Battlepass[seasonId] = season
+	end
+	local tier = nonNegativeInteger(raw.BattlepassLevel, 1)
+	season.Tier = math.max(1, tier)
+	season.XP = nonNegativeInteger(raw.BattlepassXP, 0)
+	if type(raw.ClaimedRewards) == "table" then
+		for tierKey, claimed in pairs(raw.ClaimedRewards) do
+			if type(tierKey) == "string" and claimed == true and tonumber(tierKey) ~= nil then
+				season.ClaimedFree[tierKey] = true
+			end
+		end
+	end
+
+	-- Cosmetics.
+	if type(raw.Cosmetics) == "table" then
+		local seen: { [string]: boolean } = {}
+		for _, id in ipairs(result.Cosmetics.Owned) do
+			seen[id] = true
+		end
+		for _, legacyId in ipairs(raw.Cosmetics) do
+			local newId = if type(legacyId) == "string" then LEGACY_COSMETICS[legacyId] else nil
+			if newId ~= nil and not seen[newId] then
+				seen[newId] = true
+				table.insert(result.Cosmetics.Owned, newId)
+			end
+		end
+	end
+
+	-- Stats.
+	result.Stats.Kills = nonNegativeInteger(raw.TotalKills, 0)
+	result.Stats.GlyphsCast = nonNegativeInteger(raw.TotalJutsusCast, 0)
+end
+
+-- Copies every key of `source` that exists in `target` (recursively for tables), keeping the
+-- template's shape; type mismatches keep the template value. Unknown keys are dropped, unless
+-- `keepUnknown`: then they are carried over untouched (see `newer` in migrate).
+local function overlay(target: { [string]: any }, source: { [string]: any }, keepUnknown: boolean)
+	for key, templateValue in pairs(target) do
+		local incoming = source[key]
+		if incoming == nil then
+			continue
+		end
+		if type(templateValue) == "table" and type(incoming) == "table" then
+			if #templateValue > 0 or next(templateValue) == nil then
+				-- arrays and free-form maps are replaced wholesale
+				target[key] = deepCopy(incoming)
+			else
+				overlay(templateValue, incoming, keepUnknown)
+			end
+		elseif type(templateValue) == type(incoming) then
+			target[key] = incoming
+		end
+	end
+	if keepUnknown then
+		for key, incoming in pairs(source) do
+			if target[key] == nil then
+				target[key] = deepCopy(incoming)
+			end
+		end
+	end
+end
+
+export type MigrationInfo = { From: number, Migrated: boolean }
+
+-- `template` must be a complete V2 profile (see DataService). `template.Battlepass._template` holds
+-- the per-season default that new seasons are cloned from; it is removed from the result.
+-- `legacy` carries the old-to-new identifier maps (src/server/Pure/LegacyNames.luau). It is a parameter
+-- rather than a require because this module may not require anything: passing it in keeps the rule and
+-- lets a test drive the rename with its own fixtures.
+export type LegacyMaps = {
+	Pigments: { [string]: string },
+	Glyphs: { [string]: string },
+	Cosmetics: { [string]: string },
+}
+
+-- Rewrites a version 2 profile's identifiers and moves the four keys that held them. Every old key is
+-- read from `raw`, never from `result`: the generic overlay could not copy them, because the template no
+-- longer declares them, so `result` holds the template's empty defaults at this point.
+local function upgradeToV3(raw: { [string]: any }, result: { [string]: any }, legacy: LegacyMaps)
+	local unlocks = result.Unlocks
+	if type(unlocks) ~= "table" then
+		return
+	end
+	local oldUnlocks = if type(raw.Unlocks) == "table" then raw.Unlocks else {}
+
+	if type(oldUnlocks.Jutsus) == "table" then
+		local glyphs = {}
+		for _, id in ipairs(oldUnlocks.Jutsus) do
+			if type(id) == "string" then
+				table.insert(glyphs, legacy.Glyphs[id] or id)
+			end
+		end
+		unlocks.Glyphs = glyphs
+	end
+	if type(oldUnlocks.Elements) == "table" then
+		local pigments = {}
+		for _, id in ipairs(oldUnlocks.Elements) do
+			if type(id) == "string" then
+				table.insert(pigments, legacy.Pigments[id] or id)
+			end
+		end
+		unlocks.Pigments = pigments
+	end
+
+	local loadout = result.Loadout
+	if type(loadout) == "table" and type(loadout.Slots) == "table" then
+		for index, id in ipairs(loadout.Slots) do
+			if type(id) == "string" then
+				loadout.Slots[index] = legacy.Glyphs[id] or id
+			end
+		end
+	end
+
+	-- Cosmetics are rewards, not purchases that can be re-granted: a dropped id is a player who paid a
+	-- season of play for a title that vanished. Owned is a plain list. Equipped is a slot -> id map whose
+	-- Skin slot carries the glyph it reskins in its own key ("Skin:Brand"), so the key is translated
+	-- with the glyph map and the value with the cosmetic map.
+	local cosmetics = result.Cosmetics
+	local oldCosmetics = if type(raw.Cosmetics) == "table" then raw.Cosmetics else {}
+	if type(cosmetics) == "table" then
+		if type(oldCosmetics.Owned) == "table" then
+			local owned = {}
+			for _, id in ipairs(oldCosmetics.Owned) do
+				if type(id) == "string" then
+					table.insert(owned, legacy.Cosmetics[id] or id)
+				end
+			end
+			cosmetics.Owned = owned
+		end
+		if type(oldCosmetics.Equipped) == "table" then
+			local equipped: { [string]: string } = {}
+			for slot, id in pairs(oldCosmetics.Equipped) do
+				if type(slot) == "string" and type(id) == "string" then
+					local glyph = string.match(slot, "^Skin:(.+)$")
+					local freshSlot = if glyph ~= nil then "Skin:" .. (legacy.Glyphs[glyph] or glyph) else slot
+					equipped[freshSlot] = legacy.Cosmetics[id] or id
+				end
+			end
+			cosmetics.Equipped = equipped
+		end
+	end
+
+	-- Two lifetime counters were named after the old word for a spell. They feed quests and the profile
+	-- screen, so losing them would reset a player's whole history to zero.
+	local stats = result.Stats
+	local oldStats = if type(raw.Stats) == "table" then raw.Stats else {}
+	if type(stats) == "table" then
+		stats.GlyphsCast = nonNegativeInteger(oldStats.JutsusCast, stats.GlyphsCast)
+		stats.GlyphsHit = nonNegativeInteger(oldStats.JutsusHit, stats.GlyphsHit)
+	end
+end
+
+-- The currency's rename. Reads the old key out of the raw profile, because the template has only the new
+-- one and the overlay walks the template.
+local function upgradeToV4(raw: { [string]: any }, result: { [string]: any })
+	local currency = result.Currency
+	local oldCurrency = if type(raw.Currency) == "table" then raw.Currency else {}
+	if type(currency) == "table" then
+		currency.Folios = nonNegativeInteger(oldCurrency.Ryo, currency.Folios)
+	end
+end
+
+-- The days of the seven-day streak's week (DailyConfig before the calendar): the day of it a streak last paid.
+local LEGACY_STREAK_WEEK = 7
+
+-- The login calendar's start, read out of the raw profile's own streak: the day of the old week its last claim
+-- paid, which is where the calendar's first week stands for it. The generic overlay has already carried the
+-- streak and left the calendar day at the template's 0.
+local function upgradeToV10(raw: { [string]: any }, result: { [string]: any })
+	local daily = result.Daily
+	local oldDaily = if type(raw.Daily) == "table" then raw.Daily else {}
+	if type(daily) ~= "table" then
+		return
+	end
+	local streak = nonNegativeInteger(oldDaily.Streak, 0)
+	daily.CalendarDay = if streak > 0 then (streak - 1) % LEGACY_STREAK_WEEK + 1 else 0
+end
+
+-- A keybind map loaded over the template's defaults can hold one key twice: an action added after a
+-- player bound its new default key to something else -- LockOn's wheel click, D-115 -- arrives with that
+-- key while the player's own action still has it. Left alone, the new action silently took the key from
+-- the old one on the client, and the server refused every keybind save after it ("bound twice").
+--
+-- The player's own choice keeps the key; the action still on its default yields and takes the first
+-- allowed key nobody holds, in sorted order, so every load settles the same way. A key is the player's
+-- own when it differs from its action's default -- whatever path brought it (a save, a V1 import) --
+-- and two defaults never clash with each other. `defaults` is the template map of its kind, `allowed`
+-- its whitelist, `order` every action. Returns whether anything moved.
+function DataMigration.settleKeybinds(
+	map: { [string]: string },
+	defaults: { [string]: string },
+	allowed: { [string]: boolean },
+	order: { string }
+): boolean
+	local held: { [string]: string } = {}
+	local yielding: { string } = {}
+	-- The player's own keys claim first, the defaults after: on a clash, the default is the one that moves.
+	for _, own in ipairs({ true, false }) do
+		for _, action in ipairs(order) do
+			local key = map[action]
+			if key ~= nil and (key ~= defaults[action]) == own then
+				if held[key] == nil then
+					held[key] = action
+				else
+					table.insert(yielding, action)
+				end
+			end
+		end
+	end
+	if #yielding == 0 then
+		return false
+	end
+	local free: { string } = {}
+	for key in pairs(allowed) do
+		if held[key] == nil then
+			table.insert(free, key)
+		end
+	end
+	table.sort(free)
+	for _, action in ipairs(yielding) do
+		local key = table.remove(free, 1)
+		if key == nil then
+			break
+		end
+		map[action] = key
+		held[key] = action
+	end
+	return true
+end
+
+function DataMigration.migrate(
+	raw: any,
+	template: { [string]: any },
+	seasonId: string,
+	legacy: LegacyMaps?
+): ({ [string]: any }, MigrationInfo)
+	local result = deepCopy(template)
+	local info: MigrationInfo = { From = 0, Migrated = false }
+
+	if type(raw) ~= "table" then
+		-- A fresh profile is stamped current too. Leaving the template's own version here meant a brand new
+		-- profile claimed to be whatever version the template literal happened to say, and would be
+		-- migrated again on its next load.
+		result.DataVersion = DataMigration.CurrentVersion
+		result.Battlepass._template = nil
+		return result, info
+	end
+
+	local version = if isInteger(raw.DataVersion) then raw.DataVersion else 1
+	info.From = version
+	-- A profile a newer build wrote, loaded by this one: during a rollout, a player who joins a friend on a
+	-- server still running this version. Its keys this build has never heard of are the newer build's, and
+	-- dropping them reset whatever they held (the daily caps once: a player hopped to an old server, and
+	-- came back with a fresh 150 Folios to earn). They are kept, and the profile keeps its version, or the
+	-- newer build would run its upgrades a second time over the defaults this one wrote for the old keys.
+	-- It only protects a change that raised CurrentVersion, so any later change to the profile's shape
+	-- raises it, even one with no upgrade step. A key a newer build retyped still falls back here: this
+	-- build could not read it.
+	local newer = version > DataMigration.CurrentVersion
+
+	if version <= 1 then
+		migrateV1(raw, result, seasonId)
+		info.Migrated = true
+	else
+		local seasonTemplate = result.Battlepass._template
+		overlay(result, raw, newer)
+		-- Battlepass is a free-form map of seasons: make sure every season has the full shape.
+		if type(raw.Battlepass) == "table" then
+			result.Battlepass = {}
+			for id, seasonData in pairs(raw.Battlepass) do
+				if type(id) == "string" and id ~= "_template" and type(seasonData) == "table" then
+					local season = deepCopy(seasonTemplate)
+					overlay(season, seasonData, newer)
+					result.Battlepass[id] = season
+				end
+			end
+		end
+		info.Migrated = version < DataMigration.CurrentVersion
+	end
+
+	if version < 3 and legacy ~= nil then
+		upgradeToV3(raw, result, legacy)
+		info.Migrated = true
+	end
+
+	-- After V1's own path too: migrateV1 writes the balance it found under the old key.
+	if version < 4 then
+		upgradeToV4(raw, result)
+		info.Migrated = true
+	end
+
+	-- Every profile before the calendar holds the old seven-day streak, whatever the other steps between gave it.
+	if version < 10 then
+		upgradeToV10(raw, result)
+		info.Migrated = true
+	end
+
+	result.DataVersion = if newer then version else DataMigration.CurrentVersion
+	result.Battlepass._template = nil
+	return result, info
+end
+
+return DataMigration

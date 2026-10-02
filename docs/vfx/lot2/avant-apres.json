@@ -1,0 +1,12 @@
+{"title": "Lot 2 - Saignee, Marge, Delie - avant / apres (labo Studio)", "frames": [
+ {"capture": "bleed_before_impact_game", "moment": "Saignee : 1re gorgee (jeu)", "row": "avant", "t": 0.062},
+ {"capture": "bleed_before_impact_side", "moment": "Saignee : 1re gorgee (profil)", "row": "avant", "t": 0.062},
+ {"capture": "margin_before_rise_side", "moment": "Marge : le mur (profil)", "row": "avant", "t": 0.507},
+ {"capture": "hairline_before_flight_game", "moment": "Delie : en vol (jeu)", "row": "avant", "t": 0.121},
+ {"capture": "hairline_before_travel_side", "moment": "Delie : en vol (profil)", "row": "avant", "t": 0.25},
+ {"capture": "bleed_after_impact_game", "moment": "Saignee : 1re gorgee (jeu)", "row": "apres", "t": 0.061},
+ {"capture": "bleed_after_impact_side", "moment": "Saignee : 1re gorgee (profil)", "row": "apres", "t": 0.061},
+ {"capture": "margin_after_rise_side", "moment": "Marge : le mur (profil)", "row": "apres", "t": 0.266},
+ {"capture": "hairline_after_flight_game", "moment": "Delie : en vol (jeu)", "row": "apres", "t": 0.12},
+ {"capture": "hairline_after_flight_side", "moment": "Delie : en vol (profil)", "row": "apres", "t": 0.1}
+]}

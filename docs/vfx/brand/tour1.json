@@ -1,0 +1,13 @@
+{"title": "La Marque - tour 1 (encre vive a coeur chauffe) - labo Studio, temps d'effet depuis le paquet de lancer", "frames": [
+ {"capture": "brand_r1_cast_game", "moment": "lancer", "view": "game", "t": 0.031},
+ {"capture": "brand_r1_cast_side", "moment": "lancer", "view": "side", "t": 0.031},
+ {"capture": "brand_r1_depart_side", "moment": "depart", "view": "side", "t": 0.081},
+ {"capture": "brand_r1_travel_game", "moment": "trajet", "view": "game", "t": 0.181},
+ {"capture": "brand_v4_travel_side", "moment": "trajet", "view": "side", "t": 0.180},
+ {"capture": "brand_r1_impact_game", "moment": "impact", "view": "game", "t": 0.282},
+ {"capture": "brand_r1_impact_side", "moment": "impact", "view": "side", "t": 0.282},
+ {"capture": "brand_r1_impact_close", "moment": "impact", "view": "impact", "t": 0.282},
+ {"capture": "brand_r1_impact1_close", "moment": "impact +0,1", "view": "impact", "t": 0.352},
+ {"capture": "brand_r1_impact3_close", "moment": "impact +0,3", "view": "impact", "t": 0.556},
+ {"capture": "brand_r1_end_side", "moment": "fin", "view": "side", "t": 1.452}
+]}

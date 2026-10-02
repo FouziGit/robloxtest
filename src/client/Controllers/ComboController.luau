@@ -23,7 +23,13 @@ local Signal = require(Packages.Signal)
 
 local log = Log.new("ComboController")
 
-type Deps = { RemoteClient: any, SoundController: any, InputController: any, HudController: any }
+type Deps = {
+	RemoteClient: any,
+	SoundController: any,
+	InputController: any,
+	HudController: any,
+	VfxController: any,
+}
 
 -- Semitones above the root for the first, second, third... press of a sequence: a pentatonic, so any
 -- two consecutive notes agree, and the root an octave up sits where a fifth press would land.
@@ -39,15 +45,21 @@ ComboController.SequenceChanged = Signal.new() -- (sequence: { string })
 -- There is no signal for the other half on purpose -- a sequence this client resolved is not a cast, and
 -- everything that counts casts (the counter, the onboarding) reads the server's own confirmation instead.
 ComboController.SequenceBroken = Signal.new()
+-- (glyphId: string?, windowSeconds: number?) The glyph the sequence already is while the controller waits to
+-- see whether it grows into a longer one, and how long it waits: what the HUD's preview pill says during the
+-- short extend window, which otherwise reads as input lag. Nil once there is no such glyph.
+ComboController.PreviewChanged = Signal.new()
 
 local remoteClient: any
 local soundController: any
 local inputController: any
 local hudController: any
+local vfxController: any
 
 local resolver = ComboResolver.new(GlyphConfig.recipes(), GameConfig.Combo.MaxLength)
 local sequence: { string } = {}
 local generation = 0 -- bumped on every change so a stale timer thread does nothing
+local previewing = false
 
 local function setSequence(next: { string })
 	sequence = next
@@ -56,6 +68,15 @@ end
 
 local function cancelTimer()
 	generation += 1
+end
+
+-- The pending glyph, or nil. Fired only when there is something to say: a nil after a nil is silence.
+local function setPreview(glyphId: string?, windowSeconds: number?)
+	if glyphId == nil and not previewing then
+		return
+	end
+	previewing = glyphId ~= nil
+	ComboController.PreviewChanged:Fire(glyphId, windowSeconds)
 end
 
 -- The pigment's own note, at the scale degree of its place in the sequence.
@@ -87,6 +108,7 @@ local function armTimer(delay: number)
 			soundController.play(DISSIPATE_SFX)
 			ComboController.SequenceBroken:Fire()
 		end
+		setPreview(nil)
 		setSequence({})
 	end)
 end
@@ -100,16 +122,28 @@ local function onAction(actionId: string, began: boolean)
 	local next, decision = ComboResolver.push(resolver, sequence, actionId)
 	cancelTimer()
 
+	-- A press the sequence takes lights in the hand at once (VfxController.tap): the spell is seen starting
+	-- where it will leave from, on the frame of the press, not a round trip later.
+	if decision.Action == "Cast" or decision.Action == "Wait" then
+		vfxController.tap(actionId)
+	end
 	if decision.Action == "Cast" then
 		playNote(actionId, #full)
 		soundController.play(RESOLVE_SFX)
 		cast(full)
+		setPreview(nil)
 		setSequence({})
 	elseif decision.Action == "Wait" then
 		playNote(actionId, #next)
+		if decision.Castable then
+			setPreview(ComboResolver.resolve(resolver, next), GameConfig.Combo.ExtendWindowSeconds)
+		else
+			setPreview(nil)
+		end
 		setSequence(next)
 		armTimer(if decision.Castable then GameConfig.Combo.ExtendWindowSeconds else GameConfig.Combo.TimeoutSeconds)
 	else
+		setPreview(nil)
 		if decision.Action == "Reset" and decision.Reason == "NoMatch" then
 			hudController.showLocalToast("hud.combo.noMatch", nil, "Error")
 			soundController.play(FAIL_SFX)
@@ -124,9 +158,15 @@ local function onSuspended(value: boolean)
 		return
 	end
 	cancelTimer()
+	setPreview(nil)
 	if #sequence > 0 then
 		setSequence({})
 	end
+end
+
+-- The pigments that take `sequence` one step toward a recipe (ComboResolver.continuations): the HUD's hint.
+function ComboController.continuations(pending: { string }): { string }
+	return ComboResolver.continuations(resolver, pending)
 end
 
 function ComboController.Init(deps: Deps)
@@ -134,6 +174,7 @@ function ComboController.Init(deps: Deps)
 	soundController = deps.SoundController
 	inputController = deps.InputController
 	hudController = deps.HudController
+	vfxController = deps.VfxController
 end
 
 function ComboController.Start()

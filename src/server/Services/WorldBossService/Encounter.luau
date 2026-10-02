@@ -18,6 +18,7 @@ local CombatConfig = require(Shared.Config.CombatConfig)
 local Context = require(script.Parent.Context)
 local Log = require(Shared.Util.Log)
 local Palette = require(Shared.Util.Palette)
+local Teleport = require(script.Parent.Parent.Parent.World.Teleport)
 local VfxTimelineConfig = require(Shared.Config.VfxTimelineConfig)
 local WorldBossConfig = require(Shared.Config.WorldBossConfig)
 local WorldBossMode = require(script.Parent.Parent.Parent.GameModes.WorldBossMode)
@@ -49,13 +50,15 @@ local deps: Deps
 -- Building the arena side of the event
 ----------------------------------------------------------------
 
--- Top of the arena floor: the boss stands on it whatever altitude the arena slot sits at.
-local function groundY(arena: Arena, fallback: number): number
+-- Top and underside of the arena floor: the boss stands on the top whatever altitude the arena slot sits at, and a
+-- participant whose root is under the underside has fallen off it (K2, D-214). Both the fallback height without a
+-- floor.
+local function floorOf(arena: Arena, fallback: number): (number, number)
 	local floor = arena.Instance:FindFirstChild(Context.FloorName, true)
 	if floor ~= nil and floor:IsA("BasePart") then
-		return floor.Position.Y + floor.Size.Y / 2
+		return floor.Position.Y + floor.Size.Y / 2, floor.Position.Y - floor.Size.Y / 2
 	end
-	return fallback
+	return fallback, fallback
 end
 
 -- Centre of the arena: the BossSpawn marker, or the average of the player pads when it is missing.
@@ -162,7 +165,7 @@ end
 function Encounter.build(arena: Arena, health: number): Boss
 	local center = centerOf(arena)
 	local size = WorldBossMode.bodySize()
-	local floorY = groundY(arena, center.Y)
+	local floorY, fallY = floorOf(arena, center.Y)
 	local position = Vector3.new(center.X, floorY + size.Y / 2, center.Z)
 	local facing = Vector3.new(0, 0, -1)
 	local model, humanoid, body, band = buildBody(position, facing, health)
@@ -175,37 +178,54 @@ function Encounter.build(arena: Arena, health: number): Boss
 		Band = band,
 		Center = position,
 		GroundY = floorY,
+		FallY = fallY,
 		Facing = facing,
 		LastHealth = humanoid.Health,
 		ContactNextAt = {},
 	}
 end
 
--- Drops every participant on its own pad of the arena ring, facing the boss.
-function Encounter.place(arena: Arena, userIds: { number }, center: Vector3)
+-- Drops one participant on pad `slot` of the arena ring (wrapping past the last pad), facing the boss, now
+-- (Teleport.place), and returns the body it placed (nil when it placed none): the one its fall rule judges. The
+-- opening of a fight places everybody through here, and so does the hub's gate for whoever joins it later -- once
+-- the gate has had the arena streamed in around the ring (WorldBossService.enterFromPortal).
+function Encounter.placeOne(arena: Arena, player: Player, slot: number, center: Vector3): Model?
+	local pads = arena.Spawns[1]
+	if pads == nil or #pads == 0 then
+		log.warn("arena %s has no player pad: %s stays where they are", arena.Id, player.Name)
+		return nil
+	end
+	local character = player.Character
+	if character == nil then
+		return nil
+	end
+	local pad = pads[((slot - 1) % #pads) + 1]
+	local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
+	-- Trust follows the teleport, anchored on the pad itself, or the first hit this player lands on the boss is
+	-- built back where they stood.
+	Teleport.place(deps.Combat, player, character, CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+	return character
+end
+
+-- Drops every participant on its own pad of the arena ring, facing the boss, and returns the body placed for each
+-- user id.
+function Encounter.place(arena: Arena, userIds: { number }, center: Vector3): { [number]: Model }
+	local placed: { [number]: Model } = {}
 	local pads = arena.Spawns[1]
 	if pads == nil or #pads == 0 then
 		log.warn("arena %s has no player pad: participants stay where they are", arena.Id)
-		return
+		return placed
 	end
 	for index, userId in ipairs(userIds) do
 		local player = Players:GetPlayerByUserId(userId)
-		local character = if player ~= nil then player.Character else nil
-		if character ~= nil then
-			local pad = pads[((index - 1) % #pads) + 1]
-			local position = pad.Position + Vector3.new(0, Context.SpawnClearanceStuds, 0)
-			character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
-			local root = character.PrimaryPart
-			if root ~= nil then
-				root.AssemblyLinearVelocity = Vector3.zero
-				root.AssemblyAngularVelocity = Vector3.zero
+		if player ~= nil then
+			local character = Encounter.placeOne(arena, player, index, center)
+			if character ~= nil then
+				placed[userId] = character
 			end
-			-- The destination, passed explicitly: trust must follow a server-authored teleport and anchor on
-			-- the pad the server chose, or the first hit this player lands on the boss is built back where
-			-- they stood.
-			deps.Combat.resyncPosition(player, position)
 		end
 	end
+	return placed
 end
 
 ----------------------------------------------------------------
@@ -239,7 +259,7 @@ local function startAttack(boss: Boss, state: WorldBossMode.State, now: number):
 end
 
 -- The telegraph is over: everything standing in the shape takes the hit, through the single damage path
--- and with no source, so the attack lands whatever the PvP policy is. Knockback and stun only follow
+-- and with no source, so the attack lands whatever zone its target stands in. Knockback and stun only follow
 -- damage that actually landed, so a guard that soaked it all stops them too.
 --
 -- The shape is tested from where the boss stood when the warning was painted (state.Origin / Facing),

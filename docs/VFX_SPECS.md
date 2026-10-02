@@ -649,6 +649,190 @@ près de deux secondes : la page a été signée.
 
 ---
 
+# Le second roster (D-141, D-145)
+
+Huit glyphes, deux charges et une prise : onze chronologies écrites d'un coup, sur les chiffres du serveur
+et dans la recette « encre vive à cœur chauffé » (D-119). Chacune dessine ce qui blesse dans les deux
+images du paquet qui blesse (`tests/VfxStyle.spec.luau`, liste `ON_THE_FRAME`), et chaque mesure est celle
+que le serveur envoie : un rayon, une longueur de rayon, un pas, un tir nommé.
+
+**Pas encore vus.** Ni au labo ni dans un client vivant : l'écran de la machine était verrouillé quand elles
+ont été écrites. Les planches avant/après, les notes sur la grille et les deux tours de la recette
+`vellum-vfx` restent à faire pour chacune, avec le stress à six et une image au niveau Performance
+(`docs/vfx/<glyphe>/`), et ces glyphes ne sortent pas sans. Pour les charges, le labo doit tirer au
+moment `cast` avec un décalage d'environ `Windup` : sa `releaseOf` lit la chronologie du lâcher, longue de
+trois centièmes. Ce que les tests tiennent déjà est dit fiche par fiche ; le reste est une intention.
+
+| Chronologie | Pic | Particules | Horloge |
+|---|---|---|---|
+| `VoluteCharge` | 5 | 37 | d'effet |
+| `Volute` | 8 | 45 | d'effet |
+| `RubricCharge` | 6 | 87 | d'effet |
+| `Rubric` | 8 | 64 | stable (porteur) |
+| `Swash` | 10 | 123 | stable (porteur) |
+| `Dagger` | 9 | 35 | stable (porteur) |
+| `Cartouche` | 10 | 216 | d'effet |
+| `Emboss` | 9 | 88 | d'effet |
+| `Stitch` | 7 | 32 | stable (porteur) |
+| `StitchCatch` | 7 | 16 | d'effet |
+| `Hatching` | 7 | 176 | d'effet |
+
+## `VoluteCharge` — la Volute s'enroule (Indigo, charge)
+
+**Ce qu'il doit faire sentir.** Qu'un coup se prépare dans la main, et combien de temps il reste. Le
+serveur tient le lanceur 0,4 s (`Params.Windup`, la canalisation D-142) avant de lâcher.
+
+**Comment il est construit.** Tout est **sur le corps** (`Follow`), un stud à droite et devant la poitrine,
+là où la caméra du lanceur le voit par-dessus l'épaule : le lanceur peut marcher pendant la charge. Un
+dégradé du pigment qui gonfle en tournant, un sceau de charbon qui se referme sur lui en Quint In — lent,
+puis qui claque au lâcher —, l'encre aspirée dans la paume par un flux piloté (sa densité est la charge,
+D-124), un point chaud à mi-course, et une lumière qui **monte** vers le lâcher au lieu de retomber.
+L'anticipation est **fixe**, jamais une fenêtre : une phase fenêtrée est un avertissement de boss pour le
+moteur (jamais évincée, dessinée hors budget, et elle éteint les volumes au sol autour d'elle). Elle est
+pourtant jouée sur l'horloge du serveur (`Steady`), comme une fenêtre : le lâcher vient quand elle finit.
+`tests/Flight.spec.luau` la tient à `Windup`, sur le corps, avec une couche qui dure toute la charge.
+
+## `Volute` — la Volute (Indigo, mêlée chargée)
+
+**Ce qu'il doit faire sentir.** L'enroulement plaqué sur ce qu'il touche : un coup, pas un souffle.
+
+**Comment il est construit.** Il commence sur son impact : le serveur frappe à l'image où il émet, au centre
+qu'il a mesuré devant le lanceur et au rayon qu'il envoie (`HitRadius`). La volute s'effondre sur le point,
+un anneau du pigment s'ouvre face à la caméra jusqu'au rayon (2,4 rayons : l'encre de l'anneau est à 0,82 de
+son plan), un sceau de charbon tourne en sens inverse dedans, une étoile d'étincelles chaudes part **le long
+de la poussée** — le serveur projette le corps loin du lanceur —, une gerbe d'encre dégage la tête du
+lanceur. La page garde la volute : un sceau imprimé au rayon qui tourne lentement, une tache qui sèche
+dessous. Pas de flash : celui du paquet `Hit` est déjà au bon endroit.
+
+## `RubricCharge` — la Rubrique se charge (Cinabre, charge)
+
+**Ce qu'il doit faire sentir.** Un danger qu'on doit lire à temps : c'est la seule charge du jeu qu'une
+cible doit voir pour l'esquiver (0,25 s de réaction plus cinq studs de marche tiennent dans les 0,7 s). Le
+rouge est l'avertissement (bible, règle 7).
+
+**Comment il est construit.** La visée est figée à l'appui et le lanceur immobile : la ligne est donc connue
+dès la première image, et elle est **tracée au sol** du point de lâcher jusqu'au mur que le serveur a trouvé
+(le paquet porte `SpawnOffset` et `Range` mesurés à l'appui), en fonçant sur Quad In — le dernier tiers se
+lit « maintenant ». Elle est **aussi large que ce que la ligne transperce** : la boîte du rayon, `HitRadius`
+de chaque côté (le `Radius` que porte la charge), plus le stud dont un corps déborde de sa racine, dans la
+barre dont l'encre va jusqu'au bord de son plan (`TelegraphBar`) ; qui se tient hors d'elle est hors de la
+ligne. Tracée à la tache, dont l'encre s'arrête entre 0,53 et 0,83 de son plan, elle faisait moins d'un stud
+de large pour un rayon qui en frappe dix. Dans les mains, une goutte vermillon gonfle en trois pulsations chaudes pendant qu'un
+sceau de charbon se referme. Fixe, jamais une fenêtre, pour la raison de la Volute ; jouée sur l'horloge du
+serveur (`Steady`) : un gel d'impact ne la retarde pas sur le coup qu'elle annonce.
+
+## `Rubric` — la Rubrique (Cinabre, hitscan chargé)
+
+**Ce qu'il doit faire sentir.** Une ligne réglée d'un seul trait, plus lourde que la Rature.
+
+**Comment il est construit.** La structure de la Rature (D-126) : un porteur trace en huit centièmes, depuis
+la bouche au point d'appui — sur la ligne que la charge a peinte, d'où le serveur tire aussi (D-141) —,
+jusqu'où le rayon du serveur s'est arrêté — au-delà des trois corps qu'il peut traverser,
+jusqu'au mur —, trois rubans (pigment large, encre, filet chaud) tenus une demi-seconde, une secousse
+lourde au lâcher, et la ligne laissée brûlée sur la page à toute sa longueur. L'atterrissage sur chaque
+corps est le paquet `Hit` du serveur. `tests/VfxStyle.spec.luau` tient le porteur à la longueur du paquet et
+le départ à la bouche.
+
+## `Swash` — le Paraphe (Terre d'Ombre, vague au sol)
+
+**Ce qu'il doit faire sentir.** Une lame d'encre qui rase le sol et qu'on peut sauter ou esquiver de côté :
+le serveur juge une boîte de douze studs de large et cinq de haut.
+
+**Comment il est construit.** Un porteur à la vitesse du serveur, parti d'où est le front du serveur quand
+le dessin part (`SpawnOffset` plus trois centièmes de vol), à un stud du sol, et posé là où le front du
+serveur s'est arrêté : le `Fizzle` nomme son tir (D-114). Le corps du sort est un croissant du pigment
+couché, aussi large que la boîte, dont le bord avant suit celui du serveur **dès sa première image**, comme la
+boîte : il naît pâle, un lavis du pigment, et s'encre en un dixième de seconde (un volume n'apparaît jamais
+d'un coup). Né au tiers de sa largeur, il dessinait une lame quatre studs derrière et huit plus étroite que
+celle qui tranchait. Une gerbe debout, exactement de la largeur de la boîte et lancée jusqu'à son sommet, est
+ce que lit un joueur sur le côté. La
+page est entaillée là où le dessin passe ; celles qui restent à venir tombent à l'atterrissage, donc rien
+n'est entaillé derrière un mur. **Aucun plan monté** : un atterrissage vide une traînée, un émetteur, une
+lumière et un volume, jamais un plan, qui resterait figé en l'air. Les tests tiennent le départ, la vitesse,
+la portée, le bord avant et la largeur à la naissance comme à la fin, la hauteur de la gerbe et l'absence de
+plan monté.
+
+## `Dagger` — l'Obèle (Vert-de-gris, mobilité)
+
+**Ce qu'il doit faire sentir.** Un renvoi : rayé ici, réécrit dans le dos de quelqu'un, en train de couper.
+
+**Comment il est construit.** Les deux bouts sont des gestes opposés, comme ceux de l'Insertion, dans
+l'autre école : au départ un trait de charbon dressé sur la place et des étincelles rejetées en arrière (le
+serveur a déjà déplacé le corps : l'anticipation est le trou qu'il laisse, deux images) ; entre les deux,
+une seule traînée verte, **droite** et en quatre centièmes — sans arc, pour ne jamais passer pour le caret
+de l'Insertion — ; à l'arrivée, un coup de pinceau en travers du corps, des étincelles jetées dans son dos et
+un point chaud. Il va exactement où le serveur a posé le corps (`Reach = Range`), le long du vol lui-même,
+montée comprise (`Direction`) : l'arrivée est posée au sol derrière le corps, sur un rebord au-dessus ou un
+sol en dessous, et une traînée tracée à plat dans l'axe pour la longueur du vol frappait l'air au-delà et
+en dessous de l'endroit où le lanceur réapparaît. Ses cœurs restent sous le
+seuil du halo : le Vert-de-gris chauffé vire au cyan, la couleur d'un allié.
+
+## `Cartouche` — la Cartouche (Indigo, ultime)
+
+**Ce qu'il doit faire sentir.** Un cadre qui se referme sur tous ceux qui y sont : un sceau qui brise la
+garde, puis cinq pressions.
+
+**Comment il est construit.** Le sceau tombe sur le paquet : l'ensō de charbon s'ouvre jusqu'au rayon exact
+du serveur, un point chaud éclate au cœur, deux pointes du pigment se dressent près du bord, de part et
+d'autre de la visée, le bord du cadre est posé au charbon et la page dedans est noyée — **leur encre au
+rayon**, pas leur plan : l'encre du sceau est à 0,91 de son plan, d'où 2,2 rayons, et la page est noyée par
+un disque dont l'encre va jusqu'au bord (la tache s'arrêtait entre la moitié et les quatre cinquièmes du
+rayon, et un joueur debout hors du cadre dessiné était encore frappé). Puis, **sur chaque tick** du
+serveur (0,8 ; 1,6 ; 2,4 ; 3,2 ; 4,0 s), le cadre presse : un anneau du pigment se referme depuis le bord, la
+caméra le sent, et un nouveau maillon d'encre montante brûle sur le bord — un maillon par intervalle plutôt
+qu'une seule longue couche, pour qu'un niveau bas qui retire la couche la plus ancienne n'emporte jamais tout
+le bord. Pas de dôme, pas de volume tenu haut (règle 9), pas de flash. Les tests tiennent l'encre du bord
+et de la page au rayon, une pression par tick et au bon instant, le sceau sur le paquet et les pointes dans le
+cadre.
+
+## `Emboss` — le Gaufrage (Terre d'Ombre, souffle)
+
+**Ce qu'il doit faire sentir.** « Écarte-toi » : tout ce qui entoure le lanceur est jeté dehors d'un coup.
+
+**Comment il est construit.** La langue de la Rupture, plus bas : un anneau du pigment qui s'ouvre jusqu'au
+rayon du serveur, l'ensō de charbon qui s'y arrête, la page balayée à nu qui disparaît en s'étalant (l'encre
+a été poussée, pas brûlée), des étincelles et de l'encre jetées au large comme le sont les corps, un point
+chaud au cœur. Ce qui reste est l'anneau où l'encre a été poussée.
+
+## `Stitch` — la Chaînette (Vert-de-gris, contre)
+
+**Ce qu'il doit faire sentir.** Un fil lancé qui attrape.
+
+**Comment il est construit.** Comme le Délié : un porteur à la vitesse du serveur, parti d'où est le fil du
+serveur quand le dessin part, aussi loin que le sien peut aller, posé là où il s'est arrêté (le `Fizzle`, ou
+la prise). Un ruban d'encre fin, un ruban du pigment, un filet chaud, et les **maillons** laissés en l'air
+derrière lui (des sceaux du pigment). Aucun plan monté.
+
+## `StitchCatch` — la prise (Vert-de-gris)
+
+**Ce qu'il doit faire sentir.** Ce corps-là est attrapé, et le reste le temps de la racine.
+
+**Comment il est construit.** Le serveur l'envoie seulement quand le fil a pris un corps qu'il pouvait
+blesser, en nommant ce corps : tout est dessiné **sur lui**. Une entrave du pigment qui se referme, sa
+silhouette tracée à l'encre pendant toute la racine (`Outline`, D-125), un ruban d'encre qui ne se dessine
+que si le corps bouge vraiment — la traction ; un mannequin ou le boss, que le serveur ne tire pas, n'en
+laisse aucun —, des maillons perdus en route, un point chaud. La page garde l'empreinte de l'entrave là où il
+a été pris.
+
+## `Hatching` — les Hachures (Cinabre, rafale canalisée)
+
+**Ce qu'il doit faire sentir.** Une rafale dont chaque trait compte, puis un dernier qui soulève.
+
+**Comment il est construit.** Entre les traits, un flou du pigment et d'encre qui file vers l'avant depuis la
+portée du lanceur, **qui le suit** (le serveur reprend son cadre à chaque trait), piloté parce que sa densité
+est son sens. Sur chaque trait du serveur (0 ; 0,34 ; 0,68 ; 1,02 s), un coup de pinceau en travers de la
+boîte, penché dans l'autre sens que le précédent, un point chaud, la voix d'impact et une secousse ; sur le
+dernier (1,36 s), son anneau, une gerbe d'encre qui monte avec le corps qu'il projette et la seule secousse
+lourde. Une lumière qui monte vers la fin. Ce que la page garde est **posé sous le corps**, là où il est
+quand la marque est posée (une `Mark` qui suit est posée une fois, jamais traînée) : les entailles au premier
+trait, l'empreinte et la poussière où la rafale finit — le lanceur peut marcher derrière un corps ralenti
+pendant toute la rafale, jusqu'à une vingtaine de studs, et l'empreinte du lancer restait au départ. Repris
+si une ruée, un étourdissement ou la garde rompt la rafale (D-141). Les tests tiennent une secousse par trait,
+sur son temps, la dernière seule lourde, le flou jusqu'au dernier trait, et chaque marque durable posée sous
+le corps.
+
+---
+
 # L'Effacement
 
 Les sept effets du World Boss sont les seuls du jeu dont le visuel est **une règle** et non une décoration :
@@ -853,3 +1037,31 @@ Balayage aux largeurs exactes, la crue et le refuge de l'Éruption dans leurs de
 plaques couchées et orientées. Tant que les PNG ne sont pas en ligne, ce sont des plaques nues ; l'image
 telle qu'elle est écrite ici reste à voir. Les dix-neuf glyphes de la passe 4 restent, eux, non éprouvés
 en jeu.
+
+---
+
+# Les Faussaires
+
+## `ForgerTell` — le coup qui vient (D-131, D-133)
+
+**Ce qu'il doit faire sentir.** Qu'un coup arrive, d'où, jusqu'où et quand, pendant la demi-seconde que
+le serveur attend avant de frapper. C'est le seul avertissement d'un combat contre la page : un Faussaire
+n'a pas de visage, et l'animation seule arrive trop tard pour qu'on y réagisse.
+
+**Ce qu'il a remplacé.** Rien : les Faussaires sont nouveaux.
+
+**Comment il est construit.** La grammaire des télégraphes de l'Effacement, à l'encre du corps du
+Faussaire, jamais dans son rouge. Le rectangle que le serveur jugera — la boîte d'un coup, la ligne d'un
+tir et sa largeur, rayon de la cible compris — est peint dès la première image (`TelegraphBar` plein-bord,
+mesuré par `Radius` et `Reach` du paquet), puis rempli en deux moitiés qui foncent du Faussaire vers le
+bord ; le bord est réglé d'un stud, ce qui dit où s'arrête une ligne de soixante studs. La fenêtre est
+celle du paquet (`Window`), donc le coup tombe quand la peinture est pleine, pour chaque étape d'un
+enchaînement. À la fin, une tache d'encre éclate à la main qui frappe et un éclat de craie — la couleur
+des barres du Faussaire — s'ouvre dessus : l'instant où il fallait avoir bougé. La peinture se lève en un
+quart de seconde quand le coup tombe ; ce que le coup laisse, c'est le trait du poing (`Melee`) ou le
+rayon (`Strike`). Joué sans lumière (`Unlit`) : seul le cœur d'un glyphe brille. Le son est
+l'avertissement de l'Effacement étiré à la fenêtre, plus bas (`ForgerWarn`).
+
+**Pas encore vu.** Ni au labo ni dans un client vivant : les planches, les notes et les deux tours de la
+recette `vellum-vfx` restent à faire, et les Faussaires ne sortent pas sans. `tests/ForgerTell.spec.luau`
+tient déjà la couverture de chaque figure, la fenêtre et les champs du paquet.

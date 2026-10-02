@@ -16,6 +16,17 @@ local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local manifest = serde.decode("json", fs.readFile("assets/meshes/manifest.json"))
 
+-- The bodies a glyph flies as (D-273), modelled after the developer's own references: more than a stroke,
+-- each under its own cap -- a projectile that six players can throw at once, and a wave that one does.
+local BODY_CAPS: { [string]: number } = {
+	FireBody = 1000,
+	FireCore = 1000,
+	FireInk = 1000,
+	WaveBody = 1800,
+	WaveCrest = 1800,
+	WaveInk = 1800,
+}
+
 local function near(a: number, b: number, tolerance: number): boolean
 	return math.abs(a - b) <= tolerance
 end
@@ -85,11 +96,16 @@ describe("the mesh manifest", function()
 		end
 	end)
 
-	it("keeps every volume a few hundred triangles", function()
+	it("keeps every volume a few hundred triangles, and a glyph's body under its own cap", function()
 		for key, mesh in pairs(MeshConfig.Meshes) do
-			if mesh.Tris > 450 then
+			local cap = BODY_CAPS[key] or 450
+			if mesh.Tris > cap then
 				error(("%s has %d triangles: a volume is a brush stroke, not a model"):format(key, mesh.Tris))
 			end
+		end
+		-- A cap for a body nobody generates would hold nothing.
+		for key in pairs(BODY_CAPS) do
+			expect(MeshConfig.get(key)).never.toBeNil()
 		end
 	end)
 end)

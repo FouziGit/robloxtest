@@ -89,4 +89,9 @@ echo "▶ rojo build"
 mkdir -p build
 rojo build default.project.json -o build/Vellum.rbxl
 
+# What Rojo wrote is what Roblox ships: the pinned Workspace and the server-only modules are checked on the
+# place itself, which no spec above can see because they run before it exists.
+echo "▶ the built place"
+lune run tests/place build/Vellum.rbxl
+
 echo "✔ all quality gates green"

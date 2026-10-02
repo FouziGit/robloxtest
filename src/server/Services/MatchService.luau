@@ -1,13 +1,26 @@
 --!strict
 -- MatchService: the match lifecycle. Acquires an arena, teleports the roster to its team spawns,
 -- restricts PvP to the participants of the same live match, runs Countdown → Playing → RoundOver → …
--- → Result, pays the rewards, applies the ranking and brings everybody back to the hub.
+-- → Result, pays the rewards, applies the ranking and brings everybody back to the hub. A match with a newcomer in
+-- it is the quick duel (E10-S7, RankingService.isNewcomer): played and paid as any match, the pair rule below
+-- included, it moves nobody's rating, and walking out of it costs none.
 --
 -- One Heartbeat accumulator drives every live match (no per-match thread, no per-player loop): it
--- refreshes the participants from their Humanoid, asks the mode for a round verdict, advances the
--- phases and pushes MatchChanged at SNAPSHOT_HZ. Everything a match owns (arena, kill-zone
--- connection) hangs from its Trove, so a normal end, an abandon and a disconnect all release it the
--- same way. The rules themselves live in GameModes: this service never decides who won.
+-- kills whoever fell under the arena's kill zone, refreshes the participants from their Humanoid, asks
+-- the mode for a round verdict, advances the phases and pushes MatchChanged at SNAPSHOT_HZ. Everything
+-- a match owns (arena, kill-zone connection) hangs from its Trove, so a normal end, an abandon and a
+-- disconnect all release it the same way. The rules themselves live in GameModes: this service never
+-- decides who won.
+--
+-- Two rules keep two accounts from farming each other (D-255): a forfeit before the match was really fought
+-- is void (MatchConfig.MinPlayedSeconds, or no damage exchanged), and a pair past its day's full matches is paid a
+-- quarter (RankingService reports the repeat). A day of matches pays at most MatchConfig.DailyFolioCap Folios, its
+-- kills' included. This service pays a kill too, with the result and under the same rules: onKilled counts it, award
+-- pays it.
+--
+-- It tells the dashboards how each match went (AnalyticsConfig.Events): MatchEnded for each player at the result,
+-- with a GlyphMatch for every glyph they cast in it and the damage it dealt, and MatchVoided once for a match that
+-- ends with none.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,20 +29,28 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Elo = require(Shared.Pure.Elo)
+local DailyCap = require(script.Parent.Parent.Pure.DailyCap)
+local DailyStreak = require(Shared.Pure.DailyStreak)
+local Elo = require(script.Parent.Parent.Pure.Elo)
 local Execution = require(Shared.Pure.Execution)
 local GameConfig = require(Shared.Config.GameConfig)
 local GameModes = require(script.Parent.Parent.GameModes)
 local GlyphConfig = require(Shared.Config.GlyphConfig)
 local Log = require(Shared.Util.Log)
 local MatchConfig = require(Shared.Config.MatchConfig)
+local MovementGuardConfig = require(script.Parent.Parent.Config.MovementGuardConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local RankTiers = require(Shared.Pure.RankTiers)
 local RankingConfig = require(Shared.Config.RankingConfig)
+local Teleport = require(script.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
 local log = Log.new("MatchService")
+-- Each match's tick is a step of its own: one whose mode throws never stops the others, and is cancelled once it
+-- has thrown MATCH_FAULT_TICKS ticks in a row (E9-S2): its failure is the one warning it writes, and its end line
+-- says it was cancelled.
+local faults = log.faults(GameConfig.Server.FaultLogSeconds)
 
 -- Built by ArenaService: one free instance of a MatchConfig.Arenas entry, with its team spawn pads.
 -- Mirrors ArenaService.Arena exactly (acquire validates the pads and the kill zone before handing it
@@ -41,25 +62,40 @@ export type Arena = {
 	Spawns: { { BasePart } }, -- team index -> spawn pads of that team
 	KillZone: BasePart,
 }
-export type RatingChange = { Before: number, After: number, RankKeyBefore: string, RankKeyAfter: string }
+-- Repeat: RankingService held the rating of a pair past its day's full matches, and the match pays a quarter.
+export type RatingChange = {
+	Before: number,
+	After: number,
+	RankKeyBefore: string,
+	RankKeyAfter: string,
+	Repeat: boolean?,
+}
 
 type ProfileData = Types.ProfileData
 type BeforeReleaseSignal = {
 	Connect: (self: BeforeReleaseSignal, fn: (player: Player, data: ProfileData) -> ()) -> any,
 }
+type ReleasedSignal = { Connect: (self: ReleasedSignal, fn: (player: Player) -> ()) -> any }
 type DataApi = {
 	get: (player: Player) -> ProfileData?,
 	push: (player: Player, section: string) -> (),
+	isClosing: () -> boolean,
 	BeforeRelease: BeforeReleaseSignal,
+	ProfileReleased: ReleasedSignal,
 }
 type NotifyKind = "Info" | "Success" | "Error"
 type NotifyApi = {
 	send: (player: Player, key: string, params: { [string]: any }?, kind: NotifyKind?, sfx: string?) -> (),
 }
 type Registry = { fire: (name: string, player: Player, ...any) -> () }
+type ZoneClaim = {
+	Holds: (player: Player) -> boolean,
+	Pair: ((source: Player, target: Player) -> boolean)?,
+}
 type CombatApi = {
 	Damaged: DamagedSignal,
-	setPolicy: (fn: (source: Player?, targetModel: Model) -> boolean) -> (),
+	Killed: KilledSignal,
+	claimZone: (zone: "Match", claim: ZoneClaim) -> (),
 	resyncPosition: (player: Player, position: Vector3?) -> (),
 }
 type MovementApi = {
@@ -73,21 +109,33 @@ type CurrencyApi = { add: (player: Player, amount: number, reason: string) -> ()
 type HubApi = { teleportToHub: (player: Player) -> () }
 type ArenaApi = { acquire: (arenaId: string) -> Arena?, release: (arena: Arena) -> () }
 type RankingApi = {
+	rankedHere: () -> boolean,
 	getRating: (player: Player, modeId: string) -> number,
 	lastKnownRating: (modeId: string, userId: number) -> number,
 	applyResult: (result: Types.MatchResult) -> { [number]: RatingChange },
+	recordMeetings: (result: Types.MatchResult) -> { [number]: boolean },
 	applyAbandon: (player: Player, matchId: string, modeId: string, opponentRating: number) -> RatingChange?,
+	hold: (matchId: string, modeId: string, players: { Player }) -> (),
+	release: (matchId: string) -> (),
+	isNewcomer: (player: Player) -> boolean,
 }
 type QuestApi = { report: (player: Player, event: string, amount: number) -> () }
 type CastSignal = { Connect: (self: CastSignal, fn: (player: Player, glyphId: string, count: number) -> ()) -> any }
 type DamagedSignal = {
 	Connect: (
 		self: DamagedSignal,
-		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string) -> ()
+		fn: (sourceUserId: number, targetModel: Model, applied: number, kind: string, glyphId: string?) -> ()
 	) -> any,
 }
-type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal }
+type KilledSignal = {
+	Connect: (self: KilledSignal, fn: (sourceUserId: number, victimModel: Model) -> ()) -> any,
+}
+type GlyphApi = { Cast: CastSignal, CastLanded: CastSignal, resetCooldowns: (player: Player) -> () }
 type DailyApi = { markFirstWin: (player: Player) -> boolean }
+type AnalyticsApi = {
+	fields: (first: string | number, second: (string | number)?, third: (string | number)?) -> { [string]: string },
+	custom: (player: Player, eventName: string, value: number?, fields: { [string]: string }?) -> (),
+}
 type Deps = {
 	Registry: Registry,
 	DataService: DataApi,
@@ -102,11 +150,15 @@ type Deps = {
 	Quest: QuestApi,
 	Daily: DailyApi,
 	Glyph: GlyphApi,
+	Analytics: AnalyticsApi,
 }
 type TroveType = typeof(Trove.new())
 
 -- What one participant did over the match, counted from the signals of the services that saw it.
-type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number }
+type ParticipantStats = { Casts: number, Hits: number, DamageDealt: number, DamageTaken: number, Kills: number }
+
+-- The body a round setup put on its pad, and when.
+type Placement = { Character: Model, At: number }
 
 type Active = {
 	Match: GameModes.Match,
@@ -120,20 +172,38 @@ type Active = {
 	Generation: number, -- bumped per round: a stale setup thread drops out
 	Ticks: number,
 	Stats: { [number]: ParticipantStats }, -- user id -> the execution, graded at the result
+	Placed: { [Player]: Placement }, -- the body each participant was last placed with, which falls are judged on
+	LeftAt: number, -- os.clock of the latest departure; 0 while nobody left
+	Emptied: boolean, -- ended because every participant was gone, or the server was closing
+	FirstPlayedAt: number, -- os.clock the first round started being played; 0 until then
+	Glyphs: { [number]: { [string]: number } }, -- user id -> each glyph cast in the match -> the damage it dealt
+	-- This round's deaths, by user id, each started over with the round: who refresh saw fall while it was played, and
+	-- whose death already counted as a kill (onKilled).
+	FellInPlay: { [number]: boolean },
+	KillsCounted: { [number]: boolean },
 }
 
+-- A ranked match a departure walked out of, judged the moment they left, and the rating of the team they
+-- left, which their loss is scored against.
+type Forfeit = { Active: Active, OpponentRating: number }
+
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
+local MATCH_FAULT_TICKS = GameConfig.Server.MatchFaultTicks
 -- MatchChanged pushes per second; the client tweens between snapshots (see notes: a MatchConfig entry
 -- would be the proper home for this rate).
 local SNAPSHOT_HZ = MatchConfig.SnapshotHz
 local TICKS_PER_SNAPSHOT = math.max(1, math.floor(GameConfig.Server.TickRate / SNAPSHOT_HZ))
 -- Characters are pivoted this far above their spawn pad so they never start clipped into it.
 local SPAWN_CLEARANCE_STUDS = 4
+local ROOT_PART_NAME = "HumanoidRootPart"
+-- A departure is a forfeit only once it is this old (see applyVerdict).
+local LEAVE_GRACE_SECONDS = GameConfig.Server.LeaveGraceSeconds
 local XP = ProgressionConfig.XP
 local FOLIOS = ProgressionConfig.Folios
 -- Per-mode reward multipliers; MatchConfig.Rewards is keyed by mode id.
 local REWARD_SCALES = (MatchConfig.Rewards :: any) :: { [string]: { Xp: number, Folios: number } }
 local DEFAULT_SCALE = { Xp = 1, Folios = 1 }
+local REPEAT_SCALE = RankingConfig.Opponents.RepeatRewardScale
 
 local MatchService = {}
 
@@ -150,9 +220,12 @@ local ranking: RankingApi
 local quest: QuestApi
 local daily: DailyApi
 local glyph: GlyphApi
+local analytics: AnalyticsApi
 
 local actives: { Active } = {}
 local activeByUserId: { [number]: Active } = {}
+-- The forfeit each departed player owes, settled when their session ends (onBeforeRelease).
+local owed: { [Player]: Forfeit } = {}
 local accumulator = 0
 local nextMatchIndex = 0
 
@@ -187,24 +260,33 @@ local function spawnFor(arena: Arena, team: number, slot: number): BasePart?
 	return teamSpawns[((slot - 1) % #teamSpawns) + 1]
 end
 
--- Drops the character on its pad, facing the middle of the arena. `player` is the owner, so the position
--- the server trusts follows the teleport: without it the player's next hitbox would be built at the hub
--- and hit nothing (CombatService.trustedCFrame).
-local function placeCharacter(player: Player, character: Model, spawn: BasePart, center: Vector3)
+-- Where a body stands on `spawn`, facing the middle of the arena.
+local function padFrame(spawn: BasePart, center: Vector3): CFrame
 	local position = spawn.Position + Vector3.new(0, SPAWN_CLEARANCE_STUDS, 0)
 	if position.X == center.X and position.Z == center.Z then
-		character:PivotTo(CFrame.new(position))
-	else
-		character:PivotTo(CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z)))
+		return CFrame.new(position)
 	end
-	-- The destination, passed explicitly: re-reading the character would anchor trust on whatever the
-	-- client replicates next rather than on the pad the server just put them on.
-	combat.resyncPosition(player, position)
+	return CFrame.lookAt(position, Vector3.new(center.X, position.Y, center.Z))
+end
+
+-- Drops the character on its pad once the arena has streamed in around it (Teleport.travel), if `current` still
+-- says the round wants them there. Trust follows the teleport, anchored on the pad itself: without it the
+-- player's next hitbox would be built at the hub and hit nothing (CombatService.trustedCFrame).
+local function placeCharacter(
+	player: Player,
+	character: Model,
+	spawn: BasePart,
+	center: Vector3,
+	current: () -> boolean
+): boolean
+	return Teleport.travel(combat, player, character, padFrame(spawn, center), current)
 end
 
 -- Health and death come from the live Humanoid: no per-player connection, and a player who respawns
--- in the hub after losing a round never comes back to life inside it.
+-- in the hub after losing a round never comes back to life inside it. A death seen while the round is played is
+-- noted, so its kill still counts when CombatService says whose it was after the verdict (onKilled).
 local function refresh(active: Active)
+	local playing = active.Match.Phase == "Playing"
 	for _, participant in ipairs(active.Match.Participants) do
 		if not participant.Alive then
 			participant.Health = 0
@@ -215,6 +297,9 @@ local function refresh(active: Active)
 		if humanoid == nil or humanoid.Health <= 0 then
 			participant.Alive = false
 			participant.Health = 0
+			if playing then
+				active.FellInPlay[participant.UserId] = true
+			end
 			continue
 		end
 		participant.Health = humanoid.Health
@@ -261,13 +346,16 @@ end
 -- Rewards
 ----------------------------------------------------------------
 
-local function ratingFallback(player: Player, modeId: string): RatingChange
+-- The rating unchanged. With no rank at all for a match that is not ranked, a newcomer's quick duel or any match on a
+-- server that is not ranked: the Result then says nothing of a rating that could not move (ResultCard reads an empty
+-- key as unranked).
+local function ratingFallback(player: Player, modeId: string, ranked: boolean): RatingChange
 	local ok, rating = pcall(ranking.getRating, player, modeId)
 	local value = if ok and type(rating) == "number" then rating else RankingConfig.InitialRating
 	if not ok then
 		log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
 	end
-	local key = RankTiers.tierFor(value, RankingConfig.Tiers).NameKey
+	local key = if ranked then RankTiers.tierFor(value, RankingConfig.Tiers).NameKey else ""
 	return { Before = value, After = value, RankKeyBefore = key, RankKeyAfter = key }
 end
 
@@ -286,23 +374,95 @@ local function grantFirstWin(player: Player): boolean
 	return daily.markFirstWin(player)
 end
 
-local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
-	if not active.Def.Ranked then
-		return {}
+-- Takes up to `want` Folios from the player's day of matches (MatchConfig.DailyFolioCap, counted in the profile
+-- like the Forgers' cap) and writes the count back. Returns what may be paid, before VIP; all of it with no
+-- profile loaded, which award never meets (it pays only players still here).
+local function takeFolios(player: Player, want: number): number
+	local data = dataService.get(player)
+	if data == nil then
+		return want
 	end
-	local ok, applied = pcall(ranking.applyResult, result)
-	if not ok or type(applied) ~= "table" then
-		log.warn("Ranking.applyResult failed for match %s: %s", active.Match.Id, tostring(applied))
-		return {}
+	local counts = data.Daily
+	local today = DailyStreak.dayIndex(os.time())
+	local granted, used = DailyCap.take(counts.MatchDay, counts.MatchFolios, today, MatchConfig.DailyFolioCap, want)
+	if counts.MatchDay ~= today or counts.MatchFolios ~= used then
+		counts.MatchDay = today
+		counts.MatchFolios = used
+		dataService.push(player, "Daily")
 	end
-	return (applied :: any) :: { [number]: RatingChange }
+	return granted
 end
 
--- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server.
+-- The rating move of each participant, and the pair rule's word on them (D-255). A ranked match is applyResult's. One
+-- that moves no rating, a newcomer's quick duel or a match of a server that is not ranked, still counts the pair
+-- (RankingService.recordMeetings): the rating of everybody still here stays where it was, and a repeat is paid a
+-- quarter all the same.
+local function ratingChanges(active: Active, result: Types.MatchResult): { [number]: RatingChange }
+	if active.Match.Ranked then
+		local ok, applied = pcall(ranking.applyResult, result)
+		if not ok or type(applied) ~= "table" then
+			log.warn("Ranking.applyResult failed for match %s: %s", active.Match.Id, tostring(applied))
+			return {}
+		end
+		return (applied :: any) :: { [number]: RatingChange }
+	end
+	local ok, repeats = pcall(ranking.recordMeetings, result)
+	if not ok or type(repeats) ~= "table" then
+		log.warn("Ranking.recordMeetings failed for match %s: %s", active.Match.Id, tostring(repeats))
+		return {}
+	end
+	local changes: { [number]: RatingChange } = {}
+	for _, participant in ipairs(active.Match.Participants) do
+		if isLive(participant) then
+			local change = ratingFallback(participant.Player, active.Def.Id, false)
+			change.Repeat = (repeats :: { [number]: boolean })[participant.UserId] == true
+			changes[participant.UserId] = change
+		end
+	end
+	return changes
+end
+
+-- How long `active` has been under way, in whole seconds, for the dashboards.
+local function secondsOf(active: Active, now: number): number
+	return math.floor(now - active.Match.StartedAt + 0.5)
+end
+
+-- A match ending with no result, told to the dashboards as `cause`: by `player` when given (the last to leave,
+-- while they are still in the server), otherwise by the first participant still there. Once per match: the last
+-- one out tells it and the empty match that follows has nobody left to tell it again; a closing server or a mode
+-- that cannot say who won ends it with someone still there, and nobody last out.
+local function voided(active: Active, cause: string, player: Player?)
+	local teller = player
+	if teller == nil then
+		for _, participant in ipairs(active.Match.Participants) do
+			if isLive(participant) then
+				teller = participant.Player
+				break
+			end
+		end
+	end
+	if teller == nil then
+		return
+	end
+	local seconds = secondsOf(active, os.clock())
+	analytics.custom(teller, "MatchVoided", seconds, analytics.fields(active.Match.ModeId, cause))
+end
+
+-- XP, Folios, stats, ranking and the single MatchEnded summary, for everybody still in the server. A private
+-- server a player bought is not ranked (RankingService.rankedHere): its matches pay MatchConfig.PrivateServer's
+-- share of their XP and Folios, and neither the first win of the day nor a won match's quest.
+--
+-- The kills each one made (onKilled) are paid here, with the result: at their own value whatever the mode, and under
+-- the same rules -- the private server's share, the repeated pair's quarter, the day's Folio cap -- so a match nobody
+-- fought (voidMatch), a match cancelled and a player who walked out are paid none. Paid on the spot by CombatService,
+-- outside every one of those rules, two kills a duel paid an alt's main without end.
 local function award(active: Active, result: Types.MatchResult)
 	local match = active.Match
 	local scale = REWARD_SCALES[active.Def.Id] or DEFAULT_SCALE
+	local rankedServer = ranking.rankedHere()
+	local share = if rankedServer then 1 else MatchConfig.PrivateServer.RewardShare
 	local changes = ratingChanges(active, result)
+	local seconds = secondsOf(active, match.EndedAt)
 	for _, participant in ipairs(match.Participants) do
 		if not isLive(participant) then
 			continue
@@ -313,26 +473,50 @@ local function award(active: Active, result: Types.MatchResult)
 		local baseXp = if draw then XP.MatchDraw elseif won then XP.MatchWin else XP.MatchLoss
 		local baseFolios = if draw then FOLIOS.MatchDraw elseif won then FOLIOS.MatchWin else FOLIOS.MatchLoss
 		local reason = if draw then "MatchDraw" elseif won then "MatchWin" else "MatchLoss"
-		local xp = math.floor(baseXp * scale.Xp + 0.5)
-		local folios = math.floor(baseFolios * scale.Folios + 0.5)
+		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id, active.Match.Ranked)
+		-- A pair past its day's full matches is paid a quarter, and told why its rating held.
+		local repeatScale = if change.Repeat then REPEAT_SCALE else 1
+		local stats = active.Stats[participant.UserId]
+			or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0, Kills = 0 }
+		local xp = math.floor(baseXp * scale.Xp * share * repeatScale + 0.5)
+		local wanted = math.floor(baseFolios * scale.Folios * share * repeatScale + 0.5)
+		local killXp = math.floor(stats.Kills * XP.PlayerKill * share * repeatScale + 0.5)
+		local killWanted = math.floor(stats.Kills * FOLIOS.PlayerKill * share * repeatScale + 0.5)
+		-- One take for the result and its kills, the result served first.
+		local granted = takeFolios(player, wanted + killWanted)
+		local folios = math.min(granted, wanted)
+		local killFolios = granted - folios
 		-- DailyRewardService pays the first-win bonus itself, so it is reported but never added here.
-		local firstWin = won and grantFirstWin(player)
+		local firstWin = won and rankedServer and grantFirstWin(player)
 		progression.addXp(player, xp, reason)
-		currency.add(player, folios, reason)
+		if killXp >= 1 then
+			progression.addXp(player, killXp, "PlayerKill")
+		end
+		if folios >= 1 then
+			currency.add(player, folios, reason)
+		end
+		if killFolios >= 1 then
+			currency.add(player, killFolios, "PlayerKill")
+		end
+		if granted < wanted + killWanted then
+			notify.send(player, "match.folioCap", nil, "Info")
+		end
+		if change.Repeat then
+			notify.send(player, "match.repeatOpponent", nil, "Info")
+		end
 		bumpMatchesPlayed(player)
 		quest.report(player, "MatchPlayed", 1)
-		if won then
+		if won and rankedServer then
 			quest.report(player, "MatchWin", 1)
 		end
-		local change = changes[participant.UserId] or ratingFallback(player, active.Def.Id)
-		local stats = active.Stats[participant.UserId] or { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
+		-- What the match paid, its kills included: the Result counts it up and fills the level bar from where it was.
 		local outcome: Types.MatchOutcome = {
 			ModeId = match.ModeId,
 			Won = won,
 			Draw = draw,
 			Scores = table.clone(match.Scores),
-			Xp = xp,
-			Folios = folios,
+			Xp = xp + killXp,
+			Folios = granted,
 			RatingBefore = change.Before,
 			RatingAfter = change.After,
 			RankKeyBefore = change.RankKeyBefore,
@@ -345,6 +529,14 @@ local function award(active: Active, result: Types.MatchResult)
 			Grade = Execution.grade(stats.Casts, stats.Hits, stats.DamageDealt, stats.DamageTaken, won),
 		}
 		registry.fire("MatchEnded", player, outcome)
+		local issue = if draw then "Draw" elseif won then "Win" else "Loss"
+		analytics.custom(player, "MatchEnded", seconds, analytics.fields(match.ModeId, issue))
+		local glyphIssue = if won then "Win" else "Loss"
+		local cast: { [string]: number } = active.Glyphs[participant.UserId] or {}
+		for glyphId, damage in pairs(cast) do
+			local dealt = math.floor(damage + 0.5)
+			analytics.custom(player, "GlyphMatch", dealt, analytics.fields(glyphId, match.ModeId, glyphIssue))
+		end
 	end
 end
 
@@ -353,8 +545,9 @@ end
 ----------------------------------------------------------------
 
 -- Last step of every path out of a match: clear the participants, send them home, drop the Trove
--- (which releases the arena and disconnects the kill zone) and forget the match.
-local function finish(active: Active)
+-- (which releases the arena and disconnects the kill zone) and forget the match. `cancelled` when its tick kept
+-- failing (cancel): the players are told so, and the match's last line says it.
+local function finish(active: Active, cancelled: boolean?)
 	if active.Finished then
 		return
 	end
@@ -369,9 +562,16 @@ local function finish(active: Active)
 			activeByUserId[participant.UserId] = nil
 		end
 		if isLive(participant) and not participant.Released then
+			glyph.resetCooldowns(participant.Player)
 			registry.fire("MatchChanged", participant.Player, nil)
-			notify.send(participant.Player, "match.returning", nil, "Info")
+			if cancelled then
+				notify.send(participant.Player, "match.cancelled", nil, "Error")
+			else
+				notify.send(participant.Player, "match.returning", nil, "Info")
+			end
 			log.try("teleportToHub " .. participant.Player.Name, hub.teleportToHub, participant.Player)
+			-- Let go, as releaseFromResult lets go: a finish that throws before this line leaves them to cancel.
+			participant.Released = true
 		end
 	end
 	active.Trove:Destroy()
@@ -379,7 +579,54 @@ local function finish(active: Active)
 	if index ~= nil then
 		table.remove(actives, index)
 	end
-	log.info("match %s ended (arena %s slot %d)", active.Match.Id, active.Arena.Id, active.Arena.SlotIndex)
+	faults.forget(active.Match.Id)
+	log.info(
+		"match %s %s (arena %s slot %d)",
+		active.Match.Id,
+		if cancelled then "cancelled: its tick kept failing" else "ended",
+		active.Arena.Id,
+		active.Arena.SlotIndex
+	)
+end
+
+-- A match whose tick keeps throwing is over, with no result: nothing is paid and no rating moves, because the
+-- server cannot stand behind a verdict its own tick could not reach. Its players are told and sent home, and its
+-- arena goes back to the pool, so a broken match never holds either. Whatever finish got through before it threw,
+-- if it did, nothing of the match outlives this: every step below is harmless when finish already took it. Whoever
+-- that finish did not reach is sent home here, each step on its own so the one that broke finish cannot stop the
+-- next, and before the arena under them is released (ArenaService destroys it), with every glyph ready as finish
+-- would have left them (D-207). A match that was already finished had its end, and its result stands: they are told
+-- it is over, not that it was cancelled.
+local function cancel(active: Active)
+	local ended = active.Finished
+	local key = if ended then "match.returning" else "match.cancelled"
+	local kind: NotifyKind = if ended then "Info" else "Error"
+	-- A match that reached its result told the dashboards how it ended (MatchEnded, or MatchVoided when its mode
+	-- could not say): only one cancelled before it is told here, while its players are still in it.
+	if not ended and active.Match.Phase ~= "Result" then
+		log.try("MatchVoided " .. active.Match.Id, voided, active, "Cancelled")
+	end
+	log.try("finish " .. active.Match.Id, finish, active, true)
+	active.Finished = true
+	for _, participant in ipairs(active.Match.Participants) do
+		if activeByUserId[participant.UserId] == active then
+			activeByUserId[participant.UserId] = nil
+		end
+		if isLive(participant) and not participant.Released then
+			participant.Released = true
+			local player = participant.Player
+			log.try("resetCooldowns for " .. player.Name, glyph.resetCooldowns, player)
+			log.try("MatchChanged for " .. player.Name, registry.fire, "MatchChanged", player, nil)
+			log.try("notify " .. player.Name, notify.send, player, key, nil, kind)
+			log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
+		end
+	end
+	log.try("release of " .. active.Match.Id, active.Trove.Destroy, active.Trove)
+	local index = table.find(actives, active)
+	if index ~= nil then
+		table.remove(actives, index)
+	end
+	faults.forget(active.Match.Id)
 end
 
 local function enterResult(active: Active, now: number)
@@ -397,6 +644,7 @@ local function enterResult(active: Active, now: number)
 	local ok, result = pcall(active.Mode.End, match)
 	if not ok then
 		log.warn("mode %s End failed for match %s: %s", active.Def.Id, match.Id, tostring(result))
+		voided(active, "Error")
 		return
 	end
 	local outcome = (result :: any) :: Types.MatchResult
@@ -405,10 +653,22 @@ end
 
 -- Round setup: yields on LoadCharacterAsync, so it runs in its own thread and bails out when the match
 -- moved on meanwhile. A fresh character is the only reset CombatService exposes — it restores full
--- health, full ink and spawn protection on CharacterAdded — so every round starts on one.
+-- health, full ink and spawn protection on CharacterAdded — so every round starts on one, and with every
+-- glyph ready (D-20): the cooldowns are the player's, not the character's, and outlived the old body. They
+-- are cleared with the freeze on, so no cast lands between the reset and the round.
 local function prepareRound(active: Active)
 	local generation = active.Generation
 	local center = arenaCenter(active.Arena)
+	local function current(): boolean
+		return not active.Finished and active.Generation == generation
+	end
+	-- Every pad asked of its player's client at once, so the streams run while the bodies load one by one.
+	for _, participant in ipairs(active.Match.Participants) do
+		local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
+		if pad ~= nil and isLive(participant) then
+			Teleport.prestream(participant.Player, padFrame(pad, center).Position)
+		end
+	end
 	for _, participant in ipairs(active.Match.Participants) do
 		if active.Finished or active.Generation ~= generation then
 			return
@@ -421,13 +681,17 @@ local function prepareRound(active: Active)
 			local character = player.Character
 			if loaded and character ~= nil and not active.Finished and active.Generation == generation then
 				local pad = spawnFor(active.Arena, participant.Team, participant.Slot)
-				if pad ~= nil then
-					placeCharacter(player, character, pad, center)
-				else
+				if pad == nil then
 					log.warn("arena %s has no spawn for team %d", active.Arena.Id, participant.Team)
+				elseif placeCharacter(player, character, pad, center, current) then
+					active.Placed[player] = { Character = character, At = os.clock() }
+				end
+				if not current() then
+					return
 				end
 				participant.Alive = true
 				movement.applyFreeze(player, active.Def.CountdownSeconds)
+				glyph.resetCooldowns(player)
 			end
 		end
 	end
@@ -444,6 +708,8 @@ local function beginRound(active: Active)
 	local match = active.Match
 	match.Phase = "Countdown"
 	active.Generation += 1
+	active.FellInPlay = {}
+	active.KillsCounted = {}
 	active.Preparing = true
 	local now = os.clock()
 	active.PhaseEndsAt = now + active.Def.CountdownSeconds
@@ -456,12 +722,78 @@ local function beginRound(active: Active)
 	end)
 end
 
+-- Damage the two sides dealt each other over the match: allowDamage lets nothing else land (onDamaged).
+local function damageExchanged(active: Active): number
+	local total = 0
+	for _, stats in pairs(active.Stats) do
+		total += stats.DamageDealt
+	end
+	return total
+end
+
+-- How long the rounds had been played when the departure that emptied a side came.
+local function playedSeconds(active: Active): number
+	if active.FirstPlayedAt == 0 then
+		return 0
+	end
+	return math.max(active.LeftAt - active.FirstPlayedAt, 0)
+end
+
+-- A forfeit of a match nobody really fought (D-255): too short (MatchConfig.MinPlayedSeconds), or not a single
+-- point of damage exchanged. Never a series already won on the field, which stays its winner's (D-34).
+local function isVoid(active: Active): boolean
+	if GameModes.decidedWinner(active.Match) ~= nil then
+		return false
+	end
+	return playedSeconds(active) < MatchConfig.MinPlayedSeconds or damageExchanged(active) <= 0
+end
+
+-- Ends a void match with no result. Whoever walked out has paid the forfeit all the same: their session ended with
+-- the same grace this verdict waited for, in this frame at the latest, and settle debited it then. Whoever stayed is
+-- let go at once, told why, and gets no rating, reward, quest or stat. An alt that leaves on the countdown earns its
+-- main nothing. The dashboards hear of it as a match voided Unplayed.
+local function voidMatch(active: Active)
+	log.info(
+		"match %s void: a side left after %.1f s of play and %.0f damage exchanged",
+		active.Match.Id,
+		playedSeconds(active),
+		damageExchanged(active)
+	)
+	voided(active, "Unplayed")
+	for _, participant in ipairs(active.Match.Participants) do
+		if isLive(participant) then
+			movement.clearStun(participant.Player)
+			notify.send(participant.Player, "match.voided", nil, "Info")
+		end
+	end
+	finish(active)
+end
+
 local function applyVerdict(active: Active, verdict: GameModes.Verdict, now: number)
 	local match = active.Match
 	if verdict.Reason == "Forfeit" then
-		if GameModes.presentCount(active.Match) == 0 then
-			log.warn("match %s abandoned: no participant left", match.Id)
+		-- Nobody walked out on anybody: every participant is gone, or the server is closing. A shutdown or a
+		-- migration removes a whole match within LEAVE_GRACE_SECONDS, and none of its departures is then
+		-- an abandon (stillOwed), nor a win for whoever the server happened to remove last.
+		local closing = dataService.isClosing()
+		if closing or GameModes.presentCount(active.Match) == 0 then
+			if closing then
+				log.info("match %s ends with the server: no result", match.Id)
+			else
+				log.warn("match %s abandoned: no participant left", match.Id)
+			end
+			active.Emptied = true
+			voided(active, if closing then "Closing" else "Empty")
 			finish(active)
+			return
+		end
+		if now - active.LeftAt < LEAVE_GRACE_SECONDS then
+			-- Not a forfeit yet: the rest of the match may be about to go the same way, with the server. The
+			-- verdict is asked again on the next tick.
+			return
+		end
+		if isVoid(active) then
+			voidMatch(active)
 			return
 		end
 		local winner = verdict.WinnerTeam
@@ -499,11 +831,11 @@ end
 local function advance(active: Active, now: number)
 	local match = active.Match
 	if match.Phase ~= "Result" then
-		local ok, verdict = pcall(active.Mode.RoundVerdict, match, now)
-		if not ok then
-			log.warn("mode %s RoundVerdict failed for match %s: %s", active.Def.Id, match.Id, tostring(verdict))
-		elseif verdict ~= nil then
-			applyVerdict(active, (verdict :: any) :: GameModes.Verdict, now)
+		-- Unguarded: a mode that cannot give its verdict throws into the match's own step, which counts it and
+		-- cancels the match if it keeps failing. Caught here, it left the round without an end, forever.
+		local verdict = active.Mode.RoundVerdict(match, now)
+		if verdict ~= nil then
+			applyVerdict(active, verdict, now)
 			return
 		end
 	end
@@ -522,6 +854,9 @@ local function advance(active: Active, now: number)
 			match.Phase = "Playing"
 			match.RoundEndsAt = now + match.RoundSeconds
 			active.PhaseEndsAt = match.RoundEndsAt
+			if active.FirstPlayedAt == 0 then
+				active.FirstPlayedAt = now
+			end
 		end
 		return
 	end
@@ -544,6 +879,65 @@ local function advance(active: Active, now: number)
 	finish(active)
 end
 
+-- The arena kill zone under the floor. Health = 0 makes it an environment death, so CombatService
+-- still credits the last attacker when a knockback is what sent the victim over the edge. Only while the
+-- round is played, and only a participant still alive in it: one eliminated earlier and respawned at the hub
+-- is no longer in the arena's business.
+local function killInZone(active: Active, participant: GameModes.Participant, character: Model)
+	if active.Finished or active.Match.Phase ~= "Playing" or not participant.Alive then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid ~= nil and humanoid.Health > 0 then
+		humanoid.Health = 0
+	end
+end
+
+-- The kill zone as the server sees it, every tick: Touched is the owning client's word, so a tampered client
+-- simply never touched it and hung under the arena out of every fight. A participant still alive whose root is
+-- under the zone fell out -- judged only on the body the round placed, once the pivot has settled. A setup that
+-- stalled past the countdown lets the round play while it still reloads people: a survivor's new body stands on
+-- the hub, under every arena, and the client replicates the hub for a round trip after its pad.
+local function judgeFalls(active: Active, now: number)
+	if active.Match.Phase ~= "Playing" then
+		return
+	end
+	local depth = active.Arena.KillZone.Position.Y
+	for _, participant in ipairs(active.Match.Participants) do
+		local placed = active.Placed[participant.Player]
+		if participant.Alive and placed ~= nil and now - placed.At >= MovementGuardConfig.SettleMaxSeconds then
+			local character = participant.Player.Character
+			local root = if character ~= nil then character:FindFirstChild(ROOT_PART_NAME) else nil
+			if character == placed.Character and root ~= nil and root:IsA("BasePart") and root.Position.Y < depth then
+				killInZone(active, participant, placed.Character)
+			end
+		end
+	end
+end
+
+-- One match's tick.
+local function tickMatch(active: Active, now: number)
+	-- Only a finish that threw halfway leaves a finished match in the list: failing here hands it to cancel.
+	assert(not active.Finished, "a finished match is still ticking")
+	if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
+		-- A setup thread that never came back must not strand the match (and its arena) forever.
+		log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
+		active.Preparing = false
+	end
+	if not active.Preparing then
+		-- Before refresh, so a body that fell this tick is dead for this tick's verdict.
+		judgeFalls(active, now)
+		refresh(active)
+		advance(active, now)
+	end
+	if not active.Finished then
+		active.Ticks += 1
+		if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
+			pushSnapshots(active, now)
+		end
+	end
+end
+
 local function onHeartbeat(deltaTime: number)
 	accumulator += deltaTime
 	if accumulator < TICK_SECONDS then
@@ -553,34 +947,18 @@ local function onHeartbeat(deltaTime: number)
 	local now = os.clock()
 	for index = #actives, 1, -1 do
 		local active = actives[index]
-		if active.Preparing and now > active.PhaseEndsAt + active.Def.CountdownSeconds then
-			-- A setup thread that never came back must not strand the match (and its arena) forever.
-			log.warn("match %s round setup stalled: the round resumes without it", active.Match.Id)
-			active.Preparing = false
-		end
-		if not active.Finished and not active.Preparing then
-			refresh(active)
-			advance(active, now)
-		end
-		if not active.Finished then
-			active.Ticks += 1
-			if active.Ticks % TICKS_PER_SNAPSHOT == 0 then
-				pushSnapshots(active, now)
-			end
+		if faults.try(active.Match.Id, "tick of match", tickMatch, active, now) >= MATCH_FAULT_TICKS then
+			cancel(active)
 		end
 	end
 end
 
 ----------------------------------------------------------------
--- Arena hazards, PvP policy, disconnects
+-- Arena hazards, the Match zone's rule, disconnects
 ----------------------------------------------------------------
 
--- The arena kill zone under the floor. Health = 0 makes it an environment death, so CombatService
--- still credits the last attacker when a knockback is what sent the victim over the edge.
+-- The kill zone as the client that owns the falling body reports it: Touched.
 local function onKillZoneTouched(active: Active, part: BasePart)
-	if active.Finished or active.Match.Phase ~= "Playing" then
-		return
-	end
 	local character = part:FindFirstAncestorOfClass("Model")
 	if character == nil then
 		return
@@ -590,12 +968,8 @@ local function onKillZoneTouched(active: Active, part: BasePart)
 		return
 	end
 	local participant = GameModes.participantOf(active.Match, player.UserId)
-	if participant == nil or not participant.Alive then
-		return
-	end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid ~= nil and humanoid.Health > 0 then
-		humanoid.Health = 0
+	if participant ~= nil then
+		killInZone(active, participant, character)
 	end
 end
 
@@ -609,19 +983,12 @@ local function teamOfParticipant(active: Active, userId: number): number?
 	return nil
 end
 
--- PvP is a match privilege: two OPPONENTS of the same match hurt each other while it is being played,
--- and nothing else. Server-authored damage (no source: environment, NPC, boss) is not a PvP decision and
--- stays allowed. This replaces CombatService's hub policy, so hub players can no longer damage each other
--- at all, while training dummies stay open to everyone outside a match.
-local function allowDamage(source: Player?, targetModel: Model): boolean
-	if source == nil then
-		return true
-	end
+-- PvP is a match privilege: two OPPONENTS of the same match hurt each other while it is being played, and
+-- nothing else. This is the Match zone's rule (CombatService.claimZone, E16-S1): CombatService only asks it for two
+-- players it holds, and keeps a participant's hands off every body no player owns (ZoneConfig.Rules.Match), so a
+-- training proof or the Erasure is out of a duel's reach; server-authored damage is never asked.
+local function allowDamage(source: Player, targetPlayer: Player): boolean
 	local sourceActive = activeByUserId[source.UserId]
-	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
-	if targetPlayer == nil then
-		return sourceActive == nil
-	end
 	if sourceActive == nil or activeByUserId[targetPlayer.UserId] ~= sourceActive then
 		return false
 	end
@@ -654,63 +1021,72 @@ local function opposingRating(active: Active, player: Player): number
 	return Elo.teamRating(ratings)
 end
 
--- Walking out of a live ranked match costs exactly what losing it costs. Settled here, on
--- DataService.BeforeRelease, because this is the last instant the leaver's profile is still loaded: the
--- match resolves seconds later in their absence, and nothing could be written for them by then. Without
--- it, quitting was strictly better than losing and a rating could only ever go up.
--- The live ranked match `userId` is walking out of. `activeByUserId` is the fast path, but Roblox does
--- not contract the order in which two connections to the same signal fire: if MatchService's own
--- PlayerRemoving handler happened to run before DataService's, the slot would already be clear and the
--- forfeit would be silently skipped. So the list is scanned as a fallback, which no ordering can defeat.
--- A double debit is impossible either way: RankingService settles a user id once per match.
-local function liveRankedMatchOf(userId: number): Active?
-	local direct = activeByUserId[userId]
-	if direct ~= nil then
-		return if direct.Finished or not direct.Def.Ranked then nil else direct
+-- What walking out of `active` costs `player`: the forfeit of a live ranked match, or nil -- never for the quick
+-- duel, which moves no rating to begin with. Nothing when the result is already being applied (applyResult owns
+-- their rating move), and nothing when their team has ALREADY won the series on rounds, which stays theirs whoever
+-- then walks out (D-34): debiting a loss would contradict that and, by marking them settled, make applyResult skip
+-- the win it is about to declare. That window is real: a won series sits in RoundOver for
+-- MatchConfig.RoundOverSeconds before the result is entered, which is exactly when a player who just saw "round won"
+-- closes the client.
+local function forfeitOf(active: Active, player: Player): Forfeit?
+	if active.Finished or not active.Match.Ranked or active.Match.Phase == "Result" then
+		return nil
 	end
-	local fallback: Active? = nil
-	for _, active in ipairs(actives) do
-		if not active.Finished and active.Def.Ranked then
-			for _, participant in ipairs(active.Match.Participants) do
-				if participant.UserId == userId then
-					if participant.Present then
-						return active
-					end
-					fallback = fallback or active
-					break
-				end
-			end
-		end
-	end
-	return fallback
-end
-
-local function onBeforeRelease(player: Player)
-	local active = liveRankedMatchOf(player.UserId)
-	if active == nil then
-		return
-	end
-	if active.Match.Phase == "Result" then
-		-- The result is already being applied; applyResult owns this player's rating move.
-		return
-	end
-	-- A series this player has ALREADY won on rounds stays theirs whoever then walks out (D-34), and
-	-- applyResult is about to credit them for it. Debiting a loss here would both contradict that and, by
-	-- marking them settled, make applyResult skip the win it is about to declare. The window is real: a
-	-- won series sits in RoundOver for MatchConfig.RoundOverSeconds before the result is entered, which is
-	-- exactly when a player who just saw "round won" closes the client.
 	local decided = GameModes.decidedWinner(active.Match)
 	if decided ~= nil and decided == teamOfParticipant(active, player.UserId) then
+		return nil
+	end
+	return { Active = active, OpponentRating = opposingRating(active, player) }
+end
+
+-- Whether the departure is still an abandon when its session ends. It is not when the whole match walked
+-- out together before a forfeit was declared: a shutdown or a migration removes every participant within
+-- the grace, and that is the server's doing (docs/QA.md R3). It is when somebody stayed to take the forfeit,
+-- or is still on the field.
+local function stillOwed(forfeit: Forfeit): boolean
+	local active = forfeit.Active
+	if active.Emptied then
+		return false
+	end
+	if active.Finished or active.Match.Phase == "Result" then
+		return true
+	end
+	return GameModes.presentCount(active.Match) > 0
+end
+
+-- Walking out of a live ranked match costs exactly what losing it costs. Settled on
+-- DataService.BeforeRelease, the final write of the leaver's session: the last instant their profile is
+-- still loaded. It comes after the grace for a player who left, with the forfeit judged when they left;
+-- or at once, while they are still on the field, when another server takes their profile first (R4).
+-- Without it, quitting was strictly better than losing and a rating could only ever go up. A double debit
+-- is impossible: RankingService settles a user id once per match.
+local function settle(player: Player, forfeit: Forfeit)
+	if not stillOwed(forfeit) then
 		return
 	end
+	local active = forfeit.Active
 	log.try(
 		"applyAbandon " .. active.Def.Id,
 		ranking.applyAbandon,
 		player,
 		active.Match.Id,
 		active.Def.Id,
-		opposingRating(active, player)
+		forfeit.OpponentRating
 	)
+end
+
+local function onBeforeRelease(player: Player)
+	local departed = owed[player]
+	if departed ~= nil then
+		owed[player] = nil
+		settle(player, departed)
+		return
+	end
+	local active = activeByUserId[player.UserId]
+	local onField = if active ~= nil then forfeitOf(active, player) else nil
+	if onField ~= nil then
+		settle(player, onField)
+	end
 end
 
 local function onPlayerRemoving(player: Player)
@@ -719,9 +1095,21 @@ local function onPlayerRemoving(player: Player)
 		return
 	end
 	activeByUserId[player.UserId] = nil
+	-- Judged now, while the match still says what this departure is; paid when the session ends, the grace
+	-- later. Only with a loaded profile: without one, another server already holds it and nothing is paid.
+	local forfeit = if dataService.get(player) ~= nil then forfeitOf(active, player) else nil
+	if forfeit ~= nil then
+		owed[player] = forfeit
+	end
+	active.LeftAt = os.clock()
 	if not log.try("OnPlayerLeft " .. active.Def.Id, active.Mode.OnPlayerLeft, active.Match, player) then
 		-- A hook that blew up must not leave a phantom teammate holding a team against a forfeit.
 		GameModes.markLeft(active.Match, player)
+	end
+	-- The last one out of a match with no result yet: the next verdict ends it with none, and by then nobody is
+	-- left in the server to tell the dashboards. They are, until this returns.
+	if active.Match.Phase ~= "Result" and GameModes.presentCount(active.Match) == 0 then
+		voided(active, if dataService.isClosing() then "Closing" else "Empty", player)
 	end
 	log.info("%s left match %s", player.Name, active.Match.Id)
 end
@@ -729,6 +1117,26 @@ end
 ----------------------------------------------------------------
 -- Public API
 ----------------------------------------------------------------
+
+-- Whether `player` still plays the quick duel, as RankingService says: a newcomer while it cannot tell.
+local function newcomer(player: Player): boolean
+	local ok, answer = pcall(ranking.isNewcomer, player)
+	if ok and type(answer) == "boolean" then
+		return answer
+	end
+	log.warn("isNewcomer failed for %s: %s", player.Name, tostring(answer))
+	return true
+end
+
+-- The Strings key of the tier `player` stands in for `modeId`, which the announcement shows.
+local function rankKeyOf(player: Player, modeId: string): string
+	local ok, rating = pcall(ranking.getRating, player, modeId)
+	if not ok or type(rating) ~= "number" then
+		log.warn("getRating failed for %s (%s): %s", player.Name, modeId, tostring(rating))
+		return RankTiers.tierFor(RankingConfig.InitialRating, RankingConfig.Tiers).NameKey
+	end
+	return RankTiers.tierFor(rating, RankingConfig.Tiers).NameKey
+end
 
 -- Starts `modeId` for the given teams (team index -> user ids). Returns the match id, or nil when the
 -- roster, the mode or the arena pool refuses it — MatchmakingService then puts the players back in
@@ -747,6 +1155,10 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	local participants: { GameModes.Participant } = {}
 	local rosterTeams: { { number } } = {}
 	local userIds: { number } = {}
+	-- Ranked only when the mode is, the server is (a private server a player bought is not, D-251), and nobody in it
+	-- still plays the quick duel (D-269).
+	local rankedMode = def.Ranked and ranking.rankedHere()
+	local ranked = rankedMode
 	for team, members in ipairs(teams) do
 		rosterTeams[team] = {}
 		for slot, userId in ipairs(members) do
@@ -755,6 +1167,9 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				log.warn("start rejected: user %d is unavailable for %s", userId, modeId)
 				return nil
 			end
+			local data = dataService.get(player)
+			local eligible = not newcomer(player)
+			ranked = ranked and eligible
 			table.insert(participants, {
 				UserId = userId,
 				Player = player,
@@ -766,6 +1181,8 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 				Alive = false,
 				Health = 0,
 				MaxHealth = 0,
+				Level = if data ~= nil then data.Progression.Level else 1,
+				RankKey = if eligible and rankedMode then rankKeyOf(player, modeId) else "",
 			})
 			table.insert(rosterTeams[team], userId)
 			table.insert(userIds, userId)
@@ -797,6 +1214,7 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Scores = scores,
 		Teams = rosterTeams,
 		Participants = participants,
+		Ranked = ranked,
 		StartedAt = os.clock(),
 		RoundEndsAt = 0,
 		EndedAt = 0,
@@ -814,9 +1232,25 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 		Generation = 0,
 		Ticks = 0,
 		Stats = {},
+		Placed = {},
+		LeftAt = 0,
+		Emptied = false,
+		FirstPlayedAt = 0,
+		Glyphs = {},
+		FellInPlay = {},
+		KillsCounted = {},
 	}
 	trove:Add(function()
 		log.try("Arena.release " .. arena.Id, arenas.release, arena)
+	end)
+	-- RankingService remembers the roster's ratings for as long as the match can be scored, and not a tick longer.
+	local roster: { Player } = {}
+	for _, participant in ipairs(participants) do
+		table.insert(roster, participant.Player)
+	end
+	log.try("Ranking.hold " .. match.Id, ranking.hold, match.Id, def.Id, roster)
+	trove:Add(function()
+		log.try("Ranking.release " .. match.Id, ranking.release, match.Id)
 	end)
 	trove:Connect(arena.KillZone.Touched, function(part: BasePart)
 		onKillZoneTouched(active, part)
@@ -827,7 +1261,14 @@ function MatchService.start(modeId: string, teams: { { number } }): string?
 	table.insert(actives, active)
 	log.try("mode " .. def.Id .. " Start", mode.Start, match)
 	beginRound(active)
-	log.info("match %s started on arena %s slot %d (%d players)", match.Id, arena.Id, arena.SlotIndex, #userIds)
+	log.info(
+		"match %s started on arena %s slot %d (%d players, %s)",
+		match.Id,
+		arena.Id,
+		arena.SlotIndex,
+		#userIds,
+		if ranked then "ranked" else "unranked"
+	)
 	return match.Id
 end
 
@@ -846,7 +1287,7 @@ end
 local function statsOf(active: Active, userId: number): ParticipantStats
 	local stats = active.Stats[userId]
 	if stats == nil then
-		stats = { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0 }
+		stats = { Casts = 0, Hits = 0, DamageDealt = 0, DamageTaken = 0, Kills = 0 }
 		active.Stats[userId] = stats
 	end
 	return stats
@@ -857,12 +1298,27 @@ local function counts(glyphId: string): boolean
 	return not GlyphConfig.isUtility(glyphId)
 end
 
+-- The glyphs `userId` fields in `active`, with the damage each dealt: every glyph cast, a wall or a buff too, so
+-- the balance of the whole roster can be read (GlyphMatch).
+local function glyphsOf(active: Active, userId: number): { [string]: number }
+	local glyphs = active.Glyphs[userId]
+	if glyphs == nil then
+		glyphs = {}
+		active.Glyphs[userId] = glyphs
+	end
+	return glyphs
+end
+
 local function onCast(player: Player, glyphId: string, _chain: number)
 	local active = activeByUserId[player.UserId]
-	if active == nil or active.Match.Phase == "Result" or not counts(glyphId) then
+	if active == nil or active.Match.Phase == "Result" or GlyphConfig.ById[glyphId] == nil then
 		return
 	end
-	statsOf(active, player.UserId).Casts += 1
+	local glyphs = glyphsOf(active, player.UserId)
+	glyphs[glyphId] = glyphs[glyphId] or 0
+	if counts(glyphId) then
+		statsOf(active, player.UserId).Casts += 1
+	end
 end
 
 -- No phase guard: a zone that resolves after the last round ended belongs to the cast that was counted
@@ -875,7 +1331,7 @@ local function onCastLanded(player: Player, glyphId: string, hits: number)
 	statsOf(active, player.UserId).Hits += 1
 end
 
-local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string)
+local function onDamaged(sourceUserId: number, targetModel: Model, applied: number, _kind: string, glyphId: string?)
 	local active = activeByUserId[sourceUserId]
 	if active == nil or active.Match.Phase == "Result" then
 		return
@@ -888,6 +1344,37 @@ local function onDamaged(sourceUserId: number, targetModel: Model, applied: numb
 	end
 	statsOf(active, sourceUserId).DamageDealt += applied
 	statsOf(active, target.UserId).DamageTaken += applied
+	if glyphId ~= nil and GlyphConfig.ById[glyphId] ~= nil then
+		local glyphs = glyphsOf(active, sourceUserId)
+		glyphs[glyphId] = (glyphs[glyphId] or 0) + applied
+	end
+end
+
+-- A player kill in a match is the match's (ZoneConfig.Rules.Match leaves it to this service): counted here and paid
+-- with the result (award), its XP and its Folios, under every rule the result is paid under. The killer hears of
+-- the takedown at once; what it paid, the Result says.
+--
+-- Only a death of the round being played, once: while it is played, or one refresh saw while it was, whose Died comes
+-- after the tick that killed it and gave the verdict (a fall off the arena). Never a death that came after the
+-- verdict: CombatService credits one to the last attacker for CombatConfig.Ink.InCombatSeconds, longer than
+-- MatchConfig.RoundOverSeconds, and a winner who pressed Reset on the pause handed the loser a kill.
+local function onKilled(sourceUserId: number, victimModel: Model)
+	local active = activeByUserId[sourceUserId]
+	if active == nil then
+		return
+	end
+	local killer = Players:GetPlayerByUserId(sourceUserId)
+	local victim = Players:GetPlayerFromCharacter(victimModel)
+	if killer == nil or victim == nil or activeByUserId[victim.UserId] ~= active then
+		return
+	end
+	local inPlay = active.Match.Phase == "Playing" or active.FellInPlay[victim.UserId] == true
+	if not inPlay or active.KillsCounted[victim.UserId] then
+		return
+	end
+	active.KillsCounted[victim.UserId] = true
+	statsOf(active, sourceUserId).Kills += 1
+	notify.send(killer, "match.takedown", { name = victim.DisplayName }, "Success", "Kill")
 end
 
 -- Lets one participant go while the match is still winding down on its result screen, which is what makes
@@ -906,6 +1393,7 @@ function MatchService.releaseFromResult(player: Player): boolean
 	end
 	activeByUserId[player.UserId] = nil
 	movement.clearStun(player)
+	glyph.resetCooldowns(player)
 	registry.fire("MatchChanged", player, nil)
 	log.try("teleportToHub " .. player.Name, hub.teleportToHub, player)
 	return true
@@ -934,16 +1422,20 @@ function MatchService.Init(deps: Deps)
 	quest = deps.Quest
 	daily = deps.Daily
 	glyph = deps.Glyph
+	analytics = deps.Analytics
 end
 
 function MatchService.Start()
-	combat.setPolicy(allowDamage)
-	-- Before PlayerRemoving: DataService fires BeforeRelease from inside its own PlayerRemoving handler,
-	-- which runs first, so the forfeit is debited while activeByUserId still holds the match.
+	combat.claimZone("Match", { Holds = MatchService.isInMatch, Pair = allowDamage })
 	dataService.BeforeRelease:Connect(onBeforeRelease)
+	-- A session that ends without BeforeRelease (the server closing) leaves its forfeit unpaid.
+	dataService.ProfileReleased:Connect(function(player: Player)
+		owed[player] = nil
+	end)
 	glyph.Cast:Connect(onCast)
 	glyph.CastLanded:Connect(onCastLanded)
 	combat.Damaged:Connect(onDamaged)
+	combat.Killed:Connect(onKilled)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	RunService.Heartbeat:Connect(onHeartbeat)
 	log.info("started (tick %d Hz, snapshots %d Hz)", GameConfig.Server.TickRate, SNAPSHOT_HZ)

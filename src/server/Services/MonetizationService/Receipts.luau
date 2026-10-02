@@ -7,9 +7,16 @@
 -- impossible. It is NOT free: the Robux are debited when the player confirms the dialog, and
 -- NotProcessedYet only leaves the transaction pending, with Roblox re-delivering the receipt. A path
 -- that can never succeed therefore loops for ever on a purchase the player already paid for, so every
--- refusal here must be a transient failure and never a permanent one. Two consequences enforced below:
--- the cosmetic path always has something to deliver (ShopService.resolveReceiptItem, then Folios
--- compensation), and PurchaseGranted is only returned once DataService.saveNow confirms the write.
+-- refusal here must be a transient failure and never a permanent one. Two consequences enforced below.
+-- What a receipt can no longer deliver is paid in Folios instead of refused (D-202): a cosmetic of a
+-- rarity the player owns entirely, at its shop price (after ShopService.resolveReceiptItem found nothing);
+-- a tier past the last one, which the pass may have reached while the dialog was open; a Premium Pass for a
+-- player who already has the track (both at the product's CompensationFolios). And PurchaseGranted is
+-- only returned once DataService.saveNow confirms the write.
+--
+-- A Studio test receipt is the one exception, and grants nothing: Roblox charged nothing for it, and its
+-- grant would land in the player's real profile (Sandbox, D-211). It is acknowledged, so it is not delivered
+-- again.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,7 +29,8 @@ local CosmeticConfig = require(Shared.Config.CosmeticConfig)
 local GameConfig = require(Shared.Config.GameConfig)
 local Log = require(Shared.Util.Log)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
-local ReceiptProcessor = require(Shared.Pure.ReceiptProcessor)
+local ReceiptProcessor = require(script.Parent.Parent.Parent.Pure.ReceiptProcessor)
+local Sandbox = require(script.Parent.Sandbox)
 local ShopConfig = require(Shared.Config.ShopConfig)
 
 local log = Log.new("MonetizationService")
@@ -55,21 +63,27 @@ local function tierSkipXp(data: ProfileData, tiers: number): (number, number)
 end
 
 local function grantFolios(player: Player, productKey: string, amount: number, nameKey: string): boolean
-	local credited = deps.Currency.add(player, amount, "Product:" .. productKey)
-	if credited <= 0 then
+	if deps.Currency.add(player, amount, "Product:" .. productKey) <= 0 then
 		return false
 	end
 	deps.Notify.send(player, "purchase.granted", { name = nameKey }, "Success", Context.SfxSuccess)
-	deps.Analytics.economy(
-		player,
-		"Source",
-		GameConfig.Currency.Id,
-		credited,
-		deps.Currency.get(player),
-		Context.TransactionIap,
-		productKey
-	)
 	return true
+end
+
+-- Pays `units` units of `productKey` that its receipt can no longer deliver, at the product's
+-- CompensationFolios each (D-202). Returns the Folios credited, 0 when nothing could be paid.
+local function compensate(player: Player, productKey: string, def: MonetizationConfig.ProductDef, units: number): number
+	local rate = def.CompensationFolios
+	if rate == nil or rate <= 0 then
+		log.error("product %s has no CompensationFolios for %d undeliverable unit(s)", productKey, units)
+		return 0
+	end
+	local credited = deps.Currency.add(player, rate * units, "Product:" .. productKey .. ":Compensation")
+	if credited <= 0 then
+		return 0
+	end
+	log.info("%s could not receive %d unit(s) of %s: paid %d Folios instead", player.Name, units, productKey, credited)
+	return credited
 end
 
 -- Grants one cosmetic of the rarity the player paid for: the item they picked before opening the
@@ -131,7 +145,20 @@ local function grantProduct(
 		granted = grantFolios(player, productKey, amount, def.NameKey)
 	elseif product.Kind == "PremiumPass" then
 		if deps.Battlepass.isPremium(player) then
-			deps.Notify.send(player, "purchase.alreadyOwned", nil, "Info")
+			-- Purchases refuses the dialog to a Premium player, but a receipt can still land on one: a second
+			-- dialog confirmed before the first receipt arrived, or a receipt delivered late. The track cannot
+			-- be given twice, so the pass is paid in Folios (D-202).
+			local credited = compensate(player, productKey, def, 1)
+			if credited <= 0 then
+				return false
+			end
+			deps.Notify.send(
+				player,
+				"purchase.premiumOwnedFolios",
+				{ amount = credited },
+				"Success",
+				Context.SfxSuccess
+			)
 		else
 			deps.Battlepass.setPremium(player, true)
 			deps.Notify.send(player, "purchase.passGranted", { name = def.NameKey }, "Success", Context.SfxSuccess)
@@ -143,13 +170,26 @@ local function grantProduct(
 			log.error("product %s has no tier amount", productKey)
 			return false
 		end
+		-- The pass may have reached the last tier since the dialog opened (Purchases only refuses at the
+		-- last tier when it opens), or sit fewer than `tiers` below it. Whatever does not fit is paid in
+		-- Folios, and first: a refused credit then returns before any tier moved, so the retried receipt
+		-- starts from the same pass and cannot grant a tier twice.
 		local xp, tiersGranted = tierSkipXp(data, tiers)
-		if xp <= 0 then
-			log.warn("tier skip for %s granted nothing: the pass is already at max tier", player.Name)
-			return false
+		local owed = tiers - tiersGranted
+		local credited = 0
+		if owed > 0 then
+			credited = compensate(player, productKey, def, owed)
+			if credited <= 0 then
+				return false
+			end
 		end
-		deps.Battlepass.addXp(player, xp)
-		deps.Notify.send(player, "purchase.tiersGranted", { tiers = tiersGranted }, "Success", Context.SfxTierUp)
+		if xp > 0 then
+			deps.Battlepass.addXp(player, xp)
+			deps.Notify.send(player, "purchase.tiersGranted", { tiers = tiersGranted }, "Success", Context.SfxTierUp)
+		end
+		if credited > 0 then
+			deps.Notify.send(player, "purchase.tiersPastLast", { amount = credited }, "Success", Context.SfxSuccess)
+		end
 		granted = true
 	elseif product.Kind == "XpBoost" then
 		local minutes = product.Minutes
@@ -178,7 +218,7 @@ local function grantProduct(
 	local counts = data.Purchases.ProductCounts
 	counts[productKey] = (counts[productKey] or 0) + 1
 	deps.DataService.push(player, "Purchases")
-	deps.Analytics.custom(player, Context.EventProductPurchased, def.PriceRobux, { product = productKey })
+	deps.Analytics.custom(player, "ProductPurchased", def.PriceRobux, deps.Analytics.fields(productKey))
 	log.info("%s received %s", player.Name, productKey)
 	return true
 end
@@ -234,6 +274,14 @@ function Receipts.process(receiptInfo: { [string]: any })
 	if player == nil then
 		-- Bought offline or on another server: Roblox delivers the receipt again on the next join.
 		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	if Sandbox.active() then
+		local productKey, product = MonetizationConfig.productByAssetId(productId)
+		-- A product this game does not sell goes the normal way, which refuses it.
+		if productKey ~= nil and product ~= nil then
+			Sandbox.acknowledge(player, "product " .. productKey, product.NameKey)
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
 	end
 
 	local receipt: ReceiptProcessor.Receipt = { PlayerId = userId, PurchaseId = purchaseId, ProductId = productId }

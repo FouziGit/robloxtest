@@ -29,6 +29,18 @@ RankingConfig.Tiers = {
 -- Ranked modes (keys of ProfileData.Rank.Modes).
 RankingConfig.Modes = { "Duel1v1", "Team3v3" } :: { string }
 
+-- The same two players, again and again in one UTC day (E4-S3, D-255). Their first FullMatchesPerDay matches of the
+-- day count in full; from the next one on, the pair's ratings no longer move and each of them earns RepeatRewardScale
+-- of a match's XP and Folios. A match that moves no rating, a newcomer's quick duel or a match of a private server a
+-- player bought, counts and is held to the rule all the same. Counted in each profile (Rank.Opponents, Pure/OpponentLedger), so a
+-- new server does not start the count over. In a 3v3, a participant is held to the rule by any opponent they have
+-- met that often today. Six is a duel and five rematches, a long evening between friends (the series E4-S3 asks to
+-- keep whole); the seventh is a farm.
+RankingConfig.Opponents = {
+	FullMatchesPerDay = 6,
+	RepeatRewardScale = 0.25,
+}
+
 RankingConfig.Leaderboard = {
 	RefreshSeconds = 60, -- OrderedDataStore refresh cadence (per board)
 	TopCount = 50,
@@ -40,6 +52,9 @@ RankingConfig.Leaderboard = {
 	-- scan never meets it because MinWriteIntervalSeconds is longer; the forced flush when a player leaves
 	-- does, and waits it out rather than burning its retries on a throttled call.
 	KeyCooldownSeconds = 6,
+	-- Usernames the boards remember (LeaderboardService, least recently used let go first): a long-lived server
+	-- sees far more ids across its boards and its players than it ever shows at once.
+	NameCacheSize = 500,
 }
 
 -- End-of-season rewards by tier reached (Folios + cosmetic title id).

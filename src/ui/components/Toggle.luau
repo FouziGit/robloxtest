@@ -1,6 +1,9 @@
 --!strict
--- Toggle: on/off switch drawn as a pill with a sliding knob inside a RowHeight-tall TextButton, so
--- mouse, touch and gamepad (Activated) all work. OnChange fires on user toggles; SetValue is silent.
+-- Toggle: an on/off switch drawn as a pill with a sliding knob inside a RowHeight-tall TextButton, so mouse,
+-- touch and gamepad (Activated) all work (D-147). Off is chalk with its word on the right; on is the green
+-- of what went well, with its word on the left, and the knob of sheet springs across with a pop. The word
+-- is the caller's ("Off" / "Non"): colour is never the only cue. OnChange fires on user toggles; SetValue
+-- is silent.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -13,6 +16,9 @@ local Trove = require(Packages.Trove)
 export type Props = {
 	Value: boolean,
 	OnChange: (value: boolean) -> (),
+	-- The words in the pill, in the player's language (common.on / common.off). Absent: no word.
+	OnText: string?,
+	OffText: string?,
 	LayoutOrder: number?,
 	Parent: Instance?,
 	Name: string?,
@@ -28,37 +34,12 @@ export type Toggle = {
 local Toggle = {}
 
 local BUTTON_WIDTH = Theme.Sizes.TouchButton
-local PILL_WIDTH = 52
-local PILL_HEIGHT = 28
-local KNOB_INSET = 3
-local KNOB_SIZE = PILL_HEIGHT - KNOB_INSET * 2
-local HOVER_SHADE = 0.08
-local SELECTION_THICKNESS = 3
-
-local function roundCorners(parent: Instance)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = parent
-end
-
--- Gamepad selection highlight (replaces the engine's default blue box).
-local function makeSelectionImage(): Frame
-	local frame = Instance.new("Frame")
-	frame.Name = "Selection"
-	frame.BackgroundTransparency = 1
-	frame.Size = UDim2.fromScale(1, 1)
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, Theme.Sizes.CornerRadiusSmall)
-	corner.Parent = frame
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Theme.Colors.Accent
-	stroke.Thickness = SELECTION_THICKNESS
-	stroke.Parent = frame
-
-	return frame
-end
+local PILL_WIDTH = 64
+local PILL_HEIGHT = 34
+local KNOB_SIZE = 26
+local KNOB_INSET = (PILL_HEIGHT - KNOB_SIZE) / 2
+local WORD_SIZE = 14
+local HOVER_SHADE = 0.06
 
 function Toggle.new(props: Props): Toggle
 	local trove = Trove.new()
@@ -73,7 +54,7 @@ function Toggle.new(props: Props): Toggle
 	button.Text = ""
 	button.Size = UDim2.fromOffset(BUTTON_WIDTH, Theme.Sizes.RowHeight)
 	button.LayoutOrder = props.LayoutOrder or 0
-	button.SelectionImageObject = trove:Add(makeSelectionImage())
+	button.SelectionImageObject = trove:Add(Theme.focusRing())
 	trove:Add(button)
 
 	-- The pill is decoration; the whole button is the target, so it carries the touch minimum.
@@ -85,32 +66,47 @@ function Toggle.new(props: Props): Toggle
 	pill.Position = UDim2.fromScale(0.5, 0.5)
 	pill.Size = UDim2.fromOffset(PILL_WIDTH, PILL_HEIGHT)
 	pill.BorderSizePixel = 0
+	Theme.corner(pill, Theme.Pill)
+	Theme.stroke(pill, "Accent", Theme.Sizes.StrokeThin)
 	pill.Parent = button
-	roundCorners(pill)
+
+	-- The word sits on the side the knob has left.
+	local word = Instance.new("TextLabel")
+	word.Name = "Word"
+	word.BackgroundTransparency = 1
+	word.AnchorPoint = Vector2.new(0, 0.5)
+	word.Size = UDim2.new(1, -(KNOB_SIZE + KNOB_INSET * 2), 1, 0)
+	word.FontFace = Theme.Fonts.Label
+	word.TextSize = WORD_SIZE
+	word.Parent = pill
 
 	local knob = Instance.new("Frame")
 	knob.Name = "Knob"
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
 	knob.Size = UDim2.fromOffset(KNOB_SIZE, KNOB_SIZE)
+	knob.BackgroundColor3 = Theme.Colors.PanelRaised
 	knob.BorderSizePixel = 0
+	knob.ZIndex = 2
+	Theme.corner(knob, Theme.Pill)
+	Theme.stroke(knob, "Accent", Theme.Sizes.StrokeThin)
 	knob.Parent = pill
-	roundCorners(knob)
 
 	local function render(animate: boolean)
-		local pillColor = if value then Theme.Colors.Accent else Theme.Colors.Border
+		local pillColor = if value then Theme.Colors.SuccessFill else Theme.Colors.Chalk
 		if hovered then
 			pillColor = Theme.shade(pillColor, HOVER_SHADE)
 		end
-		-- Vellum knob on the ink pill, ink knob on the paper pill.
-		local knobColor = if value then Theme.Colors.TextInverse else Theme.Colors.Text
 		local knobOffset = KNOB_INSET + KNOB_SIZE / 2
 		local knobPosition = if value then UDim2.new(1, -knobOffset, 0.5, 0) else UDim2.new(0, knobOffset, 0.5, 0)
+		word.Text = (if value then props.OnText else props.OffText) or ""
+		word.TextColor3 = if value then Theme.Colors.Text else Theme.Colors.TextMuted
+		word.Position = if value then UDim2.new(0, KNOB_INSET, 0.5, 0) else UDim2.new(0, KNOB_SIZE + KNOB_INSET, 0.5, 0)
 		if animate then
 			Motion.to(pill, { BackgroundColor3 = pillColor }, "UiSnappy")
-			Motion.to(knob, { Position = knobPosition, BackgroundColor3 = knobColor }, "UiSnappy")
+			Motion.to(knob, { Position = knobPosition }, "UiPop")
 		else
 			Motion.set(pill, { BackgroundColor3 = pillColor })
-			Motion.set(knob, { Position = knobPosition, BackgroundColor3 = knobColor })
+			Motion.set(knob, { Position = knobPosition })
 		end
 	end
 	trove:Add(function()

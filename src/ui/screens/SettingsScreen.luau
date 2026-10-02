@@ -1,11 +1,11 @@
 --!strict
--- SettingsScreen: keyboard / gamepad rebinding and audio settings. Keybinds are edited on a local
--- pending copy per kind and sent with Save; the Settings push that follows confirms them. Audio
--- values are sent automatically after a short debounce, coalesced so a single call is in flight at a
--- time and consecutive calls stay inside the remote budget. Refreshes from ClientData on Open and on
--- Settings changes, without overwriting unsaved local edits. A rebinding tab only exists when the
--- matching hardware is attached, so a capture is never started where no key can end it, and the tab strip
--- is rebuilt whenever that hardware set changes.
+-- SettingsScreen: the player's settings, on the ink band of the Settings chapter (D-147). Five tabs:
+-- Keyboard and Gamepad (only while that hardware is attached, so a capture is never started where no key
+-- can end it; the strip is rebuilt whenever the hardware set changes), Audio, Graphics and Accessibility.
+--
+-- The binding pages are SettingsBindings': each change is saved as it is made, and Reset asks first. Audio
+-- and Accessibility are SettingsValues', which sends everything UpdateSettings carries; the Graphics page,
+-- the four quality tiers, is drawn here and reaches its tier through it.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,16 +15,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
 local Button = require(script.Parent.Parent.components.Button)
-local InputConfig = require(Shared.Config.InputConfig)
-local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
 local QualityConfig = require(Shared.Config.QualityConfig)
-local Remotes = require(Shared.Remotes)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
-local Slider = require(script.Parent.Parent.components.Slider)
+local SettingsBindings = require(script.Parent.SettingsBindings)
+local SettingsValues = require(script.Parent.SettingsValues)
 local Tabs = require(script.Parent.Parent.components.Tabs)
 local Theme = require(script.Parent.Parent.Theme)
-local Toggle = require(script.Parent.Parent.components.Toggle)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
 
@@ -37,76 +34,31 @@ export type Deps = {
 		cancelCapture: () -> (),
 	},
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
+	-- Every message of the server: how a refused binding is heard.
+	HudController: { Notified: any }?,
 	OnClose: () -> (),
-	OnNavigate: (id: string) -> (),
+	OnBack: () -> (),
+	CanGoBack: () -> boolean,
 }
 
 export type Screen = {
 	Instance: ScreenGui,
 	Visible: boolean,
-	Open: (self: Screen) -> (),
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 }
 
-type ActionId = InputConfig.ActionId
-type BindKind = "Keyboard" | "Gamepad"
-type TabId = "Keyboard" | "Gamepad" | "Audio" | "Graphics"
-type KeybindMap = Types.KeybindMap
--- Everything this screen sends through UpdateSettings, which is one remote: the audio the Audio page
--- edits and the tier the Graphics page does.
-type AudioState = { MusicVolume: number, SfxVolume: number, CameraShake: boolean, Quality: string }
+type TabId = "Keyboard" | "Gamepad" | "Audio" | "Graphics" | "Accessibility"
 type Destroyable = { Destroy: (self: any) -> () }
 
 local SettingsScreen = {}
 
-local OVERLAY_TRANSPARENCY = 0.45
-local AUDIO_DEBOUNCE_SECONDS = 0.5
+local CHAPTER = "Settings"
 -- Four tiers side by side: wide enough that each label fits without truncating on a phone.
 local QUALITY_STRIP_WIDTH = 320
-local UPDATE_SETTINGS_RATE = Remotes.Definitions.UpdateSettings.Rate
--- Minimum spacing between two UpdateSettings calls: one per refilled token, so a long tweaking session
--- never outruns the remote bucket (the registry drops a rate-limited call and the change would be lost).
-local AUDIO_MIN_INTERVAL_SECONDS = if UPDATE_SETTINGS_RATE ~= nil and UPDATE_SETTINGS_RATE.Refill > 0
-	then 1 / UPDATE_SETTINGS_RATE.Refill
-	else AUDIO_DEBOUNCE_SECONDS
-local VOLUME_STEP = 0.05
-local KEY_BUTTON_WIDTH = 150
-local FOOTER_BUTTON_WIDTH = 140
+local TABS_HEIGHT = 48
 local STATUS_HEIGHT = Theme.Sizes.TextBody + Theme.Sizes.PaddingSmall
-local AUDIO_ROW_HEIGHT = Theme.Sizes.RowHeight + Theme.Sizes.PaddingSmall
-
--- Config maps are keyed by the ActionId literal union; the screen works with plain string keys.
-local function stringMap(map: { [ActionId]: string }): { [string]: string }
-	return (map :: any) :: { [string]: string }
-end
-
-local DEFAULTS: { [string]: { [string]: string } } = {
-	Keyboard = stringMap(InputConfig.DefaultKeyboard),
-	Gamepad = stringMap(InputConfig.DefaultGamepad),
-}
-local ALLOWED: { [string]: { [string]: boolean } } = {
-	Keyboard = InputConfig.AllowedKeyboard,
-	Gamepad = InputConfig.AllowedGamepad,
-}
-local ACTION_NAME_KEYS = stringMap(InputConfig.ActionNameKeys)
-local REBINDABLE: { [string]: boolean } = {}
-for _, action in ipairs(InputConfig.Rebindable) do
-	REBINDABLE[action] = true
-end
-
--- Dimmed backdrop that also swallows clicks so the world under the menu is not interacted with.
-local function makeOverlay(parent: Instance): Frame
-	local overlay = Instance.new("Frame")
-	overlay.Name = "Overlay"
-	overlay.BackgroundColor3 = Theme.Colors.Overlay
-	overlay.BackgroundTransparency = OVERLAY_TRANSPARENCY
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Active = true
-	overlay.Parent = parent
-	return overlay
-end
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
@@ -130,58 +82,40 @@ function SettingsScreen.new(deps: Deps): Screen
 	local pageTrove = trove:Extend()
 	local t = deps.Localize.t
 	local screen: Screen
-
-	-- Keybind state
-	local pending: { [string]: KeybindMap } = { Keyboard = {}, Gamepad = {} }
-	local dirty: { [string]: boolean } = { Keyboard = false, Gamepad = false }
-	local saving = false
-	local capturing: string? = nil
 	local currentTab: TabId = initialTab()
-	local keyButtons: { [string]: Button.Button } = {}
 
-	-- Audio state (neutral fallback until the profile is loaded; syncAudio overwrites it)
-	local audio: AudioState = { MusicVolume = 1, SfxVolume = 1, CameraShake = true, Quality = QualityConfig.Default }
-	local audioTimer: thread? = nil
-	local audioInFlight = false
-	local audioPending = false
-	local audioLastSentAt = 0
-	local qualityStrip: Tabs.Tabs? = nil
-	-- True while the screen is adopting a Settings push. Tabs.Select fires OnSelect exactly like a click,
-	-- so without this the adoption of a value that came FROM the server would send it straight back.
-	local adoptingSettings = false
-	local musicSlider: Slider.Slider? = nil
-	local sfxSlider: Slider.Slider? = nil
-	local shakeToggle: Toggle.Toggle? = nil
-
-	-- The tab strip and the footer buttons carry the touch minimum, which follows the viewport, so both
-	-- bands are measured by the panel on every scale change instead of once here.
-	local function headerHeight(): number
-		return Theme.Sizes.PaddingSmall * 2
-			+ Theme.touchTargetHeight(Theme.Sizes.RowHeight)
-			+ Theme.Sizes.Gap
-			+ STATUS_HEIGHT
-	end
-	local function footerHeight(): number
-		return Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
-	end
-
-	local root = ScreenRoot.new({ Name = "SettingsScreen", DisplayOrder = Theme.Layers.Screen })
+	local root = ScreenRoot.new({
+		Name = "SettingsScreen",
+		DisplayOrder = Theme.Layers.Screen,
+		Chapter = CHAPTER,
+		TextScalable = true,
+	})
 	own(trove, root)
 	root.Instance.Enabled = false
 
-	local overlay = makeOverlay(root.Content)
-
 	local panel = Panel.new({
 		Title = t("settings.title"),
+		Chapter = CHAPTER,
 		Closable = true,
 		OnClose = function()
 			screen:Close()
 			deps.OnClose()
 		end,
-		Parent = overlay,
+		OnBack = deps.OnBack,
+		ShowBack = deps.CanGoBack,
+		Localize = deps.Localize,
+		Parent = root.Content,
 	})
 	own(trove, panel)
-	panel:SetHeaderHeight(headerHeight)
+	root:SetCard(panel)
+	-- The tab strip and the footer button carry the touch minimum, which follows the viewport, so both bands
+	-- are measured by the panel on every scale change instead of once here.
+	panel:SetHeaderHeight(function()
+		return Theme.Sizes.PaddingSmall * 2 + Theme.touchTargetHeight(TABS_HEIGHT) + Theme.Sizes.Gap + STATUS_HEIGHT
+	end)
+	local function footerHeight(): number
+		return Theme.Sizes.PaddingSmall + Theme.Sizes.Padding + Theme.touchTargetHeight(Theme.Sizes.ButtonHeight)
+	end
 
 	local headerLayout = Instance.new("UIListLayout")
 	headerLayout.FillDirection = Enum.FillDirection.Vertical
@@ -194,7 +128,7 @@ function SettingsScreen.new(deps: Deps): Screen
 	status.BackgroundTransparency = 1
 	status.Size = UDim2.new(1, 0, 0, STATUS_HEIGHT)
 	status.FontFace = Theme.Fonts.Body
-	status.TextSize = Theme.Sizes.TextSmall
+	status.TextSize = Theme.Sizes.TextBody
 	status.TextColor3 = Theme.Colors.TextMuted
 	status.TextXAlignment = Enum.TextXAlignment.Left
 	status.TextTruncate = Enum.TextTruncate.AtEnd
@@ -206,261 +140,28 @@ function SettingsScreen.new(deps: Deps): Screen
 		status.Text = text
 	end
 
-	local function actionName(action: string): string
-		local key: string? = ACTION_NAME_KEYS[action]
-		if key == nil then
-			return action
-		end
-		return t(key)
-	end
+	local bindings = SettingsBindings.new({
+		Localize = deps.Localize,
+		ClientData = deps.ClientData,
+		RemoteClient = deps.RemoteClient,
+		InputController = deps.InputController,
+		Notified = if deps.HudController ~= nil then deps.HudController.Notified else nil,
+		Content = panel.Content,
+		Card = panel.Instance,
+		SetStatus = setStatus,
+	})
+	own(trove, bindings)
+
+	local values = SettingsValues.new({
+		Localize = deps.Localize,
+		ClientData = deps.ClientData,
+		RemoteClient = deps.RemoteClient,
+		Content = panel.Content,
+	})
+	own(trove, values)
 
 	----------------------------------------------------------------
-	-- Keybinds
-	----------------------------------------------------------------
-
-	-- Rebuilds the pending copy of `kind` from the profile (defaults fill any missing action).
-	local function syncPending(kind: BindKind)
-		local map: KeybindMap = {}
-		local defaults = DEFAULTS[kind]
-		local data = deps.ClientData.get()
-		local stored: KeybindMap? = nil
-		if data ~= nil then
-			stored = if kind == "Keyboard" then data.Settings.Keyboard else data.Settings.Gamepad
-		end
-		for _, action in ipairs(InputConfig.Actions) do
-			local key: string? = if stored ~= nil then stored[action] else nil
-			map[action] = if key ~= nil then key else defaults[action]
-		end
-		pending[kind] = map
-		dirty[kind] = false
-	end
-
-	local function refreshKeyLabels(kind: BindKind)
-		if currentTab ~= kind then
-			return
-		end
-		local map = pending[kind]
-		for action, button in pairs(keyButtons) do
-			button:SetText(map[action])
-		end
-	end
-
-	-- (true, kind) on a keybind tab; (false, "Keyboard") on the Audio tab. Two values rather than an
-	-- optional so callers get a plain BindKind without relying on nil refinement of a literal union.
-	local function currentBindKind(): (boolean, BindKind)
-		if currentTab == "Gamepad" then
-			return true, "Gamepad"
-		end
-		return currentTab == "Keyboard", "Keyboard"
-	end
-
-	local function finishCapture(kind: BindKind, action: string, keyName: string?)
-		capturing = nil
-		local highlighted: Button.Button? = keyButtons[action]
-		if highlighted ~= nil then
-			highlighted:SetVariant("Secondary")
-		end
-		if keyName == nil then
-			setStatus(t("settings.captureCancelled"))
-			return
-		end
-		if ALLOWED[kind][keyName] ~= true then
-			setStatus(t("settings.keyNotAllowed", { key = keyName }))
-			return
-		end
-		local map = pending[kind]
-		local previous = map[action]
-		if previous == keyName then
-			setStatus(t("settings.bound", { action = actionName(action), key = keyName }))
-			return
-		end
-		local holder: string? = nil
-		for other, key in pairs(map) do
-			if key == keyName and other ~= action then
-				holder = other
-				break
-			end
-		end
-		if holder ~= nil then
-			if REBINDABLE[holder] ~= true then
-				setStatus(t("settings.duplicate", { key = keyName }))
-				return
-			end
-			map[holder] = previous
-			map[action] = keyName
-			dirty[kind] = true
-			refreshKeyLabels(kind)
-			setStatus(t("settings.swapped", { a = actionName(action), b = actionName(holder) }))
-			return
-		end
-		map[action] = keyName
-		dirty[kind] = true
-		refreshKeyLabels(kind)
-		setStatus(t("settings.bound", { action = actionName(action), key = keyName }))
-	end
-
-	-- Drops a capture in progress (tab switch, close). InputController.cancelCapture does not fire the
-	-- pending callback, so the highlighted button is restored here and rebinding stays usable.
-	local function abortCapture()
-		local action = capturing
-		if action == nil then
-			return
-		end
-		capturing = nil
-		local highlighted: Button.Button? = keyButtons[action]
-		if highlighted ~= nil then
-			highlighted:SetVariant("Secondary")
-		end
-		deps.InputController.cancelCapture()
-	end
-
-	local function beginCapture(kind: BindKind, action: string)
-		if saving then
-			return
-		end
-		if capturing ~= nil then
-			-- Tapping the highlighted binding again cancels the capture: a touch device has no Escape
-			-- key, and the Roblox menu button closes the whole screen.
-			if capturing == action then
-				abortCapture()
-				deps.SoundController.play("UiClick")
-				setStatus(t("settings.captureCancelled"))
-			end
-			return
-		end
-		capturing = action
-		local button: Button.Button? = keyButtons[action]
-		if button ~= nil then
-			button:SetVariant("Primary")
-		end
-		deps.SoundController.play("UiClick")
-		setStatus(t("settings.pressKey", { action = actionName(action) }))
-		deps.InputController.captureNext(kind, function(keyName: string?)
-			if capturing ~= action then
-				return -- the screen was closed or reopened meanwhile
-			end
-			finishCapture(kind, action, keyName)
-		end)
-	end
-
-	local function save()
-		local isBind, kind: BindKind = currentBindKind()
-		if not isBind or capturing ~= nil or saving then
-			return
-		end
-		-- Without a loaded profile the server rejects the save and pushes nothing back, which would
-		-- leave the screen stuck in `saving` with every button disabled.
-		if deps.ClientData.get() == nil then
-			setStatus(t("settings.saveFailed"))
-			return
-		end
-		saving = true
-		deps.SoundController.play("UiClick")
-		setStatus(t("settings.saving"))
-		deps.RemoteClient.fire("UpdateKeybinds", kind, table.clone(pending[kind]))
-	end
-
-	local function reset()
-		local isBind, kind: BindKind = currentBindKind()
-		if not isBind or capturing ~= nil or saving then
-			return
-		end
-		-- Same guard as save: defaults that cannot be saved would be a lie on screen.
-		if deps.ClientData.get() == nil then
-			setStatus(t("settings.saveFailed"))
-			return
-		end
-		local map = pending[kind]
-		local defaults = DEFAULTS[kind]
-		for _, action in ipairs(InputConfig.Rebindable) do
-			map[action] = defaults[action]
-		end
-		dirty[kind] = true
-		deps.SoundController.play("UiClick")
-		refreshKeyLabels(kind)
-		setStatus(t("settings.resetPending"))
-	end
-
-	----------------------------------------------------------------
-	-- Audio
-	----------------------------------------------------------------
-
-	local function syncAudio()
-		local data = deps.ClientData.get()
-		if data == nil then
-			return
-		end
-		audio.MusicVolume = data.Settings.MusicVolume
-		audio.SfxVolume = data.Settings.SfxVolume
-		audio.CameraShake = data.Settings.CameraShake
-		audio.Quality = if QualityConfig.isTier(data.Settings.Quality)
-			then data.Settings.Quality
-			else QualityConfig.Default
-		local strip = qualityStrip
-		if strip ~= nil then
-			adoptingSettings = true
-			strip:Select(audio.Quality)
-			adoptingSettings = false
-		end
-		local music = musicSlider
-		if music ~= nil then
-			music:SetValue(audio.MusicVolume)
-		end
-		local sfx = sfxSlider
-		if sfx ~= nil then
-			sfx:SetValue(audio.SfxVolume)
-		end
-		local shake = shakeToggle
-		if shake ~= nil then
-			shake:SetValue(audio.CameraShake)
-		end
-	end
-
-	local function cancelAudioTimer()
-		local timer = audioTimer
-		if timer ~= nil then
-			task.cancel(timer)
-			audioTimer = nil
-		end
-	end
-
-	-- Sends the current audio state. A send whose Settings push has not arrived yet keeps the state
-	-- pending instead of queuing a second call: the push re-arms it, so only one call is ever in flight
-	-- and the last change is never dropped.
-	local function sendAudio()
-		if deps.ClientData.get() == nil or audioInFlight then
-			return
-		end
-		audioPending = false
-		audioInFlight = true
-		audioLastSentAt = os.clock()
-		deps.RemoteClient.fire("UpdateSettings", {
-			MusicVolume = audio.MusicVolume,
-			SfxVolume = audio.SfxVolume,
-			CameraShake = audio.CameraShake,
-			Quality = audio.Quality,
-		})
-	end
-
-	-- Debounces a burst of drags and keeps two sends at least one remote token apart. The timer outlives
-	-- Close on purpose, so a change made just before closing is still sent.
-	local function scheduleAudio()
-		if adoptingSettings then
-			return
-		end
-		audioPending = true
-		cancelAudioTimer()
-		local delay = math.max(AUDIO_DEBOUNCE_SECONDS, AUDIO_MIN_INTERVAL_SECONDS - (os.clock() - audioLastSentAt))
-		audioTimer = task.delay(delay, function()
-			audioTimer = nil
-			sendAudio()
-		end)
-	end
-
-	trove:Add(cancelAudioTimer)
-
-	----------------------------------------------------------------
-	-- Footer (Save / Reset, keybind tabs only)
+	-- Footer (Reset, binding pages only)
 	----------------------------------------------------------------
 
 	local footerLayout = Instance.new("UIListLayout")
@@ -468,133 +169,29 @@ function SettingsScreen.new(deps: Deps): Screen
 	footerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	footerLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	footerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	footerLayout.Padding = UDim.new(0, Theme.Sizes.Gap)
 	footerLayout.Parent = panel.Footer
 
+	-- A question first: the confirm is the one red button of the menus (SettingsBindings.AskReset).
 	local resetButton = Button.new({
+		Name = "Reset",
 		Text = t("common.reset"),
 		Variant = "Secondary",
-		Size = UDim2.fromOffset(FOOTER_BUTTON_WIDTH, Theme.Sizes.ButtonHeight),
 		LayoutOrder = 1,
 		Parent = panel.Footer,
-		OnClick = reset,
+		OnClick = function()
+			bindings:AskReset()
+		end,
 	})
 	own(trove, resetButton)
-
-	local saveButton = Button.new({
-		Text = t("common.save"),
-		Variant = "Primary",
-		Size = UDim2.fromOffset(FOOTER_BUTTON_WIDTH, Theme.Sizes.ButtonHeight),
-		LayoutOrder = 2,
-		Parent = panel.Footer,
-		OnClick = save,
-	})
-	own(trove, saveButton)
 
 	local function setFooterVisible(visible: boolean)
 		panel:SetFooterHeight(if visible then footerHeight else 0)
 		resetButton.Instance.Visible = visible
-		saveButton.Instance.Visible = visible
 	end
 
 	----------------------------------------------------------------
 	-- Pages
 	----------------------------------------------------------------
-
-	local function buildBindPage(kind: BindKind)
-		local map = pending[kind]
-		for index, action in ipairs(InputConfig.Rebindable) do
-			local button = Button.new({
-				Text = map[action],
-				Variant = "Secondary",
-				Size = UDim2.fromOffset(KEY_BUTTON_WIDTH, Theme.Sizes.ButtonHeight),
-				OnClick = function()
-					beginCapture(kind, action)
-				end,
-			})
-			own(pageTrove, button)
-			keyButtons[action] = button
-			local row = ListRow.new({
-				Left = actionName(action),
-				Right = button.Instance,
-				LayoutOrder = index,
-				Parent = panel.Content,
-			})
-			own(pageTrove, row)
-		end
-		setFooterVisible(true)
-		setStatus(t("settings.hint"))
-	end
-
-	local function buildAudioPage()
-		local music = Slider.new({
-			Min = 0,
-			Max = 1,
-			Step = VOLUME_STEP,
-			Value = audio.MusicVolume,
-			OnChange = function(value: number)
-				audio.MusicVolume = value
-				scheduleAudio()
-			end,
-		})
-		own(pageTrove, music)
-		local musicRow = ListRow.new({
-			Left = t("settings.music"),
-			Right = music.Instance,
-			Height = AUDIO_ROW_HEIGHT,
-			LayoutOrder = 1,
-			Parent = panel.Content,
-		})
-		own(pageTrove, musicRow)
-
-		local sfx = Slider.new({
-			Min = 0,
-			Max = 1,
-			Step = VOLUME_STEP,
-			Value = audio.SfxVolume,
-			OnChange = function(value: number)
-				audio.SfxVolume = value
-				scheduleAudio()
-			end,
-		})
-		own(pageTrove, sfx)
-		local sfxRow = ListRow.new({
-			Left = t("settings.sfx"),
-			Right = sfx.Instance,
-			Height = AUDIO_ROW_HEIGHT,
-			LayoutOrder = 2,
-			Parent = panel.Content,
-		})
-		own(pageTrove, sfxRow)
-
-		local shake = Toggle.new({
-			Value = audio.CameraShake,
-			OnChange = function(value: boolean)
-				audio.CameraShake = value
-				scheduleAudio()
-			end,
-		})
-		own(pageTrove, shake)
-		local shakeRow = ListRow.new({
-			Left = t("settings.cameraShake"),
-			Right = shake.Instance,
-			Height = AUDIO_ROW_HEIGHT,
-			LayoutOrder = 3,
-			Parent = panel.Content,
-		})
-		own(pageTrove, shakeRow)
-
-		musicSlider = music
-		sfxSlider = sfx
-		shakeToggle = shake
-		pageTrove:Add(function()
-			musicSlider = nil
-			sfxSlider = nil
-			shakeToggle = nil
-		end)
-		setFooterVisible(false)
-		setStatus("")
-	end
 
 	-- The graphics page: the four tiers of Config/QualityConfig, and a line saying that the game lowers
 	-- the setting by itself when the frame rate falls. The chosen tier is a ceiling, so the strip shows
@@ -609,26 +206,17 @@ function SettingsScreen.new(deps: Deps): Screen
 		local strip = Tabs.new({
 			Name = "Quality",
 			Items = items,
-			Selected = audio.Quality,
-			Size = UDim2.fromOffset(QUALITY_STRIP_WIDTH, Theme.Sizes.RowHeight),
+			Selected = values:Quality(),
+			Chapter = CHAPTER,
+			Size = UDim2.fromOffset(QUALITY_STRIP_WIDTH, TABS_HEIGHT),
 			OnSelect = function(id: string)
 				deps.SoundController.play("UiClick")
-				audio.Quality = id
-				scheduleAudio()
+				values:SetQuality(id)
 			end,
 		})
 		own(pageTrove, strip)
-		qualityStrip = strip
-		pageTrove:Add(function()
-			qualityStrip = nil
-		end)
-		local qualityRow = ListRow.new({
-			Left = t("settings.quality"),
-			Right = strip.Instance,
-			LayoutOrder = 1,
-			Parent = panel.Content,
-		})
-		own(pageTrove, qualityRow)
+		values:FollowQuality(pageTrove, strip)
+		values:Row(pageTrove, t("settings.quality"), strip.Instance, 1)
 
 		local hint = Instance.new("TextLabel")
 		hint.Name = "QualityHint"
@@ -644,32 +232,36 @@ function SettingsScreen.new(deps: Deps): Screen
 		hint.Text = t("settings.qualityHint")
 		hint.Parent = panel.Content
 		pageTrove:Add(hint)
-
-		setFooterVisible(false)
-		setStatus("")
 	end
 
 	local function showTab(id: TabId)
-		abortCapture()
+		bindings:Leave()
 		pageTrove:Clean()
-		keyButtons = {}
 		currentTab = id
 		panel.Content.CanvasPosition = Vector2.zero
+		-- Reset, and the line of hints, belong to the binding pages.
+		local binding = id == "Keyboard" or id == "Gamepad"
+		setFooterVisible(binding)
+		setStatus("")
 		if id == "Audio" then
-			buildAudioPage()
+			values:BuildAudio(pageTrove)
 		elseif id == "Graphics" then
 			buildGraphicsPage()
+		elseif id == "Accessibility" then
+			values:BuildAccessibility(pageTrove)
 		else
-			buildBindPage(id)
+			bindings:Build(id, pageTrove)
 		end
 	end
 
 	-- A rebinding page can only be finished with the matching hardware: a capture unbinds every on-screen
 	-- touch control and waits for a key no touch-only device can send, which would leave the player with
 	-- no HUD and a half-finished capture. The page is therefore not offered at all without the hardware,
-	-- which also matches what initialTab already opens on. The screen is built once and kept for the whole
-	-- session, so a pad plugged in later must still get its page: the strip is rebuilt on every change.
+	-- which also matches what initialTab already opens on. The screen is kept once built (only a change of
+	-- language builds it again), so a pad plugged in later must still get its page: the strip is rebuilt on
+	-- every change.
 	local tabsTrove = trove:Extend()
+	local tabs: Tabs.Tabs? = nil
 	local hasKeyboard = false
 	local hasGamepad = false
 
@@ -694,6 +286,7 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 		table.insert(items, { Id = "Audio", Text = t("settings.tab.audio") })
 		table.insert(items, { Id = "Graphics", Text = t("settings.tab.graphics") })
+		table.insert(items, { Id = "Accessibility", Text = t("settings.tab.accessibility") })
 
 		-- The open page may be the one that just disappeared: fall back to the default for the new hardware.
 		if not tabExists(currentTab) then
@@ -701,9 +294,11 @@ function SettingsScreen.new(deps: Deps): Screen
 		end
 
 		tabsTrove:Clean()
-		local tabs = Tabs.new({
+		local strip = Tabs.new({
 			Items = items,
 			Selected = currentTab,
+			Chapter = CHAPTER,
+			-- Tabs make no sound of their own (a Button does): the click is the screen's.
 			OnSelect = function(id: string)
 				deps.SoundController.play("UiClick")
 				showTab(id :: TabId)
@@ -711,7 +306,15 @@ function SettingsScreen.new(deps: Deps): Screen
 			LayoutOrder = 1,
 			Parent = panel.Header,
 		})
-		own(tabsTrove, tabs)
+		own(tabsTrove, strip)
+		tabs = strip
+	end
+
+	-- The first tab is where a pad starts.
+	local function focusTabs()
+		local strip = tabs
+		local first = if strip ~= nil then strip.Instance:FindFirstChildWhichIsA("TextButton", true) else nil
+		panel:FocusForGamepad(first)
 	end
 
 	-- Neither KeyboardEnabled nor GamepadEnabled has a change signal of its own: a pad raises
@@ -723,7 +326,7 @@ function SettingsScreen.new(deps: Deps): Screen
 		buildTabs()
 		-- The strip that was just destroyed may have held the gamepad selection, leaving the D-pad dead.
 		if screen.Visible and GuiService.SelectedObject == nil then
-			panel:FocusForGamepad()
+			focusTabs()
 		end
 	end
 
@@ -733,88 +336,35 @@ function SettingsScreen.new(deps: Deps): Screen
 	trove:Connect(UserInputService.LastInputTypeChanged, syncTabsToHardware)
 
 	----------------------------------------------------------------
-	-- Profile sync
-	----------------------------------------------------------------
-
-	trove:Connect(deps.ClientData.Changed, function(section: string)
-		if section ~= "*" and section ~= "Settings" then
-			return
-		end
-		if saving then
-			saving = false
-			syncPending("Keyboard")
-			syncPending("Gamepad")
-			local isBind, kind: BindKind = currentBindKind()
-			if isBind then
-				refreshKeyLabels(kind)
-			end
-			setStatus(t("settings.saved"))
-		else
-			-- Unsaved local edits win over the push; clean copies follow the profile.
-			if not dirty.Keyboard then
-				syncPending("Keyboard")
-				refreshKeyLabels("Keyboard")
-			end
-			if not dirty.Gamepad then
-				syncPending("Gamepad")
-				refreshKeyLabels("Gamepad")
-			end
-		end
-		if audioInFlight then
-			audioInFlight = false
-			if not audioPending then
-				setStatus(t("settings.saved"))
-			end
-		end
-		if audioPending then
-			-- A change made while the previous send was in flight: send it now that the push landed.
-			if audioTimer == nil then
-				scheduleAudio()
-			end
-		elseif audioTimer == nil then
-			-- Do not fight a drag in progress: the debounced send will push the latest values.
-			syncAudio()
-		end
-	end)
-
-	----------------------------------------------------------------
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen)
+	local function open(self: Screen, _args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
-		saving = false
-		-- A send whose push never arrived (server-side rejection) must not block the next one.
-		audioInFlight = false
-		abortCapture()
-		syncPending("Keyboard")
-		syncPending("Gamepad")
-		if not audioPending then
-			syncAudio()
-		end
+		bindings:Open()
+		values:Open()
 		showTab(currentTab)
-		root.Instance.Enabled = true
-		panel:FocusForGamepad()
+		root:PlayEnter()
+		focusTabs()
 		deps.SoundController.play("UiOpen")
 	end
 
 	local function close(self: Screen)
-		abortCapture()
+		bindings:Leave()
 		if not self.Visible then
 			return
 		end
 		self.Visible = false
 		panel:ReleaseGamepadFocus()
-		root.Instance.Enabled = false
+		root:PlayExit()
 		deps.SoundController.play("UiClose")
 	end
 
 	local function destroy(self: Screen)
 		self.Visible = false
-		capturing = nil
 		trove:Destroy()
 	end
 

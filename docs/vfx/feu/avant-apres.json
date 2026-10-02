@@ -1,0 +1,8 @@
+{"title": "Le feu - des flaques aux flammes (temps reel, labo Studio)", "frames": [
+ {"capture": "ligature_before_tick_side", "moment": "Ligature : entre deux ticks", "row": "avant", "t": 0.44},
+ {"capture": "scorch_after_tick2_side", "moment": "Brulis : 2e tick", "row": "avant", "t": 0.907},
+ {"capture": "flame_probe_realtime", "moment": "Sonde : 80 flammes/s (avant = moteur, apres = rendu)", "row": "avant", "t": 0},
+ {"capture": "ligature_fire_t3_realtime_side", "moment": "Ligature : entre deux ticks", "row": "apres", "t": 0.68},
+ {"capture": "scorch_fire_t1_tick2_wide", "moment": "Brulis : 2e tick", "row": "apres", "t": 0.88},
+ {"capture": "flame_probe_emit_realtime", "moment": "Sonde : 80 flammes/s (avant = moteur, apres = rendu)", "row": "apres", "t": 0}
+]}

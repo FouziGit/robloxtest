@@ -4,6 +4,7 @@
 -- lies inside the hull its damage is measured on. Source-level where it has to be: no builder in
 -- src/server may name a Color3 or a Material of its own.
 local AssetIds = require("../src/shared/Config/AssetIds")
+local BotConfig = require("../src/shared/Config/BotConfig")
 local Harness = require("./harness")
 local QualityConfig = require("../src/shared/Config/QualityConfig")
 local ThemeConfig = require("../src/shared/Config/ThemeConfig")
@@ -30,10 +31,24 @@ local BUILDER_ROOT = "src/server"
 local PALETTE = "src/shared/Util/Palette.luau"
 
 -- The saturated roles of the interface's palette. A screen may say danger in Cinnabar; the WORLD may not
--- carry one for a whole session (docs/ART_BIBLE.md rule 1: every vivid colour on screen belongs to a
--- glyph). The hub's queue terminal wore an exact Indigo emblem, permanently, which is the longest-lived
--- thing on screen.
-local FORBIDDEN_THEME_ROLES = { "Info", "Danger", "Success", "Premium", "Ink" }
+-- carry one for a whole session (docs/ART_BIBLE.md rule 1: nothing drawn in the world is saturated). The
+-- hub's queue terminal wore an exact Indigo emblem, permanently, which is the longest-lived thing on screen.
+local FORBIDDEN_THEME_ROLES = {
+	"Info",
+	"Danger",
+	"Success",
+	"Premium",
+	"Ink",
+	-- The vivid roles of the interface (D-147): screen-space only, never the scenery.
+	"Primary",
+	"SuccessFill",
+	"InfoFill",
+	"DangerFill",
+	"Ally",
+	"Health",
+	"Epic",
+	"Bronze",
+}
 
 -- What has to be legible against what. A colour that matches the surface it is drawn on is not a subtle
 -- bug: it is nothing at all, which is what happened to every mark of the Erasure when the floor became
@@ -47,6 +62,15 @@ local READABLE_PAIRS = {
 	{ Label = "the page's ruling on the platform", Ink = "Hub.Rule", On = "Hub.Platform", Ratio = 3 },
 	{ Label = "the seal of the spawn on its rim", Ink = "Hub.Spawn", On = "Hub.SpawnRim", Ratio = 3 },
 	{ Label = "a proof's registration cross on its body", Ink = "Proof.Mark", On = "Proof.Body", Ratio = 4.5 },
+	{ Label = "a Forger on the Battleground's floor", Ink = "Forgers.Body", On = "Battleground.Floor", Ratio = 4.5 },
+	{ Label = "a Forger's chalk bars on its body", Ink = "Forgers.Mark", On = "Forgers.Body", Ratio = 4.5 },
+	{
+		Label = "the camp's line on the Battleground's floor",
+		Ink = "Battleground.CampLine",
+		On = "Battleground.Floor",
+		Ratio = 3,
+	},
+	{ Label = "a portal's seal on its rim", Ink = "Portal.Seal", On = "Portal.SealRim", Ratio = 3 },
 }
 
 -- Easings the timelines already use, which tests/VfxTimeline.spec.luau holds to the art bible's rule 4.
@@ -127,6 +151,10 @@ local function roleUses(): { { Label: string, Role: string } }
 	take("Hub", WorldConfig.Hub)
 	take("Arena", WorldConfig.Arena)
 	take("Proof", WorldConfig.Proof)
+	take("Portal", WorldConfig.Portal)
+	take("Battleground", WorldConfig.Battleground)
+	take("Flyleaf", WorldConfig.Flyleaf)
+	take("Forgers", WorldConfig.Forgers)
 	table.insert(out, { Label = "Footprints.Color", Role = WorldConfig.Footprints.Color })
 	table.insert(out, { Label = "Erasure.Mark", Role = WorldConfig.Erasure.Mark })
 	table.insert(out, { Label = "Erasure.Erased", Role = WorldConfig.Erasure.Erased })
@@ -282,6 +310,59 @@ describe("the Erasure's figure", function()
 		end
 		expect(roles.Core).toBe("Page")
 		expect(WorldConfig.Erasure.Band.Color).toBe("Ink")
+	end)
+end)
+
+-- Everything drawn flat on a floor sits on one ladder (the hub, its gates, the Battleground): each rung clears
+-- the one below it, because two coplanar faces flicker, and all of them stay under the lift an effect's ground
+-- mark takes, so a burn is never drawn underneath the decoration it lands on.
+describe("the ladder of flat drawings", function()
+	it("climbs rung by rung, sunk into the floor, under every effect's ground mark", function()
+		local timeline = fs.readFile("src/client/Controllers/VfxTimeline.luau")
+		local lift = tonumber(string.match(timeline, "normal %* %(([%d%.]+) %+ math%.max%(lift, 0%)%)"))
+		if lift == nil then
+			error("VfxTimeline no longer lifts a ground mark by a literal: this gate would check nothing")
+		end
+		local ladder = WorldConfig.Ladder
+		local rungs = { ladder.Training, ladder.Rule, ladder.SealRim, ladder.Seal }
+		expect(rungs[1]).toBeGreaterThan(0)
+		for index = 2, #rungs do
+			expect(rungs[index]).toBeGreaterThan(rungs[index - 1])
+		end
+		expect(rungs[#rungs]).toBeLessThan(lift :: number)
+		-- A slab this thick with its top on the highest rung still has its underside in the floor.
+		expect(WorldConfig.FlatThicknessStuds).toBeGreaterThan(rungs[#rungs])
+	end)
+end)
+
+describe("the Forgers' figures", function()
+	-- Told apart by their chalk bars alone, never by a colour: every tier wears bars, and no two the same.
+	it("mark every tier, each its own way", function()
+		local worn: { [string]: string } = {}
+		local count = 0
+		for tierId in pairs(BotConfig.Tiers) do
+			count += 1
+			local marks = WorldConfig.Forgers.Marks[tierId]
+			if marks == nil or #marks == 0 then
+				error(("the %s tier wears no mark"):format(tierId))
+			end
+			local parts = {}
+			for _, bar in ipairs(marks) do
+				expect(bar.Size).toHaveLength(3)
+				expect(bar.Offset).toHaveLength(3)
+				table.insert(parts, table.concat(bar.Size, ",") .. "@" .. table.concat(bar.Offset, ","))
+			end
+			local shape = table.concat(parts, ";")
+			if worn[shape] ~= nil then
+				error(("%s and %s wear the same mark"):format(worn[shape], tierId))
+			end
+			worn[shape] = tierId
+		end
+		-- The page's three, and the spar's Duelist.
+		expect(count).toBe(4)
+		for tierId in pairs(WorldConfig.Forgers.Marks) do
+			expect(BotConfig.Tiers[tierId] ~= nil).toBe(true)
+		end
 	end)
 end)
 

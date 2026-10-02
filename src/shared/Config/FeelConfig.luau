@@ -43,6 +43,17 @@ FeelConfig.HitStop = {
 	PlantOnDealt = true,
 }
 
+-- The freeze frame of the drawn effects (VfxClock, D-118): at an impact the burst, its sparks and its light
+-- stop dead together, then go on. Only what is drawn stops -- inputs, movement and the server never do,
+-- nor anything drawn on the server's own time (a flight, a warning's window: VfxTimeline's steady plays)
+-- -- and overlapping holds never add up past Longest, so a flurry reads as impact, not as a stall. It starts
+-- After the hit, on the burst's widest frames: held on its first frame, a burst is held before it has
+-- drawn anything (D-119).
+FeelConfig.EffectHold = {
+	Longest = 0.12,
+	After = 0.04,
+}
+
 -- Camera shake, per impact profile. Perlin noise (sleitnick/shake), never random jitter: random reads
 -- as a broken camera, noise reads as weight. Rotation influence is deliberately tiny — roll past about
 -- 0.05 rad makes people motion sick on mobile.
@@ -147,6 +158,8 @@ FeelConfig.ImpactFrame = {
 FeelConfig.DamageNumbers = {
 	Seconds = 0.85,
 	RiseStuds = 4.2,
+	-- Damage the player took drifts down this far instead (negative): what rises is what they dealt.
+	TakenRiseStuds = -1.6,
 	-- Horizontal scatter so two hits in the same place do not print on top of each other.
 	SpreadStuds = 1.6,
 	-- Studs above the target's root where the number is born.
@@ -155,9 +168,11 @@ FeelConfig.DamageNumbers = {
 	PopScale = 1.45,
 	Tension = 320,
 	Friction = 18,
-	BaseTextSize = 26,
+	BaseTextSize = 30,
 	-- A big hit is a bigger number, up to this multiple of the base size.
 	MaxSizeScale = 1.9,
+	-- A hit amplified by a status is this much bigger again, and carries the status's tag.
+	AmplifiedScale = 1.35,
 	-- It holds full opacity for this fraction of its life, then fades. Fading from the first frame
 	-- makes every number look weak.
 	HoldFraction = 0.45,
@@ -195,6 +210,11 @@ FeelConfig.Springs = {
 	-- The ghost of a bar: what was just lost, catching up slowly and never overshooting -- an overshoot
 	-- on a health bar reads as health coming back.
 	UiGhost = { Tension = 28, Friction = 11 },
+	-- What the player is given (a reward, a badge, a splat, a button let go): overshoots by about a
+	-- quarter and settles, the "Back Out" of the tweens this replaces.
+	UiPop = { Tension = 600, Friction = 20 },
+	-- What leaves: almost critically damped, so a screen going away never bounces back into view.
+	UiExit = { Tension = 500, Friction = 42 },
 	Camera = { Tension = 180, Friction = 26 },
 }
 

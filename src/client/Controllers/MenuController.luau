@@ -1,15 +1,27 @@
 --!strict
 -- MenuController: opens and closes the full-screen menus (Menu, Settings, Battlepass, Play, Result,
--- Leaderboard, Quests, Daily, Loadout, Shop) built by the UI/screens modules. Screens are created
+-- Leaderboard, Quests, Daily, Loadout, Shop, Lectern) built by the UI/screens modules. Screens are created
 -- lazily with the controller dependencies they need, gameplay input is suspended while one is open,
 -- and the Roblox menu (Escape) closes whatever is open.
+--
+-- The screens a player walks through form a stack (Shared.Pure.MenuStack, D-147): a screen that opens
+-- another (its OnNavigate) stacks it on itself, so Back -- the band's button, or B on a gamepad through
+-- InputController -- returns to it; the cross closes them all. Anything else that opens a screen (the HUD,
+-- a hub prompt, a key, a match that ends) replaces the stack. `open` carries arguments to the screen's Open:
+-- the Shop opened on its Folios tab.
 --
 -- Each screen owns its own open/close sound: its Open/Close guard on `Visible`, so they fire exactly
 -- once per real transition, including on a screen-to-screen navigation. The controller plays none, so
 -- a single UiOpen/UiClose is heard per transition whatever the entry point.
 --
 -- Matches drive two transitions: the screen in front is closed when a match starts (a suspended input
--- would make the countdown unplayable) and the result screen is opened when one ends.
+-- would make the countdown unplayable) and the result screen is opened when one ends. A portal that has just
+-- moved the player closes it too (TravelController.Travelled): a circle takes whoever stands in it, menu open
+-- or not, and nobody may arrive among the Forgers or before the Erasure with their input suspended.
+--
+-- A screen writes its words when it is built. When the player's language changes (Localize.Changed), every
+-- screen built so far is let go: the one in front is built again at once and opened where it was, with what it
+-- was opened with, and the others are built again in the new language the next time they open.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,6 +30,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
 local Log = require(Shared.Util.Log)
+local MenuStack = require(Shared.Pure.MenuStack)
 
 local log = Log.new("MenuController")
 
@@ -32,10 +45,12 @@ export type ScreenId =
 	| "Daily"
 	| "Loadout"
 	| "Shop"
+	| "Lectern"
 
 type Screen = {
 	Instance: Instance,
-	Open: (self: Screen) -> (),
+	-- `args`: what the screen was opened with, from `open` or kept by the stack for Back.
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 	Visible: boolean,
@@ -48,6 +63,7 @@ type Deps = {
 	SoundController: any,
 	MatchController: any,
 	HudController: any,
+	TravelController: any,
 }
 
 local SCREENS_FOLDER = "screens"
@@ -62,17 +78,20 @@ local MODULE_NAMES: { [string]: string } = {
 	Daily = "DailyScreen",
 	Loadout = "LoadoutScreen",
 	Shop = "ShopScreen",
+	Lectern = "LecternScreen",
 }
 local DEFAULT_SCREEN: ScreenId = "Menu"
 local RESULT_SCREEN: ScreenId = "Result"
 
 local MenuController = {}
 
+local localize: any
 local inputController: any
 local matchController: any
+local travelController: any
 local screenDeps: { [string]: any }
 local screens: { [string]: Screen } = {}
-local current: string? = nil
+local stack = MenuStack.new()
 local inMatch = false
 
 local function findModule(id: string): ModuleScript?
@@ -117,51 +136,86 @@ local function getScreen(id: string): Screen?
 end
 
 function MenuController.isOpen(): boolean
-	return current ~= nil
+	return MenuStack.depth(stack) > 0
 end
 
-function MenuController.open(id: string)
-	if current == id then
-		return
-	end
-	local screen = getScreen(id)
-	if screen == nil then
-		return
-	end
-	local previous = current
-	if previous ~= nil then
-		local previousScreen = screens[previous]
-		if previousScreen ~= nil then
-			previousScreen:Close()
+-- Carries out a move of the stack: the screen that leaves closes before the one that arrives opens, and
+-- gameplay input is suspended for exactly as long as a screen is open.
+local function apply(move: MenuStack.Move)
+	local leave = move.Leave
+	if leave ~= nil then
+		local screen = screens[leave.Id]
+		if screen ~= nil then
+			screen:Close()
 		end
 	end
-	current = id
-	screen:Open()
-	if previous == nil then
-		inputController.setSuspended(true)
+	local arrive = move.Arrive
+	if arrive ~= nil then
+		-- Built again if a language change let it go while it waited under another.
+		local screen = getScreen(arrive.Id)
+		if screen ~= nil then
+			screen:Open(arrive.Args)
+		end
 	end
+	inputController.setSuspended(MenuStack.depth(stack) > 0)
+end
+
+-- The screen is built before the stack records it, so a screen that cannot be made never enters it.
+local function present(id: string, args: any?, fromScreen: boolean)
+	if getScreen(id) == nil then
+		return
+	end
+	apply(MenuStack.open(stack, id, args, fromScreen))
+end
+
+-- Opens `id` with `args` in place of whatever was open: the HUD, a hub prompt, a key, a match that ends.
+function MenuController.open(id: string, args: any?)
+	present(id, args, false)
+end
+
+-- What a screen calls to open another (its OnNavigate): on top of itself, so Back returns to it.
+local function navigate(id: string, args: any?)
+	present(id, args, true)
+end
+
+-- One screen back, or closed when it was the first.
+function MenuController.back()
+	apply(MenuStack.back(stack))
+end
+
+-- Whether Back has somewhere to go: what a screen's band reads to show its button.
+function MenuController.canGoBack(): boolean
+	return MenuStack.depth(stack) > 1
 end
 
 function MenuController.close()
-	local id = current
-	if id == nil then
-		return
-	end
-	current = nil
-	local screen = screens[id]
-	if screen ~= nil then
-		screen:Close()
-	end
-	inputController.setSuspended(false)
+	apply(MenuStack.clear(stack))
 end
 
 -- Opens `id` (Menu by default); closes when that screen is already the open one.
 function MenuController.toggle(id: string?)
 	local target = id or DEFAULT_SCREEN
-	if current == target or (id == nil and current ~= nil) then
+	local top = MenuStack.top(stack)
+	if (top ~= nil and top.Id == target) or (id == nil and top ~= nil) then
 		MenuController.close()
 	else
 		MenuController.open(target)
+	end
+end
+
+-- The player's language changed: every screen is built again in it (see the header).
+local function relabel()
+	local built = screens
+	screens = {}
+	for id, screen in pairs(built) do
+		log.try("Destroy " .. id, screen.Destroy, screen)
+	end
+	local top = MenuStack.top(stack)
+	if top ~= nil then
+		local screen = getScreen(top.Id)
+		if screen ~= nil then
+			screen:Open(top.Args)
+		end
 	end
 end
 
@@ -183,8 +237,10 @@ local function onMatchEnded(outcome: any)
 end
 
 function MenuController.Init(deps: Deps)
+	localize = deps.Localize
 	inputController = deps.InputController
 	matchController = deps.MatchController
+	travelController = deps.TravelController
 	screenDeps = {
 		Localize = deps.Localize,
 		ClientData = deps.ClientData,
@@ -195,7 +251,10 @@ function MenuController.Init(deps: Deps)
 		-- Queue and match state for the Play and Result screens; they never touch those remotes directly.
 		MatchController = deps.MatchController,
 		OnClose = MenuController.close,
-		OnNavigate = MenuController.open,
+		OnNavigate = navigate,
+		-- For the band's way back (Panel's OnBack and ShowBack).
+		OnBack = MenuController.back,
+		CanGoBack = MenuController.canGoBack,
 	}
 end
 
@@ -203,6 +262,8 @@ function MenuController.Start()
 	GuiService.MenuOpened:Connect(MenuController.close)
 	matchController.MatchChanged:Connect(onMatchChanged)
 	matchController.MatchEnded:Connect(onMatchEnded)
+	travelController.Travelled:Connect(MenuController.close)
+	localize.Changed:Connect(relabel)
 	log.info("started")
 end
 

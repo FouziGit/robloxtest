@@ -1,0 +1,14 @@
+{"title": "La Marque (Cinabre + Cinabre) - AVANT - labo Studio, temps d'effet depuis le paquet de lancer", "frames": [
+ {"capture": "brand_before_cast_game", "moment": "lancer", "view": "game", "t": 0.030},
+ {"capture": "brand_before_cast_side", "moment": "lancer", "view": "side", "t": 0.030},
+ {"capture": "brand_before_depart_game", "moment": "depart", "view": "game", "t": 0.060},
+ {"capture": "brand_before_depart_side", "moment": "depart", "view": "side", "t": 0.060},
+ {"capture": "brand_before_travel_game", "moment": "trajet", "view": "game", "t": 0.161},
+ {"capture": "brand_before_travel_side", "moment": "trajet", "view": "side", "t": 0.161},
+ {"capture": "brand_before_impact_game", "moment": "impact", "view": "game", "t": 0.238},
+ {"capture": "brand_before_impact_side", "moment": "impact", "view": "side", "t": 0.238},
+ {"capture": "brand_before_impact_close", "moment": "impact", "view": "impact", "t": 0.238},
+ {"capture": "brand_before_impact1_close", "moment": "impact +0,1", "view": "impact", "t": 0.335},
+ {"capture": "brand_before_impact3_close", "moment": "impact +0,3", "view": "impact", "t": 0.535},
+ {"capture": "brand_before_end_side", "moment": "fin", "view": "side", "t": 1.434}
+]}

@@ -1,0 +1,420 @@
+--!strict
+-- Standings: what the leaderboard draws of its ranks and its players (D-147). Over the board, the whole
+-- ladder of ranks, each seal over its word, as the board draws it. The first three on a podium -- second on
+-- the left, first in the centre on the tallest plinth, third on the right; the primary yellow, chalk and
+-- bronze -- each with the player's headshot, their name, their place and their rating, stamped in one after
+-- the other, the seal of their tier at the foot of their headshot. Every other player is a row: their place,
+-- the seal of their tier on the illuminated rank ladder, their name and their rating. The tier is the one the
+-- server wrote on the entry (LeaderboardView). A tier's seal is the board's: the rank's colour in its ink
+-- outline, the higher ones rimmed, its initial in the heavy roman (the drop cap of the rank's word in the
+-- player's language), gold leaf shimmering where the caller has the budget for it.
+--
+-- A headshot is fetched off the thread and may never come: until it does, and for good if it fails, the
+-- player is an initial on a chalk disc.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+
+local LeaderboardView = require(Shared:WaitForChild("Pure"):WaitForChild("LeaderboardView"))
+local ListRow = require(script.Parent.ListRow)
+local Log = require(Shared:WaitForChild("Util"):WaitForChild("Log"))
+local Motion = require(script.Parent.Parent.Motion)
+local RankingConfig = require(Shared:WaitForChild("Config"):WaitForChild("RankingConfig"))
+local Seal = require(script.Parent.Seal)
+local Sticker = require(script.Parent.Sticker)
+local Theme = require(script.Parent.Parent.Theme)
+local ThemeConfig = require(Shared:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+local Trove = require(Packages.Trove)
+
+local log = Log.new("Standings")
+
+export type Entry = LeaderboardView.Entry
+export type Localizer = { t: (key: string, params: { [string]: any }?) -> string }
+
+export type PodiumProps = {
+	-- The first places of the board, in place order.
+	Entries: { Entry },
+	-- An entry's rating, worded.
+	Rating: (entry: Entry) -> string,
+	-- What words a tier, whose seal carries its initial.
+	Localize: Localizer,
+	LayoutOrder: number?,
+	Parent: Instance,
+}
+
+export type Podium = { Instance: Frame, Destroy: (self: Podium) -> () }
+
+export type RowProps = {
+	Entry: Entry,
+	Variant: ListRow.Variant,
+	Rating: string,
+	Localize: Localizer,
+	LayoutOrder: number?,
+	Parent: Instance,
+}
+
+export type LadderProps = {
+	Localize: Localizer,
+	LayoutOrder: number?,
+	Parent: Instance,
+}
+
+export type Ladder = { Instance: Frame, Destroy: (self: Ladder) -> () }
+
+-- A tier's seal, which can be moved to another tier.
+export type TierSeal = {
+	Instance: Frame,
+	SetTier: (self: TierSeal, tierId: string) -> (),
+	Stamp: (self: TierSeal) -> (),
+	Destroy: (self: TierSeal) -> (),
+}
+
+local Standings = {}
+
+-- A plinth per place: its colour and its height.
+local PLINTHS: { { Fill: Color3, Height: number } } = {
+	{ Fill = Theme.Colors.Primary, Height = 120 },
+	{ Fill = Theme.Colors.Chalk, Height = 96 },
+	{ Fill = Theme.Colors.Bronze, Height = 80 },
+}
+local PLINTH_WIDTH = 160
+local HEADSHOT = 64
+-- The tier's seal at the foot of a headshot.
+local PODIUM_SEAL = 36
+local GAP = 12
+local NAME_SIZE = 18
+local RANK_SIZE = 40
+-- The plinths arrive this small and stamp up to their size.
+local STAMP_FROM = 0.6
+-- A row: the place, the tier's seal, the name, the rating.
+local ROW_RANK_WIDTH = 48
+local ROW_RANK_SIZE = 22
+-- 52 with the rims of the higher tiers, inside a row of 56.
+local ROW_SEAL = 40
+-- The whole ladder, as the board draws it: each rank's seal over its word, side by side from the first.
+local RUNG_SEAL = 58
+local RUNG_GAP = 22
+local RUNG_WORD_GAP = 8
+local RUNG_WORD_SIZE = 14
+local RUNG_WORD_ROW = RUNG_WORD_SIZE + 6
+-- The rims stand this far outside a seal: the ladder leaves them the room above and below.
+local RIM_ROOM = 6
+
+-- The podium's height, in design units: the tallest plinth, the headshot and the name over it.
+function Standings.podiumHeight(): number
+	return PLINTHS[1].Height + HEADSHOT + NAME_SIZE + GAP * 3
+end
+
+local function textLabel(name: string, font: Font, size: number, color: Color3): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.FontFace = font
+	label.TextSize = size
+	label.TextColor3 = color
+	return label
+end
+
+-- The initial of a tier: the drop cap of its word in the player's language ("É" for Écriture).
+local function initialOf(tierId: string, localize: Localizer): string
+	local letter = ThemeConfig.dropCap(localize.t(Theme.rank(tierId).NameKey))
+	return letter or ""
+end
+
+-- The seal of a tier (Theme.rank), `size` across: its fill, its ink, the rim the higher ones wear, and its
+-- initial. With `shimmer`, the gold leaf of the tiers that have it sweeps: only where the caller has one of
+-- its screen's animated gradients to spend on it.
+function Standings.seal(
+	tierId: string,
+	size: number,
+	parent: Instance,
+	order: number,
+	localize: Localizer,
+	shimmer: boolean?
+): TierSeal
+	local rank = Theme.rank(tierId)
+	local seal = Seal.new({
+		Text = initialOf(tierId, localize),
+		Fill = rank.Fill,
+		Rim = rank.Rim,
+		Ink = rank.Ink,
+		Size = size,
+		Face = "Initial",
+		Shimmer = shimmer == true and rank.Shimmer,
+		LayoutOrder = order,
+		Parent = parent,
+	})
+
+	local function setTier(_self: TierSeal, next: string)
+		local look = Theme.rank(next)
+		seal:SetFill(look.Fill, look.Rim, look.Ink)
+		seal:SetText(initialOf(next, localize))
+		seal:SetShimmer(shimmer == true and look.Shimmer)
+	end
+
+	local function stamp(_self: TierSeal)
+		seal:Stamp()
+	end
+
+	local function destroy(_self: TierSeal)
+		seal:Destroy()
+	end
+
+	return { Instance = seal.Instance, SetTier = setTier, Stamp = stamp, Destroy = destroy }
+end
+
+-- The tier an entry's seal wears: the server's, or the first when its key names none.
+local function tierOf(entry: Entry): string
+	return LeaderboardView.tierId(entry.RankKey, RankingConfig.Tiers) or RankingConfig.Tiers[1].Id
+end
+
+-- The first character of a name, for a headshot that could not be fetched.
+local function initial(name: string): string
+	local finish = utf8.offset(name, 2)
+	return if finish ~= nil then string.sub(name, 1, finish - 1) else name
+end
+
+-- The headshot: chalk and an initial until the picture arrives, and for good if it never does.
+local function headshot(entry: Entry, parent: Instance, alive: () -> boolean): ImageLabel
+	local head = Instance.new("ImageLabel")
+	head.Name = "Headshot"
+	head.BorderSizePixel = 0
+	head.BackgroundColor3 = Theme.Colors.Chalk
+	head.Size = UDim2.fromOffset(HEADSHOT, HEADSHOT)
+	head.LayoutOrder = 1
+	Theme.corner(head, Theme.Pill)
+	Theme.stroke(head, "Accent", Theme.Sizes.StrokeThin)
+	local letter = textLabel("Initial", Theme.Fonts.Title, Theme.Sizes.TextTitle, Theme.Colors.Text)
+	letter.Size = UDim2.fromScale(1, 1)
+	letter.Text = initial(entry.Name)
+	letter.Parent = head
+	head.Parent = parent
+	task.spawn(function()
+		local ok, image = pcall(function(): string
+			return (
+				Players:GetUserThumbnailAsync(entry.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+			)
+		end)
+		if not ok then
+			log.warn("no headshot for %s (%d) on the podium: %s", entry.Name, entry.UserId, tostring(image))
+			return
+		end
+		if alive() then
+			head.Image = image
+			letter.Visible = false
+		end
+	end)
+	return head
+end
+
+function Standings.podium(props: PodiumProps): Podium
+	local trove = Trove.new()
+	local alive = true
+	trove:Add(function()
+		alive = false
+	end)
+
+	local stand = Instance.new("Frame")
+	stand.Name = "Podium"
+	stand.BackgroundTransparency = 1
+	stand.Size = UDim2.new(1, 0, 0, Standings.podiumHeight())
+	stand.LayoutOrder = props.LayoutOrder or 0
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, GAP)
+	layout.Parent = stand
+	trove:Add(stand)
+
+	local scales: { Instance } = {}
+	for place, entry in ipairs(props.Entries) do
+		local look = PLINTHS[place]
+		if look == nil then
+			break
+		end
+		local column = Instance.new("Frame")
+		column.Name = "Place" .. tostring(place)
+		column.BackgroundTransparency = 1
+		column.Size = UDim2.new(0, PLINTH_WIDTH, 1, 0)
+		column.LayoutOrder = table.find(LeaderboardView.PodiumOrder, place) or place
+		local stack = Instance.new("UIListLayout")
+		stack.FillDirection = Enum.FillDirection.Vertical
+		stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		stack.VerticalAlignment = Enum.VerticalAlignment.Bottom
+		stack.SortOrder = Enum.SortOrder.LayoutOrder
+		stack.Padding = UDim.new(0, GAP / 2)
+		stack.Parent = column
+		local scale = Instance.new("UIScale")
+		scale.Scale = STAMP_FROM
+		scale.Parent = column
+		trove:Add(function()
+			Motion.cancel(scale)
+		end)
+		table.insert(scales, scale)
+
+		local head = headshot(entry, column, function()
+			return alive
+		end)
+		-- The tier at the foot of the headshot; still: the podium already stamps, and a board is long.
+		local tier = Standings.seal(tierOf(entry), PODIUM_SEAL, head, 0, props.Localize)
+		tier.Instance.Name = "Tier"
+		tier.Instance.AnchorPoint = Vector2.new(1, 1)
+		tier.Instance.Position = UDim2.fromScale(1, 1)
+		trove:Add(function()
+			tier:Destroy()
+		end)
+		local name = textLabel("Name", Theme.Fonts.Bold, NAME_SIZE, Theme.Colors.Text)
+		name.Size = UDim2.new(1, 0, 0, NAME_SIZE + 4)
+		name.LayoutOrder = 2
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.Text = entry.Name
+		name.Parent = column
+
+		-- A vivid block on the page: a sticker, in its ink outline (docs/ART_BIBLE.md rule 11).
+		local block = Sticker.new({
+			Kind = "Card",
+			Fill = look.Fill,
+			Corner = UDim.new(0, Theme.Sizes.CornerCard),
+			Size = UDim2.new(1, 0, 0, look.Height),
+			LayoutOrder = 3,
+			Name = "Plinth",
+			Parent = column,
+		})
+		trove:Add(function()
+			block:Destroy()
+		end)
+		local ink = Theme.inkOn(look.Fill)
+		local rank = textLabel("Rank", Theme.Fonts.Title, RANK_SIZE, ink)
+		rank.Size = UDim2.new(1, 0, 0, RANK_SIZE)
+		rank.Position = UDim2.fromOffset(0, Theme.Sizes.PaddingSmall)
+		rank.Text = tostring(entry.Rank)
+		rank.Parent = block.Face
+		local rating = textLabel("Rating", Theme.Fonts.Numeric, Theme.Sizes.NumSmall, ink)
+		rating.Size = UDim2.new(1, 0, 0, Theme.Sizes.NumSmall)
+		rating.Position = UDim2.fromOffset(0, Theme.Sizes.PaddingSmall * 2 + RANK_SIZE)
+		rating.Text = props.Rating(entry)
+		rating.Parent = block.Face
+		column.Parent = stand
+	end
+	stand.Parent = props.Parent
+	-- They stamp in one after the other: first place, then second, then third.
+	Motion.stagger(scales, { Scale = 1 }, "UiPop")
+
+	local function destroy(_self: Podium)
+		trove:Destroy()
+	end
+
+	return { Instance = stand, Destroy = destroy }
+end
+
+-- The height of the ladder, in design units: a seal and its rims over its word.
+function Standings.ladderHeight(): number
+	return RIM_ROOM * 2 + RUNG_SEAL + RUNG_WORD_GAP + RUNG_WORD_ROW
+end
+
+-- Every rank of the ladder, first to last: its seal -- gold leaf and all -- over its word.
+function Standings.ladder(props: LadderProps): Ladder
+	local trove = Trove.new()
+
+	local ladder = Instance.new("Frame")
+	ladder.Name = "Ladder"
+	ladder.BackgroundTransparency = 1
+	ladder.Size = UDim2.new(1, 0, 0, Standings.ladderHeight())
+	ladder.LayoutOrder = props.LayoutOrder or 0
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, RUNG_GAP)
+	layout.Parent = ladder
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, RIM_ROOM)
+	padding.PaddingBottom = UDim.new(0, RIM_ROOM)
+	padding.Parent = ladder
+	trove:Add(ladder)
+
+	for index, tier in ipairs(RankingConfig.Tiers) do
+		local rung = Instance.new("Frame")
+		rung.Name = tier.Id
+		rung.BackgroundTransparency = 1
+		rung.AutomaticSize = Enum.AutomaticSize.XY
+		rung.Size = UDim2.new()
+		rung.LayoutOrder = index
+		local stack = Instance.new("UIListLayout")
+		stack.FillDirection = Enum.FillDirection.Vertical
+		stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		stack.SortOrder = Enum.SortOrder.LayoutOrder
+		stack.Padding = UDim.new(0, RUNG_WORD_GAP)
+		stack.Parent = rung
+		local seal = Standings.seal(tier.Id, RUNG_SEAL, rung, 1, props.Localize, true)
+		trove:Add(function()
+			seal:Destroy()
+		end)
+		local word = textLabel("Word", Theme.Fonts.Bold, RUNG_WORD_SIZE, Theme.Colors.Text)
+		word.AutomaticSize = Enum.AutomaticSize.X
+		word.Size = UDim2.fromOffset(0, RUNG_WORD_ROW)
+		word.LayoutOrder = 2
+		word.Text = props.Localize.t(tier.NameKey)
+		word.Parent = rung
+		rung.Parent = ladder
+	end
+	ladder.Parent = props.Parent
+
+	local function destroy(_self: Ladder)
+		trove:Destroy()
+	end
+
+	return { Instance = ladder, Destroy = destroy }
+end
+
+function Standings.row(props: RowProps): ListRow.ListRow
+	local entry = props.Entry
+	local left = Instance.new("Frame")
+	left.Name = "Player"
+	left.BackgroundTransparency = 1
+	left.Size = UDim2.fromScale(1, 1)
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, Theme.Sizes.Gap)
+	layout.Parent = left
+	local place = textLabel("Rank", Theme.Fonts.Numeric, ROW_RANK_SIZE, Theme.Colors.Text)
+	place.Size = UDim2.new(0, ROW_RANK_WIDTH, 1, 0)
+	place.LayoutOrder = 1
+	place.Text = tostring(entry.Rank)
+	place.Parent = left
+	-- Still: a board of fifty rows has no gradient to spend on each Codex.
+	local tier = Standings.seal(tierOf(entry), ROW_SEAL, left, 2, props.Localize)
+	tier.Instance.Name = "Tier"
+	local name = textLabel("Name", Theme.Fonts.Bold, NAME_SIZE, Theme.Colors.Text)
+	name.Size = UDim2.fromScale(0, 1)
+	name.LayoutOrder = 3
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	name.Text = entry.Name
+	local fill = Instance.new("UIFlexItem")
+	fill.FlexMode = Enum.UIFlexMode.Fill
+	fill.Parent = name
+	name.Parent = left
+	local rating = textLabel("Rating", Theme.Fonts.Numeric, Theme.Sizes.NumSmall, Theme.Colors.Text)
+	rating.AutomaticSize = Enum.AutomaticSize.X
+	rating.Size = UDim2.fromScale(0, 1)
+	rating.Text = props.Rating
+	return ListRow.new({
+		Variant = props.Variant,
+		Left = left,
+		Right = rating,
+		LayoutOrder = props.LayoutOrder,
+		Name = "Row" .. tostring(entry.Rank),
+		Parent = props.Parent,
+	})
+end
+
+return Standings

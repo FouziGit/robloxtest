@@ -1,24 +1,35 @@
 --!strict
--- QuestsScreen: the daily and weekly quest boards. Each section lists the quests the server selected
--- for the running period (QuestLogic.select on the period key stored in the profile, so the client
--- shows exactly the set the server tracks) with its progress and a Claim button. Claims go through the
--- ClaimQuest remote; the server answers with a profile push and a Notify toast, so nothing here decides
--- whether a reward is granted.
+-- QuestsScreen: the daily and weekly quest boards, in the blue of the Quests chapter (D-147). Each section
+-- lists the quests the server selected for the running period (QuestLogic.select on the period key stored
+-- in the profile, so the client shows exactly the set the server tracks) under a header that counts down
+-- to the next draw, on the server's clock. Each quest is a QuestCard, and the board lists first what can be
+-- claimed, then what is being played, then what is done (QuestBoard.order). Every claimable Claim button
+-- sways now and then, on the one breath every claim on screen sways on (Sway).
 --
--- Rows are rebuilt only when the selected quests change (period rollover); a progress push just
--- refreshes the labels and the button states.
+-- Claims go through the ClaimQuest remote and wait for the profile push that marks them claimed: then the
+-- card stamps its seal and the Folios in the band count up. The server decides whether a reward is
+-- granted; nothing here does. Rows are rebuilt only when the selected quests change (period rollover, or a
+-- reroll); a progress push just refreshes them. Until the profile has arrived each section holds skeleton
+-- rows, never an empty card.
+--
+-- While a set has a free reroll left (QuestConfig.Rerolls: one a day, on a daily quest), each of its quests
+-- being played shows a Swap button, which sends the RerollQuest remote. The server picks the quest that
+-- takes its place and writes the swap into the set; the push that carries it rebuilds the section.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 
-local Button = require(script.Parent.Parent.components.Button)
+local FoliosPill = require(script.Parent.Parent.components.FoliosPill)
 local ListRow = require(script.Parent.Parent.components.ListRow)
 local Panel = require(script.Parent.Parent.components.Panel)
+local QuestBoard = require(Shared.Pure.QuestBoard)
+local QuestCard = require(script.Parent.Parent.components.QuestCard)
 local QuestConfig = require(Shared.Config.QuestConfig)
 local QuestLogic = require(Shared.Pure.QuestLogic)
 local ScreenRoot = require(script.Parent.Parent.components.ScreenRoot)
+local Sway = require(script.Parent.Parent.Sway)
 local Theme = require(script.Parent.Parent.Theme)
 local Trove = require(Packages.Trove)
 local Types = require(Shared.Types)
@@ -27,16 +38,18 @@ export type Deps = {
 	Localize: { t: (key: string, params: { [string]: any }?) -> string },
 	ClientData: { get: () -> Types.ProfileData?, Changed: any },
 	RemoteClient: { fire: (name: string, ...any) -> () },
-	InputController: { captureNext: (kind: string, callback: (keyName: string?) -> ()) -> () },
 	SoundController: { play: (sfxId: string, position: Vector3?) -> () },
+	-- A claim the server never answers is said in the HUD's toasts, as the Daily reward and the Shop say it.
+	HudController: { showLocalToast: (key: string, params: { [string]: any }?, kind: string?) -> () },
 	OnClose: () -> (),
-	OnNavigate: (id: string) -> (),
+	OnBack: () -> (),
+	CanGoBack: () -> boolean,
 }
 
 export type Screen = {
 	Instance: ScreenGui,
 	Visible: boolean,
-	Open: (self: Screen) -> (),
+	Open: (self: Screen, args: any?) -> (),
 	Close: (self: Screen) -> (),
 	Destroy: (self: Screen) -> (),
 }
@@ -44,34 +57,30 @@ export type Screen = {
 type Period = QuestLogic.Period
 type QuestDef = QuestConfig.QuestDef
 type PeriodDef = { Count: number, RewardXp: number, RewardFolios: number }
+-- Free rerolls a set may spend in its period, keyed by period id.
+local REROLLS = (QuestConfig.Rerolls :: any) :: { [string]: number }
 type Destroyable = { Destroy: (self: any) -> () }
-type QuestRow = { Name: TextLabel, Progress: TextLabel, Button: Button.Button }
-type Section = { Signature: string, Rows: { QuestRow }, Trove: any }
+type Section = {
+	Signature: string,
+	Cards: { QuestCard.QuestCard },
+	Header: ListRow.ListRow,
+	Trove: any,
+	-- True while the section holds skeleton rows, waiting for the profile.
+	Waiting: boolean,
+}
 
 local QuestsScreen = {}
 
-local OVERLAY_TRANSPARENCY = 0.45
-local BUTTON_WIDTH = 130
-local NAME_HEIGHT = Theme.Sizes.TextLarge + Theme.Sizes.PaddingSmall
-local PROGRESS_HEIGHT = Theme.Sizes.TextSmall + Theme.Sizes.PaddingSmall
-local QUEST_ROW_HEIGHT = NAME_HEIGHT + PROGRESS_HEIGHT + Theme.Sizes.Padding
+local CHAPTER = "Quests"
 local PERIODS: { string } = { "Daily", "Weekly" }
 local TITLE_KEYS: { [string]: string } = { Daily = "quest.daily", Weekly = "quest.weekly" }
 -- Layout band per section: the header sits on the base, its quests right after it.
 local LAYOUT_BASE: { [string]: number } = { Daily = 1, Weekly = 100 }
-
--- Dimmed backdrop that also swallows clicks so the world under the menu is not interacted with.
-local function makeOverlay(parent: Instance): Frame
-	local overlay = Instance.new("Frame")
-	overlay.Name = "Overlay"
-	overlay.BackgroundColor3 = Theme.Colors.Overlay
-	overlay.BackgroundTransparency = OVERLAY_TRANSPARENCY
-	overlay.BorderSizePixel = 0
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Active = true
-	overlay.Parent = parent
-	return overlay
-end
+-- A section waiting for the profile shows this many skeleton rows.
+local SKELETON_ROWS = 3
+-- The Folios in the band: the shared pill (FoliosPill), as tall as the Shop's.
+local PILL_HEIGHT = 40
+local SECONDS_PER_MINUTE = 60
 
 local function own(owner: typeof(Trove.new()), object: Destroyable)
 	owner:Add(function()
@@ -99,83 +108,68 @@ local function questSet(data: Types.ProfileData, period: string): Types.QuestSet
 	return data.Quests.Weekly
 end
 
--- Two stacked lines for a quest row: its name (target substituted) and its progress.
-local function makeQuestLabel(): (Frame, TextLabel, TextLabel)
-	local frame = Instance.new("Frame")
-	frame.Name = "Quest"
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.Size = UDim2.fromScale(1, 1)
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = frame
-
-	local name = Instance.new("TextLabel")
-	name.Name = "Name"
-	name.BackgroundTransparency = 1
-	name.Size = UDim2.new(1, 0, 0, NAME_HEIGHT)
-	name.LayoutOrder = 1
-	name.FontFace = Theme.Fonts.Bold
-	name.TextSize = Theme.Sizes.TextLarge
-	name.TextColor3 = Theme.Colors.Text
-	name.TextXAlignment = Enum.TextXAlignment.Left
-	name.TextTruncate = Enum.TextTruncate.AtEnd
-	name.Text = ""
-	name.Parent = frame
-
-	local progress = Instance.new("TextLabel")
-	progress.Name = "Progress"
-	progress.BackgroundTransparency = 1
-	progress.Size = UDim2.new(1, 0, 0, PROGRESS_HEIGHT)
-	progress.LayoutOrder = 2
-	progress.FontFace = Theme.Fonts.Body
-	progress.TextSize = Theme.Sizes.TextSmall
-	progress.TextColor3 = Theme.Colors.TextMuted
-	progress.TextXAlignment = Enum.TextXAlignment.Left
-	progress.TextTruncate = Enum.TextTruncate.AtEnd
-	progress.Text = ""
-	progress.Parent = frame
-
-	return frame, name, progress
-end
-
 function QuestsScreen.new(deps: Deps): Screen
 	local trove = Trove.new()
 	local t = deps.Localize.t
 	local screen: Screen
 	local sections: { [string]: Section } = {}
 	local firstButton: GuiObject? = nil
+	local visible = false
+	-- Bumped by every open and close, so a timer set by one opening never runs into the next.
+	local session = 0
 
-	local root = ScreenRoot.new({ Name = "QuestsScreen", DisplayOrder = Theme.Layers.Screen })
+	local root = ScreenRoot.new({
+		Name = "QuestsScreen",
+		DisplayOrder = Theme.Layers.Screen,
+		Chapter = CHAPTER,
+		TextScalable = true,
+	})
 	own(trove, root)
 	root.Instance.Enabled = false
 
-	local overlay = makeOverlay(root.Content)
-
 	local panel = Panel.new({
 		Title = t("menu.quests"),
+		Chapter = CHAPTER,
 		Closable = true,
 		OnClose = function()
 			screen:Close()
 			deps.OnClose()
 		end,
-		Parent = overlay,
+		OnBack = deps.OnBack,
+		ShowBack = deps.CanGoBack,
+		Localize = deps.Localize,
+		Parent = root.Content,
 	})
 	own(trove, panel)
+	root:SetCard(panel)
+
+	local foliosPill = FoliosPill.new({ Localize = deps.Localize, Height = PILL_HEIGHT, Parent = panel.Right })
+	own(trove, foliosPill)
+
+	-- The count follows the profile: it counts while the screen is up (a claim paid out), and is simply
+	-- written otherwise.
+	local function refreshFolios()
+		local data = deps.ClientData.get()
+		foliosPill.Instance.Visible = data ~= nil
+		if data ~= nil then
+			foliosPill:Set(data.Currency.Folios, visible)
+		end
+	end
 
 	----------------------------------------------------------------
 	-- Sections
 	----------------------------------------------------------------
 
 	-- Quests selected for the period the profile is on. A profile that has never been through the
-	-- server's period check carries no key yet: the current one is derived from the same pure helper.
+	-- server's period check carries no key yet: the current one is derived from the same pure helpers, at the
+	-- pool revision the server stores (QuestService), so the draw shown is the draw the server will keep.
 	local function activeQuests(period: string, set: Types.QuestSetData): { QuestDef }
 		local typed: Period = asPeriod(period)
-		local key = if set.PeriodKey ~= "" then set.PeriodKey else QuestLogic.periodKey(typed, os.time())
-		return QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key)
+		local key = if set.PeriodKey ~= ""
+			then set.PeriodKey
+			else QuestLogic.setKey(QuestLogic.periodKey(typed, os.time()), QuestConfig.PoolRevision)
+		local drawn = QuestLogic.select(QuestConfig.Pool, typed, periodDef(period).Count, key, QuestConfig.SoloFloor)
+		return QuestLogic.swapped(QuestConfig.Pool, drawn, set.Swaps)
 	end
 
 	local function signatureOf(set: Types.QuestSetData, quests: { QuestDef }): string
@@ -186,70 +180,113 @@ function QuestsScreen.new(deps: Deps): Screen
 		return table.concat(parts, "|")
 	end
 
+	-- "Resets in 4h 12m": the time to the next draw, on the server's clock.
+	local function resetsIn(period: string): string
+		local now = workspace:GetServerTimeNow()
+		local key, params = QuestBoard.countdown(QuestLogic.periodEndsAt(asPeriod(period), now) - now)
+		return t("quest.resetsIn", { time = t(key, params) })
+	end
+
 	for _, period in ipairs(PERIODS) do
-		local def = periodDef(period)
 		local header = ListRow.new({
+			Variant = "Header",
+			Chapter = CHAPTER,
 			Left = t(TITLE_KEYS[period]),
-			Right = t("quest.reward", { xp = def.RewardXp, folios = def.RewardFolios }),
+			Right = resetsIn(period),
 			LayoutOrder = LAYOUT_BASE[period],
 			Name = period .. "Header",
 			Parent = panel.Content,
 		})
 		own(trove, header)
-		sections[period] = { Signature = "", Rows = {}, Trove = trove:Extend() }
+		sections[period] = { Signature = "", Cards = {}, Header = header, Trove = trove:Extend(), Waiting = false }
 	end
 
-	local function claim(period: string, questId: string)
-		deps.SoundController.play("UiClick")
-		deps.RemoteClient.fire("ClaimQuest", period, questId)
+	local function refreshCountdowns()
+		for _, period in ipairs(PERIODS) do
+			sections[period].Header:SetRight(resetsIn(period))
+		end
 	end
 
-	local function buildRows(period: string, quests: { QuestDef })
+	-- A section with no profile yet: chalk rows breathing where the quests will be.
+	local function buildSkeleton(period: string)
 		local section = sections[period]
 		section.Trove:Clean()
-		section.Rows = {}
-		for index, def in ipairs(quests) do
-			local frame, name, progress = makeQuestLabel()
-			local button = Button.new({
-				Text = t("quest.claim"),
-				Variant = "Secondary",
-				Disabled = true,
-				Size = UDim2.fromOffset(BUTTON_WIDTH, Theme.Sizes.ButtonHeight),
-				OnClick = function()
-					claim(period, def.Id)
-				end,
-			})
-			own(section.Trove, button)
-			local row = ListRow.new({
-				Left = frame,
-				Right = button.Instance,
-				Height = QUEST_ROW_HEIGHT,
-				LayoutOrder = LAYOUT_BASE[period] + index,
-				Name = def.Id,
-				Parent = panel.Content,
-			})
-			own(section.Trove, row)
-			name.Text = t(def.NameKey, { target = def.Target })
-			table.insert(section.Rows, { Name = name, Progress = progress, Button = button })
+		section.Cards = {}
+		section.Signature = ""
+		section.Waiting = true
+		for index = 1, SKELETON_ROWS do
+			own(
+				section.Trove,
+				ListRow.new({
+					Variant = "Skeleton",
+					Left = "",
+					LayoutOrder = LAYOUT_BASE[period] + index,
+					Name = "Skeleton",
+					Parent = panel.Content,
+				})
+			)
 		end
 	end
 
-	local function updateRow(row: QuestRow, status: QuestLogic.Status)
-		row.Progress.Text = t("quest.progress", { progress = status.Progress, target = status.Target })
-		if status.Claimed then
-			row.Button:SetText(t("quest.claimed"))
-			row.Button:SetVariant("Secondary")
-			row.Button:SetDisabled(true)
-		elseif status.Completed then
-			row.Button:SetText(t("quest.claim"))
-			row.Button:SetVariant("Primary")
-			row.Button:SetDisabled(false)
-		else
-			row.Button:SetText(t("quest.claim"))
-			row.Button:SetVariant("Secondary")
-			row.Button:SetDisabled(true)
+	local function buildCards(period: string, quests: { QuestDef })
+		local section = sections[period]
+		section.Trove:Clean()
+		section.Cards = {}
+		section.Waiting = false
+		local def = periodDef(period)
+		for _, quest in ipairs(quests) do
+			local card = QuestCard.new({
+				Title = t(quest.NameKey, { target = quest.Target }),
+				Reward = t("quest.reward", { xp = def.RewardXp, folios = def.RewardFolios }),
+				ClaimText = t("quest.claim"),
+				ClaimedText = t("quest.claimed"),
+				OnClaim = function()
+					deps.RemoteClient.fire("ClaimQuest", period, quest.Id)
+				end,
+				OnTimeout = function()
+					deps.HudController.showLocalToast("common.pendingTimeout", nil, "Error")
+				end,
+				SwapText = t("quest.reroll"),
+				OnSwap = if REROLLS[period] > 0
+					then function()
+						deps.RemoteClient.fire("RerollQuest", period, quest.Id)
+					end
+					else nil,
+				Name = quest.Id,
+				Parent = panel.Content,
+			})
+			own(section.Trove, card)
+			table.insert(section.Cards, card)
 		end
 	end
+
+	-- The board's Claim buttons, each with whether it sways now: a claim that can be pressed, and not one already
+	-- sent. One breath for the whole board, only while it is up and has a claim to find (ThemeConfig.Budget).
+	local stopSway: (() -> ())? = nil
+	local function claimButtons(): { [GuiObject]: boolean }
+		local named: { [GuiObject]: boolean } = {}
+		for _, period in ipairs(PERIODS) do
+			for _, card in ipairs(sections[period].Cards) do
+				named[card.Button.Instance] = card:GetState() == "Claimable" and not card:IsPending()
+			end
+		end
+		return named
+	end
+	local function setSwaying(on: boolean)
+		if on == (stopSway ~= nil) then
+			return
+		end
+		local stop = stopSway
+		if stop ~= nil then
+			stopSway = nil
+			stop()
+			return
+		end
+		stopSway = Sway.start(claimButtons)
+	end
+	trove:Add(function()
+		setSwaying(false)
+	end)
 
 	local function refresh()
 		local data = deps.ClientData.get()
@@ -257,9 +294,9 @@ function QuestsScreen.new(deps: Deps): Screen
 		for _, period in ipairs(PERIODS) do
 			local section = sections[period]
 			if data == nil then
-				section.Signature = ""
-				section.Trove:Clean()
-				section.Rows = {}
+				if not section.Waiting then
+					buildSkeleton(period)
+				end
 				continue
 			end
 			local set = questSet(data, period)
@@ -267,26 +304,64 @@ function QuestsScreen.new(deps: Deps): Screen
 			local signature = signatureOf(set, quests)
 			if signature ~= section.Signature then
 				section.Signature = signature
-				buildRows(period, quests)
+				buildCards(period, quests)
 			end
-			for index, status in ipairs(QuestLogic.status(set, quests)) do
-				local row = section.Rows[index]
-				if row ~= nil then
-					updateRow(row, status)
-					-- Gamepad focus goes to the first button the player can actually press.
-					if firstButton == nil and not row.Button:IsDisabled() then
-						firstButton = row.Button.Instance
+			local statuses = QuestLogic.status(set, quests)
+			local swappable = QuestLogic.rerollsLeft(set, REROLLS[period]) > 0
+			local states: { QuestBoard.State } = {}
+			for _, status in ipairs(statuses) do
+				table.insert(states, QuestBoard.state(status))
+			end
+			for position, index in ipairs(QuestBoard.order(states)) do
+				local card = section.Cards[index]
+				local status = statuses[index]
+				local state: QuestBoard.State = states[index]
+				if card ~= nil then
+					card.Instance.LayoutOrder = LAYOUT_BASE[period] + position
+					card:Set(
+						state,
+						if status.Target > 0 then status.Progress / status.Target else 1,
+						t("quest.progress", { progress = status.Progress, target = status.Target }),
+						visible
+					)
+					card:SetSwappable(swappable)
+					-- Gamepad focus goes to the first quest the player can claim.
+					if firstButton == nil and state == "Claimable" then
+						firstButton = card.Button.Instance
 					end
 				end
 			end
 		end
+		refreshFolios()
+		-- A claim to find sways; a board with none left, or put away, holds no breath.
+		setSwaying(visible and firstButton ~= nil)
 	end
 
 	trove:Connect(deps.ClientData.Changed, function(section: string)
 		if section == "*" or section == "Quests" then
-			refresh()
+			-- A new draw rebuilds the cards under the pad: it goes on to the first claim, or the way out, rather
+			-- than onto nothing (E12-S4).
+			panel:KeepGamepadFocus(refresh, function(): GuiObject?
+				return firstButton
+			end)
+		elseif section == "Currency" then
+			refreshFolios()
 		end
 	end)
+
+	----------------------------------------------------------------
+	-- While the screen is up: the countdown each minute
+	----------------------------------------------------------------
+
+	-- The headers are rewritten when the minute turns, never per frame.
+	local function tickCountdown(mine: number)
+		if session ~= mine then
+			return
+		end
+		refreshCountdowns()
+		local now = workspace:GetServerTimeNow()
+		task.delay(SECONDS_PER_MINUTE - now % SECONDS_PER_MINUTE, tickCountdown, mine)
+	end
 
 	refresh()
 
@@ -294,15 +369,21 @@ function QuestsScreen.new(deps: Deps): Screen
 	-- Screen API
 	----------------------------------------------------------------
 
-	local function open(self: Screen)
+	local function open(self: Screen, _args: any?)
 		if self.Visible then
 			return
 		end
 		self.Visible = true
+		session += 1
+		-- Written as they are, not animated: what changed while the screen was away is not news.
 		refresh()
-		root.Instance.Enabled = true
+		visible = true
+		setSwaying(firstButton ~= nil)
+		root:PlayEnter()
 		panel:FocusForGamepad(firstButton)
 		deps.SoundController.play("UiOpen")
+		local mine = session
+		tickCountdown(mine)
 	end
 
 	local function close(self: Screen)
@@ -310,13 +391,18 @@ function QuestsScreen.new(deps: Deps): Screen
 			return
 		end
 		self.Visible = false
+		visible = false
+		session += 1
+		setSwaying(false)
 		panel:ReleaseGamepadFocus()
-		root.Instance.Enabled = false
+		root:PlayExit()
 		deps.SoundController.play("UiClose")
 	end
 
 	local function destroy(self: Screen)
 		self.Visible = false
+		visible = false
+		session += 1
 		trove:Destroy()
 	end
 

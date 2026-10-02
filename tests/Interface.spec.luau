@@ -31,32 +31,92 @@ local COLOR_OWNER_PREFIX = "src/client/Controllers/Vfx"
 local BODY_CONTRAST = 4.5
 local ACCENT_CONTRAST = 3
 
--- The pairs the interface really puts on screen, each at the floor its size asks for. A gate that loops
--- over every role against one paper checks pairs nobody draws and misses the ones somebody does: the
--- battle pass sets gold at thirteen pixels on the SHADED sheet, and the loadout set Cinnabar there.
+-- The pairs the interface really puts on screen (D-147), each at the floor its size asks for. A gate that
+-- loops over every role against one paper checks pairs nobody draws and misses the ones somebody does.
+-- `Ink` and `On` name a ThemeConfig.Colors role, or `Pigment.<Id>` for an exact pigment (Orpiment and
+-- Verdigris: exact Indigo and Umber are the Info and Bronze roles).
 local TEXT_PAIRS = {
 	{ Ink = "Text", On = "Panel", Ratio = BODY_CONTRAST, Where = "body text on the page" },
+	{ Ink = "Text", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "body text on a card or a Secondary button" },
+	{ Ink = "Text", On = "Chalk", Ratio = BODY_CONTRAST, Where = "the Common ribbon, the silver plinth" },
 	{ Ink = "TextMuted", On = "Panel", Ratio = BODY_CONTRAST, Where = "a secondary line on the page" },
-	{ Ink = "Text", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "body text on a shaded sheet" },
-	{ Ink = "TextMuted", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a locked glyph's line" },
-	{ Ink = "Info", On = "Panel", Ratio = BODY_CONTRAST, Where = "the rating line" },
-	{ Ink = "Success", On = "Panel", Ratio = BODY_CONTRAST, Where = "the first win of the day" },
-	{ Ink = "Success", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a claimed reward" },
-	{ Ink = "Premium", On = "Panel", Ratio = BODY_CONTRAST, Where = "the premium column" },
-	{ Ink = "Premium", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a premium row of the pass" },
-	{ Ink = "TextInverse", On = "Accent", Ratio = BODY_CONTRAST, Where = "the label of a primary button" },
+	{ Ink = "TextMuted", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a secondary line on a card" },
+	{ Ink = "TextMuted", On = "Chalk", Ratio = BODY_CONTRAST, Where = "the label of a disabled button" },
+	{ Ink = "Success", On = "Panel", Ratio = BODY_CONTRAST, Where = "+120 XP, a rating that rose" },
+	{ Ink = "Success", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "Owned, Claimed on a card" },
+	{ Ink = "Premium", On = "Panel", Ratio = BODY_CONTRAST, Where = "a premium label" },
+	{ Ink = "Premium", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a Robux or premium label on a card" },
+	{ Ink = "Info", On = "Panel", Ratio = BODY_CONTRAST, Where = "an info line" },
+	{ Ink = "Info", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "an info line on a card" },
+	{ Ink = "Text", On = "Primary", Ratio = BODY_CONTRAST, Where = "a Primary button, the Play and Daily bands" },
+	{
+		Ink = "Text",
+		On = "SuccessFill",
+		Ratio = BODY_CONTRAST,
+		Where = "the Shop band, an Owner button, the claimed stamp",
+	},
+	{
+		Ink = "Text",
+		On = "InfoFill",
+		Ratio = BODY_CONTRAST,
+		Where = "the Quests band, the Rare ribbon, the Script seal",
+	},
+	{ Ink = "Text", On = "DangerFill", Ratio = BODY_CONTRAST, Where = "a destructive confirm, the warning medallion" },
+	{ Ink = "Text", On = "Ally", Ratio = BODY_CONTRAST, Where = "the ally score, your own health number" },
+	{ Ink = "Text", On = "Pigment.Orpiment", Ratio = BODY_CONTRAST, Where = "a sigil on an Orpiment chip or disc" },
+	{ Ink = "Text", On = "Pigment.Verdigris", Ratio = BODY_CONTRAST, Where = "a sigil on a Verdigris chip or disc" },
+	{ Ink = "PanelRaised", On = "Epic", Ratio = BODY_CONTRAST, Where = "the Pass band title, the Epic ribbon" },
+	{ Ink = "TextInverse", On = "Epic", Ratio = BODY_CONTRAST, Where = "vellum text on Tyrian" },
+	{ Ink = "TextInverse", On = "Info", Ratio = BODY_CONTRAST, Where = "a sigil on an Indigo chip" },
+	{ Ink = "TextInverse", On = "Bronze", Ratio = BODY_CONTRAST, Where = "a sigil on an Umber chip, the Sketch seal" },
+	{ Ink = "PanelRaised", On = "Bronze", Ratio = BODY_CONTRAST, Where = "an Umber glyph's name in its stroke" },
+	{ Ink = "PanelRaised", On = "Info", Ratio = BODY_CONTRAST, Where = "the Defeat title" },
+	{ Ink = "TextInverse", On = "Plate", Ratio = BODY_CONTRAST, Where = "text on a HUD plate or an ink band" },
+	{ Ink = "PanelRaised", On = "Plate", Ratio = BODY_CONTRAST, Where = "hero text on a plate" },
+	{ Ink = "PanelRaised", On = "Well", Ratio = BODY_CONTRAST, Where = "a number inside a bar track" },
+	{ Ink = "Chalk", On = "Plate", Ratio = BODY_CONTRAST, Where = "a hint line on a HUD plate or a hub sign" },
+	{ Ink = "Primary", On = "Plate", Ratio = BODY_CONTRAST, Where = "the level and the Folios on hub plates" },
+	{ Ink = "Ally", On = "Plate", Ratio = BODY_CONTRAST, Where = "ally names, your share of the boss" },
+	{ Ink = "InfoFill", On = "Plate", Ratio = BODY_CONTRAST, Where = "an Indigo glyph's name on the preview pill" },
+	{ Ink = "DangerFill", On = "Plate", Ratio = BODY_CONTRAST, Where = "the boss's attack word" },
+	{ Ink = "Pigment.Orpiment", On = "Plate", Ratio = BODY_CONTRAST, Where = "an Orpiment damage number, the chain" },
+	{ Ink = "Pigment.Verdigris", On = "Plate", Ratio = BODY_CONTRAST, Where = "a Verdigris damage number, the chain" },
 	-- Cinnabar is a pigment before it is a colour of text: it stays exact (rule 7), so it is only ever
-	-- set large -- the rating line when it falls, and a Danger button -- and only on the page itself.
-	{ Ink = "Danger", On = "Panel", Ratio = ACCENT_CONTRAST, Where = "a rating that fell" },
-	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "the label of a Danger button" },
-	-- A progress bar's number crosses the boundary between the ink that is left and the empty paper, so
-	-- neither colour alone can carry it: it is ink with an opaque halo of page, and what has to be legible
-	-- is the HALO against the fill. Charcoal on charcoal is 1.00, which is why the halo is the mechanism
-	-- and not a decoration -- and why it is measured here.
-	{ Ink = "TextInverse", On = "Health", Ratio = BODY_CONTRAST, Where = "the halo of a bar's number on its fill" },
-	{ Ink = "TextInverse", On = "Ink", Ratio = BODY_CONTRAST, Where = "the halo of the ink bar's number" },
-	{ Ink = "Text", On = "PanelRaised", Ratio = BODY_CONTRAST, Where = "a bar's number over its empty track" },
+	-- set large -- the rating line when it falls, a sigil, a number of thirty pixels and up.
+	{ Ink = "Danger", On = "Panel", Ratio = ACCENT_CONTRAST, Where = "a rating that fell, 24 units and up" },
+	{ Ink = "Danger", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "large danger text on a card" },
+	{ Ink = "Text", On = "Danger", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar sigil on its chip" },
+	{ Ink = "Danger", On = "Plate", Ratio = ACCENT_CONTRAST, Where = "a Cinnabar damage number" },
+	{ Ink = "DangerFill", On = "PanelRaised", Ratio = ACCENT_CONTRAST, Where = "damage taken, in its sheet stroke" },
 }
+
+-- Graphics against what they are drawn on (WCAG 1.4.11: 3 for a part of the interface): a bar's fill on
+-- its empty track, the ghost beside the fill, and a plate or an outline against the cream world.
+local GRAPHIC_PAIRS = {
+	{ Ink = "Ally", On = "Well", Where = "the health bar" },
+	{ Ink = "InfoFill", On = "Well", Where = "the ink bar" },
+	{ Ink = "Primary", On = "Well", Where = "XP, quests and pass progress" },
+	{ Ink = "SuccessFill", On = "Well", Where = "a claimed quest's bar" },
+	{ Ink = "DangerFill", On = "Well", Where = "low health, the boss's bar" },
+	{ Ink = "Danger", On = "Well", Where = "the health ghost on the empty track" },
+	{ Ink = "Danger", On = "Ally", Where = "the health ghost beside the cyan fill" },
+	{ Ink = "Plate", On = "Panel", Where = "every HUD plate and every sticker outline on the page" },
+}
+
+-- The redmean distance tests/Config.spec.luau holds the pigments apart with.
+local function redmean(a: { number }, b: { number }): number
+	local rmean = (a[1] + b[1]) / 2
+	local dr, dg, db = a[1] - b[1], a[2] - b[2], a[3] - b[3]
+	return math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db)
+end
+
+-- The colour a pair names: a role, or an exact pigment.
+local function pairColor(name: string): ThemeConfig.Rgb
+	local pigment = string.match(name, "^Pigment%.(%w+)$")
+	local rgb = if pigment ~= nil then (PigmentConfig.Colors :: any)[pigment] else ThemeConfig.Colors[name]
+	assert(rgb ~= nil, "no such role or pigment in a pair: " .. name)
+	return rgb
+end
 
 -- The engine's defaults, which docs/ART_BIBLE.md says are replaced.
 local DEFAULT_FONTS = {
@@ -76,7 +136,11 @@ local DEFAULT_FONTS = {
 	"ArialBold",
 	"Legacy",
 }
--- "une romane à empattements pour les titres": the serifs the engine ships.
+-- "une ronde d'affiche pour les titres": the rounded poster face the engine ships.
+local ROUNDED_DISPLAY = { FredokaOne = true }
+-- "une grotesque ronde pour les mots".
+local ROUNDED_GROTESQUE = { Nunito = true }
+-- "la romane garde le lore": the serifs the engine ships.
 local SERIFS = { Merriweather = true, Garamond = true, Bodoni = true }
 -- "une grotesque condensée pour les chiffres": the condensed faces the engine ships.
 local CONDENSED = { Oswald = true, RobotoCondensed = true }
@@ -174,13 +238,9 @@ describe("the page", function()
 	end)
 
 	it("reads: every pair the interface draws has its contrast", function()
-		local colors = ThemeConfig.Colors
 		expect(#TEXT_PAIRS).toBeGreaterThanOrEqual(12)
 		for _, pair in ipairs(TEXT_PAIRS) do
-			local ink = colors[pair.Ink]
-			local paper = colors[pair.On]
-			assert(ink ~= nil and paper ~= nil, ("no such role in the pair %s / %s"):format(pair.Ink, pair.On))
-			local ratio = ThemeConfig.contrast(ink, paper)
+			local ratio = ThemeConfig.contrast(pairColor(pair.Ink), pairColor(pair.On))
 			if ratio < pair.Ratio then
 				error(
 					("%s is under its floor: %s on %s measures %.2f, floor %.2f"):format(
@@ -195,10 +255,42 @@ describe("the page", function()
 		end
 	end)
 
+	it("draws graphics at 3 against their track", function()
+		for _, pair in ipairs(GRAPHIC_PAIRS) do
+			local ratio = ThemeConfig.contrast(pairColor(pair.Ink), pairColor(pair.On))
+			if ratio < ACCENT_CONTRAST then
+				error(("%s does not stand out: %s on %s measures %.2f"):format(pair.Where, pair.Ink, pair.On, ratio))
+			end
+		end
+	end)
+
+	it("its primary is poster ink, not the default gold", function()
+		-- The bible bans the default Roblox gold by value ("accent or `230,180,60`"); the primary yellow is
+		-- held at least 100 (redmean) away from it, and charcoal reads on it as body text.
+		local banned = { string.match(fs.readFile(BIBLE), "accent or `(%d+),(%d+),(%d+)`") }
+		assert(#banned == 3, "docs/ART_BIBLE.md no longer names the banned gold: this gate would check nothing")
+		local gold = { tonumber(banned[1]) :: number, tonumber(banned[2]) :: number, tonumber(banned[3]) :: number }
+		expect(redmean(ThemeConfig.Colors.Primary, gold)).toBeGreaterThanOrEqual(100)
+		expect(ThemeConfig.contrast(ThemeConfig.Colors.Text, ThemeConfig.Colors.Primary)).toBeGreaterThanOrEqual(
+			BODY_CONTRAST
+		)
+	end)
+
 	it("picks the ink that reads on each pigment", function()
-		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Orpiment)).toEqual(ThemeConfig.Colors.Text)
-		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Indigo)).toEqual(ThemeConfig.Colors.TextInverse)
-		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Umber)).toEqual(ThemeConfig.Colors.TextInverse)
+		local colors = ThemeConfig.Colors
+		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Orpiment)).toEqual(colors.Text)
+		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Indigo)).toEqual(colors.TextInverse)
+		expect(ThemeConfig.inkOn(PigmentConfig.Colors.Umber)).toEqual(colors.TextInverse)
+		for _, role in ipairs({ "Primary", "SuccessFill", "InfoFill", "DangerFill", "Ally" }) do
+			if ThemeConfig.inkOn(colors[role]) ~= colors.Text then
+				error(("the ink on %s should be charcoal"):format(role))
+			end
+		end
+		for _, role in ipairs({ "Epic", "Plate", "Bronze" }) do
+			if ThemeConfig.inkOn(colors[role]) ~= colors.TextInverse then
+				error(("the ink on %s should be vellum"):format(role))
+			end
+		end
 	end)
 
 	it("measures contrast the WCAG way", function()
@@ -235,33 +327,100 @@ describe("the type", function()
 			if string.find(dump, "\t" .. def.Weight .. ": EnumFontWeight\n", 1, true) == nil then
 				error(("%s asks for weight %s, which Enum.FontWeight does not have"):format(role, def.Weight))
 			end
+			local style = def.Style
+			if style ~= nil and string.find(dump, "\t" .. style .. ": EnumFontStyle\n", 1, true) == nil then
+				error(("%s asks for style %s, which Enum.FontStyle does not have"):format(role, style))
+			end
 		end
 	end)
 
-	it("sets words in a roman and numbers in a condensed grotesque", function()
-		for _, role in ipairs({ "Title", "Body", "Bold" }) do
-			local def = ThemeConfig.Fonts[role]
-			if not SERIFS[def.Font] then
-				error(("%s is set in %s, which is not a roman"):format(role, def.Font))
+	it(
+		"sets display in a rounded poster face, words in a rounded grotesque, numbers in a condensed grotesque, and keeps the roman for lore",
+		function()
+			local fonts = ThemeConfig.Fonts
+			local function setIn(roles: { string }, faces: { [string]: boolean }, what: string)
+				for _, role in ipairs(roles) do
+					local def = fonts[role]
+					if def == nil or not faces[def.Font] then
+						error(("%s is not set in %s"):format(role, what))
+					end
+				end
 			end
+			setIn({ "Title", "Display" }, ROUNDED_DISPLAY, "a rounded poster face")
+			setIn({ "Body", "Bold", "Label" }, ROUNDED_GROTESQUE, "a rounded grotesque")
+			setIn({ "Numeric" }, CONDENSED, "a condensed grotesque")
+			setIn({ "Lore", "Initial", "Symbol" }, SERIFS, "a roman")
+			-- Words are one face at three weights, and the lore, the drop cap and the arrows one roman.
+			expect(fonts.Bold.Font).toBe(fonts.Body.Font)
+			expect(fonts.Label.Font).toBe(fonts.Body.Font)
+			expect(fonts.Initial.Font).toBe(fonts.Lore.Font)
+			expect(fonts.Symbol.Font).toBe(fonts.Lore.Font)
+			expect(fonts.Lore.Style).toBe("Italic")
 		end
-		expect(CONDENSED[ThemeConfig.Fonts.Numeric.Font]).toBe(true)
-		-- A page is set in one face: the title is the body's face at its bold weight.
-		expect(ThemeConfig.Fonts.Title.Font).toBe(ThemeConfig.Fonts.Body.Font)
-		expect(ThemeConfig.Fonts.Bold.Font).toBe(ThemeConfig.Fonts.Body.Font)
-	end)
+	)
 end)
 
 describe("the interface's motion", function()
-	it("has the three presets Motion names, and only the ghost is critically damped", function()
-		for _, name in ipairs({ "Ui", "UiSnappy" }) do
-			local def = FeelConfig.Springs[name]
-			-- Under critical friction the value overshoots and comes back: what makes it alive.
-			expect(def.Friction).toBeLessThan(Spring.criticalFriction(def.Tension))
+	it(
+		"has the five presets Motion names; only the ghost is critically damped; the pop overshoots by a fifth to a third",
+		function()
+			for _, name in ipairs({ "Ui", "UiSnappy", "UiPop", "UiExit" }) do
+				local def = FeelConfig.Springs[name]
+				-- Under critical friction the value overshoots and comes back: what makes it alive.
+				expect(def.Friction).toBeLessThan(Spring.criticalFriction(def.Tension))
+			end
+			local ghost = FeelConfig.Springs.UiGhost
+			-- At or above critical the ghost of a bar never overshoots: an overshoot is health coming back.
+			expect(ghost.Friction).toBeGreaterThanOrEqual(Spring.criticalFriction(ghost.Tension))
+			-- A damping ratio of 0.32 to 0.52 overshoots by 35 % down to 15 %: a pop, neither a wobble nor a nudge.
+			local pop = FeelConfig.Springs.UiPop
+			local ratio = pop.Friction / (2 * math.sqrt(pop.Tension))
+			expect(ratio).toBeGreaterThanOrEqual(0.32)
+			expect(ratio).toBeLessThanOrEqual(0.52)
+			-- And every preset Motion's type names is one FeelConfig has.
+			local line = string.match(fs.readFile("src/ui/Motion.luau"), "export type Preset = ([^\n]+)")
+			assert(line ~= nil, "Motion no longer declares its presets: this gate would check nothing")
+			local count = 0
+			for name in string.gmatch(line :: string, '"(%w+)"') do
+				count += 1
+				if FeelConfig.Springs[name] == nil then
+					error(("Motion names the preset %s, which FeelConfig.Springs does not have"):format(name))
+				end
+			end
+			expect(count).toBeGreaterThanOrEqual(3)
 		end
-		local ghost = FeelConfig.Springs.UiGhost
-		-- At or above critical the ghost of a bar never overshoots: an overshoot is health coming back.
-		expect(ghost.Friction).toBeGreaterThanOrEqual(Spring.criticalFriction(ghost.Tension))
+	)
+
+	it("calms the pop and the exit under reduced motion, to springs that barely overshoot", function()
+		-- GuiService.ReducedMotionEnabled (UiPrefs): the same movements, without the overshoot. A damping
+		-- ratio of 0.7 overshoots by under 5 %.
+		local motion = stripComments(fs.readFile("src/ui/Motion.luau"))
+		local body = string.match(motion, "local REDUCED[^=]*= (%b{})")
+		assert(body ~= nil, "Motion no longer maps its presets under reduced motion: this gate would check nothing")
+		expect(string.find(motion, "if UiPrefs%.reducedMotion%(%) then%s+chosen = REDUCED%[chosen%] or chosen")).never.toBeNil()
+		local mapped: { [string]: string } = {}
+		for pair in string.gmatch(body :: string, '%w+ = "%w+"') do
+			local from, to = string.match(pair, '^(%w+) = "(%w+)"$')
+			mapped[from :: string] = to :: string
+		end
+		local line = string.match(motion, "export type Preset = ([^\n]+)")
+		assert(line ~= nil, "Motion no longer declares its presets")
+		for name in string.gmatch(line :: string, '"(%w+)"') do
+			local calm = FeelConfig.Springs[mapped[name] or name]
+			assert(calm ~= nil, ("%s falls back to a preset FeelConfig does not have"):format(name))
+			local ratio = calm.Friction / (2 * math.sqrt(calm.Tension))
+			if ratio < 0.7 then
+				error(("%s still overshoots under reduced motion (damping %.2f)"):format(name, ratio))
+			end
+		end
+	end)
+
+	it("staggers no more entrances than the budget allows", function()
+		expect(ThemeConfig.Timing.StaggerMax).toBeGreaterThan(0)
+		expect(ThemeConfig.Timing.StaggerMax).toBeLessThanOrEqual(ThemeConfig.Budget.MaxStaggered)
+		expect(ThemeConfig.Timing.StaggerSeconds).toBeGreaterThan(0)
+		-- The whole entrance of a full list stays under a fifth of a second of waiting.
+		expect(ThemeConfig.Timing.StaggerSeconds * (ThemeConfig.Timing.StaggerMax - 1)).toBeLessThanOrEqual(0.3)
 	end)
 
 	it("is springs: nothing in src/ui tweens", function()
@@ -305,5 +464,57 @@ describe("the interface's colours and fonts", function()
 		local theme = stripComments(fs.readFile(THEME))
 		expect(string.find(theme, "Color3%.fromRGB%(") ~= nil).toBe(true)
 		expect(string.find(theme, "Font%.new%(") ~= nil).toBe(true)
+	end)
+end)
+
+describe("the player's own settings", function()
+	it("scale the text for every size Roblox offers, and never under the design", function()
+		local dump = fs.readFile(GLOBAL_TYPES)
+		local block = string.match(dump, "EnumPreferredTextSize_INTERNAL extends Enum with\n(.-)\tfunction")
+		assert(block ~= nil, "the engine's text sizes are no longer in globalTypes.d.luau")
+		local count = 0
+		for name in string.gmatch(block :: string, "\t(%w+): EnumPreferredTextSize\n") do
+			count += 1
+			local scale = ThemeConfig.TextScale[name]
+			if scale == nil then
+				error(("Roblox offers the text size %s, which ThemeConfig.TextScale does not scale"):format(name))
+			end
+			expect(scale).toBeGreaterThanOrEqual(1)
+		end
+		expect(count).toBeGreaterThanOrEqual(4)
+		expect(ThemeConfig.TextScale.Medium).toBe(1)
+		for name in pairs(ThemeConfig.TextScale) do
+			if string.find(block :: string, "\t" .. name .. ": EnumPreferredTextSize\n", 1, true) == nil then
+				error(("ThemeConfig.TextScale names %s, which Roblox does not offer"):format(name))
+			end
+		end
+	end)
+
+	it("are read through a guard, each of the three", function()
+		-- A property the engine refuses must cost a warning and its neutral value, never the interface.
+		local prefs = stripComments(fs.readFile("src/ui/UiPrefs.luau"))
+		local watched = string.match(prefs, "local WATCHED = (%b{})")
+		assert(watched ~= nil, "UiPrefs no longer lists what it follows")
+		for _, property in ipairs({ "ReducedMotionEnabled", "PreferredTextSize", "PreferredTransparency" }) do
+			expect(string.find(watched :: string, '"' .. property .. '"', 1, true)).never.toBeNil()
+		end
+		expect(string.find(prefs, "local function read%(property: string%): any%s+local ok, value = pcall%(")).never.toBeNil()
+		expect(string.find(prefs, "(GuiService :: any)[property]", 1, true)).never.toBeNil()
+		-- Nowhere else is GuiService read for them.
+		local unguarded = string.gsub(prefs, "local WATCHED = %b{}", "")
+		expect(string.find(unguarded, "GuiService%.ReducedMotionEnabled")).toBeNil()
+		expect(string.find(unguarded, "GuiService%.PreferredTextSize")).toBeNil()
+		expect(string.find(unguarded, "GuiService%.PreferredTransparency")).toBeNil()
+	end)
+
+	it("are started, and the interface given its sound, before any screen is built", function()
+		local bootstrap = stripComments(fs.readFile("src/client/Bootstrap.client.luau"))
+		local wiring = string.find(bootstrap, 'require(UI:WaitForChild("UiPrefs")).start()', 1, true)
+		local sound =
+			string.find(bootstrap, 'require(UI:WaitForChild("UiSound")).setPlayer(soundController.play)', 1, true)
+		local initPass = string.find(bootstrap, "controller.Init", 1, true)
+		assert(wiring ~= nil and sound ~= nil and initPass ~= nil, "the interface is not wired in the client bootstrap")
+		expect(wiring :: number).toBeLessThan(initPass :: number)
+		expect(sound :: number).toBeLessThan(initPass :: number)
 	end)
 end)

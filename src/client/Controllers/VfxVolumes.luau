@@ -187,7 +187,8 @@ function VfxVolumes.build(entry: Entry, place: CFrame)
 	if base == nil then
 		return
 	end
-	local part = kit.host(entry, base, Vector3.one * (reach * size * stretch + ENVELOPE_MARGIN))
+	local long = if layer.Span ~= nil then layer.Span * entry.Scales.Span * stretch else size * stretch
+	local part = kit.host(entry, base, Vector3.one * (reach * math.max(size * stretch, long) + ENVELOPE_MARGIN))
 	if part == nil then
 		return
 	end
@@ -240,6 +241,10 @@ function VfxVolumes.step(entry: Entry, alpha: number, elapsed: number, now: numb
 		size * (from[2] + (to[2] - from[2]) * shape),
 		size * (from[3] + (to[3] - from[3]) * shape)
 	)
+	if layer.Span ~= nil then
+		-- R1: a spanned volume (a hitscan's bar) is that long along its aim, in studs, whatever its width.
+		scale = Vector3.new(scale.X, scale.Y, layer.Span * entry.Scales.Span * (from[3] + (to[3] - from[3]) * shape))
+	end
 	local transparency =
 		math.clamp(kit.lerp(layer.Transparency, layer.EndTransparency, kit.fadeOf(layer, elapsed, alpha, 0), 0), 0, 1)
 	if ending ~= nil then

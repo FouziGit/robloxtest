@@ -428,6 +428,9 @@ describe("the volumes on screen", function()
 			["Hit/Crescent"] = true,
 			-- The page torn up by the wipe (D-119): the charcoal crescent and the spurts already say it.
 			["Sweep/Debris"] = true,
+			-- The Spiral's pale cords (<= 6 % of the bowl, reaching only to 0.82 of its edge): the pigment and the ink
+			-- already carry the pull and the edge.
+			["Spiral/SpiralCore"] = true,
 		}
 		local found: { [string]: boolean } = {}
 		for _, placed in ipairs(volumes()) do
@@ -478,8 +481,8 @@ describe("the arithmetic of a volume (VolumeMath)", function()
 		local crown = MeshConfig.get("Crown") :: MeshConfig.Mesh
 		local _, up = VolumeMath.pivotOffset(crown.Min, crown.Max, crown.Pivot, 3, 2, 3)
 		expect(up - (crown.Max[2] - crown.Min[2])).toBeCloseTo(0, 9)
-		-- The drop's round head is on its pivot and its tail trails behind it (+Z: a flight looks down -Z).
-		local drop = MeshConfig.get("Drop") :: MeshConfig.Mesh
+		-- The Blot's teardrop: its head is on its pivot and its tail trails behind it (+Z: a flight looks down -Z).
+		local drop = MeshConfig.get("BlotTeardropBody") :: MeshConfig.Mesh
 		local _, _, along = VolumeMath.pivotOffset(drop.Min, drop.Max, drop.Pivot, 1, 1, 1)
 		expect(along).toBeGreaterThan(0)
 	end)

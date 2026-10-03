@@ -493,13 +493,20 @@ describe("a glyph drawn where it hurts, when it hurts", function()
 				true
 			)
 		).never.toBe(nil)
-		-- The Serif's five feet are spikes rising out of the floor at the five points the server damages.
+		-- The Serif's five feet are stakes of SerifBody struck up out of the floor at the five points the server
+		-- damages: one chain per point, each starting at its own tick.
 		local spikes = 0
 		for _, phase in ipairs(TIMELINES.Serif.Phases) do
 			for _, layer in ipairs(phase.Layers) do
-				if layer.Texture == "InkSpike" then
+				if
+					layer.Mesh == "SerifBody"
+					and layer.Chain ~= nil
+					and layer.Stretch ~= nil
+					and layer.Stretch[2] < 0.1
+					and layer.Stretch[1] < 1
+				then
 					spikes += 1
-					expect(layer.Face).toBe("Camera")
+					expect(layer.Face).toBe("Ground")
 				end
 			end
 		end
@@ -837,15 +844,22 @@ describe("a glyph on the server's own clock", function()
 		for _, phase in ipairs(TIMELINES.Watermark.Phases) do
 			if phase.Name == "Impact" then
 				for _, layer in ipairs(phase.Layers) do
-					if layer.Texture == "SealRing" and layer.Role == "Ink" then
+					if layer.Kind == "Mesh" and layer.Mesh == "WatermarkWire" then
+						-- The mould (D-278): each link that lands it flat on the page starts on a server tick.
+						expect(layer.SizeFrom).toBe("Radius")
+						expect(layer.EndSize).toBe(2)
+						local landing = (layer.EndStretch or { 1, 1, 1 })[2] == 1
+							and (layer.Stretch or { 1, 1, 1 })[2] > 1
+						if landing or layer.At == 0 then
+							local tick = math.floor((layer.At + lead) / params.TickInterval + 0.5)
+							expect(math.abs(layer.At + lead - tick * params.TickInterval)).toBeLessThanOrEqual(0.035)
+							presses[tick] = (presses[tick] or 0) + 1
+						end
+					elseif layer.Kind == "Mesh" and layer.Mesh == "WatermarkInk" then
+						-- Its ink contour is the edge: at the server's Radius for as long as it presses.
 						edge = layer.SizeFrom == "Radius"
 							and layer.EndSize == 2
 							and layer.At + layer.For >= (params.Ticks - 1) * params.TickInterval
-					elseif layer.Texture == "SealRing" then
-						expect(layer.SizeFrom).toBe("Radius")
-						local tick = math.floor((layer.At + lead) / params.TickInterval + 0.5)
-						expect(math.abs(layer.At + lead - tick * params.TickInterval)).toBeLessThanOrEqual(0.035)
-						presses[tick] = (presses[tick] or 0) + 1
 					end
 				end
 			end
@@ -960,13 +974,13 @@ describe("a glyph on the server's own clock", function()
 		local bars = 0
 		for _, phase in ipairs(TIMELINES.Binding.Phases) do
 			for _, layer in ipairs(phase.Layers) do
-				if layer.Texture == "InkSpike" then
+				if layer.Mesh == "BindingCordsBody" and phase.Name == "Impact" then
 					bars += 1
 					expect(math.abs(layer.At + layer.For - params.RootDuration)).toBeLessThanOrEqual(0.05)
 				end
 			end
 		end
-		expect(bars).toBeGreaterThanOrEqual(3)
+		expect(bars).toBe(1)
 		local binding = body("src/client/Controllers/VfxLibrary.luau", "VfxLibrary.Binding = function(")
 		expect(binding:find('Origin = if typeof(caught) == "Vector3" then caught else packet.Origin,', 1, true)).never.toBe(
 			nil
@@ -1023,7 +1037,6 @@ describe("a glyph on the server's own clock", function()
 		-- emitter, a light and a volume (VfxTimeline.land), never a plane: a riding Sprite of the Swash or the
 		-- Stitch would stay frozen where the flight stopped.
 		local params = GlyphConfig.ById.Swash.Params :: any
-		local crescent = MeshConfig.get("Crescent") :: MeshConfig.Mesh
 		-- The carrier's height over the line the server's box is centred on (the caster's root height).
 		local carrierUp: number? = nil
 		for _, phase in ipairs(TIMELINES.Swash.Phases) do
@@ -1041,7 +1054,10 @@ describe("a glyph on the server's own clock", function()
 			for _, layer in ipairs(phase.Layers) do
 				if layer.Kind == "Mesh" and layer.Ride == true then
 					bodies += 1
-					expect(layer.Mesh).toBe("Crescent")
+					local mesh = MeshConfig.get(layer.Mesh :: string) :: MeshConfig.Mesh
+					expect(layer.Mesh == "SwashBody" or layer.Mesh == "SwashEdge" or layer.Mesh == "SwashInk").toBe(
+						true
+					)
 					-- At its birth as at its end: the server's box is Width across and its edge Depth/2 ahead from
 					-- its first step. Born at a third of its width, the drawn blade was four studs behind and eight
 					-- narrower than the one cutting a body ten studs out.
@@ -1051,11 +1067,14 @@ describe("a glyph on the server's own clock", function()
 					}
 					for _, shape in ipairs(shapes) do
 						local size, stretch = shape[1] :: number, shape[2] :: { number }
-						local front = (layer.Offset :: { number })[3] - crescent.Min[3] * size * stretch[3]
+						local front = (layer.Offset :: { number })[3] - mesh.Min[3] * size * stretch[3]
 						expect(math.abs(front)).toBeLessThanOrEqual(params.Depth / 2)
-						local across = (crescent.Max[1] - crescent.Min[1]) * size * stretch[1]
+						-- The thread (Core) is narrower than the blade by design; body and contour span the box.
+						local across = (mesh.Max[1] - mesh.Min[1]) * size * stretch[1]
 						expect(across).toBeLessThanOrEqual(params.Width + 0.5)
-						expect(across).toBeGreaterThanOrEqual(params.Width - 1)
+						if layer.Mesh ~= "SwashEdge" then
+							expect(across).toBeGreaterThanOrEqual(params.Width - 1)
+						end
 					end
 				elseif layer.Kind == "Emitter" and layer.Ride == true and layer.Area ~= nil then
 					-- The spray a player at the side reads: the box's width, and thrown up to the box's top (Height/2
@@ -1075,7 +1094,7 @@ describe("a glyph on the server's own clock", function()
 				end
 			end
 		end
-		expect(bodies).toBe(1)
+		expect(bodies).toBe(3)
 		expect(sprays).toBe(1)
 		for _, id in ipairs({ "Swash", "Stitch" }) do
 			for _, phase in ipairs(TIMELINES[id].Phases) do

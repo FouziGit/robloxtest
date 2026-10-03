@@ -1,9 +1,10 @@
 """The volumes of phase 4 (D-114), one function per mesh. Each returns the mesh and its manifest entry.
 
 Every shape is a brush stroke that has taken on thickness (art bible rule 9): an open circle, a ring
-of two strokes, a splash crown with round beads, a sweep, a thrown drop, and two torn scraps of paper.
-The glyph bodies modelled as volumes have their own modules: the Wash's tidal wave (wave.py) and the
-Brand's fireball (fireball.py).
+of two strokes, a splash crown with round beads, a sweep, and two torn scraps of paper.
+The glyph bodies modelled as volumes have their own modules: the Wash's tidal wave (wave.py), the
+Brand's fireball (fireball.py), and one module per glyph for the rest (D-278), each drawn after the
+developer's references in docs/vfx/<glyph>/.
 Sizes are in reference units -- the `Reference` extent is exactly 1 -- so the runtime scales a mesh in
 studs of that extent, the way a texture is scaled by its plane. `Pivot` is the point the runtime
 places, in the same units: the importer recentres a mesh on its bounding box, and the manifest's
@@ -16,7 +17,33 @@ from __future__ import annotations
 
 import math
 
+import binding
+import bleed
+import blot
+import caret
+import cartouche
+import colophon
+import dagger
+import emboss
 import fireball
+import gilding
+import hairline
+import hatching
+import ligature
+import margin
+import pounce
+import rubric
+import rupture
+import scorch
+import serif
+import spiral
+import stipple
+import stitch
+import strike
+import swash
+import sweep
+import volute
+import watermark
 import wave
 from strokes import Mesh, Rng, fbm, octahedron, ribbon, stroke
 
@@ -147,70 +174,6 @@ def crown() -> tuple[Mesh, dict]:
     return mesh, {"Reference": "BaseDiameter", "Pivot": [0, 0, 0], "Axis": "Y", "Flat": False, "Seed": seed}
 
 
-def drop() -> tuple[Mesh, dict]:
-    """The thrown drop: a lathed teardrop, round head forward (-Z), the last 30 % of its tail split into
-    three bristles splaying 9 to 15 degrees -- a loaded brush tip in flight, not a flame. Its length is
-    the reference and its head's centre the pivot, which is what rides the projectile."""
-    seed = 4409
-    mesh = Mesh("up")
-    rng = Rng(seed)
-    sides = 8
-    head = 0.26
-    rings: list[list[int]] = []
-    profile: list[tuple[float, float]] = []
-    for k in range(1, 4):
-        a = (math.pi / 2) * (1 - k / 3)
-        profile.append((-head * math.sin(a), head * math.cos(a)))
-    tail_length = 1.0 - head
-    for k in range(1, 7):
-        s = k / 6 * 0.7
-        profile.append((tail_length * s, head * (1 - s) ** 1.6))
-    tip = mesh.vert((0.0, 0.0, -head))
-    for z, radius in profile:
-        ring = []
-        for j in range(sides):
-            angle = 2 * math.pi * j / sides
-            ring.append(mesh.vert((radius * math.cos(angle), radius * math.sin(angle), z)))
-        rings.append(ring)
-    centre = (0.0, 0.0, 0.0)
-
-    def outward(*indices: int):
-        vs = [mesh.verts[i] for i in indices]
-        return tuple(sum(v[a] for v in vs) / len(vs) - centre[a] for a in range(3))
-
-    for j in range(sides):
-        k = (j + 1) % sides
-        mesh.tri(tip, rings[0][j], rings[0][k], outward(tip, rings[0][j], rings[0][k]))
-    for r in range(len(rings) - 1):
-        for j in range(sides):
-            k = (j + 1) % sides
-            a, b, c, d = rings[r][j], rings[r][k], rings[r + 1][j], rings[r + 1][k]
-            mesh.tri(a, b, c, outward(a, b, c))
-            mesh.tri(b, d, c, outward(b, d, c))
-    last = rings[-1]
-    end_z = profile[-1][0]
-    cap = mesh.vert((0.0, 0.0, end_z))
-    for j in range(sides):
-        k = (j + 1) % sides
-        mesh.tri(cap, last[j], last[k], (0.0, 0.0, 1.0))
-
-    bristles = Mesh("up")
-    for index in range(3):
-        splay = math.radians((9 + 6 * rng.random()) * (index - 1))
-        start_z = end_z
-        points = []
-        widths = []
-        for k in range(5):
-            t = k / 4
-            along = tail_length * 0.3 * t
-            points.append((math.sin(splay) * along + (index - 1) * 0.02, start_z + math.cos(splay) * along))
-            widths.append(0.06 * (1 - t))
-        ribbon(bristles, points, widths, lift=0.0)
-    bristles.double_sided()
-    mesh.merge(bristles)
-    return mesh, {"Reference": "Length", "Pivot": [0, 0, 0], "Axis": "Z", "Flat": False, "Seed": seed}
-
-
 def scrap(seed: int, columns: int, rows: int, fold_degrees: float, torn_points: int) -> tuple[Mesh, dict]:
     """A scrap of the page: a 1 x 0.68 sheet, three edges cut and one torn, folded along its middle.
     True normals, not the flat tone of the pigment volumes: the flicker of a tumbling sheet catching
@@ -262,7 +225,6 @@ RECIPES = {
     "SplitRing": ("ink_split_ring.glb", split_ring, 450),
     "Crescent": ("ink_crescent.glb", crescent, 450),
     "Crown": ("ink_crown.glb", crown, 450),
-    "Drop": ("ink_drop.glb", drop, 450),
     "ScrapA": ("paper_scrap_a.glb", scrap_a, 48),
     "ScrapB": ("paper_scrap_b.glb", scrap_b, 48),
     "WaveBody": ("ink_wave_body.glb", wave.wave_body, 1600),
@@ -271,6 +233,110 @@ RECIPES = {
     "FireBody": ("ink_fire_body.glb", fireball.fire_body, 1000),
     "FireCore": ("ink_fire_core.glb", fireball.fire_core, 300),
     "FireInk": ("ink_fire_ink.glb", fireball.fire_ink, 1000),
+    "ScorchCrown": ("ink_scorch_crown.glb", scorch.scorch_crown, 1100),
+    "ScorchCore": ("ink_scorch_core.glb", scorch.scorch_core, 300),
+    "ScorchInk": ("ink_scorch_ink.glb", scorch.scorch_ink, 1200),
+    "RuptureBody": ("ink_rupture_body.glb", rupture.downstroke_body, 1500),
+    "RuptureCore": ("ink_rupture_core.glb", rupture.downstroke_core, 280),
+    "RuptureInk": ("ink_rupture_ink.glb", rupture.downstroke_ink, 1750),
+    "HairlineBlade": ("ink_hairline_blade.glb", hairline.wind_blade, 850),
+    "HairlineEdge": ("ink_hairline_edge.glb", hairline.wind_edge, 100),
+    "HairlineInk": ("ink_hairline_ink.glb", hairline.wind_ink, 900),
+    "SerifBody": ("ink_serif_body.glb", serif.serif_body, 300),
+    "SerifCore": ("ink_serif_core.glb", serif.serif_core, 60),
+    "SerifInk": ("ink_serif_ink.glb", serif.serif_ink, 350),
+    "EmbossBody": ("ink_emboss_body.glb", emboss.emboss_body, 1400),
+    "EmbossBevel": ("ink_emboss_bevel.glb", emboss.emboss_bevel, 50),
+    "EmbossInk": ("ink_emboss_ink.glb", emboss.emboss_ink, 1650),
+    "GildingBody": ("ink_gilding_body.glb", gilding.irons_body, 950),
+    "GildingCore": ("ink_gilding_core.glb", gilding.irons_core, 150),
+    "GildingInk": ("ink_gilding_ink.glb", gilding.irons_ink, 1200),
+    "PounceDunes": ("ink_pounce_dunes.glb", pounce.pounce_dunes, 1350),
+    "PounceCrest": ("ink_pounce_crest.glb", pounce.pounce_crest, 100),
+    "PounceInk": ("ink_pounce_ink.glb", pounce.pounce_ink, 1450),
+    "BleedPool": ("ink_bleed_pool.glb", bleed.bleed_pool, 1100),
+    "BleedSheen": ("ink_bleed_sheen.glb", bleed.bleed_sheen, 280),
+    "BleedInk": ("ink_bleed_ink.glb", bleed.bleed_ink, 1400),
+    "SweepBody": ("ink_sweep_body.glb", sweep.gust_body, 1000),
+    "SweepCrest": ("ink_sweep_crest.glb", sweep.gust_crest, 250),
+    "SweepInk": ("ink_sweep_ink.glb", sweep.gust_ink, 1200),
+    "VoluteBody": ("ink_volute_body.glb", volute.volute_body, 500),
+    "VoluteEye": ("ink_volute_eye.glb", volute.volute_eye, 200),
+    "VoluteInk": ("ink_volute_ink.glb", volute.volute_ink, 750),
+    "MarginBody": ("ink_margin_body.glb", margin.rule_body, 1100),
+    "MarginLip": ("ink_margin_lip.glb", margin.rule_lip, 500),
+    "MarginInk": ("ink_margin_ink.glb", margin.rule_ink, 1800),
+    "LigatureBody": ("ink_ligature_body.glb", ligature.tie_body, 1550),
+    "LigatureCore": ("ink_ligature_core.glb", ligature.tie_core, 350),
+    "LigatureInk": ("ink_ligature_ink.glb", ligature.tie_ink, 1650),
+    "StippleBody": ("ink_stipple_body.glb", stipple.mud_body, 950),
+    "StippleGloss": ("ink_stipple_gloss.glb", stipple.mud_gloss, 150),
+    "StippleInk": ("ink_stipple_ink.glb", stipple.mud_ink, 1000),
+    "BlotTeardropBody": ("ink_blot_teardrop_body.glb", blot.teardrop_body, 750),
+    "BlotTeardropCore": ("ink_blot_teardrop_core.glb", blot.teardrop_core, 100),
+    "BlotTeardropInk": ("ink_blot_teardrop_ink.glb", blot.teardrop_ink, 1000),
+    "BlotStarBody": ("ink_blot_star_body.glb", blot.blot_body, 850),
+    "BlotStarCore": ("ink_blot_star_core.glb", blot.blot_core, 50),
+    "BlotStarInk": ("ink_blot_star_ink.glb", blot.blot_ink, 900),
+    "BindingCordsBody": ("ink_binding_cords_body.glb", binding.cords_body, 950),
+    "BindingCordsFoam": ("ink_binding_cords_foam.glb", binding.cords_foam, 450),
+    "BindingCordsInk": ("ink_binding_cords_ink.glb", binding.cords_ink, 1400),
+    "HatchingCutBody": ("ink_hatching_cut_body.glb", hatching.hatch_body, 300),
+    "HatchingCutCore": ("ink_hatching_cut_core.glb", hatching.hatch_core, 200),
+    "HatchingCutInk": ("ink_hatching_cut_ink.glb", hatching.hatch_ink, 400),
+    "HatchingLongBody": ("ink_hatching_long_body.glb", hatching.hatch_long_body, 300),
+    "HatchingLongCore": ("ink_hatching_long_core.glb", hatching.hatch_long_core, 200),
+    "HatchingLongInk": ("ink_hatching_long_ink.glb", hatching.hatch_long_ink, 400),
+    "HatchingFinisherBody": ("ink_hatching_finisher_body.glb", hatching.hatch_finisher_body, 300),
+    "HatchingFinisherCore": ("ink_hatching_finisher_core.glb", hatching.hatch_finisher_core, 250),
+    "HatchingFinisherInk": ("ink_hatching_finisher_ink.glb", hatching.hatch_finisher_ink, 500),
+    "DaggerObelusBody": ("ink_dagger_obelus_body.glb", dagger.obelus_body, 1000),
+    "DaggerObelusCore": ("ink_dagger_obelus_core.glb", dagger.obelus_core, 150),
+    "DaggerObelusInk": ("ink_dagger_obelus_ink.glb", dagger.obelus_ink, 950),
+    "DaggerStrikeBody": ("ink_dagger_strike_body.glb", dagger.strike_body, 100),
+    "DaggerStrikeCore": ("ink_dagger_strike_core.glb", dagger.strike_core, 100),
+    "DaggerStrikeInk": ("ink_dagger_strike_ink.glb", dagger.strike_ink, 150),
+    "SpiralBowl": ("ink_spiral_bowl.glb", spiral.spiral_bowl, 1800),
+    "SpiralCore": ("ink_spiral_core.glb", spiral.spiral_core, 1800),
+    "SpiralInk": ("ink_spiral_ink.glb", spiral.spiral_ink, 1800),
+    "StitchLoopBody": ("ink_stitch_loop_body.glb", stitch.loop_body, 600),
+    "StitchLoopCore": ("ink_stitch_loop_core.glb", stitch.loop_core, 100),
+    "StitchLoopInk": ("ink_stitch_loop_ink.glb", stitch.loop_ink, 1000),
+    "StitchShackleBody": ("ink_stitch_shackle_body.glb", stitch.shackle_body, 950),
+    "StitchShackleCore": ("ink_stitch_shackle_core.glb", stitch.shackle_core, 50),
+    "StitchShackleInk": ("ink_stitch_shackle_ink.glb", stitch.shackle_ink, 900),
+    "ColophonBody": ("ink_colophon_body.glb", colophon.cadel_body, 550),
+    "ColophonCore": ("ink_colophon_core.glb", colophon.cadel_core, 100),
+    "ColophonInk": ("ink_colophon_ink.glb", colophon.cadel_ink, 600),
+    "RubricBud": ("ink_rubric_bud.glb", rubric.rubric_bud, 950),
+    "RubricHeart": ("ink_rubric_heart.glb", rubric.rubric_heart, 150),
+    "RubricBudInk": ("ink_rubric_bud_ink.glb", rubric.rubric_bud_ink, 900),
+    "RubricBar": ("ink_rubric_bar.glb", rubric.rubric_bar, 600),
+    "RubricLobes": ("ink_rubric_lobes.glb", rubric.rubric_lobes, 100),
+    "RubricBarInk": ("ink_rubric_bar_ink.glb", rubric.rubric_bar_ink, 600),
+    "RubricHead": ("ink_rubric_head.glb", rubric.rubric_head, 400),
+    "RubricHeadInk": ("ink_rubric_head_ink.glb", rubric.rubric_head_ink, 500),
+    "CartoucheBody": ("ink_cartouche_body.glb", cartouche.scrollwork_body, 1750),
+    "CartoucheCore": ("ink_cartouche_core.glb", cartouche.scrollwork_core, 500),
+    "CartoucheInk": ("ink_cartouche_ink.glb", cartouche.scrollwork_ink, 1250),
+    "CaretWideBody": ("ink_caret_wide_body.glb", caret.caret_wide_body, 450),
+    "CaretWideCore": ("ink_caret_wide_core.glb", caret.caret_wide_core, 450),
+    "CaretWideInk": ("ink_caret_wide_ink.glb", caret.caret_wide_ink, 450),
+    "CaretRatureBody": ("ink_caret_rature_body.glb", caret.rature_body, 450),
+    "CaretRatureCore": ("ink_caret_rature_core.glb", caret.rature_core, 450),
+    "CaretRatureInk": ("ink_caret_rature_ink.glb", caret.rature_ink, 450),
+    "StrikeBand": ("ink_strike_band.glb", strike.rature_band, 450),
+    "StrikeSpine": ("ink_strike_spine.glb", strike.rature_spine, 450),
+    "StrikeInk": ("ink_strike_ink.glb", strike.rature_ink, 450),
+    "SwashBody": ("ink_swash_body.glb", swash.swash_body, 1550),
+    "SwashEdge": ("ink_swash_edge.glb", swash.swash_edge, 200),
+    "SwashInk": ("ink_swash_ink.glb", swash.swash_ink, 1800),
+    "SwashSlumpBody": ("ink_swash_slump_body.glb", swash.swash_slump_body, 1400),
+    "SwashSlumpEdge": ("ink_swash_slump_edge.glb", swash.swash_slump_edge, 100),
+    "SwashSlumpInk": ("ink_swash_slump_ink.glb", swash.swash_slump_ink, 1450),
+    "WatermarkWire": ("ink_watermark_wire.glb", watermark.watermark_wire, 1800),
+    "WatermarkGleam": ("ink_watermark_gleam.glb", watermark.watermark_gleam, 450),
+    "WatermarkInk": ("ink_watermark_ink.glb", watermark.watermark_ink, 1250),
 }
 
 

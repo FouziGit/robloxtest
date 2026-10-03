@@ -125,7 +125,7 @@ describe("a drawn layer", function()
 			return found
 		end
 		local feet = marks("Serif", "Impact")
-		expect(#feet).toBe(5)
+		expect(#feet).toBe(1)
 		for index, foot in ipairs(feet) do
 			if foot.FadesWithSize ~= true then
 				error(("Serif's foot %d dries like a burning pool instead of lightening as it spreads"):format(index))

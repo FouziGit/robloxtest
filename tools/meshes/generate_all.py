@@ -63,6 +63,13 @@ def glb_triangles(path: pathlib.Path) -> int:
     return document["accessors"][primitive["indices"]]["count"] // 3
 
 
+def file_bounds(mesh) -> tuple[list[float], list[float]]:
+    """The bounds of the vertices a triangle uses: Blender drops the others on the way out (a recipe
+    leaves some behind where it dropped a degenerate triangle), so these are the bounds the file carries."""
+    points = [mesh.verts[i] for i in sorted({i for tri in mesh.tris for i in tri})]
+    return [min(p[axis] for p in points) for axis in range(3)], [max(p[axis] for p in points) for axis in range(3)]
+
+
 def lua_number(value: float) -> str:
     text = f"{value:.4f}".rstrip("0").rstrip(".")
     return "0" if text in ("-0", "") else text
@@ -123,13 +130,13 @@ def main() -> int:
             sys.exit(f"{key}: {tris} triangles, over its cap of {cap}")
         if size > MAX_BYTES:
             sys.exit(f"{key}: {size} bytes, over {MAX_BYTES}")
-        low, high = mesh.bounds()
+        low, high = file_bounds(mesh)
         manifest["meshes"][key] = {
             "Source": str(path.relative_to(ROOT)),
             "Tris": tris,
             "Min": [round(v, 4) for v in low],
             "Max": [round(v, 4) for v in high],
-            "Pivot": meta["Pivot"],
+            "Pivot": [round(v, 4) for v in meta["Pivot"]],
             "Reference": meta["Reference"],
             "Axis": meta["Axis"],
             "Flat": meta["Flat"],

@@ -1485,15 +1485,15 @@
     },
     "MarginBody": {
       "Axis": "Y",
-      "Bytes": 24852,
+      "Bytes": 38508,
       "Flat": false,
       "Max": [
         0.4914,
-        0.6371,
+        0.6343,
         0.0843
       ],
       "Min": [
-        -0.4914,
+        -0.4986,
         0.0,
         -0.0843
       ],
@@ -1505,23 +1505,23 @@
       ],
       "Reference": "Width",
       "Seed": 6143,
-      "Sha256": "a326fe6db566835f9dfd3aac22fb7351a33debd6c416c96da9bec905050c9d3f",
+      "Sha256": "946e44f36be1c67658a47e71237f82a0219cd6df70580fb03999323f1143c9ab",
       "Source": "assets/meshes/ink_margin_body.glb",
-      "Tris": 682
+      "Tris": 914
     },
     "MarginInk": {
       "Axis": "Y",
-      "Bytes": 71004,
+      "Bytes": 76332,
       "Flat": false,
       "Max": [
         0.5,
-        0.6457,
-        0.0928
+        0.6429,
+        0.0929
       ],
       "Min": [
         -0.5,
         0.0043,
-        -0.0928
+        -0.0929
       ],
       "Normals": "up",
       "Pivot": [
@@ -1531,23 +1531,23 @@
       ],
       "Reference": "Width",
       "Seed": 6145,
-      "Sha256": "0d141117d0e9b3fb790fe6738cf733f9dfa09a2cbdd77ae30f7bdd41536e7cb2",
+      "Sha256": "f9009a8eb5a48ac1c4df38d6ef328127d892d63ce44eac13bd406f3ac42f4533",
       "Source": "assets/meshes/ink_margin_ink.glb",
-      "Tris": 1404
+      "Tris": 1448
     },
     "MarginLip": {
       "Axis": "Y",
-      "Bytes": 10956,
+      "Bytes": 17640,
       "Flat": false,
       "Max": [
-        0.3982,
-        0.6414,
-        0.0864
+        0.3214,
+        0.6215,
+        0.0613
       ],
       "Min": [
-        -0.4116,
-        0.3496,
-        -0.0864
+        -0.2893,
+        0.4518,
+        -0.0613
       ],
       "Normals": "up",
       "Pivot": [
@@ -1557,9 +1557,9 @@
       ],
       "Reference": "Width",
       "Seed": 6144,
-      "Sha256": "71e2e1aa8bfec80528419a606381518c366b9fdf473233791647d7243b8bfe3b",
+      "Sha256": "708d7611fe1157bddb6cd6663cfaa8f46e210e8c2cea50e12d6131395ca197ad",
       "Source": "assets/meshes/ink_margin_lip.glb",
-      "Tris": 208
+      "Tris": 350
     },
     "PounceCrest": {
       "Axis": "Y",

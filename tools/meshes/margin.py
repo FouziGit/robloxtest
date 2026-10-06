@@ -10,20 +10,22 @@ caster stands at +Z (the server puts the slab 8 studs ahead of the root), so the
 face with the head on the right; the enemy sees the -Z face with the head on the left -- the model
 sheet's back and front faces, one drawing seen from both sides.
 
-Inside the Part's truth (DA_ENCRE_3D 4.1 and 4.2, GlyphEffects.Margin): the whole drawing spans the
-server's slab, 14 x 9 x 2.5, and its outermost lines lie on the Part to 0.05 stud -- the head's end and
-the tail's tips on its ends, the head's dome on its top, the head on its faces. What the stroke gives
-up to look like one is on the safe side: the faces swell inside the Part (their contour 0.3 to 0.7
-under its faces, so the head and the bead stand proud of them), and the air between the tail's strands
-and under its rising lower edge is slab that still blocks. Nothing drawn stands where nothing blocks.
+Around the Part (GlyphEffects.Margin, D-110, D-279): the server's slab, 14 x 9 x 2.5 from the page up,
+stays opaque and blocking, so the drawing is built round it, never in it -- a body inside an opaque
+slab is never seen. Over the slab's whole length and height the stroke's faces stand 0.05 stud or more
+outside the slab's faces, its top edge as far over the slab's top and its ends as far past the slab's
+ends; its lower edge sweeps up only past the slab's -X end. The rolled head stands past the +X end,
+the three strands run out past the -X end, and the bead and its lobes sit on top. What is drawn past
+the slab (the head, the strands, the faces' swell) is drawn where nothing blocks: a few studs of ink,
+and the price of a wall that is seen.
 
 The pigment (MarginBody), each piece closed and wound outward:
-  - the head: a vertical roll the full height, an ellipse in plan (1.3 along the wall, 1.18 through it),
-    a barrel that swells at mid height so its end reads round from the front, domed on top, the tallest
-    thing on the wall
+  - the head: a vertical roll the full height, centred past the slab's +X end, an ellipse in plan (1.45
+    along the wall, 1.8 through it), a barrel that swells at mid height so its end reads round from the
+    front, domed on top, the tallest thing on the wall
   - the stroke: a loft from inside the head to the tail's root, its section a lens (fullest at mid
-    height, drawn in at the top and on the page); past x = -1.8 its lower edge sweeps up and the upper
-    edge comes down, and it thins, into the strands' fused root
+    height, drawn in at the top and on the page, never inside the slab's faces); past the slab's -X end
+    its lower edge sweeps up and the upper edge comes down, and it thins, into the strands' fused root
   - the bead: a rolled rail along the top, out of the head's dome to its rounded end over the tail
   - the dry tail: three bristle strands out of the stroke's root, broad and fused there, flattened
     through the wall -- the upper one hooking up, the middle one the shortest and straight, the lower
@@ -37,9 +39,9 @@ the roll meets the face (bowed, the roll's edge, and lifting before the bead so 
 a frame), the U round each lobe, and four streaks that fall from the bead between the lobes and sweep
 along the face into the tail's strands.
 
-Units: the three meshes together span exactly 1 along X (the runtime draws that 14 studs, the slab's
-Width), centred on x = 0; y = 0 is the page. The pivot is the slab's centre, where the server's packet
-puts its Origin.
+Units: 1 is the slab's Width (the runtime draws it 14 studs, Size 14), x = 0 the slab's centre, y = 0
+the page; the drawing runs past the slab at both ends, so it spans more than 1 along X. The pivot is the
+slab's centre, where the server's packet puts its Origin.
 """
 
 from __future__ import annotations
@@ -62,50 +64,55 @@ from strokes import (
 )
 
 SEED = 6143
-WIDTH, HEIGHT, THICK = 14.0, 9.0, 2.5
+WIDTH, HEIGHT, THICK = 14.0, 9.0, 2.5  # the server's slab
+CLEAR = 0.05  # studs: the least the pigment stands off the slab, on its faces, its top and its ends
 FLOOR = 0.06  # studs: how far over the page the contour's floor ring stays
 W_CONTOUR = 0.12  # the inverted hull's push (studs), within the school's 0.10 - 0.14
-PROUD = THICK / 2 + 0.05 - W_CONTOUR  # 1.18: the head's flanks, their contour on the tolerance
-RAIL_Z = 1.12  # the bead's flanks: the head stays the fattest thing on the wall
-TOP = HEIGHT - W_CONTOUR  # 8.88: the head's dome, the tallest thing on the wall, its contour on 9
+PROUD = 1.8  # the head's flanks, proud of the stroke's faces
+RAIL_Z = 1.68  # the bead's flanks: the head stays the fattest thing on the wall
+TOP = 10.24  # the head's dome, the tallest thing on the wall
 
 # --- the head: (y, half length along X, half thickness) rings, bottom to dome ---------------------
-HEAD_RX = 1.3
-HEAD_X = WIDTH / 2 - W_CONTOUR - HEAD_RX  # its end's contour on the Part's end
-HEAD_RINGS = ((0.0, 0.8, PROUD), (1.2, 1.1, PROUD), (4.2, HEAD_RX, PROUD), (7.0, 1.1, PROUD), (8.25, 0.88, 1.08),
-              (8.62, 0.66, 0.8), (8.83, 0.34, 0.4))
+HEAD_RX = 1.45
+HEAD_X = WIDTH / 2 + 0.35  # its roll centred past the slab's +X end, which it closes
+HEAD_RINGS = ((0.0, 0.95, PROUD), (1.4, 1.25, PROUD), (4.8, HEAD_RX, PROUD), (8.0, 1.25, PROUD), (9.5, 1.0, 1.65),
+              (9.92, 0.75, 1.2), (10.17, 0.38, 0.6))
 HEAD_BOW = 0.6  # how far the head's crease bows into the face at mid height: the roll's edge, "("
 HEAD_AROUND = 12
 
 # --- the stroke: its lens section and its stations, head (inside it) to the tail's root ----------
 SLAB_U = (0.0, 0.06, 0.25, 0.5, 0.75, 0.94, 1.0)  # rows, as a fraction of the section's height
-SLAB_Z = (0.55, 0.86, 0.97, 1.0, 0.97, 0.88, 0.55)  # their half thickness, as a fraction of its fullest
+SLAB_Z = (0.84, 0.9, 0.97, 1.0, 0.97, 0.91, 0.84)  # their half thickness, as a fraction of its fullest
 EDGE_ROUND = 0.12  # the top and bottom edges' centre, past the last rows
-# (x, bottom, top, fullest half thickness)
-SLAB = ((HEAD_X, 0.2, 7.95, 0.84), (2.6, 0.2, 7.95, 0.84), (-0.2, 0.2, 7.95, 0.82), (-1.8, 0.2, 7.95, 0.8),
-        (-2.8, 0.75, 7.9, 0.76), (-3.5, 1.9, 7.75, 0.6), (-4.0, 2.9, 7.4, 0.35))
+STROKE_TOP = HEIGHT + CLEAR + 0.03  # 9.08: its top rows, over the slab's top
+TAIL_ROOT = -(WIDTH / 2 + 0.1)  # its last full station, past the slab's -X end: the lower edge sweeps up after it
+# (x, bottom, top, fullest half thickness): over the slab, from the page to STROKE_TOP and never thinner at
+# its edges than the slab's face plus CLEAR (SLAB_Z[0] x 1.56 = 1.31)
+SLAB = ((HEAD_X, 0.0, STROKE_TOP, 1.6), (4.0, 0.0, STROKE_TOP, 1.62), (0.5, 0.0, STROKE_TOP, 1.62),
+        (-3.5, 0.0, STROKE_TOP, 1.59), (TAIL_ROOT, 0.0, STROKE_TOP, 1.56), (-7.7, 1.3, 9.0, 1.15),
+        (-8.2, 2.9, 8.8, 0.8), (-8.6, 3.9, 8.5, 0.5))
 
 # --- the bead: (y, z) round its section, its underside buried in the stroke ----------------------
-BEAD = ((7.45, 0.6), (7.62, 1.0), (7.78, RAIL_Z), (8.02, RAIL_Z), (8.2, 0.9), (8.28, 0.45), (8.3, 0.0),
-        (8.28, -0.45), (8.2, -0.9), (8.02, -RAIL_Z), (7.78, -RAIL_Z), (7.62, -1.0), (7.45, -0.6))
+BEAD = ((8.55, 0.95), (8.74, 1.4), (8.92, RAIL_Z), (9.2, RAIL_Z), (9.4, 1.3), (9.5, 0.66), (9.53, 0.0),
+        (9.5, -0.66), (9.4, -1.3), (9.2, -RAIL_Z), (8.92, -RAIL_Z), (8.74, -1.4), (8.55, -0.95))
 BEAD_BURIED = (0, 12)  # its underside's two corners, inside the stroke: no contour weight
-BEAD_PIVOT = (7.88, 0.0)
-BEAD_SPAN = (-4.7, 0.5, HEAD_X, 1.2)  # tail end, its rounding, head end, its rounding (into the dome)
-RAIL_STATIONS = (-2.0, 0.6, 3.0)  # inner stations: no long sliver triangles
-BEAD_CREASE = 7.35
+BEAD_PIVOT = (9.05, 0.0)
+BEAD_SPAN = (-7.9, 0.6, HEAD_X, 1.3)  # tail end, its rounding, head end, its rounding (into the dome)
+RAIL_STATIONS = (-5.0, -2.0, 1.0, 4.0)  # inner stations: no long sliver triangles
+BEAD_CREASE = 8.45
 
 # --- the dry tail: (control points (x, y), root half height, root half thickness) -----------------
 STRANDS = (
-    ([(-2.9, 7.0), (-4.2, 7.15), (-5.3, 7.3), (-6.1, 7.55), (-6.65, 7.95), (-6.98, 8.45)], 0.9, 0.5),
-    ([(-2.9, 5.5), (-4.3, 5.6), (-5.5, 5.55), (-6.6, 5.7)], 0.9, 0.48),
-    ([(-2.9, 3.9), (-4.2, 3.75), (-5.2, 3.4), (-6.0, 3.25), (-6.6, 3.5), (-6.98, 4.0)], 0.9, 0.5),
+    ([(-6.7, 8.0), (-7.9, 8.15), (-8.9, 8.3), (-9.65, 8.55), (-10.2, 8.95), (-10.5, 9.45)], 1.0, 0.55),
+    ([(-6.7, 6.3), (-8.0, 6.4), (-9.1, 6.35), (-10.15, 6.5)], 1.0, 0.53),
+    ([(-6.7, 4.6), (-7.9, 4.45), (-8.8, 4.1), (-9.55, 3.95), (-10.15, 4.2), (-10.5, 4.7)], 1.0, 0.55),
 )
 STRAND_RINGS = (0.0, 0.12, 0.26, 0.4, 0.54, 0.67, 0.79, 0.9)  # along each, before its tip vertex
 STRAND_AROUND = 6
 
 # --- the lobes: (x, half length), the largest by the head -----------------------------------------
-LOBES = ((3.65, 0.85), (1.75, 0.8), (-0.1, 0.75), (-1.85, 0.68), (-3.45, 0.6))
-LOBE_Y, LOBE_TOP, LOBE_RZ = 8.1, 8.7, 0.85  # its centre, in the bead; its top, under the head's; its half thickness
+LOBES = ((4.5, 1.0), (2.05, 0.93), (-0.35, 0.86), (-2.7, 0.78), (-4.95, 0.7))
+LOBE_Y, LOBE_TOP, LOBE_RZ = 9.27, 9.93, 1.15  # its centre, in the bead; its top, under the head's; its half thickness
 LOBE_POLAR = (48, 90, 132)  # its rings, from the top; only the first stands over the bead
 LOBE_AROUND = 8
 LOBE_DEPTH = (0.6, 0.5)  # how far each U hangs under the bead's crease: a base and so much per stud of half length
@@ -115,13 +122,14 @@ LIFT_PALE, LIFT_INK = 0.06, 0.10  # decals off the surface: the ink over the pal
 # --- the streaks: (control points (x, y), width profile [(t, studs)]), each from the bead between two
 # lobes, falling and sweeping along the face into a strand's root, never parallel -------------------
 STREAKS = (
-    ([(4.55, 7.2), (4.3, 6.2), (3.5, 4.9), (2.2, 4.1), (0.6, 3.9), (-1.0, 3.5), (-2.4, 3.6), (-3.6, 4.2), (-4.6, 4.5)],
+    ([(5.75, 8.3), (5.5, 7.25), (4.6, 5.75), (3.0, 4.8), (1.0, 4.5), (-1.0, 4.1), (-3.0, 4.15), (-4.9, 4.6),
+      (-6.6, 4.85)],
      [(0.0, 0.06), (0.12, 0.2), (0.4, 0.27), (0.75, 0.2), (1.0, 0.04)]),
-    ([(2.68, 7.2), (2.5, 6.4), (1.7, 5.6), (0.3, 5.3), (-1.2, 4.9), (-2.7, 5.1), (-4.4, 5.75)],
+    ([(3.25, 8.3), (3.05, 7.4), (2.0, 6.5), (0.3, 6.15), (-1.6, 5.7), (-3.5, 5.9), (-5.2, 6.25), (-6.6, 6.4)],
      [(0.0, 0.05), (0.15, 0.16), (0.5, 0.21), (0.8, 0.14), (1.0, 0.04)]),
-    ([(0.8, 7.2), (0.6, 6.7), (-0.2, 6.25), (-1.6, 6.15), (-3.0, 6.05), (-4.3, 6.4)],
+    ([(0.85, 8.3), (0.6, 7.75), (-0.4, 7.25), (-2.1, 7.1), (-3.9, 7.0), (-5.4, 7.35), (-6.6, 7.75)],
      [(0.0, 0.05), (0.2, 0.13), (0.55, 0.16), (1.0, 0.04)]),
-    ([(-1.0, 7.2), (-1.1, 6.9), (-1.5, 6.6)], [(0.0, 0.04), (0.4, 0.1), (1.0, 0.03)]),
+    ([(-1.55, 8.3), (-1.65, 7.95), (-2.1, 7.6)], [(0.0, 0.04), (0.4, 0.1), (1.0, 0.03)]),
 )
 STREAK_SAMPLES = (20, 16, 14, 6)
 
@@ -412,13 +420,13 @@ def _creases(ink: Mesh) -> None:
     """Under the bead from the head, and the head's crease where the roll meets the face: heaviest at the
     page, lifting before it reaches the bead, so the two never close into a frame."""
     bead_end = BEAD_SPAN[0] + BEAD_SPAN[1] + 0.3
-    head_ys = (0.35, 1.4, 2.8, 4.2, 5.6, 6.5, 6.95)
+    head_ys = (0.4, 1.6, 3.2, 4.8, 6.4, 7.45, 8.0)
     for side in (-1, 1):
         xs = [_head_junction(BEAD_CREASE) - 0.1] + [x for x, *_r in SLAB[1:] if x > bead_end] + [bead_end]
         bead = Polyline([(x, BEAD_CREASE) for x in xs])
         _brush(ink, side, bead, [(0.0, 0.2), (0.4, 0.17), (0.9, 0.15), (1.0, 0.06)], _even(len(xs) + 2), LIFT_INK,
                SEED + 3 + side)
-        head = _line([(_head_junction(y) - 0.08 - HEAD_BOW * math.sin(math.pi * y / 7.6), y) for y in head_ys])
+        head = _line([(_head_junction(y) - 0.08 - HEAD_BOW * math.sin(math.pi * y / 8.7), y) for y in head_ys])
         _brush(ink, side, head, [(0.0, 0.32), (0.5, 0.3), (0.85, 0.2), (1.0, 0.05)], _even(12), LIFT_INK, SEED + 7 + side)
 
 
@@ -451,10 +459,10 @@ def build() -> tuple[Mesh, Mesh, Mesh]:
     _lobes(core, ink)
     _creases(ink)
     _streaks(ink)
-    xs = [v[0] for mesh in (body, core, ink) for v in mesh.verts]
-    factor, shift = 1.0 / (max(xs) - min(xs)), -(max(xs) + min(xs)) / 2.0
+    # 1 is the slab's Width and x = 0 its centre: the drawing runs past it at both ends, unevenly.
+    factor = 1.0 / WIDTH
     for mesh in (body, core, ink):
-        mesh.verts = [((x + shift) * factor, y * factor, z * factor) for x, y, z in mesh.verts]
+        mesh.verts = [(x * factor, y * factor, z * factor) for x, y, z in mesh.verts]
     _CACHE["meshes"] = (body, core, ink)
     return _CACHE["meshes"]
 

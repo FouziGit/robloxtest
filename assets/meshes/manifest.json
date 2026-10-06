@@ -1485,17 +1485,17 @@
     },
     "MarginBody": {
       "Axis": "Y",
-      "Bytes": 38508,
+      "Bytes": 41432,
       "Flat": false,
       "Max": [
-        0.4914,
-        0.6343,
-        0.0843
+        0.6286,
+        0.7314,
+        0.1286
       ],
       "Min": [
-        -0.4986,
-        0.0,
-        -0.0843
+        -0.75,
+        -0.0086,
+        -0.1286
       ],
       "Normals": "up",
       "Pivot": [
@@ -1505,23 +1505,23 @@
       ],
       "Reference": "Width",
       "Seed": 6143,
-      "Sha256": "946e44f36be1c67658a47e71237f82a0219cd6df70580fb03999323f1143c9ab",
+      "Sha256": "745a52ff2cf40a2faff5b9f5d0b781966a6d59eedd50d08b040e51cf55b40f47",
       "Source": "assets/meshes/ink_margin_body.glb",
-      "Tris": 914
+      "Tris": 972
     },
     "MarginInk": {
       "Axis": "Y",
-      "Bytes": 76332,
+      "Bytes": 77420,
       "Flat": false,
       "Max": [
-        0.5,
-        0.6429,
-        0.0929
+        0.6371,
+        0.74,
+        0.1371
       ],
       "Min": [
-        -0.5,
+        -0.7513,
         0.0043,
-        -0.0929
+        -0.1371
       ],
       "Normals": "up",
       "Pivot": [
@@ -1531,23 +1531,23 @@
       ],
       "Reference": "Width",
       "Seed": 6145,
-      "Sha256": "f9009a8eb5a48ac1c4df38d6ef328127d892d63ce44eac13bd406f3ac42f4533",
+      "Sha256": "714b0ae405bca29ab85d338b94629ef136a4a0afb08e4545d9b643f8b6677f80",
       "Source": "assets/meshes/ink_margin_ink.glb",
-      "Tris": 1448
+      "Tris": 1496
     },
     "MarginLip": {
       "Axis": "Y",
-      "Bytes": 17640,
+      "Bytes": 17688,
       "Flat": false,
       "Max": [
-        0.3214,
-        0.6215,
-        0.0613
+        0.3929,
+        0.7093,
+        0.1142
       ],
       "Min": [
-        -0.2893,
-        0.4518,
-        -0.0613
+        -0.4036,
+        0.525,
+        -0.1142
       ],
       "Normals": "up",
       "Pivot": [
@@ -1557,7 +1557,7 @@
       ],
       "Reference": "Width",
       "Seed": 6144,
-      "Sha256": "708d7611fe1157bddb6cd6663cfaa8f46e210e8c2cea50e12d6131395ca197ad",
+      "Sha256": "7e02ebdc090a81a5be814ff879a81d24c2fea59d13fe3b797883256fcf41053d",
       "Source": "assets/meshes/ink_margin_lip.glb",
       "Tris": 350
     },

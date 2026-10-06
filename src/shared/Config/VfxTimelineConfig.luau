@@ -2803,7 +2803,8 @@ local MARGIN: Timeline = {
 				{ Kind = "Sound", At = 0.18, For = 0.05, Voice = "Impact" },
 				{ Kind = "Sound", At = 0, For = 0.05, Voice = "Body" },
 				-- The wall's own body: MarginBody (pigment), MarginLip (pale) and MarginInk (contour) are one form in
-				-- three volumes that move as one, drawn on the server's slab to 0.05 stud and as wide as it, 14. The
+				-- three volumes that move as one, built round the server's slab (its faces 0.05 stud or more outside
+				-- the slab's, the head and the strands past its ends, D-279) at 14 studs to the slab's Width. The
 				-- slab rises with its collision; the ink comes up through the same Quart Out, faint to full, because a
 				-- volume scales about its centre and cannot grow from the floor line. It is one chain per volume: it
 				-- stands in Residue and goes out there.

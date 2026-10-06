@@ -1200,42 +1200,42 @@
       ]
     },
     "assets/meshes/ink_margin_body.glb": {
-      "assetId": "101927897764641",
+      "assetId": "117227417753110",
       "assetType": "Model",
-      "sha256": "946e44f36be1c67658a47e71237f82a0219cd6df70580fb03999323f1143c9ab",
+      "sha256": "745a52ff2cf40a2faff5b9f5d0b781966a6d59eedd50d08b040e51cf55b40f47",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-05T11:43:09+00:00",
-      "meshId": "84548733413968",
+      "uploadedAt": "2026-10-06T08:08:48+00:00",
+      "meshId": "115208530213695",
       "native": [
-        0.9900594353675842,
-        0.63432377576828,
-        0.1685815453529358
+        1.3785715103149414,
+        0.7400000095367432,
+        0.2571428716182709
       ]
     },
     "assets/meshes/ink_margin_ink.glb": {
-      "assetId": "86627708672863",
+      "assetId": "107218648746641",
       "assetType": "Model",
-      "sha256": "f9009a8eb5a48ac1c4df38d6ef328127d892d63ce44eac13bd406f3ac42f4533",
+      "sha256": "714b0ae405bca29ab85d338b94629ef136a4a0afb08e4545d9b643f8b6677f80",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-05T11:43:16+00:00",
-      "meshId": "77958038627116",
+      "uploadedAt": "2026-10-06T08:08:56+00:00",
+      "meshId": "127925187845413",
       "native": [
-        1.0,
-        0.638609766960144,
-        0.1857253611087799
+        1.388432502746582,
+        0.735714316368103,
+        0.27428561449050903
       ]
     },
     "assets/meshes/ink_margin_lip.glb": {
-      "assetId": "118269219060259",
+      "assetId": "103389626753022",
       "assetType": "Model",
-      "sha256": "708d7611fe1157bddb6cd6663cfaa8f46e210e8c2cea50e12d6131395ca197ad",
+      "sha256": "7e02ebdc090a81a5be814ff879a81d24c2fea59d13fe3b797883256fcf41053d",
       "moderationState": "Approved",
-      "uploadedAt": "2026-10-05T11:43:27+00:00",
-      "meshId": "138042812143038",
+      "uploadedAt": "2026-10-06T08:09:08+00:00",
+      "meshId": "82831285013861",
       "native": [
-        0.6107509136199951,
-        0.1696530282497406,
-        0.12268677353858948
+        0.7964285612106323,
+        0.18428575992584229,
+        0.22842910885810852
       ]
     },
     "assets/meshes/ink_pounce_crest.glb": {

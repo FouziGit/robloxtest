@@ -17123,6 +17123,57 @@ function VfxTimelineConfig.phaseAt(id: string, name: PhaseName, window: number?)
 	return nil
 end
 
+-- The body each ink contour of `id` is drawn around (D-280), by layer number -- the number VfxTimeline.play
+-- gives each layer, counting every layer of every phase in PhaseOrder: for each Ink volume a play begins (a
+-- Mesh layer of Role "Ink" with no Chain, or the head of its Chain), the nearest Pigment volume declared before
+-- it in its phase that starts with it (same At). A body form is written pigment, core, ink, sharing their
+-- timing (tests/InkContour.spec.luau holds every timeline to it). An ink with no such body, a stroke of ink
+-- alone, is absent. Empty for an unknown id.
+local contoursOf: { [string]: { [number]: number } } = {}
+function VfxTimelineConfig.contours(id: string): { [number]: number }
+	local known = contoursOf[id]
+	if known ~= nil then
+		return known
+	end
+	local out: { [number]: number } = {}
+	local timeline: Timeline? = VfxTimelineConfig.Timelines[id]
+	if timeline ~= nil then
+		local index = 0
+		local begun: { [string]: boolean } = {}
+		for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
+			for _, phase in ipairs(timeline.Phases) do
+				if phase.Name == name then
+					local first = index
+					for position, layer in ipairs(phase.Layers) do
+						index += 1
+						local chain = layer.Chain
+						local head = chain == nil or not begun[chain]
+						if chain ~= nil then
+							begun[chain] = true
+						end
+						if layer.Kind == "Mesh" and layer.Role == "Ink" and head then
+							for back = position - 1, 1, -1 do
+								local body = phase.Layers[back]
+								local role = body.Role
+								if
+									body.Kind == "Mesh"
+									and (role == nil or role == "Pigment")
+									and body.At == layer.At
+								then
+									out[index] = first + back
+									break
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	contoursOf[id] = out
+	return out
+end
+
 -- Total duration of a timeline, phases end to end plus the tail of whatever layer outlives the last one.
 -- Used by the runtime to size its own bookkeeping and by the test to keep a timeline inside the window
 -- its packet's Trove lives for.

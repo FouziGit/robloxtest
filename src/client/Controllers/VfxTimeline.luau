@@ -159,6 +159,8 @@ type Pending = {
 	-- The first link of its Chain in its play (false for a layer with no Chain): the only link that may
 	-- draw its volume from nothing.
 	ChainHead: boolean,
+	-- An ink contour's body: the number of the layer whose volume it is drawn around (VfxTimelineConfig.contours).
+	Body: number?,
 	-- A dash print waiting for its body (VolumeMath.printDecision): when that body was first seen moving.
 	MovedAt: number?,
 }
@@ -1618,6 +1620,19 @@ local function activate(item: Pending, now: number)
 		buildOutline(entry, layer)
 	end
 
+	local outlined = item.Body
+	local volume = entry.Volume
+	if outlined ~= nil and volume ~= nil and predecessor == nil then
+		-- An ink contour is drawn only over an opaque body (D-280): it reads the volume its body is, which
+		-- began the same frame, declared before it.
+		for _, other in ipairs(live) do
+			if other.PlayId == item.PlayId and other.LayerIndex == outlined and other.Volume ~= nil then
+				volume.Body = other.Volume
+				break
+			end
+		end
+	end
+
 	if entry.Primary == nil then
 		-- The pool refused, so this layer is not drawn. Whatever it did manage to borrow goes straight
 		-- back rather than sitting in `live` for its full duration rendering nothing.
@@ -1762,6 +1777,9 @@ local function onHeartbeat(deltaTime: number)
 	end
 
 	index = 1
+	-- Ink contours are stepped after every body, so each reads the transparency its body is drawn at this
+	-- frame, never the last one's (D-280).
+	local contours: { Live } = {}
 	while index <= #live do
 		local entry = live[index]
 		local now = if entry.Steady then steadyNow else heldNow
@@ -1769,10 +1787,19 @@ local function onHeartbeat(deltaTime: number)
 			releaseLive(entry)
 			table.remove(live, index)
 		else
-			-- Spins and other per-frame motion advance on the entry's own clock too.
-			stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
+			local volume = entry.Volume
+			if volume ~= nil and volume.Body ~= nil then
+				table.insert(contours, entry)
+			else
+				-- Spins and other per-frame motion advance on the entry's own clock too.
+				stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
+			end
 			index += 1
 		end
+	end
+	for _, entry in ipairs(contours) do
+		local now = if entry.Steady then steadyNow else heldNow
+		stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
 	end
 end
 
@@ -1799,6 +1826,7 @@ function VfxTimeline.play(id: string, context: Context): (boolean, number?)
 	local layerIndex = 0
 	-- The chains this play has already begun: the first layer naming one is its head.
 	local begun: { [string]: boolean } = {}
+	local contours = VfxTimelineConfig.contours(id)
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
@@ -1832,6 +1860,7 @@ function VfxTimeline.play(id: string, context: Context): (boolean, number?)
 						Phase = name :: string,
 						LayerIndex = layerIndex,
 						ChainHead = head,
+						Body = contours[layerIndex],
 					})
 				end
 				phaseStart += seconds

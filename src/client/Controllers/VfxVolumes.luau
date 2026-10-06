@@ -32,14 +32,12 @@ local WorldConfig = require(Shared.Config.WorldConfig)
 
 local log = Log.new("VfxVolumes")
 
--- Below this, a transparency is drawn fully opaque: a volume in the transparent pass sorts against the
--- ink under it and flickers, and nobody can see the difference between 0.02 and 0.
-local OPAQUE_BELOW = 0.02
 -- Studs added around a volume's largest reach for its part's box, which is what the engine culls by.
 local ENVELOPE_MARGIN = 0.5
 
--- A volume's own state: the mesh it draws, the frame it turns in, and its seeded start angle.
-export type Volume = { Mesh: MeshConfig.Mesh, Base: CFrame, Jitter: number }
+-- A volume's own state: the mesh it draws, the frame it turns in, and its seeded start angle; the
+-- transparency it was last drawn at, and for an ink contour the volume of the body it outlines (D-280).
+export type Volume = { Mesh: MeshConfig.Mesh, Base: CFrame, Jitter: number, Drawn: number?, Body: Volume? }
 
 -- One scrap of paper thrown off a blast (a Debris layer): its part and mesh, its flight (Pure/Scatter),
 -- its size and proportions, when it lands and how long it lasts, and the axis it tumbles about.
@@ -263,7 +261,11 @@ function VfxVolumes.step(entry: Entry, alpha: number, elapsed: number, now: numb
 	local base = if layer.Ride == true then part.CFrame else volume.Base
 	local angle = volume.Jitter + (layer.Spin or 0) * (now - entry.PlayStartedAt)
 	part.CFrame = base * CFrame.Angles(0, 0, math.rad(layer.Roll or 0)) * turn(mesh.Axis, angle)
-	part.Transparency = if transparency < OPAQUE_BELOW then 0 else transparency
+	-- Opaque below a hair of transparency; an ink contour only over an opaque body (VolumeMath).
+	local body = volume.Body
+	local drawn = VolumeMath.drawnTransparency(transparency, if body ~= nil then body.Drawn else nil)
+	volume.Drawn = drawn
+	part.Transparency = drawn
 	local wet, dry = entry.Wet, entry.Dry
 	if wet ~= nil and dry ~= nil then
 		part.Color = wet:Lerp(dry, kit.driedBy(entry, now))

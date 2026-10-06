@@ -594,7 +594,13 @@ describe("the runtime of a volume", function()
 		-- Faded on the ink's clock, dried like every mark, drawn opaque below a hair of transparency.
 		expect(has(step, "kit.fadeOf(layer, elapsed, alpha, 0)")).toBe(true)
 		expect(has(step, "part.Color = wet:Lerp(dry, kit.driedBy(entry, now))")).toBe(true)
-		expect(has(step, "part.Transparency = if transparency < OPAQUE_BELOW then 0 else transparency")).toBe(true)
+		expect(
+			has(
+				step,
+				"local drawn = VolumeMath.drawnTransparency(transparency, if body ~= nil then body.Drawn else nil)"
+			)
+		).toBe(true)
+		expect(has(step, "volume.Drawn = drawn part.Transparency = drawn")).toBe(true)
 		-- Landed: the shape the landing found, splatted by VolumeMath.
 		expect(has(step, "local shape = if ending ~= nil and ending.Alpha ~= nil then ending.Alpha else alpha")).toBe(
 			true

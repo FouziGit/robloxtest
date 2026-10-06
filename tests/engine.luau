@@ -237,7 +237,7 @@ local function setParent(instance: any, parent: any)
 		return
 	end
 	local old = data.Parent
-	if old ~= nil then
+	if old ~= nil and dataOf[old] ~= nil then
 		local siblings = dataOf[old].Children
 		local index = table.find(siblings, instance)
 		if index ~= nil then
@@ -245,18 +245,21 @@ local function setParent(instance: any, parent: any)
 		end
 	end
 	data.Parent = parent
-	if parent ~= nil then
+	-- A parent the engine holds no instance for is a module path (ReplicatedStorage, where VfxPool parks what it
+	-- lends): the instance is there, out of the world, and nothing under that path hears of it.
+	local held = parent ~= nil and dataOf[parent] ~= nil
+	if held then
 		table.insert(dataOf[parent].Children, instance)
 	end
 	propertySignal(data, "Parent"):Fire()
 	fireAncestry(instance)
-	if parent ~= nil then
+	if held then
 		signalOf(dataOf[parent], "ChildAdded"):Fire(instance)
 		-- Every ancestor hears of the instance and of everything it brings with it, as the engine tells them.
 		local arrived = { instance }
 		descendants(instance, arrived)
 		local ancestor = parent
-		while ancestor ~= nil do
+		while ancestor ~= nil and dataOf[ancestor] ~= nil do
 			for _, each in ipairs(arrived) do
 				signalOf(dataOf[ancestor], "DescendantAdded"):Fire(each)
 			end
@@ -375,6 +378,9 @@ function Methods.WaitForChild(self: any, name: string, timeout: number?): any
 	end
 	return child
 end
+
+-- A ParticleEmitter's burst: the pretend engine draws no particles.
+function Methods.Emit(_self: any, _count: number?) end
 
 function Methods.GetChildren(self: any): { any }
 	return table.clone(dataOf[self].Children)
@@ -510,6 +516,16 @@ InstanceMeta.__newindex = function(self: any, key: string, value: any)
 		signalOf(data, "Changed"):Fire(value)
 	else
 		signalOf(data, "Changed"):Fire(key)
+	end
+	-- A part's Position is its CFrame's, as the engine keeps them: moved by either, read from either.
+	if ABSTRACT.BasePart[data.ClassName] and value ~= nil then
+		local part: any = self
+		if key == "CFrame" then
+			part.Position = value.Position
+		elseif key == "Position" then
+			local frame = data.Props.CFrame
+			part.CFrame = if frame ~= nil then frame.Rotation + value else roblox.CFrame.new(value)
+		end
 	end
 end
 
@@ -940,6 +956,25 @@ function Engine.world(options: Options?): World
 		Instance = {
 			new = function(className: string, parent: any?): any
 				return Engine.instance(className, parent)
+			end,
+		},
+		-- A seeded draw, as Random gives one: its own sequence per seed (a Park-Miller generator, not the engine's).
+		Random = {
+			new = function(seed: number?): any
+				local state = math.max(math.floor(math.abs(seed or 1)) % 2147483646, 1)
+				local function draw(): number
+					state = (state * 16807) % 2147483647
+					return (state - 1) / 2147483646
+				end
+				return {
+					NextNumber = function(_self: any, min: number?, max: number?): number
+						local low, high = min or 0, max or 1
+						return low + (high - low) * draw()
+					end,
+					NextInteger = function(_self: any, min: number, max: number): number
+						return math.min(min + math.floor((max - min + 1) * draw()), max)
+					end,
+				}
 			end,
 		},
 		UDim = roblox.UDim,

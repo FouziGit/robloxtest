@@ -680,9 +680,17 @@ describe("the runtime of a volume", function()
 				'elseif entry.Layer.Kind == "Mesh" and primary:IsA("BasePart") and (entry.Layer.Ride == true or (chain ~= nil and cut[chain])) then entry.Ending = { At = now, From = primary.Transparency, Alpha = eased(entry.Layer, progressOf(entry, now)) } entry.EndsAt = now + settings.Fade'
 			)
 		).toBe(true)
-		local activate = functionIn(TIMELINE, "local function activate(")
-		expect(has(activate, 'local body = entry.Layer.Kind == "Mesh" and entry.Layer.Ride == true')).toBe(true)
-		expect(has(activate, 'if not entry.Warning and entry.Layer.Kind ~= "Carrier" and not body then')).toBe(true)
+		-- The budget never retires a riding body: not as the layer it gives, nor with the form it gives whole.
+		local room = functionIn(TIMELINE, "local function makeRoom(")
+		expect(
+			has(
+				room,
+				'if not entry.Warning and kind ~= "Carrier" then if kind ~= "Mesh" then victim = index break elseif standing == nil and entry.Layer.Ride ~= true then standing = index end end'
+			)
+		).toBe(true)
+		expect(
+			has(room, 'if mate and entry.Layer.Kind == "Mesh" and entry.Layer.Ride ~= true and not entry.Warning then')
+		).toBe(true)
 	end)
 
 	it(
@@ -692,7 +700,7 @@ describe("the runtime of a volume", function()
 			expect(
 				has(
 					activate,
-					'local predecessor: number? = nil local chain = layer.Chain if layer.Kind == "Mesh" and chain ~= nil then for index, previous in ipairs(live) do if previous.PlayId == item.PlayId and previous.Layer.Chain == chain and previous.Volume ~= nil then predecessor = index break end end if predecessor == nil and not item.ChainHead then return end end if predecessor == nil and #live >= tier.Layers then'
+					'local predecessor: number? = nil local chain = layer.Chain if layer.Kind == "Mesh" and chain ~= nil then for index, previous in ipairs(live) do if previous.PlayId == item.PlayId and previous.Layer.Chain == chain and previous.Volume ~= nil then predecessor = index break end end if predecessor == nil and not item.ChainHead then return end end if predecessor == nil and #live >= tier.Layers and not makeRoom(item, tier.Layers) then'
 				)
 			).toBe(true)
 			expect(

@@ -320,7 +320,11 @@ describe("a dash's sketch", function()
 			1,
 			true
 		)
-		local budget = activate:find("if predecessor == nil and #live >= tier.Layers then", 1, true)
+		local budget = activate:find(
+			"if predecessor == nil and #live >= tier.Layers and not makeRoom(item, tier.Layers) then",
+			1,
+			true
+		)
 		expect(gate).never.toBe(nil)
 		expect(budget).never.toBe(nil)
 		expect((gate :: number) < (budget :: number)).toBe(true)

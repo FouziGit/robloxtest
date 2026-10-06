@@ -5,6 +5,7 @@
 -- tests/GlyphVolumes.spec.luau (the volumes each glyph's bodies are drawn as).
 local Easing = require("./easing")
 local Engine = require("./engine")
+local QualityConfig = require("../src/shared/Config/QualityConfig")
 local VfxConfig = require("../src/shared/Config/VfxConfig")
 local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
@@ -194,7 +195,15 @@ local function body(name: string): any
 	return model
 end
 
-export type Client = { World: any, Caster: any, CasterBody: any, VictimBody: any, VfxLibrary: any }
+export type Client = {
+	World: any,
+	Caster: any,
+	CasterBody: any,
+	VictimBody: any,
+	Slab: any,
+	Others: { [number]: any },
+	VfxLibrary: any,
+}
 
 -- A fresh engine with the caster's client in it, its VfxLibrary loaded. TweenService eases as Roblox does
 -- (tests/easing.luau), for a spec that runs the effects runtime itself.
@@ -207,6 +216,8 @@ function GlyphPackets.client(): Client
 	slab.Position = roblox.Vector3.new(0, 3, 0)
 	slab.CFrame = roblox.CFrame.new(0, 3, 0)
 	slab.Size = roblox.Vector3.new(12, 8, 1)
+	-- Other players a spec adds (Client.Others, by UserId): their casts follow their own bodies.
+	local others: { [number]: any } = {}
 	local casterPlayer = {
 		UserId = GlyphPackets.Caster,
 		Name = "Caster",
@@ -222,7 +233,7 @@ function GlyphPackets.client(): Client
 					return { casterPlayer }
 				end,
 				GetPlayerByUserId = function(_self: any, userId: number): any
-					return if userId == GlyphPackets.Caster then casterPlayer else nil
+					return if userId == GlyphPackets.Caster then casterPlayer else others[userId]
 				end,
 				PlayerAdded = Engine.signal(),
 				PlayerRemoving = Engine.signal(),
@@ -244,8 +255,75 @@ function GlyphPackets.client(): Client
 		Caster = casterPlayer,
 		CasterBody = casterBody,
 		VictimBody = victimBody,
+		Slab = slab,
+		Others = others,
 		VfxLibrary = world.require("src/client/Controllers/VfxLibrary"),
 	}
+end
+
+export type Runtime = { Client: Client, World: any, Pool: any, Timeline: any, Refused: { [string]: number } }
+
+-- The effects runtime itself -- VfxTimeline, VfxVolumes, VfxPool -- started on a fresh client, on the quality
+-- tier `tier`, over a floor at y = 0, with a camera, as the client bootstrap starts it; Refused counts the
+-- borrows the pool refuses, by class.
+function GlyphPackets.runtime(tier: string): Runtime
+	local Client = GlyphPackets.client()
+	local world = Client.World
+	-- A floor under everything, as the ground probe finds it; a camera; one call that moves many parts.
+	local floor = Engine.instance("Part", world.workspace)
+	floor.Name = "Floor"
+	world.workspace.Raycast = function(_self: any, from: any, toward: any, _params: any): any
+		if from.Y >= 0 and from.Y + toward.Y <= 0 then
+			return { Position = roblox.Vector3.new(from.X, 0, from.Z), Normal = roblox.Vector3.yAxis, Instance = floor }
+		end
+		return nil
+	end
+	world.workspace.BulkMoveTo = function(_self: any, parts: { any }, frames: { any }, _mode: any)
+		for index, part in ipairs(parts) do
+			part.CFrame = frames[index]
+		end
+	end
+	world.workspace.CurrentCamera.CFrame =
+		roblox.CFrame.lookAt(roblox.Vector3.new(0, 10, 25), roblox.Vector3.new(0, 3, 0))
+
+	local Pool = world.require("src/client/Controllers/VfxPool")
+	local Timeline = world.require("src/client/Controllers/VfxTimeline")
+	-- Every borrow the pool refuses, by class: a ceiling a scene meets.
+	local refused: { [string]: number } = {}
+	local lender = setmetatable({
+		acquire = function(className: string): any
+			local instance = Pool.acquire(className)
+			if instance == nil then
+				refused[className] = (refused[className] or 0) + 1
+			end
+			return instance
+		end,
+	}, { __index = Pool })
+	Pool.Init()
+	Timeline.Init({
+		VfxPool = lender,
+		Feel = {
+			motionAllowed = function(): boolean
+				return true
+			end,
+			shakeAt = function() end,
+		},
+		QualityController = {
+			def = function(): any
+				return QualityConfig.Tiers[tier]
+			end,
+		},
+		WorldLighting = { pulse = function() end },
+		SoundController = {
+			play = function(): any
+				return nil
+			end,
+			duck = function() end,
+		},
+	})
+	Pool.Start()
+	Timeline.Start()
+	return { Client = Client, World = world, Pool = Pool, Timeline = Timeline, Refused = refused }
 end
 
 -- The value a packet carries for `key`, written `expression` in GlyphEffects: the glyph's own config when the

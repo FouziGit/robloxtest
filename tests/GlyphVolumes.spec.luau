@@ -8,12 +8,10 @@
 -- its VfxLibrary handler, into the real VfxTimeline, VfxVolumes and VfxPool, frame by frame on the engine's
 -- clock, on the High tier, over a floor; and it looks at what is in the Workspace each frame -- the parts that
 -- carry a SpecialMesh, as Roblox would draw them.
-local Engine = require("./engine")
 local GlyphConfig = require("../src/shared/Config/GlyphConfig")
 local GlyphPackets = require("./glyphpackets")
 local Harness = require("./harness")
 local MeshConfig = require("../src/shared/Config/MeshConfig")
-local QualityConfig = require("../src/shared/Config/QualityConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
 local roblox = require("@lune/roblox") :: any
 
@@ -23,51 +21,10 @@ local FRAME = 1 / 60
 -- Long enough for the longest glyph to have drawn and released everything (the Margin's wall stands five).
 local LONGEST_SECONDS = 8
 
-local Client = GlyphPackets.client()
-local world = Client.World
-
--- A floor under everything, as the ground probe finds it; a camera; one call that moves many parts.
-local floor = Engine.instance("Part", world.workspace)
-floor.Name = "Floor"
-world.workspace.Raycast = function(_self: any, from: any, toward: any, _params: any): any
-	if from.Y >= 0 and from.Y + toward.Y <= 0 then
-		return { Position = roblox.Vector3.new(from.X, 0, from.Z), Normal = roblox.Vector3.yAxis, Instance = floor }
-	end
-	return nil
-end
-world.workspace.BulkMoveTo = function(_self: any, parts: { any }, frames: { any }, _mode: any)
-	for index, part in ipairs(parts) do
-		part.CFrame = frames[index]
-	end
-end
-world.workspace.CurrentCamera.CFrame = roblox.CFrame.lookAt(roblox.Vector3.new(0, 10, 25), roblox.Vector3.new(0, 3, 0))
-
-local Pool = world.require("src/client/Controllers/VfxPool")
-local Timeline = world.require("src/client/Controllers/VfxTimeline")
-Pool.Init()
-Timeline.Init({
-	VfxPool = Pool,
-	Feel = {
-		motionAllowed = function(): boolean
-			return true
-		end,
-		shakeAt = function() end,
-	},
-	QualityController = {
-		def = function(): any
-			return QualityConfig.Tiers.High
-		end,
-	},
-	WorldLighting = { pulse = function() end },
-	SoundController = {
-		play = function(): any
-			return nil
-		end,
-		duck = function() end,
-	},
-})
-Pool.Start()
-Timeline.Start()
+local Runtime = GlyphPackets.runtime("High")
+local Client = Runtime.Client
+local world = Runtime.World
+local Timeline = Runtime.Timeline
 
 -- Which mesh a SpecialMesh draws, by its id; and the Role each mesh is drawn in.
 local keyOf: { [string]: string } = {}

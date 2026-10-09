@@ -142,6 +142,8 @@ type State = {
 	MeleeLastHitAt: number,
 	MeleeCooldownUntil: number,
 	SpawnProtectedUntil: number,
+	-- The protection is a bubble (protect): it never holds its wearer's own blow back, and that blow bursts it.
+	BubbleBursts: boolean,
 	KillCredited: boolean, -- this character's death was already credited (ApplyDamage or onDied)
 	-- The zone the last player's blow on this character was dealt in (ZoneConfig): what pays for a death credited to
 	-- that player later (creditDeath), wherever they have gone since. nil until a player hurts this body.
@@ -874,6 +876,7 @@ local function resetState(state: State, now: number, character: Model?)
 	state.MeleeLastHitAt = 0
 	state.MeleeCooldownUntil = 0
 	state.SpawnProtectedUntil = now + GameConfig.Spawn.ProtectionSeconds
+	state.BubbleBursts = false
 	state.KillCredited = false
 	state.LastBlowZone = nil
 	state.HitMemory = {}
@@ -1000,6 +1003,7 @@ local function onPlayerAdded(player: Player)
 		MeleeLastHitAt = 0,
 		MeleeCooldownUntil = 0,
 		SpawnProtectedUntil = 0,
+		BubbleBursts = false,
 		KillCredited = false,
 		LastBlowZone = nil,
 		HitMemory = {},
@@ -1135,7 +1139,10 @@ local function refuses(source: Player?, targetModel: Model, now: number): boolea
 	end
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
-	if isSpawnProtected(stateOf(source), sourceCharacter, now) or isSpawnProtected(targetState, targetModel, now) then
+	local sourceState = stateOf(source)
+	local sourceHeld = isSpawnProtected(sourceState, sourceCharacter, now)
+		and not (sourceState ~= nil and sourceState.BubbleBursts)
+	if sourceHeld or isSpawnProtected(targetState, targetModel, now) then
 		return true
 	end
 	-- A body on the ground is untouchable until it stands (D-113): it cannot act either, and a knockdown
@@ -1185,6 +1192,11 @@ function CombatService.ApplyDamage(
 	local sourceState = stateOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
+	-- A bubble bursts on the first blow its wearer strikes that gets this far, whether or not it lands (protect).
+	if sourceState ~= nil and sourceState.BubbleBursts then
+		sourceState.BubbleBursts = false
+		sourceState.SpawnProtectedUntil = 0
+	end
 
 	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
@@ -1769,6 +1781,33 @@ function CombatService.hasLiveBody(player: Player): boolean
 	return state ~= nil and liveCharacter(state) ~= nil
 end
 
+-- A bubble on `player` for `seconds` from now (the Battleground's arrival, D-282): nobody hurts them while it holds,
+-- and the first blow they strike themselves bursts it (ApplyDamage). It replaces the hub's spawn protection on this
+-- body, the SpawnLocation's ForceField included, which no blow could burst.
+function CombatService.protect(player: Player, seconds: number)
+	local state = states[player]
+	if state == nil then
+		return
+	end
+	state.SpawnProtectedUntil = os.clock() + seconds
+	state.BubbleBursts = true
+	local character = player.Character
+	if character ~= nil then
+		for _, child in ipairs(character:GetChildren()) do
+			if child:IsA("ForceField") then
+				child:Destroy()
+			end
+		end
+	end
+end
+
+-- Whether nobody may hurt `player` now: the hub's spawn protection or a bubble still holds. The Battleground pays
+-- nothing for a victim under either (D-282).
+function CombatService.isProtected(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and isSpawnProtected(state, player.Character, os.clock())
+end
+
 -- Whether `player` is kept in a hold now, whoever opened it: what refuses every other glyph (GlyphService).
 function CombatService.isChanneling(player: Player): boolean
 	local state = states[player]
@@ -1776,9 +1815,10 @@ function CombatService.isChanneling(player: Player): boolean
 end
 
 -- The owner of a zone (ZoneConfig) says who it holds and, where players may hurt each other there, which pairs may
--- (E16-S1): MatchService its participants, WorldBossService the players its fight engaged, FlyleafService its
--- members. The rules run after spawn protection, i-frames and a body on the ground. One owner per zone: the hub is
--- everybody no owner holds and is claimed by nobody, and a zone whose players may hurt each other needs its Pair.
+-- (E16-S1): MatchService its participants, WorldBossService the players its fight engaged, FlyleafService and
+-- BattlegroundService their members. The rules run after spawn protection, i-frames and a body on the ground. One
+-- owner per zone: the hub is everybody no owner holds and is claimed by nobody, and a zone whose players may hurt
+-- each other needs its Pair.
 function CombatService.claimZone(zone: ZoneId, claim: ZoneClaim)
 	local rule = ZONE_RULES[zone]
 	if rule == nil or zone == ZoneConfig.Fallback then

@@ -4,7 +4,8 @@
 -- server, in no match, not taken by the Erasure's event, and standing on the page by the position the server
 -- TRUSTS. Whoever fails is let go, and told so (BattlegroundChanged nil). So every way out another service
 -- takes -- a match that starts, the event pulling them in, a teleport home -- ends the membership on its own,
--- with no hook in any of those services.
+-- with no hook in any of those services. Every admission -- through the gate or back from a death -- puts the
+-- arrival bubble on the member (CombatService.protect, D-282).
 --
 -- Each tick also keeps what the Forgers and the rewards read off a member: how long they have been out of
 -- reach of the floor, when they last stood outside the camp, and the camp's heal.
@@ -164,6 +165,7 @@ function Roster.admit(player: Player, character: Model, landing: Vector3, now: n
 		Trove = Trove.new(),
 	}
 	members[player] = member
+	deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid ~= nil then
 		member.Trove:Connect(humanoid.Died, function()

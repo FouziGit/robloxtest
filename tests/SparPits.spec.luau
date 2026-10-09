@@ -360,6 +360,7 @@ local function nextBodyToCamp(claim: (roster: any, player: any) -> ()): boolean
 			trustedPosition = function(): any
 				return nil
 			end,
+			protect = function() end,
 		},
 		Match = {
 			isInMatch = function(): boolean

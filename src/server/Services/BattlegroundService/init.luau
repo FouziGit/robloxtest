@@ -1,7 +1,8 @@
 --!strict
--- BattlegroundService: the Battleground (D-131), a permanent page built in code at world X = 1500 where the
--- Forgers -- server-owned ink figures driven by BotBrain -- come at whoever walks in. PvE only: the PvP rule
--- MatchService installs already lets server-authored damage through and nothing else.
+-- BattlegroundService: the Battleground (D-131, D-282), a permanent page built in code at world X = 1500 where every
+-- member may hurt every other and the Forgers -- server-owned ink figures driven by BotBrain -- come at all of them.
+-- The page claims the Battleground zone (CombatService.claimZone): its members, any pair of them. Whoever is admitted
+-- wears a bubble for ArrivalProtectionSeconds (Roster.admit), and a member's kill of another is paid by Rewards.
 --
 -- This module owns the lifecycle, the public API and the one Heartbeat accumulator every Forger and every
 -- member is stepped from: the roster (Roster), how many Forgers the page holds for how many active members,
@@ -629,6 +630,14 @@ function BattlegroundService.Start()
 	trove:Add(deps.Combat.Shoved:Connect(onShoved))
 	trove:Add(deps.Combat.Controlled:Connect(onControlled))
 	trove:Add(deps.Movement.BodyLost:Connect(Roster.lost))
+	deps.Combat.claimZone("Battleground", {
+		Holds = function(player: Player): boolean
+			return Roster.get(player) ~= nil
+		end,
+		Pair = function(_source: Player, _target: Player): boolean
+			return true
+		end,
+	})
 	trove:Connect(Players.PlayerAdded, Roster.track)
 	trove:Connect(Players.PlayerRemoving, onPlayerRemoving)
 	for _, player in ipairs(Players:GetPlayers()) do

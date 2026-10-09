@@ -296,6 +296,26 @@ describe("a member", function()
 	end)
 end)
 
+describe("the page's free-for-all (D-282)", function()
+	it("claims the Battleground zone for its members, any pair of them", function()
+		local start = body(module("init"), "function BattlegroundService.Start(", "init")
+		expect(start).toContain(
+			'deps.Combat.claimZone("Battleground", { Holds = function(player: Player): boolean return Roster.get(player) ~= nil end, Pair = function(_source: Player, _target: Player): boolean return true end, })'
+		)
+	end)
+
+	it("puts the arrival bubble on every member it admits, through the gate or back from a death", function()
+		local admit = body(module("Roster"), "function Roster.admit(", "Roster")
+		expect(
+			ordered(
+				admit,
+				"members[player] = member",
+				"deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)"
+			)
+		).toBe(true)
+	end)
+end)
+
 describe("a Forger's kill", function()
 	it("is credited once, by model, and only where a Forger could have answered", function()
 		local init = module("init")

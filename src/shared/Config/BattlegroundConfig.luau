@@ -251,4 +251,8 @@ BattlegroundConfig.BoundsDepthStuds = 0.5
 -- BotConfig.Reach.UnreachableHeightStuds, above or below, is off the floor.
 BattlegroundConfig.StandingRootStuds = 3.5
 
+-- Arriving, and every time a member comes back to the page, nobody hurts them for this long; the first blow they
+-- strike themselves ends it at once (CombatService.protect).
+BattlegroundConfig.ArrivalProtectionSeconds = 3
+
 return BattlegroundConfig

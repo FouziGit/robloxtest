@@ -111,8 +111,6 @@ export type Layout = {
 	Bounds: Rect,
 	-- The square the waypoints cover: a Forger's goal is never past it.
 	Roam: Rect,
-	-- Every solid part that stands in a Forger's way (not the floor, not the dais), as its print.
-	Obstacles: { Print },
 	-- The obstacles and the camp, each grown by PathRadius: where no waypoint lies and no straight walk crosses.
 	Blocked: { Print },
 	Nodes: { Point },
@@ -184,19 +182,6 @@ end
 function BattlegroundLayout.inPrint(print: Print, x: number, z: number): boolean
 	local lx, lz = toPrint(print, x, z)
 	return math.abs(lx) <= print.HalfX and math.abs(lz) <= print.HalfZ
-end
-
--- The print's four corners on the ground.
-function BattlegroundLayout.corners(print: Print): { Point }
-	local out: { Point } = {}
-	for _, sign in ipairs({ { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } }) do
-		local lx, lz = sign[1] * print.HalfX, sign[2] * print.HalfZ
-		table.insert(
-			out,
-			{ X = print.X + lx * print.Cos + lz * print.Sin, Z = print.Z - lx * print.Sin + lz * print.Cos }
-		)
-	end
-	return out
 end
 
 ----------------------------------------------------------------
@@ -564,7 +549,6 @@ function BattlegroundLayout.build(map: MapDef, dressing: Dressing, pathRadius: n
 		Camp = map.Camp,
 		Bounds = { MinX = -half, MaxX = half, MinZ = -half, MaxZ = half },
 		Roam = { MinX = -roam, MaxX = roam, MinZ = -roam, MaxZ = roam },
-		Obstacles = {},
 		Blocked = { rectPrint(BattlegroundLayout.inflate(map.Camp, pathRadius)) },
 		Nodes = {},
 		Edges = {},
@@ -572,9 +556,7 @@ function BattlegroundLayout.build(map: MapDef, dressing: Dressing, pathRadius: n
 	}
 	for _, box in ipairs(boxes) do
 		if box.Solid and not GROUND[box.Role] then
-			local print = BattlegroundLayout.printOf(box)
-			table.insert(layout.Obstacles, print)
-			table.insert(layout.Blocked, BattlegroundLayout.grow(print, pathRadius))
+			table.insert(layout.Blocked, BattlegroundLayout.grow(BattlegroundLayout.printOf(box), pathRadius))
 		end
 	end
 	addGraph(layout, map)

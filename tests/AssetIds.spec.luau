@@ -139,7 +139,7 @@ describe("AssetIds", function()
 		-- shape of the claim is checked, because a square texture with no measurement is a texture nobody
 		-- may draw a warning with, and the way it becomes one is somebody adding it to a timeline.
 		for key, asset in pairs(AssetIds.Textures) do
-			local square = asset.Width == asset.Height and asset.Columns == 1
+			local square = asset.Width == asset.Height and asset.Columns == 1 and not asset.Opaque
 			local ink = asset.Ink
 			if square and ink == nil then
 				error(("%s is square and carries no ink measurement"):format(key))
@@ -152,6 +152,18 @@ describe("AssetIds", function()
 				expect(ink.Least <= ink.Most).toBe(true)
 				-- The far corner of a square is at 1.414 half-widths: nothing reaches further.
 				expect(ink.Most <= 1.415).toBe(true)
+			end
+		end
+	end)
+
+	it("writes opaque RGB for an Opaque texture and white plus alpha for every other", function()
+		-- A Sky face is drawn as it is, so the sky is the one texture that is not a white tint mask. Byte 26
+		-- of a PNG is its colour type: 2 is RGB, 6 is RGBA.
+		for key, asset in pairs(AssetIds.Textures) do
+			local colourType = string.byte(fs.readFile(asset.Source), 26)
+			local expected = if asset.Opaque then 2 else 6
+			if colourType ~= expected then
+				error(("%s is colour type %d, expected %d"):format(key, colourType, expected))
 			end
 		end
 	end)

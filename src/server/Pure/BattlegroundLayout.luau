@@ -7,8 +7,9 @@
 --
 -- Local frame: x is east, z is south, and y = 0 is the floor's top face. A part turned by Yaw degrees is turned
 -- about +y as the engine turns it (CFrame.Angles(0, rad(Yaw), 0)): its own +x points along (cos, -sin) and its own
--- +z along (sin, cos). Everything a Forger decides happens on the ground plane (x, z); heights only matter to the
--- parts.
+-- +z along (sin, cos). A part tipped by Pitch degrees is then turned about its own x, round its centre
+-- (* CFrame.Angles(rad(Pitch), 0, 0)): a positive Pitch raises its own -z end. Everything a Forger decides happens on
+-- the ground plane (x, z); heights only matter to the parts.
 
 export type Point = { X: number, Z: number }
 export type Rect = { MinX: number, MaxX: number, MinZ: number, MaxZ: number }
@@ -22,6 +23,7 @@ export type Piece = {
 	Base: number,
 	Size: { number },
 	Yaw: number?,
+	Pitch: number?,
 }
 export type Mark = {
 	Name: string,
@@ -133,6 +135,8 @@ export type Box = {
 	SizeY: number,
 	SizeZ: number,
 	Yaw: number,
+	-- Tipped about its own x after its Yaw, nil for level.
+	Pitch: number?,
 	Solid: boolean,
 	Transparency: number,
 }
@@ -203,11 +207,13 @@ end
 
 function BattlegroundLayout.printOf(box: Box): Print
 	local yaw = math.rad(box.Yaw)
+	-- A tipped part reaches further along its own z than it is long: its height leans out over the ground too.
+	local pitch = math.rad(box.Pitch or 0)
 	return {
 		X = box.X,
 		Z = box.Z,
 		HalfX = box.SizeX / 2,
-		HalfZ = box.SizeZ / 2,
+		HalfZ = box.SizeZ / 2 * math.cos(pitch) + box.SizeY / 2 * math.abs(math.sin(pitch)),
 		Cos = math.cos(yaw),
 		Sin = math.sin(yaw),
 	}
@@ -575,10 +581,10 @@ end
 -- turned along the ring, minus the four breaches).
 local function addLandmarks(boxes: { Box }, map: MapDef)
 	for _, piece in ipairs(map.Pieces) do
-		table.insert(
-			boxes,
+		local box =
 			standing(piece.Name, "Landmark", piece.Shape, piece.X, piece.Z, piece.Base, piece.Size, piece.Yaw or 0)
-		)
+		box.Pitch = piece.Pitch
+		table.insert(boxes, box)
 	end
 	for _, book in ipairs(map.Books) do
 		addBook(boxes, book)
@@ -898,6 +904,8 @@ function BattlegroundLayout.clampGoal(layout: Layout, x: number, z: number): (nu
 end
 
 local FULL = { "Top", "Side", "Cover", "Ink" }
+-- The torn edge's variants (tools/meshes/page/edge.py), one per tab in turn.
+local EDGES = { "A", "B", "C" }
 
 local function meshesOf(kind: string, tones: { string }): { SkinMesh }
 	local out: { SkinMesh } = {}
@@ -990,11 +998,15 @@ function BattlegroundLayout.skins(layout: Layout, map: MapDef): { Skin }
 	local quill = map.Quill
 	add("FallenQuill", "Quill", FULL, prefixed("Quill"), {}, quill.X, 0, quill.Z, quill.Yaw, ONE)
 
+	-- The cliffs in two skins over one pivot: the rock and its boulders, and the books stacked and leaning on it.
 	local rock = boxes.FolioRock
 	local cliffs = chosen(function(name)
-		return string.sub(name, 1, 5) == "Folio" and string.sub(name, 1, 10) ~= "FolioLoose"
+		return string.sub(name, 1, 5) == "Folio"
+			and string.sub(name, 1, 10) ~= "FolioLoose"
+			and string.sub(name, 1, 9) ~= "FolioRock"
 	end)
-	add("FolioCliffs", "Folio", { "Top", "Side", "Cover", "Body", "Ink" }, cliffs, {}, rock.X, 0, rock.Z, 0, ONE)
+	add("FolioRock", "FolioRock", { "Top", "Side", "Ink" }, prefixed("FolioRock"), {}, rock.X, 0, rock.Z, 0, ONE)
+	add("FolioCliffs", "Folio", FULL, cliffs, {}, rock.X, 0, rock.Z, 0, ONE)
 	local loose = prefixed("FolioLoose")
 	scaled("LooseBook", { "Top", "Cover", "Ink" }, loose, sizeOf(loose[1]))
 
@@ -1061,6 +1073,30 @@ function BattlegroundLayout.skins(layout: Layout, map: MapDef): { Skin }
 		0,
 		ONE
 	)
+
+	-- The torn edge: every tab of the deckle keeps its box (the page's floor, drawn) under a torn lip and the paper's
+	-- cliff, a kind drawn once in EDGES variants for a tab torn 0 in -- the whole band -- and taken in turn, so no two
+	-- tabs side by side look alike. Its pivot is on the band's inner edge, turned to face out, its depth scaled to
+	-- the tab's so the cliff stands Skin.Out outside it.
+	local band = map.Deckle.BandStuds
+	local inner = map.Size / 2 - band
+	for _, name in ipairs(prefixed("Deckle")) do
+		local tab = boxes[name]
+		local x, z, yaw, along, depth = tab.X, -inner, 0, tab.SizeX, tab.SizeZ
+		if tab.Z > inner then
+			z, yaw = inner, 180
+		elseif tab.X < -inner then
+			x, z, yaw, along, depth = -inner, tab.Z, 90, tab.SizeZ, tab.SizeX
+		elseif tab.X > inner then
+			x, z, yaw, along, depth = inner, tab.Z, -90, tab.SizeZ, tab.SizeX
+		end
+		local variant = EDGES[tonumber(string.sub(name, 7)) :: number % #EDGES + 1]
+		add(name, "Edge" .. variant, { "Body", "Side", "Ink" }, {}, {}, x, 0, z, yaw, {
+			(along / 2 + skin.Out) / (map.Deckle.SlotStuds / 2 + skin.Out),
+			1,
+			(depth + skin.Out) / (band + skin.Out),
+		})
+	end
 
 	local stairs = prefixed("Stair")
 	table.insert(stairs, 1, "Dais")

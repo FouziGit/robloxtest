@@ -23,13 +23,14 @@ import paper
 import scrap
 import seal
 import shockwave
+import sky
 import smoke
 import sparks
 import spike
 import telegraph
 from vellum_png import MAX_BYTES, report
 
-MODULES = (smoke, sparks, spike, flame, ink, scrap, gradients, cracks, shockwave, paper, seal, brush, telegraph, explosion)
+MODULES = (smoke, sparks, spike, flame, ink, scrap, gradients, cracks, shockwave, paper, seal, brush, telegraph, sky, explosion)
 
 
 def main() -> int:

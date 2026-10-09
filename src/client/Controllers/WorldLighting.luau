@@ -27,6 +27,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
+local AssetIds = require(Shared.Config.AssetIds)
 local LightingConfig = require(Shared.Config.LightingConfig)
 local Log = require(Shared.Util.Log)
 local PulseEnvelope = require(Shared.Pure.PulseEnvelope)
@@ -161,16 +162,16 @@ local function findOrCreate(className: string): Instance?
 	return created
 end
 
--- The sky (LightingConfig.Sky): a Sky object whose six faces are empty, which removes Roblox's stock
--- skybox and hands the horizon to the Atmosphere.
+-- The sky (LightingConfig.Sky): a Sky object whose six faces carry the vellum sheet, which replaces
+-- Roblox's stock blue skybox (and the blue it lights the world with).
 local function applySky()
 	local sky = findOrCreate("Sky")
 	if sky == nil then
 		return
 	end
 	assign(sky, "CelestialBodiesShown", LightingConfig.Sky.CelestialBodiesShown)
-	for _, face in ipairs(LightingConfig.Sky.Faces) do
-		assign(sky, face, "")
+	for face, textureId in pairs(LightingConfig.skyFaces(AssetIds.Textures.SkyVellum.Id)) do
+		assign(sky, face, textureId)
 	end
 end
 

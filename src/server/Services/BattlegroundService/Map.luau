@@ -13,8 +13,8 @@
 -- The solids -- the floor and its torn edge, the dais, the cover and the landmarks -- also carry
 -- MovementGuardConfig.BarrierTag: the geometry no body may pass through, which is all the movement audit casts
 -- its noclip ray against. The kill plane, the ink drawn on the page and the camp touch nothing and are left out.
--- A box is a block, a wedge or a cylinder, turned by its Yaw about the vertical; a cylinder's axis is the engine's
--- x, so it is laid on its side to stand on its flat face.
+-- A box is a block, a wedge or a cylinder, turned by its Yaw about the vertical and tipped by its Pitch about its
+-- own x (a leaning book); a cylinder's axis is the engine's x, so it is laid on its side to stand on its flat face.
 --
 -- The landmarks are drawn as ink volumes (D-283): BattlegroundLayout.skins places the meshes tools/meshes/page/
 -- generated over their boxes, each a part that touches nothing, and the boxes it covers go invisible but still
@@ -110,7 +110,9 @@ end
 -- One box of the layout. A solid collides and can be hit by a query; the rest -- the ruling, the camp's wash, the
 -- bed, the ink marks -- is drawn on the page and is nothing to the physics.
 local function buildBox(box: BattlegroundLayout.Box, parent: Model): BasePart
-	local frame = CFrame.new(Context.toWorld(box.X, box.Y, box.Z)) * CFrame.Angles(0, math.rad(box.Yaw), 0)
+	local frame = CFrame.new(Context.toWorld(box.X, box.Y, box.Z))
+		* CFrame.Angles(0, math.rad(box.Yaw), 0)
+		* CFrame.Angles(math.rad(box.Pitch or 0), 0, 0)
 	local size = Vector3.new(box.SizeX, box.SizeY, box.SizeZ)
 	if box.Shape == "Cylinder" then
 		frame *= CYLINDER_UPRIGHT

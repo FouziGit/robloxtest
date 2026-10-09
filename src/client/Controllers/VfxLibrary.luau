@@ -847,6 +847,7 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 		Follow = casterRoot(packet),
 		Hand = casterHand(packet),
 		Reach = if struck then toFirst.Magnitude else math.max(numberParam(packet, "Range", def.Range), 1),
+		Radius = def.Params.HitRadius,
 	})
 	for index = 1, #points - 1 do
 		local from, to = points[index], points[index + 1]
@@ -860,6 +861,7 @@ VfxLibrary.Colophon = function(packet: Packet, _trove: TroveType, api: Api)
 				Pigment = def.Pigment,
 				Shade = shade,
 				Reach = jump.Magnitude,
+				Radius = def.Params.HitRadius,
 			})
 		end
 	end

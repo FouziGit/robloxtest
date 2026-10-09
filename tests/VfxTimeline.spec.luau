@@ -857,7 +857,7 @@ describe("vfx timelines", function()
 			if span == nil then
 				return
 			end
-			if layer.Kind ~= "Sprite" and layer.Kind ~= "Mark" then
+			if layer.Kind ~= "Sprite" and layer.Kind ~= "Mark" and layer.Kind ~= "Mesh" then
 				error(("timeline %s / %s gives a %s layer a span"):format(id, phase.Name, layer.Kind))
 			end
 			if span <= 0 then

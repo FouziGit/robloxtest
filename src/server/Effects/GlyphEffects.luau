@@ -754,6 +754,8 @@ function GlyphEffects.Serif(ctx: Context): number
 			Spacing = params.Spacing,
 			StartOffset = params.StartOffset,
 			StepDelay = params.StepDelay,
+			-- What each point damages, and what the feet are drawn against (their SizeFrom).
+			Radius = params.HitRadius,
 			Pigment = ctx.Def.Pigment,
 		},
 	}, true)

@@ -98,6 +98,8 @@ type Scales = { Effect: number, Size: number, Span: number, Offset: number, Trav
 
 -- One layer in flight. `Instances` is everything it borrowed, released together when it ends.
 type Live = {
+	-- The timeline it belongs to, named when the layer budget cuts it.
+	Id: string,
 	Layer: Layer,
 	Context: Context,
 	Scales: Scales,
@@ -159,6 +161,8 @@ type Pending = {
 	-- The first link of its Chain in its play (false for a layer with no Chain): the only link that may
 	-- draw its volume from nothing.
 	ChainHead: boolean,
+	-- An ink contour's body: the number of the layer whose volume it is drawn around (VfxTimelineConfig.contours).
+	Body: number?,
 	-- A dash print waiting for its body (VolumeMath.printDecision): when that body was first seen moving.
 	MovedAt: number?,
 }
@@ -190,7 +194,11 @@ local warnedFollow: { [string]: boolean } = {}
 local warnedMeasures: { [string]: boolean } = {}
 local warnedVoices: { [string]: boolean } = {}
 local nextPlayId = 0
+-- Whether the layer budget has been reached this session; the timelines whose bodies it has cut, each named
+-- once (D-281); and the body volumes it has cut short or never drawn this session (stats).
 local overBudgetWarned = false
+local bodyCutWarned: { [string]: boolean } = {}
+local bodiesLost = 0
 
 local FORWARD_FALLBACK = Vector3.new(0, 0, -1)
 local GROUND_PROBE_STUDS = 24
@@ -1335,6 +1343,73 @@ local function keepSound(playId: number, started: Sound)
 	table.insert(list, started)
 end
 
+-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a six-player
+-- exchange loses effects rather than frames -- but never a warning. A telegraph is laid at the start of a
+-- two-second window and is the longest-lived thing on screen, so "oldest first" would retire exactly the
+-- layers six players are reading, in the fight that fills the budget. The oldest ordinary layer goes instead;
+-- if there is none, an ordinary newcomer is the one not drawn, and a warning is drawn over budget.
+-- Never a warning, and never a CARRIER. A carrier is an invisible part that flies, and everything visible about
+-- a projectile is some other layer riding it: retiring the carrier frees one layer of budget, keeps every
+-- instance it was carrying, and leaves the trail and the smoke frozen at the cast point while the server's
+-- projectile flies on. Nor a volume riding a carrier: that is the projectile's own body, the threat itself
+-- (D-114).
+-- And a glyph's body last (D-281): a mark, a spark or a light goes before any body. Oldest-first struck a
+-- Caret's strike-out off the page for the sparks of the casts after it, a body in eight on Medium in a seeded
+-- six-caster fight (tests/FightBudget.spec.luau); with bodies last, none. When only bodies are left to give,
+-- the oldest form goes whole -- its pigment, core and ink began together -- rather than leave an ink hull or a
+-- core alone.
+-- Whether `item` may be drawn. The budget is said once a session; a body it cuts, once for each timeline.
+local function makeRoom(item: Pending, layers: number): boolean
+	local victim: number? = nil
+	local standing: number? = nil
+	for index, entry in ipairs(live) do
+		local kind = entry.Layer.Kind
+		if not entry.Warning and kind ~= "Carrier" then
+			if kind ~= "Mesh" then
+				victim = index
+				break
+			elseif standing == nil and entry.Layer.Ride ~= true then
+				standing = index
+			end
+		end
+	end
+	local cut: string? = nil
+	if victim ~= nil then
+		releaseLive(table.remove(live, victim) :: Live)
+	elseif standing ~= nil then
+		local oldest = live[standing]
+		local index = standing
+		while index <= #live do
+			local entry = live[index]
+			local mate = entry.PlayId == oldest.PlayId and entry.StartedAt == oldest.StartedAt
+			if mate and entry.Layer.Kind == "Mesh" and entry.Layer.Ride ~= true and not entry.Warning then
+				table.remove(live, index)
+				local volume = entry.Volume
+				if volume ~= nil then
+					-- Gone: an ink contour still reading it hides with it (VolumeMath.drawnTransparency).
+					volume.Drawn = 1
+				end
+				releaseLive(entry)
+				bodiesLost += 1
+			else
+				index += 1
+			end
+		end
+		cut = oldest.Id
+	elseif not item.Warning and item.Layer.Kind == "Mesh" then
+		bodiesLost += 1
+		cut = item.Id
+	end
+	if cut ~= nil and not bodyCutWarned[cut] then
+		bodyCutWarned[cut] = true
+		log.warn("vfx layer budget of %d reached: a body of %s was cut short (said once for %s)", layers, cut, cut)
+	elseif not overBudgetWarned then
+		overBudgetWarned = true
+		log.warn("vfx layer budget of %d reached; oldest layers are retired early", layers)
+	end
+	return victim ~= nil or standing ~= nil or item.Warning
+end
+
 local function activate(item: Pending, now: number)
 	local id = item.Id
 	local layer = item.Layer
@@ -1477,40 +1552,8 @@ local function activate(item: Pending, now: number)
 		end
 	end
 
-	if predecessor == nil and #live >= tier.Layers then
-		-- Art bible rule 8: density is capped. Past the cap the oldest layer is retired early, so a
-		-- six-player exchange loses effects rather than frames -- but never a warning. A telegraph is
-		-- laid at the start of a two-second window and is the longest-lived thing on screen, so "oldest
-		-- first" would retire exactly the layers six players are reading, in the fight that fills the
-		-- budget. The oldest ordinary layer goes instead; if there is none, an ordinary newcomer is the
-		-- one not drawn, and a warning is drawn over budget.
-		-- Never a warning, and never a CARRIER. A carrier is an invisible part that flies, and everything
-		-- visible about a projectile is some other layer riding it: retiring the carrier frees one layer of
-		-- budget, keeps every instance it was carrying, and leaves the trail and the smoke frozen at the
-		-- cast point while the server's projectile flies on. It is also the oldest layer of its own play,
-		-- so "oldest first" chose it first -- which never mattered while the budget was ninety and became
-		-- routine the moment the lower tiers arrived.
-		local victim: number? = nil
-		for index, entry in ipairs(live) do
-			-- Nor a volume riding a carrier: that is the projectile's own body, the threat itself (D-114).
-			local body = entry.Layer.Kind == "Mesh" and entry.Layer.Ride == true
-			if not entry.Warning and entry.Layer.Kind ~= "Carrier" and not body then
-				victim = index
-				break
-			end
-		end
-		if victim ~= nil then
-			local retired = table.remove(live, victim)
-			if retired ~= nil then
-				releaseLive(retired)
-			end
-		elseif not item.Warning then
-			return
-		end
-		if not overBudgetWarned then
-			overBudgetWarned = true
-			log.warn("vfx layer budget of %d reached; oldest layers are retired early", tier.Layers)
-		end
+	if predecessor == nil and #live >= tier.Layers and not makeRoom(item, tier.Layers) then
+		return
 	end
 
 	if layer.Follow == true and context.Follow == nil then
@@ -1563,6 +1606,7 @@ local function activate(item: Pending, now: number)
 		lives += VfxTimelineConfig.Land.Grace
 	end
 	local entry: Live = {
+		Id = id,
 		Layer = layer,
 		Context = context,
 		Scales = scales,
@@ -1616,6 +1660,19 @@ local function activate(item: Pending, now: number)
 		VfxVolumes.buildAfterimage(entry, context.Follow)
 	elseif layer.Kind == "Outline" then
 		buildOutline(entry, layer)
+	end
+
+	local outlined = item.Body
+	local volume = entry.Volume
+	if outlined ~= nil and volume ~= nil and predecessor == nil then
+		-- An ink contour is drawn only over an opaque body (D-280): it reads the volume its body is, which
+		-- began the same frame, declared before it.
+		for _, other in ipairs(live) do
+			if other.PlayId == item.PlayId and other.LayerIndex == outlined and other.Volume ~= nil then
+				volume.Body = other.Volume
+				break
+			end
+		end
 	end
 
 	if entry.Primary == nil then
@@ -1762,6 +1819,9 @@ local function onHeartbeat(deltaTime: number)
 	end
 
 	index = 1
+	-- Ink contours are stepped after every body, so each reads the transparency its body is drawn at this
+	-- frame, never the last one's (D-280).
+	local contours: { Live } = {}
 	while index <= #live do
 		local entry = live[index]
 		local now = if entry.Steady then steadyNow else heldNow
@@ -1769,10 +1829,19 @@ local function onHeartbeat(deltaTime: number)
 			releaseLive(entry)
 			table.remove(live, index)
 		else
-			-- Spins and other per-frame motion advance on the entry's own clock too.
-			stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
+			local volume = entry.Volume
+			if volume ~= nil and volume.Body ~= nil then
+				table.insert(contours, entry)
+			else
+				-- Spins and other per-frame motion advance on the entry's own clock too.
+				stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
+			end
 			index += 1
 		end
+	end
+	for _, entry in ipairs(contours) do
+		local now = if entry.Steady then steadyNow else heldNow
+		stepLive(entry, now, deltaTime * (if entry.Steady then steadyRate else rate))
 	end
 end
 
@@ -1799,6 +1868,7 @@ function VfxTimeline.play(id: string, context: Context): (boolean, number?)
 	local layerIndex = 0
 	-- The chains this play has already begun: the first layer naming one is its head.
 	local begun: { [string]: boolean } = {}
+	local contours = VfxTimelineConfig.contours(id)
 	for _, name in ipairs(VfxTimelineConfig.PhaseOrder) do
 		for _, phase in ipairs(timeline.Phases) do
 			if phase.Name == name then
@@ -1832,6 +1902,7 @@ function VfxTimeline.play(id: string, context: Context): (boolean, number?)
 						Phase = name :: string,
 						LayerIndex = layerIndex,
 						ChainHead = head,
+						Body = contours[layerIndex],
 					})
 				end
 				phaseStart += seconds
@@ -2002,8 +2073,8 @@ end
 -- What the runtime is carrying right now, and the particles alive on this screen against their budget
 -- (VfxParticles). docs/PERFORMANCE.md reads it, the Studio lab's stress run too, and so does anyone wondering
 -- whether an effect leaked.
-function VfxTimeline.stats(): { Pending: number, Live: number, Particles: number }
-	return { Pending = #pending, Live = #live, Particles = VfxParticles.live() }
+function VfxTimeline.stats(): { Pending: number, Live: number, Particles: number, BodiesLost: number }
+	return { Pending = #pending, Live = #live, Particles = VfxParticles.live(), BodiesLost = bodiesLost }
 end
 
 function VfxTimeline.Init(deps: Deps)

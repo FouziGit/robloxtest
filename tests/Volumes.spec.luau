@@ -428,6 +428,9 @@ describe("the volumes on screen", function()
 			["Hit/Crescent"] = true,
 			-- The page torn up by the wipe (D-119): the charcoal crescent and the spurts already say it.
 			["Sweep/Debris"] = true,
+			-- The Spiral's pale cords (<= 6 % of the bowl, reaching only to 0.82 of its edge): the pigment and the ink
+			-- already carry the pull and the edge.
+			["Spiral/SpiralCore"] = true,
 		}
 		local found: { [string]: boolean } = {}
 		for _, placed in ipairs(volumes()) do
@@ -478,8 +481,8 @@ describe("the arithmetic of a volume (VolumeMath)", function()
 		local crown = MeshConfig.get("Crown") :: MeshConfig.Mesh
 		local _, up = VolumeMath.pivotOffset(crown.Min, crown.Max, crown.Pivot, 3, 2, 3)
 		expect(up - (crown.Max[2] - crown.Min[2])).toBeCloseTo(0, 9)
-		-- The drop's round head is on its pivot and its tail trails behind it (+Z: a flight looks down -Z).
-		local drop = MeshConfig.get("Drop") :: MeshConfig.Mesh
+		-- The Blot's teardrop: its head is on its pivot and its tail trails behind it (+Z: a flight looks down -Z).
+		local drop = MeshConfig.get("BlotTeardropBody") :: MeshConfig.Mesh
 		local _, _, along = VolumeMath.pivotOffset(drop.Min, drop.Max, drop.Pivot, 1, 1, 1)
 		expect(along).toBeGreaterThan(0)
 	end)
@@ -591,7 +594,13 @@ describe("the runtime of a volume", function()
 		-- Faded on the ink's clock, dried like every mark, drawn opaque below a hair of transparency.
 		expect(has(step, "kit.fadeOf(layer, elapsed, alpha, 0)")).toBe(true)
 		expect(has(step, "part.Color = wet:Lerp(dry, kit.driedBy(entry, now))")).toBe(true)
-		expect(has(step, "part.Transparency = if transparency < OPAQUE_BELOW then 0 else transparency")).toBe(true)
+		expect(
+			has(
+				step,
+				"local drawn = VolumeMath.drawnTransparency(transparency, if body ~= nil then body.Drawn else nil)"
+			)
+		).toBe(true)
+		expect(has(step, "volume.Drawn = drawn part.Transparency = drawn")).toBe(true)
 		-- Landed: the shape the landing found, splatted by VolumeMath.
 		expect(has(step, "local shape = if ending ~= nil and ending.Alpha ~= nil then ending.Alpha else alpha")).toBe(
 			true
@@ -671,9 +680,17 @@ describe("the runtime of a volume", function()
 				'elseif entry.Layer.Kind == "Mesh" and primary:IsA("BasePart") and (entry.Layer.Ride == true or (chain ~= nil and cut[chain])) then entry.Ending = { At = now, From = primary.Transparency, Alpha = eased(entry.Layer, progressOf(entry, now)) } entry.EndsAt = now + settings.Fade'
 			)
 		).toBe(true)
-		local activate = functionIn(TIMELINE, "local function activate(")
-		expect(has(activate, 'local body = entry.Layer.Kind == "Mesh" and entry.Layer.Ride == true')).toBe(true)
-		expect(has(activate, 'if not entry.Warning and entry.Layer.Kind ~= "Carrier" and not body then')).toBe(true)
+		-- The budget never retires a riding body: not as the layer it gives, nor with the form it gives whole.
+		local room = functionIn(TIMELINE, "local function makeRoom(")
+		expect(
+			has(
+				room,
+				'if not entry.Warning and kind ~= "Carrier" then if kind ~= "Mesh" then victim = index break elseif standing == nil and entry.Layer.Ride ~= true then standing = index end end'
+			)
+		).toBe(true)
+		expect(
+			has(room, 'if mate and entry.Layer.Kind == "Mesh" and entry.Layer.Ride ~= true and not entry.Warning then')
+		).toBe(true)
 	end)
 
 	it(
@@ -683,7 +700,7 @@ describe("the runtime of a volume", function()
 			expect(
 				has(
 					activate,
-					'local predecessor: number? = nil local chain = layer.Chain if layer.Kind == "Mesh" and chain ~= nil then for index, previous in ipairs(live) do if previous.PlayId == item.PlayId and previous.Layer.Chain == chain and previous.Volume ~= nil then predecessor = index break end end if predecessor == nil and not item.ChainHead then return end end if predecessor == nil and #live >= tier.Layers then'
+					'local predecessor: number? = nil local chain = layer.Chain if layer.Kind == "Mesh" and chain ~= nil then for index, previous in ipairs(live) do if previous.PlayId == item.PlayId and previous.Layer.Chain == chain and previous.Volume ~= nil then predecessor = index break end end if predecessor == nil and not item.ChainHead then return end end if predecessor == nil and #live >= tier.Layers and not makeRoom(item, tier.Layers) then'
 				)
 			).toBe(true)
 			expect(

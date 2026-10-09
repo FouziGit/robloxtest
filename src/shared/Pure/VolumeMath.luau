@@ -76,6 +76,25 @@ function VolumeMath.splatScale(splat: number): (number, number)
 	return 1 + SPLAT_WIDEN * splat, 1 - SPLAT_FLATTEN * splat
 end
 
+-- Below this, a transparency is drawn fully opaque: a volume in the transparent pass sorts against the
+-- ink under it and flickers, and nobody can see the difference between 0.02 and 0.
+VolumeMath.OpaqueBelow = 0.02
+
+-- The transparency a volume is drawn at, from the one its layer asks for (`own`) and, for an ink contour,
+-- the one its body is drawn at this frame (`body`). An ink contour is an inverted hull around its body, and
+-- Roblox does not sort two transparent parts that share a centre: over a body that is not opaque, the black
+-- hull wins and the body reads as a black shape (D-280). So the contour is drawn only over an opaque body,
+-- and is gone the frame its body begins to fade or has not finished fading in.
+function VolumeMath.drawnTransparency(own: number, body: number?): number
+	if body ~= nil and body > 0 then
+		return 1
+	end
+	if own ~= own then
+		return 1
+	end
+	return if own < VolumeMath.OpaqueBelow then 0 else math.min(own, 1)
+end
+
 -- How much of its size a scrap has `t` seconds after it was thrown: grown in, fast then easing.
 function VolumeMath.scrapGrow(t: number): number
 	local grown = clamp01(t / VolumeMath.GrowSeconds)

@@ -166,6 +166,11 @@ function Roster.admit(player: Player, character: Model, landing: Vector3, now: n
 	}
 	members[player] = member
 	deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)
+	-- What the other members' lock-on reads off this body (LockOnController); it goes with the membership.
+	character:SetAttribute(BattlegroundConfig.MemberAttribute, true)
+	member.Trove:Add(function()
+		character:SetAttribute(BattlegroundConfig.MemberAttribute, nil)
+	end)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid ~= nil then
 		member.Trove:Connect(humanoid.Died, function()

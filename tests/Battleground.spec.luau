@@ -11,6 +11,7 @@ local DailyStreak = require("../src/shared/Pure/DailyStreak")
 local Harness = require("./harness")
 local Server = require("./server")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -20,6 +21,7 @@ local COMBAT = "src/server/Services/CombatService.luau"
 local EFFECTS = "src/server/Effects/GlyphEffects.luau"
 local GLYPHS = "src/server/Services/GlyphService.luau"
 local BOOTSTRAP = "src/server/Bootstrap.server.luau"
+local LOCK_ON = "src/client/Controllers/LockOnController.luau"
 
 local function code(path: string): string
 	return ((fs.readFile(path)):gsub("%-%-[^\n]*", ""))
@@ -318,6 +320,51 @@ describe("the page's free-for-all (D-282)", function()
 				"deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)"
 			)
 		).toBe(true)
+	end)
+end)
+
+describe("the lock-on onto the page's members (D-282)", function()
+	it("marks a member's body for the lock, and takes the mark off when the page lets them go or they die", function()
+		local world = Server.world({ Stubs = { [DIR .. "Map"] = {} } })
+		local Roster = world.require(DIR .. "Roster")
+		Roster.Init({
+			Registry = { fire = function() end },
+			Combat = { protect = function() end },
+		}, { Arrivals = {} }, function(): number
+			return 0
+		end)
+		local mark = BattlegroundConfig.MemberAttribute
+		local function admitted(userId: number): (any, any, any)
+			local player = world:join(userId, "P" .. userId)
+			player:LoadCharacterAsync()
+			local character = player.Character
+			Roster.admit(player, character, roblox.Vector3.new(0, 0, 0), 0, 0)
+			return player, character, character:FindFirstChildOfClass("Humanoid")
+		end
+		local dropped, droppedBody = admitted(1)
+		expect(droppedBody:GetAttribute(mark)).toBe(true)
+		Roster.drop(dropped)
+		expect(droppedBody:GetAttribute(mark)).toBeNil()
+		local _, deadBody, humanoid = admitted(2)
+		expect(deadBody:GetAttribute(mark)).toBe(true)
+		humanoid.Health = 0
+		humanoid.Died:Fire()
+		expect(deadBody:GetAttribute(mark)).toBeNil()
+	end)
+
+	it("lets the lock take another member only from a member's body, on the page both stand on", function()
+		local source = code(LOCK_ON)
+		local members = body(source, "local function addMembers(", "LockOnController")
+		for _, line in ipairs({
+			"if own == nil or own:GetAttribute(attribute) ~= true then",
+			"if other ~= player and body ~= nil and body:GetAttribute(attribute) == true then",
+			'local lock = lockOf(body, "Player")',
+		}) do
+			expect(members).toContain(line)
+		end
+		local opponents = body(source, "local function opponents(", "LockOnController")
+		expect(opponents).toContain("addMembers(out, FlyleafConfig.MemberAttribute)")
+		expect(opponents).toContain("addMembers(out, BattlegroundConfig.MemberAttribute)")
 	end)
 end)
 

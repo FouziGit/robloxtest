@@ -255,6 +255,10 @@ BattlegroundConfig.StandingRootStuds = 3.5
 -- strike themselves ends it at once (CombatService.protect).
 BattlegroundConfig.ArrivalProtectionSeconds = 3
 
+-- The attribute the server sets on a member's body for as long as the page holds them: how another member's lock-on
+-- (LockOnController) tells who it may take, as the Flyleaf's does (FlyleafConfig.MemberAttribute).
+BattlegroundConfig.MemberAttribute = "BattlegroundMember"
+
 -- What one member's kill of another pays its killer: XP, and Folios out of the same daily allowance as the
 -- Forgers' (BotConfig.Credit.DailyFolioCap). A pair pays once, then nothing until PairCooldownSeconds have passed
 -- since its last kill, paid or not (FlyleafRules.recordKill).

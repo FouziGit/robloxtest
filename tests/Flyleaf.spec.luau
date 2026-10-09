@@ -691,15 +691,19 @@ describe("around the Flyleaf", function()
 	end)
 
 	it("lets the lock take another member only from a member's body, by the server's mark", function()
-		local opponents = folded("src/client/Controllers/LockOnController.luau", "local function opponents(")
+		local members = folded("src/client/Controllers/LockOnController.luau", "local function addMembers(")
 		for _, line in ipairs({
-			"if own ~= nil and own:GetAttribute(FlyleafConfig.MemberAttribute) == true then",
-			"if other ~= player and body ~= nil and body:GetAttribute(FlyleafConfig.MemberAttribute) == true then",
+			"if own == nil or own:GetAttribute(attribute) ~= true then",
+			"if other ~= player and body ~= nil and body:GetAttribute(attribute) == true then",
 			'local lock = lockOf(body, "Player")',
 		}) do
-			if opponents:find(line, 1, true) == nil then
-				error("opponents no longer does: " .. line)
+			if members:find(line, 1, true) == nil then
+				error("addMembers no longer does: " .. line)
 			end
+		end
+		local opponents = folded("src/client/Controllers/LockOnController.luau", "local function opponents(")
+		if opponents:find("addMembers(out, FlyleafConfig.MemberAttribute)", 1, true) == nil then
+			error("opponents no longer asks for the Flyleaf's members by the server's mark")
 		end
 	end)
 

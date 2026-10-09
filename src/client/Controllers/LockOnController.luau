@@ -7,8 +7,9 @@
 -- new. Movement stays the player's own -- a sideways dash while locked is a sideways dodge.
 --
 -- What a lock can take is what the player can hurt: in a match, the other team's living players; in the
--- hub, the training proofs; in the World Boss arena, the boss; in the Battleground, the Forgers; on the
--- Flyleaf, every other member (the server marks their bodies, FlyleafConfig.MemberAttribute). It lets
+-- hub, the training proofs; in the World Boss arena, the boss; in the Battleground, the Forgers and every other
+-- member; on the Flyleaf, every other member (the server marks their bodies, BattlegroundConfig.MemberAttribute and
+-- FlyleafConfig.MemberAttribute). It lets
 -- go when the target dies, leaves, goes out of reach or stops being an opponent, when the local character
 -- dies or is eliminated, and when a menu opens (the key that would let go is unbound behind it). A target
 -- knocked down is kept: the fall after a finisher is the moment to stay on them. It is not taken, though,
@@ -29,6 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("UI")
 
+local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
 local BotConfig = require(Shared.Config.BotConfig)
 local CombatConfig = require(Shared.Config.CombatConfig)
 local FlyleafConfig = require(Shared.Config.FlyleafConfig)
@@ -119,11 +121,29 @@ local function addForgers(out: { Lock })
 	end
 end
 
+-- The other members of the page whose server mark is `attribute`, into `out`, for a local player who wears it too:
+-- one page's members never see another's (FlyleafConfig, BattlegroundConfig).
+local function addMembers(out: { Lock }, attribute: string)
+	local own = player.Character
+	if own == nil or own:GetAttribute(attribute) ~= true then
+		return
+	end
+	for _, other in ipairs(Players:GetPlayers()) do
+		local body = other.Character
+		if other ~= player and body ~= nil and body:GetAttribute(attribute) == true then
+			local lock = lockOf(body, "Player")
+			if lock ~= nil then
+				table.insert(out, lock)
+			end
+		end
+	end
+end
+
 -- Every opponent this client may lock right now. In a match, the other teams' living players -- and
 -- nothing at all for a local player who is out and watching a teammate, or before the snapshot has
 -- said which team is theirs; in a practice duel, whose opponent is a Forger (MatchConfig.Spar), the Forgers.
--- Outside one, the proofs, the boss and the Forgers, and on the Flyleaf every other member: the hub and the
--- Battleground have no fight between players.
+-- Outside one, the proofs, the boss and the Forgers, and on the Flyleaf and the Battleground every other member:
+-- the hub has no fight between players.
 local function opponents(): { Lock }
 	local out: { Lock } = {}
 	local match = matchController.getMatch()
@@ -154,18 +174,8 @@ local function opponents(): { Lock }
 		end
 		return out
 	end
-	local own = player.Character
-	if own ~= nil and own:GetAttribute(FlyleafConfig.MemberAttribute) == true then
-		for _, other in ipairs(Players:GetPlayers()) do
-			local body = other.Character
-			if other ~= player and body ~= nil and body:GetAttribute(FlyleafConfig.MemberAttribute) == true then
-				local lock = lockOf(body, "Player")
-				if lock ~= nil then
-					table.insert(out, lock)
-				end
-			end
-		end
-	end
+	addMembers(out, FlyleafConfig.MemberAttribute)
+	addMembers(out, BattlegroundConfig.MemberAttribute)
 	for _, model in ipairs(CollectionService:GetTagged(GameConfig.Enemy.Tag)) do
 		local lock = lockOf(model, "Proof")
 		if lock ~= nil then

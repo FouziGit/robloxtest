@@ -22,7 +22,7 @@ Aucun pigment de puissance n'est vendu contre Robux : Orpiment est un sidegrade 
 | Quête journalière | 50 | ×2 | 100 |
 | Quête hebdomadaire (amortie) | 200 | ×0,4 | 80 |
 | World Boss (participation + bonus) | 80 + 150 | ×0,8 | 180 |
-| Champ de bataille (D-131, D-282) : Faussaires et membres vaincus | 1–4 par Faussaire (Barbouilleur, Plume 1 ; Surchargeur 4) ; 3 par membre vaincu (60 XP), une fois par paire tueur → victime tant que la paire n'a pas passé 5 min sans kill | plafond **150 / jour** (profil), commun aux deux | hors du total ci-dessous |
+| Champ de bataille (D-131, D-282) : Faussaires et membres vaincus | 1–4 par Faussaire (Barbouilleur, Plume 1 ; Surchargeur 4) ; 3 par membre vaincu (60 XP), une fois par paire de joueurs (dans un sens comme dans l'autre) tant que la paire n'a pas passé 5 min sans kill | plafond **150 Folios / jour** (profil), commun aux deux ; XP des kills de joueurs plafonnée à **1 200 / jour** (profil) | hors du total ci-dessous |
 | Page de garde (E16-S2) | 5 par victoire (60 XP) | plafond **100 / jour** (profil) ; rien au-delà de 3 morts du même rival en 10 min | hors du total ci-dessous |
 | Entraînement contre l'Effacement (D-132) | ≤ 58 (×0,25 d'une participation) | 3 / jour, 1 / 20 min (les deux dans le profil, D-222) ; une paie sous 1 Folio n'en décompte aucun (D-134) | ≤ 174 / jour, hors du total |
 | Duel d'épreuve contre un Faussaire (E10-S6) | 30 / 18 / 10 (×0,5 d'une victoire, égalité, défaite) | 3 / jour (profil, `Daily.SparDay` / `SparPaid`) | ≤ 90 / jour, hors du total |

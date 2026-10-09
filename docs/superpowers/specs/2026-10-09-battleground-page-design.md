@@ -32,7 +32,7 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
 | Livre ouvert | nord-ouest (≈ −200, −230) | deux demi-pages en collines à gradins (jusqu'à 18 studs), vallée de 20 studs le long du dos |
 | Plume tombée | nord (≈ 60, −240) | tige couchée en diagonale, 180 de long, 24 de large, montée en rampe du sol jusqu'à 40 studs, pointe biseautée |
 | Falaises de folios | nord-est (≈ 230, −220) | livres empilés en paliers de 15, 30, 45 et 60 studs, reliés par des rampes : le point le plus haut |
-| Lit réglé | des falaises vers le bord sud, côté est | chenal de 40 de large, creusé de 3 studs, lignes d'encre au fond |
+| Lit réglé | des falaises vers le bord sud, côté est | chenal de 40 de large, dessiné à plat (D-282 : creusé, un membre au fond passerait sous la profondeur qui tient la page), lignes d'encre |
 | Pont cousu | est (≈ 240, 30) | tablier de 30 × 60 au-dessus du chenal, points de couture en croix |
 | Champ des sceaux | sud (≈ 40, 250) | 8 à 10 disques de cire (cylindres de 2 à 6 studs de haut, 16 à 30 de diamètre) et taches d'encre plates |
 | Ruines du scriptorium | sud-ouest (≈ −230, 200) | 3 ou 4 arches (deux piles et un linteau, 24 studs), pupitres brisés (blocs de 6 à 8) |
@@ -44,7 +44,8 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
 - Bord : la page déchirée ; au-delà, la `KillZone` actuelle (une chute tue).
 - Aucun couloir de moins de 16 studs entre deux pièces posées au sol.
 - Douze points d'apparition (`Arrival_7..18` en plus du camp) sur le pourtour, à 80 studs au moins les uns des
-  autres et à 40 au moins des points d'apparition des Forgers.
+  autres et à 60 au moins des points d'apparition des Forgers. Un joueur atterrit sur l'arrivée la plus éloignée
+  des membres déjà présents ; sur une page vide, les arrivées passent à tour de rôle.
 
 ## Les règles
 
@@ -52,13 +53,15 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
   joueur hors de la page ne peut ni blesser un membre ni en être blessé. Passe par `CombatService.claimZone`
   et `DamageZones`, comme les autres zones.
 - **Bulle** : à l'arrivée et à chaque réapparition dans la page, `SpawnProtectedUntil` vaut
-  `now + BattlegroundConfig.ArrivalProtectionSeconds` (3). Attaquer pendant la bulle la fait tomber
-  aussitôt. Ailleurs, la protection de `GameConfig.Spawn` reste telle quelle.
+  `now + BattlegroundConfig.ArrivalProtectionSeconds` (3). Le premier coup de son porteur qui touche la fait tomber
+  (un coup refusé ou arrondi à zéro la laisse). Ailleurs, la protection de `GameConfig.Spawn` reste telle quelle.
 - **Récompense d'un kill joueur** (`Rewards`) : le tueur (dernier coup) gagne `PlayerKill.Xp` et
-  `PlayerKill.Folios`. Les Folios passent par le même plafond quotidien que ceux des Forgers
-  (`DailyCap`, compté dans le profil). Une paire tueur → victime ne paie qu'une fois toutes les
-  `PlayerKill.PairCooldownSeconds` (300). Aucun paiement si la victime était encore sous sa bulle ou si le
-  tueur n'est pas membre.
+  `PlayerKill.Folios`. Les Folios passent par le même plafond quotidien que ceux des Forgers, l'XP par son
+  propre plafond (`PlayerKill.DailyXpCap`, 1200), tous deux comptés dans le profil (`DailyCap`). Une paire de
+  joueurs, dans un sens comme dans l'autre, ne paie qu'une fois toutes les `PlayerKill.PairCooldownSeconds`
+  (300) : deux joueurs qui s'entretuent ne gagnent qu'une fois. Aucun paiement si la victime était encore
+  sous sa bulle ou si le tueur n'est pas membre à cet instant (un membre mort qui attend son corps ne gagne
+  rien).
 - **Forgers** : inchangés, sauf leur grille de déplacement, qui passe à un nœud tous les 20 studs. Ils
   restent au sol ; ce qui est en hauteur leur échappe.
 
@@ -75,8 +78,9 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
   grille des Forgers ; les points d'apparition respectent leurs distances ; rien de solide sur un point
   d'apparition.
 - `tests/Battleground.spec.luau` : deux membres se blessent ; un joueur du hub ne blesse pas un membre ; la
-  bulle bloque les coups reçus et tombe quand son porteur attaque ; un kill paie, le même kill répété dans
-  les 300 s ne paie plus, les Folios respectent le plafond quotidien.
+  bulle bloque les coups reçus et tombe au premier coup de son porteur qui touche ; un kill paie, le même
+  kill répété dans les 300 s, dans un sens comme dans l'autre, ne paie plus, les Folios et l'XP respectent
+  leur plafond quotidien.
 - Les cinq portes de qualité restent vertes à chaque commit.
 
 ## Hors périmètre

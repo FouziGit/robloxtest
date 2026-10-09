@@ -99,6 +99,13 @@ export type MapDef = {
 	Marks: { Mark },
 	BotSpawns: { Point },
 	Grid: { StepStuds: number, MarginStuds: number },
+	Skin: {
+		Out: number,
+		Top: number,
+		Seal: { Diameter: number, Height: number },
+		BlotStuds: number,
+		Wall: { Length: number, Thickness: number },
+	},
 }
 
 -- What the page is dressed with, from outside BattlegroundConfig.Map: the names its readers find the floor and the
@@ -128,6 +135,23 @@ export type Box = {
 	Yaw: number,
 	Solid: boolean,
 	Transparency: number,
+}
+
+-- A landmark's skin (D-283): the meshes tools/meshes/page/ draws over its boxes, as one placement -- a pivot in the
+-- local frame, a turn about the vertical and a scale per axis of the meshes' own studs. Boxes are the solids it hides
+-- (they still collide), Marks the ink drawn on the page it replaces; each mesh is a MeshConfig key, Tone its colour
+-- (WorldConfig.Battleground.Skin<Tone>).
+export type SkinMesh = { Mesh: string, Tone: string }
+export type Skin = {
+	Name: string,
+	Boxes: { string },
+	Marks: { string },
+	Meshes: { SkinMesh },
+	X: number,
+	Y: number,
+	Z: number,
+	Yaw: number,
+	Scale: { number },
 }
 
 -- A part's print on the ground, or one grown by the path radius: its centre, its half extents along its own axes,
@@ -871,6 +895,203 @@ function BattlegroundLayout.clampGoal(layout: Layout, x: number, z: number): (nu
 		end
 	end
 	return bestX, bestZ
+end
+
+local FULL = { "Top", "Side", "Cover", "Ink" }
+
+local function meshesOf(kind: string, tones: { string }): { SkinMesh }
+	local out: { SkinMesh } = {}
+	for _, tone in ipairs(tones) do
+		table.insert(out, { Mesh = "Page" .. kind .. tone, Tone = tone })
+	end
+	return out
+end
+
+-- Where every landmark's skin goes, derived from the layout by the rule tools/meshes/page/ draws each mesh by: a
+-- landmark drawn whole at layout size sits on its own centre on the floor; a kind drawn once (a seal, a desk, a wall)
+-- sits on each box's base, scaled so its faces land Skin.Out outside the box's and its top Skin.Top over it, from
+-- the size the mesh was drawn at -- Map.Skin's, or the first box of the kind's.
+function BattlegroundLayout.skins(layout: Layout, map: MapDef): { Skin }
+	local skin = map.Skin
+	local boxes: { [string]: Box } = {}
+	local names: { string } = {}
+	for _, box in ipairs(layout.Boxes) do
+		boxes[box.Name] = box
+		table.insert(names, box.Name)
+	end
+	table.sort(names)
+	local function chosen(keep: (string, Box) -> boolean): { string }
+		local out: { string } = {}
+		for _, name in ipairs(names) do
+			if keep(name, boxes[name]) then
+				table.insert(out, name)
+			end
+		end
+		return out
+	end
+	local function prefixed(prefix: string): { string }
+		return chosen(function(name)
+			return string.sub(name, 1, #prefix) == prefix
+		end)
+	end
+	local out: { Skin } = {}
+	local function add(
+		name: string,
+		kind: string,
+		tones: { string },
+		covered: { string },
+		marks: { string },
+		x: number,
+		y: number,
+		z: number,
+		yaw: number,
+		scale: { number }
+	)
+		table.insert(out, {
+			Name = name,
+			Boxes = covered,
+			Marks = marks,
+			Meshes = meshesOf(kind, tones),
+			X = x,
+			Y = y,
+			Z = z,
+			Yaw = yaw,
+			Scale = scale,
+		})
+	end
+	local function base(box: Box): number
+		return box.Y - box.SizeY / 2
+	end
+	-- Each box of a kind drawn once, at the size of `reference` (x, y, z studs), on its base and at its turn.
+	local function scaled(kind: string, tones: { string }, kept: { string }, reference: { number })
+		for _, name in ipairs(kept) do
+			local box = boxes[name]
+			add(name, kind, tones, { name }, {}, box.X, base(box), box.Z, box.Yaw, {
+				(box.SizeX / 2 + skin.Out) / (reference[1] / 2 + skin.Out),
+				(box.SizeY + skin.Top) / (reference[2] + skin.Top),
+				(box.SizeZ / 2 + skin.Out) / (reference[3] / 2 + skin.Out),
+			})
+		end
+	end
+	local function sizeOf(name: string): { number }
+		local box = boxes[name]
+		return { box.SizeX, box.SizeY, box.SizeZ }
+	end
+	local ONE = { 1, 1, 1 }
+
+	for _, book in ipairs(map.Books) do
+		local halves = chosen(function(name)
+			return string.sub(name, 1, #book.Name + 4) == book.Name .. "West"
+				or string.sub(name, 1, #book.Name + 4) == book.Name .. "East"
+		end)
+		add(book.Name, book.Name, FULL, halves, { book.Name .. "Spine" }, book.X, 0, book.Z, 0, ONE)
+	end
+
+	local quill = map.Quill
+	add("FallenQuill", "Quill", FULL, prefixed("Quill"), {}, quill.X, 0, quill.Z, quill.Yaw, ONE)
+
+	local rock = boxes.FolioRock
+	local cliffs = chosen(function(name)
+		return string.sub(name, 1, 5) == "Folio" and string.sub(name, 1, 10) ~= "FolioLoose"
+	end)
+	add("FolioCliffs", "Folio", { "Top", "Side", "Cover", "Body", "Ink" }, cliffs, {}, rock.X, 0, rock.Z, 0, ONE)
+	local loose = prefixed("FolioLoose")
+	scaled("LooseBook", { "Top", "Cover", "Ink" }, loose, sizeOf(loose[1]))
+
+	-- The rim is drawn as one arc of kept blocks; a quarter turn of -90 degrees puts it on the next.
+	local crater = map.Crater
+	local quarter = crater.Segments // 4
+	for q = 0, 3 do
+		local arc = chosen(function(name)
+			local index = tonumber(string.match(name, "^CraterRim(%d+)$"))
+			return index ~= nil and index // quarter == q
+		end)
+		add("CraterArc" .. q, "CraterArc", FULL, arc, {}, crater.X, 0, crater.Z, -90 * q, ONE)
+	end
+	add("CraterPool", "CraterPool", { "Cover", "Ink" }, {}, {}, crater.X, 0, crater.Z, 0, ONE)
+
+	local seal = { skin.Seal.Diameter, skin.Seal.Height, skin.Seal.Diameter }
+	local function isSeal(name: string, stacked: boolean): boolean
+		return string.sub(name, 1, 4) == "Seal" and (string.sub(name, -3) == "Top") == stacked
+	end
+	scaled(
+		"Seal",
+		FULL,
+		chosen(function(name)
+			return isSeal(name, false)
+		end),
+		seal
+	)
+	scaled(
+		"SealStacked",
+		FULL,
+		chosen(function(name)
+			return isSeal(name, true)
+		end),
+		seal
+	)
+	for _, name in ipairs(prefixed("Blot")) do
+		local blot = boxes[name]
+		local size = blot.SizeX / skin.BlotStuds
+		add(name, "Blot", { "Ink" }, {}, { name }, blot.X, 0, blot.Z, 0, { size, 1, size })
+	end
+
+	local arcade = map.Arcade
+	add("Arcade", "Arcade", FULL, prefixed("Arcade"), {}, arcade.X, 0, arcade.Z, arcade.Yaw, ONE)
+	local function desks(shape: Shape): { string }
+		return chosen(function(name, box)
+			return string.sub(name, 1, 4) == "Desk" and string.sub(name, 1, 9) ~= "DeskStump" and box.Shape == shape
+		end)
+	end
+	local desk, tipped, stumps = desks("Block"), desks("Wedge"), prefixed("DeskStump")
+	scaled("Desk", FULL, desk, sizeOf(desk[1]))
+	scaled("Tipped", FULL, tipped, sizeOf(tipped[1]))
+	scaled("Stump", { "Top", "Side", "Ink" }, stumps, sizeOf(stumps[1]))
+
+	local deck = boxes.BridgeDeck
+	add(
+		"StitchBridge",
+		"Bridge",
+		{ "Top", "Cover", "Ink" },
+		prefixed("Bridge"),
+		prefixed("Stitch"),
+		deck.X,
+		0,
+		deck.Z,
+		0,
+		ONE
+	)
+
+	local stairs = prefixed("Stair")
+	table.insert(stairs, 1, "Dais")
+	add("Dais", "Dais", { "Top", "Side", "Body", "Ink" }, stairs, prefixed("DaisEdge"), 0, 0, 0, 0, ONE)
+	-- One wall drawn along x; a wall running along z is turned a quarter.
+	local walls = chosen(function(name)
+		return string.sub(name, 1, 5) == "Cover" or string.sub(name, 1, 7) == "Parapet"
+	end)
+	for _, name in ipairs(walls) do
+		local wall = boxes[name]
+		local alongZ = wall.SizeZ > wall.SizeX
+		local length = if alongZ then wall.SizeZ else wall.SizeX
+		local thickness = if alongZ then wall.SizeX else wall.SizeZ
+		add(
+			name,
+			"Wall",
+			{ "Top", "Side", "Ink" },
+			{ name },
+			{},
+			wall.X,
+			base(wall),
+			wall.Z,
+			if alongZ then 90 else 0,
+			{
+				(length / 2 + skin.Out) / (skin.Wall.Length / 2 + skin.Out),
+				1,
+				(thickness / 2 + skin.Out) / (skin.Wall.Thickness / 2 + skin.Out),
+			}
+		)
+	end
+	return out
 end
 
 return BattlegroundLayout

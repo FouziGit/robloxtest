@@ -31,6 +31,7 @@ import hairline
 import hatching
 import ligature
 import margin
+import page
 import pounce
 import rubric
 import rupture
@@ -219,7 +220,8 @@ def scrap_b() -> tuple[Mesh, dict]:
     return scrap(5502, 3, 3, 24, 5)
 
 
-# Key -> (file name, recipe, triangle cap). The key is the MeshConfig key a timeline names.
+# Key -> (file name, recipe, triangle cap). The key is the MeshConfig key a timeline names; the Page's
+# landmark skins (page/, D-283) follow, under their own cap, named by the map instead.
 RECIPES = {
     "Enso": ("ink_enso.glb", enso, 450),
     "SplitRing": ("ink_split_ring.glb", split_ring, 450),
@@ -338,6 +340,7 @@ RECIPES = {
     "WatermarkGleam": ("ink_watermark_gleam.glb", watermark.watermark_gleam, 450),
     "WatermarkInk": ("ink_watermark_ink.glb", watermark.watermark_ink, 1250),
 }
+RECIPES.update(page.RECIPES)
 
 
 def axis_probe() -> Mesh:

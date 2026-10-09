@@ -160,7 +160,7 @@ local function arrivals(): ({ BattlegroundLayout.Point }, { BattlegroundLayout.P
 end
 
 describe("the Battleground's parts", function()
-	it("make a 700-stud page, every one of them on it, the whole map within the part budget", function()
+	it("make a 700-stud page, every one of them on it, the whole map and its skins within the part budget", function()
 		expect(MAP.Size).toBe(700)
 		local half = MAP.Size / 2
 		local top = 0
@@ -176,6 +176,10 @@ describe("the Battleground's parts", function()
 			end
 		end
 		local parts = #LAYOUT.Boxes + #LAYOUT.Arrivals + #LAYOUT.BotSpawns + GATE_PARTS
+		-- And one part per mesh of every landmark's skin (D-283).
+		for _, skin in ipairs(BattlegroundLayout.skins(LAYOUT, MAP)) do
+			parts += #skin.Meshes
+		end
 		expect(parts).toBeLessThanOrEqual(MAP.PartBudget)
 		-- The highest landing is the cliffs' 60 studs.
 		expect(top).toBe(60)

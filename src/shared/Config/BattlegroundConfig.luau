@@ -257,7 +257,17 @@ BattlegroundConfig.Map = {
 	-- The Forgers' waypoints: a node every StepStuds inside Size / 2 - MarginStuds (33 x 33 candidates), minus those
 	-- inside an obstacle or the camp. A Forger never walks past them toward the torn edge.
 	Grid = { StepStuds = 20, MarginStuds = 30 },
-	-- Every part the page is built of, the gate and the markers included.
+	-- The landmarks' skins (D-283): tools/meshes/page/ reads these to draw them, BattlegroundLayout.skins to place them.
+	-- A skin's face stands Out studs outside the box face it covers and a walkable top Top studs over the box's top;
+	-- the rest are the sizes a kind's one mesh is drawn at, each instance scaled from it to its own box.
+	Skin = {
+		Out = 0.12,
+		Top = 0.07,
+		Seal = { Diameter = 28, Height = 4 },
+		BlotStuds = 12,
+		Wall = { Length = 20, Thickness = 2 },
+	},
+	-- Every part the page is built of, the gate, the markers and the skins included.
 	PartBudget = 1500,
 }
 

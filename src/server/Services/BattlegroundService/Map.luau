@@ -15,6 +15,11 @@
 -- its noclip ray against. The kill plane, the ink drawn on the page and the camp touch nothing and are left out.
 -- A box is a block, a wedge or a cylinder, turned by its Yaw about the vertical; a cylinder's axis is the engine's
 -- x, so it is laid on its side to stand on its flat face.
+--
+-- The landmarks are drawn as ink volumes (D-283): BattlegroundLayout.skins places the meshes tools/meshes/page/
+-- generated over their boxes, each a part that touches nothing, and the boxes it covers go invisible but still
+-- collide. A skin waits for every one of its meshes to be uploaded and resolved (MeshConfig); until then its boxes
+-- and marks stay drawn as they are.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +31,8 @@ local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
 local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.BattlegroundLayout)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
+local Log = require(Shared.Util.Log)
+local MeshConfig = require(Shared.Config.MeshConfig)
 local MovementGuardConfig = require(script.Parent.Parent.Parent.Config.MovementGuardConfig)
 local Palette = require(Shared.Util.Palette)
 local PortalConfig = require(Shared.Config.PortalConfig)
@@ -67,6 +74,8 @@ local DRESSING: BattlegroundLayout.Dressing = {
 	CampTop = WorldConfig.Ladder.Training,
 	CampTransparency = WorldConfig.Battleground.CampTransparency,
 }
+
+local log = Log.new("BattlegroundService")
 
 local Map = {}
 
@@ -119,6 +128,75 @@ local function buildBox(box: BattlegroundLayout.Box, parent: Model): BasePart
 	return part
 end
 
+-- A SpecialMesh's Scale on one axis: the placed size over the imported one. A flat mesh (a single quad of top) was
+-- imported with no extent on one axis, and there the skin's own scale is all there is.
+local function stretch(studs: number, imported: number, scale: number): number
+	return if imported > 0 then studs / imported else scale
+end
+
+-- One mesh of a landmark's skin: a SpecialMesh scaled from the size the importer gave it (Native) to its placed
+-- size, on a part centred on its placed bounds (the importer recentres a mesh on them), nothing to the physics.
+local function buildSkinPart(
+	name: string,
+	mesh: MeshConfig.Mesh,
+	tone: string,
+	pivot: CFrame,
+	scale: Vector3,
+	parent: Model
+)
+	local native = mesh.Native :: { number }
+	local min = Vector3.new(mesh.Min[1], mesh.Min[2], mesh.Min[3])
+	local max = Vector3.new(mesh.Max[1], mesh.Max[2], mesh.Max[3])
+	local size = (max - min) * scale
+	local part = newPart(name, "Block", size, pivot * CFrame.new((min + max) / 2 * scale), "Skin" .. tone)
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	local special = Instance.new("SpecialMesh")
+	special.MeshType = Enum.MeshType.FileMesh
+	special.MeshId = mesh.Id
+	special.Scale = Vector3.new(
+		stretch(size.X, native[1], scale.X),
+		stretch(size.Y, native[2], scale.Y),
+		stretch(size.Z, native[3], scale.Z)
+	)
+	special.Parent = part
+	part.Parent = parent
+end
+
+-- A landmark's skin, once every one of its meshes is uploaded and resolved: its parts, then its boxes and marks
+-- hidden (a box still collides). Otherwise nothing changes, and the meshes it waits for are noted in `missing`.
+local function buildSkin(
+	skin: BattlegroundLayout.Skin,
+	parts: { [string]: BasePart },
+	parent: Model,
+	missing: { [string]: boolean }
+)
+	local ready = true
+	for _, piece in ipairs(skin.Meshes) do
+		local mesh = MeshConfig.get(piece.Mesh)
+		if mesh == nil or mesh.Id == "" or mesh.Native == nil then
+			missing[piece.Mesh] = true
+			ready = false
+		end
+	end
+	if not ready then
+		return
+	end
+	local pivot = CFrame.new(Context.toWorld(skin.X, skin.Y, skin.Z)) * CFrame.Angles(0, math.rad(skin.Yaw), 0)
+	local scale = Vector3.new(skin.Scale[1], skin.Scale[2], skin.Scale[3])
+	for _, piece in ipairs(skin.Meshes) do
+		local mesh = MeshConfig.get(piece.Mesh) :: MeshConfig.Mesh
+		buildSkinPart("Skin" .. skin.Name .. piece.Tone, mesh, piece.Tone, pivot, scale, parent)
+	end
+	for _, name in ipairs(skin.Boxes) do
+		parts[name].Transparency = 1
+	end
+	for _, name in ipairs(skin.Marks) do
+		parts[name].Transparency = 1
+	end
+end
+
 -- An invisible marker standing where a character's root goes, turned toward `face` (a world point).
 local function buildMarker(name: string, point: BattlegroundLayout.Point, face: Vector3, parent: Model): BasePart
 	local position = Context.toWorld(point.X, BattlegroundConfig.StandingRootStuds, point.Z)
@@ -157,8 +235,10 @@ function Map.build(trove: Context.TroveType): Handle
 	model.Name = ANCHORS.Map
 
 	local killZone: BasePart? = nil
+	local parts: { [string]: BasePart } = {}
 	for _, box in ipairs(layout.Boxes) do
 		local part = buildBox(box, model)
+		parts[box.Name] = part
 		if box.Name == ANCHORS.Floor then
 			model.PrimaryPart = part
 		elseif box.Role == KILL_ZONE_ROLE then
@@ -168,6 +248,23 @@ function Map.build(trove: Context.TroveType): Handle
 		end
 	end
 	assert(killZone ~= nil, "BattlegroundLayout built no kill zone")
+
+	local missing: { [string]: boolean } = {}
+	for _, skin in ipairs(BattlegroundLayout.skins(layout, MAP)) do
+		buildSkin(skin, parts, model, missing)
+	end
+	local waiting: { string } = {}
+	for key in pairs(missing) do
+		table.insert(waiting, key)
+	end
+	if #waiting > 0 then
+		table.sort(waiting)
+		log.warn(
+			"%d landmark meshes are not uploaded or resolved, so their boxes stay drawn: %s",
+			#waiting,
+			table.concat(waiting, ", ")
+		)
+	end
 
 	local arrivals: { BasePart } = {}
 	for index, point in ipairs(layout.Arrivals) do

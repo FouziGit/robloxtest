@@ -9,7 +9,8 @@ Blender, so the .glb files and the manifest are committed like the textures and 
 how they are reproduced. It exports twice, into the repository and into a scratch directory, from two
 separate Blender processes, and fails unless both runs are byte-identical: a generator whose output
 moves between runs turns every commit into an unreviewable binary diff and every upload into a new
-asset. It also fails a mesh over its triangle cap or over MAX_BYTES, writes assets/meshes/manifest.json,
+asset. It also fails a mesh over its triangle cap or over MAX_BYTES (page.MAX_BYTES for a landmark skin),
+writes assets/meshes/manifest.json,
 and rewrites the manifest block of src/shared/Config/MeshConfig.luau from it, so the runtime and the
 files cannot disagree about a mesh's bounds.
 """
@@ -36,7 +37,8 @@ END = "-- END MESH MANIFEST"
 
 sys.path.insert(0, str(HERE))
 
-import recipes  # noqa: E402  (the path is set on the line above)
+import page  # noqa: E402  (the path is set above)
+import recipes  # noqa: E402  (the path is set above)
 
 
 def run_blender(out: pathlib.Path, probe: bool = False) -> str:
@@ -128,8 +130,9 @@ def main() -> int:
             sys.exit(f"{key}: the recipe built {tris} triangles and the file carries {written}")
         if tris > cap:
             sys.exit(f"{key}: {tris} triangles, over its cap of {cap}")
-        if size > MAX_BYTES:
-            sys.exit(f"{key}: {size} bytes, over {MAX_BYTES}")
+        limit = page.MAX_BYTES if key in page.RECIPES else MAX_BYTES
+        if size > limit:
+            sys.exit(f"{key}: {size} bytes, over {limit}")
         low, high = file_bounds(mesh)
         manifest["meshes"][key] = {
             "Source": str(path.relative_to(ROOT)),

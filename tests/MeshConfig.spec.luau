@@ -6,9 +6,13 @@
 -- can drift apart after that, each silently in a running game: a mesh regenerated without its block (the
 -- runtime offsets it from the old bounds and a crown floats or sinks), a resolve that recorded the wrong
 -- MeshPart, and an importer that stops turning one unit into one stud.
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
+local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
+local BotConfig = require("../src/shared/Config/BotConfig")
 local Harness = require("./harness")
 local MeshConfig = require("../src/shared/Config/MeshConfig")
 local VfxTimelineConfig = require("../src/shared/Config/VfxTimelineConfig")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 
@@ -131,6 +135,9 @@ local BODY_CAPS: { [string]: number } = {
 	WatermarkInk = 1250,
 }
 
+-- The Page's landmark skins (D-283), Reference "Layout": scenery built once, under a cap of their own.
+local DECOR_CAP = 5000
+
 local function near(a: number, b: number, tolerance: number): boolean
 	return math.abs(a - b) <= tolerance
 end
@@ -200,18 +207,21 @@ describe("the mesh manifest", function()
 		end
 	end)
 
-	it("keeps every volume a few hundred triangles, and a glyph's body under its own cap", function()
-		for key, mesh in pairs(MeshConfig.Meshes) do
-			local cap = BODY_CAPS[key] or 450
-			if mesh.Tris > cap then
-				error(("%s has %d triangles: a volume is a brush stroke, not a model"):format(key, mesh.Tris))
+	it(
+		"keeps every volume a few hundred triangles, a glyph's body and a landmark's skin under their own caps",
+		function()
+			for key, mesh in pairs(MeshConfig.Meshes) do
+				local cap = if mesh.Reference == "Layout" then DECOR_CAP else BODY_CAPS[key] or 450
+				if mesh.Tris > cap then
+					error(("%s has %d triangles: a volume is a brush stroke, not a model"):format(key, mesh.Tris))
+				end
+			end
+			-- A cap for a body nobody generates would hold nothing.
+			for key in pairs(BODY_CAPS) do
+				expect(MeshConfig.get(key)).never.toBeNil()
 			end
 		end
-		-- A cap for a body nobody generates would hold nothing.
-		for key in pairs(BODY_CAPS) do
-			expect(MeshConfig.get(key)).never.toBeNil()
-		end
-	end)
+	)
 end)
 
 describe("a resolved mesh", function()
@@ -236,32 +246,54 @@ describe("a resolved mesh", function()
 	end)
 end)
 
-describe("the volumes the timelines draw", function()
-	it("name a mesh MeshConfig has, and every mesh is drawn by some timeline", function()
-		local used: { [string]: boolean } = {}
-		for id, timeline in pairs(VfxTimelineConfig.Timelines) do
-			for _, phase in ipairs(timeline.Phases) do
-				for _, layer in ipairs(phase.Layers) do
-					local names: { string } = {}
-					if layer.Mesh ~= nil then
-						table.insert(names, layer.Mesh)
-					end
-					for _, name in ipairs(layer.Meshes or {}) do
-						table.insert(names, name)
-					end
-					for _, name in ipairs(names) do
-						if MeshConfig.get(name) == nil then
-							error(("timeline %s draws mesh %s, which MeshConfig does not have"):format(id, name))
+describe("the volumes the timelines and the map draw", function()
+	it(
+		"name a mesh MeshConfig has, and every mesh is drawn by some timeline, or a landmark's skin by the map",
+		function()
+			local used: { [string]: boolean } = {}
+			local mapped: { [string]: boolean } = {}
+			local layout = BattlegroundLayout.build(BattlegroundConfig.Map, {
+				FloorName = BattlegroundConfig.Anchors.Floor,
+				KillZoneName = BattlegroundConfig.Anchors.KillZone,
+				FlatThickness = WorldConfig.FlatThicknessStuds,
+				RuleTop = WorldConfig.Ladder.Rule,
+				CampTop = WorldConfig.Ladder.Training,
+				CampTransparency = WorldConfig.Battleground.CampTransparency,
+			}, BotConfig.Path.RadiusStuds)
+			for _, skin in ipairs(BattlegroundLayout.skins(layout, BattlegroundConfig.Map)) do
+				for _, piece in ipairs(skin.Meshes) do
+					mapped[piece.Mesh] = true
+				end
+			end
+			for id, timeline in pairs(VfxTimelineConfig.Timelines) do
+				for _, phase in ipairs(timeline.Phases) do
+					for _, layer in ipairs(phase.Layers) do
+						local names: { string } = {}
+						if layer.Mesh ~= nil then
+							table.insert(names, layer.Mesh)
 						end
-						used[name] = true
+						for _, name in ipairs(layer.Meshes or {}) do
+							table.insert(names, name)
+						end
+						for _, name in ipairs(names) do
+							if MeshConfig.get(name) == nil then
+								error(("timeline %s draws mesh %s, which MeshConfig does not have"):format(id, name))
+							end
+							used[name] = true
+						end
 					end
 				end
 			end
-		end
-		for key in pairs(MeshConfig.Meshes) do
-			if not used[key] then
-				error(("mesh %s is generated and uploaded and no timeline draws it"):format(key))
+			-- A glyph's volume is a timeline's alone, a landmark's skin the map's alone: neither stands in for the other.
+			for key, mesh in pairs(MeshConfig.Meshes) do
+				if mesh.Reference == "Layout" then
+					if not mapped[key] or used[key] then
+						error(("landmark mesh %s must be drawn by the map and by no timeline"):format(key))
+					end
+				elseif not used[key] or mapped[key] then
+					error(("mesh %s is generated and uploaded and no timeline draws it, or the map does"):format(key))
+				end
 			end
 		end
-	end)
+	)
 end)

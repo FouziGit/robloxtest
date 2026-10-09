@@ -344,7 +344,7 @@ describe("a Forger's tell", function()
 		local windup = body(ATTACKS, "function Attacks.windup(")
 		for _, line in ipairs({
 			"Id = Context.TellVfxId,",
-			"Origin = Vector3.new(root.X, handle.FloorY, root.Z),",
+			"Origin = groundUnder(bot.Root.Position),",
 			"Direction = Vector3.new(attack.AimX, 0, attack.AimZ),",
 			"Seconds = window,",
 			"Range = range,",
@@ -426,7 +426,7 @@ describe("a Forger's tell", function()
 		requireAll(body(ATTACKS, "function Attacks.windup("), { "Forger = bot.Slot," }, "Attacks.windup")
 		requireAll(body(ATTACKS, "function Attacks.retract("), {
 			"Id = Context.TellVfxId,",
-			"Origin = Vector3.new(root.X, handle.FloorY, root.Z),",
+			"Origin = groundUnder(bot.Root.Position),",
 			"Params = { Cancel = true, Forger = bot.Slot },",
 			"}, true)",
 		}, "Attacks.retract")

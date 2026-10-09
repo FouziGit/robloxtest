@@ -35,6 +35,9 @@ local log = Log.new("Battleground.Bots")
 
 -- A throw in progress: the flat velocity it carries and how far through its duration the mover has gone.
 export type Shove = { Velocity: Vector3, StartedAt: number, Duration: number, Alpha: number }
+-- The way round the page's obstacles a Forger walks: the goal it was searched for (in the world) and its nodes, from
+-- where the Forger stood to the goal (BattlegroundLayout.path).
+export type Route = { Goal: Vector3, Nodes: { number } }
 export type Bot = {
 	Slot: number,
 	TierId: string,
@@ -69,6 +72,7 @@ export type Bot = {
 	Goal: Vector3?,
 	GoalAt: number,
 	Waypoint: Vector3?,
+	Route: Route?,
 	Trove: Context.TroveType,
 }
 
@@ -339,6 +343,7 @@ local function build(slot: number, tierId: string, placement: Placement): Bot?
 		Goal = nil,
 		GoalAt = 0,
 		Waypoint = nil,
+		Route = nil,
 		Trove = trove,
 	}
 	trove:Connect(humanoid.Died, function()

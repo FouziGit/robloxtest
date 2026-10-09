@@ -845,8 +845,8 @@ Strings.Table = {
 		fr = "Le champ de bataille est plein. Réessaie dans un instant.",
 	},
 	["battleground.folioCap"] = {
-		en = "Forgers pay no more Folios today. XP still counts.",
-		fr = "Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.",
+		en = "The battleground pays no more Folios today. XP still counts.",
+		fr = "Le champ de bataille ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.",
 	},
 	["battleground.campHit"] = {
 		en = "Hits from the camp don't count. Step out to fight.",

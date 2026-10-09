@@ -4,7 +4,8 @@
 -- server, in no match, not taken by the Erasure's event, and standing on the page by the position the server
 -- TRUSTS. Whoever fails is let go, and told so (BattlegroundChanged nil). So every way out another service
 -- takes -- a match that starts, the event pulling them in, a teleport home -- ends the membership on its own,
--- with no hook in any of those services.
+-- with no hook in any of those services. Every admission -- through the gate or back from a death -- puts the
+-- arrival bubble on the member (CombatService.protect, D-282).
 --
 -- Each tick also keeps what the Forgers and the rewards read off a member: how long they have been out of
 -- reach of the floor, when they last stood outside the camp, and the camp's heal.
@@ -20,6 +21,7 @@ local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.Battleground
 local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
+local FlyleafRules = require(script.Parent.Parent.Parent.Pure.FlyleafRules)
 local Map = require(script.Parent.Map)
 local Teleport = require(script.Parent.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
@@ -89,10 +91,19 @@ function Roster.pushAll()
 	end
 end
 
--- The next landing, taken in turn, so two players arriving together never stand in one another.
+-- The arrival furthest from every member standing on the page now, so nobody lands in someone's reach; with nobody
+-- there, the arrivals in turn, so two players arriving together never stand in one another (FlyleafRules.farthestSeal).
 function Roster.nextLanding(): Vector3
-	nextArrival = nextArrival % #handle.Arrivals + 1
-	return handle.Arrivals[nextArrival].Position
+	local others: { FlyleafRules.Point } = {}
+	for player in pairs(members) do
+		local trusted = deps.Combat.trustedPosition(player)
+		if trusted ~= nil then
+			local x, _, z = Context.toLocal(trusted)
+			table.insert(others, { X = x, Z = z })
+		end
+	end
+	nextArrival += 1
+	return handle.Arrivals[FlyleafRules.farthestSeal(handle.Layout.Arrivals, others, nextArrival)].Position
 end
 
 -- Puts the character down on `landing` now, facing into the page (Teleport.place): its velocity cleared, and the
@@ -164,6 +175,12 @@ function Roster.admit(player: Player, character: Model, landing: Vector3, now: n
 		Trove = Trove.new(),
 	}
 	members[player] = member
+	deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)
+	-- What the other members' lock-on reads off this body (LockOnController); it goes with the membership.
+	character:SetAttribute(BattlegroundConfig.MemberAttribute, true)
+	member.Trove:Add(function()
+		character:SetAttribute(BattlegroundConfig.MemberAttribute, nil)
+	end)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid ~= nil then
 		member.Trove:Connect(humanoid.Died, function()
@@ -171,6 +188,11 @@ function Roster.admit(player: Player, character: Model, landing: Vector3, now: n
 		end)
 	end
 	return member
+end
+
+-- Whether the page holds `player`: a member, or a member who died inside and whose next body it waits for.
+function Roster.holds(player: Player): boolean
+	return members[player] ~= nil or pendingRespawn[player.UserId] ~= nil
 end
 
 -- Whether there is a place for `player`: they already hold one, or the page is not full.
@@ -277,13 +299,16 @@ local function observe(member: Member, now: number, dt: number)
 	if point == nil then
 		return
 	end
-	local standingRoot = handle.FloorY + BattlegroundConfig.StandingRootStuds
+	-- Standing on the raised place is standing on the floor: a Forger walks up its steps.
+	local x, _, z = Context.toLocal(point)
+	local standingRoot = handle.FloorY
+		+ BattlegroundLayout.groundAt(handle.Layout, x, z)
+		+ BattlegroundConfig.StandingRootStuds
 	if BotBrain.outOfReach(Context.Rules, point.Y - standingRoot) then
 		member.OffFloorSince = member.OffFloorSince or now
 	else
 		member.OffFloorSince = nil
 	end
-	local x, _, z = Context.toLocal(point)
 	if BattlegroundLayout.inRect(handle.Layout.Camp, x, z) then
 		deps.Combat.heal(member.Player, CAMP.RegenPerSecond * dt, CAMP.QuietSeconds)
 	else

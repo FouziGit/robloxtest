@@ -25,14 +25,14 @@ local DUELIST = BotConfig.Tiers[MatchConfig.Spar.TierId]
 -- The east and west edge of pit `index`, walls included, in the page's frame.
 local function edges(index: number): (number, number)
 	local centre = PITS.FirstX + (index - 1) * PITS.SpacingX
-	local half = PITS.Size / 2 + MAP.WallThickness
+	local half = PITS.Size / 2 + PITS.WallThickness
 	return centre - half, centre + half
 end
 
 describe("where the pits stand", function()
 	it("each more than a packet's reach from the page and from the next, clear of the page's kill plane", function()
 		local radius = GameConfig.Vfx.BroadcastRadiusStuds
-		local pageEast = MAP.Size / 2 + MAP.WallThickness
+		local pageEast = MAP.Size / 2
 		local west = edges(1)
 		expect(west - pageEast).toBeGreaterThan(radius)
 		for index = 2, PITS.Count do
@@ -360,6 +360,7 @@ local function nextBodyToCamp(claim: (roster: any, player: any) -> ()): boolean
 			trustedPosition = function(): any
 				return nil
 			end,
+			protect = function() end,
 		},
 		Match = {
 			isInMatch = function(): boolean
@@ -371,7 +372,7 @@ local function nextBodyToCamp(claim: (roster: any, player: any) -> ()): boolean
 				return false
 			end,
 		},
-	}, { Arrivals = { { Position = landing } } }, function(): number
+	}, { Arrivals = { { Position = landing } }, Layout = { Arrivals = { { X = 0, Z = 0 } } } }, function(): number
 		return 0
 	end)
 	local function body(): (any, any)

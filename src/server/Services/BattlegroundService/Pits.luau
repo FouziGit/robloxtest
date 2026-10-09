@@ -88,7 +88,7 @@ end
 local function buildPit(index: number, x: number, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = ANCHORS.Pit .. index
-	local size, height, thickness = PITS.Size, PITS.WallHeight, MAP.WallThickness
+	local size, height, thickness = PITS.Size, PITS.WallHeight, PITS.WallThickness
 	local floor = solid({
 		Name = ANCHORS.Floor,
 		Size = Vector3.new(size, MAP.FloorThickness, size),

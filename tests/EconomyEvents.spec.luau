@@ -53,11 +53,13 @@ local function shopReasons(): { string }
 	return reasons
 end
 
-local function botReasons(): { string }
+-- What the Battleground pays under: each Forger tier's RewardKey, and a member's kill of another (D-282).
+local function battlegroundReasons(): { string }
 	local reasons: { string } = {}
 	for _, tier in pairs(BotConfig.Tiers) do
 		table.insert(reasons, tier.RewardKey)
 	end
+	table.insert(reasons, "BattlegroundKill")
 	table.sort(reasons)
 	return reasons
 end
@@ -181,7 +183,13 @@ local SITES: { Site } = {
 		Flow = "Source",
 		Reasons = { "BossKillBonus" },
 	},
-	{ File = "BattlegroundService/Rewards", Call = "(player, folios, key)", Flow = "Source", Reasons = botReasons() },
+	-- A Forger's kill, and a member's kill of another, under the same daily cap (D-282).
+	{
+		File = "BattlegroundService/Rewards",
+		Call = "(player, folios, reason)",
+		Flow = "Source",
+		Reasons = battlegroundReasons(),
+	},
 	-- A practice duel against a Forger, under its daily allowance (D-272).
 	{
 		File = "SparService",

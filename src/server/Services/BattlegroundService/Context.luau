@@ -27,6 +27,10 @@ export type TroveType = typeof(Trove.new())
 export type ProfileData = Types.ProfileData
 export type NotifyKind = "Info" | "Success" | "Error"
 export type DamageResult = { Applied: number, Killed: boolean, Blocked: boolean }
+export type ZoneClaim = {
+	Holds: (player: Player) -> boolean,
+	Pair: ((source: Player, target: Player) -> boolean)?,
+}
 export type VfxPacket = {
 	Id: string,
 	Origin: Vector3,
@@ -54,6 +58,12 @@ export type CombatApi = {
 	-- from. Never judged, never strikes.
 	trustedPosition: (player: Player) -> Vector3?,
 	heal: (player: Player, amount: number, quietSeconds: number) -> number,
+	-- The page's members are the Battleground zone, where any two of them may hurt each other (ZoneConfig, D-282).
+	claimZone: (zone: "Battleground", claim: ZoneClaim) -> (),
+	-- A bubble that holds every blow off `player` for `seconds` and bursts on the first one they strike.
+	protect: (player: Player, seconds: number) -> (),
+	-- Whether nobody may hurt `player` now: their spawn protection or their bubble still holds.
+	isProtected: (player: Player) -> boolean,
 	Damaged: {
 		Connect: (
 			self: any,

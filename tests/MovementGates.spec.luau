@@ -752,15 +752,13 @@ describe("the barriers", function()
 		local dressing: BattlegroundLayout.Dressing = {
 			FloorName = BattlegroundConfig.Anchors.Floor,
 			KillZoneName = BattlegroundConfig.Anchors.KillZone,
-			WallRuleStuds = WorldConfig.Arena.WallRuleStuds,
-			WallRuleProudStuds = WorldConfig.Arena.WallRuleProudStuds,
 			FlatThickness = WorldConfig.FlatThicknessStuds,
 			RuleTop = WorldConfig.Ladder.Rule,
 			CampTop = WorldConfig.Ladder.Training,
 			CampTransparency = WorldConfig.Battleground.CampTransparency,
 		}
 		local layout = BattlegroundLayout.build(BattlegroundConfig.Map, dressing, BotConfig.Path.RadiusStuds)
-		local barriers = { Floor = true, Wall = true, Pillar = true, Stele = true, Cover = true }
+		local barriers = { Floor = true, Dais = true, Cover = true, Landmark = true }
 		local seen: { [string]: boolean } = {}
 		for _, box in ipairs(layout.Boxes) do
 			expect(box.Solid).toBe(barriers[box.Role] == true)
@@ -865,8 +863,6 @@ describe("the kill zone, judged by the server", function()
 		local dressing: BattlegroundLayout.Dressing = {
 			FloorName = BattlegroundConfig.Anchors.Floor,
 			KillZoneName = BattlegroundConfig.Anchors.KillZone,
-			WallRuleStuds = WorldConfig.Arena.WallRuleStuds,
-			WallRuleProudStuds = WorldConfig.Arena.WallRuleProudStuds,
 			FlatThickness = WorldConfig.FlatThicknessStuds,
 			RuleTop = WorldConfig.Ladder.Rule,
 			CampTop = WorldConfig.Ladder.Training,

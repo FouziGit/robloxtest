@@ -13,7 +13,7 @@ battleground.campHit,Hits from the camp don't count. Step out to fight.,Vellum,,
 battleground.defeated.one,{defeated} defeated,Vellum,,{defeated} defeated,{defeated} vaincu
 battleground.defeated.other,{defeated} defeated,Vellum,,{defeated} defeated,{defeated} vaincus
 battleground.entered,The Forgers have seen you.,Vellum,,The Forgers have seen you.,Les Faussaires t'ont vu.
-battleground.folioCap,Forgers pay no more Folios today. XP still counts.,Vellum,,Forgers pay no more Folios today. XP still counts.,Les Faussaires ne rapportent plus de Folios aujourd'hui. L'XP compte toujours.
+battleground.folioCap,The battleground pays no more Folios today. XP still counts.,Vellum,,The battleground pays no more Folios today. XP still counts.,Le champ de bataille ne rapporte plus de Folios aujourd'hui. L'XP compte toujours.
 battleground.full,The battleground is full. Try again in a moment.,Vellum,,The battleground is full. Try again in a moment.,Le champ de bataille est plein. Réessaie dans un instant.
 battleground.standing.one,{standing} Forger standing,Vellum,,{standing} Forger standing,{standing} Faussaire debout
 battleground.standing.other,{standing} Forgers standing,Vellum,,{standing} Forgers standing,{standing} Faussaires debout

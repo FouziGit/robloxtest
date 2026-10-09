@@ -76,6 +76,8 @@ local function template(): { [string]: any }
 			MatchFolios = 0,
 			SparDay = 0,
 			SparPaid = 0,
+			PlayerKillDay = 0,
+			PlayerKillXp = 0,
 		},
 		Milestones = {},
 		Drills = {},
@@ -289,6 +291,8 @@ describe("DataMigration daily caps", function()
 			"FlyleafFolios",
 			"SparDay",
 			"SparPaid",
+			"PlayerKillDay",
+			"PlayerKillXp",
 		}) do
 			expect(data.Daily[key]).toBe(0)
 		end
@@ -297,9 +301,10 @@ describe("DataMigration daily caps", function()
 	-- Version 7 (E10-S3, E10-S10, D-243; 5 and 6 were taken by the QA pass and wave 1): the Trials' counts and each
 	-- quest set's swaps, with no upgrade step. A version 4 profile comes out with them at zero and empty, its quests
 	-- and its caps as they were, and is stamped current, so a build that has never heard of them keeps them instead
-	-- of dropping them. Since the wave 3 merge the current version is 11 (8 the day's ranked opponents, D-255; 9 the
-	-- Flyleaf's allowance, D-267; 10 the login calendar, D-271; 11 the practice duels paid, D-272).
-	it("brings a version 4 profile to version 11 with no Trials paid and no swap spent", function()
+	-- of dropping them. Since the wave 3 merge the current version is 12 (8 the day's ranked opponents, D-255; 9 the
+	-- Flyleaf's allowance, D-267; 10 the login calendar, D-271; 11 the practice duels paid, D-272; 12 the XP the
+	-- Battleground paid for kills of players, D-282).
+	it("brings a version 4 profile to version 12 with no Trials paid and no swap spent", function()
 		local raw = {
 			DataVersion = 4,
 			Daily = { Streak = 3, ForgerDay = 20400, ForgerFolios = 90 },
@@ -309,9 +314,9 @@ describe("DataMigration daily caps", function()
 			},
 		}
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(11)
+		expect(DataMigration.CurrentVersion).toBe(12)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(11)
+		expect(data.DataVersion).toBe(12)
 		expect(data.Daily.ForgerFolios).toBe(90)
 		expect(data.Daily.TrialDay).toBe(0)
 		expect(data.Daily.TrialKills).toBe(0)
@@ -351,7 +356,7 @@ describe("DataMigration daily caps", function()
 			table.insert(copied, key)
 		end
 		table.sort(copied)
-		expect(#service).toBe(20)
+		expect(#service).toBe(22)
 		expect(service).toEqual(declared)
 		expect(service).toEqual(copied)
 	end)
@@ -362,14 +367,14 @@ end)
 -- pay it all a second time: an older profile arrives with empty ones, and a current profile keeps every entry.
 describe("DataMigration to version 6", function()
 	-- Since the wave 2 merge the current version is 7, the Trials' counts and the swaps (D-243), and since the wave 3
-	-- merge 11: 8 the day's ranked opponents and match Folios (D-255), 9 the Flyleaf's allowance (D-267), 10 the login
-	-- calendar (D-271), 11 the practice duels paid (D-272).
-	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 11", function()
+	-- merge 12: 8 the day's ranked opponents and match Folios (D-255), 9 the Flyleaf's allowance (D-267), 10 the login
+	-- calendar (D-271), 11 the practice duels paid (D-272), 12 the Battleground's XP for kills of players (D-282).
+	it("gives a profile of version 4 an empty record of milestones, drills and plates, and moves it to 12", function()
 		local raw = { DataVersion = 4, Progression = { Level = 60, XP = 0, TotalXP = 0 } }
 		local data, info = DataMigration.migrate(raw, template(), "S1")
-		expect(DataMigration.CurrentVersion).toBe(11)
+		expect(DataMigration.CurrentVersion).toBe(12)
 		expect(info).toEqual({ From = 4, Migrated = true })
-		expect(data.DataVersion).toBe(11)
+		expect(data.DataVersion).toBe(12)
 		expect(data.Milestones).toEqual({})
 		expect(data.Drills).toEqual({})
 		expect(data.ExLibris).toEqual({})

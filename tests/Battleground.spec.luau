@@ -1,11 +1,17 @@
 --!strict
--- The Battleground on the server (D-131), held to the promises no Lune test can run: every service here needs
--- an engine, so their sources are read. Each case is a rule a Forger or the roster must never break -- damage
+-- The Battleground on the server (D-131, D-282), held to the promises no Lune test can run: every service here needs
+-- an engine, so their sources are read -- all but Rewards, run on a pretend server (tests/server.luau). Each case is
+-- a rule a Forger or the roster must never break -- damage
 -- with no source reaches nobody who is not standing on the page, a body is the server's and is thrown with a
 -- bounded force, a player is placed where the server trusts them, every wait is followed by the questions it
 -- could have changed the answer to, and a kill is paid once, by model, only where a Forger could answer.
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
+local BotConfig = require("../src/shared/Config/BotConfig")
+local DailyStreak = require("../src/shared/Pure/DailyStreak")
 local Harness = require("./harness")
+local Server = require("./server")
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox") :: any
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -15,6 +21,7 @@ local COMBAT = "src/server/Services/CombatService.luau"
 local EFFECTS = "src/server/Effects/GlyphEffects.luau"
 local GLYPHS = "src/server/Services/GlyphService.luau"
 local BOOTSTRAP = "src/server/Bootstrap.server.luau"
+local LOCK_ON = "src/client/Controllers/LockOnController.luau"
 
 local function code(path: string): string
 	return ((fs.readFile(path)):gsub("%-%-[^\n]*", ""))
@@ -277,6 +284,26 @@ describe("a member", function()
 		).never.toBe(nil)
 	end)
 
+	it("is measured from the ground under them, so the raised place is floor to a Forger and its credit", function()
+		local observe = body(module("Roster"), "local function observe(", "Roster")
+		expect(
+			observe:find(
+				"local standingRoot = handle.FloorY + BattlegroundLayout.groundAt(handle.Layout, x, z) + BattlegroundConfig.StandingRootStuds",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- A Forger and its quarry are each as high as they stand over their own ground, so the place's stairs are
+		-- no escape from one that walks up them.
+		expect(count(module("Perception"), "Y = y - BattlegroundLayout.groundAt(handle.Layout, x, z),")).toBe(2)
+		-- A tell is drawn on the ground its Forger stands on.
+		local attacks = module("Attacks")
+		local under = body(attacks, "local function groundUnder(", "Attacks")
+		expect(under:find("handle.FloorY + BattlegroundLayout.groundAt(handle.Layout, x, z)", 1, true)).never.toBe(nil)
+		expect(count(attacks, "Origin = groundUnder(bot.Root.Position),")).toBe(2)
+		expect(attacks:find("handle.FloorY, root.Z", 1, true)).toBe(nil)
+	end)
+
 	it("stays one only while in no match, not the Erasure's, and on the page by trusted position", function()
 		local stays = body(module("Roster"), "local function stays(", "Roster")
 		for _, question in ipairs({
@@ -293,6 +320,314 @@ describe("a member", function()
 		-- The raw root is what a client says; nothing that decides membership may read it.
 		expect(stays:find(".Position", 1, true)).toBe(nil)
 		expect(stays:find("liveRoot", 1, true)).toBe(nil)
+	end)
+end)
+
+describe("the page's free-for-all (D-282)", function()
+	it("claims the Battleground zone for its members, any pair of them", function()
+		local start = body(module("init"), "function BattlegroundService.Start(", "init")
+		expect(start).toContain(
+			'deps.Combat.claimZone("Battleground", { Holds = function(player: Player): boolean return Roster.get(player) ~= nil end, Pair = function(_source: Player, _target: Player): boolean return true end, })'
+		)
+	end)
+
+	it("puts the arrival bubble on every member it admits, through the gate or back from a death", function()
+		local admit = body(module("Roster"), "function Roster.admit(", "Roster")
+		expect(
+			ordered(
+				admit,
+				"members[player] = member",
+				"deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)"
+			)
+		).toBe(true)
+	end)
+end)
+
+describe("a member's landing (D-282)", function()
+	-- Three arrivals in a row, 100 studs apart, on a Roster whose members stand wherever the test says.
+	local function landings(): (any, any, { [any]: any }, (userId: number) -> any)
+		local world = Server.world({ Stubs = { [DIR .. "Map"] = {} } })
+		local Roster = world.require(DIR .. "Roster")
+		local origin = world.require(DIR .. "Context").Origin
+		local markers, points, trusted = {}, {}, {}
+		for index = 1, 3 do
+			local x = (index - 2) * 100
+			markers[index] = { Position = origin + roblox.Vector3.new(x, 0, 0) }
+			points[index] = { X = x, Z = 0 }
+		end
+		Roster.Init({
+			Registry = { fire = function() end },
+			Combat = {
+				protect = function() end,
+				trustedPosition = function(player: any): any
+					return trusted[player]
+				end,
+			},
+		}, { Arrivals = markers, Layout = { Arrivals = points } }, function(): number
+			return 0
+		end)
+		local function admitAt(index: number): any
+			local player = world:join(index, "P" .. index)
+			player:LoadCharacterAsync()
+			Roster.admit(player, player.Character, markers[index].Position, 0, 0)
+			trusted[player] = markers[index].Position
+			return player
+		end
+		return Roster, markers, trusted, admitAt
+	end
+
+	it("is the arrival furthest from every member already standing, never one in somebody's reach", function()
+		local Roster, markers, _, admitAt = landings()
+		admitAt(1)
+		admitAt(2)
+		expect(Roster.nextLanding().X).toBe(markers[3].Position.X)
+	end)
+
+	it("takes the arrivals in turn on an empty page, so two who arrive together never share one", function()
+		local Roster, markers = landings()
+		expect(Roster.nextLanding().X).toBe(markers[1].Position.X)
+		expect(Roster.nextLanding().X).toBe(markers[2].Position.X)
+	end)
+end)
+
+describe("the lock-on onto the page's members (D-282)", function()
+	it("marks a member's body for the lock, and takes the mark off when the page lets them go or they die", function()
+		local world = Server.world({ Stubs = { [DIR .. "Map"] = {} } })
+		local Roster = world.require(DIR .. "Roster")
+		Roster.Init({
+			Registry = { fire = function() end },
+			Combat = { protect = function() end },
+		}, { Arrivals = {} }, function(): number
+			return 0
+		end)
+		local mark = BattlegroundConfig.MemberAttribute
+		local function admitted(userId: number): (any, any, any)
+			local player = world:join(userId, "P" .. userId)
+			player:LoadCharacterAsync()
+			local character = player.Character
+			Roster.admit(player, character, roblox.Vector3.new(0, 0, 0), 0, 0)
+			return player, character, character:FindFirstChildOfClass("Humanoid")
+		end
+		local dropped, droppedBody = admitted(1)
+		expect(droppedBody:GetAttribute(mark)).toBe(true)
+		Roster.drop(dropped)
+		expect(droppedBody:GetAttribute(mark)).toBeNil()
+		local _, deadBody, humanoid = admitted(2)
+		expect(deadBody:GetAttribute(mark)).toBe(true)
+		humanoid.Health = 0
+		humanoid.Died:Fire()
+		expect(deadBody:GetAttribute(mark)).toBeNil()
+	end)
+
+	it("lets the lock take another member only from a member's body, on the page both stand on", function()
+		local source = code(LOCK_ON)
+		local members = body(source, "local function addMembers(", "LockOnController")
+		for _, line in ipairs({
+			"if own == nil or own:GetAttribute(attribute) ~= true then",
+			"if other ~= player and body ~= nil and body:GetAttribute(attribute) == true then",
+			'local lock = lockOf(body, "Player")',
+		}) do
+			expect(members).toContain(line)
+		end
+		local opponents = body(source, "local function opponents(", "LockOnController")
+		expect(opponents).toContain("addMembers(out, FlyleafConfig.MemberAttribute)")
+		expect(opponents).toContain("addMembers(out, BattlegroundConfig.MemberAttribute)")
+	end)
+end)
+
+-- Rewards on a pretend server, the roster and the bubble stubbed: what a member's kill of another pays.
+type Kills = {
+	rewards: any,
+	held: { [any]: boolean },
+	-- Held by the page but not a member: they died inside and wait for their next body.
+	pending: { [any]: boolean },
+	shielded: { [any]: boolean },
+	xp: { [any]: number },
+	folios: { [any]: number },
+	profiles: { [any]: any },
+	said: { string },
+	join: (userId: number) -> any,
+}
+
+local function kills(): Kills
+	local fx: any = { held = {}, pending = {}, shielded = {}, xp = {}, folios = {}, profiles = {}, said = {} }
+	local world = Server.world({
+		Stubs = {
+			[DIR .. "Bots"] = {},
+			[DIR .. "Map"] = {},
+			[DIR .. "Roster"] = {
+				holds = function(player: any): boolean
+					return fx.held[player] == true
+				end,
+				get = function(player: any): any
+					return if fx.held[player] == true and fx.pending[player] ~= true then { Player = player } else nil
+				end,
+			},
+		},
+	})
+	fx.rewards = world.require(DIR .. "Rewards")
+	fx.rewards.Init({
+		DataService = {
+			get = function(player: any): any
+				local data = fx.profiles[player]
+				if data == nil then
+					data = { Daily = { ForgerDay = 0, ForgerFolios = 0, PlayerKillDay = 0, PlayerKillXp = 0 } }
+					fx.profiles[player] = data
+				end
+				return data
+			end,
+			push = function(_player: any, _section: string) end,
+		},
+		Notify = {
+			send = function(_player: any, key: string, _params: any, _kind: any, _sfx: any)
+				table.insert(fx.said, key)
+			end,
+		},
+		Combat = {
+			isProtected = function(player: any): boolean
+				return fx.shielded[player] == true
+			end,
+		},
+		Progression = {
+			addXp = function(player: any, amount: number, _reason: string): number
+				fx.xp[player] = (fx.xp[player] or 0) + amount
+				return amount
+			end,
+		},
+		Currency = {
+			add = function(player: any, amount: number, _reason: string): number
+				fx.folios[player] = (fx.folios[player] or 0) + amount
+				return amount
+			end,
+		},
+	}, {})
+	function fx.join(userId: number): any
+		local player = world:join(userId, "P" .. userId)
+		fx.held[player] = true
+		return player
+	end
+	return fx :: Kills
+end
+
+describe("a member's kill of another (D-282)", function()
+	local KILL = BattlegroundConfig.PlayerKill
+
+	it("pays once, then nothing for the same victim until the pair has rested PairCooldownSeconds", function()
+		local fx = kills()
+		local a, b = fx.join(1), fx.join(2)
+		fx.rewards.payPlayer(a, b, 100)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+		expect(fx.folios[a]).toBe(KILL.Folios)
+		expect(table.find(fx.said, "hud.playerKill") ~= nil).toBe(true)
+		fx.rewards.payPlayer(a, b, 100 + KILL.PairCooldownSeconds - 1)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+		-- The other way round is the same pair: two players trading kills earn once, not each time.
+		fx.rewards.payPlayer(b, a, 101)
+		expect(fx.xp[b]).toBeNil()
+		-- PairCooldownSeconds after the pair's last kill, paid or not, it pays again.
+		fx.rewards.payPlayer(a, b, 100 + 2 * KILL.PairCooldownSeconds)
+		expect(fx.xp[a]).toBe(2 * KILL.Xp)
+	end)
+
+	it(
+		"pays nothing to a killer who died inside and waits for their next body, though the page still holds them",
+		function()
+			local fx = kills()
+			local a, b = fx.join(1), fx.join(2)
+			fx.pending[a] = true
+			fx.rewards.payPlayer(a, b, 0)
+			expect(fx.xp[a]).toBeNil()
+			-- A refused kill took no payment from the pair.
+			fx.pending[a] = false
+			fx.rewards.payPlayer(a, b, 1)
+			expect(fx.xp[a]).toBe(KILL.Xp)
+			-- A victim in the same state is still paid for: the death the hub credits to the last blow.
+			fx.pending[b] = true
+			fx.rewards.payPlayer(a, b, 2 * KILL.PairCooldownSeconds)
+			expect(fx.xp[a]).toBe(2 * KILL.Xp)
+		end
+	)
+
+	it("pays nothing under a bubble, nor for a killer or a victim the page does not hold, nor for oneself", function()
+		local fx = kills()
+		local a, b = fx.join(1), fx.join(2)
+		fx.shielded[b] = true
+		fx.rewards.payPlayer(a, b, 0)
+		fx.shielded[b] = false
+		fx.held[a] = false
+		fx.rewards.payPlayer(a, b, 0)
+		fx.held[a] = true
+		-- A victim who walked home before the death the hub credits to the last blow.
+		fx.held[b] = false
+		fx.rewards.payPlayer(a, b, 0)
+		fx.held[b] = true
+		fx.rewards.payPlayer(a, a, 0)
+		expect(fx.xp[a]).toBeNil()
+		-- None of those took the pair's payment.
+		fx.rewards.payPlayer(a, b, 1)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+	end)
+
+	it("takes its Folios out of the Forgers' daily allowance in the profile, and says once when it is spent", function()
+		local fx = kills()
+		local a, b, c = fx.join(1), fx.join(2), fx.join(3)
+		local cap = BotConfig.Credit.DailyFolioCap
+		fx.profiles[a] = { Daily = { ForgerDay = DailyStreak.dayIndex(os.time()), ForgerFolios = cap - 1 } }
+		fx.rewards.payPlayer(a, b, 0)
+		expect(fx.folios[a]).toBe(1)
+		expect(fx.profiles[a].Daily.ForgerFolios).toBe(cap)
+		fx.rewards.payPlayer(a, c, 0)
+		expect(fx.folios[a]).toBe(1)
+		expect(fx.xp[a]).toBe(2 * KILL.Xp)
+		fx.rewards.payPlayer(b, c, 0)
+		local told = 0
+		for _, key in ipairs(fx.said) do
+			if key == "battleground.folioCap" then
+				told += 1
+			end
+		end
+		expect(told).toBe(1)
+	end)
+
+	it("pays its XP out of a daily allowance in the profile too, so another server does not reopen it", function()
+		local fx = kills()
+		local a, b, c = fx.join(1), fx.join(2), fx.join(3)
+		local cap = KILL.DailyXpCap
+		expect(cap).toBeGreaterThan(KILL.Xp)
+		fx.profiles[a] = {
+			Daily = {
+				ForgerDay = 0,
+				ForgerFolios = 0,
+				PlayerKillDay = DailyStreak.dayIndex(os.time()),
+				PlayerKillXp = cap - 10,
+			},
+		}
+		-- What is left of the day's allowance is paid, and the count goes back to the profile.
+		fx.rewards.payPlayer(a, b, 0)
+		expect(fx.xp[a]).toBe(10)
+		expect(fx.profiles[a].Daily.PlayerKillXp).toBe(cap)
+		-- Past it a kill pays no XP, and the Folios still come out of their own allowance.
+		fx.rewards.payPlayer(a, c, 0)
+		expect(fx.xp[a]).toBe(10)
+		expect(fx.folios[a]).toBe(2 * KILL.Folios)
+		-- Another day starts from nothing.
+		fx.profiles[a].Daily.PlayerKillDay -= 1
+		fx.rewards.payPlayer(a, b, 2 * KILL.PairCooldownSeconds)
+		expect(fx.xp[a]).toBe(10 + KILL.Xp)
+		expect(fx.profiles[a].Daily.PlayerKillXp).toBe(KILL.Xp)
+	end)
+
+	it("is heard on Killed for a player's body, before any Forger is looked for, and pruned every tick", function()
+		local init = module("init")
+		local killed = body(init, "local function onKilled(", "init")
+		expect(
+			ordered(
+				killed,
+				'log.try("Rewards.payPlayer", Rewards.payPlayer, killer, victim, os.clock())',
+				"Bots.byModel(model)"
+			)
+		).toBe(true)
+		expect(body(init, "local function tick(", "init")).toContain("Rewards.prune(now)")
 	end)
 end)
 

@@ -177,6 +177,8 @@ function DataService.template(): { [string]: any }
 			MatchFolios = 0,
 			SparDay = 0,
 			SparPaid = 0,
+			PlayerKillDay = 0,
+			PlayerKillXp = 0,
 		},
 		Milestones = {},
 		Drills = {},

@@ -741,3 +741,11 @@ Les 93 fichiers de `src/server` que modifie la PR #2 ont été relus en six tran
 
 **Reste.** Le travail en cours repart de `main` : les corps des 26 glyphes sur `feat/da-bodies`, en PR quand chaque lot est prêt.
 
+
+## La Page, le grand Champ de bataille (D-282) — 9 octobre 2026
+
+**Fait.** Sur `feat/battleground-page`, d'après la spécification `docs/superpowers/specs/2026-10-09-battleground-page-design.md` et son plan `docs/superpowers/plans/2026-10-09-battleground-page.md` : le Champ de bataille passe de 170 à 700 studs, bord déchiré, estrade centrale et sept repères en pièces simples, la grille des Faussaires à 20 studs ; tous les membres s'affrontent, derrière une bulle de 3 s à l'arrivée et à chaque retour, qui éclate au premier coup ; un kill d'un membre paie 60 XP et 3 Folios, une fois par paire et par 5 min, sous le plafond quotidien des Faussaires. `scripts/check.sh` vert à chaque commit.
+
+**Reste, dans Studio.** Voir la carte construite : chaque coin monte dans le bon sens (un `WedgePart` monte vers son +z), chaque sceau est debout, un Faussaire franchit la marche de l'estrade ; jouer à deux clients (la bulle, le premier coup qui la fait tomber, un kill payé puis le même refusé) ; mesurer la carte sur mobile avant de décider du streaming.
+
+**À confirmer par le développeur.** Les hypothèses (1) à (7) de D-282.

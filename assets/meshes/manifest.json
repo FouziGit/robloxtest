@@ -2133,19 +2133,19 @@
       "Source": "assets/meshes/page_desk_top.glb",
       "Tris": 2
     },
-    "PageFolioBody": {
+    "PageEdgeABody": {
       "Axis": "Y",
-      "Bytes": 1188,
+      "Bytes": 1532,
       "Flat": false,
       "Max": [
-        95.12,
-        15.07,
-        109.0206
+        10.12,
+        0.07,
+        0.0
       ],
       "Min": [
-        -111.9145,
-        9.07,
-        -95.12
+        -10.12,
+        0.07,
+        -11.5991
       ],
       "Normals": "up",
       "Pivot": [
@@ -2154,24 +2154,232 @@
         0
       ],
       "Reference": "Layout",
-      "Seed": 4471,
-      "Sha256": "1b32532aa0ac4531b1a5c8d075c608f0f7288df57e6152c765c55f25608679c6",
-      "Source": "assets/meshes/page_folio_body.glb",
-      "Tris": 6
+      "Seed": 7301,
+      "Sha256": "12991d47e25a6b61b93d793d28db251191815264d47458771f3fe422fba775d3",
+      "Source": "assets/meshes/page_edge_a_body.glb",
+      "Tris": 21
+    },
+    "PageEdgeAInk": {
+      "Axis": "Y",
+      "Bytes": 9124,
+      "Flat": false,
+      "Max": [
+        11.02,
+        0.09,
+        0.0
+      ],
+      "Min": [
+        -11.02,
+        -18.987,
+        -11.7154
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7301,
+      "Sha256": "bc099316db43b622779a93073b220418e007ec2621f7508257eb777ee6c87d29",
+      "Source": "assets/meshes/page_edge_a_ink.glb",
+      "Tris": 130
+    },
+    "PageEdgeASide": {
+      "Axis": "Y",
+      "Bytes": 3572,
+      "Flat": false,
+      "Max": [
+        10.12,
+        0.07,
+        0.0
+      ],
+      "Min": [
+        -10.12,
+        -35.9703,
+        -11.5991
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7301,
+      "Sha256": "924cc8c729f6108270d3560cca05bdab6fc23fa3d569b337debefb50460cbd81",
+      "Source": "assets/meshes/page_edge_a_side.glb",
+      "Tris": 44
+    },
+    "PageEdgeBBody": {
+      "Axis": "Y",
+      "Bytes": 1412,
+      "Flat": false,
+      "Max": [
+        10.12,
+        0.07,
+        0.0
+      ],
+      "Min": [
+        -10.12,
+        0.07,
+        -11.5665
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7302,
+      "Sha256": "713f8121bd53aa66371226464be82f043d10e19769ee09379e78eb4cdccb1958",
+      "Source": "assets/meshes/page_edge_b_body.glb",
+      "Tris": 17
+    },
+    "PageEdgeBInk": {
+      "Axis": "Y",
+      "Bytes": 8504,
+      "Flat": false,
+      "Max": [
+        11.02,
+        0.09,
+        0.0
+      ],
+      "Min": [
+        -11.02,
+        -23.2997,
+        -11.6803
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7302,
+      "Sha256": "c9ef14fe4f64ab3625eecdf6ccfc5a7c46a0224dd724c698e3a3afdf4c2760d4",
+      "Source": "assets/meshes/page_edge_b_ink.glb",
+      "Tris": 118
+    },
+    "PageEdgeBSide": {
+      "Axis": "Y",
+      "Bytes": 3140,
+      "Flat": false,
+      "Max": [
+        10.12,
+        0.07,
+        0.0
+      ],
+      "Min": [
+        -10.12,
+        -35.0785,
+        -11.5665
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7302,
+      "Sha256": "bf443ae02b7ab9a2239877d76e1cb0c1b7a527572903b92258e0669f465c946e",
+      "Source": "assets/meshes/page_edge_b_side.glb",
+      "Tris": 36
+    },
+    "PageEdgeCBody": {
+      "Axis": "Y",
+      "Bytes": 1500,
+      "Flat": false,
+      "Max": [
+        10.12,
+        0.07,
+        0.0
+      ],
+      "Min": [
+        -10.12,
+        0.07,
+        -11.7679
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7303,
+      "Sha256": "ca65d1aaaea51d5b089156ce858f250da02340bc11a2fa10687541a80fe00f31",
+      "Source": "assets/meshes/page_edge_c_body.glb",
+      "Tris": 20
+    },
+    "PageEdgeCInk": {
+      "Axis": "Y",
+      "Bytes": 8816,
+      "Flat": false,
+      "Max": [
+        11.02,
+        0.09,
+        0.0
+      ],
+      "Min": [
+        -11.02,
+        -20.9921,
+        -11.8767
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7303,
+      "Sha256": "0229f27152f890ec514e6ce14216d905f12e589cb1422f1b48e9a022482092a2",
+      "Source": "assets/meshes/page_edge_c_ink.glb",
+      "Tris": 126
+    },
+    "PageEdgeCSide": {
+      "Axis": "Y",
+      "Bytes": 3460,
+      "Flat": false,
+      "Max": [
+        10.12,
+        0.07,
+        0.0
+      ],
+      "Min": [
+        -10.12,
+        -35.9728,
+        -11.7679
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 7303,
+      "Sha256": "2fdd9cd8d71c831f75a4802e0d4990aeae33411bae7a5b50fc0884557c71e7f4",
+      "Source": "assets/meshes/page_edge_c_side.glb",
+      "Tris": 42
     },
     "PageFolioCover": {
       "Axis": "Y",
-      "Bytes": 9956,
+      "Bytes": 19436,
       "Flat": false,
       "Max": [
-        86.12,
+        88.3428,
         60.0783,
         125.1565
       ],
       "Min": [
         -125.1565,
         -0.0,
-        -86.12
+        -94.2524
       ],
       "Normals": "up",
       "Pivot": [
@@ -2180,23 +2388,49 @@
         0
       ],
       "Reference": "Layout",
-      "Seed": 4471,
-      "Sha256": "ba16b28fb08c6f3f4e6e35b7a3368d815ae8510320d992cfde06adb558164b0b",
+      "Seed": 0,
+      "Sha256": "99e7b09f3ffe59264374099780a63039682b98abb6405995d5d5e9587a2e2c1b",
       "Source": "assets/meshes/page_folio_cover.glb",
-      "Tris": 264
+      "Tris": 484
     },
     "PageFolioInk": {
       "Axis": "Y",
-      "Bytes": 173412,
+      "Bytes": 182736,
       "Flat": false,
       "Max": [
-        96.598,
+        88.9032,
         61.548,
         126.5224
       ],
       "Min": [
         -126.5224,
         -0.0,
+        -94.8129
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 0,
+      "Sha256": "762c675a88275a6e3eac24a0687f6efe6cf1a448516dbd0cda789f777813af8e",
+      "Source": "assets/meshes/page_folio_ink.glb",
+      "Tris": 3024
+    },
+    "PageFolioRockInk": {
+      "Axis": "Y",
+      "Bytes": 184108,
+      "Flat": false,
+      "Max": [
+        100.0262,
+        20.6678,
+        104.1031
+      ],
+      "Min": [
+        -103.8635,
+        -3.4484,
         -96.598
       ],
       "Normals": "up",
@@ -2207,23 +2441,23 @@
       ],
       "Reference": "Layout",
       "Seed": 4471,
-      "Sha256": "81e5e1e8c34e5ada6e8554af5b5dc8cc2079fb9edf355d853c76bdc6ea5f2ca8",
-      "Source": "assets/meshes/page_folio_ink.glb",
-      "Tris": 2806
+      "Sha256": "23f4a2e94b9b7946bafb9ee50745ce46f22734b37f6a3e084ec8c78e64cd0b0b",
+      "Source": "assets/meshes/page_folio_rock_ink.glb",
+      "Tris": 2764
     },
-    "PageFolioSide": {
+    "PageFolioRockSide": {
       "Axis": "Y",
-      "Bytes": 2616,
+      "Bytes": 6500,
       "Flat": false,
       "Max": [
-        95.12,
-        60.0783,
-        109.0206
+        98.6077,
+        19.4907,
+        102.5731
       ],
       "Min": [
-        -111.9145,
-        0.0,
-        -95.12
+        -102.4624,
+        -3.4449,
+        -95.2059
       ],
       "Normals": "up",
       "Pivot": [
@@ -2233,23 +2467,75 @@
       ],
       "Reference": "Layout",
       "Seed": 4471,
-      "Sha256": "638ab50b50b67e0dfa15641f47260b83ac03a9969582093f8cf5fc6642d8ae09",
+      "Sha256": "eb41cce41b7a29f4fdc8e18ca8d8e2c36f0dfde0998b84c6996a455ea53726b9",
+      "Source": "assets/meshes/page_folio_rock_side.glb",
+      "Tris": 104
+    },
+    "PageFolioRockTop": {
+      "Axis": "Y",
+      "Bytes": 2300,
+      "Flat": false,
+      "Max": [
+        97.1349,
+        19.4907,
+        102.5731
+      ],
+      "Min": [
+        -102.4624,
+        7.8054,
+        -95.2059
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 4471,
+      "Sha256": "f0db7f68224bcebbf4dc554b6ad90770102c8a6a9a01bb36a5190fb7cd135446",
+      "Source": "assets/meshes/page_folio_rock_top.glb",
+      "Tris": 26
+    },
+    "PageFolioSide": {
+      "Axis": "Y",
+      "Bytes": 1476,
+      "Flat": false,
+      "Max": [
+        29.9156,
+        60.0783,
+        95.0
+      ],
+      "Min": [
+        -95.0,
+        0.0,
+        -67.5135
+      ],
+      "Normals": "up",
+      "Pivot": [
+        0,
+        0,
+        0
+      ],
+      "Reference": "Layout",
+      "Seed": 0,
+      "Sha256": "ce0557a3becfa38d39d39f725a2f455060f233a3cc62d4b5c6cd2b0f0e5938f9",
       "Source": "assets/meshes/page_folio_side.glb",
-      "Tris": 34
+      "Tris": 10
     },
     "PageFolioTop": {
       "Axis": "Y",
-      "Bytes": 2288,
+      "Bytes": 3432,
       "Flat": false,
       "Max": [
-        85.12,
+        87.2595,
         60.0783,
         125.1565
       ],
       "Min": [
         -125.1565,
         -0.0,
-        -85.12
+        -93.1691
       ],
       "Normals": "up",
       "Pivot": [
@@ -2258,10 +2544,10 @@
         0
       ],
       "Reference": "Layout",
-      "Seed": 4471,
-      "Sha256": "a63a16fab3b81731e45822b0cb5ee8c0321cdf06ee02864b4e739f8666534dab",
+      "Seed": 0,
+      "Sha256": "c36d169eb32f46939018f2ab73af156879dd882e50c8a14e8c114602fd474100",
       "Source": "assets/meshes/page_folio_top.glb",
-      "Tris": 28
+      "Tris": 46
     },
     "PageLittleBookCover": {
       "Axis": "Y",

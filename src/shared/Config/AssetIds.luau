@@ -40,6 +40,9 @@ export type Asset = {
 	-- read by tests/BossTelegraph.spec.luau so that a warning is held to its ink rather than to its
 	-- rectangle. Absent for a texture that is not square, which no warning may use.
 	Ink: { Least: number, Most: number }?,
+	-- True for the one kind of PNG that is not a white tint mask: opaque RGB drawn as it is (the sky).
+	-- It has no ink to measure. tests/AssetIds.spec.luau holds the flag to the file's colour type.
+	Opaque: boolean?,
 }
 
 local AssetIds = {}
@@ -85,6 +88,18 @@ local function texture(source: string, width: number, height: number, least: num
 	}
 end
 
+local function solid(source: string, size: number): Asset
+	return {
+		Id = UPLOADED[source] or "",
+		Source = source,
+		Width = size,
+		Height = size,
+		Columns = 1,
+		Rows = 1,
+		Opaque = true,
+	}
+end
+
 local function flipbook(source: string, size: number, columns: number, rows: number): Asset
 	return {
 		Id = UPLOADED[source] or "",
@@ -118,6 +133,9 @@ AssetIds.Textures = {
 	-- Tileable grain for world surfaces. Low contrast on purpose: it is the paper the world is written
 	-- on, and paper you notice is a texture, not a surface.
 	PaperGrain = texture("assets/textures/paper_grain.png", 512, 512, 0.998, 1.414),
+	-- One flat sheet of vellum for all six faces of the Sky (LightingConfig.Sky). An empty face is Roblox's
+	-- blue default sky, which also tints every surface; the page colour keeps the world warm.
+	SkyVellum = solid("assets/textures/sky_vellum.png", 512),
 	-- The seal a cast draws in the air before it fires. This is the art direction's signature image and
 	-- the reason a cast has an anticipation phase at all.
 	SealRing = texture("assets/textures/seal_ring.png", 512, 512, 0.902, 0.918),

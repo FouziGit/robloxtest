@@ -8,8 +8,12 @@
 -- world is bright and the magic is dark" is the inversion the identity rests on, and it dies the same way,
 -- half a brightness point at a time. And a post-processing effect left on a non-resting value is how every
 -- game ends up with a permanent grade, which docs/JUICE_PLAN.md phase 3 forbids outright.
+local AssetIds = require("../src/shared/Config/AssetIds")
 local Harness = require("./harness")
 local LightingConfig = require("../src/shared/Config/LightingConfig")
+local WorldConfig = require("../src/shared/Config/WorldConfig")
+local fs = require("@lune/fs")
+local serde = require("@lune/serde")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
@@ -316,5 +320,53 @@ describe("LightingConfig", function()
 				error(("nothing animates %s, so it is a permanent value or dead weight"):format(effectName))
 			end
 		end
+	end)
+
+	-- The sky is Roblox's blue default unless its six faces carry a texture, and that blue lights every
+	-- surface through the environment: the whole world read teal until the faces held the page itself.
+	it("puts a resolved sky texture on all six faces, and none on an unresolved one", function()
+		local id = "rbxassetid://123"
+		local faces = LightingConfig.skyFaces(id)
+		for _, face in ipairs(LightingConfig.Sky.Faces) do
+			expect(faces[face]).toBe(id)
+		end
+		local count = 0
+		for _ in pairs(faces) do
+			count += 1
+		end
+		expect(count).toBe(6)
+		for _, value in pairs(LightingConfig.skyFaces("")) do
+			expect(value).toBe("")
+		end
+	end)
+
+	it("has the controller apply the uploaded sky through skyFaces", function()
+		local source = fs.readFile("src/client/Controllers/WorldLighting.luau")
+		local body = string.match(source, "local function applySky%(%).-\nend\n")
+		expect(body ~= nil).toBe(true)
+		expect(string.find(body :: string, "LightingConfig.skyFaces(AssetIds.Textures.SkyVellum.Id)", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+
+	it("makes the sky texture the page colour, flat, on every pixel", function()
+		-- Setting the faces to a paper texture turned the world cream at once; a dark one turned it dark.
+		-- So the sheet is checked pixel by pixel: Lune cannot decode a PNG, but a flat one is zlib over
+		-- identical scanlines, which it can.
+		local asset = AssetIds.Textures.SkyVellum
+		local bytes = fs.readFile(asset.Source)
+		local idat = ""
+		local position = 9
+		while position < #bytes do
+			local length = string.unpack(">I4", bytes, position)
+			if string.sub(bytes, position + 4, position + 7) == "IDAT" then
+				idat ..= string.sub(bytes, position + 8, position + 7 + length)
+			end
+			position += 12 + length
+		end
+		local raw = serde.decompress("zlib", idat)
+		local page = WorldConfig.Colors.Page
+		local row = "\0" .. string.rep(string.char(page[1], page[2], page[3]), asset.Width)
+		expect(raw == string.rep(row, asset.Height)).toBe(true)
 	end)
 end)

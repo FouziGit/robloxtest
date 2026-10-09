@@ -147,30 +147,34 @@ LightingConfig.Atmosphere = {
 	},
 }
 
--- The sky: a Sky object with no faces at all.
+-- The sky: a Sky object whose six faces carry one flat sheet of vellum (AssetIds SkyVellum).
 --
--- Verified in a running client, which is the only reason this file says it. The first attempt here was
--- six Neon slabs re-centred on the camera every frame, on the reasoning that a Sky needs six uploaded
--- textures. The slabs were built, opaque and correctly placed at 900 studs -- and invisible: past a few
--- hundred studs the renderer drops them, and the distance at which it does depends on the player's
--- graphics quality. The same shell brought to 200 studs rendered perfectly, which is how the cause was
--- pinned down. A sky whose existence depends on a quality setting is not a sky.
+-- Measured in a running client: a Sky with empty faces is not "no sky", it is Roblox's default BLUE sky,
+-- and that blue also lights every surface through the environment lighting, so the hub and the
+-- Battleground read teal instead of warm paper. Six faces set to a paper texture turned the world cream
+-- at once; a dark texture turned it dark, so the texture is the page colour itself. Until the PNG is
+-- uploaded the id is "" and the faces stay empty, which is the old behaviour.
 --
--- A Sky whose six faces are the empty string costs nothing, is always drawn, and is the same on every
--- machine. It does not render black, which was the fear that kept this file from trying it: it hands
--- the sky back to the clear-sky gradient, which the Atmosphere above then recolours -- which is what
--- the Atmosphere was configured to do all along. What leaves with it are Roblox's stock clouds, the
--- single most interchangeable thing that can be in a frame.
+-- Six Neon slabs around the camera were tried first and dropped: past a few hundred studs the renderer
+-- culls them, at a distance that depends on the player's graphics quality.
 --
 -- CelestialBodiesShown is false for the same reason Glare is zero: a sun disc and a moon are the most
 -- borrowed objects in the genre, and neither belongs on a page.
 LightingConfig.Sky = {
 	CelestialBodiesShown = false,
 	-- The six face properties, named so the client writes exactly these and a seventh cannot appear by
-	-- accident. Empty on purpose: this project uploads the textures it uses and has verified none for a
-	-- skybox, and borrowing somebody else's is forbidden outright (docs/ART_BIBLE.md).
+	-- accident.
 	Faces = { "SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp" },
 }
+
+-- Every face mapped to `textureId` ("" while the sky has not been uploaded): what the client writes.
+function LightingConfig.skyFaces(textureId: string): { [string]: string }
+	local faces: { [string]: string } = {}
+	for _, face in ipairs(LightingConfig.Sky.Faces) do
+		faces[face] = textureId
+	end
+	return faces
+end
 
 -- The five post-processing effects. None of them is ever a look: docs/JUICE_PLAN.md phase 3 requires them
 -- animated and never permanent, so every resting value below is within a hair of the effect's neutral and

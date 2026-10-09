@@ -2244,6 +2244,58 @@ local UPLOADED: { [string]: Uploaded } = {
 	["assets/meshes/page_desk_ink.glb"] = { Id = "rbxassetid://112951272051606", Native = { 15.3485, 6.6243, 10.3485 } },
 	["assets/meshes/page_desk_side.glb"] = { Id = "rbxassetid://74459832175266", Native = { 14.24, 6.07, 9.24 } },
 	["assets/meshes/page_desk_top.glb"] = { Id = "rbxassetid://115879160552695", Native = { 14.24, 0, 9.24 } },
+	["assets/meshes/page_edge_a_body.glb"] = { Id = "rbxassetid://79084020673113", Native = { 20.24, 0, 11.5991 } },
+	["assets/meshes/page_edge_a_ink.glb"] = { Id = "rbxassetid://133437482601153", Native = { 22.04, 19.077, 11.7154 } },
+	["assets/meshes/page_edge_a_side.glb"] = {
+		Id = "rbxassetid://94177235229300",
+		Native = { 20.24, 36.0403, 11.5991 },
+	},
+	["assets/meshes/page_edge_b_body.glb"] = { Id = "rbxassetid://103219871646471", Native = { 20.24, 0, 11.5665 } },
+	["assets/meshes/page_edge_b_ink.glb"] = {
+		Id = "rbxassetid://120168002420143",
+		Native = { 22.04, 23.3897, 11.6803 },
+	},
+	["assets/meshes/page_edge_b_side.glb"] = {
+		Id = "rbxassetid://113855809188509",
+		Native = { 20.24, 35.1485, 11.5665 },
+	},
+	["assets/meshes/page_edge_c_body.glb"] = { Id = "rbxassetid://89769105118074", Native = { 20.24, 0, 11.7679 } },
+	["assets/meshes/page_edge_c_ink.glb"] = {
+		Id = "rbxassetid://137798855266094",
+		Native = { 22.04, 21.0821, 11.8767 },
+	},
+	["assets/meshes/page_edge_c_side.glb"] = {
+		Id = "rbxassetid://84506553209332",
+		Native = { 20.24, 36.0428, 11.7679 },
+	},
+	["assets/meshes/page_folio_cover.glb"] = {
+		Id = "rbxassetid://81830247664108",
+		Native = { 213.4993, 60.0783, 219.409 },
+	},
+	["assets/meshes/page_folio_ink.glb"] = {
+		Id = "rbxassetid://137702505201253",
+		Native = { 215.4256, 61.548, 221.3352 },
+	},
+	["assets/meshes/page_folio_rock_ink.glb"] = {
+		Id = "rbxassetid://120522715864069",
+		Native = { 203.8896, 24.1162, 200.7011 },
+	},
+	["assets/meshes/page_folio_rock_side.glb"] = {
+		Id = "rbxassetid://82818273923072",
+		Native = { 201.0701, 22.9356, 197.779 },
+	},
+	["assets/meshes/page_folio_rock_top.glb"] = {
+		Id = "rbxassetid://130104116833807",
+		Native = { 199.5973, 11.6853, 197.779 },
+	},
+	["assets/meshes/page_folio_side.glb"] = {
+		Id = "rbxassetid://121170084990506",
+		Native = { 124.9156, 60.0783, 162.5135 },
+	},
+	["assets/meshes/page_folio_top.glb"] = {
+		Id = "rbxassetid://77702598340734",
+		Native = { 212.416, 60.0783, 218.3256 },
+	},
 	["assets/meshes/page_little_book_cover.glb"] = {
 		Id = "rbxassetid://136780896225465",
 		Native = { 85.24, 0.4, 61.24 },

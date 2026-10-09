@@ -189,19 +189,17 @@ WorldConfig.Portal = {
 	} :: { [string]: { number } },
 }
 
--- The Battleground (D-131): a page walled in bone like an arena, ruled in ink like the hub, with bone pillars,
--- a chalk stele at its centre and ink cover. The camp, where players arrive and heal, is washed grey behind
--- an ink line. Every Role of BattlegroundLayout's boxes is a key of this table.
+-- The Battleground (D-131, D-282): a page with a torn edge, ruled in ink like the hub, a chalk dais at its centre
+-- with ink walls on it, landmarks and a ruled bed in bone. The camp, where players arrive, is washed grey behind an
+-- ink line. Every Role of BattlegroundLayout's boxes is a key of this table.
 WorldConfig.Battleground = {
 	Floor = "Page",
-	Wall = "Bone",
-	WallRule = "Ink",
 	Rule = "Ink",
+	Trim = "Ink",
+	Dais = "Chalk",
 	Cover = "Ink",
-	Pillar = "Bone",
-	PillarRule = "Ink",
-	Stele = "Chalk",
-	SteleRule = "Ink",
+	Landmark = "Bone",
+	Bed = "Bone",
 	Camp = "Wash",
 	CampLine = "Ink",
 	KillZone = "Page",

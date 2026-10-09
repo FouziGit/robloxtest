@@ -1,7 +1,7 @@
 --!strict
--- Map: builds Workspace.Battleground (D-131) from BattlegroundLayout, once, at Start, and hands the rest of
+-- Map: builds Workspace.Battleground (D-131, D-282) from BattlegroundLayout, once, at Start, and hands the rest of
 -- the service what it measures against -- the layout, the landing and spawn markers, the kill plane and the
--- sight rays' filter. About sixty static parts, never released.
+-- sight rays' filter. A few hundred static parts (BattlegroundConfig.Map.PartBudget), never released.
 --
 -- The camp holds the way out: a Return gate (World/PortalGate, D-130) whose circle PortalService watches like
 -- any other, so a member who came in through the hub's gate always has a way back, dead or alive.
@@ -10,9 +10,11 @@
 -- blocks sight, everything else is drawn on the page and touches nothing. The markers are plain invisible
 -- parts, never SpawnLocations: HubSpawn must stay the only SpawnLocation in the world (ArenaService).
 --
--- The solids -- the floor, the walls, the pillars, the stele and the cover -- also carry
+-- The solids -- the floor and its torn edge, the dais, the cover and the landmarks -- also carry
 -- MovementGuardConfig.BarrierTag: the geometry no body may pass through, which is all the movement audit casts
--- its noclip ray against. The kill plane, the rules and the camp touch nothing and are left out.
+-- its noclip ray against. The kill plane, the ink drawn on the page and the camp touch nothing and are left out.
+-- A box is a block, a wedge or a cylinder, turned by its Yaw about the vertical; a cylinder's axis is the engine's
+-- x, so it is laid on its side to stand on its flat face.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -54,12 +56,12 @@ local KILL_ZONE_ROLE = "KillZone"
 -- As ArenaService's: a marker stands where a character's root goes, so PivotTo(marker.CFrame) stands it up.
 local MARKER_STUDS = Vector3.new(2, 1, 2)
 local COLLISION_TAG = WorldConfig.Glyphs.CollisionTag
+-- Lays a cylinder's axis (the engine's x) along the vertical.
+local CYLINDER_UPRIGHT = CFrame.Angles(0, 0, math.pi / 2)
 
 local DRESSING: BattlegroundLayout.Dressing = {
 	FloorName = ANCHORS.Floor,
 	KillZoneName = ANCHORS.KillZone,
-	WallRuleStuds = WorldConfig.Arena.WallRuleStuds,
-	WallRuleProudStuds = WorldConfig.Arena.WallRuleProudStuds,
 	FlatThickness = WorldConfig.FlatThicknessStuds,
 	RuleTop = WorldConfig.Ladder.Rule,
 	CampTop = WorldConfig.Ladder.Training,
@@ -68,8 +70,23 @@ local DRESSING: BattlegroundLayout.Dressing = {
 
 local Map = {}
 
-local function newPart(name: string, size: Vector3, cframe: CFrame, role: string): Part
-	local part = Instance.new("Part")
+local function newPart(
+	name: string,
+	shape: BattlegroundLayout.Shape,
+	size: Vector3,
+	cframe: CFrame,
+	role: string
+): BasePart
+	local part: BasePart
+	if shape == "Wedge" then
+		part = Instance.new("WedgePart")
+	else
+		local block = Instance.new("Part")
+		if shape == "Cylinder" then
+			block.Shape = Enum.PartType.Cylinder
+		end
+		part = block
+	end
 	part.Name = name
 	part.Size = size
 	part.CFrame = cframe
@@ -81,15 +98,16 @@ local function newPart(name: string, size: Vector3, cframe: CFrame, role: string
 	return part
 end
 
--- One box of the layout. A solid collides and can be hit by a query; the rest -- rules, the camp's wash, the
--- rule caps -- is drawn on the page and is nothing to the physics.
-local function buildBox(box: BattlegroundLayout.Box, parent: Model): Part
-	local part = newPart(
-		box.Name,
-		Vector3.new(box.SizeX, box.SizeY, box.SizeZ),
-		CFrame.new(Context.toWorld(box.X, box.Y, box.Z)),
-		box.Role
-	)
+-- One box of the layout. A solid collides and can be hit by a query; the rest -- the ruling, the camp's wash, the
+-- bed, the ink marks -- is drawn on the page and is nothing to the physics.
+local function buildBox(box: BattlegroundLayout.Box, parent: Model): BasePart
+	local frame = CFrame.new(Context.toWorld(box.X, box.Y, box.Z)) * CFrame.Angles(0, math.rad(box.Yaw), 0)
+	local size = Vector3.new(box.SizeX, box.SizeY, box.SizeZ)
+	if box.Shape == "Cylinder" then
+		frame *= CYLINDER_UPRIGHT
+		size = Vector3.new(box.SizeY, box.SizeX, box.SizeZ)
+	end
+	local part = newPart(box.Name, box.Shape, size, frame, box.Role)
 	part.Transparency = box.Transparency
 	part.CanCollide = box.Solid
 	part.CanQuery = box.Solid
@@ -102,10 +120,10 @@ local function buildBox(box: BattlegroundLayout.Box, parent: Model): Part
 end
 
 -- An invisible marker standing where a character's root goes, turned toward `face` (a world point).
-local function buildMarker(name: string, point: BattlegroundLayout.Point, face: Vector3, parent: Model): Part
+local function buildMarker(name: string, point: BattlegroundLayout.Point, face: Vector3, parent: Model): BasePart
 	local position = Context.toWorld(point.X, BattlegroundConfig.StandingRootStuds, point.Z)
-	local marker =
-		newPart(name, MARKER_STUDS, CFrame.lookAt(position, Vector3.new(face.X, position.Y, face.Z)), MARKER_ROLE)
+	local frame = CFrame.lookAt(position, Vector3.new(face.X, position.Y, face.Z))
+	local marker = newPart(name, "Block", MARKER_STUDS, frame, MARKER_ROLE)
 	marker.Transparency = 1
 	marker.CanCollide = false
 	marker.CanQuery = false
@@ -153,15 +171,14 @@ function Map.build(trove: Context.TroveType): Handle
 
 	local arrivals: { BasePart } = {}
 	for index, point in ipairs(layout.Arrivals) do
-		-- Facing east, into the page, the way a player walks out of the camp.
-		local ahead = Context.toWorld(point.X + 1, 0, point.Z)
-		table.insert(arrivals, buildMarker(ANCHORS.Arrival .. index, point, ahead, model))
+		-- Facing the page's centre, the way a player walks out of the camp or in from the edge.
+		table.insert(arrivals, buildMarker(ANCHORS.Arrival .. index, point, Context.Origin, model))
 	end
 	local spawns: { BasePart } = {}
 	for index, point in ipairs(layout.BotSpawns) do
 		table.insert(spawns, buildMarker(ANCHORS.BotSpawn .. index, point, Context.Origin, model))
 	end
-	-- Facing east, the way its players come from the page; its back posts end on the west wall.
+	-- Facing east, the way its players come from the page; its back posts end on the camp's west edge.
 	local gate = Context.toWorld(layout.ReturnGate.X, 0, layout.ReturnGate.Z)
 	PortalGate.build(model, PortalConfig.Anchors.ReturnGate, CFrame.lookAt(gate, gate + Vector3.xAxis), "Return")
 

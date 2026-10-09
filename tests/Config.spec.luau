@@ -971,8 +971,6 @@ end)
 
 describe("BattlegroundConfig: membership", function()
 	it("holds every place a member can stand and brings a death inside back to the camp", function()
-		-- Up to the top of the walls: a member thrown against one is still on the page.
-		expect(BattlegroundConfig.BoundsHeightStuds).toBeGreaterThanOrEqual(BattlegroundConfig.Map.WallHeight)
 		expect(BattlegroundConfig.BoundsDepthStuds).toBeGreaterThan(0)
 		-- A body falling off is let go before it reaches the kill plane, which is under the floor.
 		expect(BattlegroundConfig.BoundsDepthStuds).toBeLessThan(-BattlegroundConfig.Map.KillZoneDepth)

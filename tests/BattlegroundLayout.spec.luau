@@ -1,8 +1,9 @@
 --!strict
--- The Battleground's page (D-131), held to what its config claims: everything inside the walls, nothing solid
--- in the camp or on top of another solid, no perch out of every Forger's reach, a waypoint graph that is
--- whole and whose paths are clear and shortest, and a page that every packet fired on it reaches while the
--- hub is out of sight and out of reach.
+-- The Battleground's page (D-131, D-282), held to what its config claims: 700 studs, every part on it and within the
+-- part budget, nothing solid in the camp, on an arrival or on top of another solid, no corridor narrower than 16
+-- studs, every arrival apart from every other and from the Forgers' spawns, a waypoint graph that is whole -- the
+-- crater and the book's valley included -- and whose paths are clear and shortest, and a page that stands out of
+-- the hub's sight and out of its packets' reach.
 local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
 local BattlegroundLayout = require("../src/server/Pure/BattlegroundLayout")
 local BotConfig = require("../src/shared/Config/BotConfig")
@@ -17,12 +18,9 @@ local fs = require("@lune/fs")
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
 
 local MAP = BattlegroundConfig.Map
-local ARENA = WorldConfig.Arena
 local DRESSING: BattlegroundLayout.Dressing = {
 	FloorName = BattlegroundConfig.Anchors.Floor,
 	KillZoneName = BattlegroundConfig.Anchors.KillZone,
-	WallRuleStuds = ARENA.WallRuleStuds,
-	WallRuleProudStuds = ARENA.WallRuleProudStuds,
 	FlatThickness = WorldConfig.FlatThicknessStuds,
 	RuleTop = WorldConfig.Ladder.Rule,
 	CampTop = WorldConfig.Ladder.Training,
@@ -33,6 +31,10 @@ local LAYOUT = BattlegroundLayout.build(MAP, DRESSING, BotConfig.Path.RadiusStud
 local GRAVITY = 196.2
 local EPSILON = 1e-6
 local HUB = "src/server/Services/HubService.luau"
+-- What World/PortalGate builds of the gate home: two discs, two posts, the lintel, the panel, the sign, the seal.
+local GATE_PARTS = 8
+-- The narrowest way between two pieces on the ground (D-282).
+local CORRIDOR_STUDS = 16
 
 local function overlaps(a: BattlegroundLayout.Box, b: BattlegroundLayout.Box): boolean
 	for _, axis in ipairs({ { "X", "SizeX" }, { "Y", "SizeY" }, { "Z", "SizeZ" } }) do
@@ -45,16 +47,9 @@ local function overlaps(a: BattlegroundLayout.Box, b: BattlegroundLayout.Box): b
 	return true
 end
 
-local function rectsOverlap(a: BattlegroundLayout.Rect, b: BattlegroundLayout.Rect): boolean
-	return a.MinX < b.MaxX - EPSILON
-		and b.MinX < a.MaxX - EPSILON
-		and a.MinZ < b.MaxZ - EPSILON
-		and b.MinZ < a.MaxZ - EPSILON
-end
-
 local function blocked(x: number, z: number): boolean
-	for _, rect in ipairs(LAYOUT.Blocked) do
-		if BattlegroundLayout.inRect(rect, x, z) then
+	for _, print in ipairs(LAYOUT.Blocked) do
+		if BattlegroundLayout.inPrint(print, x, z) then
 			return true
 		end
 	end
@@ -63,6 +58,40 @@ end
 
 local function distance(a: BattlegroundLayout.Point, b: BattlegroundLayout.Point): number
 	return math.sqrt((a.X - b.X) ^ 2 + (a.Z - b.Z) ^ 2)
+end
+
+-- The distance from p to the segment a -> b.
+local function toSegment(p: BattlegroundLayout.Point, a: BattlegroundLayout.Point, b: BattlegroundLayout.Point): number
+	local dx, dz = b.X - a.X, b.Z - a.Z
+	local t = math.clamp(((p.X - a.X) * dx + (p.Z - a.Z) * dz) / (dx * dx + dz * dz), 0, 1)
+	return distance(p, { X = a.X + t * dx, Z = a.Z + t * dz })
+end
+
+-- The gap between two prints on the ground: 0 when they touch or overlap, else the shortest distance between them.
+local function gap(a: BattlegroundLayout.Print, b: BattlegroundLayout.Print): number
+	local ca, cb = BattlegroundLayout.corners(a), BattlegroundLayout.corners(b)
+	for _, corner in ipairs(ca) do
+		if BattlegroundLayout.inPrint(b, corner.X, corner.Z) then
+			return 0
+		end
+	end
+	for _, corner in ipairs(cb) do
+		if BattlegroundLayout.inPrint(a, corner.X, corner.Z) then
+			return 0
+		end
+	end
+	local shortest = math.huge
+	for index = 1, 4 do
+		local a1, a2 = ca[index], ca[index % 4 + 1]
+		local b1, b2 = cb[index], cb[index % 4 + 1]
+		for _, corner in ipairs(cb) do
+			shortest = math.min(shortest, toSegment(corner, a1, a2))
+		end
+		for _, corner in ipairs(ca) do
+			shortest = math.min(shortest, toSegment(corner, b1, b2))
+		end
+	end
+	return shortest
 end
 
 -- A number from HubService, which needs an engine to require.
@@ -101,27 +130,48 @@ local function shortest(from: number, to: number): number
 	end
 end
 
-describe("the Battleground's boxes", function()
-	it("stand inside the walls, from the floor's underside to the wall rules' tops", function()
-		local reach = MAP.Size / 2 + MAP.WallThickness + ARENA.WallRuleProudStuds / 2
-		local top = MAP.WallHeight + ARENA.WallRuleProudStuds
-		expect(#LAYOUT.Boxes).toBeGreaterThan(30)
+-- The arrivals in the camp, and the others.
+local function arrivals(): ({ BattlegroundLayout.Point }, { BattlegroundLayout.Point })
+	local camp, edge = {}, {}
+	for _, arrival in ipairs(LAYOUT.Arrivals) do
+		table.insert(if BattlegroundLayout.inRect(LAYOUT.Camp, arrival.X, arrival.Z) then camp else edge, arrival)
+	end
+	return camp, edge
+end
+
+describe("the Battleground's parts", function()
+	it("make a 700-stud page, every one of them on it, the whole map within the part budget", function()
+		expect(MAP.Size).toBe(700)
+		local half = MAP.Size / 2
+		local top = 0
 		for _, box in ipairs(LAYOUT.Boxes) do
 			if box.Role ~= "KillZone" then
-				local within = math.abs(box.X) + box.SizeX / 2 <= reach + EPSILON
-					and math.abs(box.Z) + box.SizeZ / 2 <= reach + EPSILON
-					and box.Y - box.SizeY / 2 >= -MAP.FloorThickness - EPSILON
-					and box.Y + box.SizeY / 2 <= top + EPSILON
-				if not within then
-					error(("%s leaves the page"):format(box.Name))
+				for _, corner in ipairs(BattlegroundLayout.corners(BattlegroundLayout.printOf(box))) do
+					if math.abs(corner.X) > half + EPSILON or math.abs(corner.Z) > half + EPSILON then
+						error(("%s leaves the page"):format(box.Name))
+					end
 				end
+				expect(box.Y - box.SizeY / 2).toBeGreaterThanOrEqual(-MAP.FloorThickness - EPSILON)
+				top = math.max(top, box.Y + box.SizeY / 2)
 			end
+		end
+		local parts = #LAYOUT.Boxes + #LAYOUT.Arrivals + #LAYOUT.BotSpawns + GATE_PARTS
+		expect(parts).toBeLessThanOrEqual(MAP.PartBudget)
+		-- The highest landing is the cliffs' 60 studs.
+		expect(top).toBe(60)
+		for _, tear in ipairs(MAP.Deckle.Tears) do
+			expect(tear).toBeGreaterThanOrEqual(0)
+			expect(tear).toBeLessThan(MAP.Deckle.BandStuds)
 		end
 	end)
 
 	it("draw everything flat on a rung of the ladder, sunk into the floor", function()
-		local rungs =
-			{ Rule = WorldConfig.Ladder.Rule, CampLine = WorldConfig.Ladder.Rule, Camp = WorldConfig.Ladder.Training }
+		local rungs = {
+			Rule = WorldConfig.Ladder.Rule,
+			CampLine = WorldConfig.Ladder.Rule,
+			Camp = WorldConfig.Ladder.Training,
+			Bed = WorldConfig.Ladder.Training,
+		}
 		local count = 0
 		for _, box in ipairs(LAYOUT.Boxes) do
 			local rung = rungs[box.Role]
@@ -131,15 +181,18 @@ describe("the Battleground's boxes", function()
 				expect(box.Y - box.SizeY / 2).toBeLessThan(0)
 				expect(box.Solid).toBe(false)
 			end
+			-- Ink drawn on a raised top touches nothing either.
+			if box.Role == "Trim" then
+				expect(box.Solid).toBe(false)
+			end
 		end
-		-- The four lines of the ruling, the camp's wash and its line.
-		expect(count).toBe(6)
+		expect(count).toBeGreaterThan(30)
 	end)
 
-	it("never put one solid inside another", function()
+	it("never put one unturned solid inside another", function()
 		local solids: { BattlegroundLayout.Box } = {}
 		for _, box in ipairs(LAYOUT.Boxes) do
-			if box.Solid then
+			if box.Solid and box.Yaw == 0 then
 				table.insert(solids, box)
 			end
 		end
@@ -152,10 +205,58 @@ describe("the Battleground's boxes", function()
 		end
 	end)
 
+	it("leave no corridor narrower than 16 studs between two pieces on the ground", function()
+		-- Pieces that touch are one mass (a ring, a stack, an arch); a corridor is the way between two masses.
+		local obstacles = LAYOUT.Obstacles
+		expect(#obstacles).toBeGreaterThan(50)
+		local gaps: { { number } } = {}
+		local mass: { number } = {}
+		for first = 1, #obstacles do
+			gaps[first] = {}
+			for second = 1, #obstacles do
+				gaps[first][second] = if first == second then 0 else gap(obstacles[first], obstacles[second])
+			end
+		end
+		for start = 1, #obstacles do
+			if mass[start] == nil then
+				mass[start] = start
+				local queue = { start }
+				while #queue > 0 do
+					local current = table.remove(queue) :: number
+					for other = 1, #obstacles do
+						if mass[other] == nil and gaps[current][other] <= EPSILON then
+							mass[other] = start
+							table.insert(queue, other)
+						end
+					end
+				end
+			end
+		end
+		for first = 1, #obstacles do
+			for second = first + 1, #obstacles do
+				local apart = gaps[first][second]
+				if mass[first] ~= mass[second] and apart < CORRIDOR_STUDS then
+					local a, b = obstacles[first], obstacles[second]
+					error(
+						("a %.1f-stud corridor between the pieces at (%d, %d) and (%d, %d)"):format(
+							apart,
+							a.X,
+							a.Z,
+							b.X,
+							b.Z
+						)
+					)
+				end
+			end
+		end
+	end)
+
 	it("leave the camp free of anything solid", function()
-		expect(#LAYOUT.Obstacles).toBe(MAP.Pillars.Count + 1 + #MAP.Covers)
+		local camp = BattlegroundLayout.inflate(LAYOUT.Camp, 0)
 		for _, obstacle in ipairs(LAYOUT.Obstacles) do
-			expect(rectsOverlap(obstacle, LAYOUT.Camp)).toBe(false)
+			for _, corner in ipairs(BattlegroundLayout.corners(obstacle)) do
+				expect(BattlegroundLayout.inRect(camp, corner.X, corner.Z)).toBe(false)
+			end
 		end
 	end)
 
@@ -168,37 +269,68 @@ describe("the Battleground's boxes", function()
 		end
 	end)
 
-	it("leave no perch out of a double jump's reach", function()
+	it("hold a member jumping off the highest landing on the page", function()
 		local movement = GameConfig.Movement
 		local reach = (movement.JumpPower ^ 2 + movement.DoubleJumpVelocity ^ 2) / (2 * GRAVITY)
+		local highest = 0
 		for _, box in ipairs(LAYOUT.Boxes) do
-			if box.Solid and box.Role ~= "Floor" then
-				if box.Y + box.SizeY / 2 <= reach then
-					error(
-						("%s is %.2f studs tall: a double jump (%.2f) stands on it"):format(box.Name, box.SizeY, reach)
-					)
-				end
+			if box.Solid then
+				highest = math.max(highest, box.Y + box.SizeY / 2)
 			end
 		end
-		expect(MAP.CoverHeight).toBeGreaterThan(reach)
+		expect(BattlegroundConfig.BoundsHeightStuds).toBeGreaterThan(
+			highest + BattlegroundConfig.StandingRootStuds + reach
+		)
+		-- The low walls on the dais hide a Forger's quarry, standing on the dais or not.
+		expect(MAP.CoverHeight).toBeGreaterThan(BattlegroundConfig.StandingRootStuds + BotConfig.Reach.SightHeightStuds)
 	end)
 end)
 
-describe("the camp", function()
-	it("takes every arrival and the return gate", function()
-		for _, arrival in ipairs(LAYOUT.Arrivals) do
-			expect(BattlegroundLayout.inRect(LAYOUT.Camp, arrival.X, arrival.Z)).toBe(true)
-		end
+describe("the arrivals", function()
+	it("are six in the camp with the return gate, and twelve round the edge", function()
+		local camp, edge = arrivals()
+		expect(#camp).toBe(6)
+		expect(#edge).toBe(12)
 		expect(BattlegroundLayout.inRect(LAYOUT.Camp, LAYOUT.ReturnGate.X, LAYOUT.ReturnGate.Z)).toBe(true)
 	end)
 
-	it("lands nobody in the circle that sends them home", function()
+	it("stand 80 studs apart round the edge, 60 from every Forger's spawn, on nothing solid", function()
+		local camp, edge = arrivals()
+		for index, arrival in ipairs(edge) do
+			for other = index + 1, #edge do
+				expect(distance(arrival, edge[other])).toBeGreaterThanOrEqual(MAP.ArrivalSpacingStuds)
+			end
+			for _, inCamp in ipairs(camp) do
+				expect(distance(arrival, inCamp)).toBeGreaterThanOrEqual(MAP.ArrivalSpacingStuds)
+			end
+		end
+		for _, arrival in ipairs(LAYOUT.Arrivals) do
+			for _, spawn in ipairs(LAYOUT.BotSpawns) do
+				expect(distance(arrival, spawn)).toBeGreaterThanOrEqual(MAP.MinSpawnDistanceStuds)
+			end
+			for _, obstacle in ipairs(LAYOUT.Obstacles) do
+				expect(
+					BattlegroundLayout.inPrint(
+						BattlegroundLayout.grow(obstacle, LAYOUT.PathRadius),
+						arrival.X,
+						arrival.Z
+					)
+				).toBe(false)
+			end
+			expect(BattlegroundLayout.inRect(LAYOUT.Bounds, arrival.X, arrival.Z)).toBe(true)
+		end
+		expect(MAP.MinSpawnDistanceStuds).toBeGreaterThanOrEqual(40)
+	end)
+
+	it("land nobody in the circle that sends them home", function()
 		for _, arrival in ipairs(LAYOUT.Arrivals) do
 			expect(distance(arrival, LAYOUT.ReturnGate)).toBeGreaterThanOrEqual(PortalConfig.ZoneRadiusStuds + 2)
 		end
 	end)
+end)
 
-	it("holds the whole return gate, its back flush on the west wall", function()
+describe("the camp", function()
+	it("holds the whole return gate, its back flush on the camp's west edge", function()
 		-- The gate faces east, into the page.
 		local corners = Gate.corners(LAYOUT.ReturnGate.X, LAYOUT.ReturnGate.Z, 1, 0)
 		local westmost = math.huge
@@ -206,58 +338,59 @@ describe("the camp", function()
 			expect(BattlegroundLayout.inRect(LAYOUT.Camp, corner[1], corner[2])).toBe(true)
 			westmost = math.min(westmost, corner[1])
 		end
-		expect(westmost).toBeCloseTo(-MAP.Size / 2, 9)
+		expect(westmost).toBeCloseTo(LAYOUT.Camp.MinX, 9)
 	end)
 
 	it("lets a Forger walk straight up to the edge a goal is pushed onto, and not a hair past it", function()
-		local x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, -70, LAYOUT.Camp.MinZ + 2)
+		local x, z = BattlegroundLayout.clampGoal(LAYOUT, -315, LAYOUT.Camp.MinZ + 2)
 		expect(BattlegroundLayout.segmentClear(LAYOUT, x, z - 15, x, z)).toBe(true)
 		expect(BattlegroundLayout.segmentClear(LAYOUT, x, z - 15, x, z + 0.1)).toBe(false)
-		x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, -70, 0)
+		x, z = BattlegroundLayout.clampGoal(LAYOUT, -315, 0)
 		expect(BattlegroundLayout.segmentClear(LAYOUT, x + 15, z, x, z)).toBe(true)
 		expect(BattlegroundLayout.segmentClear(LAYOUT, x + 15, z, x - 0.1, z)).toBe(false)
 	end)
 
-	it("is pushed out of across its open edges, never through a wall", function()
+	it("pushes a goal out across its open edges and keeps every goal inside the roam", function()
 		local radius = LAYOUT.PathRadius
-		local x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, -70, 0)
+		local x, z = BattlegroundLayout.clampGoal(LAYOUT, -315, 0)
 		expect(x).toBe(LAYOUT.Camp.MaxX + radius)
 		expect(z).toBe(0)
-		x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, -70, LAYOUT.Camp.MinZ + 2)
-		expect(x).toBe(-70)
+		x, z = BattlegroundLayout.clampGoal(LAYOUT, -315, LAYOUT.Camp.MinZ + 2)
+		expect(x).toBe(-315)
 		expect(z).toBe(LAYOUT.Camp.MinZ - radius)
-		-- Against the west wall the nearest edge is the wall: the goal goes to the nearest open one instead.
-		x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, LAYOUT.Camp.MinX + 1, 0)
-		expect(x).toBe(LAYOUT.Camp.MinX + 1)
-		expect(z).toBe(LAYOUT.Camp.MinZ - radius)
-		expect(BattlegroundLayout.inRect(LAYOUT.Bounds, x, z)).toBe(true)
-		-- A goal outside the camp is left where it is.
-		x, z = BattlegroundLayout.clampOutOfCamp(LAYOUT, 10, -20)
+		-- Behind the camp, toward the torn edge: brought into the roam first, then out of the camp eastward.
+		x, z = BattlegroundLayout.clampGoal(LAYOUT, LAYOUT.Camp.MinX + 1, 0)
+		expect(x).toBe(LAYOUT.Camp.MaxX + radius)
+		expect(z).toBe(0)
+		-- A goal on the torn edge is brought back to the roam's border.
+		x, z = BattlegroundLayout.clampGoal(LAYOUT, 345, -348)
+		expect(x).toBe(LAYOUT.Roam.MaxX)
+		expect(z).toBe(LAYOUT.Roam.MinZ)
+		-- A goal inside the roam and outside the camp is left where it is.
+		x, z = BattlegroundLayout.clampGoal(LAYOUT, 10, -20)
 		expect(x).toBe(10)
 		expect(z).toBe(-20)
 	end)
 end)
 
 describe("the Forgers' ground", function()
-	it("spawns them outside the camp, clear of every obstacle, far from every arrival", function()
+	it("spawns them in the roam, clear of every obstacle and of the camp", function()
 		for _, spawn in ipairs(LAYOUT.BotSpawns) do
 			expect(blocked(spawn.X, spawn.Z)).toBe(false)
-			expect(BattlegroundLayout.inRect(LAYOUT.Bounds, spawn.X, spawn.Z)).toBe(true)
-			for _, arrival in ipairs(LAYOUT.Arrivals) do
-				expect(distance(spawn, arrival)).toBeGreaterThanOrEqual(MAP.MinSpawnDistanceStuds)
-			end
+			expect(BattlegroundLayout.inRect(LAYOUT.Roam, spawn.X, spawn.Z)).toBe(true)
 		end
 	end)
 
-	it("lays no waypoint in the camp or an obstacle", function()
-		expect(#LAYOUT.Nodes).toBeGreaterThan(200)
+	it("lays no waypoint in the camp or an obstacle, nor past the roam", function()
+		expect(#LAYOUT.Nodes).toBeGreaterThan(800)
 		for _, node in ipairs(LAYOUT.Nodes) do
 			expect(blocked(node.X, node.Z)).toBe(false)
 			expect(BattlegroundLayout.inRect(LAYOUT.Camp, node.X, node.Z)).toBe(false)
+			expect(BattlegroundLayout.inRect(LAYOUT.Roam, node.X, node.Z)).toBe(true)
 		end
 	end)
 
-	it("joins every waypoint to every other", function()
+	it("joins every waypoint to every other, the crater's floor and the book's valley included", function()
 		local seen: { [number]: boolean } = { [1] = true }
 		local queue = { 1 }
 		local count = 1
@@ -272,15 +405,21 @@ describe("the Forgers' ground", function()
 			end
 		end
 		expect(count).toBe(#LAYOUT.Nodes)
+		-- Each enclosed ground has a waypoint of its own, walked to straight from its middle.
+		for _, inside in ipairs({ { X = MAP.Crater.X, Z = MAP.Crater.Z }, { X = -200, Z = -220 } }) do
+			local node = LAYOUT.Nodes[BattlegroundLayout.nearestNode(LAYOUT, inside.X, inside.Z) :: number]
+			expect(distance(node, inside)).toBeLessThan(MAP.Grid.StepStuds)
+			expect(BattlegroundLayout.segmentClear(LAYOUT, inside.X, inside.Z, node.X, node.Z)).toBe(true)
+		end
 	end)
 
 	it("finds the shortest path, every leg of it a clear straight walk", function()
-		local ends: { number } = {}
-		for _, spawn in ipairs(LAYOUT.BotSpawns) do
-			table.insert(ends, BattlegroundLayout.nearestNode(LAYOUT, spawn.X, spawn.Z) :: number)
-		end
-		table.insert(ends, BattlegroundLayout.nearestNode(LAYOUT, LAYOUT.Camp.MaxX + 5, 0) :: number)
-		table.insert(ends, #LAYOUT.Nodes)
+		local ends: { number } = {
+			BattlegroundLayout.nearestNode(LAYOUT, MAP.Crater.X, MAP.Crater.Z) :: number,
+			BattlegroundLayout.nearestNode(LAYOUT, LAYOUT.Camp.MaxX + 5, 0) :: number,
+			BattlegroundLayout.nearestNode(LAYOUT, 250, 150) :: number,
+			#LAYOUT.Nodes,
+		}
 		for _, from in ipairs(ends) do
 			for _, to in ipairs(ends) do
 				local route = BattlegroundLayout.path(LAYOUT, from, to)
@@ -299,8 +438,8 @@ describe("the Forgers' ground", function()
 			end
 		end
 		-- Always the same path for the same ends.
-		expect(BattlegroundLayout.path(LAYOUT, ends[1], ends[5])).toEqual(
-			BattlegroundLayout.path(LAYOUT, ends[1], ends[5])
+		expect(BattlegroundLayout.path(LAYOUT, ends[1], ends[3])).toEqual(
+			BattlegroundLayout.path(LAYOUT, ends[1], ends[3])
 		)
 	end)
 
@@ -309,16 +448,9 @@ describe("the Forgers' ground", function()
 			local node = LAYOUT.Nodes[BattlegroundLayout.nearestNode(LAYOUT, spawn.X, spawn.Z) :: number]
 			expect(BattlegroundLayout.segmentClear(LAYOUT, spawn.X, spawn.Z, node.X, node.Z)).toBe(true)
 		end
-		-- Just past the end of a cover wall the nearest waypoint lies behind it: the Forger takes the nearest one
-		-- it can reach instead of walking into the wall.
-		local cover: BattlegroundConfig.Cover? = nil
-		for _, each in ipairs(MAP.Covers) do
-			if each.Name == "CoverEast" then
-				cover = each
-			end
-		end
-		assert(cover ~= nil, "CoverEast is gone: this case would check nothing")
-		local x, z = cover.X + 1, cover.Z + cover.SizeZ / 2 + LAYOUT.PathRadius + 0.3
+		-- Just south of the north wall on the dais, the nearest waypoint lies past its end, the way there cut by
+		-- the wall: the Forger takes the nearest one it can reach instead of walking into it.
+		local x, z = 5, -60 + 1 + LAYOUT.PathRadius + 0.3
 		local nearest, nearestDistance = 0, math.huge
 		for index, node in ipairs(LAYOUT.Nodes) do
 			local apart = distance(node, { X = x, Z = z })
@@ -343,13 +475,23 @@ describe("the Forgers' ground", function()
 		expect(BattlegroundLayout.path(square :: any, 4, 1)).toEqual({ 4, 2, 1 })
 	end)
 
-	it("is blocked by a pillar and by the camp, and open down a lane", function()
-		local pillar = LAYOUT.Obstacles[1]
-		local middleX, middleZ = (pillar.MinX + pillar.MaxX) / 2, (pillar.MinZ + pillar.MaxZ) / 2
-		expect(BattlegroundLayout.segmentClear(LAYOUT, middleX - 10, middleZ, middleX + 10, middleZ)).toBe(false)
-		expect(BattlegroundLayout.segmentClear(LAYOUT, -70, -40, -70, 40)).toBe(false)
-		expect(BattlegroundLayout.segmentClear(LAYOUT, 20, -30, 20, 30)).toBe(true)
-		expect(BattlegroundLayout.segmentClear(LAYOUT, -50, -40, -50, 40)).toBe(true)
+	it("is blocked across the quill's turned stem and by the camp, and open beside the stem and down a lane", function()
+		local plume = MAP.Plume
+		local yaw = math.rad(plume.Yaw)
+		-- Along the stem, and across it.
+		local ax, az = math.sin(yaw), math.cos(yaw)
+		local cx, cz = math.cos(yaw), -math.sin(yaw)
+		local mx, mz = plume.X - ax * plume.TipLength / 2, plume.Z - az * plume.TipLength / 2
+		expect(BattlegroundLayout.segmentClear(LAYOUT, mx - cx * 20, mz - cz * 20, mx + cx * 20, mz + cz * 20)).toBe(
+			false
+		)
+		-- Twenty studs off its axis, alongside: inside the stem's square bounds, outside the stem.
+		local sx, sz = mx + cx * 20, mz + cz * 20
+		expect(BattlegroundLayout.segmentClear(LAYOUT, sx - ax * 50, sz - az * 50, sx + ax * 50, sz + az * 50)).toBe(
+			true
+		)
+		expect(BattlegroundLayout.segmentClear(LAYOUT, -320, -40, -320, 40)).toBe(false)
+		expect(BattlegroundLayout.segmentClear(LAYOUT, -30, -40, -30, 40)).toBe(true)
 	end)
 end)
 
@@ -391,18 +533,14 @@ describe("the Battleground's names", function()
 end)
 
 describe("the Battleground's place in the world", function()
-	it("is reached everywhere by every packet fired on it", function()
-		expect(math.sqrt(2) * MAP.Size).toBeLessThanOrEqual(GameConfig.Vfx.BroadcastRadiusStuds)
-	end)
-
 	it("stands out of the hub's sight and out of its packets' reach", function()
 		-- The hub's outer edge: the platform and its kerb. The arenas stacked above x = z = 0 are narrower.
 		local hubEdge = hubNumber("PLATFORM_SIZE_STUDS") / 2 + hubNumber("PLATFORM_EDGE_WIDTH_STUDS")
 		local origin = MAP.Origin
 		local toCentre = math.sqrt(origin[1] ^ 2 + origin[3] ^ 2)
-		local gap = toCentre - MAP.Size / 2 - MAP.WallThickness - hubEdge
-		expect(gap).toBeGreaterThanOrEqual(GameConfig.Vfx.BroadcastRadiusStuds)
-		expect(gap).toBeGreaterThanOrEqual(LightingConfig.Lighting.Numbers.FogEnd)
+		local apart = toCentre - MAP.Size / 2 - hubEdge
+		expect(apart).toBeGreaterThanOrEqual(GameConfig.Vfx.BroadcastRadiusStuds)
+		expect(apart).toBeGreaterThanOrEqual(LightingConfig.Lighting.Numbers.FogEnd)
 		expect(origin[2]).toBe(0)
 	end)
 

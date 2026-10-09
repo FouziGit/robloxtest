@@ -206,11 +206,11 @@ local function nextStep(bot: Bot, x: number, z: number): Vector3?
 	return Context.toWorld(nextNode.X, 0, nextNode.Z)
 end
 
--- Walks toward (x, z) of the page's frame, never into the camp. The order is re-issued only when the goal
--- moved RepathStuds, after RepathSeconds, or on reaching the waypoint it walks to -- a path is searched at most
--- a couple of times a second per Forger.
+-- Walks toward (x, z) of the page's frame, never into the camp nor past the roam (clampGoal). The order is re-issued
+-- only when the goal moved RepathStuds, after RepathSeconds, or on reaching the waypoint it walks to -- a path is
+-- searched at most a couple of times a second per Forger.
 function Motion.walkTo(bot: Bot, x: number, z: number, now: number)
-	local gx, gz = BattlegroundLayout.clampOutOfCamp(handle.Layout, x, z)
+	local gx, gz = BattlegroundLayout.clampGoal(handle.Layout, x, z)
 	local goal = Context.toWorld(gx, 0, gz)
 	local previous, waypoint = bot.Goal, bot.Waypoint
 	local moved = previous == nil or flatDistance(previous, goal) > PATH.RepathStuds

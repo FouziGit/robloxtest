@@ -1940,6 +1940,786 @@
         1.475083827972412
       ]
     },
+    "assets/meshes/page_arcade_cover.glb": {
+      "assetId": "126364144675816",
+      "assetType": "Model",
+      "sha256": "b3ed263736bfd1554dfde36a6ef4dbd08df2ad1ea192d5e1e10e4a4caf4c7569",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:00:10+00:00",
+      "meshId": "99030868524646",
+      "native": [
+        89.76000213623047,
+        22.10567855834961,
+        8.239999771118164
+      ]
+    },
+    "assets/meshes/page_arcade_ink.glb": {
+      "assetId": "72311789720326",
+      "assetType": "Model",
+      "sha256": "2ebc691d42af1615d6a0847d6a1ecdeb7a41a357a63c759aff7f177e144e2d6f",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:00:27+00:00",
+      "meshId": "136550700783895",
+      "native": [
+        104.45702362060547,
+        31.178512573242188,
+        10.63976001739502
+      ]
+    },
+    "assets/meshes/page_arcade_side.glb": {
+      "assetId": "119329903371020",
+      "assetType": "Model",
+      "sha256": "56e14f858c2ca58cc6754d48d5dad40eaf3e26bb07c53ece6d599ec91e0e2b60",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:00:35+00:00",
+      "meshId": "114976345330283",
+      "native": [
+        102.23999786376953,
+        30.06999969482422,
+        8.239999771118164
+      ]
+    },
+    "assets/meshes/page_arcade_top.glb": {
+      "assetId": "90550311466668",
+      "assetType": "Model",
+      "sha256": "ce5f757b23484f2a56ce3284c38588fed6f73c0a54bd936d51e3b26a1699d1e4",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:00:48+00:00",
+      "meshId": "140560857996324",
+      "native": [
+        102.23999786376953,
+        0.0,
+        8.239999771118164
+      ]
+    },
+    "assets/meshes/page_blot_ink.glb": {
+      "assetId": "83882752149662",
+      "assetType": "Model",
+      "sha256": "1ca78f0aab7790c04d8b1cc88313200b382933ce77eae8b3a1c3e98c01be04c2",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:00:54+00:00",
+      "meshId": "71597250480202",
+      "native": [
+        24.199251174926758,
+        0.05000000074505806,
+        21.776180267333984
+      ]
+    },
+    "assets/meshes/page_bridge_cover.glb": {
+      "assetId": "130809874293930",
+      "assetType": "Model",
+      "sha256": "382a279844ca64e4ec42ebfbba0ba4cff471bcf74356661e264a6cf85d04d123",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:07+00:00",
+      "meshId": "86172181709575",
+      "native": [
+        100.44271850585938,
+        4.070000171661377,
+        30.239999771118164
+      ]
+    },
+    "assets/meshes/page_bridge_ink.glb": {
+      "assetId": "102759561942585",
+      "assetType": "Model",
+      "sha256": "0509176ee3f3d34fe740422fe8099ab87df1e7f2cfec941a188ad5cc3eb22238",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:13+00:00",
+      "meshId": "96859311231203",
+      "native": [
+        103.87337493896484,
+        5.169943332672119,
+        32.439781188964844
+      ]
+    },
+    "assets/meshes/page_bridge_top.glb": {
+      "assetId": "138448571984385",
+      "assetType": "Model",
+      "sha256": "013f23db2433f6a9da58f22453ca184536ffe75699ada8e7795eb474b35a4aaa",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:28+00:00",
+      "meshId": "118972507592336",
+      "native": [
+        100.44271850585938,
+        4.070000171661377,
+        30.239999771118164
+      ]
+    },
+    "assets/meshes/page_crater_arc_cover.glb": {
+      "assetId": "124708098193667",
+      "assetType": "Model",
+      "sha256": "97626a3211f5fd8c050c9257f5ed3f4877af4ec1d15cfc3e3fd1bd30361f7ee1",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:33+00:00",
+      "meshId": "91598921023413",
+      "native": [
+        49.959781646728516,
+        7.070000171661377,
+        49.959781646728516
+      ]
+    },
+    "assets/meshes/page_crater_arc_ink.glb": {
+      "assetId": "114775341119554",
+      "assetType": "Model",
+      "sha256": "6558cc5f9b64a81b2269bce469e15a703f920d048e8f9471e9e42ae461fc8475",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:47+00:00",
+      "meshId": "123969160353265",
+      "native": [
+        61.53180694580078,
+        8.669839859008789,
+        61.53180694580078
+      ]
+    },
+    "assets/meshes/page_crater_arc_side.glb": {
+      "assetId": "127895024025721",
+      "assetType": "Model",
+      "sha256": "42cb70f644cc717ee6f20e0bfa1d567146eeb24519d34d40494bbee27857197c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:01:57+00:00",
+      "meshId": "100557275534067",
+      "native": [
+        57.844966888427734,
+        7.070000171661377,
+        57.844966888427734
+      ]
+    },
+    "assets/meshes/page_crater_arc_top.glb": {
+      "assetId": "130145257858522",
+      "assetType": "Model",
+      "sha256": "e19b0cd7b0387eb210ef15a6deefe6d7f85491ad4712312b30b5716af4ef3ec6",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:08+00:00",
+      "meshId": "103621449719129",
+      "native": [
+        57.844966888427734,
+        0.0,
+        57.844966888427734
+      ]
+    },
+    "assets/meshes/page_crater_pool_cover.glb": {
+      "assetId": "124678594040733",
+      "assetType": "Model",
+      "sha256": "2c66c7e6caf086645ea97bb534d5b251b76947ee7a707077a941a5f8031a63e7",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:15+00:00",
+      "meshId": "139266487229705",
+      "native": [
+        123.45999908447266,
+        0.03999999910593033,
+        123.45999908447266
+      ]
+    },
+    "assets/meshes/page_crater_pool_ink.glb": {
+      "assetId": "89432218161559",
+      "assetType": "Model",
+      "sha256": "203013a19cbcb3d9120e9ebcab509026cf880cc8e28c486ee4f87a15db83b0bf",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:28+00:00",
+      "meshId": "118389947036645",
+      "native": [
+        87.02014923095703,
+        0.0,
+        87.02014923095703
+      ]
+    },
+    "assets/meshes/page_dais_body.glb": {
+      "assetId": "124141931135384",
+      "assetType": "Model",
+      "sha256": "f82cbbe49c0912333a6de6241df6d98b1efe0309fc2a09d91743932f076e0568",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:37+00:00",
+      "meshId": "120298783595474",
+      "native": [
+        200.24000549316406,
+        0.0,
+        200.24000549316406
+      ]
+    },
+    "assets/meshes/page_dais_ink.glb": {
+      "assetId": "97733498888065",
+      "assetType": "Model",
+      "sha256": "9c4bc60395d118416cd638af6c0f61a616ba7f4843c887d9c85c52c4990f2f37",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:47+00:00",
+      "meshId": "70527300694001",
+      "native": [
+        243.53326416015625,
+        8.548016548156738,
+        243.53326416015625
+      ]
+    },
+    "assets/meshes/page_dais_side.glb": {
+      "assetId": "129227984727077",
+      "assetType": "Model",
+      "sha256": "1145f0cbcf79a22865a45c3b86693f6ae2ccca8fef73dc730cac872ba0a5ff00",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:02:55+00:00",
+      "meshId": "123326932614629",
+      "native": [
+        242.24000549316406,
+        7.070000171661377,
+        242.24000549316406
+      ]
+    },
+    "assets/meshes/page_dais_top.glb": {
+      "assetId": "102855245290967",
+      "assetType": "Model",
+      "sha256": "da8c403636b1b5342c35d27939318d606ec4da0a59d27280d50fda44fd9cfc5b",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:03:10+00:00",
+      "meshId": "95220598780317",
+      "native": [
+        242.24000549316406,
+        6.0,
+        242.24000549316406
+      ]
+    },
+    "assets/meshes/page_desk_cover.glb": {
+      "assetId": "83687578200645",
+      "assetType": "Model",
+      "sha256": "fe58ee28608670889c197b74ae94205f7688749929e8ad663091bb8247bcbaa4",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:03:16+00:00",
+      "meshId": "126478694621402",
+      "native": [
+        14.279999732971191,
+        4.46999979019165,
+        9.279999732971191
+      ]
+    },
+    "assets/meshes/page_desk_ink.glb": {
+      "assetId": "120134731188540",
+      "assetType": "Model",
+      "sha256": "8686a81f5274072b16a5c7bcf56038c6062185d9565a67a8421122497cbb646c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:03:31+00:00",
+      "meshId": "112951272051606",
+      "native": [
+        15.348512649536133,
+        6.624256134033203,
+        10.348512649536133
+      ]
+    },
+    "assets/meshes/page_desk_side.glb": {
+      "assetId": "95688647240296",
+      "assetType": "Model",
+      "sha256": "32bb19630e8c31525997677b04df8e57fb0f4e3c24ea3018145f7ffbbf5b1dec",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:03:49+00:00",
+      "meshId": "74459832175266",
+      "native": [
+        14.239999771118164,
+        6.070000171661377,
+        9.239999771118164
+      ]
+    },
+    "assets/meshes/page_desk_top.glb": {
+      "assetId": "74613539762861",
+      "assetType": "Model",
+      "sha256": "155f2737be4a4249a466e28cec4a49b989fad95af01b9082232ae086d6a8dd69",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:03:53+00:00",
+      "meshId": "115879160552695",
+      "native": [
+        14.239999771118164,
+        0.0,
+        9.239999771118164
+      ]
+    },
+    "assets/meshes/page_folio_body.glb": {
+      "assetId": "116385833793837",
+      "assetType": "Model",
+      "sha256": "1b32532aa0ac4531b1a5c8d075c608f0f7288df57e6152c765c55f25608679c6",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:04:13+00:00",
+      "meshId": "92718180728885",
+      "native": [
+        207.03445434570312,
+        6.0,
+        204.140625
+      ]
+    },
+    "assets/meshes/page_folio_cover.glb": {
+      "assetId": "118971509682375",
+      "assetType": "Model",
+      "sha256": "ba16b28fb08c6f3f4e6e35b7a3368d815ae8510320d992cfde06adb558164b0b",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:04:30+00:00",
+      "meshId": "118812557631511",
+      "native": [
+        211.27651977539062,
+        60.07826232910156,
+        211.27651977539062
+      ]
+    },
+    "assets/meshes/page_folio_ink.glb": {
+      "assetId": "80046826170260",
+      "assetType": "Model",
+      "sha256": "81e5e1e8c34e5ada6e8554af5b5dc8cc2079fb9edf355d853c76bdc6ea5f2ca8",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:04:48+00:00",
+      "meshId": "99891798280500",
+      "native": [
+        223.12037658691406,
+        61.54801559448242,
+        223.12037658691406
+      ]
+    },
+    "assets/meshes/page_folio_side.glb": {
+      "assetId": "80628350816233",
+      "assetType": "Model",
+      "sha256": "638ab50b50b67e0dfa15641f47260b83ac03a9969582093f8cf5fc6642d8ae09",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:04:53+00:00",
+      "meshId": "126814798727729",
+      "native": [
+        207.03445434570312,
+        60.07826232910156,
+        204.140625
+      ]
+    },
+    "assets/meshes/page_folio_top.glb": {
+      "assetId": "131109321439522",
+      "assetType": "Model",
+      "sha256": "a63a16fab3b81731e45822b0cb5ee8c0321cdf06ee02864b4e739f8666534dab",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:05:09+00:00",
+      "meshId": "131084848740346",
+      "native": [
+        210.27651977539062,
+        60.07826232910156,
+        210.27651977539062
+      ]
+    },
+    "assets/meshes/page_little_book_cover.glb": {
+      "assetId": "117090036131807",
+      "assetType": "Model",
+      "sha256": "3e216bf06b0a508819163dafd594a53f2e28041242f5d6c4b53e9bc98dabe6c9",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:05:19+00:00",
+      "meshId": "136780896225465",
+      "native": [
+        85.23999786376953,
+        0.4000000059604645,
+        61.2400016784668
+      ]
+    },
+    "assets/meshes/page_little_book_ink.glb": {
+      "assetId": "134971419977107",
+      "assetType": "Model",
+      "sha256": "ec91263d63d7f74bb031423a53d10bbb09ce16d2c0adb8f2f719f3dbe6762c2e",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:05:32+00:00",
+      "meshId": "107849518510165",
+      "native": [
+        86.3485107421875,
+        8.1015043258667,
+        62.3485107421875
+      ]
+    },
+    "assets/meshes/page_little_book_side.glb": {
+      "assetId": "77899697265965",
+      "assetType": "Model",
+      "sha256": "47a340d5f67c44e9d8a40956a9786042fc185ea6809a27cd6a644e9b193c418c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:05:48+00:00",
+      "meshId": "78883235647279",
+      "native": [
+        80.23999786376953,
+        7.072064399719238,
+        56.2400016784668
+      ]
+    },
+    "assets/meshes/page_little_book_top.glb": {
+      "assetId": "132964820713660",
+      "assetType": "Model",
+      "sha256": "6147a0a606ef3989cb201207d7be98659226f9b2a384b922ebf853d4f715d0b3",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:05:58+00:00",
+      "meshId": "86945521386040",
+      "native": [
+        80.23999786376953,
+        5.034982204437256,
+        56.2400016784668
+      ]
+    },
+    "assets/meshes/page_loose_book_cover.glb": {
+      "assetId": "92155101551993",
+      "assetType": "Model",
+      "sha256": "60c2bcecbb691cb5ffd817146c713be428d276afa68c0b39a43cd255673e9343",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:06:11+00:00",
+      "meshId": "103711227973610",
+      "native": [
+        46.2400016784668,
+        10.139999389648438,
+        35.2400016784668
+      ]
+    },
+    "assets/meshes/page_loose_book_ink.glb": {
+      "assetId": "71743623825109",
+      "assetType": "Model",
+      "sha256": "e6d694a512a94189111ee482f8579a7488f402342b4bbd7fd04950245ffcda0c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:06:37+00:00",
+      "meshId": "72702446053464",
+      "native": [
+        46.82196807861328,
+        10.991384506225586,
+        36.36236572265625
+      ]
+    },
+    "assets/meshes/page_loose_book_top.glb": {
+      "assetId": "102983524456340",
+      "assetType": "Model",
+      "sha256": "8f832bf4acf1730ab788fc60736f7f2638ec9591701c1be04529796382b82118",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:06:52+00:00",
+      "meshId": "85801071531463",
+      "native": [
+        44.2400016784668,
+        10.139999389648438,
+        34.2400016784668
+      ]
+    },
+    "assets/meshes/page_open_book_cover.glb": {
+      "assetId": "129724908159209",
+      "assetType": "Model",
+      "sha256": "06b1b4e8284460d5a19b804e73b4afb520c6f1908e50c59315f933060a45639f",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:06:57+00:00",
+      "meshId": "93518658835273",
+      "native": [
+        208.24000549316406,
+        0.4000000059604645,
+        148.24000549316406
+      ]
+    },
+    "assets/meshes/page_open_book_ink.glb": {
+      "assetId": "136813976465437",
+      "assetType": "Model",
+      "sha256": "0a79065272e456d29a2dba20b1a580108b2c73da2bf0d2b271fde2998367d0a6",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:10+00:00",
+      "meshId": "102517993137141",
+      "native": [
+        210.0136260986328,
+        19.694108963012695,
+        150.0136260986328
+      ]
+    },
+    "assets/meshes/page_open_book_side.glb": {
+      "assetId": "115868382797250",
+      "assetType": "Model",
+      "sha256": "b8868b423aec509d57c72b23844254e09700104960df831e62cbdee35cbdd93c",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:16+00:00",
+      "meshId": "129912636599393",
+      "native": [
+        200.24000549316406,
+        18.071014404296875,
+        140.24000549316406
+      ]
+    },
+    "assets/meshes/page_open_book_top.glb": {
+      "assetId": "89841614838683",
+      "assetType": "Model",
+      "sha256": "b57a99cc7ef28b5575202c088eeb9df9c16c006ebef7325716d234b75f2f8b07",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:29+00:00",
+      "meshId": "135642350105515",
+      "native": [
+        200.24000549316406,
+        14.031697273254395,
+        140.24000549316406
+      ]
+    },
+    "assets/meshes/page_quill_cover.glb": {
+      "assetId": "132627455586796",
+      "assetType": "Model",
+      "sha256": "1bc3b262c1e418ec67f84c604c587920a714f0d2a2481a9f084113c9a0c5b10d",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:39+00:00",
+      "meshId": "108326377479845",
+      "native": [
+        24.280000686645508,
+        66.06999969482422,
+        199.1199951171875
+      ]
+    },
+    "assets/meshes/page_quill_ink.glb": {
+      "assetId": "76697554889496",
+      "assetType": "Model",
+      "sha256": "5e775359bce351fc4dca4bea156e0a3e0abede3ad508e61129edc355be7c5a2a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:50+00:00",
+      "meshId": "89105988495751",
+      "native": [
+        41.909061431884766,
+        67.7559585571289,
+        200.55953979492188
+      ]
+    },
+    "assets/meshes/page_quill_side.glb": {
+      "assetId": "128482224204183",
+      "assetType": "Model",
+      "sha256": "148302818ba122eb8ff4dd1ad4de6e14a6850961fc41887f5ab22487eeb5a4e0",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:07:55+00:00",
+      "meshId": "130287770876284",
+      "native": [
+        40.7599983215332,
+        60.12575149536133,
+        164.1199951171875
+      ]
+    },
+    "assets/meshes/page_quill_top.glb": {
+      "assetId": "103307178172534",
+      "assetType": "Model",
+      "sha256": "6bf8feb9e44836a2f2755200d012a72eb76e2c79618a89c3147504656cac6a86",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:08:13+00:00",
+      "meshId": "75141531386269",
+      "native": [
+        24.239999771118164,
+        66.0,
+        150.1199951171875
+      ]
+    },
+    "assets/meshes/page_seal_cover.glb": {
+      "assetId": "82711597120929",
+      "assetType": "Model",
+      "sha256": "26fdef456e96b21283019b0699afc4ae3ae518f2be1f9a4c7dec5fd61c3719ec",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:08:28+00:00",
+      "meshId": "87100333311210",
+      "native": [
+        32.05021286010742,
+        4.090000152587891,
+        31.8800106048584
+      ]
+    },
+    "assets/meshes/page_seal_ink.glb": {
+      "assetId": "95513478784748",
+      "assetType": "Model",
+      "sha256": "c341e8cdb8fd3c7b2de500d311a114407ea8820e24f83e37468a647701f305db",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:08:36+00:00",
+      "meshId": "87373148842160",
+      "native": [
+        33.06904602050781,
+        4.769929885864258,
+        32.89631652832031
+      ]
+    },
+    "assets/meshes/page_seal_side.glb": {
+      "assetId": "91968841636260",
+      "assetType": "Model",
+      "sha256": "504a6be2dd87b1d3769ccb1056cdf9494d1cc4cd1f2f6d8b6a34e002e7b0b7d8",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:08:52+00:00",
+      "meshId": "93618058570108",
+      "native": [
+        28.239999771118164,
+        4.070000171661377,
+        28.239999771118164
+      ]
+    },
+    "assets/meshes/page_seal_stacked_cover.glb": {
+      "assetId": "95902134377998",
+      "assetType": "Model",
+      "sha256": "f78c7c327c93ae24a6a911ec7c5ab8cb739a172eb55e5c21bd7307e654e8447b",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:10+00:00",
+      "meshId": "139017936546983",
+      "native": [
+        17.360000610351562,
+        0.019999980926513672,
+        17.360000610351562
+      ]
+    },
+    "assets/meshes/page_seal_stacked_ink.glb": {
+      "assetId": "88780815348687",
+      "assetType": "Model",
+      "sha256": "dd78aa7c41ae2769f25b3cf9a446fb196750c80a2ebf65f7e25f42ec3a9bbd62",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:18+00:00",
+      "meshId": "100038065208536",
+      "native": [
+        29.639928817749023,
+        4.769929885864258,
+        29.639928817749023
+      ]
+    },
+    "assets/meshes/page_seal_stacked_side.glb": {
+      "assetId": "119480912893410",
+      "assetType": "Model",
+      "sha256": "611f5c0fdacacf31adaac418689a2c467019f74fc5b1515ab040b9e059e7873a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:31+00:00",
+      "meshId": "93618058570108",
+      "native": [
+        28.239999771118164,
+        4.070000171661377,
+        28.239999771118164
+      ]
+    },
+    "assets/meshes/page_seal_stacked_top.glb": {
+      "assetId": "93060665754497",
+      "assetType": "Model",
+      "sha256": "4ec238876ac3f418fd46121ef81d39076119a91e911bee27e04eb96e880c8989",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:36+00:00",
+      "meshId": "103343050801429",
+      "native": [
+        28.239999771118164,
+        0.0,
+        28.239999771118164
+      ]
+    },
+    "assets/meshes/page_seal_top.glb": {
+      "assetId": "127959938580002",
+      "assetType": "Model",
+      "sha256": "35690440f33d11b3d9a1c0d5ca42f1de5ef7df4f4aa0176921f70f5322a37aa2",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:51+00:00",
+      "meshId": "103343050801429",
+      "native": [
+        28.239999771118164,
+        0.0,
+        28.239999771118164
+      ]
+    },
+    "assets/meshes/page_stump_ink.glb": {
+      "assetId": "127498312203379",
+      "assetType": "Model",
+      "sha256": "5793652455e60e9906877d8663066dd987d1c6117be828d8d9985740bb5771f0",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:09:57+00:00",
+      "meshId": "103690004201455",
+      "native": [
+        9.348512649536133,
+        14.624256134033203,
+        9.348512649536133
+      ]
+    },
+    "assets/meshes/page_stump_side.glb": {
+      "assetId": "95968995694017",
+      "assetType": "Model",
+      "sha256": "577db38f157aa0b922ba6dd2eccc13606f5124abd3b9ff64877029c32a9dd56a",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:10:12+00:00",
+      "meshId": "124584733742193",
+      "native": [
+        8.239999771118164,
+        14.069999694824219,
+        8.239999771118164
+      ]
+    },
+    "assets/meshes/page_stump_top.glb": {
+      "assetId": "118898803198888",
+      "assetType": "Model",
+      "sha256": "da939bd352ec7c40e3814d72432e780944df9f756ca092bc0e11c8bded667470",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:10:16+00:00",
+      "meshId": "126478222329639",
+      "native": [
+        8.239999771118164,
+        0.0,
+        8.239999771118164
+      ]
+    },
+    "assets/meshes/page_tipped_cover.glb": {
+      "assetId": "138790114070834",
+      "assetType": "Model",
+      "sha256": "6f5fd4237889c578b4b494672279115f8139d5f2db18bdd3d07753047e0ae744",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:10:31+00:00",
+      "meshId": "95854966856418",
+      "native": [
+        14.239999771118164,
+        6.164129734039307,
+        0.0
+      ]
+    },
+    "assets/meshes/page_tipped_ink.glb": {
+      "assetId": "99567084463435",
+      "assetType": "Model",
+      "sha256": "94ef9274d12d053fdacb147e48062a9e4949f1b80de72825ba0c3fec653d2c88",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:10:43+00:00",
+      "meshId": "100055758264074",
+      "native": [
+        15.348512649536133,
+        6.929582595825195,
+        10.682918548583984
+      ]
+    },
+    "assets/meshes/page_tipped_side.glb": {
+      "assetId": "102391774812852",
+      "assetType": "Model",
+      "sha256": "825f9b45888d88b6cd619fabdb466f24413ca30cd0115abbeeb878236e4115ac",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:10:51+00:00",
+      "meshId": "109522055397945",
+      "native": [
+        14.239999771118164,
+        6.164129734039307,
+        9.246194839477539
+      ]
+    },
+    "assets/meshes/page_tipped_top.glb": {
+      "assetId": "112371242974036",
+      "assetType": "Model",
+      "sha256": "e527b1674bd7e38242b2192e09b038f7f6d584c3660c181f51a5eada108b690e",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:11:12+00:00",
+      "meshId": "107680122424000",
+      "native": [
+        14.239999771118164,
+        6.164129734039307,
+        9.246194839477539
+      ]
+    },
+    "assets/meshes/page_wall_ink.glb": {
+      "assetId": "108934165475463",
+      "assetType": "Model",
+      "sha256": "200a0992220ae93167c79bd650bd83fa4290317d9175c589c12260ed20048521",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:11:18+00:00",
+      "meshId": "113384053658564",
+      "native": [
+        21.718017578125,
+        6.8090081214904785,
+        3.7180166244506836
+      ]
+    },
+    "assets/meshes/page_wall_side.glb": {
+      "assetId": "85371921478385",
+      "assetType": "Model",
+      "sha256": "990cd40cea67b5bc248f0569f8fb3ed142946d80f66207f9fb77b1e4cf665578",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:11:30+00:00",
+      "meshId": "137989860467039",
+      "native": [
+        20.239999771118164,
+        6.070000171661377,
+        2.240000009536743
+      ]
+    },
+    "assets/meshes/page_wall_top.glb": {
+      "assetId": "85995218532838",
+      "assetType": "Model",
+      "sha256": "8da883cd4758faa616484660b4be235158f7b9af2fa57a2803a7d189ac569ceb",
+      "moderationState": "Approved",
+      "uploadedAt": "2026-10-09T21:11:38+00:00",
+      "meshId": "119402732086722",
+      "native": [
+        20.239999771118164,
+        0.0,
+        2.240000009536743
+      ]
+    },
     "assets/meshes/paper_scrap_a.glb": {
       "assetId": "125757916870539",
       "assetType": "Model",

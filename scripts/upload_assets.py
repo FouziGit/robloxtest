@@ -337,8 +337,10 @@ def main(argv: list[str]) -> int:
             if not mesh_id.isdigit():
                 sys.exit(f"{item['source']}: {item['meshId']!r} is not a mesh id")
             native = [float(v) for v in item["native"]]
-            if len(native) != 3 or min(native) <= 0:
-                sys.exit(f"{item['source']}: native size {native} is not three positive numbers")
+            # A flat mesh (a page top, a pool of ink) imports at 0 on its flat axis: tests/MeshConfig.spec.luau
+            # then holds every axis, 0 included, to the extent it was generated with.
+            if len(native) != 3 or min(native) < 0 or max(native) <= 0:
+                sys.exit(f"{item['source']}: native size {native} is not three sizes, one of them positive")
             record["meshId"] = mesh_id
             record["native"] = native
             print(f"  {item['source']}: mesh {mesh_id}, native {native}")

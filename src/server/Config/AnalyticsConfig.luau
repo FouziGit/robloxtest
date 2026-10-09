@@ -64,6 +64,8 @@ AnalyticsConfig.Transactions = {
 	BotOverwriter = "Gameplay",
 	-- A victory on the Flyleaf, under its own daily cap (FlyleafService, D-267).
 	FlyleafKill = "Gameplay",
+	-- A member's kill of another on the Battleground, under the Forgers' daily cap (BattlegroundService, D-282).
+	BattlegroundKill = "Gameplay",
 	-- A practice duel against a Forger, under its daily allowance (SparService, D-272).
 	Spar = "Gameplay",
 	QuestDaily = "Gameplay",

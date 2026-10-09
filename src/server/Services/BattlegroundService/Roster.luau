@@ -175,6 +175,11 @@ function Roster.admit(player: Player, character: Model, landing: Vector3, now: n
 	return member
 end
 
+-- Whether the page holds `player`: a member, or a member who died inside and whose next body it waits for.
+function Roster.holds(player: Player): boolean
+	return members[player] ~= nil or pendingRespawn[player.UserId] ~= nil
+end
+
 -- Whether there is a place for `player`: they already hold one, or the page is not full.
 function Roster.hasRoom(player: Player): boolean
 	return members[player] ~= nil or memberCount < BattlegroundConfig.MaxMembers

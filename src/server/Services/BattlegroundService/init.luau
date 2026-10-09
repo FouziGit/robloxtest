@@ -304,6 +304,7 @@ local function tick(map: Map.Handle, now: number, dt: number)
 			restUntil[userId] = nil
 		end
 	end
+	Rewards.prune(now)
 	judgeFalls(map)
 	Roster.step(now, dt)
 	for _, bot in ipairs(Bots.all()) do
@@ -431,8 +432,16 @@ local function onControlled(model: Model, kind: string, seconds: number, factor:
 end
 
 -- Fired inside ApplyDamage, before or after the body's Died: the Forger is found by model either way, dead or
--- not, and credited once.
+-- not, and credited once. A player's body is a member's kill of another, which Rewards judges (D-282).
 local function onKilled(sourceUserId: number, model: Model)
+	local victim = Players:GetPlayerFromCharacter(model)
+	if victim ~= nil then
+		local killer = Players:GetPlayerByUserId(sourceUserId)
+		if killer ~= nil then
+			log.try("Rewards.payPlayer", Rewards.payPlayer, killer, victim, os.clock())
+		end
+		return
+	end
 	local bot = Bots.byModel(model)
 	if bot == nil or bot.Credited then
 		return

@@ -1,10 +1,15 @@
 --!strict
--- The Battleground on the server (D-131), held to the promises no Lune test can run: every service here needs
--- an engine, so their sources are read. Each case is a rule a Forger or the roster must never break -- damage
+-- The Battleground on the server (D-131, D-282), held to the promises no Lune test can run: every service here needs
+-- an engine, so their sources are read -- all but Rewards, run on a pretend server (tests/server.luau). Each case is
+-- a rule a Forger or the roster must never break -- damage
 -- with no source reaches nobody who is not standing on the page, a body is the server's and is thrown with a
 -- bounded force, a player is placed where the server trusts them, every wait is followed by the questions it
 -- could have changed the answer to, and a kill is paid once, by model, only where a Forger could answer.
+local BattlegroundConfig = require("../src/shared/Config/BattlegroundConfig")
+local BotConfig = require("../src/shared/Config/BotConfig")
+local DailyStreak = require("../src/shared/Pure/DailyStreak")
 local Harness = require("./harness")
+local Server = require("./server")
 local fs = require("@lune/fs")
 
 local describe, it, expect = Harness.describe, Harness.it, Harness.expect
@@ -313,6 +318,150 @@ describe("the page's free-for-all (D-282)", function()
 				"deps.Combat.protect(player, BattlegroundConfig.ArrivalProtectionSeconds)"
 			)
 		).toBe(true)
+	end)
+end)
+
+-- Rewards on a pretend server, the roster and the bubble stubbed: what a member's kill of another pays.
+type Kills = {
+	rewards: any,
+	held: { [any]: boolean },
+	shielded: { [any]: boolean },
+	xp: { [any]: number },
+	folios: { [any]: number },
+	profiles: { [any]: any },
+	said: { string },
+	join: (userId: number) -> any,
+}
+
+local function kills(): Kills
+	local fx: any = { held = {}, shielded = {}, xp = {}, folios = {}, profiles = {}, said = {} }
+	local world = Server.world({
+		Stubs = {
+			[DIR .. "Bots"] = {},
+			[DIR .. "Map"] = {},
+			[DIR .. "Roster"] = {
+				holds = function(player: any): boolean
+					return fx.held[player] == true
+				end,
+			},
+		},
+	})
+	fx.rewards = world.require(DIR .. "Rewards")
+	fx.rewards.Init({
+		DataService = {
+			get = function(player: any): any
+				local data = fx.profiles[player]
+				if data == nil then
+					data = { Daily = { ForgerDay = 0, ForgerFolios = 0 } }
+					fx.profiles[player] = data
+				end
+				return data
+			end,
+			push = function(_player: any, _section: string) end,
+		},
+		Notify = {
+			send = function(_player: any, key: string, _params: any, _kind: any, _sfx: any)
+				table.insert(fx.said, key)
+			end,
+		},
+		Combat = {
+			isProtected = function(player: any): boolean
+				return fx.shielded[player] == true
+			end,
+		},
+		Progression = {
+			addXp = function(player: any, amount: number, _reason: string): number
+				fx.xp[player] = (fx.xp[player] or 0) + amount
+				return amount
+			end,
+		},
+		Currency = {
+			add = function(player: any, amount: number, _reason: string): number
+				fx.folios[player] = (fx.folios[player] or 0) + amount
+				return amount
+			end,
+		},
+	}, {})
+	function fx.join(userId: number): any
+		local player = world:join(userId, "P" .. userId)
+		fx.held[player] = true
+		return player
+	end
+	return fx :: Kills
+end
+
+describe("a member's kill of another (D-282)", function()
+	local KILL = BattlegroundConfig.PlayerKill
+
+	it("pays once, then nothing for the same victim until the pair has rested PairCooldownSeconds", function()
+		local fx = kills()
+		local a, b = fx.join(1), fx.join(2)
+		fx.rewards.payPlayer(a, b, 100)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+		expect(fx.folios[a]).toBe(KILL.Folios)
+		expect(table.find(fx.said, "hud.playerKill") ~= nil).toBe(true)
+		fx.rewards.payPlayer(a, b, 100 + KILL.PairCooldownSeconds - 1)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+		-- The other way round is another pair.
+		fx.rewards.payPlayer(b, a, 101)
+		expect(fx.xp[b]).toBe(KILL.Xp)
+		-- PairCooldownSeconds after the pair's last kill, paid or not, it pays again.
+		fx.rewards.payPlayer(a, b, 100 + 2 * KILL.PairCooldownSeconds)
+		expect(fx.xp[a]).toBe(2 * KILL.Xp)
+	end)
+
+	it("pays nothing under a bubble, nor for a killer or a victim the page does not hold, nor for oneself", function()
+		local fx = kills()
+		local a, b = fx.join(1), fx.join(2)
+		fx.shielded[b] = true
+		fx.rewards.payPlayer(a, b, 0)
+		fx.shielded[b] = false
+		fx.held[a] = false
+		fx.rewards.payPlayer(a, b, 0)
+		fx.held[a] = true
+		-- A victim who walked home before the death the hub credits to the last blow.
+		fx.held[b] = false
+		fx.rewards.payPlayer(a, b, 0)
+		fx.held[b] = true
+		fx.rewards.payPlayer(a, a, 0)
+		expect(fx.xp[a]).toBeNil()
+		-- None of those took the pair's payment.
+		fx.rewards.payPlayer(a, b, 1)
+		expect(fx.xp[a]).toBe(KILL.Xp)
+	end)
+
+	it("takes its Folios out of the Forgers' daily allowance in the profile, and says once when it is spent", function()
+		local fx = kills()
+		local a, b, c = fx.join(1), fx.join(2), fx.join(3)
+		local cap = BotConfig.Credit.DailyFolioCap
+		fx.profiles[a] = { Daily = { ForgerDay = DailyStreak.dayIndex(os.time()), ForgerFolios = cap - 1 } }
+		fx.rewards.payPlayer(a, b, 0)
+		expect(fx.folios[a]).toBe(1)
+		expect(fx.profiles[a].Daily.ForgerFolios).toBe(cap)
+		fx.rewards.payPlayer(a, c, 0)
+		expect(fx.folios[a]).toBe(1)
+		expect(fx.xp[a]).toBe(2 * KILL.Xp)
+		fx.rewards.payPlayer(b, c, 0)
+		local told = 0
+		for _, key in ipairs(fx.said) do
+			if key == "battleground.folioCap" then
+				told += 1
+			end
+		end
+		expect(told).toBe(1)
+	end)
+
+	it("is heard on Killed for a player's body, before any Forger is looked for, and pruned every tick", function()
+		local init = module("init")
+		local killed = body(init, "local function onKilled(", "init")
+		expect(
+			ordered(
+				killed,
+				'log.try("Rewards.payPlayer", Rewards.payPlayer, killer, victim, os.clock())',
+				"Bots.byModel(model)"
+			)
+		).toBe(true)
+		expect(body(init, "local function tick(", "init")).toContain("Rewards.prune(now)")
 	end)
 end)
 

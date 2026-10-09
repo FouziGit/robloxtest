@@ -98,7 +98,9 @@ LightingConfig.Lighting = {
 		ExposureCompensation = 0,
 		FogStart = 180,
 		FogEnd = 860,
-		EnvironmentDiffuseScale = 1,
+		-- 0.35, measured in Studio once the sky became vellum (D-284): the sky lights every surface through
+		-- this, and at 1 a pale sky burned the plaza floors to pure white.
+		EnvironmentDiffuseScale = 0.35,
 		-- Near zero, because the art bible's materials are SmoothPlastic at zero reflectance: no metal,
 		-- no glass, no neon. A world with specular highlights is the look this direction was chosen
 		-- against, and this property is where that look gets back in by accident.
@@ -133,17 +135,15 @@ LightingConfig.Atmosphere = {
 		Density = 0.38,
 		Offset = 0.45,
 		Glare = 0,
-		-- 4.2, measured against the screen rather than chosen: the Haze is what tints the CLEAR SKY toward
-		-- the atmosphere's own colour, and with the skybox blanked below it is the only thing standing
-		-- between a page world and a page world under a blue-grey gradient. At 1.4 the sky was still
-		-- daylight blue.
-		Haze = 4.2,
+		-- 2.6, measured in Studio: the sky is vellum now (D-284), so the Haze only softens the distance; the
+		-- 4.2 it took to fight Roblox's blue default sky muddied the vellum one to tan.
+		Haze = 2.6,
 	},
 	Colors = {
 		-- Very close to vellum itself, so distance fades into the page rather than into weather.
 		Color = { 226, 220, 204 },
 		-- What light decays toward. Roblox's default decays warm brown; a page has no brown distance.
-		Decay = { 196, 188, 170 },
+		Decay = { 226, 218, 200 },
 	},
 }
 

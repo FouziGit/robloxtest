@@ -66,6 +66,7 @@ local UPLOADED: { [string]: string } = {
 	["assets/textures/paper_scrap.png"] = "rbxassetid://82591519572234",
 	["assets/textures/seal_ring.png"] = "rbxassetid://101561475000641",
 	["assets/textures/shockwave_ring.png"] = "rbxassetid://80296968876762",
+	["assets/textures/sky_vellum.png"] = "rbxassetid://115097348327935",
 	["assets/textures/smoke_soft.png"] = "rbxassetid://108342464159696",
 	["assets/textures/spark_streak.png"] = "rbxassetid://84878236280705",
 	["assets/textures/telegraph_bar.png"] = "rbxassetid://93590001410469",

@@ -35,6 +35,16 @@ export type Mark = {
 	SizeZ: number,
 	Yaw: number?,
 }
+-- An open book (Map.Books).
+export type Book = {
+	Name: string,
+	X: number,
+	Z: number,
+	PageWidth: number,
+	Length: number,
+	Valley: number,
+	Profile: { number },
+}
 
 local BattlegroundConfig = {}
 
@@ -71,22 +81,24 @@ BattlegroundConfig.Map = {
 		{ X = -315, Z = -10 },
 		{ X = -315, Z = 0 },
 		{ X = -315, Z = 10 },
-		{ X = -305, Z = -305 },
-		{ X = -50, Z = -315 },
-		{ X = 180, Z = -315 },
-		{ X = 305, Z = -305 },
-		{ X = 310, Z = -100 },
-		{ X = 310, Z = 100 },
-		{ X = 305, Z = 305 },
-		{ X = 100, Z = 310 },
-		{ X = -100, Z = 310 },
-		{ X = -305, Z = 305 },
-		{ X = -310, Z = 100 },
-		{ X = -310, Z = -100 },
+		{ X = -325, Z = -120 },
+		{ X = -325, Z = -250 },
+		{ X = -200, Z = -330 },
+		{ X = -40, Z = -325 },
+		{ X = 110, Z = -330 },
+		{ X = 325, Z = -100 },
+		{ X = 325, Z = 70 },
+		{ X = 320, Z = 230 },
+		{ X = 170, Z = 330 },
+		{ X = -10, Z = 330 },
+		{ X = -180, Z = 325 },
+		{ X = -325, Z = 140 },
 	} :: { Point },
 	ArrivalSpacingStuds = 80,
-	-- The central place: a dais one step high, which a Forger walks onto, edged in ink.
-	Dais = { Size = 200, Height = 1 },
+	-- The central place (D-282): a chalk dais Height studs above the floor, edged in ink, and a flight of steps
+	-- Width wide down the middle of each side, Rise high and Tread deep, the top one level with the dais. A Forger
+	-- climbs it only up the steps (BattlegroundLayout's ledges); a Rise of one stud is the step it walks up.
+	Dais = { Size = 200, Height = 7, Stairs = { Width = 60, Rise = 1, Tread = 3.5 } },
 	-- Low walls on the dais. Over a Forger's eyes (StandingRootStuds + BotConfig.Reach.SightHeightStuds), so they
 	-- hide whoever crouches behind them.
 	CoverHeight = 6,
@@ -103,85 +115,142 @@ BattlegroundConfig.Map = {
 		{ Name = "CoverSouthEastB", X = 69, Z = 59, SizeX = 2, SizeZ = 20 },
 		{ Name = "CoverSouthWestA", X = -60, Z = 70, SizeX = 20, SizeZ = 2 },
 		{ Name = "CoverSouthWestB", X = -69, Z = 59, SizeX = 2, SizeZ = 20 },
+		-- The broken parapet: an L at each corner of the dais, clear of the stairs.
+		{ Name = "ParapetNorthWestA", X = -84, Z = -98, SizeX = 30, SizeZ = 2 },
+		{ Name = "ParapetNorthWestB", X = -98, Z = -83, SizeX = 2, SizeZ = 28 },
+		{ Name = "ParapetNorthEastA", X = 84, Z = -98, SizeX = 30, SizeZ = 2 },
+		{ Name = "ParapetNorthEastB", X = 98, Z = -83, SizeX = 2, SizeZ = 28 },
+		{ Name = "ParapetSouthWestA", X = -84, Z = 98, SizeX = 30, SizeZ = 2 },
+		{ Name = "ParapetSouthWestB", X = -98, Z = 83, SizeX = 2, SizeZ = 28 },
+		{ Name = "ParapetSouthEastA", X = 84, Z = 98, SizeX = 30, SizeZ = 2 },
+		{ Name = "ParapetSouthEastB", X = 98, Z = 83, SizeX = 2, SizeZ = 28 },
 	} :: { Cover },
 	-- The landmarks a player climbs and a Forger walks around (it stays on the ground: what is high escapes it).
 	Pieces = {
-		-- The open book, north-west: two half-pages in three steps of six, rising to the spine, a 20-stud valley
-		-- along it.
-		{ Name = "BookLeft1", Shape = "Block", X = -250, Z = -220, Base = 0, Size = { 80, 6, 140 } },
-		{ Name = "BookLeft2", Shape = "Block", X = -230, Z = -220, Base = 6, Size = { 40, 6, 140 } },
-		{ Name = "BookLeft3", Shape = "Block", X = -220, Z = -220, Base = 12, Size = { 20, 6, 140 } },
-		{ Name = "BookRight1", Shape = "Block", X = -150, Z = -220, Base = 0, Size = { 80, 6, 140 } },
-		{ Name = "BookRight2", Shape = "Block", X = -170, Z = -220, Base = 6, Size = { 40, 6, 140 } },
-		{ Name = "BookRight3", Shape = "Block", X = -180, Z = -220, Base = 12, Size = { 20, 6, 140 } },
-		-- The folio cliffs, north-east: books stacked in landings of 15, 30, 45 and 60 studs, the highest point,
-		-- each reached by a ramp rising east.
-		{ Name = "Folio1", Shape = "Block", X = 230, Z = -220, Base = 0, Size = { 120, 15, 100 } },
-		{ Name = "Folio2", Shape = "Block", X = 245, Z = -220, Base = 15, Size = { 90, 15, 80 } },
-		{ Name = "Folio3", Shape = "Block", X = 260, Z = -220, Base = 30, Size = { 60, 15, 60 } },
-		{ Name = "Folio4", Shape = "Block", X = 275, Z = -220, Base = 45, Size = { 30, 15, 40 } },
-		{ Name = "FolioRamp1", Shape = "Wedge", X = 155, Z = -220, Base = 0, Size = { 12, 15, 30 }, Yaw = 90 },
-		{ Name = "FolioRamp2", Shape = "Wedge", X = 185, Z = -220, Base = 15, Size = { 12, 15, 30 }, Yaw = 90 },
-		{ Name = "FolioRamp3", Shape = "Wedge", X = 215, Z = -220, Base = 30, Size = { 12, 15, 30 }, Yaw = 90 },
-		{ Name = "FolioRamp4", Shape = "Wedge", X = 245, Z = -220, Base = 45, Size = { 12, 15, 30 }, Yaw = 90 },
+		-- The folio cliffs, north-east: a rock 15 high filling the corner, closed books stacked on it in tiers of
+		-- 30, 45 and 60, the highest point, each reached by a ramp (one from the floor on the west and the south).
+		{ Name = "FolioRock", Shape = "Block", X = 245, Z = -245, Base = 0, Size = { 190, 15, 190 } },
+		{ Name = "FolioRockWest", Shape = "Block", X = 150, Z = -290, Base = 0, Size = { 24, 9, 40 }, Yaw = 15 },
+		{ Name = "FolioRockSouth", Shape = "Block", X = 320, Z = -150, Base = 0, Size = { 30, 11, 22 }, Yaw = -12 },
+		{ Name = "FolioTier1", Shape = "Block", X = 270, Z = -280, Base = 15, Size = { 120, 15, 100 } },
+		{ Name = "FolioTier2", Shape = "Block", X = 290, Z = -300, Base = 30, Size = { 80, 15, 60 } },
+		{ Name = "FolioTier3", Shape = "Block", X = 307.5, Z = -310, Base = 45, Size = { 45, 15, 40 } },
+		{ Name = "FolioLoose1", Shape = "Block", X = 185, Z = -305, Base = 15, Size = { 44, 10, 34 }, Yaw = 12 },
+		{ Name = "FolioLoose2", Shape = "Block", X = 185, Z = -305, Base = 25, Size = { 34, 8, 26 }, Yaw = -6 },
+		{ Name = "FolioLoose3", Shape = "Block", X = 225, Z = -255, Base = 30, Size = { 24, 8, 30 }, Yaw = 20 },
+		{ Name = "FolioRampWest", Shape = "Wedge", X = 135, Z = -200, Base = 0, Size = { 16, 15, 30 }, Yaw = 90 },
+		{ Name = "FolioRampSouth", Shape = "Wedge", X = 180, Z = -135, Base = 0, Size = { 16, 15, 30 }, Yaw = 180 },
+		{ Name = "FolioRamp1", Shape = "Wedge", X = 270, Z = -215, Base = 15, Size = { 16, 15, 30 }, Yaw = 180 },
+		{ Name = "FolioRamp2", Shape = "Wedge", X = 235, Z = -300, Base = 30, Size = { 16, 15, 30 }, Yaw = 90 },
+		{ Name = "FolioRamp3", Shape = "Wedge", X = 270, Z = -310, Base = 45, Size = { 16, 15, 30 }, Yaw = 90 },
 		-- The stitched bridge, east, over the ruled bed: a deck between two ramps.
-		{ Name = "BridgeDeck", Shape = "Block", X = 240, Z = 30, Base = 0, Size = { 60, 4, 30 } },
-		{ Name = "BridgeRampWest", Shape = "Wedge", X = 204, Z = 30, Base = 0, Size = { 30, 4, 12 }, Yaw = 90 },
-		{ Name = "BridgeRampEast", Shape = "Wedge", X = 276, Z = 30, Base = 0, Size = { 30, 4, 12 }, Yaw = -90 },
-		-- The field of seals, south: wax discs.
-		{ Name = "Seal1", Shape = "Cylinder", X = -40, Z = 210, Base = 0, Size = { 24, 3, 24 } },
-		{ Name = "Seal2", Shape = "Cylinder", X = 20, Z = 200, Base = 0, Size = { 16, 2, 16 } },
-		{ Name = "Seal3", Shape = "Cylinder", X = 80, Z = 215, Base = 0, Size = { 30, 6, 30 } },
-		{ Name = "Seal4", Shape = "Cylinder", X = 140, Z = 205, Base = 0, Size = { 20, 4, 20 } },
-		{ Name = "Seal5", Shape = "Cylinder", X = -20, Z = 265, Base = 0, Size = { 28, 5, 28 } },
-		{ Name = "Seal6", Shape = "Cylinder", X = 45, Z = 260, Base = 0, Size = { 18, 2, 18 } },
-		{ Name = "Seal7", Shape = "Cylinder", X = 110, Z = 270, Base = 0, Size = { 24, 4, 24 } },
-		{ Name = "Seal8", Shape = "Cylinder", X = 0, Z = 315, Base = 0, Size = { 20, 3, 20 } },
-		{ Name = "Seal9", Shape = "Cylinder", X = 150, Z = 300, Base = 0, Size = { 22, 6, 22 } },
-		-- The scriptorium's ruins, south-west: three arches (two piles and a lintel, 24 studs) and broken desks.
-		{ Name = "Arch1West", Shape = "Block", X = -280, Z = 170, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch1East", Shape = "Block", X = -260, Z = 170, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch1Lintel", Shape = "Block", X = -270, Z = 170, Base = 20, Size = { 24, 4, 4 } },
-		{ Name = "Arch2West", Shape = "Block", X = -200, Z = 190, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch2East", Shape = "Block", X = -180, Z = 190, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch2Lintel", Shape = "Block", X = -190, Z = 190, Base = 20, Size = { 24, 4, 4 } },
-		{ Name = "Arch3West", Shape = "Block", X = -260, Z = 250, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch3East", Shape = "Block", X = -240, Z = 250, Base = 0, Size = { 4, 20, 4 } },
-		{ Name = "Arch3Lintel", Shape = "Block", X = -250, Z = 250, Base = 20, Size = { 24, 4, 4 } },
-		{ Name = "Desk1", Shape = "Block", X = -220, Z = 140, Base = 0, Size = { 8, 6, 6 }, Yaw = 20 },
-		{ Name = "Desk2", Shape = "Block", X = -305, Z = 225, Base = 0, Size = { 6, 4, 8 }, Yaw = -15 },
-		{ Name = "Desk3", Shape = "Block", X = -180, Z = 260, Base = 0, Size = { 8, 5, 8 }, Yaw = 35 },
+		{ Name = "BridgeDeck", Shape = "Block", X = 260, Z = -30, Base = 0, Size = { 76, 4, 30 } },
+		{ Name = "BridgeRampWest", Shape = "Wedge", X = 216, Z = -30, Base = 0, Size = { 30, 4, 12 }, Yaw = 90 },
+		{ Name = "BridgeRampEast", Shape = "Wedge", X = 304, Z = -30, Base = 0, Size = { 30, 4, 12 }, Yaw = -90 },
+		-- The field of seals, south, either side of the bed: wax discs, a smaller one stacked on some.
+		{ Name = "Seal1", Shape = "Cylinder", X = 40, Z = 175, Base = 0, Size = { 36, 4, 36 } },
+		{ Name = "Seal1Top", Shape = "Cylinder", X = 40, Z = 175, Base = 4, Size = { 22, 3, 22 } },
+		{ Name = "Seal2", Shape = "Cylinder", X = 75, Z = 245, Base = 0, Size = { 26, 3, 26 } },
+		{ Name = "Seal3", Shape = "Cylinder", X = 5, Z = 250, Base = 0, Size = { 32, 5, 32 } },
+		{ Name = "Seal3Top", Shape = "Cylinder", X = 5, Z = 250, Base = 5, Size = { 20, 3, 20 } },
+		{ Name = "Seal4", Shape = "Cylinder", X = 55, Z = 315, Base = 0, Size = { 22, 2, 22 } },
+		{ Name = "Seal5", Shape = "Cylinder", X = -45, Z = 300, Base = 0, Size = { 28, 4, 28 } },
+		{ Name = "Seal6", Shape = "Cylinder", X = 305, Z = 160, Base = 0, Size = { 34, 4, 34 } },
+		{ Name = "Seal6Top", Shape = "Cylinder", X = 305, Z = 160, Base = 4, Size = { 20, 3, 20 } },
+		{ Name = "Seal7", Shape = "Cylinder", X = 275, Z = 255, Base = 0, Size = { 24, 3, 24 } },
+		{ Name = "Seal8", Shape = "Cylinder", X = 225, Z = 315, Base = 0, Size = { 28, 4, 28 } },
+		-- The scriptorium's broken desks, east of its arcade: tops on the floor, some tipped, and stumps.
+		{ Name = "Desk1", Shape = "Block", X = -240, Z = 165, Base = 0, Size = { 14, 6, 9 }, Yaw = 20 },
+		{ Name = "Desk2", Shape = "Block", X = -205, Z = 160, Base = 0, Size = { 14, 5, 9 }, Yaw = -10 },
+		{ Name = "Desk3", Shape = "Block", X = -170, Z = 175, Base = 0, Size = { 14, 6, 9 }, Yaw = 35 },
+		{ Name = "Desk4", Shape = "Wedge", X = -235, Z = 205, Base = 0, Size = { 14, 6, 9 }, Yaw = 160 },
+		{ Name = "Desk5", Shape = "Block", X = -200, Z = 200, Base = 0, Size = { 14, 6, 9 }, Yaw = 5 },
+		{ Name = "Desk6", Shape = "Block", X = -165, Z = 215, Base = 0, Size = { 14, 5, 9 }, Yaw = -30 },
+		{ Name = "Desk7", Shape = "Block", X = -240, Z = 245, Base = 0, Size = { 14, 5, 9 }, Yaw = -25 },
+		{ Name = "Desk8", Shape = "Wedge", X = -205, Z = 240, Base = 0, Size = { 14, 6, 9 }, Yaw = 80 },
+		{ Name = "Desk9", Shape = "Block", X = -170, Z = 255, Base = 0, Size = { 14, 6, 9 }, Yaw = 50 },
+		{ Name = "DeskStump1", Shape = "Block", X = -220, Z = 280, Base = 0, Size = { 8, 14, 8 }, Yaw = 15 },
+		{ Name = "DeskStump2", Shape = "Block", X = -185, Z = 285, Base = 0, Size = { 7, 20, 7 } },
 	} :: { Piece },
-	-- The fallen quill, north: a stem lying across the page from south-west to north-east, rising from the floor to
-	-- Height along Length - TipLength, then a bevelled tip back down.
-	Plume = { X = 60, Z = -240, Yaw = 135, Length = 180, TipLength = 20, Width = 24, Height = 40 },
+	-- The open books: two half-pages PageWidth wide and Length long either side of a valley Valley wide down the
+	-- spine, each a hill whose height rises from its outer edge to the spine through Profile, evenly spaced. The
+	-- big one fills the north-west; the little one lies south-west of the place.
+	Books = {
+		{
+			Name = "OpenBook",
+			X = -200,
+			Z = -240,
+			PageWidth = 90,
+			Length = 140,
+			Valley = 20,
+			Profile = { 4, 9, 14, 17, 18, 8 },
+		},
+		{ Name = "LittleBook", X = -70, Z = 200, PageWidth = 30, Length = 56, Valley = 20, Profile = { 2, 5, 7, 4 } },
+	} :: { Book },
+	-- The fallen quill, north: from its foot at (X, Z) along Yaw, a flight of Steps, each Rise higher and Tread deep,
+	-- between two rails sloping as high, then a landing Landing deep and the bevelled tip back down to the floor.
+	Quill = {
+		X = 50,
+		Z = -140,
+		Yaw = 170,
+		Width = 24,
+		RailStuds = 6,
+		Steps = 30,
+		Rise = 2,
+		Tread = 5,
+		Landing = 14,
+		TipLength = 26,
+	},
 	-- The inkwell's crater, west: a rim ring of Segments blocks, OuterRadius out and RimStuds thick, broken by four
-	-- breaches of BreachSegments facing north, east, south and west.
-	Crater = { X = -220, Z = -20, OuterRadius = 60, RimStuds = 6, Height = 6, Segments = 24, BreachSegments = 2 },
-	-- The ruled bed, east: from the cliffs to the south edge, drawn flat with Lines ink lines along it (D-282: dug,
-	-- it would put a member under the floor the page holds them to).
-	Bed = { MinX = 220, MaxX = 260, MinZ = -170, MaxZ = 340, Lines = 3 },
-	-- Ink drawn on the page: blots on the floor, and the bridge's cross stitches on its deck.
+	-- breaches of BreachSegments facing north, east, south and west. Its floor is the page's.
+	Crater = { X = -215, Z = 0, OuterRadius = 70, RimStuds = 8, Height = 7, Segments = 32, BreachSegments = 2 },
+	-- The scriptorium's arcade, south-west: Arches openings between Arches + 1 piers Pier wide, all under one beam
+	-- Beam deep that tops it at Height, with a corbel in each upper corner of every opening.
+	Arcade = {
+		X = -290,
+		Z = 215,
+		Yaw = 70,
+		Arches = 4,
+		Pier = 6,
+		Opening = 18,
+		Thickness = 8,
+		Height = 30,
+		Beam = 5,
+		Corbel = { Width = 3, Height = 5 },
+	},
+	-- The ruled bed: Width wide along Points, from the cliffs to the south edge, drawn flat with its banks and Lines
+	-- ink lines along it (D-282: dug, it would put a member under the floor the page holds them to).
+	Bed = {
+		Points = { { X = 260, Z = -150 }, { X = 260, Z = 40 }, { X = 150, Z = 220 }, { X = 120, Z = 330 } },
+		Width = 60,
+		BankStuds = 2,
+		Lines = 3,
+	},
+	-- Ink drawn on the page: blots on the floor, the books' spines, and the bridge's cross stitches on its deck.
 	Marks = {
-		{ Name = "Blot1", Shape = "Cylinder", X = -70, Z = 245, Base = 0, SizeX = 14, SizeZ = 14 },
-		{ Name = "Blot2", Shape = "Cylinder", X = 60, Z = 300, Base = 0, SizeX = 10, SizeZ = 10 },
-		{ Name = "Blot3", Shape = "Cylinder", X = 180, Z = 240, Base = 0, SizeX = 12, SizeZ = 12 },
-		{ Name = "Stitch1A", Shape = "Block", X = 225, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
-		{ Name = "Stitch1B", Shape = "Block", X = 225, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
-		{ Name = "Stitch2A", Shape = "Block", X = 240, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
-		{ Name = "Stitch2B", Shape = "Block", X = 240, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
-		{ Name = "Stitch3A", Shape = "Block", X = 255, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
-		{ Name = "Stitch3B", Shape = "Block", X = 255, Z = 30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
+		{ Name = "Blot1", Shape = "Cylinder", X = 100, Z = 180, Base = 0, SizeX = 30, SizeZ = 30 },
+		{ Name = "Blot2", Shape = "Cylinder", X = -20, Z = 330, Base = 0, SizeX = 16, SizeZ = 16 },
+		{ Name = "Blot3", Shape = "Cylinder", X = 175, Z = -70, Base = 0, SizeX = 24, SizeZ = 24 },
+		{ Name = "Blot4", Shape = "Cylinder", X = 290, Z = 305, Base = 0, SizeX = 30, SizeZ = 30 },
+		{ Name = "Blot5", Shape = "Cylinder", X = -140, Z = -130, Base = 0, SizeX = 14, SizeZ = 14 },
+		{ Name = "OpenBookSpine", Shape = "Block", X = -200, Z = -240, Base = 0, SizeX = 2, SizeZ = 140 },
+		{ Name = "LittleBookSpine", Shape = "Block", X = -70, Z = 200, Base = 0, SizeX = 2, SizeZ = 56 },
+		{ Name = "Stitch1A", Shape = "Block", X = 245, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
+		{ Name = "Stitch1B", Shape = "Block", X = 245, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
+		{ Name = "Stitch2A", Shape = "Block", X = 260, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
+		{ Name = "Stitch2B", Shape = "Block", X = 260, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
+		{ Name = "Stitch3A", Shape = "Block", X = 275, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = 45 },
+		{ Name = "Stitch3B", Shape = "Block", X = 275, Z = -30, Base = 4, SizeX = 10, SizeZ = 1, Yaw = -45 },
 	} :: { Mark },
 	-- Where a Forger appears: the one furthest from every player (BotBrain.pickSpawn), on open ground.
 	BotSpawns = {
-		{ X = 0, Z = -140 },
-		{ X = 150, Z = -100 },
-		{ X = 160, Z = 100 },
+		{ X = 0, Z = -150 },
+		{ X = 100, Z = -240 },
+		{ X = 170, Z = -80 },
+		{ X = 170, Z = 90 },
 		{ X = 0, Z = 150 },
-		{ X = -130, Z = 150 },
-		{ X = -140, Z = -60 },
-		{ X = -60, Z = -150 },
+		{ X = -140, Z = 140 },
+		{ X = -150, Z = -60 },
 		{ X = 300, Z = 0 },
 	} :: { Point },
 	MinSpawnDistanceStuds = 60,

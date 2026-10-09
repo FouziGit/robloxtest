@@ -284,6 +284,26 @@ describe("a member", function()
 		).never.toBe(nil)
 	end)
 
+	it("is measured from the ground under them, so the raised place is floor to a Forger and its credit", function()
+		local observe = body(module("Roster"), "local function observe(", "Roster")
+		expect(
+			observe:find(
+				"local standingRoot = handle.FloorY + BattlegroundLayout.groundAt(handle.Layout, x, z) + BattlegroundConfig.StandingRootStuds",
+				1,
+				true
+			)
+		).never.toBe(nil)
+		-- A Forger and its quarry are each as high as they stand over their own ground, so the place's stairs are
+		-- no escape from one that walks up them.
+		expect(count(module("Perception"), "Y = y - BattlegroundLayout.groundAt(handle.Layout, x, z),")).toBe(2)
+		-- A tell is drawn on the ground its Forger stands on.
+		local attacks = module("Attacks")
+		local under = body(attacks, "local function groundUnder(", "Attacks")
+		expect(under:find("handle.FloorY + BattlegroundLayout.groundAt(handle.Layout, x, z)", 1, true)).never.toBe(nil)
+		expect(count(attacks, "Origin = groundUnder(bot.Root.Position),")).toBe(2)
+		expect(attacks:find("handle.FloorY, root.Z", 1, true)).toBe(nil)
+	end)
+
 	it("stays one only while in no match, not the Erasure's, and on the page by trusted position", function()
 		local stays = body(module("Roster"), "local function stays(", "Roster")
 		for _, question in ipairs({

@@ -52,7 +52,9 @@ function Perception.see(member: Member): Seen?
 		Member = member,
 		Point = point,
 		X = x,
-		Y = y,
+		-- How high over the ground they stand on, as the Forger's own (Perception.perceive): the raised place's
+		-- steps are no escape from a Forger that walks up them.
+		Y = y - BattlegroundLayout.groundAt(handle.Layout, x, z),
 		Z = z,
 		InCamp = BattlegroundLayout.inRect(handle.Layout.Camp, x, z),
 		Down = deps.Movement.isDown(member.Player),
@@ -179,7 +181,7 @@ function Perception.perceive(
 		Now = now,
 		Index = bot.Slot,
 		X = x,
-		Y = y,
+		Y = y - BattlegroundLayout.groundAt(handle.Layout, x, z),
 		Z = z,
 		HomeX = bot.Home.X,
 		HomeZ = bot.Home.Z,

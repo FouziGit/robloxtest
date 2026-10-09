@@ -306,6 +306,230 @@ describe("the Battleground's parts", function()
 	end)
 end)
 
+-- The solid parts whose names start with `prefix`: the bounds of their prints on the ground, their highest top, and
+-- how many there are.
+local function landmark(prefix: string): (BattlegroundLayout.Rect, number, number)
+	local bounds = { MinX = math.huge, MaxX = -math.huge, MinZ = math.huge, MaxZ = -math.huge }
+	local top, count = 0, 0
+	for _, box in ipairs(LAYOUT.Boxes) do
+		if box.Solid and string.sub(box.Name, 1, #prefix) == prefix then
+			count += 1
+			top = math.max(top, box.Y + box.SizeY / 2)
+			for _, corner in ipairs(corners(BattlegroundLayout.printOf(box))) do
+				bounds.MinX = math.min(bounds.MinX, corner.X)
+				bounds.MaxX = math.max(bounds.MaxX, corner.X)
+				bounds.MinZ = math.min(bounds.MinZ, corner.Z)
+				bounds.MaxZ = math.max(bounds.MaxZ, corner.Z)
+			end
+		end
+	end
+	return bounds, top, count
+end
+
+local function named(name: string): BattlegroundLayout.Box
+	for _, box in ipairs(LAYOUT.Boxes) do
+		if box.Name == name then
+			return box
+		end
+	end
+	error(("the page has no part called %s"):format(name))
+end
+
+-- The tallest step a body climbs walking: the old dais's one stud, which the Forgers walked onto.
+local STEP_STUDS = 1
+
+describe("the landmarks, at the references' proportions (D-282)", function()
+	it("raise the central place 6 to 8 studs over about 200, a flight of steps down each of its four sides", function()
+		local dais = named("Dais")
+		expect(dais.SizeX).toBeGreaterThanOrEqual(190)
+		expect(dais.SizeX).toBeLessThanOrEqual(210)
+		local height = dais.Y + dais.SizeY / 2
+		expect(height).toBeGreaterThanOrEqual(6)
+		expect(height).toBeLessThanOrEqual(8)
+		expect(BattlegroundLayout.groundAt(LAYOUT, 0, 0)).toBe(height)
+		-- From the centre out along each axis, the ground comes down a step at a time to the floor.
+		for _, way in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+			local last = height
+			for out = 0, dais.SizeX / 2 + 40, 0.25 do
+				local here = BattlegroundLayout.groundAt(LAYOUT, way[1] * out, way[2] * out)
+				expect(here).toBeLessThanOrEqual(last + EPSILON)
+				expect(last - here).toBeLessThanOrEqual(STEP_STUDS + EPSILON)
+				last = here
+			end
+			expect(last).toBe(0)
+		end
+		-- Anywhere else round it, the side drops sheer.
+		local corner = dais.SizeX / 2 - 10
+		expect(BattlegroundLayout.groundAt(LAYOUT, corner, -dais.SizeX / 2 + 0.5)).toBe(height)
+		expect(BattlegroundLayout.groundAt(LAYOUT, corner, -dais.SizeX / 2 - 0.5)).toBe(0)
+	end)
+
+	it("let a Forger onto the place only up its steps, from anywhere on the page", function()
+		local reach = named("Dais").SizeX / 2 + 40
+		local raised = 0
+		for index, node in ipairs(LAYOUT.Nodes) do
+			if math.abs(node.X) <= reach and math.abs(node.Z) <= reach then
+				if BattlegroundLayout.groundAt(LAYOUT, node.X, node.Z) > 0 then
+					raised += 1
+				end
+				for _, neighbour in ipairs(LAYOUT.Edges[index]) do
+					local other = LAYOUT.Nodes[neighbour]
+					local last = BattlegroundLayout.groundAt(LAYOUT, node.X, node.Z)
+					for sample = 1, 100 do
+						local t = sample / 100
+						local here = BattlegroundLayout.groundAt(
+							LAYOUT,
+							node.X + (other.X - node.X) * t,
+							node.Z + (other.Z - node.Z) * t
+						)
+						if math.abs(here - last) > STEP_STUDS + EPSILON then
+							error(
+								("the walk from (%d, %d) to (%d, %d) climbs a sheer side"):format(
+									node.X,
+									node.Z,
+									other.X,
+									other.Z
+								)
+							)
+						end
+						last = here
+					end
+				end
+			end
+		end
+		expect(raised).toBeGreaterThan(50)
+		for _, spawn in ipairs(LAYOUT.BotSpawns) do
+			local from = BattlegroundLayout.nearestNode(LAYOUT, spawn.X, spawn.Z) :: number
+			expect(BattlegroundLayout.path(LAYOUT, from, BattlegroundLayout.nearestNode(LAYOUT, 0, 0) :: number)).never.toBe(
+				nil
+			)
+		end
+	end)
+
+	it("keep the place's sheer sides 16 studs from anything standing on the floor", function()
+		local raised: { BattlegroundLayout.Print } = {}
+		for _, box in ipairs(LAYOUT.Boxes) do
+			if box.Role == "Dais" then
+				table.insert(raised, BattlegroundLayout.printOf(box))
+			end
+		end
+		expect(#raised).toBeGreaterThan(4)
+		for _, obstacle in ipairs(OBSTACLES) do
+			local onIt = BattlegroundLayout.groundAt(LAYOUT, obstacle.X, obstacle.Z) > 0
+			if not onIt then
+				for _, ground in ipairs(raised) do
+					expect(gap(obstacle, ground)).toBeGreaterThanOrEqual(CORRIDOR_STUDS)
+				end
+			end
+		end
+	end)
+
+	it("open a book of about 200 by 140 north-west, two curved page hills either side of a walkable valley", function()
+		local bounds, top = landmark("OpenBook")
+		expect(bounds.MaxX - bounds.MinX).toBeGreaterThanOrEqual(180)
+		expect(bounds.MaxZ - bounds.MinZ).toBeGreaterThanOrEqual(120)
+		expect(top).toBeGreaterThanOrEqual(15)
+		expect((bounds.MinX + bounds.MaxX) / 2).toBeLessThan(-100)
+		expect((bounds.MinZ + bounds.MaxZ) / 2).toBeLessThan(-100)
+		-- Each hill curves: several slopes, not three blocky steps.
+		for _, half in ipairs({ "OpenBookWest", "OpenBookEast" }) do
+			local slopes = 0
+			for _, box in ipairs(LAYOUT.Boxes) do
+				if box.Shape == "Wedge" and string.sub(box.Name, 1, #half) == half then
+					slopes += 1
+				end
+			end
+			expect(slopes).toBeGreaterThanOrEqual(4)
+		end
+		local book = MAP.Books[1]
+		expect(BattlegroundLayout.segmentClear(LAYOUT, book.X, bounds.MinZ - 5, book.X, bounds.MaxZ + 5)).toBe(true)
+	end)
+
+	it("lean the quill north, about 200 long, a staircase up its shaft to 60 studs or more", function()
+		local bounds, top, steps = landmark("QuillStep")
+		expect(steps).toBeGreaterThanOrEqual(20)
+		local whole, wholeTop = landmark("Quill")
+		expect(math.max(whole.MaxX - whole.MinX, whole.MaxZ - whole.MinZ)).toBeGreaterThanOrEqual(180)
+		expect(top).toBeGreaterThanOrEqual(60)
+		expect(wholeTop).toBeLessThanOrEqual(70)
+		expect(bounds.MaxZ).toBeLessThan(-100)
+		local last = 0
+		for step = 1, steps do
+			local box = named("QuillStep" .. step)
+			local rise = box.Y + box.SizeY / 2 - last
+			expect(rise).toBeGreaterThan(0)
+			expect(rise).toBeLessThanOrEqual(2)
+			last += rise
+		end
+	end)
+
+	it("pile the folio cliffs in the north-east corner, tier on tier up to 60 studs", function()
+		local bounds, top = landmark("Folio")
+		expect(bounds.MaxX - bounds.MinX).toBeGreaterThanOrEqual(180)
+		expect(bounds.MaxZ - bounds.MinZ).toBeGreaterThanOrEqual(180)
+		expect(bounds.MaxX).toBeGreaterThanOrEqual(MAP.Size / 2 - 20)
+		expect(bounds.MinZ).toBeLessThanOrEqual(-MAP.Size / 2 + 20)
+		expect(top).toBe(60)
+		local tiers: { [number]: boolean } = {}
+		for _, box in ipairs(LAYOUT.Boxes) do
+			if string.sub(box.Name, 1, 5) == "Folio" and box.Shape == "Block" and box.Yaw == 0 then
+				tiers[box.Y + box.SizeY / 2] = true
+			end
+		end
+		for _, tier in ipairs({ 15, 30, 45, 60 }) do
+			expect(tiers[tier]).toBe(true)
+		end
+	end)
+
+	it("ring the crater with a raised, breached rim about 140 across, its floor the page's own", function()
+		local bounds, top = landmark("CraterRim")
+		expect(bounds.MaxX - bounds.MinX).toBeGreaterThanOrEqual(130)
+		expect(bounds.MaxZ - bounds.MinZ).toBeGreaterThanOrEqual(130)
+		expect(top).toBeGreaterThanOrEqual(6)
+		expect(top).toBeLessThanOrEqual(8)
+		expect(BattlegroundLayout.groundAt(LAYOUT, MAP.Crater.X, MAP.Crater.Z)).toBe(0)
+	end)
+
+	it("raise the scriptorium's arcade, three arches or more under one beam about 30 high, among its desks", function()
+		local _, top, piers = landmark("ArcadePier")
+		expect(piers).toBeGreaterThanOrEqual(4)
+		local _, beamTop = landmark("ArcadeBeam")
+		expect(beamTop).toBeGreaterThanOrEqual(28)
+		expect(top).toBeLessThan(beamTop)
+		local _, _, desks = landmark("Desk")
+		expect(desks).toBeGreaterThanOrEqual(6)
+	end)
+
+	it(
+		"scatter seals 20 to 40 across, some stacked, and run a ruled bed 60 wide from the cliffs to the south edge",
+		function()
+			local stacked, seals = 0, 0
+			for _, piece in ipairs(MAP.Pieces) do
+				if string.sub(piece.Name, 1, 4) == "Seal" then
+					seals += 1
+					expect(piece.Size[1]).toBeGreaterThanOrEqual(20)
+					expect(piece.Size[1]).toBeLessThanOrEqual(40)
+					if piece.Base > 0 then
+						stacked += 1
+					end
+				end
+			end
+			expect(seals).toBeGreaterThanOrEqual(8)
+			expect(stacked).toBeGreaterThanOrEqual(2)
+			local bed = MAP.Bed
+			expect(bed.Width).toBeGreaterThanOrEqual(55)
+			local cliffs = landmark("Folio")
+			local first, last = bed.Points[1], bed.Points[#bed.Points]
+			expect(BattlegroundLayout.inRect(BattlegroundLayout.inflate(cliffs, 1), first.X, first.Z)).toBe(true)
+			expect(last.Z).toBeGreaterThanOrEqual(MAP.Size / 2 - 30)
+			-- The bridge crosses it east of the place.
+			local bridge = named("BridgeDeck")
+			expect(bridge.X).toBeGreaterThan(named("Dais").SizeX / 2)
+			expect(bridge.SizeX).toBeGreaterThan(bed.Width)
+		end
+	)
+end)
+
 describe("the arrivals", function()
 	it("are six in the camp with the return gate, and twelve round the edge", function()
 		local camp, edge = arrivals()
@@ -424,7 +648,7 @@ describe("the Forgers' ground", function()
 		end
 		expect(count).toBe(#LAYOUT.Nodes)
 		-- Each enclosed ground has a waypoint of its own, walked to straight from its middle.
-		for _, inside in ipairs({ { X = MAP.Crater.X, Z = MAP.Crater.Z }, { X = -200, Z = -220 } }) do
+		for _, inside in ipairs({ { X = MAP.Crater.X, Z = MAP.Crater.Z }, { X = MAP.Books[1].X, Z = MAP.Books[1].Z } }) do
 			local node = LAYOUT.Nodes[BattlegroundLayout.nearestNode(LAYOUT, inside.X, inside.Z) :: number]
 			expect(distance(node, inside)).toBeLessThan(MAP.Grid.StepStuds)
 			expect(BattlegroundLayout.segmentClear(LAYOUT, inside.X, inside.Z, node.X, node.Z)).toBe(true)
@@ -495,12 +719,13 @@ describe("the Forgers' ground", function()
 	end)
 
 	it("is blocked across the quill's turned stem and by the camp, and open beside the stem and down a lane", function()
-		local plume = MAP.Plume
-		local yaw = math.rad(plume.Yaw)
-		-- Along the stem, and across it.
+		local quill = MAP.Quill
+		local yaw = math.rad(quill.Yaw)
+		-- Along the stem, and across it; halfway up its flight.
 		local ax, az = math.sin(yaw), math.cos(yaw)
 		local cx, cz = math.cos(yaw), -math.sin(yaw)
-		local mx, mz = plume.X - ax * plume.TipLength / 2, plume.Z - az * plume.TipLength / 2
+		local up = quill.Steps * quill.Tread / 2
+		local mx, mz = quill.X + ax * up, quill.Z + az * up
 		expect(BattlegroundLayout.segmentClear(LAYOUT, mx - cx * 20, mz - cz * 20, mx + cx * 20, mz + cz * 20)).toBe(
 			false
 		)

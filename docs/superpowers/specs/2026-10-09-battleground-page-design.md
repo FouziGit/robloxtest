@@ -28,15 +28,16 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
 
 | Lieu | Où | Forme (pièces simples) |
 |---|---|---|
-| Place centrale | centre | estrade de 200 × 200, haute de 1 stud (une marche, les Forgers y montent), filet d'encre au bord, couverts bas (murets de 4 à 6 studs) en L et en I |
-| Livre ouvert | nord-ouest (≈ −200, −230) | deux demi-pages en collines à gradins (jusqu'à 18 studs), vallée de 20 studs le long du dos |
-| Plume tombée | nord (≈ 60, −240) | tige couchée en diagonale, 180 de long, 24 de large, montée en rampe du sol jusqu'à 40 studs, pointe biseautée |
-| Falaises de folios | nord-est (≈ 230, −220) | livres empilés en paliers de 15, 30, 45 et 60 studs, reliés par des rampes : le point le plus haut |
-| Lit réglé | des falaises vers le bord sud, côté est | chenal de 40 de large, dessiné à plat (D-282 : creusé, un membre au fond passerait sous la profondeur qui tient la page), lignes d'encre |
-| Pont cousu | est (≈ 240, 30) | tablier de 30 × 60 au-dessus du chenal, points de couture en croix |
-| Champ des sceaux | sud (≈ 40, 250) | 8 à 10 disques de cire (cylindres de 2 à 6 studs de haut, 16 à 30 de diamètre) et taches d'encre plates |
-| Ruines du scriptorium | sud-ouest (≈ −230, 200) | 3 ou 4 arches (deux piles et un linteau, 24 studs), pupitres brisés (blocs de 6 à 8) |
-| Cratère d'encrier | ouest (≈ −250, −20) | rebord en anneau de 6 studs, rayon extérieur 60, quatre brèches |
+| Place centrale | centre | estrade de 200 × 200 surélevée de 7 studs, un escalier de 60 de large au milieu de chaque côté (six marches d'un stud, les Forgers y montent ; ailleurs le bord est à pic), filet d'encre au bord, couverts bas (murets de 6 studs) en L et en I, parapet brisé en L à chaque coin |
+| Livre ouvert | nord-ouest (≈ −200, −240) | 200 × 140 : deux demi-pages de 90 en collines courbes (cinq pentes chacune, du bord à 4 studs jusqu'à une crête de 18, qui retombe à 8 sur le dos), vallée de 20 studs au sol le long du dos |
+| Petit livre ouvert | sud-ouest de la place (≈ −70, 200) | 80 × 56, mêmes collines, jusqu'à 7 studs |
+| Plume tombée | nord (pied ≈ 50, −140) | 190 de long, 24 de large, penchée vers le nord-nord-est : un escalier de 30 marches de 2 studs entre deux rampes jusqu'à un palier à 60 studs, pointe biseautée |
+| Falaises de folios | nord-est, tout le coin (220 × 220) | socle rocheux de 15 studs, livres fermés empilés en paliers de 30, 45 et 60 studs (le point le plus haut), une rampe par palier, deux depuis le sol (ouest et sud) |
+| Lit réglé | des falaises au bord sud, côté est puis vers le sud-ouest | bande de 60 de large en trois tronçons, coudes arrondis, dessinée à plat (D-282 : creusé, un membre au fond passerait sous la profondeur qui tient la page), rives à l'encre et lignes |
+| Pont cousu | est (≈ 260, −30) | tablier de 76 × 30 au-dessus du lit, rampes, points de couture en croix |
+| Champ des sceaux | sud, de part et d'autre du lit | 11 disques de cire de 20 à 36 de diamètre, trois empilés, et taches d'encre plates |
+| Ruines du scriptorium | sud-ouest (≈ −290, 215) | arcade de quatre arches sous une même poutre, haute de 30 studs, 102 de long, corbeaux aux angles ; pupitres brisés (blocs et coins de 14 × 9) et deux souches de 14 et 20 studs |
+| Cratère d'encrier | ouest (≈ −215, 0) | rebord en anneau de 7 studs, 140 de diamètre, quatre brèches ; le fond est le sol de la page |
 | Camp | bord ouest | le camp actuel : `Arrival_1..6` et `ReturnPortal`, sans protection propre |
 
 - Sol : vélin réglé avec sa ligne de marge, comme le hub. Couleurs du décor : vélin, craie, os et encre
@@ -63,7 +64,8 @@ Positions et tailles indicatives : le test de disposition tient les règles, pas
   sous sa bulle ou si le tueur n'est pas membre à cet instant (un membre mort qui attend son corps ne gagne
   rien).
 - **Forgers** : inchangés, sauf leur grille de déplacement, qui passe à un nœud tous les 20 studs. Ils
-  restent au sol ; ce qui est en hauteur leur échappe.
+  restent au sol et montent sur la place par ses escaliers : la hauteur d'un corps se compte depuis le sol
+  sous lui, la place comprise (`BattlegroundLayout.groundAt`). Ce qui est en hauteur ailleurs leur échappe.
 
 ## Performances
 

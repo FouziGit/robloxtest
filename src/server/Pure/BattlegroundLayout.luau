@@ -33,6 +33,15 @@ export type Mark = {
 	SizeZ: number,
 	Yaw: number?,
 }
+export type Book = {
+	Name: string,
+	X: number,
+	Z: number,
+	PageWidth: number,
+	Length: number,
+	Valley: number,
+	Profile: { number },
+}
 
 -- The fields of BattlegroundConfig.Map this module reads.
 export type MapDef = {
@@ -48,11 +57,23 @@ export type MapDef = {
 	Camp: Rect,
 	ReturnGate: Point,
 	Arrivals: { Point },
-	Dais: { Size: number, Height: number },
+	Dais: { Size: number, Height: number, Stairs: { Width: number, Rise: number, Tread: number } },
 	CoverHeight: number,
 	Covers: { Cover },
 	Pieces: { Piece },
-	Plume: { X: number, Z: number, Yaw: number, Length: number, TipLength: number, Width: number, Height: number },
+	Books: { Book },
+	Quill: {
+		X: number,
+		Z: number,
+		Yaw: number,
+		Width: number,
+		RailStuds: number,
+		Steps: number,
+		Rise: number,
+		Tread: number,
+		Landing: number,
+		TipLength: number,
+	},
 	Crater: {
 		X: number,
 		Z: number,
@@ -62,7 +83,19 @@ export type MapDef = {
 		Segments: number,
 		BreachSegments: number,
 	},
-	Bed: { MinX: number, MaxX: number, MinZ: number, MaxZ: number, Lines: number },
+	Arcade: {
+		X: number,
+		Z: number,
+		Yaw: number,
+		Arches: number,
+		Pier: number,
+		Opening: number,
+		Thickness: number,
+		Height: number,
+		Beam: number,
+		Corbel: { Width: number, Height: number },
+	},
+	Bed: { Points: { Point }, Width: number, BankStuds: number, Lines: number },
 	Marks: { Mark },
 	BotSpawns: { Point },
 	Grid: { StepStuds: number, MarginStuds: number },
@@ -100,6 +133,8 @@ export type Box = {
 -- A part's print on the ground, or one grown by the path radius: its centre, its half extents along its own axes,
 -- and the cosine and sine of its turn.
 export type Print = { X: number, Z: number, HalfX: number, HalfZ: number, Cos: number, Sin: number }
+-- Ground a body walks on above the floor: a print and the height of its top.
+export type Ground = { Print: Print, Top: number }
 
 export type Layout = {
 	Boxes: { Box },
@@ -111,8 +146,11 @@ export type Layout = {
 	Bounds: Rect,
 	-- The square the waypoints cover: a Forger's goal is never past it.
 	Roam: Rect,
-	-- The obstacles and the camp, each grown by PathRadius: where no waypoint lies and no straight walk crosses.
+	-- The obstacles, the camp and the raised place's sheer sides, each grown by PathRadius: where no waypoint lies
+	-- and no straight walk crosses.
 	Blocked: { Print },
+	-- The raised place and its steps (BattlegroundLayout.groundAt).
+	Ground: { Ground },
 	Nodes: { Point },
 	-- Edges[i]: the nodes a Forger can walk to straight from node i.
 	Edges: { { number } },
@@ -292,6 +330,52 @@ local function addFloor(boxes: { Box }, map: MapDef, dressing: Dressing)
 	end
 end
 
+-- The ruled bed: a band Width wide along each leg of Points, its banks and Lines ink lines along it, and a disc
+-- at each bend that rounds it off.
+local function addBed(boxes: { Box }, map: MapDef, dressing: Dressing)
+	local bed = map.Bed
+	local gap = bed.Width / (bed.Lines + 1)
+	for leg = 1, #bed.Points - 1 do
+		local a, b = bed.Points[leg], bed.Points[leg + 1]
+		local dx, dz = b.X - a.X, b.Z - a.Z
+		local length = math.sqrt(dx * dx + dz * dz)
+		-- Turned so that its own x runs along the leg, its own z across it.
+		local yaw = math.deg(math.atan2(-dz, dx))
+		local acrossX, acrossZ = -dz / length, dx / length
+		local mx, mz = (a.X + b.X) / 2, (a.Z + b.Z) / 2
+		table.insert(
+			boxes,
+			drawn("Bed" .. leg, "Bed", "Block", mx, mz, length, bed.Width, dressing.CampTop, yaw, dressing)
+		)
+		for line = 0, bed.Lines + 1 do
+			local bank = line == 0 or line == bed.Lines + 1
+			local name = if bank then "BedBank" .. leg .. "_" .. line else "BedLine" .. leg .. "_" .. line
+			local width = if bank then bed.BankStuds else map.RuleWidthStuds
+			local off = -bed.Width / 2 + gap * line
+			local x, z = mx + acrossX * off, mz + acrossZ * off
+			table.insert(boxes, drawn(name, "Rule", "Block", x, z, length, width, dressing.RuleTop, yaw, dressing))
+		end
+	end
+	for bend = 2, #bed.Points - 1 do
+		local point = bed.Points[bend]
+		table.insert(
+			boxes,
+			drawn(
+				"BedBend" .. bend,
+				"Bed",
+				"Cylinder",
+				point.X,
+				point.Z,
+				bed.Width,
+				bed.Width,
+				dressing.CampTop,
+				0,
+				dressing
+			)
+		)
+	end
+end
+
 -- The ruling (a line along x every RuleSpacingStuds, the margin along z), the camp's wash and the ink line at its
 -- edge, the ruled bed and its lines: all flat on the floor.
 local function addDrawing(boxes: { Box }, map: MapDef, dressing: Dressing)
@@ -311,23 +395,7 @@ local function addDrawing(boxes: { Box }, map: MapDef, dressing: Dressing)
 	table.insert(boxes, wash)
 	local edge = { MinX = camp.MaxX - width / 2, MaxX = camp.MaxX + width / 2, MinZ = camp.MinZ, MaxZ = camp.MaxZ }
 	table.insert(boxes, flat("CampLine", "CampLine", edge, dressing.RuleTop, dressing))
-	local bed = map.Bed
-	table.insert(
-		boxes,
-		flat(
-			"Bed",
-			"Bed",
-			{ MinX = bed.MinX, MaxX = bed.MaxX, MinZ = bed.MinZ, MaxZ = bed.MaxZ },
-			dressing.CampTop,
-			dressing
-		)
-	)
-	local gap = (bed.MaxX - bed.MinX) / (bed.Lines + 1)
-	for line = 1, bed.Lines do
-		local x = bed.MinX + gap * line
-		local rect = { MinX = x - width / 2, MaxX = x + width / 2, MinZ = bed.MinZ, MaxZ = bed.MaxZ }
-		table.insert(boxes, flat("BedLine" .. line, "Rule", rect, dressing.RuleTop, dressing))
-	end
+	addBed(boxes, map, dressing)
 	for _, mark in ipairs(map.Marks) do
 		local top = mark.Base + dressing.RuleTop
 		local role = if mark.Base == 0 then "Rule" else "Trim"
@@ -338,11 +406,41 @@ local function addDrawing(boxes: { Box }, map: MapDef, dressing: Dressing)
 	end
 end
 
--- The central place: the dais, its ink edge drawn on its top, and the low walls standing on it.
+-- The dais's four sides, each facing (X, Z) away from the centre.
+local SIDES = {
+	{ Name = "North", X = 0, Z = -1 },
+	{ Name = "South", X = 0, Z = 1 },
+	{ Name = "West", X = -1, Z = 0 },
+	{ Name = "East", X = 1, Z = 0 },
+}
+
+-- The point `out` studs from the centre toward a side and `along` it.
+local function onSide(side: { X: number, Z: number }, along: number, out: number): (number, number)
+	return side.X * out + side.Z * along, side.Z * out + side.X * along
+end
+
+-- How many steps each flight has under the dais's own top.
+local function stepCount(map: MapDef): number
+	return math.round(map.Dais.Height / map.Dais.Stairs.Rise) - 1
+end
+
+-- The central place: the dais, a flight of steps down the middle of each side (the highest against the dais), its
+-- ink edge drawn on its top, and the low walls standing on it.
 local function addPlace(boxes: { Box }, map: MapDef, dressing: Dressing)
 	local dais = map.Dais
+	local stairs = dais.Stairs
 	local half, width = dais.Size / 2, map.RuleWidthStuds
 	table.insert(boxes, standing("Dais", "Dais", "Block", 0, 0, 0, { dais.Size, dais.Height, dais.Size }, 0))
+	local steps = stepCount(map)
+	for _, side in ipairs(SIDES) do
+		for step = 1, steps do
+			local x, z = onSide(side, 0, half + (steps - step + 0.5) * stairs.Tread)
+			local sizeX = if side.X == 0 then stairs.Width else stairs.Tread
+			local sizeZ = if side.X == 0 then stairs.Tread else stairs.Width
+			local size = { sizeX, step * stairs.Rise, sizeZ }
+			table.insert(boxes, standing("Stair" .. side.Name .. step, "Dais", "Block", x, z, 0, size, 0))
+		end
+	end
 	local top = dais.Height + dressing.RuleTop
 	for _, edge in ipairs({
 		{ Name = "DaisEdgeNorth", Rect = { MinX = -half, MaxX = half, MinZ = -half, MaxZ = -half + width } },
@@ -358,8 +456,99 @@ local function addPlace(boxes: { Box }, map: MapDef, dressing: Dressing)
 	end
 end
 
--- The landmarks: the listed pieces, the quill (a rising stem and its bevelled tip, end to end along its yaw) and the
--- crater's rim (a ring of blocks, each turned along the ring, minus the four breaches).
+-- An open book: each half-page a hill from its outer edge to the spine through Profile, one stretch of the curve
+-- per pair of heights -- a block as high as its lower end and a wedge on it up to its higher end -- and the valley
+-- left open down the spine.
+local function addBook(boxes: { Box }, book: Book)
+	local run = book.PageWidth / (#book.Profile - 1)
+	for _, half in ipairs({ { Name = "West", Sign = -1, Spine = 90 }, { Name = "East", Sign = 1, Spine = -90 } }) do
+		for index = 1, #book.Profile - 1 do
+			local outer, inner = book.Profile[index], book.Profile[index + 1]
+			local x = book.X + half.Sign * (book.Valley / 2 + book.PageWidth - (index - 0.5) * run)
+			local name = book.Name .. half.Name .. index
+			local low = math.min(outer, inner)
+			table.insert(
+				boxes,
+				standing(name .. "Base", "Landmark", "Block", x, book.Z, 0, { run, low, book.Length }, 0)
+			)
+			if inner ~= outer then
+				-- Turned to rise toward the spine, or away from it where the page curls down into the valley.
+				local yaw = if inner > outer then half.Spine else half.Spine + 180
+				local size = { book.Length, math.abs(inner - outer), run }
+				table.insert(boxes, standing(name .. "Slope", "Landmark", "Wedge", x, book.Z, low, size, yaw))
+			end
+		end
+	end
+end
+
+-- The fallen quill: a flight of steps up its shaft from its foot along its yaw, a rail sloping as high on either
+-- side, the landing at the top and the bevelled tip back down to the floor.
+local function addQuill(boxes: { Box }, map: MapDef)
+	local quill = map.Quill
+	local yaw = math.rad(quill.Yaw)
+	local function at(along: number, across: number): (number, number)
+		return quill.X + math.sin(yaw) * along + math.cos(yaw) * across,
+			quill.Z + math.cos(yaw) * along - math.sin(yaw) * across
+	end
+	local flight = quill.Steps * quill.Tread
+	local top = quill.Steps * quill.Rise
+	local stair = quill.Width - 2 * quill.RailStuds
+	for step = 1, quill.Steps do
+		local x, z = at((step - 0.5) * quill.Tread, 0)
+		local size = { stair, step * quill.Rise, quill.Tread }
+		table.insert(boxes, standing("QuillStep" .. step, "Landmark", "Block", x, z, 0, size, quill.Yaw))
+	end
+	for index, sign in ipairs({ -1, 1 }) do
+		local x, z = at(flight / 2, sign * (stair + quill.RailStuds) / 2)
+		local size = { quill.RailStuds, top, flight }
+		table.insert(boxes, standing("QuillRail" .. index, "Landmark", "Wedge", x, z, 0, size, quill.Yaw))
+	end
+	local x, z = at(flight + quill.Landing / 2, 0)
+	table.insert(
+		boxes,
+		standing("QuillLanding", "Landmark", "Block", x, z, 0, { quill.Width, top, quill.Landing }, quill.Yaw)
+	)
+	x, z = at(flight + quill.Landing + quill.TipLength / 2, 0)
+	local tip = { quill.Width, top, quill.TipLength }
+	table.insert(boxes, standing("QuillTip", "Landmark", "Wedge", x, z, 0, tip, quill.Yaw + 180))
+end
+
+-- The scriptorium's arcade: its piers along its yaw, one beam over them all, and a corbel in each upper corner of
+-- every opening.
+local function addArcade(boxes: { Box }, map: MapDef)
+	local arcade = map.Arcade
+	local yaw = math.rad(arcade.Yaw)
+	local function at(along: number): (number, number)
+		return arcade.X + math.cos(yaw) * along, arcade.Z - math.sin(yaw) * along
+	end
+	local bay = arcade.Pier + arcade.Opening
+	local length = arcade.Arches * bay + arcade.Pier
+	local pierHeight = arcade.Height - arcade.Beam
+	for pier = 0, arcade.Arches do
+		local x, z = at(-length / 2 + arcade.Pier / 2 + pier * bay)
+		local size = { arcade.Pier, pierHeight, arcade.Thickness }
+		table.insert(boxes, standing("ArcadePier" .. pier, "Landmark", "Block", x, z, 0, size, arcade.Yaw))
+	end
+	local x, z = at(0)
+	local beam = { length, arcade.Beam, arcade.Thickness }
+	table.insert(boxes, standing("ArcadeBeam", "Landmark", "Block", x, z, pierHeight, beam, arcade.Yaw))
+	local corbel = arcade.Corbel
+	for arch = 1, arcade.Arches do
+		local opening = -length / 2 + arch * arcade.Pier + (arch - 1) * arcade.Opening
+		for index, along in ipairs({ opening + corbel.Width / 2, opening + arcade.Opening - corbel.Width / 2 }) do
+			x, z = at(along)
+			local size = { corbel.Width, corbel.Height, arcade.Thickness }
+			local base = pierHeight - corbel.Height
+			table.insert(
+				boxes,
+				standing("ArcadeCorbel" .. arch .. "_" .. index, "Landmark", "Block", x, z, base, size, arcade.Yaw)
+			)
+		end
+	end
+end
+
+-- The landmarks: the listed pieces, the books, the quill, the arcade and the crater's rim (a ring of blocks, each
+-- turned along the ring, minus the four breaches).
 local function addLandmarks(boxes: { Box }, map: MapDef)
 	for _, piece in ipairs(map.Pieces) do
 		table.insert(
@@ -367,31 +556,11 @@ local function addLandmarks(boxes: { Box }, map: MapDef)
 			standing(piece.Name, "Landmark", piece.Shape, piece.X, piece.Z, piece.Base, piece.Size, piece.Yaw or 0)
 		)
 	end
-	local plume = map.Plume
-	local yaw = math.rad(plume.Yaw)
-	local dx, dz = math.sin(yaw), math.cos(yaw)
-	local stem = plume.Length - plume.TipLength
-	local stemAt = -plume.Length / 2 + stem / 2
-	local tipAt = plume.Length / 2 - plume.TipLength / 2
-	local stemSize = { plume.Width, plume.Height, stem }
-	local tipSize = { plume.Width, plume.Height, plume.TipLength }
-	table.insert(
-		boxes,
-		standing("PlumeStem", "Landmark", "Wedge", plume.X + dx * stemAt, plume.Z + dz * stemAt, 0, stemSize, plume.Yaw)
-	)
-	table.insert(
-		boxes,
-		standing(
-			"PlumeTip",
-			"Landmark",
-			"Wedge",
-			plume.X + dx * tipAt,
-			plume.Z + dz * tipAt,
-			0,
-			tipSize,
-			plume.Yaw + 180
-		)
-	)
+	for _, book in ipairs(map.Books) do
+		addBook(boxes, book)
+	end
+	addQuill(boxes, map)
+	addArcade(boxes, map)
 	local crater = map.Crater
 	local step = 360 / crater.Segments
 	local quarter = crater.Segments / 4
@@ -531,6 +700,30 @@ local function addGraph(layout: Layout, map: MapDef)
 	end
 end
 
+-- The raised place's sheer sides, as lines on the ground: its edge either side of each flight, and both sides of
+-- every flight. Grown by the path radius, they leave a Forger the steps as its only way up or down.
+local function ledges(map: MapDef): { Print }
+	local half = map.Dais.Size / 2
+	local span = map.Dais.Stairs.Width / 2
+	local foot = half + stepCount(map) * map.Dais.Stairs.Tread
+	local out: { Print } = {}
+	for _, side in ipairs(SIDES) do
+		for _, line in ipairs({
+			{ -half, half, -span, half },
+			{ span, half, half, half },
+			{ -span, half, -span, foot },
+			{ span, half, span, foot },
+		}) do
+			local ax, az = onSide(side, line[1], line[2])
+			local bx, bz = onSide(side, line[3], line[4])
+			local rect =
+				{ MinX = math.min(ax, bx), MaxX = math.max(ax, bx), MinZ = math.min(az, bz), MaxZ = math.max(az, bz) }
+			table.insert(out, rectPrint(rect))
+		end
+	end
+	return out
+end
+
 function BattlegroundLayout.build(map: MapDef, dressing: Dressing, pathRadius: number): Layout
 	local boxes: { Box } = {}
 	addFloor(boxes, map, dressing)
@@ -550,6 +743,7 @@ function BattlegroundLayout.build(map: MapDef, dressing: Dressing, pathRadius: n
 		Bounds = { MinX = -half, MaxX = half, MinZ = -half, MaxZ = half },
 		Roam = { MinX = -roam, MaxX = roam, MinZ = -roam, MaxZ = roam },
 		Blocked = { rectPrint(BattlegroundLayout.inflate(map.Camp, pathRadius)) },
+		Ground = {},
 		Nodes = {},
 		Edges = {},
 		PathRadius = pathRadius,
@@ -557,10 +751,27 @@ function BattlegroundLayout.build(map: MapDef, dressing: Dressing, pathRadius: n
 	for _, box in ipairs(boxes) do
 		if box.Solid and not GROUND[box.Role] then
 			table.insert(layout.Blocked, BattlegroundLayout.grow(BattlegroundLayout.printOf(box), pathRadius))
+		elseif box.Solid and box.Role ~= "Floor" then
+			table.insert(layout.Ground, { Print = BattlegroundLayout.printOf(box), Top = box.Y + box.SizeY / 2 })
 		end
+	end
+	for _, ledge in ipairs(ledges(map)) do
+		table.insert(layout.Blocked, BattlegroundLayout.grow(ledge, pathRadius))
 	end
 	addGraph(layout, map)
 	return layout
+end
+
+-- The height of the ground a body at (x, z) stands on: the top of the raised place or of the step under it, else
+-- the floor's 0. What is high elsewhere -- a landmark -- is not ground: a Forger never stands on it.
+function BattlegroundLayout.groundAt(layout: Layout, x: number, z: number): number
+	local top = 0
+	for _, ground in ipairs(layout.Ground) do
+		if ground.Top > top and BattlegroundLayout.inPrint(ground.Print, x, z) then
+			top = ground.Top
+		end
+	end
+	return top
 end
 
 -- The node a Forger at (x, z) should head for first: the nearest one it can walk to straight, or the nearest of all

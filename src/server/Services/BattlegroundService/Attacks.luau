@@ -58,6 +58,12 @@ local handle: Map.Handle
 -- Wind-up
 ----------------------------------------------------------------
 
+-- The ground under a Forger's root, the raised place's top included: where its tell is drawn.
+local function groundUnder(root: Vector3): Vector3
+	local x, _, z = Context.toLocal(root)
+	return Vector3.new(root.X, handle.FloorY + BattlegroundLayout.groundAt(handle.Layout, x, z), root.Z)
+end
+
 -- Announces one step of an attack for its whole `window` and schedules its clip so the blow in it lands on
 -- the resolve (BotBrain.clipTiming). The tell is the floor that will be hit, measured from the Forger along the
 -- frozen aim: how far (Range) and how wide (Width), exactly as the resolve below judges it -- a swing's box, or
@@ -77,10 +83,9 @@ function Attacks.windup(bot: Bot, attack: BotBrain.Attack, window: number, now: 
 		local index = if final then #MELEE_CHAIN else math.min(attack.Step, #MELEE_CHAIN)
 		range, width, clipName = melee.Range, 2 * melee.HalfWidth, MELEE_CHAIN[index]
 	end
-	local root = bot.Root.Position
 	deps.Vfx.emit({
 		Id = Context.TellVfxId,
-		Origin = Vector3.new(root.X, handle.FloorY, root.Z),
+		Origin = groundUnder(bot.Root.Position),
 		Direction = Vector3.new(attack.AimX, 0, attack.AimZ),
 		Params = {
 			Seconds = window,
@@ -108,10 +113,9 @@ end
 -- client that drew it, on the same reliable remote so it arrives after the tell: a warning still painted once
 -- the server has dropped its blow sends players dodging nothing.
 function Attacks.retract(bot: Bot)
-	local root = bot.Root.Position
 	deps.Vfx.emit({
 		Id = Context.TellVfxId,
-		Origin = Vector3.new(root.X, handle.FloorY, root.Z),
+		Origin = groundUnder(bot.Root.Position),
 		Params = { Cancel = true, Forger = bot.Slot },
 	}, true)
 end

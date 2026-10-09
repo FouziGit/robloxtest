@@ -299,13 +299,16 @@ local function observe(member: Member, now: number, dt: number)
 	if point == nil then
 		return
 	end
-	local standingRoot = handle.FloorY + BattlegroundConfig.StandingRootStuds
+	-- Standing on the raised place is standing on the floor: a Forger walks up its steps.
+	local x, _, z = Context.toLocal(point)
+	local standingRoot = handle.FloorY
+		+ BattlegroundLayout.groundAt(handle.Layout, x, z)
+		+ BattlegroundConfig.StandingRootStuds
 	if BotBrain.outOfReach(Context.Rules, point.Y - standingRoot) then
 		member.OffFloorSince = member.OffFloorSince or now
 	else
 		member.OffFloorSince = nil
 	end
-	local x, _, z = Context.toLocal(point)
 	if BattlegroundLayout.inRect(handle.Layout.Camp, x, z) then
 		deps.Combat.heal(member.Player, CAMP.RegenPerSecond * dt, CAMP.QuietSeconds)
 	else

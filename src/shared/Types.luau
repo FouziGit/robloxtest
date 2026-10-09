@@ -137,6 +137,10 @@ export type DailyData = {
 	-- The practice duels against a Forger that paid out today (MatchConfig.Spar.PaidPerDay, SparService).
 	SparDay: number,
 	SparPaid: number,
+	-- The XP the Battleground paid for kills of other players: the day it belongs to and the count
+	-- (BattlegroundConfig.PlayerKill.DailyXpCap).
+	PlayerKillDay: number,
+	PlayerKillXp: number,
 }
 
 -- The level road's milestones already paid (ProgressionConfig.Milestones, Pure/LevelRoad): the milestone's level

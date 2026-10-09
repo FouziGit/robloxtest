@@ -259,9 +259,11 @@ BattlegroundConfig.ArrivalProtectionSeconds = 3
 -- (LockOnController) tells who it may take, as the Flyleaf's does (FlyleafConfig.MemberAttribute).
 BattlegroundConfig.MemberAttribute = "BattlegroundMember"
 
--- What one member's kill of another pays its killer: XP, and Folios out of the same daily allowance as the
--- Forgers' (BotConfig.Credit.DailyFolioCap). A pair pays once, then nothing until PairCooldownSeconds have passed
--- since its last kill, paid or not (FlyleafRules.recordKill).
-BattlegroundConfig.PlayerKill = { Xp = 60, Folios = 3, PairCooldownSeconds = 300 }
+-- What one member's kill of another pays its killer: XP, out of a daily allowance of DailyXpCap kept in the profile
+-- (Daily.PlayerKillDay, PlayerKillXp), and Folios out of the same daily allowance as the Forgers'
+-- (BotConfig.Credit.DailyFolioCap); both before VIP and boosts. A pair of players, whichever killed the other, pays
+-- once, then nothing until PairCooldownSeconds have passed since its last kill, paid or not
+-- (FlyleafRules.recordKill).
+BattlegroundConfig.PlayerKill = { Xp = 60, Folios = 3, PairCooldownSeconds = 300, DailyXpCap = 1200 }
 
 return BattlegroundConfig

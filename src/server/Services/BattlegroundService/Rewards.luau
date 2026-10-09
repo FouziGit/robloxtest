@@ -4,14 +4,16 @@
 -- from where a Forger cannot answer: the camp, a place it has given up reaching, or UnreachableSeconds off the floor.
 -- Nothing dealt from the camp counts toward a share at all (BotBrain.creditHit).
 --
--- XP is never capped. Folios stop at DailyFolioCap a day, counted in the PROFILE (Daily.ForgerDay and
--- ForgerFolios, DailyCap.take): a count kept in a server's memory is escaped by joining another server. Past
+-- A Forger's XP is never capped. Its Folios stop at DailyFolioCap a day, counted in the PROFILE (Daily.ForgerDay
+-- and ForgerFolios, DailyCap.take): a count kept in a server's memory is escaped by joining another server. Past
 -- the cap a kill pays XP alone, and the player is told once per day and per session.
 --
--- A member's kill of another pays its killer PlayerKill.Xp, and PlayerKill.Folios out of the same allowance. A pair
--- pays once, then nothing until PairCooldownSeconds have passed since its last kill, paid or not (the Flyleaf's
--- ledger, FlyleafRules.recordKill, one paid death per window); nothing for a victim still under their bubble, nor
--- for a killer or a victim the page does not hold.
+-- A member's kill of another pays its killer PlayerKill.Xp, out of PlayerKill.DailyXpCap a day counted in the profile
+-- the same way (Daily.PlayerKillDay and PlayerKillXp), and PlayerKill.Folios out of the Forgers' allowance. A pair of
+-- players pays once, whichever of them killed the other, then nothing until PairCooldownSeconds have passed since
+-- its last kill, paid or not (FlyleafRules.recordKill, one paid death per window, here under the pair's two ids in
+-- order); nothing for a victim still under their bubble, nor for a victim the page does not hold, nor for a killer
+-- who is not a member now. The ledger is a server's memory, which the daily XP cap backs up.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -47,7 +49,7 @@ local deps: Context.Deps
 local handle: Map.Handle
 -- Player -> the day they were last told the page pays no more Folios.
 local capToldOn: { [Player]: number } = {}
--- Every member's kill of another, by killer and victim: what the pair rule reads.
+-- Every member's kill of another, by the pair's lower and higher user id: what the pair rule reads.
 local ledger: FlyleafRules.Ledger = {}
 
 -- Takes `want` of today's Folios from the profile's allowance and writes the count back. Returns what may be paid,
@@ -62,6 +64,24 @@ local function takeFolios(player: Player, want: number, today: number): number?
 	if daily.ForgerDay ~= today or daily.ForgerFolios ~= used then
 		daily.ForgerDay = today
 		daily.ForgerFolios = used
+		deps.DataService.push(player, "Daily")
+	end
+	return granted
+end
+
+-- Takes up to `want` of today's player-kill XP from the profile's allowance and writes the count back. Returns what
+-- may be paid, before VIP (ProgressionService applies it); nil with no profile loaded.
+local function takeKillXp(player: Player, want: number): number?
+	local data = deps.DataService.get(player)
+	if data == nil then
+		return nil
+	end
+	local daily = data.Daily
+	local today = DailyStreak.dayIndex(os.time())
+	local granted, used = DailyCap.take(daily.PlayerKillDay, daily.PlayerKillXp, today, KILL.DailyXpCap, want)
+	if daily.PlayerKillDay ~= today or daily.PlayerKillXp ~= used then
+		daily.PlayerKillDay = today
+		daily.PlayerKillXp = used
 		deps.DataService.push(player, "Daily")
 	end
 	return granted
@@ -126,16 +146,20 @@ function Rewards.pay(bot: Bot, killerUserId: number, now: number)
 	end
 end
 
--- Pays `killer` for taking `victim` down at `now` (D-282), under the pair rule, the bubble and the daily cap. A
--- refused kill is not recorded: only a kill the page could pay starts a pair's wait.
+-- Pays `killer` for taking `victim` down at `now` (D-282), under the pair rule, the bubble and the daily caps. A
+-- refused kill is not recorded: only a kill the page could pay starts a pair's wait. The victim may be a member
+-- waiting for their next body (the death the hub credits to the last blow); the killer must be a member now, as
+-- the dead are paid nothing.
 function Rewards.payPlayer(killer: Player, victim: Player, now: number)
-	if killer == victim or not Roster.holds(killer) or not Roster.holds(victim) or deps.Combat.isProtected(victim) then
+	if killer == victim or Roster.get(killer) == nil or not Roster.holds(victim) or deps.Combat.isProtected(victim) then
 		return
 	end
-	if not FlyleafRules.recordKill(ledger, killer.UserId, victim.UserId, now, FARM) then
+	local low, high = math.min(killer.UserId, victim.UserId), math.max(killer.UserId, victim.UserId)
+	if not FlyleafRules.recordKill(ledger, low, high, now, FARM) then
 		return
 	end
-	local xp = deps.Progression.addXp(killer, KILL.Xp, KILL_REASON)
+	local allowed = takeKillXp(killer, KILL.Xp)
+	local xp = if allowed ~= nil and allowed >= 1 then deps.Progression.addXp(killer, allowed, KILL_REASON) else 0
 	payFolios(killer, KILL.Folios, KILL_REASON)
 	deps.Notify.send(killer, "hud.playerKill", { name = victim.DisplayName, xp = xp }, "Success", "Kill")
 end

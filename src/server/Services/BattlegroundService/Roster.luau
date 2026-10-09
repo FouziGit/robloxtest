@@ -21,6 +21,7 @@ local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.Battleground
 local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
 local Context = require(script.Parent.Context)
+local FlyleafRules = require(script.Parent.Parent.Parent.Pure.FlyleafRules)
 local Map = require(script.Parent.Map)
 local Teleport = require(script.Parent.Parent.Parent.World.Teleport)
 local Trove = require(Packages.Trove)
@@ -90,10 +91,19 @@ function Roster.pushAll()
 	end
 end
 
--- The next landing, taken in turn, so two players arriving together never stand in one another.
+-- The arrival furthest from every member standing on the page now, so nobody lands in someone's reach; with nobody
+-- there, the arrivals in turn, so two players arriving together never stand in one another (FlyleafRules.farthestSeal).
 function Roster.nextLanding(): Vector3
-	nextArrival = nextArrival % #handle.Arrivals + 1
-	return handle.Arrivals[nextArrival].Position
+	local others: { FlyleafRules.Point } = {}
+	for player in pairs(members) do
+		local trusted = deps.Combat.trustedPosition(player)
+		if trusted ~= nil then
+			local x, _, z = Context.toLocal(trusted)
+			table.insert(others, { X = x, Z = z })
+		end
+	end
+	nextArrival += 1
+	return handle.Arrivals[FlyleafRules.farthestSeal(handle.Layout.Arrivals, others, nextArrival)].Position
 end
 
 -- Puts the character down on `landing` now, facing into the page (Teleport.place): its velocity cleared, and the

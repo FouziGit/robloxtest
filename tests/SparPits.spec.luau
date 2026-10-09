@@ -372,7 +372,7 @@ local function nextBodyToCamp(claim: (roster: any, player: any) -> ()): boolean
 				return false
 			end,
 		},
-	}, { Arrivals = { { Position = landing } } }, function(): number
+	}, { Arrivals = { { Position = landing } }, Layout = { Arrivals = { { X = 0, Z = 0 } } } }, function(): number
 		return 0
 	end)
 	local function body(): (any, any)

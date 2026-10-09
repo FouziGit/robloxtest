@@ -1192,12 +1192,6 @@ function CombatService.ApplyDamage(
 	local sourceState = stateOf(source)
 	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
 	local targetState = stateOf(targetPlayer)
-	-- A bubble bursts on the first blow its wearer strikes that gets this far, whether or not it lands (protect).
-	if sourceState ~= nil and sourceState.BubbleBursts then
-		sourceState.BubbleBursts = false
-		sourceState.SpawnProtectedUntil = 0
-	end
-
 	-- Per-source i-frames: one glyph instance (tags[1]) cannot hit the same target twice in a window.
 	local memory: { [Model]: number }? = nil
 	local tag: string? = tags[1]
@@ -1227,6 +1221,12 @@ function CombatService.ApplyDamage(
 	local applied = math.floor(damage + 0.5)
 	if applied <= 0 then
 		return result
+	end
+	-- A bubble bursts on the first blow its wearer strikes that lands (protect): one that is refused, repeated inside
+	-- its i-frames or rounded down to nothing leaves it standing.
+	if sourceState ~= nil and sourceState.BubbleBursts then
+		sourceState.BubbleBursts = false
+		sourceState.SpawnProtectedUntil = 0
 	end
 
 	-- Claimed before TakeDamage: Humanoid.Died may run before this call returns and must not credit

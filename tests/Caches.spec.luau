@@ -422,10 +422,10 @@ describe("the practice's gap against the Erasure", function()
 
 	it("starts at zero on a new profile, and is part of the Daily section", function()
 		-- The Trials' counts follow it in the section since the wave 2 merge (D-243), and the match Folios' and the
-		-- practice duels' since the wave 3 merge (D-255, D-272).
+		-- practice duels' since the wave 3 merge (D-255, D-272), and the Battleground's player-kill XP's after them (D-282).
 		expect(code("src/server/Services/DataService.luau")).toContain(
 			"PracticePaid = 0, PracticeLastPaidAt = 0, TrialDay = 0, TrialKills = 0, TrialFolios = 0, "
-				.. "MatchDay = 0, MatchFolios = 0, SparDay = 0, SparPaid = 0, },"
+				.. "MatchDay = 0, MatchFolios = 0, SparDay = 0, SparPaid = 0, PlayerKillDay = 0, PlayerKillXp = 0, },"
 		)
 		expect(code("src/shared/Types.luau")).toContain("PracticeLastPaidAt: number,")
 		expect(code("src/server/Services/WorldBossService/init.luau"):find("lastPaidAt", 1, true)).toBeNil()

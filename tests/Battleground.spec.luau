@@ -323,6 +323,53 @@ describe("the page's free-for-all (D-282)", function()
 	end)
 end)
 
+describe("a member's landing (D-282)", function()
+	-- Three arrivals in a row, 100 studs apart, on a Roster whose members stand wherever the test says.
+	local function landings(): (any, any, { [any]: any }, (userId: number) -> any)
+		local world = Server.world({ Stubs = { [DIR .. "Map"] = {} } })
+		local Roster = world.require(DIR .. "Roster")
+		local origin = world.require(DIR .. "Context").Origin
+		local markers, points, trusted = {}, {}, {}
+		for index = 1, 3 do
+			local x = (index - 2) * 100
+			markers[index] = { Position = origin + roblox.Vector3.new(x, 0, 0) }
+			points[index] = { X = x, Z = 0 }
+		end
+		Roster.Init({
+			Registry = { fire = function() end },
+			Combat = {
+				protect = function() end,
+				trustedPosition = function(player: any): any
+					return trusted[player]
+				end,
+			},
+		}, { Arrivals = markers, Layout = { Arrivals = points } }, function(): number
+			return 0
+		end)
+		local function admitAt(index: number): any
+			local player = world:join(index, "P" .. index)
+			player:LoadCharacterAsync()
+			Roster.admit(player, player.Character, markers[index].Position, 0, 0)
+			trusted[player] = markers[index].Position
+			return player
+		end
+		return Roster, markers, trusted, admitAt
+	end
+
+	it("is the arrival furthest from every member already standing, never one in somebody's reach", function()
+		local Roster, markers, _, admitAt = landings()
+		admitAt(1)
+		admitAt(2)
+		expect(Roster.nextLanding().X).toBe(markers[3].Position.X)
+	end)
+
+	it("takes the arrivals in turn on an empty page, so two who arrive together never share one", function()
+		local Roster, markers = landings()
+		expect(Roster.nextLanding().X).toBe(markers[1].Position.X)
+		expect(Roster.nextLanding().X).toBe(markers[2].Position.X)
+	end)
+end)
+
 describe("the lock-on onto the page's members (D-282)", function()
 	it("marks a member's body for the lock, and takes the mark off when the page lets them go or they die", function()
 		local world = Server.world({ Stubs = { [DIR .. "Map"] = {} } })
@@ -372,6 +419,8 @@ end)
 type Kills = {
 	rewards: any,
 	held: { [any]: boolean },
+	-- Held by the page but not a member: they died inside and wait for their next body.
+	pending: { [any]: boolean },
 	shielded: { [any]: boolean },
 	xp: { [any]: number },
 	folios: { [any]: number },
@@ -381,7 +430,7 @@ type Kills = {
 }
 
 local function kills(): Kills
-	local fx: any = { held = {}, shielded = {}, xp = {}, folios = {}, profiles = {}, said = {} }
+	local fx: any = { held = {}, pending = {}, shielded = {}, xp = {}, folios = {}, profiles = {}, said = {} }
 	local world = Server.world({
 		Stubs = {
 			[DIR .. "Bots"] = {},
@@ -389,6 +438,9 @@ local function kills(): Kills
 			[DIR .. "Roster"] = {
 				holds = function(player: any): boolean
 					return fx.held[player] == true
+				end,
+				get = function(player: any): any
+					return if fx.held[player] == true and fx.pending[player] ~= true then { Player = player } else nil
 				end,
 			},
 		},
@@ -399,7 +451,7 @@ local function kills(): Kills
 			get = function(player: any): any
 				local data = fx.profiles[player]
 				if data == nil then
-					data = { Daily = { ForgerDay = 0, ForgerFolios = 0 } }
+					data = { Daily = { ForgerDay = 0, ForgerFolios = 0, PlayerKillDay = 0, PlayerKillXp = 0 } }
 					fx.profiles[player] = data
 				end
 				return data
@@ -449,13 +501,32 @@ describe("a member's kill of another (D-282)", function()
 		expect(table.find(fx.said, "hud.playerKill") ~= nil).toBe(true)
 		fx.rewards.payPlayer(a, b, 100 + KILL.PairCooldownSeconds - 1)
 		expect(fx.xp[a]).toBe(KILL.Xp)
-		-- The other way round is another pair.
+		-- The other way round is the same pair: two players trading kills earn once, not each time.
 		fx.rewards.payPlayer(b, a, 101)
-		expect(fx.xp[b]).toBe(KILL.Xp)
+		expect(fx.xp[b]).toBeNil()
 		-- PairCooldownSeconds after the pair's last kill, paid or not, it pays again.
 		fx.rewards.payPlayer(a, b, 100 + 2 * KILL.PairCooldownSeconds)
 		expect(fx.xp[a]).toBe(2 * KILL.Xp)
 	end)
+
+	it(
+		"pays nothing to a killer who died inside and waits for their next body, though the page still holds them",
+		function()
+			local fx = kills()
+			local a, b = fx.join(1), fx.join(2)
+			fx.pending[a] = true
+			fx.rewards.payPlayer(a, b, 0)
+			expect(fx.xp[a]).toBeNil()
+			-- A refused kill took no payment from the pair.
+			fx.pending[a] = false
+			fx.rewards.payPlayer(a, b, 1)
+			expect(fx.xp[a]).toBe(KILL.Xp)
+			-- A victim in the same state is still paid for: the death the hub credits to the last blow.
+			fx.pending[b] = true
+			fx.rewards.payPlayer(a, b, 2 * KILL.PairCooldownSeconds)
+			expect(fx.xp[a]).toBe(2 * KILL.Xp)
+		end
+	)
 
 	it("pays nothing under a bubble, nor for a killer or a victim the page does not hold, nor for oneself", function()
 		local fx = kills()
@@ -496,6 +567,34 @@ describe("a member's kill of another (D-282)", function()
 			end
 		end
 		expect(told).toBe(1)
+	end)
+
+	it("pays its XP out of a daily allowance in the profile too, so another server does not reopen it", function()
+		local fx = kills()
+		local a, b, c = fx.join(1), fx.join(2), fx.join(3)
+		local cap = KILL.DailyXpCap
+		expect(cap).toBeGreaterThan(KILL.Xp)
+		fx.profiles[a] = {
+			Daily = {
+				ForgerDay = 0,
+				ForgerFolios = 0,
+				PlayerKillDay = DailyStreak.dayIndex(os.time()),
+				PlayerKillXp = cap - 10,
+			},
+		}
+		-- What is left of the day's allowance is paid, and the count goes back to the profile.
+		fx.rewards.payPlayer(a, b, 0)
+		expect(fx.xp[a]).toBe(10)
+		expect(fx.profiles[a].Daily.PlayerKillXp).toBe(cap)
+		-- Past it a kill pays no XP, and the Folios still come out of their own allowance.
+		fx.rewards.payPlayer(a, c, 0)
+		expect(fx.xp[a]).toBe(10)
+		expect(fx.folios[a]).toBe(2 * KILL.Folios)
+		-- Another day starts from nothing.
+		fx.profiles[a].Daily.PlayerKillDay -= 1
+		fx.rewards.payPlayer(a, b, 2 * KILL.PairCooldownSeconds)
+		expect(fx.xp[a]).toBe(10 + KILL.Xp)
+		expect(fx.profiles[a].Daily.PlayerKillXp).toBe(KILL.Xp)
 	end)
 
 	it("is heard on Killed for a player's body, before any Forger is looked for, and pruned every tick", function()

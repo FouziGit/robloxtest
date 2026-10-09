@@ -12,6 +12,10 @@
 
 local DataMigration = {}
 
+-- 12: the XP the Battleground paid for kills of other players (`Daily.PlayerKillDay`, `PlayerKillXp`, D-282). New keys
+-- with the template's zero and no upgrade step: the version moves so a server still on 11 keeps the count a newer
+-- build wrote, rather than dropping it, which hopping to that server would turn into a fresh daily allowance.
+--
 -- 11: the practice duel against a Forger (E10-S6): `Daily.SparDay` and `Daily.SparPaid`, the spars paid today. New
 -- keys with the template's zero and no upgrade step: the version moves so a server still on 10 keeps the count a
 -- newer build wrote, rather than dropping it and paying the day's spars again.
@@ -59,7 +63,7 @@ local DataMigration = {}
 -- spell counters moved with them. A version 2 profile still holds every one of those under its old key,
 -- and the template no longer declares those keys, so the generic overlay cannot carry them: upgradeToV3
 -- below reads them out of the raw table before they are lost.
-DataMigration.CurrentVersion = 11
+DataMigration.CurrentVersion = 12
 
 -- V1 cosmetic ids (French) -> V2 ids.
 local LEGACY_COSMETICS: { [string]: string } = {

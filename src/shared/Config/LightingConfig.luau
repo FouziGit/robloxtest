@@ -132,7 +132,9 @@ LightingConfig.Atmosphere = {
 		-- Enough to lift the distance toward paper and separate a far silhouette from a near one. Past
 		-- roughly 0.45 the far half of an arena stops being readable, which is a gameplay cost, not a
 		-- taste one.
-		Density = 0.38,
+		-- 0.18 since the Battleground grew to 700 studs (D-282): at 0.38 the vellum sky swallowed everything
+		-- past ~250 studs, so the Page's landmarks vanished from across the map. Measured in Studio.
+		Density = 0.18,
 		Offset = 0.45,
 		Glare = 0,
 		-- 2.6, measured in Studio: the sky is vellum now (D-284), so the Haze only softens the distance; the

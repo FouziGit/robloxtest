@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local AnimationConfig = require(Shared.Config.AnimationConfig)
+local BattlegroundConfig = require(Shared.Config.BattlegroundConfig)
 local BattlegroundLayout = require(script.Parent.Parent.Parent.Pure.BattlegroundLayout)
 local BotBrain = require(script.Parent.Parent.Parent.Pure.BotBrain)
 local BotConfig = require(Shared.Config.BotConfig)
@@ -26,6 +27,8 @@ type Bot = Bots.Bot
 
 local LOCOMOTION = BotConfig.Locomotion
 local PATH = BotConfig.Path
+-- A way round stays good for a goal that has moved this far: a node step, the graph's own resolution.
+local ROUTE_KEPT_STUDS = BattlegroundConfig.Map.Grid.StepStuds
 local TICK_SECONDS = 1 / GameConfig.Server.TickRate
 local KNOCKBACK_EXPONENT = FeelConfig.Impulse.KnockbackExponent
 local FADE_SECONDS = Context.FadeSeconds
@@ -167,29 +170,57 @@ local function flatDistance(a: Vector3, b: Vector3): number
 	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
 end
 
+-- The index of the furthest node of `nodes` that a Forger at (bx, bz) can walk to straight; nil when it can walk to
+-- none of them.
+local function furthestClear(layout: BattlegroundLayout.Layout, nodes: { number }, bx: number, bz: number): number?
+	for index = #nodes, 1, -1 do
+		local node = layout.Nodes[nodes[index]]
+		if BattlegroundLayout.segmentClear(layout, bx, bz, node.X, node.Z) then
+			return index
+		end
+	end
+	return nil
+end
+
+-- The shortest way round (BattlegroundLayout.path) from (bx, bz) to (x, z) and the index of the node of it to walk
+-- to now. The way is kept on the Forger (Bot.Route): it is searched again only when the goal has moved on by more
+-- than a node step from the one it was searched for, or no node of it is in straight sight any more (a throw took
+-- the body off it). nil when the graph has no way there.
+local function routeTo(bot: Bot, bx: number, bz: number, x: number, z: number): ({ number }?, number)
+	local layout = handle.Layout
+	local goal = Context.toWorld(x, 0, z)
+	local kept = bot.Route
+	if kept ~= nil and flatDistance(kept.Goal, goal) <= ROUTE_KEPT_STUDS then
+		local step = furthestClear(layout, kept.Nodes, bx, bz)
+		if step ~= nil then
+			return kept.Nodes, step
+		end
+	end
+	local from = BattlegroundLayout.nearestNode(layout, bx, bz)
+	local to = BattlegroundLayout.nearestNode(layout, x, z)
+	local nodes = if from ~= nil and to ~= nil then BattlegroundLayout.path(layout, from, to) else nil
+	if nodes == nil then
+		bot.Route = nil
+		return nil, 0
+	end
+	bot.Route = { Goal = goal, Nodes = nodes }
+	return nodes, furthestClear(layout, nodes, bx, bz) or 1
+end
+
 -- The point to walk to now on the way to (x, z) of the page's frame: the goal itself when the way there is
--- clear, else the furthest waypoint of the shortest way round (BattlegroundLayout.path) it can walk to straight,
--- so it never walks back to a node behind it. nil when the graph has no way there.
+-- clear, else the furthest waypoint of the shortest way round it can walk to straight, so it never walks back to a
+-- node behind it. nil when the graph has no way there.
 local function nextStep(bot: Bot, x: number, z: number): Vector3?
 	local layout = handle.Layout
 	local bx, _, bz = Context.toLocal(bot.Root.Position)
 	local goal = Context.toWorld(x, 0, z)
 	if BattlegroundLayout.segmentClear(layout, bx, bz, x, z) then
+		bot.Route = nil
 		return goal
 	end
-	local from = BattlegroundLayout.nearestNode(layout, bx, bz)
-	local to = BattlegroundLayout.nearestNode(layout, x, z)
-	local route = if from ~= nil and to ~= nil then BattlegroundLayout.path(layout, from, to) else nil
+	local route, step = routeTo(bot, bx, bz, x, z)
 	if route == nil then
 		return nil
-	end
-	local step = 1
-	for index = #route, 2, -1 do
-		local node = layout.Nodes[route[index]]
-		if BattlegroundLayout.segmentClear(layout, bx, bz, node.X, node.Z) then
-			step = index
-			break
-		end
 	end
 	local node = layout.Nodes[route[step]]
 	local point = Context.toWorld(node.X, 0, node.Z)
@@ -206,11 +237,15 @@ local function nextStep(bot: Bot, x: number, z: number): Vector3?
 	return Context.toWorld(nextNode.X, 0, nextNode.Z)
 end
 
--- Walks toward (x, z) of the page's frame, never into the camp nor past the roam (clampGoal). The order is re-issued
--- only when the goal moved RepathStuds, after RepathSeconds, or on reaching the waypoint it walks to -- a path is
--- searched at most a couple of times a second per Forger.
+-- Walks toward (x, z) of the page's frame, never into the camp nor past the roam (clampGoal) -- but for a pit's
+-- Forger, whose floor lies outside the page's frame and whose goal is left as it is. The order is re-issued
+-- only when the goal moved RepathStuds, after RepathSeconds, or on reaching the waypoint it walks to -- a way round
+-- is searched at most when the goal moves on (routeTo).
 function Motion.walkTo(bot: Bot, x: number, z: number, now: number)
-	local gx, gz = BattlegroundLayout.clampGoal(handle.Layout, x, z)
+	local gx, gz = x, z
+	if bot.Pit == nil then
+		gx, gz = BattlegroundLayout.clampGoal(handle.Layout, x, z)
+	end
 	local goal = Context.toWorld(gx, 0, gz)
 	local previous, waypoint = bot.Goal, bot.Waypoint
 	local moved = previous == nil or flatDistance(previous, goal) > PATH.RepathStuds

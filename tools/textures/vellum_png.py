@@ -385,6 +385,23 @@ def write_white_alpha(path: Path, canvas: Canvas) -> Path:
     return path
 
 
+def write_solid_rgb(path: Path, width: int, height: int, rgb: tuple[int, int, int]) -> Path:
+    """Writes one opaque colour as RGB8 with no alpha channel and filter None.
+
+    Every other texture here is white plus alpha, a tint mask. A Sky face is drawn as it is, so the sky
+    needs real colour and nothing to tint it; identical scanlines also make the file a few hundred bytes.
+    """
+    raw = (b"\x00" + bytes(rgb) * width) * height
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    path.write_bytes(
+        PNG_SIGNATURE
+        + _chunk(b"IHDR", header)
+        + _chunk(b"IDAT", zlib.compress(raw, 9))
+        + _chunk(b"IEND", b"")
+    )
+    return path
+
+
 def read_dimensions(path: Path) -> tuple[int, int]:
     """Reads width and height back out of IHDR, so verification measures the file rather than
     repeating what the generator meant to write."""

@@ -56,6 +56,12 @@ local function corners(print: BattlegroundLayout.Print): { BattlegroundLayout.Po
 	return out
 end
 
+-- How far a part reaches above and below its centre: half its height, more once it is tipped by a Pitch.
+local function spread(box: BattlegroundLayout.Box): number
+	local pitch = math.rad(box.Pitch or 0)
+	return box.SizeY / 2 * math.cos(pitch) + box.SizeZ / 2 * math.abs(math.sin(pitch))
+end
+
 local function overlaps(a: BattlegroundLayout.Box, b: BattlegroundLayout.Box): boolean
 	for _, axis in ipairs({ { "X", "SizeX" }, { "Y", "SizeY" }, { "Z", "SizeZ" } }) do
 		local centre, size = axis[1], axis[2]
@@ -171,8 +177,8 @@ describe("the Battleground's parts", function()
 						error(("%s leaves the page"):format(box.Name))
 					end
 				end
-				expect(box.Y - box.SizeY / 2).toBeGreaterThanOrEqual(-MAP.FloorThickness - EPSILON)
-				top = math.max(top, box.Y + box.SizeY / 2)
+				expect(box.Y - spread(box)).toBeGreaterThanOrEqual(-MAP.FloorThickness - EPSILON)
+				top = math.max(top, box.Y + spread(box))
 			end
 		end
 		local parts = #LAYOUT.Boxes + #LAYOUT.Arrivals + #LAYOUT.BotSpawns + GATE_PARTS
@@ -216,7 +222,7 @@ describe("the Battleground's parts", function()
 	it("never put one unturned solid inside another", function()
 		local solids: { BattlegroundLayout.Box } = {}
 		for _, box in ipairs(LAYOUT.Boxes) do
-			if box.Solid and box.Yaw == 0 then
+			if box.Solid and box.Yaw == 0 and (box.Pitch or 0) == 0 then
 				table.insert(solids, box)
 			end
 		end
@@ -299,7 +305,7 @@ describe("the Battleground's parts", function()
 		local highest = 0
 		for _, box in ipairs(LAYOUT.Boxes) do
 			if box.Solid then
-				highest = math.max(highest, box.Y + box.SizeY / 2)
+				highest = math.max(highest, box.Y + spread(box))
 			end
 		end
 		expect(BattlegroundConfig.BoundsHeightStuds).toBeGreaterThan(
@@ -318,7 +324,7 @@ local function landmark(prefix: string): (BattlegroundLayout.Rect, number, numbe
 	for _, box in ipairs(LAYOUT.Boxes) do
 		if box.Solid and string.sub(box.Name, 1, #prefix) == prefix then
 			count += 1
-			top = math.max(top, box.Y + box.SizeY / 2)
+			top = math.max(top, box.Y + spread(box))
 			for _, corner in ipairs(corners(BattlegroundLayout.printOf(box))) do
 				bounds.MinX = math.min(bounds.MinX, corner.X)
 				bounds.MaxX = math.max(bounds.MaxX, corner.X)
@@ -467,22 +473,72 @@ describe("the landmarks, at the references' proportions (D-282)", function()
 		end
 	end)
 
-	it("pile the folio cliffs in the north-east corner, tier on tier up to 60 studs", function()
-		local bounds, top = landmark("Folio")
-		expect(bounds.MaxX - bounds.MinX).toBeGreaterThanOrEqual(180)
-		expect(bounds.MaxZ - bounds.MinZ).toBeGreaterThanOrEqual(180)
-		expect(bounds.MaxX).toBeGreaterThanOrEqual(MAP.Size / 2 - 20)
-		expect(bounds.MinZ).toBeLessThanOrEqual(-MAP.Size / 2 + 20)
-		expect(top).toBe(60)
-		local tiers: { [number]: boolean } = {}
-		for _, box in ipairs(LAYOUT.Boxes) do
-			if string.sub(box.Name, 1, 5) == "Folio" and box.Shape == "Block" and box.Yaw == 0 then
-				tiers[box.Y + box.SizeY / 2] = true
+	it(
+		"pile the folio cliffs in the north-east corner, books turned and tipped on a rock, tier on tier to 60",
+		function()
+			local bounds, top = landmark("Folio")
+			expect(bounds.MaxX - bounds.MinX).toBeGreaterThanOrEqual(180)
+			expect(bounds.MaxZ - bounds.MinZ).toBeGreaterThanOrEqual(180)
+			expect(bounds.MaxX).toBeGreaterThanOrEqual(MAP.Size / 2 - 20)
+			expect(bounds.MinZ).toBeLessThanOrEqual(-MAP.Size / 2 + 20)
+			expect(top).toBe(60)
+			local tiers: { [number]: boolean } = {}
+			local turns: { [number]: boolean } = {}
+			local turned, leaning = 0, 0
+			for _, box in ipairs(LAYOUT.Boxes) do
+				if string.sub(box.Name, 1, 5) == "Folio" and box.Shape == "Block" then
+					if (box.Pitch or 0) == 0 then
+						tiers[box.Y + box.SizeY / 2] = true
+						if not turns[box.Yaw] then
+							turns[box.Yaw] = true
+							turned += 1
+						end
+					elseif string.sub(box.Name, 1, 9) ~= "FolioRock" and math.abs(box.Pitch :: number) >= 10 then
+						leaning += 1
+					end
+				end
+			end
+			for _, tier in ipairs({ 15, 30, 45, 60 }) do
+				expect(tiers[tier]).toBe(true)
+			end
+			-- Not a squared, flush stack: the level books lie at several turns, and a few lean, visibly tipped.
+			expect(turned).toBeGreaterThanOrEqual(4)
+			expect(leaning).toBeGreaterThanOrEqual(2)
+			-- And the rock is boulders round a mass, not one box.
+			local _, _, rocks = landmark("FolioRock")
+			expect(rocks).toBeGreaterThanOrEqual(6)
+		end
+	)
+
+	it("print a tipped piece on the ground as far as it reaches", function()
+		local box: BattlegroundLayout.Box = {
+			Name = "Tipped",
+			Role = "Landmark",
+			Shape = "Block",
+			X = 0,
+			Y = 10,
+			Z = 0,
+			SizeX = 10,
+			SizeY = 4,
+			SizeZ = 20,
+			Yaw = 30,
+			Pitch = 30,
+			Solid = true,
+			Transparency = 0,
+		}
+		local print = BattlegroundLayout.printOf(box)
+		expect(print.HalfX).toBe(5)
+		expect(print.HalfZ).toBeCloseTo(10 * math.cos(math.rad(30)) + 2 * math.sin(math.rad(30)), 9)
+		expect(print.Cos).toBeCloseTo(math.cos(math.rad(30)), 9)
+		-- A piece of the config keeps its tip in the layout.
+		local tipped = 0
+		for _, piece in ipairs(MAP.Pieces) do
+			if piece.Pitch ~= nil then
+				expect(named(piece.Name).Pitch).toBe(piece.Pitch)
+				tipped += 1
 			end
 		end
-		for _, tier in ipairs({ 15, 30, 45, 60 }) do
-			expect(tiers[tier]).toBe(true)
-		end
+		expect(tipped).toBeGreaterThan(0)
 	end)
 
 	it("ring the crater with a raised, breached rim about 140 across, its floor the page's own", function()

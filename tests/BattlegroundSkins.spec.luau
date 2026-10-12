@@ -47,15 +47,27 @@ local function grow(bounds: Bounds, x: number, y: number, z: number)
 	end
 end
 
--- The eight corners of a box (cx, cy, cz, half extents) turned by `yaw` about the vertical, as the engine turns a
--- part: its own +x along (cos, -sin), its own +z along (sin, cos).
-local function turned(bounds: Bounds, yaw: number, x: number, y: number, z: number, hx: number, hy: number, hz: number)
+-- The eight corners of a box (cx, cy, cz, half extents) tipped by `pitch` about its own x, then turned by `yaw`
+-- about the vertical, as the engine turns a part (CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)): its own
+-- +x along (cos, -sin), its own +z along (sin, cos).
+local function turned(
+	bounds: Bounds,
+	yaw: number,
+	x: number,
+	y: number,
+	z: number,
+	hx: number,
+	hy: number,
+	hz: number,
+	pitch: number?
+)
 	local c, s = math.cos(math.rad(yaw)), math.sin(math.rad(yaw))
+	local cp, sp = math.cos(math.rad(pitch or 0)), math.sin(math.rad(pitch or 0))
 	for _, sx in ipairs({ -1, 1 }) do
 		for _, sy in ipairs({ -1, 1 }) do
 			for _, sz in ipairs({ -1, 1 }) do
-				local lx, lz = sx * hx, sz * hz
-				grow(bounds, x + c * lx + s * lz, y + sy * hy, z - s * lx + c * lz)
+				local lx, ly, lz = sx * hx, sy * hy * cp - sz * hz * sp, sy * hy * sp + sz * hz * cp
+				grow(bounds, x + c * lx + s * lz, y + ly, z - s * lx + c * lz)
 			end
 		end
 	end
@@ -121,10 +133,11 @@ describe("the landmarks' skins", function()
 					end
 				end
 				local highest: BattlegroundLayout.Box? = nil
+				local highestTop = -math.huge
 				for _, name in ipairs(skin.Boxes) do
 					local box = BOXES[name]
 					local hidden = empty()
-					turned(hidden, box.Yaw, box.X, box.Y, box.Z, box.SizeX / 2, box.SizeY / 2, box.SizeZ / 2)
+					turned(hidden, box.Yaw, box.X, box.Y, box.Z, box.SizeX / 2, box.SizeY / 2, box.SizeZ / 2, box.Pitch)
 					for axis = 1, 3 do
 						if
 							body.Min[axis] > hidden.Min[axis] + TOLERANCE
@@ -133,12 +146,12 @@ describe("the landmarks' skins", function()
 							error(("%s does not wrap %s on axis %d"):format(skin.Name, name, axis))
 						end
 					end
-					if highest == nil or box.Y + box.SizeY / 2 > highest.Y + highest.SizeY / 2 then
-						highest = box
+					if highest == nil or hidden.Max[2] > highestTop then
+						highest, highestTop = box, hidden.Max[2]
 					end
 				end
 				local box = highest :: BattlegroundLayout.Box
-				local over = top.Max[2] - (box.Y + box.SizeY / 2)
+				local over = top.Max[2] - highestTop
 				if over < TOP_MIN then
 					error(("%s's top stands %.3f over %s, under it"):format(skin.Name, over, box.Name))
 				end
@@ -148,5 +161,56 @@ describe("the landmarks' skins", function()
 				end
 			end
 		end
+	end)
+
+	it("tear the page's edge: a skin on every tab, outside it, the paper dropping far under the floor", function()
+		local edges: { [string]: BattlegroundLayout.Skin } = {}
+		for _, skin in ipairs(SKINS) do
+			if string.sub(skin.Meshes[1].Mesh, 1, 8) == "PageEdge" then
+				edges[skin.Name] = skin
+			end
+		end
+		local inner = MAP.Size / 2 - MAP.Deckle.BandStuds
+		local tabs = 0
+		for _, box in ipairs(LAYOUT.Boxes) do
+			if string.sub(box.Name, 1, 6) == "Deckle" then
+				tabs += 1
+				local skin = edges[box.Name]
+				if skin == nil then
+					error(("the tab %s has no torn skin"):format(box.Name))
+				end
+				-- The tab stays as it is: drawn, colliding, the page's own floor.
+				expect(#skin.Boxes).toBe(0)
+				local body = empty()
+				for _, piece in ipairs(skin.Meshes) do
+					if piece.Tone ~= "Ink" then
+						placed(body, skin, MeshConfig.get(piece.Mesh) :: MeshConfig.Mesh)
+					end
+				end
+				local tab = empty()
+				turned(tab, 0, box.X, box.Y, box.Z, box.SizeX / 2, box.SizeY / 2, box.SizeZ / 2)
+				-- Wraps the tab where it meets the void, its lip just over the floor's top...
+				for _, axis in ipairs({ 1, 3 }) do
+					if body.Min[axis] > tab.Min[axis] + TOLERANCE or body.Max[axis] < tab.Max[axis] - TOLERANCE then
+						error(("%s's skin does not wrap it on axis %d"):format(box.Name, axis))
+					end
+				end
+				local lip = body.Max[2]
+				if lip < TOP_MIN or lip > TOP_MAX then
+					error(("%s's torn lip stands %.3f over the floor"):format(box.Name, lip))
+				end
+				-- ...never over the floor inside the band...
+				local depth = if math.abs(box.X) > inner then { 1, box.X } else { 3, box.Z }
+				local axis, sign = depth[1], if depth[2] > 0 then 1 else -1
+				local reach = if sign > 0 then body.Min[axis] else -body.Max[axis]
+				if reach < inner - TOLERANCE then
+					error(("%s's skin runs past the band onto the floor"):format(box.Name))
+				end
+				-- ...and its paper drops 30 studs or more, clear of the kill plane.
+				expect(body.Min[2]).toBeLessThanOrEqual(-30)
+				expect(body.Min[2]).toBeGreaterThan(MAP.KillZoneDepth + MAP.KillZoneThickness / 2)
+			end
+		end
+		expect(tabs).toBeGreaterThan(100)
 	end)
 end)

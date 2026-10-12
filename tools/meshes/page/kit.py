@@ -74,14 +74,14 @@ SIDES = [("North", 0, -1), ("South", 0, 1), ("West", -1, 0), ("East", 1, 0)]
 
 
 def layout() -> dict:
-    """Every collision box the skins cover, as BattlegroundLayout builds it (centre, size, yaw), plus
+    """Every collision box the skins cover, as BattlegroundLayout builds it (centre, size, yaw, pitch), plus
     the marks (flat, non-solid) the skins replace. Local frame: x east, z south, y 0 the floor's top."""
     m = _parse_map(CONFIG.read_text())
     boxes: dict = {}
 
-    def put(name, shape, x, z, base, size, yaw=0.0):
+    def put(name, shape, x, z, base, size, yaw=0.0, pitch=0.0):
         boxes[name] = {"Name": name, "Shape": shape, "X": x, "Y": base + size[1] / 2, "Z": z,
-                       "Size": list(size), "Yaw": yaw, "Base": base}
+                       "Size": list(size), "Yaw": yaw, "Pitch": pitch, "Base": base}
 
     dais = m["Dais"]
     stairs = dais["Stairs"]
@@ -96,7 +96,7 @@ def layout() -> dict:
     for c in m["Covers"]:
         put(c["Name"], "Block", c["X"], c["Z"], dais["Height"], [c["SizeX"], m["CoverHeight"], c["SizeZ"]])
     for p in m["Pieces"]:
-        put(p["Name"], p["Shape"], p["X"], p["Z"], p["Base"], p["Size"], p.get("Yaw", 0.0))
+        put(p["Name"], p["Shape"], p["X"], p["Z"], p["Base"], p["Size"], p.get("Yaw", 0.0), p.get("Pitch", 0.0))
     for book in m["Books"]:
         prof = book["Profile"]
         run = book["PageWidth"] / (len(prof) - 1)
